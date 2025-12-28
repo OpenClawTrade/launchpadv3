@@ -1,5 +1,6 @@
-import { ReactNode, createContext, useContext } from "react";
+import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 // Context to track if Privy is available
 const PrivyAvailableContext = createContext(false);
@@ -12,18 +13,68 @@ interface PrivyProviderWrapperProps {
   children: ReactNode;
 }
 
+function isValidPrivyAppId(appId: string) {
+  return appId.length > 0 && !appId.includes("${");
+}
+
 export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
   const rawAppId = import.meta.env.VITE_PRIVY_APP_ID;
-  const appId = (rawAppId ?? "").trim();
+  const buildTimeAppId = (rawAppId ?? "").trim();
 
-  // Accept any non-empty appId that's not a template placeholder
-  const isValidAppId = appId.length > 0 && !appId.includes("${");
+  const [resolvedAppId, setResolvedAppId] = useState<string>("");
+  const [checked, setChecked] = useState(false);
 
-  if (!isValidAppId) {
-    console.warn(
-      "Privy App ID not configured - auth features disabled. Please set VITE_PRIVY_APP_ID in your Lovable Cloud secrets.",
-      { rawAppId }
-    );
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolve = async () => {
+      // 1) Prefer build-time env var (Vite replacement)
+      if (isValidPrivyAppId(buildTimeAppId)) {
+        if (!cancelled) {
+          setResolvedAppId(buildTimeAppId);
+          setChecked(true);
+        }
+        return;
+      }
+
+      // 2) Fallback to runtime fetch (fixes deployments that were built without the env var)
+      try {
+        const { data, error } = await supabase.functions.invoke("public-config", {
+          body: {},
+        });
+
+        const fromRuntime = (data?.privyAppId ?? "").trim();
+        if (!cancelled) {
+          setResolvedAppId(fromRuntime);
+        }
+
+        if (error) {
+          console.warn("Failed to load runtime config for Privy", error);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch runtime config for Privy", e);
+      } finally {
+        if (!cancelled) setChecked(true);
+      }
+    };
+
+    resolve();
+    return () => {
+      cancelled = true;
+    };
+  }, [buildTimeAppId]);
+
+  const appId = resolvedAppId;
+  const privyAvailable = checked && isValidPrivyAppId(appId);
+
+  if (!privyAvailable) {
+    if (checked) {
+      console.warn(
+        "Privy App ID not configured - auth features disabled. Please set VITE_PRIVY_APP_ID in your Lovable Cloud secrets.",
+        { rawAppIdPresent: !!rawAppId, runtimeResolved: !!resolvedAppId }
+      );
+    }
+
     return (
       <PrivyAvailableContext.Provider value={false}>
         {children}
@@ -38,7 +89,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
         config={{
           // Login methods - Solana wallet, Twitter/X, and email
           loginMethods: ["wallet", "twitter", "email"],
-          
+
           // Appearance configuration
           appearance: {
             theme: "dark",
