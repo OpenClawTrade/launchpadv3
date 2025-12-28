@@ -1,39 +1,40 @@
-import { Settings, TrendingUp, LogIn, UserPlus } from "lucide-react";
+import { Settings, TrendingUp, LogIn, UserPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrending } from "@/hooks/useTrending";
+import { useSuggestedUsers } from "@/hooks/useSuggestedUsers";
 
-interface TrendItem {
-  category: string;
-  topic: string;
-  posts: string;
+function formatPostCount(count: number): string {
+  if (count >= 1000000) return (count / 1000000).toFixed(1) + "M";
+  if (count >= 1000) return (count / 1000).toFixed(1) + "K";
+  return count.toString();
 }
 
-const trends: TrendItem[] = [
-  { category: "Technology · Trending", topic: "Solana", posts: "45.2K" },
-  { category: "Crypto · Trending", topic: "#Web3", posts: "28.1K" },
-  { category: "Business · Trending", topic: "AI Revolution", posts: "156K" },
-  { category: "Sports · Trending", topic: "World Cup", posts: "89.3K" },
-  { category: "Entertainment", topic: "New Movie Release", posts: "34.7K" },
-];
-
-interface SuggestedUser {
-  name: string;
-  handle: string;
-  avatar?: string;
-  verified?: "blue" | "gold";
+function getCategoryLabel(name: string): string {
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes("crypto") || lowerName.includes("btc") || lowerName.includes("eth") || lowerName.includes("sol")) {
+    return "Crypto · Trending";
+  }
+  if (lowerName.includes("ai") || lowerName.includes("tech") || lowerName.includes("dev")) {
+    return "Technology · Trending";
+  }
+  if (lowerName.includes("sport") || lowerName.includes("game") || lowerName.includes("nba") || lowerName.includes("nfl")) {
+    return "Sports · Trending";
+  }
+  return "Trending";
 }
-
-const suggestedUsers: SuggestedUser[] = [
-  { name: "FAUTRA Official", handle: "fautra", verified: "gold" },
-  { name: "Solana", handle: "solana", verified: "blue" },
-  { name: "Crypto News", handle: "cryptonews", verified: "blue" },
-];
 
 export function RightSidebar() {
   const { isAuthenticated } = useAuth();
+  const { trends, isLoading: trendsLoading } = useTrending(5);
+  const { suggestedUsers, isLoading: usersLoading, followUser } = useSuggestedUsers(3);
+
+  const handleFollow = async (userId: string) => {
+    await followUser(userId);
+  };
 
   return (
     <aside className="sticky top-0 h-screen py-4 px-4 w-80 lg:w-88 hidden lg:flex flex-col gap-4 overflow-y-auto scrollbar-thin">
@@ -82,53 +83,103 @@ export function RightSidebar() {
           </Button>
         </div>
         <div className="divide-y divide-border">
-          {trends.map((trend, index) => (
-            <button
-              key={index}
-              className="w-full text-left px-4 py-2.5 hover:bg-secondary/50 transition-colors duration-200"
-            >
-              <p className="text-xs text-muted-foreground">{trend.category}</p>
-              <p className="font-semibold text-sm mt-0.5">{trend.topic}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{trend.posts} posts</p>
-            </button>
-          ))}
+          {trendsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          ) : trends.length === 0 ? (
+            <div className="px-4 py-6 text-center">
+              <p className="text-sm text-muted-foreground">No trends yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Post with #hashtags to start trending!
+              </p>
+            </div>
+          ) : (
+            trends.map((trend, index) => (
+              <button
+                key={trend.id}
+                className="w-full text-left px-4 py-2.5 hover:bg-secondary/50 transition-colors duration-200"
+              >
+                <p className="text-xs text-muted-foreground">
+                  {getCategoryLabel(trend.name)}
+                </p>
+                <p className="font-semibold text-sm mt-0.5">#{trend.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {formatPostCount(trend.post_count_24h)} posts
+                </p>
+              </button>
+            ))
+          )}
         </div>
-        <button className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200">
-          Show more
-        </button>
+        {trends.length > 0 && (
+          <button className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200">
+            Show more
+          </button>
+        )}
       </div>
 
       {/* Who to follow */}
       <div className="bg-card rounded-lg border border-border overflow-hidden">
         <h2 className="text-base font-semibold p-4 pb-2">Who to follow</h2>
         <div className="divide-y divide-border">
-          {suggestedUsers.map((user, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/50 transition-colors duration-200"
-            >
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                  {user.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold text-sm truncate">{user.name}</span>
-                  {user.verified && <VerifiedBadge type={user.verified} />}
-                </div>
-                <p className="text-muted-foreground text-xs truncate">@{user.handle}</p>
-              </div>
-              <Button variant="default" size="sm" className="rounded-lg font-semibold text-xs h-8 px-3">
-                Follow
-              </Button>
+          {usersLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </div>
-          ))}
+          ) : suggestedUsers.length === 0 ? (
+            <div className="px-4 py-6 text-center">
+              <p className="text-sm text-muted-foreground">No suggestions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                More users will appear as the community grows!
+              </p>
+            </div>
+          ) : (
+            suggestedUsers.map((suggestedUser) => (
+              <div
+                key={suggestedUser.id}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/50 transition-colors duration-200"
+              >
+                <Link to={`/${suggestedUser.username}`}>
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={suggestedUser.avatar_url || undefined} alt={suggestedUser.display_name} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {suggestedUser.display_name?.charAt(0) || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <Link 
+                      to={`/${suggestedUser.username}`}
+                      className="font-semibold text-sm truncate hover:underline"
+                    >
+                      {suggestedUser.display_name}
+                    </Link>
+                    {suggestedUser.verified_type && (
+                      <VerifiedBadge type={suggestedUser.verified_type as "blue" | "gold"} />
+                    )}
+                  </div>
+                  <p className="text-muted-foreground text-xs truncate">
+                    @{suggestedUser.username}
+                  </p>
+                </div>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="rounded-lg font-semibold text-xs h-8 px-3"
+                  onClick={() => handleFollow(suggestedUser.id)}
+                >
+                  Follow
+                </Button>
+              </div>
+            ))
+          )}
         </div>
-        <button className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200">
-          Show more
-        </button>
+        {suggestedUsers.length > 0 && (
+          <button className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200">
+            Show more
+          </button>
+        )}
       </div>
 
       {/* Footer links */}
