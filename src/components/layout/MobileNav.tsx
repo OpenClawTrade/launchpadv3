@@ -1,4 +1,5 @@
-import * as React from "react";
+import { forwardRef } from "react";
+import type { ComponentPropsWithoutRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, Search, Bell, Mail, Feather } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,9 +11,9 @@ const navItems = [
   { icon: Mail, href: "/messages" },
 ];
 
-export type MobileNavProps = React.ComponentPropsWithoutRef<"nav">;
+export type MobileNavProps = ComponentPropsWithoutRef<"nav">;
 
-export const MobileNav = React.forwardRef<HTMLElement, MobileNavProps>(
+export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
   ({ className, ...props }, ref) => {
     const location = useLocation();
 

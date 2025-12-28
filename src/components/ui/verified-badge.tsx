@@ -1,12 +1,15 @@
-import * as React from "react";
+import { forwardRef } from "react";
+import type { ComponentPropsWithoutRef, ElementRef } from "react";
 import { cn } from "@/lib/utils";
 import { BadgeCheck } from "lucide-react";
 
-export type VerifiedBadgeProps = React.ComponentPropsWithoutRef<typeof BadgeCheck> & {
+type BadgeCheckIcon = typeof BadgeCheck;
+
+export type VerifiedBadgeProps = ComponentPropsWithoutRef<BadgeCheckIcon> & {
   type: "blue" | "gold";
 };
 
-export const VerifiedBadge = React.forwardRef<SVGSVGElement, VerifiedBadgeProps>(
+export const VerifiedBadge = forwardRef<ElementRef<BadgeCheckIcon>, VerifiedBadgeProps>(
   ({ type, className, ...props }, ref) => {
     return (
       <BadgeCheck
