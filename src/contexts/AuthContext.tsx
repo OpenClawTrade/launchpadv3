@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
+import { usePrivy, useLogout } from "@privy-io/react-auth";
 
 interface User {
   id: string;
@@ -60,12 +61,8 @@ function FallbackAuthProvider({ children }: AuthProviderProps) {
   );
 }
 
-// Real provider using Privy hooks
+// Real provider using Privy hooks - only rendered when Privy is available
 function PrivyAuthProvider({ children }: AuthProviderProps) {
-  // Dynamic imports to avoid errors when Privy context is missing
-  const { usePrivy, useLogout } = require("@privy-io/react-auth");
-  const { useWallets } = require("@privy-io/react-auth/solana");
-
   const { 
     ready, 
     authenticated, 
@@ -74,14 +71,15 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
   } = usePrivy();
   
   const { logout: privyLogout } = useLogout();
-  const { wallets } = useWallets();
   
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get the primary Solana wallet address
-  const solanaWallet = wallets?.find((w: any) => w.address);
-  const solanaAddress = solanaWallet?.address ?? null;
+  // Get the primary Solana wallet address from linked accounts
+  const solanaWallet = privyUser?.linkedAccounts?.find(
+    (account) => account.type === "wallet" && (account as any).chainType === "solana"
+  );
+  const solanaAddress = solanaWallet ? (solanaWallet as any).address : null;
 
   // Sync Privy user to our user state
   useEffect(() => {
@@ -98,14 +96,14 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
       
       // Find Solana embedded wallet
       const embeddedSolanaWallet = privyUser.linkedAccounts?.find(
-        (account: any) => account.type === "wallet" && account.chainType === "solana"
+        (account) => account.type === "wallet" && (account as any).chainType === "solana"
       );
 
       const userData: User = {
         id: privyUser.id,
         email,
         wallet: embeddedSolanaWallet 
-          ? { address: embeddedSolanaWallet.address, chainType: "solana" }
+          ? { address: (embeddedSolanaWallet as any).address, chainType: "solana" }
           : linkedWallet 
             ? { address: linkedWallet.address, chainType: linkedWallet.chainType }
             : undefined,
@@ -153,9 +151,11 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
 export function AuthProvider({ children }: AuthProviderProps) {
   const privyAvailable = usePrivyAvailable();
 
+  // If Privy is not available, use the fallback (no Privy hooks)
   if (!privyAvailable) {
     return <FallbackAuthProvider>{children}</FallbackAuthProvider>;
   }
 
+  // When Privy is available, use the real provider with Privy hooks
   return <PrivyAuthProvider>{children}</PrivyAuthProvider>;
 }
