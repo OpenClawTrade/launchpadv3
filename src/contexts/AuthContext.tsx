@@ -1,7 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { usePrivy, useLogout } from "@privy-io/react-auth";
-import { useWallets } from "@privy-io/react-auth/solana";
-import { supabase } from "@/integrations/supabase/client";
+import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 
 interface User {
   id: string;
@@ -41,7 +39,33 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export function AuthProvider({ children }: AuthProviderProps) {
+// Fallback provider when Privy is not configured
+function FallbackAuthProvider({ children }: AuthProviderProps) {
+  const value: AuthContextType = {
+    user: null,
+    isLoading: false,
+    isAuthenticated: false,
+    login: () => {
+      window.location.href = "/auth";
+    },
+    logout: async () => {},
+    solanaAddress: null,
+    ready: true,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// Real provider using Privy hooks
+function PrivyAuthProvider({ children }: AuthProviderProps) {
+  // Dynamic imports to avoid errors when Privy context is missing
+  const { usePrivy, useLogout } = require("@privy-io/react-auth");
+  const { useWallets } = require("@privy-io/react-auth/solana");
+
   const { 
     ready, 
     authenticated, 
@@ -56,10 +80,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Get the primary Solana wallet address
-  const solanaWallet = wallets.find(w => w.address);
+  const solanaWallet = wallets?.find((w: any) => w.address);
   const solanaAddress = solanaWallet?.address ?? null;
 
-  // Sync Privy user to our user state and optionally to Supabase profile
+  // Sync Privy user to our user state
   useEffect(() => {
     if (!ready) {
       setIsLoading(true);
@@ -74,14 +98,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Find Solana embedded wallet
       const embeddedSolanaWallet = privyUser.linkedAccounts?.find(
-        (account) => account.type === "wallet" && account.chainType === "solana"
+        (account: any) => account.type === "wallet" && account.chainType === "solana"
       );
 
       const userData: User = {
         id: privyUser.id,
         email,
         wallet: embeddedSolanaWallet 
-          ? { address: (embeddedSolanaWallet as any).address, chainType: "solana" }
+          ? { address: embeddedSolanaWallet.address, chainType: "solana" }
           : linkedWallet 
             ? { address: linkedWallet.address, chainType: linkedWallet.chainType }
             : undefined,
@@ -93,43 +117,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       };
 
       setUser(userData);
-
-      // Optionally sync to Supabase profiles table
-      syncUserToSupabase(userData).catch(console.error);
     } else {
       setUser(null);
     }
 
     setIsLoading(false);
   }, [ready, authenticated, privyUser, solanaAddress]);
-
-  // Sync user data to Supabase profiles table
-  async function syncUserToSupabase(userData: User) {
-    if (!userData.wallet?.address) return;
-
-    try {
-      // Check if profile exists
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", userData.id)
-        .single();
-
-      if (!existingProfile) {
-        // Create new profile
-        await supabase.from("profiles").insert({
-          id: userData.id,
-          username: userData.wallet.address.slice(0, 12),
-          display_name: userData.displayName ?? userData.wallet.address.slice(0, 8),
-          avatar_url: userData.avatarUrl,
-          bio: null,
-        });
-      }
-    } catch (error) {
-      // Profile sync is optional, don't block auth
-      console.warn("Failed to sync profile to Supabase:", error);
-    }
-  }
 
   const login = () => {
     privyLogin();
@@ -155,4 +148,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+  const privyAvailable = usePrivyAvailable();
+
+  if (!privyAvailable) {
+    return <FallbackAuthProvider>{children}</FallbackAuthProvider>;
+  }
+
+  return <PrivyAuthProvider>{children}</PrivyAuthProvider>;
 }
