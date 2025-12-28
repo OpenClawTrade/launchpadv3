@@ -28,7 +28,7 @@ function getCategoryLabel(name: string): string {
 }
 
 export function RightSidebar() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, login } = useAuth();
   const { trends, isLoading: trendsLoading } = useTrending(5);
   const { suggestedUsers, isLoading: usersLoading, followUser } = useSuggestedUsers(3);
 
@@ -42,21 +42,18 @@ export function RightSidebar() {
       {!isAuthenticated && (
         <div className="bg-card rounded-lg p-4 border border-border space-y-2">
           <h2 className="text-base font-semibold mb-3">New to FAUTRA?</h2>
-          <Link to="/auth" className="block">
-            <Button className="w-full rounded-lg font-semibold text-sm h-9">
-              <LogIn className="mr-2 h-4 w-4" />
-              Log In
-            </Button>
-          </Link>
-          <Link to="/auth?mode=signup" className="block">
-            <Button 
-              variant="outline" 
-              className="w-full rounded-lg font-semibold text-sm h-9 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Sign Up
-            </Button>
-          </Link>
+          <Button onClick={login} className="w-full rounded-lg font-semibold text-sm h-9">
+            <LogIn className="mr-2 h-4 w-4" />
+            Log In
+          </Button>
+          <Button
+            onClick={login}
+            variant="outline"
+            className="w-full rounded-lg font-semibold text-sm h-9 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Sign Up
+          </Button>
         </div>
       )}
 
