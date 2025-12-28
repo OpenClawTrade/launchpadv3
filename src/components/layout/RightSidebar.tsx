@@ -37,7 +37,7 @@ export function RightSidebar() {
   };
 
   return (
-    <aside className="sticky top-0 h-screen py-4 px-4 w-80 lg:w-88 hidden lg:flex flex-col gap-4 overflow-y-auto scrollbar-thin">
+    <aside className="sticky top-0 h-screen py-4 px-4 w-80 flex flex-col gap-4 overflow-y-auto scrollbar-thin">
       {/* Auth Buttons - Only show when not logged in */}
       {!isAuthenticated && (
         <div className="bg-card rounded-lg p-4 border border-border space-y-2">
@@ -92,7 +92,7 @@ export function RightSidebar() {
               </p>
             </div>
           ) : (
-            trends.map((trend, index) => (
+            trends.map((trend) => (
               <button
                 key={trend.id}
                 className="w-full text-left px-4 py-2.5 hover:bg-secondary/50 transition-colors duration-200"
@@ -163,7 +163,7 @@ export function RightSidebar() {
                 <Button 
                   variant="default" 
                   size="sm" 
-                  className="rounded-lg font-semibold text-xs h-8 px-3"
+                  className="rounded-lg font-semibold text-xs h-8 px-3 flex-shrink-0"
                   onClick={() => handleFollow(suggestedUser.id)}
                 >
                   Follow

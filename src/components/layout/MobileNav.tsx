@@ -29,12 +29,12 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
       <nav
         ref={ref}
         className={cn(
-          "fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border md:hidden z-50",
+          "fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border md:hidden z-50 safe-area-inset-bottom",
           className
         )}
         {...props}
       >
-        <div className="flex items-center justify-around h-14">
+        <div className="flex items-center justify-around h-14 px-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             const Icon = item.icon;
@@ -44,16 +44,16 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "p-2.5 rounded-lg transition-colors duration-200 relative",
+                  "flex-1 flex items-center justify-center p-2 rounded-lg transition-colors duration-200 relative max-w-16",
                   isActive
                     ? "text-primary bg-secondary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    : "text-muted-foreground hover:text-foreground active:bg-secondary"
                 )}
                 aria-current={isActive ? "page" : undefined}
               >
-                <Icon className={cn("h-6 w-6", isActive && "stroke-[2px]")} />
+                <Icon className={cn("h-6 w-6", isActive && "stroke-[2.5px]")} />
                 {item.badge > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute top-1 right-1/4 h-4 w-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
                     {item.badge > 9 ? "9+" : item.badge}
                   </span>
                 )}
@@ -65,10 +65,10 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
         {/* Floating Post Button */}
         <Link
           to="/compose"
-          className="absolute -top-16 right-4 h-12 w-12 bg-primary rounded-lg shadow-glow flex items-center justify-center hover:bg-primary/90 transition-all duration-200 btn-press"
+          className="absolute -top-16 right-4 h-14 w-14 bg-primary rounded-full shadow-glow flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-all duration-200"
           aria-label="Create a new post"
         >
-          <Feather className="h-5 w-5 text-primary-foreground" />
+          <Feather className="h-6 w-6 text-primary-foreground" />
         </Link>
       </nav>
     );

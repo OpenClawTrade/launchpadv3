@@ -65,8 +65,9 @@ export function Sidebar({ user }: SidebarProps) {
     badge: item.badgeKey === "notifications" ? notificationCount : 
            item.badgeKey === "messages" ? messageCount : undefined,
   }));
+
   return (
-    <aside className="sticky top-0 h-screen flex flex-col py-4 px-3 xl:px-4 w-20 xl:w-72 border-r border-border bg-sidebar">
+    <aside className="sticky top-0 h-screen flex flex-col py-4 px-3 xl:px-4 w-20 xl:w-64 bg-sidebar">
       {/* Logo */}
       <div className="flex flex-col">
         <Link 
@@ -151,7 +152,7 @@ export function Sidebar({ user }: SidebarProps) {
                     : "text-foreground hover:bg-secondary"
                 )}
               >
-                <div className="relative">
+                <div className="relative flex-shrink-0">
                   <Icon 
                     className={cn(
                       "h-5 w-5 transition-transform group-hover:scale-105",
@@ -165,7 +166,7 @@ export function Sidebar({ user }: SidebarProps) {
                   )}
                 </div>
                 <span className={cn(
-                  "text-sm hidden xl:block",
+                  "text-sm hidden xl:block truncate",
                   isActive && "font-semibold"
                 )}>
                   {item.label}
@@ -178,7 +179,7 @@ export function Sidebar({ user }: SidebarProps) {
           <button
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-secondary w-full text-foreground"
           >
-            <MoreHorizontal className="h-5 w-5" />
+            <MoreHorizontal className="h-5 w-5 flex-shrink-0" />
             <span className="text-sm hidden xl:block">More</span>
           </button>
         </nav>
@@ -211,7 +212,7 @@ export function Sidebar({ user }: SidebarProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors duration-200 w-full">
-              <Avatar className="h-9 w-9">
+              <Avatar className="h-9 w-9 flex-shrink-0">
                 <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                   {user.name.charAt(0).toUpperCase()}
@@ -221,10 +222,10 @@ export function Sidebar({ user }: SidebarProps) {
                 <p className="font-semibold text-sm truncate">{user.name}</p>
                 <p className="text-muted-foreground text-xs truncate">@{user.handle}</p>
               </div>
-              <MoreHorizontal className="h-4 w-4 hidden xl:block text-muted-foreground" />
+              <MoreHorizontal className="h-4 w-4 hidden xl:block text-muted-foreground flex-shrink-0" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56 bg-popover border border-border">
             <DropdownMenuItem asChild>
               <Link to="/settings" className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />

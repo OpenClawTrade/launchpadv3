@@ -15,23 +15,28 @@ export interface MainLayoutProps {
 
 export function MainLayout({ children, user, hideRightSidebar }: MainLayoutProps) {
   return (
-    <div className="min-h-screen bg-background flex justify-center">
-      <div className="flex w-full max-w-8xl">
+    <div className="min-h-screen bg-background">
+      {/* Centered container for desktop */}
+      <div className="mx-auto flex max-w-[1280px] justify-center">
         {/* Left Sidebar - Hidden on mobile */}
-        <div className="hidden md:block">
+        <div className="hidden md:flex md:flex-shrink-0">
           <Sidebar user={user} />
         </div>
 
-        {/* Main Content */}
-        <main className="flex-1 min-h-screen border-r border-border max-w-[600px] pb-20 md:pb-0">
+        {/* Main Content - Full width on mobile, fixed on desktop */}
+        <main className="min-h-screen w-full border-x border-border md:w-[600px] md:max-w-[600px] md:flex-shrink-0 pb-20 md:pb-0">
           {children}
         </main>
 
         {/* Right Sidebar - Hidden on smaller screens */}
-        {!hideRightSidebar && <RightSidebar />}
+        {!hideRightSidebar && (
+          <div className="hidden lg:flex lg:flex-shrink-0">
+            <RightSidebar />
+          </div>
+        )}
       </div>
 
-      {/* Mobile Navigation */}
+      {/* Mobile Navigation - Fixed at bottom */}
       <MobileNav />
     </div>
   );
