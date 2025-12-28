@@ -47,7 +47,8 @@ function FallbackAuthProvider({ children }: AuthProviderProps) {
     isLoading: false,
     isAuthenticated: false,
     login: () => {
-      window.location.href = "/auth";
+      // Avoid /auth redirect loops when Privy is not available.
+      console.warn("Auth is not configured (Privy unavailable). Please set VITE_PRIVY_APP_ID.");
     },
     logout: async () => {},
     solanaAddress: null,
