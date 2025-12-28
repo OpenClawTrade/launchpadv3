@@ -26,7 +26,7 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
         )}
         {...props}
       >
-        <div className="flex items-center justify-around h-16">
+        <div className="flex items-center justify-around h-14">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             const Icon = item.icon;
@@ -36,14 +36,14 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "p-3 rounded-full transition-colors duration-200",
+                  "p-2.5 rounded-lg transition-colors duration-200",
                   isActive
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-primary bg-secondary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                 )}
                 aria-current={isActive ? "page" : undefined}
               >
-                <Icon className={cn("h-7 w-7", isActive && "stroke-[2.5px]")} />
+                <Icon className={cn("h-6 w-6", isActive && "stroke-[2px]")} />
               </Link>
             );
           })}
@@ -52,10 +52,10 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
         {/* Floating Post Button */}
         <Link
           to="/compose"
-          className="absolute -top-20 right-4 h-14 w-14 bg-primary rounded-full shadow-lg flex items-center justify-center hover:bg-fautra-blue-hover transition-colors duration-200 btn-press"
+          className="absolute -top-16 right-4 h-12 w-12 bg-primary rounded-lg shadow-glow flex items-center justify-center hover:bg-primary/90 transition-all duration-200 btn-press"
           aria-label="Create a new post"
         >
-          <Feather className="h-6 w-6 text-primary-foreground" />
+          <Feather className="h-5 w-5 text-primary-foreground" />
         </Link>
       </nav>
     );
@@ -63,4 +63,3 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
 );
 
 MobileNav.displayName = "MobileNav";
-
