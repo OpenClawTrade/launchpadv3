@@ -1,7 +1,7 @@
 import { MainLayout } from "@/components/layout";
 import { PostCard, ComposePost } from "@/components/post";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts, PostWithProfile } from "@/hooks/usePosts";
 import { useState } from "react";
@@ -60,12 +60,9 @@ const Index = () => {
   return (
     <MainLayout user={currentUser}>
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="flex items-center justify-between px-4 h-14">
-          <h1 className="text-xl font-bold">Home</h1>
-          <button className="p-2 rounded-full hover:bg-secondary transition-colors">
-            <Sparkles className="h-5 w-5" />
-          </button>
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
+        <div className="flex items-center justify-between px-4 h-12">
+          <h1 className="text-lg font-semibold">Home</h1>
         </div>
         
         {/* Tabs */}

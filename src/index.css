@@ -1,125 +1,132 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* FAUTRA Design System - Classic Twitter Inspired */
+/* FAUTRA Design System - Binance Inspired Dark Theme */
 
 @layer base {
   :root {
-    /* Core Brand Colors - Classic Twitter Blue */
-    --fautra-blue: 203 89% 53%;
-    --fautra-blue-hover: 203 89% 45%;
-    --fautra-blue-light: 203 89% 94%;
+    /* Core Brand Colors - Binance Yellow */
+    --binance-yellow: 43 96% 56%;
+    --binance-yellow-hover: 43 96% 48%;
+    --binance-yellow-light: 43 96% 70%;
+    --binance-yellow-dark: 43 80% 40%;
     
     /* Verification Badges */
     --badge-blue: 203 89% 53%;
-    --badge-gold: 45 93% 47%;
-    --badge-gold-light: 45 93% 90%;
+    --badge-gold: 43 96% 56%;
+    --badge-gold-light: 43 96% 70%;
     
     /* Semantic Colors */
-    --like-red: 356 100% 65%;
-    --repost-green: 160 84% 39%;
-    --bookmark-yellow: 45 93% 47%;
+    --like-red: 0 84% 60%;
+    --repost-green: 142 76% 36%;
+    --bookmark-yellow: 43 96% 56%;
     
-    /* Light Theme */
+    /* Success/Error States */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 56%;
+    --warning-foreground: 0 0% 0%;
+    
+    /* Light Theme - Binance Light Mode */
     --background: 0 0% 100%;
-    --background-secondary: 200 14% 96%;
-    --background-tertiary: 200 12% 92%;
-    --foreground: 210 20% 8%;
-    --foreground-secondary: 210 10% 40%;
+    --background-secondary: 220 14% 96%;
+    --background-tertiary: 220 13% 91%;
+    --foreground: 220 9% 12%;
+    --foreground-secondary: 220 9% 46%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 20% 8%;
+    --card-foreground: 220 9% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 20% 8%;
+    --popover-foreground: 220 9% 12%;
 
-    --primary: 203 89% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 96% 56%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 200 14% 96%;
-    --secondary-foreground: 210 20% 8%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 12%;
 
-    --muted: 200 14% 96%;
-    --muted-foreground: 210 10% 40%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 203 89% 94%;
-    --accent-foreground: 203 89% 35%;
+    --accent: 43 50% 95%;
+    --accent-foreground: 43 96% 40%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 200 12% 90%;
-    --border-light: 200 12% 94%;
-    --input: 200 12% 90%;
-    --ring: 203 89% 53%;
+    --border: 220 13% 91%;
+    --border-light: 220 13% 94%;
+    --input: 220 13% 91%;
+    --ring: 43 96% 56%;
 
-    --radius: 1rem;
+    --radius: 0.5rem;
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 210 20% 8%;
-    --sidebar-primary: 203 89% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 203 89% 94%;
-    --sidebar-accent-foreground: 203 89% 35%;
-    --sidebar-border: 200 12% 90%;
-    --sidebar-ring: 203 89% 53%;
+    --sidebar-foreground: 220 9% 12%;
+    --sidebar-primary: 43 96% 56%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 43 50% 95%;
+    --sidebar-accent-foreground: 43 96% 40%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 43 96% 56%;
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-    --shadow-glow: 0 0 20px hsl(203 89% 53% / 0.3);
+    --shadow-glow: 0 0 20px hsl(43 96% 56% / 0.3);
   }
 
   .dark {
-    /* Dark Theme - Classic Twitter Dark */
-    --background: 210 34% 13%;
-    --background-secondary: 210 30% 16%;
-    --background-tertiary: 210 26% 20%;
+    /* Dark Theme - Binance Dark Mode */
+    --background: 220 13% 5%;
+    --background-secondary: 220 13% 8%;
+    --background-tertiary: 220 13% 11%;
     --foreground: 0 0% 98%;
-    --foreground-secondary: 210 10% 70%;
+    --foreground-secondary: 220 9% 60%;
 
-    --card: 210 30% 16%;
+    --card: 220 13% 8%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 210 30% 16%;
+    --popover: 220 13% 10%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 203 89% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 96% 56%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 210 26% 20%;
+    --secondary: 220 13% 14%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 210 26% 20%;
-    --muted-foreground: 210 10% 60%;
+    --muted: 220 13% 14%;
+    --muted-foreground: 220 9% 55%;
 
-    --accent: 203 89% 20%;
-    --accent-foreground: 203 89% 80%;
+    --accent: 43 40% 15%;
+    --accent-foreground: 43 96% 70%;
 
-    --destructive: 0 62% 40%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 26% 22%;
-    --border-light: 210 26% 25%;
-    --input: 210 26% 22%;
-    --ring: 203 89% 53%;
+    --border: 220 13% 16%;
+    --border-light: 220 13% 20%;
+    --input: 220 13% 16%;
+    --ring: 43 96% 56%;
 
-    --sidebar-background: 210 34% 13%;
+    --sidebar-background: 220 13% 5%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 203 89% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 203 89% 20%;
-    --sidebar-accent-foreground: 203 89% 80%;
-    --sidebar-border: 210 26% 22%;
-    --sidebar-ring: 203 89% 53%;
+    --sidebar-primary: 43 96% 56%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 43 40% 15%;
+    --sidebar-accent-foreground: 43 96% 70%;
+    --sidebar-border: 220 13% 16%;
+    --sidebar-ring: 43 96% 56%;
 
-    --shadow-glow: 0 0 30px hsl(203 89% 53% / 0.2);
+    --shadow-glow: 0 0 30px hsl(43 96% 56% / 0.2);
   }
 }
 
@@ -149,7 +156,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     @apply bg-transparent;
@@ -244,6 +251,26 @@
     content: '';
     @apply absolute left-0 right-0 bottom-0 h-1 bg-primary rounded-full;
   }
+
+  /* Binance-style card */
+  .binance-card {
+    @apply bg-card rounded-lg border border-border p-4;
+  }
+
+  /* Binance-style input */
+  .binance-input {
+    @apply bg-secondary border-0 rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary focus:bg-background transition-all;
+  }
+
+  /* Gradient accent */
+  .gradient-yellow {
+    background: linear-gradient(135deg, hsl(43 96% 56%) 0%, hsl(43 80% 45%) 100%);
+  }
+
+  /* Glow effect */
+  .glow-yellow {
+    box-shadow: 0 0 20px hsl(43 96% 56% / 0.3), 0 0 40px hsl(43 96% 56% / 0.1);
+  }
 }
 
 @layer utilities {
@@ -253,7 +280,7 @@
   }
 
   /* Gradient text */
-  .text-gradient-blue {
+  .text-gradient-yellow {
     @apply bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent;
   }
 

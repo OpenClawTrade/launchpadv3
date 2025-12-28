@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['IBM Plex Sans', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -64,11 +64,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        // FAUTRA specific colors
-        fautra: {
-          blue: "hsl(var(--fautra-blue))",
-          "blue-hover": "hsl(var(--fautra-blue-hover))",
-          "blue-light": "hsl(var(--fautra-blue-light))",
+        // Binance brand colors
+        binance: {
+          yellow: "hsl(var(--binance-yellow))",
+          "yellow-hover": "hsl(var(--binance-yellow-hover))",
+          "yellow-light": "hsl(var(--binance-yellow-light))",
+          "yellow-dark": "hsl(var(--binance-yellow-dark))",
         },
         badge: {
           blue: "hsl(var(--badge-blue))",
@@ -79,6 +80,14 @@ export default {
           like: "hsl(var(--like-red))",
           repost: "hsl(var(--repost-green))",
           bookmark: "hsl(var(--bookmark-yellow))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
         },
       },
       borderRadius: {
@@ -120,6 +129,10 @@ export default {
           from: { transform: "rotate(0deg)" },
           to: { transform: "rotate(360deg)" },
         },
+        "pulse-glow": {
+          "0%, 100%": { boxShadow: "0 0 20px hsl(43 96% 56% / 0.3)" },
+          "50%": { boxShadow: "0 0 30px hsl(43 96% 56% / 0.5)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -128,6 +141,7 @@ export default {
         "slide-in-right": "slide-in-right 0.3s ease-out forwards",
         "scale-in": "scale-in 0.2s ease-out forwards",
         "spin-slow": "spin-slow 3s linear infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
       spacing: {
         "18": "4.5rem",
