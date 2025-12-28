@@ -13,14 +13,16 @@ interface PrivyProviderWrapperProps {
 }
 
 export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
-  const appId = import.meta.env.VITE_PRIVY_APP_ID || import.meta.env.PRIVY_APP_ID;
+  const rawAppId = import.meta.env.VITE_PRIVY_APP_ID;
+  const appId = (rawAppId ?? "").trim();
 
   // Accept any non-empty appId that's not a template placeholder
-  const isValidAppId = !!appId && !appId.startsWith("${");
+  const isValidAppId = appId.length > 0 && !appId.includes("${");
 
   if (!isValidAppId) {
     console.warn(
-      "Privy App ID not configured - auth features disabled. Set VITE_PRIVY_APP_ID in your secrets."
+      "Privy App ID not configured - auth features disabled. Please set VITE_PRIVY_APP_ID in your Lovable Cloud secrets.",
+      { rawAppId }
     );
     return (
       <PrivyAvailableContext.Provider value={false}>
