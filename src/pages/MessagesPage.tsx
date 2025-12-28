@@ -12,7 +12,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function MessagesPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, login } = useAuth();
   const { conversations, totalUnread, isLoading } = useMessages();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,6 +80,9 @@ export default function MessagesPage() {
             <p className="text-muted-foreground max-w-sm">
               Log in to start private conversations with others on FAUTRA.
             </p>
+            <Button onClick={login} className="mt-6 rounded-full font-bold">
+              Sign in
+            </Button>
           </div>
         ) : isLoading ? (
           <div className="flex items-center justify-center py-20">

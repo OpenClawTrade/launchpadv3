@@ -57,7 +57,7 @@ interface SidebarProps {
 
 export function Sidebar({ user }: SidebarProps) {
   const location = useLocation();
-  const { logout, isAuthenticated } = useAuth();
+  const { logout, isAuthenticated, login } = useAuth();
   const { notificationCount, messageCount } = useUnreadCounts();
 
   const navItems = baseNavItems.map((item) => ({
@@ -83,39 +83,36 @@ export function Sidebar({ user }: SidebarProps) {
         {/* Auth Buttons - Above Search */}
         {!isAuthenticated && (
           <div className="mb-4 space-y-2 hidden xl:block">
-            <Link to="/auth" className="block">
-              <Button 
-                variant="default" 
-                className="w-full rounded-lg font-semibold h-10"
-              >
-                <LogIn className="mr-2 h-4 w-4" />
-                Log In
-              </Button>
-            </Link>
-            <Link to="/auth?mode=signup" className="block">
-              <Button 
-                variant="outline" 
-                className="w-full rounded-lg font-semibold h-10 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-              >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Register
-              </Button>
-            </Link>
+            <Button 
+              onClick={login}
+              variant="default" 
+              className="w-full rounded-lg font-semibold h-10"
+            >
+              <LogIn className="mr-2 h-4 w-4" />
+              Log In
+            </Button>
+            <Button 
+              onClick={login}
+              variant="outline" 
+              className="w-full rounded-lg font-semibold h-10 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Register
+            </Button>
           </div>
         )}
 
         {/* Mobile Auth Button */}
         {!isAuthenticated && (
           <div className="mb-4 xl:hidden flex justify-center">
-            <Link to="/auth">
-              <Button 
-                variant="default" 
-                size="icon"
-                className="rounded-lg h-10 w-10"
-              >
-                <LogIn className="h-5 w-5" />
-              </Button>
-            </Link>
+            <Button 
+              onClick={login}
+              variant="default" 
+              size="icon"
+              className="rounded-lg h-10 w-10"
+            >
+              <LogIn className="h-5 w-5" />
+            </Button>
           </div>
         )}
 
