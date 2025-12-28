@@ -1,11 +1,5 @@
 import { ReactNode, createContext, useContext } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
-import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
-
-// Solana external wallet connectors (Phantom, Solflare, etc.)
-const solanaConnectors = toSolanaWalletConnectors({
-  shouldAutoConnect: true,
-});
 
 // Context to track if Privy is available
 const PrivyAvailableContext = createContext(false);
@@ -25,7 +19,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
   const isValidAppId = appId && !appId.startsWith("${") && appId.length > 10;
 
   if (!isValidAppId) {
-    console.warn("Privy App ID not configured - auth features disabled. Set PRIVY_APP_ID in your secrets.");
+    console.warn("Privy App ID not configured - auth features disabled. Set VITE_PRIVY_APP_ID in your secrets.");
     return (
       <PrivyAvailableContext.Provider value={false}>
         {children}
@@ -59,13 +53,6 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             // Disable Ethereum embedded wallets
             ethereum: {
               createOnLogin: "off",
-            },
-          },
-
-          // External wallet connectors for Solana
-          externalWallets: {
-            solana: {
-              connectors: solanaConnectors,
             },
           },
 
