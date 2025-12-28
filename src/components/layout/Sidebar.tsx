@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavItem {
   icon: React.ElementType;
@@ -48,11 +49,11 @@ interface SidebarProps {
     handle: string;
     avatar?: string;
   } | null;
-  onLogout?: () => void;
 }
 
-export function Sidebar({ user, onLogout }: SidebarProps) {
+export function Sidebar({ user }: SidebarProps) {
   const location = useLocation();
+  const { logout } = useAuth();
 
   return (
     <aside className="sticky top-0 h-screen flex flex-col justify-between py-2 px-2 xl:px-4 w-20 xl:w-72 border-r border-border">
@@ -165,7 +166,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={onLogout}
+              onClick={() => logout()}
               className="text-destructive focus:text-destructive"
             >
               Log out @{user.handle}

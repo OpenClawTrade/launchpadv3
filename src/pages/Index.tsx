@@ -3,15 +3,9 @@ import { MainLayout } from "@/components/layout";
 import { PostCard, ComposePost, PostData } from "@/components/post";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
-// Demo user - replace with actual auth
-const demoUser = {
-  name: "Demo User",
-  handle: "demo",
-  avatar: undefined,
-};
-
-// Demo posts
+// Demo posts - will be replaced with real data from Supabase
 const demoPosts: PostData[] = [
   {
     id: "1",
@@ -83,13 +77,24 @@ const demoPosts: PostData[] = [
 ];
 
 const Index = () => {
+  const { user, isAuthenticated, solanaAddress } = useAuth();
+  
+  // Build current user object from auth context
+  const currentUser = user ? {
+    name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
+    handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
+    avatar: user.avatarUrl,
+  } : null;
+  
   const [posts, setPosts] = useState<PostData[]>(demoPosts);
   const [activeTab, setActiveTab] = useState("for-you");
 
   const handlePost = (content: string) => {
+    if (!currentUser) return;
+    
     const newPost: PostData = {
       id: Date.now().toString(),
-      author: demoUser,
+      author: currentUser,
       content,
       createdAt: new Date(),
       stats: {
@@ -104,7 +109,7 @@ const Index = () => {
   };
 
   return (
-    <MainLayout user={demoUser}>
+    <MainLayout user={currentUser}>
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
@@ -136,7 +141,7 @@ const Index = () => {
       </header>
 
       {/* Compose Post */}
-      <ComposePost user={demoUser} onPost={handlePost} />
+      {currentUser && <ComposePost user={currentUser} onPost={handlePost} />}
 
       {/* Posts Feed */}
       <div className="divide-y divide-border">

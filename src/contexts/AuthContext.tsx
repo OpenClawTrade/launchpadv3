@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { usePrivy, useLogout } from "@privy-io/react-auth";
+import { useWallets } from "@privy-io/react-auth/solana";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock types for Privy - will be replaced with actual Privy types
 interface User {
   id: string;
   email?: string;
@@ -11,6 +13,8 @@ interface User {
   twitter?: {
     username: string;
   };
+  displayName?: string;
+  avatarUrl?: string;
 }
 
 interface AuthContextType {
@@ -18,8 +22,9 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: () => void;
-  logout: () => void;
-  connectWallet: () => Promise<void>;
+  logout: () => Promise<void>;
+  solanaAddress: string | null;
+  ready: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -37,45 +42,112 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const { 
+    ready, 
+    authenticated, 
+    user: privyUser, 
+    login: privyLogin,
+  } = usePrivy();
+  
+  const { logout: privyLogout } = useLogout();
+  const { wallets } = useWallets();
+  
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Get the primary Solana wallet address
+  const solanaWallet = wallets.find(w => w.address);
+  const solanaAddress = solanaWallet?.address ?? null;
+
+  // Sync Privy user to our user state and optionally to Supabase profile
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem("fautra_user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        localStorage.removeItem("fautra_user");
-      }
+    if (!ready) {
+      setIsLoading(true);
+      return;
     }
+
+    if (authenticated && privyUser) {
+      // Extract user data from Privy
+      const email = privyUser.email?.address;
+      const twitter = privyUser.twitter;
+      const linkedWallet = privyUser.wallet;
+      
+      // Find Solana embedded wallet
+      const embeddedSolanaWallet = privyUser.linkedAccounts?.find(
+        (account) => account.type === "wallet" && account.chainType === "solana"
+      );
+
+      const userData: User = {
+        id: privyUser.id,
+        email,
+        wallet: embeddedSolanaWallet 
+          ? { address: (embeddedSolanaWallet as any).address, chainType: "solana" }
+          : linkedWallet 
+            ? { address: linkedWallet.address, chainType: linkedWallet.chainType }
+            : undefined,
+        twitter: twitter 
+          ? { username: twitter.username ?? "" }
+          : undefined,
+        displayName: twitter?.name ?? email?.split("@")[0] ?? solanaAddress?.slice(0, 8),
+        avatarUrl: twitter?.profilePictureUrl,
+      };
+
+      setUser(userData);
+
+      // Optionally sync to Supabase profiles table
+      syncUserToSupabase(userData).catch(console.error);
+    } else {
+      setUser(null);
+    }
+
     setIsLoading(false);
-  }, []);
+  }, [ready, authenticated, privyUser, solanaAddress]);
+
+  // Sync user data to Supabase profiles table
+  async function syncUserToSupabase(userData: User) {
+    if (!userData.wallet?.address) return;
+
+    try {
+      // Check if profile exists
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", userData.id)
+        .single();
+
+      if (!existingProfile) {
+        // Create new profile
+        await supabase.from("profiles").insert({
+          id: userData.id,
+          username: userData.wallet.address.slice(0, 12),
+          display_name: userData.displayName ?? userData.wallet.address.slice(0, 8),
+          avatar_url: userData.avatarUrl,
+          bio: null,
+        });
+      }
+    } catch (error) {
+      // Profile sync is optional, don't block auth
+      console.warn("Failed to sync profile to Supabase:", error);
+    }
+  }
 
   const login = () => {
-    // This will be replaced with Privy login
-    // For now, navigate to auth page
-    window.location.href = "/auth";
+    privyLogin();
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await privyLogout();
     setUser(null);
-    localStorage.removeItem("fautra_user");
   };
 
-  const connectWallet = async () => {
-    // This will be replaced with actual Privy wallet connection
-    console.log("Connect wallet - Privy integration pending");
-  };
-
-  const value = {
+  const value: AuthContextType = {
     user,
-    isLoading,
-    isAuthenticated: !!user,
+    isLoading: !ready || isLoading,
+    isAuthenticated: authenticated,
     login,
     logout,
-    connectWallet,
+    solanaAddress,
+    ready,
   };
 
   return (
