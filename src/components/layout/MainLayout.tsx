@@ -3,16 +3,17 @@ import { Sidebar } from "./Sidebar";
 import { RightSidebar } from "./RightSidebar";
 import { MobileNav } from "./MobileNav";
 
-interface MainLayoutProps {
+export interface MainLayoutProps {
   children: ReactNode;
   user?: {
     name: string;
     handle: string;
     avatar?: string;
   } | null;
+  hideRightSidebar?: boolean;
 }
 
-export function MainLayout({ children, user }: MainLayoutProps) {
+export function MainLayout({ children, user, hideRightSidebar }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-background flex justify-center">
       <div className="flex w-full max-w-8xl">
@@ -27,7 +28,7 @@ export function MainLayout({ children, user }: MainLayoutProps) {
         </main>
 
         {/* Right Sidebar - Hidden on smaller screens */}
-        <RightSidebar />
+        {!hideRightSidebar && <RightSidebar />}
       </div>
 
       {/* Mobile Navigation */}

@@ -27,19 +27,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 
 interface NavItem {
   icon: React.ElementType;
   label: string;
   href: string;
-  badge?: number;
+  badgeKey?: "notifications" | "messages";
 }
 
-const navItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Search, label: "Explore", href: "/explore" },
-  { icon: Bell, label: "Notifications", href: "/notifications", badge: 3 },
-  { icon: Mail, label: "Messages", href: "/messages" },
+  { icon: Bell, label: "Notifications", href: "/notifications", badgeKey: "notifications" },
+  { icon: Mail, label: "Messages", href: "/messages", badgeKey: "messages" },
   { icon: Sparkles, label: "Fautra AI", href: "/ai" },
   { icon: Bookmark, label: "Bookmarks", href: "/bookmarks" },
   { icon: Users, label: "Communities", href: "/communities" },
@@ -57,7 +58,13 @@ interface SidebarProps {
 export function Sidebar({ user }: SidebarProps) {
   const location = useLocation();
   const { logout, isAuthenticated } = useAuth();
+  const { notificationCount, messageCount } = useUnreadCounts();
 
+  const navItems = baseNavItems.map((item) => ({
+    ...item,
+    badge: item.badgeKey === "notifications" ? notificationCount : 
+           item.badgeKey === "messages" ? messageCount : undefined,
+  }));
   return (
     <aside className="sticky top-0 h-screen flex flex-col py-4 px-3 xl:px-4 w-20 xl:w-72 border-r border-border bg-sidebar">
       {/* Logo */}
