@@ -1,44 +1,88 @@
 import { MainLayout } from "@/components/layout";
-import { Bookmark } from "lucide-react";
+import { Bookmark, Loader2 } from "lucide-react";
 import { PostCard, PostData } from "@/components/post";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { Button } from "@/components/ui/button";
 
-const bookmarkedPosts: PostData[] = [
-  {
-    id: "b1",
+function transformPost(post: any): PostData {
+  return {
+    id: post.id,
     author: {
-      name: "Solana",
-      handle: "solana",
-      verified: "blue",
+      name: post.profiles?.display_name || "Unknown",
+      handle: post.profiles?.username || "unknown",
+      avatar: post.profiles?.avatar_url || undefined,
+      verified: post.profiles?.verified_type as "blue" | "gold" | undefined,
     },
-    content: "Solana is built for speed and scale. Over 65,000 TPS and growing! 🚀\n\n#Solana #Blockchain",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+    content: post.content,
+    media: post.image_url
+      ? [{ type: "image" as const, url: post.image_url }]
+      : undefined,
+    createdAt: new Date(post.created_at),
     stats: {
-      likes: 12500,
-      reposts: 3200,
-      replies: 890,
-      views: 450000,
-      bookmarks: 2300,
+      likes: post.likes_count || 0,
+      reposts: post.reposts_count || 0,
+      replies: post.replies_count || 0,
+      views: post.views_count || 0,
+      bookmarks: 0,
     },
-    isBookmarked: true,
-  },
-];
+    isLiked: post.is_liked,
+    isBookmarked: post.is_bookmarked,
+  };
+}
 
 export default function BookmarksPage() {
+  const { user, isAuthenticated, isLoading: authLoading, login } = useAuth();
+  const { bookmarkedPosts, isLoading, removeBookmark } = useBookmarks();
+
+  // Show login prompt if not authenticated
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <MainLayout>
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
+          <div className="px-4 py-3">
+            <h1 className="text-xl font-bold">Bookmarks</h1>
+          </div>
+        </header>
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+          <Bookmark className="h-12 w-12 text-muted-foreground mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Save posts for later</h2>
+          <p className="text-muted-foreground max-w-sm mb-6">
+            Sign in to save posts and easily find them again in the future.
+          </p>
+          <Button onClick={login} className="rounded-full font-bold">
+            Sign In
+          </Button>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="px-4 py-3">
           <h1 className="text-xl font-bold">Bookmarks</h1>
-          <p className="text-sm text-muted-foreground">@demo</p>
+          <p className="text-sm text-muted-foreground">
+            @{user?.twitter?.username || user?.displayName || "you"}
+          </p>
         </div>
       </header>
 
-      {/* Bookmarked Posts */}
-      {bookmarkedPosts.length > 0 ? (
+      {/* Loading State */}
+      {isLoading || authLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : bookmarkedPosts.length > 0 ? (
         <div className="divide-y divide-border">
           {bookmarkedPosts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <PostCard
+              key={post.id}
+              post={transformPost(post)}
+              onBookmark={() => removeBookmark(post.id)}
+            />
           ))}
         </div>
       ) : (
