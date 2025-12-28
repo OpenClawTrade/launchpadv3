@@ -124,6 +124,7 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
   }, [ready, authenticated, privyUser, solanaAddress]);
 
   const login = () => {
+    console.log("Opening Privy login modal");
     privyLogin();
   };
 
