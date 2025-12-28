@@ -3,12 +3,13 @@ import type { ComponentPropsWithoutRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, Search, Bell, Mail, Feather } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 
-const navItems = [
-  { icon: Home, href: "/" },
-  { icon: Search, href: "/explore" },
-  { icon: Bell, href: "/notifications" },
-  { icon: Mail, href: "/messages" },
+const baseNavItems = [
+  { icon: Home, href: "/", badgeKey: null },
+  { icon: Search, href: "/explore", badgeKey: null },
+  { icon: Bell, href: "/notifications", badgeKey: "notifications" as const },
+  { icon: Mail, href: "/messages", badgeKey: "messages" as const },
 ];
 
 export type MobileNavProps = ComponentPropsWithoutRef<"nav">;
@@ -16,6 +17,13 @@ export type MobileNavProps = ComponentPropsWithoutRef<"nav">;
 export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
   ({ className, ...props }, ref) => {
     const location = useLocation();
+    const { notificationCount, messageCount } = useUnreadCounts();
+
+    const navItems = baseNavItems.map((item) => ({
+      ...item,
+      badge: item.badgeKey === "notifications" ? notificationCount : 
+             item.badgeKey === "messages" ? messageCount : 0,
+    }));
 
     return (
       <nav
@@ -36,7 +44,7 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "p-2.5 rounded-lg transition-colors duration-200",
+                  "p-2.5 rounded-lg transition-colors duration-200 relative",
                   isActive
                     ? "text-primary bg-secondary"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -44,6 +52,11 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
                 aria-current={isActive ? "page" : undefined}
               >
                 <Icon className={cn("h-6 w-6", isActive && "stroke-[2px]")} />
+                {item.badge > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {item.badge > 9 ? "9+" : item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
