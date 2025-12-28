@@ -86,6 +86,27 @@ export type Database = {
           },
         ]
       }
+      hashtags: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          post_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          post_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          post_count?: number | null
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           created_at: string
@@ -170,6 +191,42 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_hashtags: {
+        Row: {
+          created_at: string | null
+          hashtag_id: string
+          id: string
+          post_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          hashtag_id: string
+          id?: string
+          post_id: string
+        }
+        Update: {
+          created_at?: string | null
+          hashtag_id?: string
+          id?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_hashtags_hashtag_id_fkey"
+            columns: ["hashtag_id"]
+            isOneToOne: false
+            referencedRelation: "hashtags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_hashtags_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
             referencedColumns: ["id"]
           },
         ]
@@ -295,12 +352,69 @@ export type Database = {
         }
         Relationships: []
       }
+      trending_topics: {
+        Row: {
+          calculated_at: string | null
+          category: string | null
+          hashtag_id: string | null
+          id: string
+          post_count_1h: number | null
+          post_count_24h: number | null
+          rank: number | null
+          score: number
+          velocity: number | null
+        }
+        Insert: {
+          calculated_at?: string | null
+          category?: string | null
+          hashtag_id?: string | null
+          id?: string
+          post_count_1h?: number | null
+          post_count_24h?: number | null
+          rank?: number | null
+          score?: number
+          velocity?: number | null
+        }
+        Update: {
+          calculated_at?: string | null
+          category?: string | null
+          hashtag_id?: string | null
+          id?: string
+          post_count_1h?: number | null
+          post_count_24h?: number | null
+          rank?: number | null
+          score?: number
+          velocity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trending_topics_hashtag_id_fkey"
+            columns: ["hashtag_id"]
+            isOneToOne: false
+            referencedRelation: "hashtags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_trending_topics: { Args: never; Returns: undefined }
+      get_suggested_users: {
+        Args: { current_user_id: string; limit_count?: number }
+        Returns: {
+          avatar_url: string
+          bio: string
+          display_name: string
+          followers_count: number
+          id: string
+          suggestion_score: number
+          username: string
+          verified_type: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
