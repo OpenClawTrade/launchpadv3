@@ -1,83 +1,42 @@
-import { useState } from "react";
 import { MainLayout } from "@/components/layout";
-import { PostCard, ComposePost, PostData } from "@/components/post";
+import { PostCard, ComposePost } from "@/components/post";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePosts, PostWithProfile } from "@/hooks/usePosts";
+import { useState } from "react";
+import { PostData } from "@/components/post";
 
-// Demo posts - will be replaced with real data from Supabase
-const demoPosts: PostData[] = [
-  {
-    id: "1",
+// Transform database post to PostData format
+function transformPost(post: PostWithProfile): PostData {
+  return {
+    id: post.id,
     author: {
-      name: "FAUTRA Official",
-      handle: "fautra",
-      verified: "gold",
+      name: post.profiles?.display_name || "Unknown",
+      handle: post.profiles?.username || "unknown",
+      avatar: post.profiles?.avatar_url || undefined,
+      verified: post.profiles?.verified_type as "blue" | "gold" | undefined,
     },
-    content: "Welcome to FAUTRA! 🎉\n\nThe future of social media is here. Built on Solana, powered by community.\n\n#FAUTRA #Web3 #Solana",
-    createdAt: new Date(Date.now() - 1000 * 60 * 30),
+    content: post.content,
+    media: post.image_url ? [{ type: "image" as const, url: post.image_url }] : undefined,
+    createdAt: new Date(post.created_at),
     stats: {
-      likes: 1542,
-      reposts: 423,
-      replies: 89,
-      views: 24500,
-      bookmarks: 156,
+      likes: post.likes_count || 0,
+      reposts: post.reposts_count || 0,
+      replies: post.replies_count || 0,
+      views: post.views_count || 0,
+      bookmarks: 0,
     },
-  },
-  {
-    id: "2",
-    author: {
-      name: "Solana",
-      handle: "solana",
-      verified: "blue",
-    },
-    content: "Excited to see FAUTRA launching on Solana! The future of decentralized social media is bright. ☀️\n\nFast, scalable, and community-owned.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    stats: {
-      likes: 8923,
-      reposts: 1205,
-      replies: 342,
-      views: 156000,
-      bookmarks: 892,
-    },
-  },
-  {
-    id: "3",
-    author: {
-      name: "Crypto Enthusiast",
-      handle: "cryptofan",
-      verified: "blue",
-    },
-    content: "Just got my blue checkmark on FAUTRA! 💙\n\nThe verification process was super smooth. Love how this platform integrates with Solana wallets seamlessly.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5),
-    stats: {
-      likes: 234,
-      reposts: 45,
-      replies: 23,
-      views: 4500,
-      bookmarks: 12,
-    },
-  },
-  {
-    id: "4",
-    author: {
-      name: "Web3 Builder",
-      handle: "web3builder",
-    },
-    content: "The UI on FAUTRA is so clean! Reminds me of the good old Twitter days but with Web3 superpowers. 🚀\n\nWho else is loving the classic design?",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 8),
-    stats: {
-      likes: 567,
-      reposts: 89,
-      replies: 67,
-      views: 8900,
-      bookmarks: 34,
-    },
-  },
-];
+    isLiked: post.is_liked,
+    isBookmarked: post.is_bookmarked,
+    isReposted: post.is_reposted,
+  };
+}
 
 const Index = () => {
-  const { user, isAuthenticated, solanaAddress } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { posts, isLoading, createPost, toggleLike, toggleBookmark } = usePosts();
+  const [activeTab, setActiveTab] = useState("for-you");
   
   // Build current user object from auth context
   const currentUser = user ? {
@@ -85,27 +44,17 @@ const Index = () => {
     handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
     avatar: user.avatarUrl,
   } : null;
-  
-  const [posts, setPosts] = useState<PostData[]>(demoPosts);
-  const [activeTab, setActiveTab] = useState("for-you");
 
-  const handlePost = (content: string) => {
-    if (!currentUser) return;
-    
-    const newPost: PostData = {
-      id: Date.now().toString(),
-      author: currentUser,
-      content,
-      createdAt: new Date(),
-      stats: {
-        likes: 0,
-        reposts: 0,
-        replies: 0,
-        views: 0,
-        bookmarks: 0,
-      },
-    };
-    setPosts([newPost, ...posts]);
+  const handlePost = async (content: string) => {
+    await createPost(content);
+  };
+
+  const handleLike = (id: string) => {
+    toggleLike(id);
+  };
+
+  const handleBookmark = (id: string) => {
+    toggleBookmark(id);
   };
 
   return (
@@ -145,15 +94,30 @@ const Index = () => {
 
       {/* Posts Feed */}
       <div className="divide-y divide-border">
-        {posts.map((post, index) => (
-          <div 
-            key={post.id} 
-            style={{ animationDelay: `${index * 50}ms` }}
-            className="animate-fadeIn"
-          >
-            <PostCard post={post} />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ))}
+        ) : posts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <p className="text-lg font-medium">No posts yet</p>
+            <p className="text-sm">Be the first to post something!</p>
+          </div>
+        ) : (
+          posts.map((post, index) => (
+            <div 
+              key={post.id} 
+              style={{ animationDelay: `${index * 50}ms` }}
+              className="animate-fadeIn"
+            >
+              <PostCard 
+                post={transformPost(post)} 
+                onLike={handleLike}
+                onBookmark={handleBookmark}
+              />
+            </div>
+          ))
+        )}
       </div>
     </MainLayout>
   );
