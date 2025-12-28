@@ -1,7 +1,9 @@
-import { Settings, TrendingUp } from "lucide-react";
+import { Settings, TrendingUp, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TrendItem {
   category: string;
@@ -31,8 +33,32 @@ const suggestedUsers: SuggestedUser[] = [
 ];
 
 export function RightSidebar() {
+  const { isAuthenticated } = useAuth();
+
   return (
     <aside className="sticky top-0 h-screen py-4 px-4 w-80 lg:w-88 hidden lg:flex flex-col gap-4 overflow-y-auto scrollbar-thin">
+      {/* Auth Buttons - Only show when not logged in */}
+      {!isAuthenticated && (
+        <div className="bg-card rounded-lg p-4 border border-border space-y-2">
+          <h2 className="text-base font-semibold mb-3">New to FAUTRA?</h2>
+          <Link to="/auth" className="block">
+            <Button className="w-full rounded-lg font-semibold text-sm h-9">
+              <LogIn className="mr-2 h-4 w-4" />
+              Log In
+            </Button>
+          </Link>
+          <Link to="/auth?mode=signup" className="block">
+            <Button 
+              variant="outline" 
+              className="w-full rounded-lg font-semibold text-sm h-9 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Sign Up
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Premium Card */}
       <div className="bg-card rounded-lg p-4 border border-border">
         <h2 className="text-base font-semibold mb-2">Subscribe to Premium</h2>
