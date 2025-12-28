@@ -10,16 +10,15 @@ interface MainLayoutProps {
     handle: string;
     avatar?: string;
   } | null;
-  onLogout?: () => void;
 }
 
-export function MainLayout({ children, user, onLogout }: MainLayoutProps) {
+export function MainLayout({ children, user }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-background flex justify-center">
       <div className="flex w-full max-w-8xl">
         {/* Left Sidebar - Hidden on mobile */}
         <div className="hidden md:block">
-          <Sidebar user={user} onLogout={onLogout} />
+          <Sidebar user={user} />
         </div>
 
         {/* Main Content */}
