@@ -196,6 +196,49 @@ export function Sidebar({ user }: SidebarProps) {
               );
             })}
             
+            {/* More Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative text-foreground hover:bg-secondary w-full"
+                >
+                  <MoreHorizontal className="h-5 w-5 flex-shrink-0" />
+                  <span className="text-sm hidden xl:block">More</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="w-56 bg-popover border border-border">
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Settings and Support
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/bookmarks" className="flex items-center gap-2">
+                    <Bookmark className="h-4 w-4" />
+                    Bookmarks
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <a 
+                    href="https://help.fautra.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2"
+                  >
+                    Help Center
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  Display
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  Keyboard shortcuts
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             {/* Settings */}
             <Link
               to="/settings"

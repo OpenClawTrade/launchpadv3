@@ -21,9 +21,9 @@
 - [x] **"Block @user"** - Toggle block with DB (user_blocks table)
 - [x] **"Report post"** - Report modal with reasons (reports table)
 
-### Phase 4: Sidebar Elements (Priority: MEDIUM)
-- [ ] **Search Input** - UI only, not connected to search
-- [ ] **"More" Button** - Opens nothing
+### Phase 4: Sidebar Elements (Priority: MEDIUM) ✅ DONE
+- [x] **Search Input** - Connected to explore page with query params
+- [x] **"More" Button** - Opens dropdown with Settings, Bookmarks, Help links
 
 ### Phase 5: Right Sidebar (Priority: LOW)
 - [ ] **"Subscribe to Premium"** - No Stripe integration

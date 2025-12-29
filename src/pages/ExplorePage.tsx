@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout";
 import { Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { useExplore } from "@/hooks/useExplore";
 function transformPost(post: any): PostData {
   return {
     id: post.id,
+    authorId: post.user_id,
     author: {
       name: post.profiles?.display_name || "Unknown",
       handle: post.profiles?.username || "unknown",
@@ -34,23 +36,41 @@ function transformPost(post: any): PostData {
 }
 
 export default function ExplorePage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState("for-you");
   const { posts, isLoading, fetchTrendingPosts, fetchForYouPosts, searchPosts } =
     useExplore();
   
 
+  // Handle initial search from URL query param
   useEffect(() => {
-    if (activeTab === "trending") {
+    const queryParam = searchParams.get("q");
+    if (queryParam) {
+      setSearchQuery(queryParam);
+      searchPosts(queryParam);
+    } else if (activeTab === "trending") {
       fetchTrendingPosts();
     } else {
       fetchForYouPosts();
+    }
+  }, [searchParams.get("q")]);
+
+  useEffect(() => {
+    if (!searchParams.get("q")) {
+      if (activeTab === "trending") {
+        fetchTrendingPosts();
+      } else {
+        fetchForYouPosts();
+      }
     }
   }, [activeTab]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setSearchParams({ q: searchQuery.trim() });
       searchPosts(searchQuery);
     }
   };
@@ -58,6 +78,7 @@ export default function ExplorePage() {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     if (!e.target.value.trim()) {
+      setSearchParams({});
       if (activeTab === "trending") {
         fetchTrendingPosts();
       } else {
