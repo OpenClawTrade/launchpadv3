@@ -35,7 +35,7 @@ function transformPost(post: PostWithProfile): PostData {
 
 const Index = () => {
   const { user, isAuthenticated } = useAuth();
-  const { posts, isLoading, createPost, toggleLike, toggleBookmark } = usePosts();
+  const { posts, isLoading, createPost, toggleLike, toggleBookmark, toggleRepost } = usePosts();
   const [activeTab, setActiveTab] = useState("for-you");
   
   // Build current user object from auth context
@@ -45,8 +45,9 @@ const Index = () => {
     avatar: user.avatarUrl,
   } : null;
 
-  const handlePost = async (content: string) => {
-    await createPost(content);
+  const handlePost = async (content: string, media?: File[]) => {
+    const imageFile = media?.[0];
+    await createPost(content, imageFile);
   };
 
   const handleLike = (id: string) => {
@@ -55,6 +56,10 @@ const Index = () => {
 
   const handleBookmark = (id: string) => {
     toggleBookmark(id);
+  };
+
+  const handleRepost = (id: string) => {
+    toggleRepost(id);
   };
 
   return (
@@ -111,6 +116,7 @@ const Index = () => {
                 post={transformPost(post)} 
                 onLike={handleLike}
                 onBookmark={handleBookmark}
+                onRepost={handleRepost}
               />
             </div>
           ))

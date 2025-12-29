@@ -16,6 +16,7 @@ import UserProfilePage from "./pages/UserProfilePage";
 import BookmarksPage from "./pages/BookmarksPage";
 import CommunitiesPage from "./pages/CommunitiesPage";
 import SettingsPage from "./pages/SettingsPage";
+import PostDetailPage from "./pages/PostDetailPage";
 import AIPage from "./pages/AIPage";
 import NotFound from "./pages/NotFound";
 
@@ -41,6 +42,7 @@ const App = () => (
                 <Route path="/communities" element={<CommunitiesPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/ai" element={<AIPage />} />
+                <Route path="/post/:postId" element={<PostDetailPage />} />
                 <Route path="/:username" element={<UserProfilePage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

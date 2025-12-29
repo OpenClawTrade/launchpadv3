@@ -10,11 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePosts } from "@/hooks/usePosts";
 
 interface ComposeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPost: (content: string, media?: File[]) => Promise<void>;
+  onPost?: (content: string, media?: File[]) => Promise<void>;
+  replyToId?: string;
   placeholder?: string;
   maxLength?: number;
 }
@@ -23,10 +25,12 @@ export function ComposeModal({
   open,
   onOpenChange,
   onPost,
+  replyToId,
   placeholder = "What's happening?",
   maxLength = 280,
 }: ComposeModalProps) {
   const { user } = useAuth();
+  const { createPost } = usePosts();
   const [content, setContent] = useState("");
   const [isPosting, setIsPosting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -48,6 +52,9 @@ export function ComposeModal({
 
   const removeImage = () => {
     setSelectedImage(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImagePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -59,7 +66,11 @@ export function ComposeModal({
 
     setIsPosting(true);
     try {
-      await onPost(content, selectedImage ? [selectedImage] : undefined);
+      if (onPost) {
+        await onPost(content, selectedImage ? [selectedImage] : undefined);
+      } else {
+        await createPost(content, selectedImage || undefined, replyToId);
+      }
       setContent("");
       removeImage();
       onOpenChange(false);

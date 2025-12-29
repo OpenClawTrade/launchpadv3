@@ -9,11 +9,11 @@
 - [x] **User Profile Routes** - `/:username` dynamic routing added
 - [ ] **User Profile Routes** - `/:username` dynamic routing missing
 
-### Phase 2: Post Interactions (Priority: HIGH)
-- [ ] **Image Upload for Posts** - ComposePost image button is UI only
-- [ ] **Reply Functionality** - Reply button has no modal/thread view
-- [ ] **Repost Functionality** - Only UI updates, no DB operation
-- [ ] **Share Button** - No functionality (copy link / native share)
+### Phase 2: Post Interactions (Priority: HIGH) ✅ DONE
+- [x] **Image Upload for Posts** - Storage bucket created, ComposePost/Modal updated
+- [x] **Reply Functionality** - PostDetailPage with thread view created
+- [x] **Repost Functionality** - DB operations in usePosts, toggleRepost added
+- [x] **Share Button** - Native share API + clipboard fallback
 
 ### Phase 3: PostCard Dropdown Actions (Priority: MEDIUM)
 - [ ] **"Not interested in this post"** - No functionality

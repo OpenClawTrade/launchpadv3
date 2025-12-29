@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   Heart, 
   MessageCircle, 
@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 export interface PostData {
   id: string;
@@ -72,6 +73,7 @@ export function PostCard({
   onBookmark, 
   onReply 
 }: PostCardProps) {
+  const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isReposted, setIsReposted] = useState(post.isReposted || false);
   const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked || false);
@@ -79,7 +81,8 @@ export function PostCard({
   const [repostCount, setRepostCount] = useState(post.stats.reposts);
   const [isLikeAnimating, setIsLikeAnimating] = useState(false);
 
-  const handleLike = () => {
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsLiked(!isLiked);
     setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
     setIsLikeAnimating(true);
@@ -87,22 +90,69 @@ export function PostCard({
     onLike?.(post.id);
   };
 
-  const handleRepost = () => {
+  const handleRepost = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsReposted(!isReposted);
     setRepostCount(prev => isReposted ? prev - 1 : prev + 1);
     onRepost?.(post.id);
   };
 
-  const handleBookmark = () => {
+  const handleBookmark = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsBookmarked(!isBookmarked);
     onBookmark?.(post.id);
   };
 
+  const handleReply = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onReply) {
+      onReply(post.id);
+    } else {
+      navigate(`/post/${post.id}`);
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `${window.location.origin}/post/${post.id}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Post by @${post.author.handle}`,
+          text: post.content.slice(0, 100),
+          url,
+        });
+      } catch (err) {
+        // User cancelled or error - fallback to clipboard
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied to clipboard");
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard");
+    }
+  };
+
+  const handlePostClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('a, button, [role="button"]')) return;
+    navigate(`/post/${post.id}`);
+  };
+
   return (
-    <article className="px-4 py-3 border-b border-border post-hover animate-fadeIn">
+    <article 
+      className="px-4 py-3 border-b border-border post-hover animate-fadeIn cursor-pointer"
+      onClick={handlePostClick}
+    >
       <div className="flex gap-3">
         {/* Avatar */}
-        <Link to={`/${post.author.handle}`} className="flex-shrink-0">
+        <Link 
+          to={`/${post.author.handle}`} 
+          className="flex-shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Avatar className="h-10 w-10 hover:opacity-90 transition-opacity">
             <AvatarImage src={post.author.avatar} alt={post.author.name} />
             <AvatarFallback className="bg-primary text-primary-foreground">
@@ -118,6 +168,7 @@ export function PostCard({
             <Link 
               to={`/${post.author.handle}`}
               className="font-bold hover:underline truncate"
+              onClick={(e) => e.stopPropagation()}
             >
               {post.author.name}
             </Link>
@@ -126,9 +177,13 @@ export function PostCard({
             )}
             <span className="text-muted-foreground">@{post.author.handle}</span>
             <span className="text-muted-foreground">·</span>
-            <time className="text-muted-foreground hover:underline">
+            <Link 
+              to={`/post/${post.id}`}
+              className="text-muted-foreground hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
               {formatDistanceToNow(post.createdAt, { addSuffix: false })}
-            </time>
+            </Link>
             
             {/* More options */}
             <DropdownMenu>
@@ -137,6 +192,7 @@ export function PostCard({
                   variant="ghost" 
                   size="icon" 
                   className="ml-auto h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary -mr-2"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
@@ -177,6 +233,7 @@ export function PostCard({
                       src={item.url} 
                       className="w-full h-full object-cover"
                       controls
+                      onClick={(e) => e.stopPropagation()}
                     />
                   )}
                 </div>
@@ -188,7 +245,7 @@ export function PostCard({
           <div className="flex items-center justify-between mt-3 max-w-md -ml-2">
             {/* Reply */}
             <button
-              onClick={() => onReply?.(post.id)}
+              onClick={handleReply}
               className="flex items-center gap-1 text-muted-foreground hover:text-primary group transition-colors"
             >
               <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
@@ -235,6 +292,7 @@ export function PostCard({
 
             {/* Views */}
             <button
+              onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-1 text-muted-foreground hover:text-primary group transition-colors"
             >
               <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
@@ -262,6 +320,7 @@ export function PostCard({
                 />
               </button>
               <button
+                onClick={handleShare}
                 className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
               >
                 <Share className="h-[18px] w-[18px]" />
