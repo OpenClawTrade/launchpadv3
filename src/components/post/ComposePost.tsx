@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
-import { Image, Smile, MapPin, Calendar, X, Loader2 } from "lucide-react";
+import { Image, MapPin, Calendar, X, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { cn } from "@/lib/utils";
 
 interface ComposePostProps {
@@ -151,13 +152,12 @@ export function ComposePost({
               >
                 <Image className="h-5 w-5" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-9 w-9 rounded-full text-primary hover:bg-primary/10"
-              >
-                <Smile className="h-5 w-5" />
-              </Button>
+              <EmojiPicker 
+                onEmojiSelect={(emoji) => {
+                  setContent(prev => prev + emoji);
+                  textareaRef.current?.focus();
+                }} 
+              />
               <Button 
                 variant="ghost" 
                 size="icon" 
