@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrending } from "@/hooks/useTrending";
 import { useSuggestedUsers } from "@/hooks/useSuggestedUsers";
+import { PremiumSubscriptionCard } from "@/components/premium/PremiumSubscriptionCard";
 
 function formatPostCount(count: number): string {
   if (count >= 1000000) return (count / 1000000).toFixed(1) + "M";
@@ -58,15 +59,7 @@ export function RightSidebar() {
       )}
 
       {/* Premium Card */}
-      <div className="bg-card rounded-lg p-4 border border-border">
-        <h2 className="text-base font-semibold mb-2">Subscribe to Premium</h2>
-        <p className="text-muted-foreground text-sm mb-3">
-          Get verified, unlock exclusive features, and boost your presence.
-        </p>
-        <Button className="rounded-lg font-semibold text-sm h-9">
-          Subscribe
-        </Button>
-      </div>
+      <PremiumSubscriptionCard />
 
       {/* Trends */}
       <div className="bg-card rounded-lg border border-border overflow-hidden">
