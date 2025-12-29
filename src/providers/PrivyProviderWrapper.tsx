@@ -1,4 +1,4 @@
-import { ReactNode, createContext, useContext, useEffect, useState } from "react";
+import { ReactNode, createContext, useContext, useEffect, useState, Component, ErrorInfo } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -67,13 +67,35 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
   const appId = resolvedAppId;
   const privyAvailable = checked && isValidPrivyAppId(appId);
 
+  // Show loading state while checking for Privy config
+  if (!checked) {
+    return (
+      <PrivyAvailableContext.Provider value={false}>
+        <div style={{ 
+          minHeight: '100vh', 
+          backgroundColor: '#0d0e12', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            border: '2px solid transparent',
+            borderTopColor: '#f0b90b',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }} />
+        </div>
+      </PrivyAvailableContext.Provider>
+    );
+  }
+
   if (!privyAvailable) {
-    if (checked) {
-      console.warn(
-        "Privy App ID not configured - auth features disabled. Please set VITE_PRIVY_APP_ID in your Lovable Cloud secrets.",
-        { rawAppIdPresent: !!rawAppId, runtimeResolved: !!resolvedAppId }
-      );
-    }
+    console.warn(
+      "Privy App ID not configured - auth features disabled. Please set VITE_PRIVY_APP_ID in your Lovable Cloud secrets.",
+      { rawAppIdPresent: !!rawAppId, runtimeResolved: !!resolvedAppId }
+    );
 
     return (
       <PrivyAvailableContext.Provider value={false}>

@@ -176,7 +176,7 @@ export default function AIPage() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-gradient-to-br from-primary to-fautra-blue-hover">
+            <div className="p-2 rounded-full bg-gradient-to-br from-primary to-accent-foreground">
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
