@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Image, Smile, MapPin, Calendar, X } from "lucide-react";
+import { Image, Smile, MapPin, Calendar, X, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ interface ComposePostProps {
     handle: string;
     avatar?: string;
   };
-  onPost: (content: string, media?: File[]) => void;
+  onPost: (content: string, media?: File[]) => void | Promise<void>;
   placeholder?: string;
   maxLength?: number;
 }
@@ -24,19 +24,42 @@ export function ComposePost({
   const [content, setContent] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const characterCount = content.length;
   const isOverLimit = characterCount > maxLength;
   const characterPercentage = Math.min((characterCount / maxLength) * 100, 100);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async () => {
     if (!content.trim() || isOverLimit || isPosting) return;
     
     setIsPosting(true);
     try {
-      await onPost(content);
+      await onPost(content, selectedImage ? [selectedImage] : undefined);
       setContent("");
+      removeImage();
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
@@ -83,6 +106,25 @@ export function ComposePost({
             rows={1}
           />
 
+          {/* Image Preview */}
+          {imagePreview && (
+            <div className="relative mt-3 inline-block">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="max-h-48 rounded-xl object-cover"
+              />
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80"
+                onClick={removeImage}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           {/* Reply settings (shows when focused) */}
           {isFocused && (
             <button className="text-primary text-sm font-bold flex items-center gap-1 mb-2 hover:bg-primary/10 rounded-full px-2 py-1 -ml-2 transition-colors">
@@ -94,10 +136,18 @@ export function ComposePost({
           {/* Actions bar */}
           <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
             <div className="flex items-center gap-1 -ml-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
               <Button 
                 variant="ghost" 
                 size="icon" 
                 className="h-9 w-9 rounded-full text-primary hover:bg-primary/10"
+                onClick={() => fileInputRef.current?.click()}
               >
                 <Image className="h-5 w-5" />
               </Button>
@@ -174,7 +224,14 @@ export function ComposePost({
                 disabled={!content.trim() || isOverLimit || isPosting}
                 className="rounded-full font-bold px-5"
               >
-                {isPosting ? "Posting..." : "Post"}
+                {isPosting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Posting...
+                  </>
+                ) : (
+                  "Post"
+                )}
               </Button>
             </div>
           </div>
