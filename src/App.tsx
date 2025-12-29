@@ -12,8 +12,10 @@ import ExplorePage from "./pages/ExplorePage";
 import NotificationsPage from "./pages/NotificationsPage";
 import MessagesPage from "./pages/MessagesPage";
 import ProfilePage from "./pages/ProfilePage";
+import UserProfilePage from "./pages/UserProfilePage";
 import BookmarksPage from "./pages/BookmarksPage";
 import CommunitiesPage from "./pages/CommunitiesPage";
+import SettingsPage from "./pages/SettingsPage";
 import AIPage from "./pages/AIPage";
 import NotFound from "./pages/NotFound";
 
@@ -37,7 +39,9 @@ const App = () => (
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/bookmarks" element={<BookmarksPage />} />
                 <Route path="/communities" element={<CommunitiesPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/ai" element={<AIPage />} />
+                <Route path="/:username" element={<UserProfilePage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
