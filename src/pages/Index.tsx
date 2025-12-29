@@ -11,6 +11,7 @@ import { PostData } from "@/components/post";
 function transformPost(post: PostWithProfile): PostData {
   return {
     id: post.id,
+    authorId: post.user_id,
     author: {
       name: post.profiles?.display_name || "Unknown",
       handle: post.profiles?.username || "unknown",

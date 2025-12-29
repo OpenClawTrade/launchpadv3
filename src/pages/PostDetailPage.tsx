@@ -11,6 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 function transformPost(post: any): PostData {
   return {
     id: post.id,
+    authorId: post.user_id,
     author: {
       name: post.profiles?.display_name || "Unknown",
       handle: post.profiles?.username || "unknown",

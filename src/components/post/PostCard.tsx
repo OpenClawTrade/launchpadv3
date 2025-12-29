@@ -7,7 +7,13 @@ import {
   Bookmark, 
   Share, 
   MoreHorizontal,
-  BarChart3
+  BarChart3,
+  UserPlus,
+  UserMinus,
+  VolumeX,
+  Volume2,
+  Ban,
+  Flag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,13 +23,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { useUserActions, useReport } from "@/hooks/useUserActions";
+import { ReportModal } from "./ReportModal";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface PostData {
   id: string;
+  authorId?: string;
   author: {
     name: string;
     handle: string;
@@ -74,12 +85,26 @@ export function PostCard({
   onReply 
 }: PostCardProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isReposted, setIsReposted] = useState(post.isReposted || false);
   const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked || false);
   const [likeCount, setLikeCount] = useState(post.stats.likes);
   const [repostCount, setRepostCount] = useState(post.stats.reposts);
   const [isLikeAnimating, setIsLikeAnimating] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  
+  const { 
+    isFollowing, 
+    isMuted, 
+    isBlocked, 
+    toggleFollow, 
+    toggleMute, 
+    toggleBlock,
+    isOwnProfile 
+  } = useUserActions(post.authorId || null);
+  
+  const { reportPost } = useReport();
 
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -197,12 +222,62 @@ export function PostCard({
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Not interested in this post</DropdownMenuItem>
-                <DropdownMenuItem>Follow @{post.author.handle}</DropdownMenuItem>
-                <DropdownMenuItem>Mute @{post.author.handle}</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">Block @{post.author.handle}</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">Report post</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="bg-popover">
+                {!isOwnProfile && (
+                  <>
+                    <DropdownMenuItem 
+                      onClick={(e) => { e.stopPropagation(); toggleFollow(); }}
+                      className="gap-2"
+                    >
+                      {isFollowing ? (
+                        <>
+                          <UserMinus className="h-4 w-4" />
+                          Unfollow @{post.author.handle}
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-4 w-4" />
+                          Follow @{post.author.handle}
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+                      className="gap-2"
+                    >
+                      {isMuted ? (
+                        <>
+                          <Volume2 className="h-4 w-4" />
+                          Unmute @{post.author.handle}
+                        </>
+                      ) : (
+                        <>
+                          <VolumeX className="h-4 w-4" />
+                          Mute @{post.author.handle}
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={(e) => { e.stopPropagation(); toggleBlock(); }}
+                      className="gap-2 text-destructive focus:text-destructive"
+                    >
+                      <Ban className="h-4 w-4" />
+                      {isBlocked ? 'Unblock' : 'Block'} @{post.author.handle}
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                
+                <DropdownMenuItem 
+                  onClick={(e) => { e.stopPropagation(); setShowReportModal(true); }}
+                  className="gap-2 text-destructive focus:text-destructive"
+                >
+                  <Flag className="h-4 w-4" />
+                  Report post
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -329,6 +404,14 @@ export function PostCard({
           </div>
         </div>
       </div>
+      
+      <ReportModal
+        open={showReportModal}
+        onOpenChange={setShowReportModal}
+        onSubmit={(reason, description) => reportPost(post.id, reason, description)}
+        type="post"
+        targetName={post.author.handle}
+      />
     </article>
   );
 }

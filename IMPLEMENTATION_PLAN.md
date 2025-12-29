@@ -15,12 +15,11 @@
 - [x] **Repost Functionality** - DB operations in usePosts, toggleRepost added
 - [x] **Share Button** - Native share API + clipboard fallback
 
-### Phase 3: PostCard Dropdown Actions (Priority: MEDIUM)
-- [ ] **"Not interested in this post"** - No functionality
-- [ ] **"Follow @user"** - No functionality
-- [ ] **"Mute @user"** - No functionality  
-- [ ] **"Block @user"** - No functionality
-- [ ] **"Report post"** - No functionality
+### Phase 3: PostCard Dropdown Actions (Priority: MEDIUM) ✅ DONE
+- [x] **"Follow @user"** - Toggle follow with DB + optimistic UI
+- [x] **"Mute @user"** - Toggle mute with DB (user_mutes table)
+- [x] **"Block @user"** - Toggle block with DB (user_blocks table)
+- [x] **"Report post"** - Report modal with reasons (reports table)
 
 ### Phase 4: Sidebar Elements (Priority: MEDIUM)
 - [ ] **Search Input** - UI only, not connected to search
