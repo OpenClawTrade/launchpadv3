@@ -46,7 +46,7 @@ export function RightSidebar() {
       {/* Auth Buttons - Only show when not logged in */}
       {!isAuthenticated && (
         <div className="bg-card rounded-lg p-4 border border-border space-y-2">
-          <h2 className="text-base font-semibold mb-3">New to FAUTRA?</h2>
+          <h2 className="text-base font-semibold mb-3">New to TRENCHES?</h2>
           <Button onClick={login} className="w-full rounded-lg font-semibold text-sm h-9">
             <LogIn className="mr-2 h-4 w-4" />
             Log In
@@ -183,7 +183,7 @@ export function RightSidebar() {
           <a href="#" className="hover:underline">Privacy</a>
           <a href="#" className="hover:underline">Cookies</a>
           <a href="#" className="hover:underline">Accessibility</a>
-          <span>© 2025 FAUTRA</span>
+          <span>© 2025 TRENCHES</span>
         </div>
       </div>
     </aside>

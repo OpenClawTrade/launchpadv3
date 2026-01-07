@@ -17,7 +17,7 @@ import {
   Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import fautraLogo from "@/assets/fautra-logo.png";
+import trenchesLogo from "@/assets/trenches-logo.png";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,7 @@ const baseNavItems: NavItem[] = [
   { icon: Search, label: "Explore", href: "/explore" },
   { icon: Bell, label: "Notifications", href: "/notifications", badgeKey: "notifications" },
   { icon: Mail, label: "Messages", href: "/messages", badgeKey: "messages" },
-  { icon: Sparkles, label: "Fautra AI", href: "/ai" },
+  { icon: Sparkles, label: "Trenches AI", href: "/ai" },
   { icon: Bookmark, label: "Bookmarks", href: "/bookmarks" },
   { icon: Users, label: "Communities", href: "/communities" },
   { icon: User, label: "Profile", href: "/profile" },
@@ -96,8 +96,8 @@ export function Sidebar({ user }: SidebarProps) {
             className="p-2 rounded-lg hover:bg-secondary transition-colors duration-200 w-fit mb-4"
           >
             <img 
-              src={fautraLogo} 
-              alt="FAUTRA" 
+              src={trenchesLogo} 
+              alt="TRENCHES" 
               className="h-8 w-8 object-contain"
             />
           </Link>
@@ -225,7 +225,7 @@ export function Sidebar({ user }: SidebarProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <a 
-                    href="https://help.fautra.com" 
+                    href="https://help.trenches.com" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center gap-2"

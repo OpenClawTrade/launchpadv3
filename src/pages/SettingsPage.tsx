@@ -221,8 +221,8 @@ export default function SettingsPage() {
             </div>
             <Separator />
             <div className="text-center text-sm text-muted-foreground">
-              <p>FAUTRA v1.0.0</p>
-              <p>© 2025 FAUTRA. All rights reserved.</p>
+              <p>TRENCHES v1.0.0</p>
+              <p>© 2025 TRENCHES. All rights reserved.</p>
             </div>
           </div>
         );

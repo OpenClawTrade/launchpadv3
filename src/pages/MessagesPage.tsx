@@ -78,7 +78,7 @@ export default function MessagesPage() {
             <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-bold mb-2">Sign in to see your messages</h2>
             <p className="text-muted-foreground max-w-sm">
-              Log in to start private conversations with others on FAUTRA.
+              Log in to start private conversations with others on TRENCHES.
             </p>
             <Button onClick={login} className="mt-6 rounded-full font-bold">
               Sign in
@@ -105,7 +105,7 @@ export default function MessagesPage() {
             <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-bold mb-2">Welcome to your inbox!</h2>
             <p className="text-muted-foreground max-w-sm">
-              Drop a line, share posts and more with private conversations between you and others on FAUTRA.
+              Drop a line, share posts and more with private conversations between you and others on TRENCHES.
             </p>
             <Button className="mt-6 rounded-full font-bold">
               Write a message

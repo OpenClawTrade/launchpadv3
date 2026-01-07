@@ -94,7 +94,7 @@ export default function ExplorePage() {
         <form onSubmit={handleSearch} className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
-            placeholder="Search FAUTRA"
+            placeholder="Search TRENCHES"
             value={searchQuery}
             onChange={handleSearchChange}
             className="pl-12 h-12 rounded-full bg-secondary border-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:bg-background"
