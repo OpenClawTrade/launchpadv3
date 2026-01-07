@@ -181,7 +181,7 @@ export default function AIPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold">TRENCHES AI</h1>
-              <p className="text-xs text-muted-foreground">Powered by Gemini</p>
+              <p className="text-xs text-muted-foreground">Powered by TRENCHES Assistant</p>
             </div>
           </div>
           {messages.length > 1 && (
