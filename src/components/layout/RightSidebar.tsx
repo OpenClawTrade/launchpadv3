@@ -2,7 +2,7 @@ import { Settings, TrendingUp, LogIn, UserPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrending } from "@/hooks/useTrending";
 import { useSuggestedUsers } from "@/hooks/useSuggestedUsers";
@@ -29,6 +29,7 @@ function getCategoryLabel(name: string): string {
 }
 
 export function RightSidebar() {
+  const navigate = useNavigate();
   const { isAuthenticated, login } = useAuth();
   const { trends, isLoading: trendsLoading } = useTrending(5);
   const { suggestedUsers, isLoading: usersLoading, followUser } = useSuggestedUsers(3);
@@ -106,7 +107,10 @@ export function RightSidebar() {
           )}
         </div>
         {trends.length > 0 && (
-          <button className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200">
+          <button 
+            onClick={() => navigate("/explore?tab=trending")}
+            className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200"
+          >
             Show more
           </button>
         )}
@@ -170,7 +174,10 @@ export function RightSidebar() {
           )}
         </div>
         {suggestedUsers.length > 0 && (
-          <button className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200">
+          <button 
+            onClick={() => navigate("/explore?tab=users")}
+            className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200"
+          >
             Show more
           </button>
         )}
@@ -179,10 +186,10 @@ export function RightSidebar() {
       {/* Footer links */}
       <div className="text-xs text-muted-foreground px-2 pb-4">
         <div className="flex flex-wrap gap-x-2 gap-y-1">
-          <a href="#" className="hover:underline">Terms</a>
-          <a href="#" className="hover:underline">Privacy</a>
-          <a href="#" className="hover:underline">Cookies</a>
-          <a href="#" className="hover:underline">Accessibility</a>
+          <Link to="/terms" className="hover:underline">Terms</Link>
+          <Link to="/privacy" className="hover:underline">Privacy</Link>
+          <Link to="/cookies" className="hover:underline">Cookies</Link>
+          <Link to="/accessibility" className="hover:underline">Accessibility</Link>
           <span>© 2025 TRENCHES</span>
         </div>
       </div>
