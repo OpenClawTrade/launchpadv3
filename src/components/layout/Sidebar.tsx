@@ -13,7 +13,8 @@ import {
   MoreHorizontal,
   Feather,
   LogIn,
-  UserPlus
+  UserPlus,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import fautraLogo from "@/assets/fautra-logo.png";
@@ -31,6 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 import { ComposeModal } from "@/components/post/ComposeModal";
 import { usePosts } from "@/hooks/usePosts";
+import { useAdmin } from "@/hooks/useAdmin";
 
 interface NavItem {
   icon: React.ElementType;
@@ -64,6 +66,7 @@ export function Sidebar({ user }: SidebarProps) {
   const { logout, isAuthenticated, login } = useAuth();
   const { notificationCount, messageCount } = useUnreadCounts();
   const { createPost } = usePosts();
+  const { isAdmin } = useAdmin();
   const [composeOpen, setComposeOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -252,6 +255,22 @@ export function Sidebar({ user }: SidebarProps) {
               <Settings className="h-5 w-5 flex-shrink-0" />
               <span className="text-sm hidden xl:block">Settings</span>
             </Link>
+
+            {/* Admin Panel - Only visible to admins */}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+                  location.pathname === "/admin"
+                    ? "bg-destructive/10 text-destructive font-semibold" 
+                    : "text-destructive hover:bg-destructive/10"
+                )}
+              >
+                <Shield className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm hidden xl:block">Admin</span>
+              </Link>
+            )}
           </nav>
 
           {/* Post Button */}
