@@ -83,8 +83,8 @@ export function RightSidebar() {
             </div>
           ) : trends.length === 0 ? (
             <div className="px-4 py-6 text-center">
-              <p className="text-sm text-muted-foreground">No trends yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-foreground/70">No trends yet</p>
+              <p className="text-xs text-foreground/50 mt-1">
                 Post with #hashtags to start trending!
               </p>
             </div>
@@ -122,8 +122,8 @@ export function RightSidebar() {
             </div>
           ) : suggestedUsers.length === 0 ? (
             <div className="px-4 py-6 text-center">
-              <p className="text-sm text-muted-foreground">No suggestions yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-foreground/70">No suggestions yet</p>
+              <p className="text-xs text-foreground/50 mt-1">
                 More users will appear as the community grows!
               </p>
             </div>
