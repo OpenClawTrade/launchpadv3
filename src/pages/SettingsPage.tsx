@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
 import { ArrowLeft, User, Palette, Bell, Shield, HelpCircle, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,17 @@ import { toast } from "sonner";
 type SettingsSection = "account" | "appearance" | "notifications" | "privacy" | "help";
 
 export default function SettingsPage() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, login, logout, ready } = useAuth();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<SettingsSection>("account");
+  
+  // Redirect unauthenticated users
+  useEffect(() => {
+    if (ready && !isAuthenticated) {
+      navigate("/", { replace: true });
+      login();
+    }
+  }, [ready, isAuthenticated, navigate, login]);
   
   // Settings state
   const [darkMode, setDarkMode] = useState(true);
