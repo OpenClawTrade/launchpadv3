@@ -34,6 +34,10 @@ export function RightSidebar() {
   const { suggestedUsers, isLoading: usersLoading, followUser } = useSuggestedUsers(3);
 
   const handleFollow = async (userId: string) => {
+    if (!isAuthenticated) {
+      login();
+      return;
+    }
     await followUser(userId);
   };
 
