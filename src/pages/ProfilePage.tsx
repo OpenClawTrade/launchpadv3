@@ -65,13 +65,7 @@ export default function ProfilePage() {
     toggleFollow,
   } = useProfile(username);
 
-  // Redirect to login if viewing own profile and not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated && !username) {
-      // Viewing /profile without being logged in
-      login();
-    }
-  }, [authLoading, isAuthenticated, username, login]);
+  // Don't auto-trigger login - let user click the button so they can dismiss the modal
 
   // Show loading while checking auth
   if (authLoading) {
