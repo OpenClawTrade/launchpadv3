@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import fautraLogo from "@/assets/fautra-logo.png";
+import trenchesLogo from "@/assets/trenches-logo.png";
 
 interface Message {
   id: string;
@@ -22,7 +22,7 @@ export default function AIPage() {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hello! I'm FAUTRA AI, your intelligent assistant. I can help you with questions about FAUTRA, Solana, Web3, or just have a conversation. What would you like to know?",
+      content: "Hello! I'm TRENCHES AI, your intelligent assistant. I can help you with questions about TRENCHES, Solana, Web3, or just have a conversation. What would you like to know?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -163,7 +163,7 @@ export default function AIPage() {
       {
         id: "welcome",
         role: "assistant",
-        content: "Hello! I'm FAUTRA AI, your intelligent assistant. I can help you with questions about FAUTRA, Solana, Web3, or just have a conversation. What would you like to know?",
+        content: "Hello! I'm TRENCHES AI, your intelligent assistant. I can help you with questions about TRENCHES, Solana, Web3, or just have a conversation. What would you like to know?",
       },
     ]);
   };
@@ -180,7 +180,7 @@ export default function AIPage() {
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">FAUTRA AI</h1>
+              <h1 className="text-xl font-bold">TRENCHES AI</h1>
               <p className="text-xs text-muted-foreground">Powered by Gemini</p>
             </div>
           </div>
@@ -203,7 +203,7 @@ export default function AIPage() {
           >
             <Avatar className="h-8 w-8 flex-shrink-0">
               {message.role === "assistant" ? (
-                <img src={fautraLogo} alt="AI" className="h-full w-full object-contain p-1" />
+                <img src={trenchesLogo} alt="AI" className="h-full w-full object-contain p-1" />
               ) : (
                 <>
                   <AvatarImage src={user?.avatarUrl} />
@@ -227,7 +227,7 @@ export default function AIPage() {
         {isLoading && messages[messages.length - 1]?.content === "" && (
           <div className="flex gap-3 animate-fadeIn">
             <Avatar className="h-8 w-8 flex-shrink-0">
-              <img src={fautraLogo} alt="AI" className="h-full w-full object-contain p-1" />
+              <img src={trenchesLogo} alt="AI" className="h-full w-full object-contain p-1" />
             </Avatar>
             <div className="bg-secondary rounded-2xl px-4 py-3">
               <div className="flex gap-1">
@@ -248,7 +248,7 @@ export default function AIPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder={isAuthenticated ? "Ask FAUTRA AI anything..." : "Sign in to chat with AI"}
+            placeholder={isAuthenticated ? "Ask TRENCHES AI anything..." : "Sign in to chat with AI"}
             className="h-12 rounded-full bg-secondary border-0"
             disabled={isLoading}
           />
