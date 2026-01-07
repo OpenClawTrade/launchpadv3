@@ -25,5 +25,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // Ensure only a single copy of React is used (fixes "useEffect is null" errors)
+    dedupe: ["react", "react-dom", "react-router-dom"],
   },
 }));
