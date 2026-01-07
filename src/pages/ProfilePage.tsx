@@ -54,6 +54,9 @@ export default function ProfilePage() {
   const {
     profile,
     posts,
+    replies,
+    mediaPosts,
+    likedPosts,
     isLoading,
     isOwnProfile,
     isFollowing,
@@ -305,21 +308,51 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="replies" className="mt-0">
-          <div className="py-10 text-center text-muted-foreground">
-            <p>No replies yet</p>
-          </div>
+          {replies.length > 0 ? (
+            replies.map((post) => (
+              <PostCard key={post.id} post={transformPost(post)} />
+            ))
+          ) : (
+            <div className="py-10 text-center text-muted-foreground">
+              <p>No replies yet</p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="media" className="mt-0">
-          <div className="py-10 text-center text-muted-foreground">
-            <p>No media yet</p>
-          </div>
+          {mediaPosts.length > 0 ? (
+            <div className="grid grid-cols-3 gap-0.5">
+              {mediaPosts.map((post) => (
+                <a
+                  key={post.id}
+                  href={`/post/${post.id}`}
+                  className="aspect-square overflow-hidden bg-secondary hover:opacity-90 transition-opacity"
+                >
+                  <img
+                    src={post.image_url || ""}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center text-muted-foreground">
+              <p>No media yet</p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="likes" className="mt-0">
-          <div className="py-10 text-center text-muted-foreground">
-            <p>No likes yet</p>
-          </div>
+          {likedPosts.length > 0 ? (
+            likedPosts.map((post) => (
+              <PostCard key={post.id} post={transformPost(post)} />
+            ))
+          ) : (
+            <div className="py-10 text-center text-muted-foreground">
+              <p>No likes yet</p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

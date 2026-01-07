@@ -46,6 +46,9 @@ export default function UserProfilePage() {
   const {
     profile,
     posts,
+    replies,
+    mediaPosts,
+    likedPosts,
     isLoading,
     isOwnProfile,
     isFollowing,
@@ -285,21 +288,61 @@ export default function UserProfilePage() {
         </TabsContent>
 
         <TabsContent value="replies" className="mt-0">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-lg font-semibold">No replies yet</p>
-          </div>
+          {replies.length > 0 ? (
+            replies.map((reply) => (
+              <PostCard
+                key={reply.id}
+                post={transformPost(reply)}
+                onLike={handleLike}
+                onBookmark={handleBookmark}
+              />
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-lg font-semibold">No replies yet</p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="media" className="mt-0">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-lg font-semibold">No media yet</p>
-          </div>
+          {mediaPosts.length > 0 ? (
+            <div className="grid grid-cols-3 gap-0.5">
+              {mediaPosts.map((post) => (
+                <a
+                  key={post.id}
+                  href={`/post/${post.id}`}
+                  className="aspect-square overflow-hidden bg-secondary hover:opacity-90 transition-opacity"
+                >
+                  <img
+                    src={post.image_url || ""}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-lg font-semibold">No media yet</p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="likes" className="mt-0">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-lg font-semibold">No likes yet</p>
-          </div>
+          {likedPosts.length > 0 ? (
+            likedPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={transformPost(post)}
+                onLike={handleLike}
+                onBookmark={handleBookmark}
+              />
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-lg font-semibold">No likes yet</p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </MainLayout>
