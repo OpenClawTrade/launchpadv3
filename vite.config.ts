@@ -10,6 +10,17 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  // Silence noisy (but harmless) Rollup warnings coming from some dependencies.
+  // This keeps CI logs clean while preserving real warnings/errors.
+  build: {
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // e.g. "contains an annotation that Rollup cannot interpret" (/*#__PURE__*/)
+        if (warning?.code === "INVALID_ANNOTATION") return;
+        warn(warning);
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
