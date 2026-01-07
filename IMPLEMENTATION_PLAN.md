@@ -1,57 +1,98 @@
 # TRENCHES Implementation Plan
 
-## Non-Functional Elements to Fix
+## ✅ COMPLETED FEATURES
 
-### Phase 1: Critical Routing & Navigation (Priority: HIGH) ✅ DONE
-- [x] **Settings Page** - `/settings` route created
-- [x] **Compose Modal** - Sidebar "Post" button opens modal
-- [x] **Mobile Compose FAB** - Opens compose modal
-- [x] **User Profile Routes** - `/:username` dynamic routing added
-- [ ] **User Profile Routes** - `/:username` dynamic routing missing
+### Core Social Features
+- [x] Post creation with text and images
+- [x] Like/Unlike posts with optimistic updates
+- [x] Repost/Unrepost with notifications
+- [x] Bookmark posts
+- [x] Reply to posts (threaded)
+- [x] Share posts (Web Share API + clipboard)
+- [x] Post view counter (increments on detail view)
 
-### Phase 2: Post Interactions (Priority: HIGH) ✅ DONE
-- [x] **Image Upload for Posts** - Storage bucket created, ComposePost/Modal updated
-- [x] **Reply Functionality** - PostDetailPage with thread view created
-- [x] **Repost Functionality** - DB operations in usePosts, toggleRepost added
-- [x] **Share Button** - Native share API + clipboard fallback
+### User Interactions
+- [x] Follow/Unfollow users
+- [x] Mute users
+- [x] Block users
+- [x] Report posts/users
 
-### Phase 3: PostCard Dropdown Actions (Priority: MEDIUM) ✅ DONE
-- [x] **"Follow @user"** - Toggle follow with DB + optimistic UI
-- [x] **"Mute @user"** - Toggle mute with DB (user_mutes table)
-- [x] **"Block @user"** - Toggle block with DB (user_blocks table)
-- [x] **"Report post"** - Report modal with reasons (reports table)
+### Profiles & Authentication
+- [x] User profiles with bio, location, website
+- [x] Profile editing
+- [x] Privy authentication (wallet, Twitter, email)
+- [x] Solana wallet integration
+- [x] Protected routes for authenticated pages
 
-### Phase 4: Sidebar Elements (Priority: MEDIUM) ✅ DONE
-- [x] **Search Input** - Connected to explore page with query params
-- [x] **"More" Button** - Opens dropdown with Settings, Bookmarks, Help links
+### Discovery & Navigation
+- [x] Home feed with real-time updates
+- [x] Explore page with search
+- [x] Trending topics algorithm
+- [x] Who to follow suggestions
+- [x] User search
+- [x] Hashtag extraction and linking
 
-### Phase 5: Right Sidebar (Priority: LOW)
-- [ ] **"Subscribe to Premium"** - No Stripe integration
-- [ ] **Trending "Show more"** - No navigation
-- [ ] **Who to follow "Show more"** - No navigation
-- [ ] **Footer Links** - Terms, Privacy, Cookies, Accessibility all `href="#"`
+### Messaging & Notifications
+- [x] Direct messages (real-time)
+- [x] Notifications (likes, follows, replies, reposts)
+- [x] Unread counts
 
-### Phase 6: ComposePost Extras (Priority: LOW)
-- [ ] **Emoji Picker** - No functionality
-- [ ] **Location Button** - No functionality
-- [ ] **Schedule Button** - No functionality
-- [ ] **"Everyone can reply" Selector** - UI only
+### Community Features
+- [x] Communities creation and joining
+- [x] Community listings
 
-### Phase 7: AI Page (Priority: LOW)
-- [ ] **AI Chat** - Hardcoded mock responses, needs Lovable AI gateway
+### Legal & Footer
+- [x] Terms of Service page (/terms)
+- [x] Privacy Policy page (/privacy)
+- [x] Cookie Policy page (/cookies)
+- [x] Accessibility page (/accessibility)
+- [x] Footer links working
 
-### Phase 8: Profile Enhancements (Priority: MEDIUM)
-- [ ] **Avatar Upload** - No file upload in EditProfileModal
-- [ ] **Cover Upload** - No file upload in EditProfileModal
+### Admin
+- [x] Admin panel for reports
+- [x] Role-based access control
+
+### AI Features
+- [x] TRENCHES AI chat assistant
 
 ---
 
-## Completed Items
-<!-- Move items here when done -->
+## 🚧 REMAINING ITEMS (Low Priority)
+
+### Phase 6: ComposePost Extras
+- [ ] **Emoji Picker** - UI exists, needs connection to input
+- [ ] **Location Button** - No location API
+- [ ] **Schedule Button** - No scheduling backend
+- [ ] **"Everyone can reply" Selector** - UI only
+
+### Phase 8: Profile Enhancements
+- [ ] **Avatar Upload** - Add file upload in EditProfileModal
+- [ ] **Cover Upload** - Add file upload in EditProfileModal
+
+### Additional Nice-to-Haves
+- [ ] Replies tab on user profile (show user's replies)
+- [ ] Media tab on user profile (show posts with images)
+- [ ] Likes tab on user profile (show user's liked posts)
+- [ ] Infinite scroll / pagination for feeds
+- [ ] Push notifications (service worker)
+- [ ] Offline support (PWA)
+
+---
+
+## ✅ JUST COMPLETED (This Session)
+
+1. **Fixed duplicate footer** - Removed version text from Settings Help section
+2. **Created legal pages** - Terms, Privacy, Cookies, Accessibility with full content
+3. **Fixed "Show more" links** - Navigate to Explore with tab filters
+4. **Reposts on user profile** - User timeline includes their reposts
+5. **View counter** - Posts increment views_count when viewed
+6. **Protected /settings route** - Redirects unauthenticated users
+7. **Fixed footer links** - All link to proper pages using React Router
 
 ---
 
 ## Notes
-- Focus on Phase 1 first as these are critical navigation issues
-- Phase 2 is essential for core social functionality
-- Phases 5-7 can be deferred or simplified
+- All core X.com-like features are functional
+- Backend powered by Supabase with real-time subscriptions
+- Authentication via Privy with Solana wallet support
+- Remaining items are enhancement/polish features

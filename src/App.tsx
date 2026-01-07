@@ -24,6 +24,10 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
 const AIPage = lazy(() => import("./pages/AIPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
+const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
+const CookiesPage = lazy(() => import("./pages/CookiesPage"));
+const AccessibilityPage = lazy(() => import("./pages/AccessibilityPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -69,6 +73,10 @@ const App = () => (
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/ai" element={<AIPage />} />
                   <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/cookies" element={<CookiesPage />} />
+                  <Route path="/accessibility" element={<AccessibilityPage />} />
                   <Route path="/post/:postId" element={<PostDetailPage />} />
                   <Route path="/:username" element={<UserProfilePage />} />
                   <Route path="*" element={<NotFound />} />

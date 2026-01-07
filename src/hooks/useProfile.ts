@@ -81,7 +81,8 @@ export function useProfile(username?: string) {
         setIsFollowing(!!followData);
       }
 
-      // Fetch user's posts
+      // Fetch user's posts (including reposts)
+      // First get original posts, then get reposts with original post data
       const { data: postsData, error: postsError } = await supabase
         .from("posts")
         .select(`

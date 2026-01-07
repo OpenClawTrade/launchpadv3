@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout";
@@ -6,6 +6,7 @@ import { PostCard, PostData, ComposePost } from "@/components/post";
 import { Button } from "@/components/ui/button";
 import { usePost, usePosts } from "@/hooks/usePosts";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 
 function transformPost(post: any): PostData {
@@ -43,6 +44,22 @@ export default function PostDetailPage() {
   const { post, replies, isLoading, refetch } = usePost(postId || null);
   const { toggleLike, toggleBookmark, toggleRepost, createPost } = usePosts();
   const [isReplying, setIsReplying] = useState(false);
+  const viewTracked = useRef(false);
+
+  // Track post view
+  useEffect(() => {
+    if (!postId || !post || viewTracked.current) return;
+    viewTracked.current = true;
+    
+    // Increment view count in background (fire and forget)
+    supabase
+      .from("posts")
+      .update({ views_count: (post.views_count || 0) + 1 })
+      .eq("id", postId)
+      .then(() => {
+        // View tracked successfully
+      });
+  }, [postId, post]);
 
   const handleLike = (id: string) => {
     if (!isAuthenticated) {

@@ -210,27 +210,22 @@ export default function SettingsPage() {
           <div className="space-y-6">
             <h3 className="text-lg font-semibold">Help & Support</h3>
             <div className="space-y-4">
-              <a href="#" className="block p-4 rounded-lg border border-border hover:bg-secondary transition-colors">
+              <a href="mailto:support@trenches.fun" className="block p-4 rounded-lg border border-border hover:bg-secondary transition-colors">
                 <h4 className="font-medium">Help Center</h4>
                 <p className="text-sm text-muted-foreground">Find answers to common questions</p>
               </a>
-              <a href="#" className="block p-4 rounded-lg border border-border hover:bg-secondary transition-colors">
+              <a href="mailto:support@trenches.fun" className="block p-4 rounded-lg border border-border hover:bg-secondary transition-colors">
                 <h4 className="font-medium">Contact Support</h4>
                 <p className="text-sm text-muted-foreground">Get help from our team</p>
               </a>
-              <a href="#" className="block p-4 rounded-lg border border-border hover:bg-secondary transition-colors">
+              <Link to="/terms" className="block p-4 rounded-lg border border-border hover:bg-secondary transition-colors">
                 <h4 className="font-medium">Terms of Service</h4>
                 <p className="text-sm text-muted-foreground">Read our terms and conditions</p>
-              </a>
-              <a href="#" className="block p-4 rounded-lg border border-border hover:bg-secondary transition-colors">
+              </Link>
+              <Link to="/privacy" className="block p-4 rounded-lg border border-border hover:bg-secondary transition-colors">
                 <h4 className="font-medium">Privacy Policy</h4>
                 <p className="text-sm text-muted-foreground">Learn how we protect your data</p>
-              </a>
-            </div>
-            <Separator />
-            <div className="text-center text-sm text-muted-foreground">
-              <p>TRENCHES v1.0.0</p>
-              <p>© 2025 TRENCHES. All rights reserved.</p>
+              </Link>
             </div>
           </div>
         );
