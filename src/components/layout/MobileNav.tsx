@@ -22,7 +22,7 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
     const location = useLocation();
     const { notificationCount, messageCount } = useUnreadCounts();
     const { isAuthenticated, login } = useAuth();
-    const { createPost } = usePosts();
+    const { createPost } = usePosts({ fetch: false });
     const [composeOpen, setComposeOpen] = useState(false);
 
     const navItems = baseNavItems.map((item) => ({

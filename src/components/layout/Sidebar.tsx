@@ -65,7 +65,7 @@ export function Sidebar({ user }: SidebarProps) {
   const navigate = useNavigate();
   const { logout, isAuthenticated, login } = useAuth();
   const { notificationCount, messageCount } = useUnreadCounts();
-  const { createPost } = usePosts();
+  const { createPost } = usePosts({ fetch: false });
   const { isAdmin } = useAdmin();
   const [composeOpen, setComposeOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
