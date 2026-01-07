@@ -28,17 +28,29 @@ export interface PostWithProfile {
   };
 }
 
-export function usePosts() {
+export interface UsePostsOptions {
+  /**
+   * When false, skips the initial feed fetch (useful for places that only need createPost).
+   * Defaults to true.
+   */
+  fetch?: boolean;
+}
+
+export function usePosts(options: UsePostsOptions = {}) {
+  const fetchEnabled = options.fetch !== false;
+
   const { user, isAuthenticated } = useAuth();
   const [posts, setPosts] = useState<PostWithProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(fetchEnabled);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch posts with profile info
   const fetchPosts = async () => {
+    if (!fetchEnabled) return;
+
     try {
       setIsLoading(true);
-      
+
       const { data: postsData, error: postsError } = await supabase
         .from("posts")
         .select(`
@@ -61,33 +73,30 @@ export function usePosts() {
       let userLikes: string[] = [];
       let userBookmarks: string[] = [];
       let userReposts: string[] = [];
-      
+
       if (user?.id) {
-        const postIds = (postsData || []).map(p => p.id);
-        
+        const postIds = (postsData || []).map((p) => p.id);
+
         const [likesRes, bookmarksRes, repostsRes] = await Promise.all([
-          supabase
-            .from("likes")
-            .select("post_id")
-            .eq("user_id", user.id),
-          supabase
-            .from("bookmarks")
-            .select("post_id")
-            .eq("user_id", user.id),
+          supabase.from("likes").select("post_id").eq("user_id", user.id),
+          supabase.from("bookmarks").select("post_id").eq("user_id", user.id),
           supabase
             .from("posts")
             .select("original_post_id")
             .eq("user_id", user.id)
             .eq("is_repost", true)
-            .in("original_post_id", postIds)
+            .in("original_post_id", postIds),
         ]);
 
-        userLikes = likesRes.data?.map(l => l.post_id) || [];
-        userBookmarks = bookmarksRes.data?.map(b => b.post_id) || [];
-        userReposts = repostsRes.data?.map(r => r.original_post_id).filter(Boolean) as string[] || [];
+        userLikes = likesRes.data?.map((l) => l.post_id) || [];
+        userBookmarks = bookmarksRes.data?.map((b) => b.post_id) || [];
+        userReposts =
+          (repostsRes.data
+            ?.map((r) => r.original_post_id)
+            .filter(Boolean) as string[]) || [];
       }
 
-      const enrichedPosts = (postsData || []).map(post => ({
+      const enrichedPosts = (postsData || []).map((post) => ({
         ...post,
         is_liked: userLikes.includes(post.id),
         is_bookmarked: userBookmarks.includes(post.id),
@@ -139,7 +148,7 @@ export function usePosts() {
 
     try {
       let imageUrl: string | null = null;
-      
+
       if (imageFile) {
         imageUrl = await uploadImage(imageFile);
       }
@@ -175,9 +184,9 @@ export function usePosts() {
 
       // Only add to feed if it's not a reply
       if (!parentId) {
-        setPosts(prev => [newPost, ...prev]);
+        setPosts((prev) => [newPost, ...prev]);
       }
-      
+
       toast.success(parentId ? "Reply posted!" : "Post created!");
       return newPost;
     } catch (err: any) {
@@ -194,21 +203,23 @@ export function usePosts() {
       return;
     }
 
-    const post = posts.find(p => p.id === postId);
+    const post = posts.find((p) => p.id === postId);
     if (!post) return;
 
     const wasReposted = post.is_reposted;
 
     // Optimistic update
-    setPosts(prev => prev.map(p => 
-      p.id === postId 
-        ? { 
-            ...p, 
-            is_reposted: !wasReposted, 
-            reposts_count: wasReposted ? p.reposts_count - 1 : p.reposts_count + 1 
-          } 
-        : p
-    ));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              is_reposted: !wasReposted,
+              reposts_count: wasReposted ? p.reposts_count - 1 : p.reposts_count + 1,
+            }
+          : p
+      )
+    );
 
     try {
       if (wasReposted) {
@@ -221,15 +232,13 @@ export function usePosts() {
           .eq("is_repost", true);
       } else {
         // Create a repost
-        await supabase
-          .from("posts")
-          .insert({
-            content: post.content,
-            user_id: user.id,
-            is_repost: true,
-            original_post_id: postId,
-            image_url: post.image_url,
-          });
+        await supabase.from("posts").insert({
+          content: post.content,
+          user_id: user.id,
+          is_repost: true,
+          original_post_id: postId,
+          image_url: post.image_url,
+        });
       }
 
       // Update the original post's repost count
@@ -241,11 +250,13 @@ export function usePosts() {
       toast.success(wasReposted ? "Removed repost" : "Reposted!");
     } catch (err: any) {
       // Revert on error
-      setPosts(prev => prev.map(p => 
-        p.id === postId 
-          ? { ...p, is_reposted: wasReposted, reposts_count: post.reposts_count } 
-          : p
-      ));
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, is_reposted: wasReposted, reposts_count: post.reposts_count }
+            : p
+        )
+      );
       console.error("Error toggling repost:", err);
       toast.error("Failed to update repost");
     }
@@ -258,33 +269,29 @@ export function usePosts() {
       return;
     }
 
-    const post = posts.find(p => p.id === postId);
+    const post = posts.find((p) => p.id === postId);
     if (!post) return;
 
     const wasLiked = post.is_liked;
 
     // Optimistic update
-    setPosts(prev => prev.map(p => 
-      p.id === postId 
-        ? { 
-            ...p, 
-            is_liked: !wasLiked, 
-            likes_count: wasLiked ? p.likes_count - 1 : p.likes_count + 1 
-          } 
-        : p
-    ));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              is_liked: !wasLiked,
+              likes_count: wasLiked ? p.likes_count - 1 : p.likes_count + 1,
+            }
+          : p
+      )
+    );
 
     try {
       if (wasLiked) {
-        await supabase
-          .from("likes")
-          .delete()
-          .eq("post_id", postId)
-          .eq("user_id", user.id);
+        await supabase.from("likes").delete().eq("post_id", postId).eq("user_id", user.id);
       } else {
-        await supabase
-          .from("likes")
-          .insert({ post_id: postId, user_id: user.id });
+        await supabase.from("likes").insert({ post_id: postId, user_id: user.id });
       }
 
       // Update the post's like count in the database
@@ -294,11 +301,9 @@ export function usePosts() {
         .eq("id", postId);
     } catch (err: any) {
       // Revert on error
-      setPosts(prev => prev.map(p => 
-        p.id === postId 
-          ? { ...p, is_liked: wasLiked, likes_count: post.likes_count } 
-          : p
-      ));
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postId ? { ...p, is_liked: wasLiked, likes_count: post.likes_count } : p))
+      );
       console.error("Error toggling like:", err);
       toast.error("Failed to update like");
     }
@@ -311,43 +316,35 @@ export function usePosts() {
       return;
     }
 
-    const post = posts.find(p => p.id === postId);
+    const post = posts.find((p) => p.id === postId);
     if (!post) return;
 
     const wasBookmarked = post.is_bookmarked;
 
     // Optimistic update
-    setPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, is_bookmarked: !wasBookmarked } : p
-    ));
+    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, is_bookmarked: !wasBookmarked } : p)));
 
     try {
       if (wasBookmarked) {
-        await supabase
-          .from("bookmarks")
-          .delete()
-          .eq("post_id", postId)
-          .eq("user_id", user.id);
+        await supabase.from("bookmarks").delete().eq("post_id", postId).eq("user_id", user.id);
         toast.success("Removed from bookmarks");
       } else {
-        await supabase
-          .from("bookmarks")
-          .insert({ post_id: postId, user_id: user.id });
+        await supabase.from("bookmarks").insert({ post_id: postId, user_id: user.id });
         toast.success("Added to bookmarks");
       }
     } catch (err: any) {
       // Revert on error
-      setPosts(prev => prev.map(p => 
-        p.id === postId ? { ...p, is_bookmarked: wasBookmarked } : p
-      ));
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, is_bookmarked: wasBookmarked } : p)));
       console.error("Error toggling bookmark:", err);
       toast.error("Failed to update bookmark");
     }
   };
 
   useEffect(() => {
+    if (!fetchEnabled) return;
     fetchPosts();
-  }, [user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, fetchEnabled]);
 
   return {
     posts,

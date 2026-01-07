@@ -66,7 +66,7 @@ export function RightSidebar() {
       <PremiumSubscriptionCard />
 
       {/* Trends */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="flex-none bg-card rounded-lg border border-border overflow-hidden">
         <div className="flex items-center justify-between p-4 pb-2">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
@@ -82,9 +82,9 @@ export function RightSidebar() {
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </div>
           ) : trends.length === 0 ? (
-            <div className="px-4 py-6 text-center">
-              <p className="text-sm text-foreground/70">No trends yet</p>
-              <p className="text-xs text-foreground/50 mt-1">
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm font-medium text-foreground">No trends yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 Post with #hashtags to start trending!
               </p>
             </div>
@@ -113,7 +113,7 @@ export function RightSidebar() {
       </div>
 
       {/* Who to follow */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="flex-none bg-card rounded-lg border border-border overflow-hidden">
         <h2 className="text-base font-semibold p-4 pb-2">Who to follow</h2>
         <div className="divide-y divide-border">
           {usersLoading ? (
@@ -121,9 +121,9 @@ export function RightSidebar() {
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </div>
           ) : suggestedUsers.length === 0 ? (
-            <div className="px-4 py-6 text-center">
-              <p className="text-sm text-foreground/70">No suggestions yet</p>
-              <p className="text-xs text-foreground/50 mt-1">
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm font-medium text-foreground">No suggestions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 More users will appear as the community grows!
               </p>
             </div>
