@@ -1,6 +1,10 @@
-import { ReactNode, createContext, useContext, useEffect, useState, Component, ErrorInfo } from "react";
-import { PrivyProvider } from "@privy-io/react-auth";
+import { ReactNode, createContext, useContext, useEffect, useState, useRef, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
+
+// Lazy load Privy - it's a heavy dependency
+const PrivyProvider = lazy(() => 
+  import("@privy-io/react-auth").then(mod => ({ default: mod.PrivyProvider }))
+);
 
 // Context to track if Privy is available
 const PrivyAvailableContext = createContext(false);
@@ -21,72 +25,52 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
   const rawAppId = import.meta.env.VITE_PRIVY_APP_ID;
   const buildTimeAppId = (rawAppId ?? "").trim();
 
-  const [resolvedAppId, setResolvedAppId] = useState<string>("");
-  const [checked, setChecked] = useState(false);
+  const [resolvedAppId, setResolvedAppId] = useState<string>(() => {
+    // Initialize synchronously if build-time value is valid
+    if (isValidPrivyAppId(buildTimeAppId)) {
+      return buildTimeAppId;
+    }
+    return "";
+  });
+  
+  const [checked, setChecked] = useState(() => isValidPrivyAppId(buildTimeAppId));
+  const fetchAttempted = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    // Skip if already resolved from build-time or already attempted fetch
+    if (checked || fetchAttempted.current) return;
+    fetchAttempted.current = true;
 
-    const resolve = async () => {
-      // 1) Prefer build-time env var (Vite replacement)
-      if (isValidPrivyAppId(buildTimeAppId)) {
-        if (!cancelled) {
-          setResolvedAppId(buildTimeAppId);
-          setChecked(true);
-        }
-        return;
-      }
-
-      // 2) Fallback to runtime fetch (fixes deployments that were built without the env var)
+    // Only fetch if build-time value is missing
+    const fetchRuntimeConfig = async () => {
       try {
         const { data, error } = await supabase.functions.invoke("public-config", {
           body: {},
         });
 
-        const fromRuntime = (data?.privyAppId ?? "").trim();
-        if (!cancelled) {
-          setResolvedAppId(fromRuntime);
-        }
-
-        if (error) {
-          console.warn("Failed to load runtime config for Privy", error);
+        if (!error && data?.privyAppId) {
+          setResolvedAppId((data.privyAppId ?? "").trim());
         }
       } catch (e) {
         console.warn("Failed to fetch runtime config for Privy", e);
       } finally {
-        if (!cancelled) setChecked(true);
+        setChecked(true);
       }
     };
 
-    resolve();
-    return () => {
-      cancelled = true;
-    };
-  }, [buildTimeAppId]);
+    fetchRuntimeConfig();
+  }, [checked]);
 
   const appId = resolvedAppId;
   const privyAvailable = checked && isValidPrivyAppId(appId);
 
-  // Show loading state while checking for Privy config
-  if (!checked) {
+  // IMPORTANT: Don't block render - show children immediately while checking
+  // Only show minimal loading if we MUST wait for runtime fetch
+  if (!checked && !isValidPrivyAppId(buildTimeAppId)) {
+    // Show children with auth disabled while fetching config
     return (
       <PrivyAvailableContext.Provider value={false}>
-        <div style={{ 
-          minHeight: '100vh', 
-          backgroundColor: '#0d0e12', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center' 
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            border: '2px solid transparent',
-            borderTopColor: '#f0b90b',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
-        </div>
+        {children}
       </PrivyAvailableContext.Provider>
     );
   }
@@ -106,42 +90,44 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
 
   return (
     <PrivyAvailableContext.Provider value={true}>
-      <PrivyProvider
-        appId={appId}
-        config={{
-          // Login methods - Solana wallet, Twitter/X, and email
-          loginMethods: ["wallet", "twitter", "email"],
+      <Suspense fallback={children}>
+        <PrivyProvider
+          appId={appId}
+          config={{
+            // Login methods - Solana wallet, Twitter/X, and email
+            loginMethods: ["wallet", "twitter", "email"],
 
-          // Appearance configuration
-          appearance: {
-            theme: "dark",
-            accentColor: "#9945FF", // Solana purple
-            showWalletLoginFirst: true,
-            walletChainType: "solana-only", // Only show Solana wallets
-            walletList: ["phantom", "solflare", "backpack", "detected_wallets"],
-          },
-
-          // Embedded wallets configuration - AUTO-CREATE Solana wallet on login
-          embeddedWallets: {
-            solana: {
-              // Create Solana embedded wallet for ALL users on login
-              createOnLogin: "all-users",
+            // Appearance configuration
+            appearance: {
+              theme: "dark",
+              accentColor: "#9945FF", // Solana purple
+              showWalletLoginFirst: true,
+              walletChainType: "solana-only", // Only show Solana wallets
+              walletList: ["phantom", "solflare", "backpack", "detected_wallets"],
             },
-            // Disable Ethereum embedded wallets
-            ethereum: {
-              createOnLogin: "off",
-            },
-          },
 
-          // Legal links (optional - update with your own)
-          legal: {
-            termsAndConditionsUrl: "/terms",
-            privacyPolicyUrl: "/privacy",
-          },
-        }}
-      >
-        {children}
-      </PrivyProvider>
+            // Embedded wallets configuration - AUTO-CREATE Solana wallet on login
+            embeddedWallets: {
+              solana: {
+                // Create Solana embedded wallet for ALL users on login
+                createOnLogin: "all-users",
+              },
+              // Disable Ethereum embedded wallets
+              ethereum: {
+                createOnLogin: "off",
+              },
+            },
+
+            // Legal links (optional - update with your own)
+            legal: {
+              termsAndConditionsUrl: "/terms",
+              privacyPolicyUrl: "/privacy",
+            },
+          }}
+        >
+          {children}
+        </PrivyProvider>
+      </Suspense>
     </PrivyAvailableContext.Provider>
   );
 }
