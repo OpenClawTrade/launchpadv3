@@ -20,10 +20,17 @@
     <meta name="twitter:site" content="@trenches" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
-    <!-- IBM Plex Sans Font -->
+    <!-- Preload critical font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"></noscript>
+
+    <!-- Inline critical CSS for instant render -->
+    <style>
+      body { background-color: #0d0e12; margin: 0; }
+      #root { min-height: 100vh; }
+    </style>
   </head>
 
   <body>
