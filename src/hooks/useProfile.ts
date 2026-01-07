@@ -33,6 +33,9 @@ export function useProfile(username?: string) {
   const { user, isAuthenticated } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<PostWithProfile[]>([]);
+  const [replies, setReplies] = useState<PostWithProfile[]>([]);
+  const [mediaPosts, setMediaPosts] = useState<PostWithProfile[]>([]);
+  const [likedPosts, setLikedPosts] = useState<PostWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -102,38 +105,108 @@ export function useProfile(username?: string) {
 
       if (postsError) throw postsError;
 
-      // Fetch likes and bookmarks for current user
+      // Fetch replies (posts with parent_id)
+      const { data: repliesData } = await supabase
+        .from("posts")
+        .select(`
+          *,
+          profiles!posts_user_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            verified_type
+          )
+        `)
+        .eq("user_id", profileData.id)
+        .not("parent_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      // Fetch media posts (posts with images)
+      const { data: mediaData } = await supabase
+        .from("posts")
+        .select(`
+          *,
+          profiles!posts_user_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            verified_type
+          )
+        `)
+        .eq("user_id", profileData.id)
+        .not("image_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      // Fetch liked posts
+      const { data: likesData } = await supabase
+        .from("likes")
+        .select(`
+          post_id,
+          posts!likes_post_id_fkey (
+            *,
+            profiles!posts_user_id_fkey (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              verified_type
+            )
+          )
+        `)
+        .eq("user_id", profileData.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      // Fetch user interactions for current user
       let userLikes: string[] = [];
       let userBookmarks: string[] = [];
 
-      if (user?.id && postsData && postsData.length > 0) {
-        const postIds = postsData.map((p) => p.id);
+      const allPostIds = [
+        ...(postsData || []).map((p) => p.id),
+        ...(repliesData || []).map((p) => p.id),
+        ...(mediaData || []).map((p) => p.id),
+        ...(likesData || []).map((l) => (l.posts as any)?.id).filter(Boolean),
+      ];
 
+      if (user?.id && allPostIds.length > 0) {
         const [likesRes, bookmarksRes] = await Promise.all([
           supabase
             .from("likes")
             .select("post_id")
             .eq("user_id", user.id)
-            .in("post_id", postIds),
+            .in("post_id", allPostIds),
           supabase
             .from("bookmarks")
             .select("post_id")
             .eq("user_id", user.id)
-            .in("post_id", postIds),
+            .in("post_id", allPostIds),
         ]);
 
         userLikes = likesRes.data?.map((l) => l.post_id) || [];
         userBookmarks = bookmarksRes.data?.map((b) => b.post_id) || [];
       }
 
-      const enrichedPosts = (postsData || []).map((post) => ({
+      const enrichPost = (post: any) => ({
         ...post,
         is_liked: userLikes.includes(post.id),
         is_bookmarked: userBookmarks.includes(post.id),
         is_reposted: false,
-      }));
+      });
 
-      setPosts(enrichedPosts);
+      setPosts((postsData || []).map(enrichPost));
+      setReplies((repliesData || []).map(enrichPost));
+      setMediaPosts((mediaData || []).map(enrichPost));
+      
+      // Extract posts from likes join
+      const likedPostsExtracted = (likesData || [])
+        .map((l) => l.posts)
+        .filter(Boolean)
+        .map((post: any) => enrichPost(post));
+      setLikedPosts(likedPostsExtracted);
     } catch (err: any) {
       console.error("Error fetching profile:", err);
       setError(err.message);
@@ -248,6 +321,9 @@ export function useProfile(username?: string) {
   return {
     profile,
     posts,
+    replies,
+    mediaPosts,
+    likedPosts,
     isLoading,
     isOwnProfile,
     isFollowing,
