@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { usePrivy, useLogout } from "@privy-io/react-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface User {
   id: string;
@@ -75,12 +76,36 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
   
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const walletSavedRef = useRef<string | null>(null);
 
   // Get the primary Solana wallet address from linked accounts
   const solanaWallet = privyUser?.linkedAccounts?.find(
     (account) => account.type === "wallet" && (account as any).chainType === "solana"
   );
   const solanaAddress = solanaWallet ? (solanaWallet as any).address : null;
+
+  // Save Solana wallet address to database
+  useEffect(() => {
+    if (!solanaAddress || !privyUser?.id || walletSavedRef.current === solanaAddress) return;
+    
+    const saveWalletToDb = async () => {
+      try {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ solana_wallet_address: solanaAddress })
+          .eq("id", privyUser.id);
+        
+        if (!error) {
+          walletSavedRef.current = solanaAddress;
+          console.log("Solana wallet saved to database:", solanaAddress);
+        }
+      } catch (e) {
+        console.warn("Failed to save Solana wallet to database", e);
+      }
+    };
+    
+    saveWalletToDb();
+  }, [solanaAddress, privyUser?.id]);
 
   // Sync Privy user to our user state
   useEffect(() => {

@@ -489,6 +489,7 @@ export type Database = {
           id: string
           location: string | null
           posts_count: number | null
+          solana_wallet_address: string | null
           updated_at: string
           username: string
           verified_type: string | null
@@ -505,6 +506,7 @@ export type Database = {
           id: string
           location?: string | null
           posts_count?: number | null
+          solana_wallet_address?: string | null
           updated_at?: string
           username: string
           verified_type?: string | null
@@ -521,6 +523,7 @@ export type Database = {
           id?: string
           location?: string | null
           posts_count?: number | null
+          solana_wallet_address?: string | null
           updated_at?: string
           username?: string
           verified_type?: string | null
