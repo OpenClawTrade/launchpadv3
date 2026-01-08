@@ -84,28 +84,40 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
   );
   const solanaAddress = solanaWallet ? (solanaWallet as any).address : null;
 
-  // Save Solana wallet address to database
+  // Sync user profile to database via edge function
   useEffect(() => {
-    if (!solanaAddress || !privyUser?.id || walletSavedRef.current === solanaAddress) return;
+    if (!authenticated || !privyUser?.id) return;
+    if (walletSavedRef.current === `${privyUser.id}-${solanaAddress}`) return;
     
-    const saveWalletToDb = async () => {
+    const syncProfileToDb = async () => {
       try {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ solana_wallet_address: solanaAddress })
-          .eq("id", privyUser.id);
+        const email = privyUser.email?.address;
+        const twitter = privyUser.twitter;
         
-        if (!error) {
-          walletSavedRef.current = solanaAddress;
-          console.log("Solana wallet saved to database:", solanaAddress);
+        const { error } = await supabase.functions.invoke("sync-privy-user", {
+          body: {
+            privyUserId: privyUser.id,
+            solanaWalletAddress: solanaAddress,
+            email,
+            twitterUsername: twitter?.username,
+            displayName: twitter?.name ?? email?.split("@")[0] ?? solanaAddress?.slice(0, 8),
+            avatarUrl: twitter?.profilePictureUrl,
+          },
+        });
+        
+        if (error) {
+          console.warn("Failed to sync profile:", error);
+        } else {
+          walletSavedRef.current = `${privyUser.id}-${solanaAddress}`;
+          console.log("Profile synced successfully with wallet:", solanaAddress);
         }
       } catch (e) {
-        console.warn("Failed to save Solana wallet to database", e);
+        console.warn("Failed to sync profile to database", e);
       }
     };
     
-    saveWalletToDb();
-  }, [solanaAddress, privyUser?.id]);
+    syncProfileToDb();
+  }, [authenticated, privyUser?.id, privyUser?.email, privyUser?.twitter, solanaAddress]);
 
   // Sync Privy user to our user state
   useEffect(() => {
