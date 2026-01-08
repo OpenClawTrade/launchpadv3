@@ -98,7 +98,7 @@ export function Sidebar({ user }: SidebarProps) {
             <img 
               src={trenchesLogo} 
               alt="TRENCHES" 
-              className="h-12 w-12 xl:h-14 xl:w-14 object-contain"
+              className="h-9 xl:h-10"
             />
           </Link>
 
