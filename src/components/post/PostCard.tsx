@@ -15,6 +15,7 @@ import {
   Ban,
   Flag
 } from "lucide-react";
+import { PostContent } from "./PostContent";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
@@ -299,9 +300,7 @@ export function PostCard({
 
           {/* Post content */}
           <div className="mt-1">
-            <p className="text-[15px] leading-normal whitespace-pre-wrap break-words">
-              {post.content}
-            </p>
+            <PostContent content={post.content} />
           </div>
 
           {/* Media */}
