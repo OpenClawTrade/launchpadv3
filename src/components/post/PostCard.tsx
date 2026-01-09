@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   Heart, 
@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { useUserActions, useReport } from "@/hooks/useUserActions";
 import { ReportModal } from "./ReportModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useViewTracking } from "@/hooks/useViewTracking";
 
 export interface PostData {
   id: string;
@@ -91,8 +92,21 @@ export function PostCard({
   const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked || false);
   const [likeCount, setLikeCount] = useState(post.stats.likes);
   const [repostCount, setRepostCount] = useState(post.stats.reposts);
+  const [viewCount, setViewCount] = useState(post.stats.views);
   const [isLikeAnimating, setIsLikeAnimating] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  
+  // Track views when post becomes visible
+  const viewTrackingRef = useViewTracking(post.id);
+  
+  // Optimistically increment view count when tracked
+  useEffect(() => {
+    // Small delay to let the tracking complete
+    const timer = setTimeout(() => {
+      setViewCount(post.stats.views);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [post.stats.views]);
   
   const { 
     isFollowing, 
@@ -168,6 +182,7 @@ export function PostCard({
 
   return (
     <article 
+      ref={viewTrackingRef as React.RefObject<HTMLElement>}
       className="px-4 py-3 border-b border-border post-hover animate-fadeIn cursor-pointer"
       onClick={handlePostClick}
     >
@@ -373,9 +388,8 @@ export function PostCard({
               <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
                 <BarChart3 className="h-[18px] w-[18px]" />
               </div>
-              <span className="text-sm">{formatNumber(post.stats.views)}</span>
+              <span className="text-sm">{formatNumber(viewCount)}</span>
             </button>
-
             {/* Bookmark & Share */}
             <div className="flex items-center">
               <button
