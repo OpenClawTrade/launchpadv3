@@ -48,6 +48,11 @@ type SocialWriteRequest =
       type: "follow_user";
       userId: string;
       targetUserId: string;
+    }
+  | {
+      type: "verify_user";
+      userId: string;
+      verifiedType: "blue" | "gold";
     };
 
 function json(data: unknown, status = 200) {
@@ -355,6 +360,30 @@ Deno.serve(async (req) => {
         .eq("id", body.userId);
 
       return json({ followed: true });
+    }
+
+    if (body.type === "verify_user") {
+      if (!body.userId || !body.verifiedType) {
+        return json({ error: "userId and verifiedType are required" }, 400);
+      }
+
+      if (!["blue", "gold"].includes(body.verifiedType)) {
+        return json({ error: "verifiedType must be 'blue' or 'gold'" }, 400);
+      }
+
+      // Update the user's verified_type
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ verified_type: body.verifiedType })
+        .eq("id", body.userId);
+
+      if (updateError) {
+        console.error("Failed to update verified_type:", updateError);
+        return json({ error: updateError.message }, 500);
+      }
+
+      console.log(`User ${body.userId} verified as ${body.verifiedType}`);
+      return json({ verified: true, verifiedType: body.verifiedType });
     }
 
     return json({ error: "Unsupported operation" }, 400);

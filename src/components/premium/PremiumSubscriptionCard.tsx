@@ -66,7 +66,7 @@ const plans: PlanOption[] = [
 // Main export - renders the card UI and handles payment conditionally
 export function PremiumSubscriptionCard() {
   const privyAvailable = usePrivyAvailable();
-  const { isAuthenticated, login, solanaAddress } = useAuth();
+  const { isAuthenticated, login, solanaAddress, user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanOption | null>(null);
@@ -88,6 +88,11 @@ export function PremiumSubscriptionCard() {
 
     if (!solanaAddress) {
       toast.error("Please connect a Solana wallet first");
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error("User not found. Please try logging in again.");
       return;
     }
 
@@ -143,8 +148,19 @@ export function PremiumSubscriptionCard() {
         plan: plan.type,
       });
 
-      // Simulate success for demo (remove in production)
-      toast.success(`Payment flow initiated for ${plan.name}!`);
+      // Update user's verified status via edge function
+      const { data, error } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "verify_user",
+          userId: user.id,
+          verifiedType: plan.type,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success(`🎉 You're now ${plan.name}! Your checkmark will appear shortly.`);
       setIsModalOpen(false);
     } catch (error: any) {
       console.error("Payment failed:", error);
@@ -169,12 +185,17 @@ export function PremiumSubscriptionCard() {
         <p className="text-muted-foreground text-sm mb-3">
           Get verified with SOL payments. Unlock exclusive features and boost your presence.
         </p>
-        <div className="flex items-center gap-2 mb-3">
-          <VerifiedBadge type="blue" className="h-4 w-4" />
-          <span className="text-xs text-muted-foreground">${BLUE_PRICE_USD}/one-time</span>
-          <span className="text-muted-foreground">·</span>
-          <VerifiedBadge type="gold" className="h-4 w-4" />
-          <span className="text-xs text-muted-foreground">${GOLD_PRICE_USD}/one-time</span>
+        <div className="space-y-2 mb-3">
+          <div className="flex items-center gap-2">
+            <VerifiedBadge type="blue" className="h-4 w-4" />
+            <span className="text-sm font-medium">Blue Checkmark</span>
+            <span className="text-xs text-muted-foreground ml-auto">${BLUE_PRICE_USD}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <VerifiedBadge type="gold" className="h-4 w-4" />
+            <span className="text-sm font-medium">Gold Checkmark</span>
+            <span className="text-xs text-muted-foreground ml-auto">${GOLD_PRICE_USD}</span>
+          </div>
         </div>
         <Button 
           onClick={handleSubscribeClick}
