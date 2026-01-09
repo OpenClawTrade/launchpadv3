@@ -15,7 +15,8 @@ import {
   Ban,
   Flag,
   Trash2,
-  Quote
+  Quote,
+  Pencil
 } from "lucide-react";
 import { PostContent } from "./PostContent";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ import { useUserActions, useReport } from "@/hooks/useUserActions";
 import { ReportModal } from "./ReportModal";
 import { DeletePostDialog } from "./DeletePostDialog";
 import { QuoteModal } from "./QuoteModal";
+import { EditPostModal } from "./EditPostModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useViewTracking } from "@/hooks/useViewTracking";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,6 +75,7 @@ interface PostCardProps {
   onBookmark?: (id: string) => void;
   onReply?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onEdit?: (id: string, content: string, imageUrl: string | null) => void;
   onQuote?: (id: string, content: string, imageFile?: File) => Promise<void>;
 }
 
@@ -93,6 +96,7 @@ export function PostCard({
   onBookmark, 
   onReply,
   onDelete,
+  onEdit,
   onQuote
 }: PostCardProps) {
   const navigate = useNavigate();
@@ -107,9 +111,10 @@ export function PostCard({
   const [showReportModal, setShowReportModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Determine if this is the current user's own post - compare directly
+  const [currentContent, setCurrentContent] = useState(post.content);
+  const [currentImageUrl, setCurrentImageUrl] = useState(post.media?.[0]?.url || null);
   const isOwnPost = Boolean(user?.id && post.authorId && user.id === post.authorId);
   
   // Track views when post becomes visible
@@ -218,6 +223,41 @@ export function PostCard({
   const handleQuote = async (content: string, imageFile?: File) => {
     if (onQuote) {
       await onQuote(post.id, content, imageFile);
+    }
+  };
+
+  const handleEdit = async (postId: string, newContent: string, removeImage: boolean): Promise<boolean> => {
+    if (!user?.id) return false;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "edit_post",
+          userId: user.id,
+          postId,
+          content: newContent,
+          removeImage,
+        },
+      });
+
+      if (error) throw error;
+      
+      // Update local state
+      setCurrentContent(newContent);
+      if (removeImage) {
+        setCurrentImageUrl(null);
+      }
+      
+      // Notify parent if callback provided
+      const updatedImageUrl = removeImage ? null : currentImageUrl;
+      onEdit?.(postId, newContent, updatedImageUrl);
+      
+      toast.success("Post updated");
+      return true;
+    } catch (err) {
+      console.error("Error editing post:", err);
+      toast.error("Failed to update post");
+      return false;
     }
   };
 
@@ -345,6 +385,17 @@ export function PostCard({
                   </DropdownMenuItem>
                 )}
                 
+                {/* Edit option for own posts */}
+                {isOwnPost && (
+                  <DropdownMenuItem 
+                    onClick={(e) => { e.stopPropagation(); setShowEditModal(true); }}
+                    className="gap-2"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit post
+                  </DropdownMenuItem>
+                )}
+                
                 {/* Delete option for own posts */}
                 {isOwnPost && onDelete && (
                   <>
@@ -374,33 +425,19 @@ export function PostCard({
 
           {/* Post content */}
           <div className="mt-1">
-            <PostContent content={post.content} />
+            <PostContent content={currentContent} />
           </div>
 
           {/* Media */}
-          {post.media && post.media.length > 0 && (
-            <div className={cn(
-              "mt-3 rounded-2xl overflow-hidden border border-border",
-              post.media.length > 1 && "grid grid-cols-2 gap-0.5"
-            )}>
-              {post.media.map((item, index) => (
-                <div key={index} className="relative aspect-video bg-secondary">
-                  {item.type === "image" ? (
-                    <img 
-                      src={item.url} 
-                      alt="" 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <video 
-                      src={item.url} 
-                      className="w-full h-full object-cover"
-                      controls
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  )}
-                </div>
-              ))}
+          {currentImageUrl && (
+            <div className="mt-3 rounded-2xl overflow-hidden border border-border">
+              <div className="relative aspect-video bg-secondary">
+                <img 
+                  src={currentImageUrl} 
+                  alt="" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
           )}
 
@@ -517,6 +554,15 @@ export function PostCard({
           createdAt: post.createdAt,
         }}
         onSubmit={handleQuote}
+      />
+      
+      <EditPostModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        postId={post.id}
+        initialContent={currentContent}
+        initialImageUrl={currentImageUrl}
+        onSave={handleEdit}
       />
     </article>
   );
