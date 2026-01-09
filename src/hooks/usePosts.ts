@@ -114,13 +114,18 @@ export function usePosts(options: UsePostsOptions = {}) {
 
   // Upload image to storage
   const uploadImage = async (file: File): Promise<string | null> => {
-    if (!user?.id) return null;
+    if (!user?.id) {
+      console.error("uploadImage: No user ID");
+      return null;
+    }
 
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      console.log("Uploading image:", { fileName, fileSize: file.size, fileType: file.type });
 
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("post-images")
         .upload(fileName, file);
 
@@ -129,8 +134,11 @@ export function usePosts(options: UsePostsOptions = {}) {
         toast.error("Failed to upload image");
         return null;
       }
+      
+      console.log("Upload successful:", uploadData);
 
       const { data } = supabase.storage.from("post-images").getPublicUrl(fileName);
+      console.log("Public URL:", data.publicUrl);
       return data.publicUrl;
     } catch (error) {
       console.error("Error in uploadImage:", error);

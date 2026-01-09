@@ -12,6 +12,7 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts } from "@/hooks/usePosts";
+import { toast } from "sonner";
 
 interface ComposeModalProps {
   open: boolean;
@@ -31,7 +32,8 @@ export function ComposeModal({
   maxLength = 280,
 }: ComposeModalProps) {
   const { user } = useAuth();
-  const { createPost } = usePosts();
+  // Don't fetch posts - just use for creating. The parent will handle the refresh.
+  const { createPost, uploadImage } = usePosts({ fetch: false });
   const [content, setContent] = useState("");
   const [isPosting, setIsPosting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -67,14 +69,25 @@ export function ComposeModal({
 
     setIsPosting(true);
     try {
+      // Upload image first if selected
+      let imageUrl: string | null = null;
+      if (selectedImage) {
+        imageUrl = await uploadImage(selectedImage);
+        console.log("Image uploaded, URL:", imageUrl);
+      }
+
       if (onPost) {
         await onPost(content, selectedImage ? [selectedImage] : undefined);
       } else {
-        await createPost(content, selectedImage || undefined, replyToId);
+        const result = await createPost(content, selectedImage || undefined, replyToId);
+        console.log("Post created:", result);
       }
       setContent("");
       removeImage();
       onOpenChange(false);
+    } catch (error) {
+      console.error("Error in handleSubmit:", error);
+      toast.error("Failed to create post");
     } finally {
       setIsPosting(false);
     }

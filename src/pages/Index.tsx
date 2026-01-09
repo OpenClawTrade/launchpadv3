@@ -36,7 +36,7 @@ function transformPost(post: PostWithProfile): PostData {
 
 const Index = () => {
   const { user, isAuthenticated } = useAuth();
-  const { posts, isLoading, createPost, toggleLike, toggleBookmark, toggleRepost, deletePost, quotePost } = usePosts();
+  const { posts, isLoading, createPost, toggleLike, toggleBookmark, toggleRepost, deletePost, quotePost, refetch } = usePosts();
   const [activeTab, setActiveTab] = useState("for-you");
   
   // Build current user object from auth context
@@ -48,7 +48,12 @@ const Index = () => {
 
   const handlePost = async (content: string, media?: File[]) => {
     const imageFile = media?.[0];
-    await createPost(content, imageFile);
+    const result = await createPost(content, imageFile);
+    // The post should appear immediately since createPost adds it to state
+    // But if it doesn't, refetch
+    if (!result) {
+      await refetch();
+    }
   };
 
   const handleLike = (id: string) => {
