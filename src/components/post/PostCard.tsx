@@ -109,6 +109,9 @@ export function PostCard({
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
+  // Determine if this is the current user's own post - compare directly
+  const isOwnPost = Boolean(user?.id && post.authorId && user.id === post.authorId);
+  
   // Track views when post becomes visible
   const viewTrackingRef = useViewTracking(post.id);
   
@@ -121,6 +124,7 @@ export function PostCard({
     return () => clearTimeout(timer);
   }, [post.stats.views]);
   
+  // Only fetch user actions for OTHER users' posts (not your own)
   const { 
     isFollowing, 
     isMuted, 
@@ -128,8 +132,7 @@ export function PostCard({
     toggleFollow, 
     toggleMute, 
     toggleBlock,
-    isOwnProfile 
-  } = useUserActions(post.authorId || null);
+  } = useUserActions(isOwnPost ? null : (post.authorId || null));
   
   const { reportPost } = useReport();
 
@@ -283,7 +286,7 @@ export function PostCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-popover">
-                {!isOwnProfile && (
+              {!isOwnPost && (
                   <>
                     <DropdownMenuItem 
                       onClick={(e) => { e.stopPropagation(); toggleFollow(); }}
@@ -343,7 +346,7 @@ export function PostCard({
                 )}
                 
                 {/* Delete option for own posts */}
-                {isOwnProfile && onDelete && (
+                {isOwnPost && onDelete && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -356,7 +359,7 @@ export function PostCard({
                   </>
                 )}
                 
-                {!isOwnProfile && (
+                {!isOwnPost && (
                   <DropdownMenuItem 
                     onClick={(e) => { e.stopPropagation(); setShowReportModal(true); }}
                     className="gap-2 text-destructive focus:text-destructive"
