@@ -19,6 +19,13 @@ type SocialWriteRequest =
       postId: string;
     }
   | {
+      type: "edit_post";
+      userId: string;
+      postId: string;
+      content: string;
+      removeImage?: boolean;
+    }
+  | {
       type: "toggle_like";
       userId: string;
       postId: string;
@@ -117,6 +124,49 @@ Deno.serve(async (req) => {
 
       if (delError) return json({ error: delError.message }, 500);
       return json({ deleted: true });
+    }
+
+    if (body.type === "edit_post") {
+      if (!body.userId || !body.postId || !body.content?.trim()) {
+        return json({ error: "userId, postId, and content are required" }, 400);
+      }
+
+      // Verify the user owns the post
+      const { data: postRow, error: fetchError } = await supabase
+        .from("posts")
+        .select("user_id, image_url")
+        .eq("id", body.postId)
+        .single();
+
+      if (fetchError) return json({ error: fetchError.message }, 500);
+      if (postRow.user_id !== body.userId) return json({ error: "You can only edit your own posts" }, 403);
+
+      const updateData: { content: string; image_url?: null } = {
+        content: body.content.trim(),
+      };
+
+      if (body.removeImage) {
+        updateData.image_url = null;
+      }
+
+      const { data: updatedPost, error: updateError } = await supabase
+        .from("posts")
+        .update(updateData)
+        .eq("id", body.postId)
+        .select(`
+          *,
+          profiles!posts_user_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            verified_type
+          )
+        `)
+        .single();
+
+      if (updateError) return json({ error: updateError.message }, 500);
+      return json({ post: updatedPost });
     }
 
     if (body.type === "toggle_like") {
