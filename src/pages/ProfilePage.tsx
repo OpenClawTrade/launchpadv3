@@ -170,9 +170,11 @@ export default function ProfilePage() {
         {/* Avatar */}
         <div className="absolute -top-16 left-4">
           <Avatar className="h-32 w-32 border-4 border-background">
-            <AvatarImage src={profile.avatar_url || undefined} />
+            {profile.avatar_url ? (
+              <AvatarImage src={profile.avatar_url} />
+            ) : null}
             <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
-              {profile.display_name?.charAt(0) || "?"}
+              {profile.display_name?.charAt(0).toUpperCase() || "?"}
             </AvatarFallback>
           </Avatar>
         </div>
