@@ -1,11 +1,11 @@
 import { MainLayout } from "@/components/layout";
 import { PostCard, ComposePost } from "@/components/post";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts, PostWithProfile } from "@/hooks/usePosts";
 import { useState } from "react";
 import { PostData } from "@/components/post";
+import { PostSkeletonList } from "@/components/ui/post-skeleton";
 
 // Transform database post to PostData format
 function transformPost(post: PostWithProfile): PostData {
@@ -36,7 +36,7 @@ function transformPost(post: PostWithProfile): PostData {
 
 const Index = () => {
   const { user, isAuthenticated } = useAuth();
-  const { posts, isLoading, createPost, toggleLike, toggleBookmark, toggleRepost } = usePosts();
+  const { posts, isLoading, createPost, toggleLike, toggleBookmark, toggleRepost, deletePost, quotePost } = usePosts();
   const [activeTab, setActiveTab] = useState("for-you");
   
   // Build current user object from auth context
@@ -61,6 +61,14 @@ const Index = () => {
 
   const handleRepost = (id: string) => {
     toggleRepost(id);
+  };
+
+  const handleDelete = (id: string) => {
+    deletePost(id);
+  };
+
+  const handleQuote = async (id: string, content: string, imageFile?: File) => {
+    await quotePost(id, content, imageFile);
   };
 
   return (
@@ -98,9 +106,7 @@ const Index = () => {
       {/* Posts Feed */}
       <div className="divide-y divide-border">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <PostSkeletonList count={5} />
         ) : posts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <p className="text-lg font-medium">No posts yet</p>
@@ -118,6 +124,8 @@ const Index = () => {
                 onLike={handleLike}
                 onBookmark={handleBookmark}
                 onRepost={handleRepost}
+                onDelete={handleDelete}
+                onQuote={handleQuote}
               />
             </div>
           ))

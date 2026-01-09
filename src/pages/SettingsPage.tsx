@@ -11,6 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { privyUserIdToUuid } from "@/lib/privyUuid";
+import { BlockedMutedModal } from "@/components/profile/BlockedMutedModal";
 
 type SettingsSection = "account" | "appearance" | "notifications" | "privacy" | "help";
 
@@ -24,6 +25,10 @@ export default function SettingsPage() {
   const [originalUsername, setOriginalUsername] = useState("");
   const [isLoadingUsername, setIsLoadingUsername] = useState(false);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
+  
+  // Blocked/Muted modal state
+  const [showBlockedMutedModal, setShowBlockedMutedModal] = useState(false);
+  const [blockedMutedTab, setBlockedMutedTab] = useState<"blocked" | "muted">("blocked");
   
   // Redirect unauthenticated users
   useEffect(() => {
@@ -301,12 +306,22 @@ export default function SettingsPage() {
             <div className="space-y-3">
               <h4 className="font-medium">Blocked Accounts</h4>
               <p className="text-sm text-muted-foreground">Manage accounts you've blocked</p>
-              <Button variant="outline">View Blocked Accounts</Button>
+              <Button 
+                variant="outline"
+                onClick={() => { setBlockedMutedTab("blocked"); setShowBlockedMutedModal(true); }}
+              >
+                View Blocked Accounts
+              </Button>
             </div>
             <div className="space-y-3">
               <h4 className="font-medium">Muted Accounts</h4>
               <p className="text-sm text-muted-foreground">Manage accounts you've muted</p>
-              <Button variant="outline">View Muted Accounts</Button>
+              <Button 
+                variant="outline"
+                onClick={() => { setBlockedMutedTab("muted"); setShowBlockedMutedModal(true); }}
+              >
+                View Muted Accounts
+              </Button>
             </div>
           </div>
         );
@@ -378,6 +393,12 @@ export default function SettingsPage() {
           {renderContent()}
         </div>
       </div>
+      
+      <BlockedMutedModal
+        open={showBlockedMutedModal}
+        onOpenChange={setShowBlockedMutedModal}
+        initialTab={blockedMutedTab}
+      />
     </MainLayout>
   );
 }

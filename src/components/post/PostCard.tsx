@@ -13,7 +13,9 @@ import {
   VolumeX,
   Volume2,
   Ban,
-  Flag
+  Flag,
+  Trash2,
+  Quote
 } from "lucide-react";
 import { PostContent } from "./PostContent";
 import { cn } from "@/lib/utils";
@@ -31,8 +33,11 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { useUserActions, useReport } from "@/hooks/useUserActions";
 import { ReportModal } from "./ReportModal";
+import { DeletePostDialog } from "./DeletePostDialog";
+import { QuoteModal } from "./QuoteModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useViewTracking } from "@/hooks/useViewTracking";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface PostData {
   id: string;
@@ -67,6 +72,8 @@ interface PostCardProps {
   onRepost?: (id: string) => void;
   onBookmark?: (id: string) => void;
   onReply?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onQuote?: (id: string, content: string, imageFile?: File) => Promise<void>;
 }
 
 function formatNumber(num: number): string {
@@ -84,7 +91,9 @@ export function PostCard({
   onLike, 
   onRepost, 
   onBookmark, 
-  onReply 
+  onReply,
+  onDelete,
+  onQuote
 }: PostCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -96,6 +105,9 @@ export function PostCard({
   const [viewCount, setViewCount] = useState(post.stats.views);
   const [isLikeAnimating, setIsLikeAnimating] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Track views when post becomes visible
   const viewTrackingRef = useViewTracking(post.id);
@@ -171,6 +183,38 @@ export function PostCard({
     } else {
       await navigator.clipboard.writeText(url);
       toast.success("Link copied to clipboard");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!user?.id || !onDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "delete_post",
+          userId: user.id,
+          postId: post.id,
+        },
+      });
+
+      if (error) throw error;
+      
+      onDelete(post.id);
+      toast.success("Post deleted");
+      setShowDeleteDialog(false);
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      toast.error("Failed to delete post");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleQuote = async (content: string, imageFile?: File) => {
+    if (onQuote) {
+      await onQuote(post.id, content, imageFile);
     }
   };
 
@@ -287,13 +331,40 @@ export function PostCard({
                   </>
                 )}
                 
-                <DropdownMenuItem 
-                  onClick={(e) => { e.stopPropagation(); setShowReportModal(true); }}
-                  className="gap-2 text-destructive focus:text-destructive"
-                >
-                  <Flag className="h-4 w-4" />
-                  Report post
-                </DropdownMenuItem>
+                {/* Quote option */}
+                {onQuote && (
+                  <DropdownMenuItem 
+                    onClick={(e) => { e.stopPropagation(); setShowQuoteModal(true); }}
+                    className="gap-2"
+                  >
+                    <Quote className="h-4 w-4" />
+                    Quote post
+                  </DropdownMenuItem>
+                )}
+                
+                {/* Delete option for own posts */}
+                {isOwnProfile && onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={(e) => { e.stopPropagation(); setShowDeleteDialog(true); }}
+                      className="gap-2 text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete post
+                    </DropdownMenuItem>
+                  </>
+                )}
+                
+                {!isOwnProfile && (
+                  <DropdownMenuItem 
+                    onClick={(e) => { e.stopPropagation(); setShowReportModal(true); }}
+                    className="gap-2 text-destructive focus:text-destructive"
+                  >
+                    <Flag className="h-4 w-4" />
+                    Report post
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -424,6 +495,25 @@ export function PostCard({
         onSubmit={(reason, description) => reportPost(post.id, reason, description)}
         type="post"
         targetName={post.author.handle}
+      />
+      
+      <DeletePostDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleDelete}
+        isDeleting={isDeleting}
+      />
+      
+      <QuoteModal
+        open={showQuoteModal}
+        onOpenChange={setShowQuoteModal}
+        quotedPost={{
+          id: post.id,
+          content: post.content,
+          author: post.author,
+          createdAt: post.createdAt,
+        }}
+        onSubmit={handleQuote}
       />
     </article>
   );
