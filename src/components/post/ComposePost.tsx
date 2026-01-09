@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Image, MapPin, Calendar, X, Loader2 } from "lucide-react";
+import { Image, MapPin, Calendar, X, Loader2, Video } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
@@ -25,8 +25,9 @@ export function ComposePost({
   const [content, setContent] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<"image" | "video" | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,20 +35,23 @@ export function ComposePost({
   const isOverLimit = characterCount > maxLength;
   const characterPercentage = Math.min((characterCount / maxLength) * 100, 100);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedImage(file);
-      setImagePreview(URL.createObjectURL(file));
+      const isVideo = file.type.startsWith("video/");
+      setSelectedMedia(file);
+      setMediaPreview(URL.createObjectURL(file));
+      setMediaType(isVideo ? "video" : "image");
     }
   };
 
-  const removeImage = () => {
-    setSelectedImage(null);
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
+  const removeMedia = () => {
+    setSelectedMedia(null);
+    if (mediaPreview) {
+      URL.revokeObjectURL(mediaPreview);
     }
-    setImagePreview(null);
+    setMediaPreview(null);
+    setMediaType(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -58,9 +62,9 @@ export function ComposePost({
     
     setIsPosting(true);
     try {
-      await onPost(content, selectedImage ? [selectedImage] : undefined);
+      await onPost(content, selectedMedia ? [selectedMedia] : undefined);
       setContent("");
-      removeImage();
+      removeMedia();
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
@@ -107,19 +111,27 @@ export function ComposePost({
             rows={1}
           />
 
-          {/* Image Preview */}
-          {imagePreview && (
+          {/* Media Preview */}
+          {mediaPreview && (
             <div className="relative mt-3 inline-block">
-              <img
-                src={imagePreview}
-                alt="Preview"
-                className="max-h-48 rounded-xl object-cover"
-              />
+              {mediaType === "video" ? (
+                <video
+                  src={mediaPreview}
+                  className="max-h-48 rounded-xl object-cover"
+                  controls
+                />
+              ) : (
+                <img
+                  src={mediaPreview}
+                  alt="Preview"
+                  className="max-h-48 rounded-xl object-cover"
+                />
+              )}
               <Button
                 variant="secondary"
                 size="icon"
                 className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80"
-                onClick={removeImage}
+                onClick={removeMedia}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -140,15 +152,16 @@ export function ComposePost({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 className="hidden"
-                onChange={handleImageSelect}
+                onChange={handleMediaSelect}
               />
               <Button 
                 variant="ghost" 
                 size="icon" 
                 className="h-9 w-9 rounded-full text-primary hover:bg-primary/10"
                 onClick={() => fileInputRef.current?.click()}
+                title="Add image or video"
               >
                 <Image className="h-5 w-5" />
               </Button>
