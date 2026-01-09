@@ -17,6 +17,7 @@ import { PostCard, PostData } from "@/components/post";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { usePosts } from "@/hooks/usePosts";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { FollowersModal } from "@/components/profile/FollowersModal";
 
@@ -53,6 +54,8 @@ export default function ProfilePage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersModalTab, setFollowersModalTab] = useState<"followers" | "following">("followers");
+  const [deletedPostIds, setDeletedPostIds] = useState<Set<string>>(new Set());
+  const { deletePost } = usePosts({ fetch: false });
 
   const {
     profile,
@@ -67,6 +70,17 @@ export default function ProfilePage() {
     updateProfile,
     toggleFollow,
   } = useProfile(username);
+
+  const handleDelete = (postId: string) => {
+    deletePost(postId);
+    setDeletedPostIds(prev => new Set(prev).add(postId));
+  };
+
+  // Filter out deleted posts
+  const visiblePosts = posts.filter(p => !deletedPostIds.has(p.id));
+  const visibleReplies = replies.filter(p => !deletedPostIds.has(p.id));
+  const visibleMediaPosts = mediaPosts.filter(p => !deletedPostIds.has(p.id));
+  const visibleLikedPosts = likedPosts.filter(p => !deletedPostIds.has(p.id));
 
   // Don't auto-trigger login - let user click the button so they can dismiss the modal
 
@@ -151,7 +165,7 @@ export default function ProfilePage() {
               )}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {posts.length} posts
+              {visiblePosts.length} posts
             </p>
           </div>
         </div>
@@ -307,9 +321,13 @@ export default function ProfilePage() {
         </TabsList>
 
         <TabsContent value="posts" className="mt-0">
-          {posts.length > 0 ? (
-            posts.map((post) => (
-              <PostCard key={post.id} post={transformPost(post)} />
+          {visiblePosts.length > 0 ? (
+            visiblePosts.map((post) => (
+              <PostCard 
+                key={post.id} 
+                post={transformPost(post)} 
+                onDelete={isOwnProfile ? handleDelete : undefined}
+              />
             ))
           ) : (
             <div className="py-10 text-center text-muted-foreground">
@@ -319,9 +337,13 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="replies" className="mt-0">
-          {replies.length > 0 ? (
-            replies.map((post) => (
-              <PostCard key={post.id} post={transformPost(post)} />
+          {visibleReplies.length > 0 ? (
+            visibleReplies.map((post) => (
+              <PostCard 
+                key={post.id} 
+                post={transformPost(post)} 
+                onDelete={isOwnProfile ? handleDelete : undefined}
+              />
             ))
           ) : (
             <div className="py-10 text-center text-muted-foreground">
@@ -331,9 +353,9 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="media" className="mt-0">
-          {mediaPosts.length > 0 ? (
+          {visibleMediaPosts.length > 0 ? (
             <div className="grid grid-cols-3 gap-0.5">
-              {mediaPosts.map((post) => (
+              {visibleMediaPosts.map((post) => (
                 <a
                   key={post.id}
                   href={`/post/${post.id}`}
@@ -355,8 +377,8 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="likes" className="mt-0">
-          {likedPosts.length > 0 ? (
-            likedPosts.map((post) => (
+          {visibleLikedPosts.length > 0 ? (
+            visibleLikedPosts.map((post) => (
               <PostCard key={post.id} post={transformPost(post)} />
             ))
           ) : (

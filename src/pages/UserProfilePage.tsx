@@ -44,9 +44,10 @@ export default function UserProfilePage() {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, login } = useAuth();
-  const { toggleLike, toggleBookmark } = usePosts();
+  const { toggleLike, toggleBookmark, deletePost } = usePosts();
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersModalTab, setFollowersModalTab] = useState<"followers" | "following">("followers");
+  const [deletedPostIds, setDeletedPostIds] = useState<Set<string>>(new Set());
   const {
     profile,
     posts,
@@ -75,6 +76,17 @@ export default function UserProfilePage() {
     }
     toggleBookmark(postId);
   };
+
+  const handleDelete = (postId: string) => {
+    deletePost(postId);
+    setDeletedPostIds(prev => new Set(prev).add(postId));
+  };
+
+  // Filter out deleted posts
+  const visiblePosts = posts.filter(p => !deletedPostIds.has(p.id));
+  const visibleReplies = replies.filter(p => !deletedPostIds.has(p.id));
+  const visibleMediaPosts = mediaPosts.filter(p => !deletedPostIds.has(p.id));
+  const visibleLikedPosts = likedPosts.filter(p => !deletedPostIds.has(p.id));
 
   if (isLoading) {
     return (
@@ -136,7 +148,7 @@ export default function UserProfilePage() {
               )}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {profile.posts_count || 0} posts
+              {visiblePosts.length} posts
             </p>
           </div>
         </div>
@@ -283,7 +295,7 @@ export default function UserProfilePage() {
         </TabsList>
 
         <TabsContent value="posts" className="mt-0">
-          {posts.length === 0 ? (
+          {visiblePosts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <p className="text-lg font-semibold">No posts yet</p>
               <p className="text-muted-foreground">
@@ -292,25 +304,27 @@ export default function UserProfilePage() {
               </p>
             </div>
           ) : (
-            posts.map((post) => (
+            visiblePosts.map((post) => (
               <PostCard
                 key={post.id}
                 post={transformPost(post)}
                 onLike={handleLike}
                 onBookmark={handleBookmark}
+                onDelete={isOwnProfile ? handleDelete : undefined}
               />
             ))
           )}
         </TabsContent>
 
         <TabsContent value="replies" className="mt-0">
-          {replies.length > 0 ? (
-            replies.map((reply) => (
+          {visibleReplies.length > 0 ? (
+            visibleReplies.map((reply) => (
               <PostCard
                 key={reply.id}
                 post={transformPost(reply)}
                 onLike={handleLike}
                 onBookmark={handleBookmark}
+                onDelete={isOwnProfile ? handleDelete : undefined}
               />
             ))
           ) : (
@@ -321,9 +335,9 @@ export default function UserProfilePage() {
         </TabsContent>
 
         <TabsContent value="media" className="mt-0">
-          {mediaPosts.length > 0 ? (
+          {visibleMediaPosts.length > 0 ? (
             <div className="grid grid-cols-3 gap-0.5">
-              {mediaPosts.map((post) => (
+              {visibleMediaPosts.map((post) => (
                 <a
                   key={post.id}
                   href={`/post/${post.id}`}
@@ -345,8 +359,8 @@ export default function UserProfilePage() {
         </TabsContent>
 
         <TabsContent value="likes" className="mt-0">
-          {likedPosts.length > 0 ? (
-            likedPosts.map((post) => (
+          {visibleLikedPosts.length > 0 ? (
+            visibleLikedPosts.map((post) => (
               <PostCard
                 key={post.id}
                 post={transformPost(post)}
