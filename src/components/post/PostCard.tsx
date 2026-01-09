@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface PostData {
   id: string;
+  shortId?: string;
   authorId?: string;
   author: {
     name: string;
@@ -163,18 +164,20 @@ export function PostCard({
     onBookmark?.(post.id);
   };
 
+  const postUrl = post.shortId || post.id;
+
   const handleReply = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onReply) {
       onReply(post.id);
     } else {
-      navigate(`/post/${post.id}`);
+      navigate(`/post/${postUrl}`);
     }
   };
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${window.location.origin}/post/${post.id}`;
+    const url = `${window.location.origin}/post/${postUrl}`;
     
     if (navigator.share) {
       try {
@@ -265,7 +268,7 @@ export function PostCard({
     // Don't navigate if clicking on interactive elements
     const target = e.target as HTMLElement;
     if (target.closest('a, button, [role="button"]')) return;
-    navigate(`/post/${post.id}`);
+    navigate(`/post/${postUrl}`);
   };
 
   return (
@@ -306,7 +309,7 @@ export function PostCard({
             <span className="text-muted-foreground">@{post.author.handle}</span>
             <span className="text-muted-foreground">·</span>
             <Link 
-              to={`/post/${post.id}`}
+              to={`/post/${postUrl}`}
               className="text-muted-foreground hover:underline"
               onClick={(e) => e.stopPropagation()}
             >

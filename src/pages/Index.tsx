@@ -11,6 +11,7 @@ import { PostSkeletonList } from "@/components/ui/post-skeleton";
 function transformPost(post: PostWithProfile): PostData {
   return {
     id: post.id,
+    shortId: post.short_id,
     authorId: post.user_id,
     author: {
       name: post.profiles?.display_name || "Unknown",

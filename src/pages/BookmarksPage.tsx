@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 function transformPost(post: any): PostData {
   return {
     id: post.id,
+    shortId: post.short_id,
     author: {
       name: post.profiles?.display_name || "Unknown",
       handle: post.profiles?.username || "unknown",
