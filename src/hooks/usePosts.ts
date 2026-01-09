@@ -153,27 +153,20 @@ export function usePosts(options: UsePostsOptions = {}) {
         imageUrl = await uploadImage(imageFile);
       }
 
-      const { data, error } = await supabase
-        .from("posts")
-        .insert({
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "create_post",
+          userId: user.id,
           content,
-          user_id: user.id,
-          image_url: imageUrl,
-          parent_id: parentId || null,
-        })
-        .select(`
-          *,
-          profiles!posts_user_id_fkey (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            verified_type
-          )
-        `)
-        .single();
+          imageUrl,
+          parentId: parentId || null,
+        },
+      });
 
-      if (error) throw error;
+      if (fnError) throw fnError;
+
+      const data = (fnData as any)?.post as PostWithProfile | undefined;
+      if (!data) throw new Error("Failed to create post");
 
       const newPost = {
         ...data,
@@ -222,39 +215,37 @@ export function usePosts(options: UsePostsOptions = {}) {
     );
 
     try {
-      if (wasReposted) {
-        // Delete the repost
-        await supabase
-          .from("posts")
-          .delete()
-          .eq("original_post_id", postId)
-          .eq("user_id", user.id)
-          .eq("is_repost", true);
-      } else {
-        // Create a repost
-        await supabase.from("posts").insert({
-          content: post.content,
-          user_id: user.id,
-          is_repost: true,
-          original_post_id: postId,
-          image_url: post.image_url,
-        });
-      }
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "toggle_repost",
+          userId: user.id,
+          postId,
+        },
+      });
 
-      // Update the original post's repost count
-      await supabase
-        .from("posts")
-        .update({ reposts_count: wasReposted ? post.reposts_count - 1 : post.reposts_count + 1 })
-        .eq("id", postId);
+      if (fnError) throw fnError;
+
+      const reposted = !!(fnData as any)?.reposted;
+      const reposts_count = (fnData as any)?.reposts_count as number | undefined;
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                is_reposted: reposted,
+                reposts_count: typeof reposts_count === "number" ? reposts_count : p.reposts_count,
+              }
+            : p
+        )
+      );
 
       toast.success(wasReposted ? "Removed repost" : "Reposted!");
     } catch (err: any) {
       // Revert on error
       setPosts((prev) =>
         prev.map((p) =>
-          p.id === postId
-            ? { ...p, is_reposted: wasReposted, reposts_count: post.reposts_count }
-            : p
+          p.id === postId ? { ...p, is_reposted: wasReposted, reposts_count: post.reposts_count } : p
         )
       );
       console.error("Error toggling repost:", err);
@@ -288,22 +279,33 @@ export function usePosts(options: UsePostsOptions = {}) {
     );
 
     try {
-      if (wasLiked) {
-        await supabase.from("likes").delete().eq("post_id", postId).eq("user_id", user.id);
-      } else {
-        await supabase.from("likes").insert({ post_id: postId, user_id: user.id });
-      }
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "toggle_like",
+          userId: user.id,
+          postId,
+        },
+      });
 
-      // Update the post's like count in the database
-      await supabase
-        .from("posts")
-        .update({ likes_count: wasLiked ? post.likes_count - 1 : post.likes_count + 1 })
-        .eq("id", postId);
+      if (fnError) throw fnError;
+
+      const liked = !!(fnData as any)?.liked;
+      const likes_count = (fnData as any)?.likes_count as number | undefined;
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                is_liked: liked,
+                likes_count: typeof likes_count === "number" ? likes_count : p.likes_count,
+              }
+            : p
+        )
+      );
     } catch (err: any) {
       // Revert on error
-      setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, is_liked: wasLiked, likes_count: post.likes_count } : p))
-      );
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, is_liked: wasLiked, likes_count: post.likes_count } : p)));
       console.error("Error toggling like:", err);
       toast.error("Failed to update like");
     }
@@ -325,13 +327,20 @@ export function usePosts(options: UsePostsOptions = {}) {
     setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, is_bookmarked: !wasBookmarked } : p)));
 
     try {
-      if (wasBookmarked) {
-        await supabase.from("bookmarks").delete().eq("post_id", postId).eq("user_id", user.id);
-        toast.success("Removed from bookmarks");
-      } else {
-        await supabase.from("bookmarks").insert({ post_id: postId, user_id: user.id });
-        toast.success("Added to bookmarks");
-      }
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "toggle_bookmark",
+          userId: user.id,
+          postId,
+        },
+      });
+
+      if (fnError) throw fnError;
+
+      const bookmarked = !!(fnData as any)?.bookmarked;
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, is_bookmarked: bookmarked } : p)));
+
+      toast.success(bookmarked ? "Added to bookmarks" : "Removed from bookmarks");
     } catch (err: any) {
       // Revert on error
       setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, is_bookmarked: wasBookmarked } : p)));
