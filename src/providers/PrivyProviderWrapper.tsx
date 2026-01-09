@@ -1,9 +1,20 @@
-import { ReactNode, createContext, useContext, useEffect, useState, useRef, lazy, Suspense } from "react";
+import {
+  ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 
 // Lazy load Privy - it's a heavy dependency
-const PrivyProvider = lazy(() => 
-  import("@privy-io/react-auth").then(mod => ({ default: mod.PrivyProvider }))
+const PrivyProvider = lazy(() =>
+  import("@privy-io/react-auth").then((mod) => ({ default: mod.PrivyProvider }))
 );
 
 // Context to track if Privy is available
@@ -32,7 +43,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
     }
     return "";
   });
-  
+
   const [checked, setChecked] = useState(() => isValidPrivyAppId(buildTimeAppId));
   const fetchAttempted = useRef(false);
 
@@ -63,6 +74,13 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
 
   const appId = resolvedAppId;
   const privyAvailable = checked && isValidPrivyAppId(appId);
+
+  // Provide the missing Solana external wallet connectors so wallet login can
+  // hand off to browser wallets like Phantom.
+  const solanaConnectors = useMemo(
+    () => toSolanaWalletConnectors({ shouldAutoConnect: false }),
+    []
+  );
 
   // IMPORTANT: Don't block render - show children immediately while checking
   // Only show minimal loading if we MUST wait for runtime fetch
@@ -96,6 +114,13 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
           config={{
             // Login methods - Solana wallet, Twitter/X, and email
             loginMethods: ["wallet", "twitter", "email"],
+
+            // Required for external Solana wallets (e.g. Phantom)
+            externalWallets: {
+              solana: {
+                connectors: solanaConnectors,
+              },
+            },
 
             // Appearance configuration
             appearance: {
