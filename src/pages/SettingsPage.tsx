@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
-import { ArrowLeft, User, Palette, Bell, Shield, HelpCircle, LogOut } from "lucide-react";
+import { ArrowLeft, User, Palette, Bell, Shield, HelpCircle, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { privyUserIdToUuid } from "@/lib/privyUuid";
 
 type SettingsSection = "account" | "appearance" | "notifications" | "privacy" | "help";
 
@@ -16,6 +19,12 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<SettingsSection>("account");
   
+  // Username editing state
+  const [username, setUsername] = useState("");
+  const [originalUsername, setOriginalUsername] = useState("");
+  const [isLoadingUsername, setIsLoadingUsername] = useState(false);
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
+  
   // Redirect unauthenticated users
   useEffect(() => {
     if (ready && !isAuthenticated) {
@@ -23,6 +32,32 @@ export default function SettingsPage() {
       login();
     }
   }, [ready, isAuthenticated, navigate, login]);
+  
+  // Fetch current username
+  useEffect(() => {
+    const fetchUsername = async () => {
+      if (!user?.privyId) return;
+      setIsLoadingUsername(true);
+      try {
+        const profileId = await privyUserIdToUuid(user.privyId);
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", profileId)
+          .single();
+        
+        if (data && !error) {
+          setUsername(data.username);
+          setOriginalUsername(data.username);
+        }
+      } catch (err) {
+        console.error("Error fetching username:", err);
+      } finally {
+        setIsLoadingUsername(false);
+      }
+    };
+    fetchUsername();
+  }, [user?.privyId]);
   
   // Settings state
   const [darkMode, setDarkMode] = useState(true);
@@ -35,6 +70,52 @@ export default function SettingsPage() {
     await logout();
     toast.success("Logged out successfully");
     navigate("/");
+  };
+
+  const handleSaveUsername = async () => {
+    if (!user?.privyId || !username.trim()) return;
+    
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    if (!usernameRegex.test(username)) {
+      toast.error("Username must be 3-20 characters, letters, numbers, or underscores only");
+      return;
+    }
+    
+    setIsSavingUsername(true);
+    try {
+      const profileId = await privyUserIdToUuid(user.privyId);
+      
+      // Check if username is taken
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", username.toLowerCase())
+        .neq("id", profileId)
+        .single();
+      
+      if (existing) {
+        toast.error("Username is already taken");
+        setIsSavingUsername(false);
+        return;
+      }
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update({ username: username.toLowerCase() })
+        .eq("id", profileId);
+      
+      if (error) throw error;
+      
+      setOriginalUsername(username.toLowerCase());
+      setUsername(username.toLowerCase());
+      toast.success("Username updated successfully!");
+    } catch (err) {
+      console.error("Error updating username:", err);
+      toast.error("Failed to update username");
+    } finally {
+      setIsSavingUsername(false);
+    }
   };
 
   const menuItems = [
@@ -54,6 +135,31 @@ export default function SettingsPage() {
               <h3 className="text-lg font-semibold mb-4">Account Information</h3>
               {isAuthenticated && user ? (
                 <div className="space-y-4">
+                  {/* Username Edit */}
+                  <div className="py-3 border-b border-border">
+                    <p className="text-sm text-muted-foreground mb-2">Username</p>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+                        <Input
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                          className="pl-8"
+                          placeholder="username"
+                          disabled={isLoadingUsername}
+                        />
+                      </div>
+                      <Button
+                        onClick={handleSaveUsername}
+                        disabled={isSavingUsername || username === originalUsername || !username.trim()}
+                        size="sm"
+                      >
+                        {isSavingUsername ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">3-20 characters, letters, numbers, underscores only</p>
+                  </div>
+                  
                   <div className="flex justify-between items-center py-3 border-b border-border">
                     <div>
                       <p className="text-sm text-muted-foreground">User ID</p>
