@@ -27,6 +27,10 @@ type SocialWriteRequest =
       type: "toggle_repost";
       userId: string;
       postId: string;
+    }
+  | {
+      type: "track_view";
+      postId: string;
     };
 
 function json(data: unknown, status = 200) {
@@ -198,6 +202,28 @@ Deno.serve(async (req) => {
       if (updError) return json({ error: updError.message }, 500);
 
       return json({ reposted: true, reposts_count });
+    }
+
+    if (body.type === "track_view") {
+      if (!body.postId) return json({ error: "postId is required" }, 400);
+
+      const { data: postRow, error: fetchError } = await supabase
+        .from("posts")
+        .select("views_count")
+        .eq("id", body.postId)
+        .single();
+
+      if (fetchError) return json({ error: fetchError.message }, 500);
+
+      const views_count = (postRow.views_count ?? 0) + 1;
+      const { error: updError } = await supabase
+        .from("posts")
+        .update({ views_count })
+        .eq("id", body.postId);
+
+      if (updError) return json({ error: updError.message }, 500);
+
+      return json({ views_count });
     }
 
     return json({ error: "Unsupported operation" }, 400);
