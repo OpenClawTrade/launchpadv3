@@ -62,7 +62,7 @@ export function useSuggestedUsers(limit: number = 5) {
     }
   };
 
-  // Follow a user
+  // Follow a user via edge function (bypasses RLS for Privy users)
   const followUser = async (userId: string) => {
     if (!user?.id) {
       toast.error("Please sign in to follow users");
@@ -70,12 +70,16 @@ export function useSuggestedUsers(limit: number = 5) {
     }
 
     try {
-      const { error } = await supabase.from("follows").insert({
-        follower_id: user.id,
-        following_id: userId,
+      const { data, error } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "follow_user",
+          userId: user.id,
+          targetUserId: userId,
+        },
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       // Remove from suggestions
       setSuggestedUsers((prev) => prev.filter((u) => u.id !== userId));
