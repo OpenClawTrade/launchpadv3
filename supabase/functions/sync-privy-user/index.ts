@@ -26,10 +26,10 @@ function bytesToUuid(bytes: Uint8Array): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-async function sha1(data: Uint8Array): Promise<Uint8Array> {
-  // Create a fresh ArrayBuffer copy to satisfy strict TS typing for crypto.subtle.digest
-  const ab = new ArrayBuffer(data.byteLength);
-  new Uint8Array(ab).set(data);
+async function sha1(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
+  // Deno's WebCrypto typings currently require ArrayBuffer-backed views.
+  // Enforce ArrayBuffer here and pass a sliced ArrayBuffer to digest.
+  const ab = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
   const digest = await crypto.subtle.digest("SHA-1", ab);
   return new Uint8Array(digest);
 }
