@@ -46,18 +46,21 @@ export default function PostDetailPage() {
   const [isReplying, setIsReplying] = useState(false);
   const viewTracked = useRef(false);
 
-  // Track post view
+  // Track post view via backend function (bypasses RLS)
   useEffect(() => {
     if (!postId || !post || viewTracked.current) return;
     viewTracked.current = true;
     
-    // Increment view count in background (fire and forget)
-    supabase
-      .from("posts")
-      .update({ views_count: (post.views_count || 0) + 1 })
-      .eq("id", postId)
+    // Increment view count via backend function
+    supabase.functions
+      .invoke("social-write", {
+        body: { type: "track_view", postId },
+      })
       .then(() => {
         // View tracked successfully
+      })
+      .catch((err) => {
+        console.warn("Failed to track view:", err);
       });
   }, [postId, post]);
 
