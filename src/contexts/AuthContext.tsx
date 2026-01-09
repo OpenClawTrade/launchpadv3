@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useRef } fro
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { usePrivy, useLogout } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { privyUserIdToUuid } from "@/lib/privyUuid";
 
 interface User {
   id: string;
@@ -75,6 +76,7 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
   const { logout: privyLogout } = useLogout();
   
   const [user, setUser] = useState<User | null>(null);
+  const [dbUserId, setDbUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const walletSavedRef = useRef<string | null>(null);
 
@@ -84,10 +86,34 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
   );
   const solanaAddress = solanaWallet ? (solanaWallet as any).address : null;
 
+  // Privy user IDs are not UUIDs. Convert deterministically to a UUID so we can
+  // use them with the backend schema (which uses UUID primary keys).
+  useEffect(() => {
+    if (!privyUser?.id) {
+      setDbUserId(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const uuid = await privyUserIdToUuid(privyUser.id);
+        if (!cancelled) setDbUserId(uuid);
+      } catch {
+        if (!cancelled) setDbUserId(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [privyUser?.id]);
+
   // Sync user profile to database via edge function
   useEffect(() => {
-    if (!authenticated || !privyUser?.id) return;
-    if (walletSavedRef.current === `${privyUser.id}-${solanaAddress}`) return;
+    if (!authenticated || !privyUser?.id || !dbUserId) return;
+    if (walletSavedRef.current === `${dbUserId}-${solanaAddress}`) return;
     
     const syncProfileToDb = async () => {
       try {
@@ -108,7 +134,7 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
         if (error) {
           console.warn("Failed to sync profile:", error);
         } else {
-          walletSavedRef.current = `${privyUser.id}-${solanaAddress}`;
+          walletSavedRef.current = `${dbUserId}-${solanaAddress}`;
           console.log("Profile synced successfully with wallet:", solanaAddress);
         }
       } catch (e) {
@@ -117,7 +143,7 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
     };
     
     syncProfileToDb();
-  }, [authenticated, privyUser?.id, privyUser?.email, privyUser?.twitter, solanaAddress]);
+  }, [authenticated, privyUser?.id, privyUser?.email, privyUser?.twitter, solanaAddress, dbUserId]);
 
   // Sync Privy user to our user state
   useEffect(() => {
@@ -127,6 +153,12 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
     }
 
     if (authenticated && privyUser) {
+      if (!dbUserId) {
+        setUser(null);
+        setIsLoading(true);
+        return;
+      }
+
       // Extract user data from Privy
       const email = privyUser.email?.address;
       const twitter = privyUser.twitter;
@@ -138,7 +170,7 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
       );
 
       const userData: User = {
-        id: privyUser.id,
+        id: dbUserId,
         email,
         wallet: embeddedSolanaWallet 
           ? { address: (embeddedSolanaWallet as any).address, chainType: "solana" }
@@ -153,12 +185,13 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
       };
 
       setUser(userData);
-    } else {
-      setUser(null);
+      setIsLoading(false);
+      return;
     }
 
+    setUser(null);
     setIsLoading(false);
-  }, [ready, authenticated, privyUser, solanaAddress]);
+  }, [ready, authenticated, privyUser, solanaAddress, dbUserId]);
 
   const login = () => {
     console.log("Opening Privy login modal");
