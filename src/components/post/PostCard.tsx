@@ -116,7 +116,7 @@ export function PostCard({
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentContent, setCurrentContent] = useState(post.content);
   const [currentImageUrl, setCurrentImageUrl] = useState(post.media?.[0]?.url || null);
-  const isOwnPost = Boolean(user?.id && post.authorId && user.id === post.authorId);
+  const isOwnPost = !!(user?.id && post.authorId && user.id === post.authorId);
   
   // Track views when post becomes visible
   const viewTrackingRef = useViewTracking(post.id);

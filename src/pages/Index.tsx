@@ -130,7 +130,7 @@ const Index = () => {
                 onLike={handleLike}
                 onBookmark={handleBookmark}
                 onRepost={handleRepost}
-                onDelete={handleDelete}
+                onDelete={user?.id === post.user_id ? handleDelete : undefined}
                 onQuote={handleQuote}
               />
             </div>
