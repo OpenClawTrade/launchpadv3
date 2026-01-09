@@ -1,6 +1,6 @@
 import { forwardRef, useState } from "react";
 import type { ComponentPropsWithoutRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Search, Bell, Mail, Feather } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
@@ -20,6 +20,7 @@ export type MobileNavProps = ComponentPropsWithoutRef<"nav">;
 export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
   ({ className, ...props }, ref) => {
     const location = useLocation();
+    const navigate = useNavigate();
     const { notificationCount, messageCount } = useUnreadCounts();
     const { isAuthenticated, login } = useAuth();
     const { createPost } = usePosts({ fetch: false });
@@ -31,8 +32,16 @@ export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
              item.badgeKey === "messages" ? messageCount : 0,
     }));
 
-    const handlePost = async (content: string) => {
-      await createPost(content);
+    const handlePost = async (content: string, media?: File[]) => {
+      const imageFile = media?.[0];
+      await createPost(content, imageFile);
+      // If we're on the home page, reload to see the new post
+      if (location.pathname === '/') {
+        window.location.reload();
+      } else {
+        // Navigate to home to see the new post
+        navigate('/');
+      }
     };
 
     const handleComposeClick = () => {

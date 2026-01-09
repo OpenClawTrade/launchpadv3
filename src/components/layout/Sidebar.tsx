@@ -82,8 +82,16 @@ export function Sidebar({ user }: SidebarProps) {
     }
   };
 
-  const handlePost = async (content: string) => {
-    await createPost(content);
+  const handlePost = async (content: string, media?: File[]) => {
+    const imageFile = media?.[0];
+    await createPost(content, imageFile);
+    // If we're on the home page, reload to see the new post
+    if (location.pathname === '/') {
+      window.location.reload();
+    } else {
+      // Navigate to home to see the new post
+      navigate('/');
+    }
   };
 
   return (
