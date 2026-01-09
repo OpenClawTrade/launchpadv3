@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, MapPin, Link as LinkIcon, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout";
@@ -9,6 +10,7 @@ import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { useProfile, Profile } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts } from "@/hooks/usePosts";
+import { FollowersModal } from "@/components/profile/FollowersModal";
 import { format } from "date-fns";
 
 function transformPost(post: any): PostData {
@@ -43,6 +45,8 @@ export default function UserProfilePage() {
   const navigate = useNavigate();
   const { isAuthenticated, login } = useAuth();
   const { toggleLike, toggleBookmark } = usePosts();
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [followersModalTab, setFollowersModalTab] = useState<"followers" | "following">("followers");
   const {
     profile,
     posts,
@@ -153,8 +157,8 @@ export default function UserProfilePage() {
       <div className="px-4 pb-4">
         {/* Avatar */}
         <div className="flex justify-between items-end -mt-16 mb-4">
-          <Avatar className="h-32 w-32 border-4 border-background">
-            <AvatarImage src={profile.avatar_url || undefined} />
+          <Avatar className="h-32 w-32 border-4 border-background bg-primary">
+            <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
             <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
               {profile.display_name.charAt(0)}
             </AvatarFallback>
@@ -226,11 +230,23 @@ export default function UserProfilePage() {
 
         {/* Follow Stats */}
         <div className="flex gap-4 text-sm">
-          <button className="hover:underline">
+          <button 
+            className="hover:underline"
+            onClick={() => {
+              setFollowersModalTab("following");
+              setShowFollowersModal(true);
+            }}
+          >
             <span className="font-bold">{profile.following_count || 0}</span>{" "}
             <span className="text-muted-foreground">Following</span>
           </button>
-          <button className="hover:underline">
+          <button 
+            className="hover:underline"
+            onClick={() => {
+              setFollowersModalTab("followers");
+              setShowFollowersModal(true);
+            }}
+          >
             <span className="font-bold">{profile.followers_count || 0}</span>{" "}
             <span className="text-muted-foreground">Followers</span>
           </button>
@@ -345,6 +361,17 @@ export default function UserProfilePage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Followers/Following Modal */}
+      {profile && (
+        <FollowersModal
+          open={showFollowersModal}
+          onOpenChange={setShowFollowersModal}
+          userId={profile.id}
+          username={profile.username}
+          initialTab={followersModalTab}
+        />
+      )}
     </MainLayout>
   );
 }

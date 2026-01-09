@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout";
 import { Settings, Heart, Repeat2, User, AtSign, MessageCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const typeTextMap = {
 };
 
 export default function NotificationsPage() {
+  const navigate = useNavigate();
   const { notifications, unreadCount, isLoading, markAsRead } = useNotifications();
 
   // Mark all as read when viewing the page
@@ -49,6 +51,14 @@ export default function NotificationsPage() {
   const mentionNotifications = notifications.filter(
     (n) => n.type === "mention"
   );
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (notification.type === "follow" && notification.actor) {
+      navigate(`/user/${notification.actor.username}`);
+    } else if (notification.post_id) {
+      navigate(`/post/${notification.post_id}`);
+    }
+  };
 
   return (
     <MainLayout>
@@ -69,37 +79,51 @@ export default function NotificationsPage() {
               className="flex-1 h-full rounded-none border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none relative font-semibold text-muted-foreground data-[state=active]:text-foreground"
             >
               All
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-1 w-12 bg-primary rounded-full opacity-0 data-[state=active]:opacity-100 transition-opacity" />
             </TabsTrigger>
             <TabsTrigger
               value="verified"
               className="flex-1 h-full rounded-none border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none relative font-semibold text-muted-foreground data-[state=active]:text-foreground"
             >
               Verified
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-1 w-12 bg-primary rounded-full opacity-0 data-[state=active]:opacity-100 transition-opacity" />
             </TabsTrigger>
             <TabsTrigger
               value="mentions"
               className="flex-1 h-full rounded-none border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none relative font-semibold text-muted-foreground data-[state=active]:text-foreground"
             >
               Mentions
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-1 w-12 bg-primary rounded-full opacity-0 data-[state=active]:opacity-100 transition-opacity" />
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="all" className="mt-0">
-            <NotificationList notifications={notifications} isLoading={isLoading} />
-          </TabsContent>
-          <TabsContent value="verified" className="mt-0">
-            <NotificationList notifications={verifiedNotifications} isLoading={isLoading} />
-          </TabsContent>
-          <TabsContent value="mentions" className="mt-0">
-            <NotificationList notifications={mentionNotifications} isLoading={isLoading} />
-          </TabsContent>
         </Tabs>
       </header>
+
+      {/* Tabs Content - Outside header */}
+      <Tabs defaultValue="all" className="w-full">
+        <TabsContent value="all" className="mt-0">
+          <NotificationList notifications={notifications} isLoading={isLoading} onNotificationClick={handleNotificationClick} />
+        </TabsContent>
+        <TabsContent value="verified" className="mt-0">
+          <NotificationList notifications={verifiedNotifications} isLoading={isLoading} onNotificationClick={handleNotificationClick} />
+        </TabsContent>
+        <TabsContent value="mentions" className="mt-0">
+          <NotificationList notifications={mentionNotifications} isLoading={isLoading} onNotificationClick={handleNotificationClick} />
+        </TabsContent>
+      </Tabs>
     </MainLayout>
   );
 }
 
-function NotificationList({ notifications, isLoading }: { notifications: Notification[]; isLoading: boolean }) {
+function NotificationList({ 
+  notifications, 
+  isLoading,
+  onNotificationClick 
+}: { 
+  notifications: Notification[]; 
+  isLoading: boolean;
+  onNotificationClick: (notification: Notification) => void;
+}) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -122,13 +146,23 @@ function NotificationList({ notifications, isLoading }: { notifications: Notific
   return (
     <div className="divide-y divide-border">
       {notifications.map((notification) => (
-        <NotificationItem key={notification.id} notification={notification} />
+        <NotificationItem 
+          key={notification.id} 
+          notification={notification} 
+          onClick={() => onNotificationClick(notification)}
+        />
       ))}
     </div>
   );
 }
 
-function NotificationItem({ notification }: { notification: Notification }) {
+function NotificationItem({ 
+  notification,
+  onClick 
+}: { 
+  notification: Notification;
+  onClick: () => void;
+}) {
   const Icon = iconMap[notification.type];
   const colorClass = colorMap[notification.type];
   const typeText = typeTextMap[notification.type];
@@ -139,6 +173,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
 
   return (
     <div
+      onClick={onClick}
       className={cn(
         "px-4 py-3 hover:bg-secondary/50 transition-colors cursor-pointer animate-fadeIn",
         !notification.read && "bg-primary/5"
