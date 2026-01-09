@@ -101,12 +101,12 @@ export function Sidebar({ user }: SidebarProps) {
         <div className="flex flex-col">
           <Link 
             to="/" 
-            className="rounded-lg hover:bg-secondary transition-colors duration-200 w-fit mb-2"
+            className="flex justify-center rounded-lg hover:bg-secondary transition-colors duration-200 mb-2"
           >
             <img 
               src={trenchesLogo} 
               alt="TRENCHES" 
-              className="h-28 w-auto xl:h-32 object-contain"
+              className="h-32 w-auto xl:h-40"
             />
           </Link>
 
