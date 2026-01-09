@@ -36,8 +36,9 @@ export function ComposeModal({
   const { createPost, uploadImage } = usePosts({ fetch: false });
   const [content, setContent] = useState("");
   const [isPosting, setIsPosting] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<"image" | "video" | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,20 +46,23 @@ export function ComposeModal({
   const isOverLimit = characterCount > maxLength;
   const characterPercentage = Math.min((characterCount / maxLength) * 100, 100);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedImage(file);
-      setImagePreview(URL.createObjectURL(file));
+      const isVideo = file.type.startsWith("video/");
+      setSelectedMedia(file);
+      setMediaPreview(URL.createObjectURL(file));
+      setMediaType(isVideo ? "video" : "image");
     }
   };
 
-  const removeImage = () => {
-    setSelectedImage(null);
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
+  const removeMedia = () => {
+    setSelectedMedia(null);
+    if (mediaPreview) {
+      URL.revokeObjectURL(mediaPreview);
     }
-    setImagePreview(null);
+    setMediaPreview(null);
+    setMediaType(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -69,21 +73,21 @@ export function ComposeModal({
 
     setIsPosting(true);
     try {
-      // Upload image first if selected
-      let imageUrl: string | null = null;
-      if (selectedImage) {
-        imageUrl = await uploadImage(selectedImage);
-        console.log("Image uploaded, URL:", imageUrl);
+      // Upload media first if selected
+      let mediaUrl: string | null = null;
+      if (selectedMedia) {
+        mediaUrl = await uploadImage(selectedMedia);
+        console.log("Media uploaded, URL:", mediaUrl);
       }
 
       if (onPost) {
-        await onPost(content, selectedImage ? [selectedImage] : undefined);
+        await onPost(content, selectedMedia ? [selectedMedia] : undefined);
       } else {
-        const result = await createPost(content, selectedImage || undefined, replyToId);
+        const result = await createPost(content, selectedMedia || undefined, replyToId);
         console.log("Post created:", result);
       }
       setContent("");
-      removeImage();
+      removeMedia();
       onOpenChange(false);
     } catch (error) {
       console.error("Error in handleSubmit:", error);
@@ -135,19 +139,27 @@ export function ComposeModal({
                 autoFocus
               />
 
-              {/* Image Preview */}
-              {imagePreview && (
+              {/* Media Preview */}
+              {mediaPreview && (
                 <div className="relative mt-3 inline-block">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="max-h-48 rounded-xl object-cover"
-                  />
+                  {mediaType === "video" ? (
+                    <video
+                      src={mediaPreview}
+                      className="max-h-48 rounded-xl object-cover"
+                      controls
+                    />
+                  ) : (
+                    <img
+                      src={mediaPreview}
+                      alt="Preview"
+                      className="max-h-48 rounded-xl object-cover"
+                    />
+                  )}
                   <Button
                     variant="secondary"
                     size="icon"
                     className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80"
-                    onClick={removeImage}
+                    onClick={removeMedia}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -163,15 +175,16 @@ export function ComposeModal({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               className="hidden"
-              onChange={handleImageSelect}
+              onChange={handleMediaSelect}
             />
             <Button
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-full text-primary hover:bg-primary/10"
               onClick={() => fileInputRef.current?.click()}
+              title="Add image or video"
             >
               <Image className="h-5 w-5" />
             </Button>

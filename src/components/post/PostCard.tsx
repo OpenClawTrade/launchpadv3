@@ -435,11 +435,20 @@ export function PostCard({
           {currentImageUrl && (
             <div className="mt-3 rounded-2xl overflow-hidden border border-border">
               <div className="relative aspect-video bg-secondary">
-                <img 
-                  src={currentImageUrl} 
-                  alt="" 
-                  className="w-full h-full object-cover"
-                />
+                {currentImageUrl.match(/\.(mp4|webm|mov|avi)($|\?)/i) ? (
+                  <video 
+                    src={currentImageUrl}
+                    className="w-full h-full object-cover"
+                    controls
+                    preload="metadata"
+                  />
+                ) : (
+                  <img 
+                    src={currentImageUrl} 
+                    alt="" 
+                    className="w-full h-full object-cover"
+                  />
+                )}
               </div>
             </div>
           )}
