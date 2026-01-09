@@ -43,6 +43,11 @@ type SocialWriteRequest =
   | {
       type: "track_view";
       postId: string;
+    }
+  | {
+      type: "follow_user";
+      userId: string;
+      targetUserId: string;
     };
 
 function json(data: unknown, status = 200) {
@@ -301,6 +306,55 @@ Deno.serve(async (req) => {
       if (updError) return json({ error: updError.message }, 500);
 
       return json({ views_count });
+    }
+
+    if (body.type === "follow_user") {
+      if (!body.userId || !body.targetUserId) return json({ error: "userId and targetUserId are required" }, 400);
+      if (body.userId === body.targetUserId) return json({ error: "You cannot follow yourself" }, 400);
+
+      // Check if already following
+      const { data: existing } = await supabase
+        .from("follows")
+        .select("id")
+        .eq("follower_id", body.userId)
+        .eq("following_id", body.targetUserId)
+        .maybeSingle();
+
+      if (existing) {
+        return json({ followed: true, message: "Already following" });
+      }
+
+      // Insert follow
+      const { error: insError } = await supabase.from("follows").insert({
+        follower_id: body.userId,
+        following_id: body.targetUserId,
+      });
+      if (insError) return json({ error: insError.message }, 500);
+
+      // Update follower counts
+      const { data: targetProfile } = await supabase
+        .from("profiles")
+        .select("followers_count")
+        .eq("id", body.targetUserId)
+        .single();
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("following_count")
+        .eq("id", body.userId)
+        .single();
+
+      await supabase
+        .from("profiles")
+        .update({ followers_count: (targetProfile?.followers_count ?? 0) + 1 })
+        .eq("id", body.targetUserId);
+
+      await supabase
+        .from("profiles")
+        .update({ following_count: (userProfile?.following_count ?? 0) + 1 })
+        .eq("id", body.userId);
+
+      return json({ followed: true });
     }
 
     return json({ error: "Unsupported operation" }, 400);
