@@ -216,18 +216,21 @@ export function useProfile(username?: string) {
   };
 
   const updateProfile = async (updates: ProfileUpdateData) => {
-    if (!user?.id) {
+    if (!user?.id || !user?.privyId) {
       toast.error("Please sign in to update profile");
       return false;
     }
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", user.id);
+      const { data, error } = await supabase.functions.invoke("update-profile", {
+        body: {
+          privyUserId: user.privyId,
+          ...updates,
+        },
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       setProfile((prev) => (prev ? { ...prev, ...updates } : null));
       toast.success("Profile updated!");

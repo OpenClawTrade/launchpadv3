@@ -6,6 +6,7 @@ import { privyUserIdToUuid } from "@/lib/privyUuid";
 
 interface User {
   id: string;
+  privyId: string;
   email?: string;
   wallet?: {
     address: string;
@@ -171,6 +172,7 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
 
       const userData: User = {
         id: dbUserId,
+        privyId: privyUser.id,
         email,
         wallet: embeddedSolanaWallet 
           ? { address: (embeddedSolanaWallet as any).address, chainType: "solana" }
