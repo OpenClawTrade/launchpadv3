@@ -14,6 +14,11 @@ type SocialWriteRequest =
       parentId?: string | null;
     }
   | {
+      type: "delete_post";
+      userId: string;
+      postId: string;
+    }
+  | {
       type: "toggle_like";
       userId: string;
       postId: string;
@@ -90,6 +95,28 @@ Deno.serve(async (req) => {
 
       if (postError) return json({ error: postError.message }, 500);
       return json({ post });
+    }
+
+    if (body.type === "delete_post") {
+      if (!body.userId || !body.postId) return json({ error: "userId and postId are required" }, 400);
+
+      // Verify the user owns the post
+      const { data: postRow, error: fetchError } = await supabase
+        .from("posts")
+        .select("user_id")
+        .eq("id", body.postId)
+        .single();
+
+      if (fetchError) return json({ error: fetchError.message }, 500);
+      if (postRow.user_id !== body.userId) return json({ error: "You can only delete your own posts" }, 403);
+
+      const { error: delError } = await supabase
+        .from("posts")
+        .delete()
+        .eq("id", body.postId);
+
+      if (delError) return json({ error: delError.message }, 500);
+      return json({ deleted: true });
     }
 
     if (body.type === "toggle_like") {

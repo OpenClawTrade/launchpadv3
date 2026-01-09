@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
+import { FollowersModal } from "@/components/profile/FollowersModal";
 
 function transformPost(post: any): PostData {
   return {
@@ -50,6 +51,8 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [followersModalTab, setFollowersModalTab] = useState<"followers" | "following">("followers");
 
   const {
     profile,
@@ -169,7 +172,7 @@ export default function ProfilePage() {
       <div className="px-4 pb-4 relative">
         {/* Avatar */}
         <div className="absolute -top-16 left-4">
-          <Avatar className="h-32 w-32 border-4 border-background">
+          <Avatar className="h-32 w-32 border-4 border-background bg-primary">
             {profile.avatar_url ? (
               <AvatarImage src={profile.avatar_url} className="object-cover" />
             ) : null}
@@ -261,13 +264,25 @@ export default function ProfilePage() {
 
           {/* Stats */}
           <div className="flex gap-4 mt-3">
-            <button className="hover:underline">
+            <button 
+              className="hover:underline"
+              onClick={() => {
+                setFollowersModalTab("following");
+                setShowFollowersModal(true);
+              }}
+            >
               <span className="font-bold">
                 {(profile.following_count || 0).toLocaleString()}
               </span>
               <span className="text-muted-foreground"> Following</span>
             </button>
-            <button className="hover:underline">
+            <button 
+              className="hover:underline"
+              onClick={() => {
+                setFollowersModalTab("followers");
+                setShowFollowersModal(true);
+              }}
+            >
               <span className="font-bold">
                 {(profile.followers_count || 0).toLocaleString()}
               </span>
@@ -359,6 +374,17 @@ export default function ProfilePage() {
           onOpenChange={setShowEditModal}
           profile={profile}
           onSave={updateProfile}
+        />
+      )}
+
+      {/* Followers/Following Modal */}
+      {profile && (
+        <FollowersModal
+          open={showFollowersModal}
+          onOpenChange={setShowFollowersModal}
+          userId={profile.id}
+          username={profile.username}
+          initialTab={followersModalTab}
         />
       )}
     </MainLayout>

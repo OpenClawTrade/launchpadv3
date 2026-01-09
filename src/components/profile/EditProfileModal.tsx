@@ -236,8 +236,8 @@ export function EditProfileModal({
           <div className="px-4 relative">
             <div className="absolute -top-12 left-4">
               <div className="relative">
-                <Avatar className="h-24 w-24 border-4 border-background">
-                  <AvatarImage src={avatarPreview || undefined} />
+                <Avatar className="h-24 w-24 border-4 border-background bg-primary">
+                  <AvatarImage src={avatarPreview || undefined} className="object-cover" />
                   <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
                     {profile.display_name?.charAt(0) || "?"}
                   </AvatarFallback>

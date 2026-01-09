@@ -8,6 +8,7 @@ import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { cn } from "@/lib/utils";
 import { useMessages, Conversation } from "@/hooks/useMessages";
 import { ChatView } from "@/components/chat/ChatView";
+import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -16,11 +17,22 @@ export default function MessagesPage() {
   const { conversations, totalUnread, isLoading } = useMessages();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showNewMessageModal, setShowNewMessageModal] = useState(false);
 
   const filteredConversations = conversations.filter((conv) =>
     conv.other_user.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.other_user.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleSelectNewUser = (conversationId: string, user: any) => {
+    setSelectedConversation({
+      id: conversationId,
+      other_user: user,
+      last_message_preview: null,
+      last_message_at: new Date().toISOString(),
+      unread_count: 0,
+    });
+  };
 
   if (selectedConversation) {
     return (
@@ -51,7 +63,12 @@ export default function MessagesPage() {
             <Button variant="ghost" size="icon" className="rounded-full">
               <Settings className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full"
+              onClick={() => setShowNewMessageModal(true)}
+            >
               <Plus className="h-5 w-5" />
             </Button>
           </div>
@@ -107,12 +124,22 @@ export default function MessagesPage() {
             <p className="text-muted-foreground max-w-sm">
               Drop a line, share posts and more with private conversations between you and others on TRENCHES.
             </p>
-            <Button className="mt-6 rounded-full font-bold">
+            <Button 
+              className="mt-6 rounded-full font-bold"
+              onClick={() => setShowNewMessageModal(true)}
+            >
               Write a message
             </Button>
           </div>
         )}
       </div>
+
+      {/* New Message Modal */}
+      <NewMessageModal
+        open={showNewMessageModal}
+        onOpenChange={setShowNewMessageModal}
+        onSelectUser={handleSelectNewUser}
+      />
     </MainLayout>
   );
 }
