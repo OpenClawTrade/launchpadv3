@@ -349,6 +349,58 @@ export function usePosts(options: UsePostsOptions = {}) {
     }
   };
 
+  // Delete a post
+  const deletePost = useCallback((postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
+  // Quote a post
+  const quotePost = async (postId: string, content: string, imageFile?: File) => {
+    if (!user?.id) {
+      toast.error("Please sign in to quote posts");
+      return;
+    }
+
+    try {
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
+
+      // Create a post with quote reference in content
+      const quotedPost = posts.find(p => p.id === postId);
+      const quoteContent = content;
+
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "create_post",
+          userId: user.id,
+          content: quoteContent,
+          imageUrl,
+          quotedPostId: postId,
+        },
+      });
+
+      if (fnError) throw fnError;
+
+      const data = (fnData as any)?.post as PostWithProfile | undefined;
+      if (!data) throw new Error("Failed to quote post");
+
+      const newPost = {
+        ...data,
+        is_liked: false,
+        is_bookmarked: false,
+        is_reposted: false,
+      };
+
+      setPosts((prev) => [newPost, ...prev]);
+      toast.success("Quote posted!");
+    } catch (err: any) {
+      console.error("Error quoting post:", err);
+      toast.error("Failed to quote post");
+    }
+  };
+
   useEffect(() => {
     if (!fetchEnabled) return;
     fetchPosts();
@@ -363,6 +415,8 @@ export function usePosts(options: UsePostsOptions = {}) {
     toggleLike,
     toggleBookmark,
     toggleRepost,
+    deletePost,
+    quotePost,
     uploadImage,
     refetch: fetchPosts,
   };
