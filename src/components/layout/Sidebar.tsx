@@ -110,29 +110,7 @@ export function Sidebar({ user }: SidebarProps) {
             />
           </Link>
 
-          {/* Auth Buttons - Above Search */}
-          {!isAuthenticated && (
-            <div className="mb-4 space-y-2 hidden xl:block">
-              <Button 
-                onClick={login}
-                variant="default" 
-                className="w-full rounded-lg font-semibold h-10"
-              >
-                <LogIn className="mr-2 h-4 w-4" />
-                Log In
-              </Button>
-              <Button 
-                onClick={login}
-                variant="outline" 
-                className="w-full rounded-lg font-semibold h-10 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-              >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Register
-              </Button>
-            </div>
-          )}
-
-          {/* Mobile Auth Button */}
+          {/* Mobile Auth Button - Only show on mobile since desktop has right sidebar */}
           {!isAuthenticated && (
             <div className="mb-4 xl:hidden flex justify-center">
               <Button 
@@ -145,6 +123,7 @@ export function Sidebar({ user }: SidebarProps) {
               </Button>
             </div>
           )}
+
 
           {/* Search - Desktop Only */}
           <div className="relative mb-4 hidden xl:block">
