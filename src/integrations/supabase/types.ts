@@ -419,6 +419,7 @@ export type Database = {
           parent_id: string | null
           replies_count: number | null
           reposts_count: number | null
+          short_id: string | null
           updated_at: string
           user_id: string
           views_count: number | null
@@ -434,6 +435,7 @@ export type Database = {
           parent_id?: string | null
           replies_count?: number | null
           reposts_count?: number | null
+          short_id?: string | null
           updated_at?: string
           user_id: string
           views_count?: number | null
@@ -449,6 +451,7 @@ export type Database = {
           parent_id?: string | null
           replies_count?: number | null
           reposts_count?: number | null
+          short_id?: string | null
           updated_at?: string
           user_id?: string
           views_count?: number | null
@@ -699,6 +702,7 @@ export type Database = {
     }
     Functions: {
       calculate_trending_topics: { Args: never; Returns: undefined }
+      generate_short_id: { Args: never; Returns: string }
       get_suggested_users: {
         Args: { current_user_id: string; limit_count?: number }
         Returns: {
