@@ -23,9 +23,9 @@ function bytesToUuid(bytes: Uint8Array): string {
 }
 
 async function sha1(data: Uint8Array): Promise<Uint8Array> {
-  // crypto.subtle.digest typings can be picky about ArrayBuffer vs SharedArrayBuffer.
-  // Pass a real ArrayBuffer slice to keep TS + runtime happy.
-  const ab = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  // Create a fresh ArrayBuffer copy to satisfy strict TS typing for crypto.subtle.digest
+  const ab = new ArrayBuffer(data.byteLength);
+  new Uint8Array(ab).set(data);
   const digest = await crypto.subtle.digest("SHA-1", ab);
   return new Uint8Array(digest);
 }
