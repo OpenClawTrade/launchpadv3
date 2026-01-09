@@ -171,7 +171,7 @@ export default function ProfilePage() {
         <div className="absolute -top-16 left-4">
           <Avatar className="h-32 w-32 border-4 border-background">
             {profile.avatar_url ? (
-              <AvatarImage src={profile.avatar_url} />
+              <AvatarImage src={profile.avatar_url} className="object-cover" />
             ) : null}
             <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
               {profile.display_name?.charAt(0).toUpperCase() || "?"}
