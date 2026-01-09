@@ -10,6 +10,7 @@ import {
   Suspense,
 } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import trenchesLogo from "@/assets/trenches-logo.png";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 
 // Lazy load Privy - it's a heavy dependency
@@ -126,6 +127,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             appearance: {
               theme: "dark",
               accentColor: "#9945FF", // Solana purple
+              logo: trenchesLogo,
               showWalletLoginFirst: true,
               walletChainType: "solana-only", // Only show Solana wallets
               walletList: ["phantom", "solflare", "backpack", "detected_wallets"],
