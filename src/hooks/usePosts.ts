@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 export interface PostWithProfile {
   id: string;
+  short_id?: string;
   content: string;
   image_url: string | null;
   created_at: string;
@@ -431,6 +432,7 @@ export function usePosts(options: UsePostsOptions = {}) {
 }
 
 // Hook for fetching a single post with its replies
+// Accepts either a UUID (id) or short_id (8-char alphanumeric)
 export function usePost(postId: string | null) {
   const { user } = useAuth();
   const [post, setPost] = useState<PostWithProfile | null>(null);
@@ -442,6 +444,10 @@ export function usePost(postId: string | null) {
 
     try {
       setIsLoading(true);
+
+      // Determine if it's a UUID or short_id (8-char alphanumeric)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId);
+      const lookupColumn = isUuid ? "id" : "short_id";
 
       // Fetch the main post
       const { data: postData, error: postError } = await supabase
@@ -456,7 +462,7 @@ export function usePost(postId: string | null) {
             verified_type
           )
         `)
-        .eq("id", postId)
+        .eq(lookupColumn, postId)
         .maybeSingle();
 
       if (postError) throw postError;

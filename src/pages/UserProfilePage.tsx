@@ -16,6 +16,7 @@ import { format } from "date-fns";
 function transformPost(post: any): PostData {
   return {
     id: post.id,
+    shortId: post.short_id,
     author: {
       name: post.profiles?.display_name || "Unknown",
       handle: post.profiles?.username || "unknown",
@@ -340,7 +341,7 @@ export default function UserProfilePage() {
               {visibleMediaPosts.map((post) => (
                 <a
                   key={post.id}
-                  href={`/post/${post.id}`}
+                  href={`/post/${post.short_id || post.id}`}
                   className="aspect-square overflow-hidden bg-secondary hover:opacity-90 transition-opacity"
                 >
                   <img

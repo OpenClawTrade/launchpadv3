@@ -11,6 +11,7 @@ import { useExplore } from "@/hooks/useExplore";
 function transformPost(post: any): PostData {
   return {
     id: post.id,
+    shortId: post.short_id,
     authorId: post.user_id,
     author: {
       name: post.profiles?.display_name || "Unknown",

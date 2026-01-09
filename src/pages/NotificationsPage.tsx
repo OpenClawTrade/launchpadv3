@@ -9,6 +9,7 @@ import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { cn } from "@/lib/utils";
 import { useNotifications, Notification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 const iconMap = {
   like: Heart,
@@ -52,11 +53,18 @@ export default function NotificationsPage() {
     (n) => n.type === "mention"
   );
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = async (notification: Notification) => {
     if (notification.type === "follow" && notification.actor) {
-      navigate(`/user/${notification.actor.username}`);
+      navigate(`/${notification.actor.username}`);
     } else if (notification.post_id) {
-      navigate(`/post/${notification.post_id}`);
+      // Fetch short_id for the post
+      const { data } = await supabase
+        .from("posts")
+        .select("short_id")
+        .eq("id", notification.post_id)
+        .maybeSingle();
+      
+      navigate(`/post/${data?.short_id || notification.post_id}`);
     }
   };
 

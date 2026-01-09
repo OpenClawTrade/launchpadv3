@@ -495,6 +495,7 @@ export type Database = {
           solana_wallet_address: string | null
           updated_at: string
           username: string
+          username_changed_at: string | null
           verified_type: string | null
           website: string | null
         }
@@ -512,6 +513,7 @@ export type Database = {
           solana_wallet_address?: string | null
           updated_at?: string
           username: string
+          username_changed_at?: string | null
           verified_type?: string | null
           website?: string | null
         }
@@ -529,6 +531,7 @@ export type Database = {
           solana_wallet_address?: string | null
           updated_at?: string
           username?: string
+          username_changed_at?: string | null
           verified_type?: string | null
           website?: string | null
         }

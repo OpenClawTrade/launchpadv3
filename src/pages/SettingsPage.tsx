@@ -23,6 +23,7 @@ export default function SettingsPage() {
   // Username editing state
   const [username, setUsername] = useState("");
   const [originalUsername, setOriginalUsername] = useState("");
+  const [usernameChangedAt, setUsernameChangedAt] = useState<Date | null>(null);
   const [isLoadingUsername, setIsLoadingUsername] = useState(false);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
   
@@ -47,13 +48,14 @@ export default function SettingsPage() {
         const profileId = await privyUserIdToUuid(user.privyId);
         const { data, error } = await supabase
           .from("profiles")
-          .select("username")
+          .select("username, username_changed_at")
           .eq("id", profileId)
           .single();
         
         if (data && !error) {
           setUsername(data.username);
           setOriginalUsername(data.username);
+          setUsernameChangedAt(data.username_changed_at ? new Date(data.username_changed_at) : null);
         }
       } catch (err) {
         console.error("Error fetching username:", err);
@@ -77,8 +79,27 @@ export default function SettingsPage() {
     navigate("/");
   };
 
+  // Check if username change is allowed (7-day cooldown)
+  const canChangeUsername = () => {
+    if (!usernameChangedAt) return true;
+    const daysSinceChange = (Date.now() - usernameChangedAt.getTime()) / (1000 * 60 * 60 * 24);
+    return daysSinceChange >= 7;
+  };
+
+  const daysUntilChange = () => {
+    if (!usernameChangedAt) return 0;
+    const daysSinceChange = (Date.now() - usernameChangedAt.getTime()) / (1000 * 60 * 60 * 24);
+    return Math.ceil(7 - daysSinceChange);
+  };
+
   const handleSaveUsername = async () => {
     if (!user?.privyId || !username.trim()) return;
+    
+    // Check cooldown
+    if (!canChangeUsername()) {
+      toast.error(`You can change your username in ${daysUntilChange()} day(s)`);
+      return;
+    }
     
     // Validate username format
     const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
@@ -107,13 +128,17 @@ export default function SettingsPage() {
       
       const { error } = await supabase
         .from("profiles")
-        .update({ username: username.toLowerCase() })
+        .update({ 
+          username: username.toLowerCase(),
+          username_changed_at: new Date().toISOString()
+        })
         .eq("id", profileId);
       
       if (error) throw error;
       
       setOriginalUsername(username.toLowerCase());
       setUsername(username.toLowerCase());
+      setUsernameChangedAt(new Date());
       toast.success("Username updated successfully!");
     } catch (err) {
       console.error("Error updating username:", err);
@@ -151,18 +176,22 @@ export default function SettingsPage() {
                           onChange={(e) => setUsername(e.target.value.toLowerCase())}
                           className="pl-8"
                           placeholder="username"
-                          disabled={isLoadingUsername}
+                          disabled={isLoadingUsername || !canChangeUsername()}
                         />
                       </div>
                       <Button
                         onClick={handleSaveUsername}
-                        disabled={isSavingUsername || username === originalUsername || !username.trim()}
+                        disabled={isSavingUsername || username === originalUsername || !username.trim() || !canChangeUsername()}
                         size="sm"
                       >
                         {isSavingUsername ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">3-20 characters, letters, numbers, underscores only</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {canChangeUsername() 
+                        ? "3-20 characters, letters, numbers, underscores only. Can change once every 7 days."
+                        : `You can change your username again in ${daysUntilChange()} day(s)`}
+                    </p>
                   </div>
                   
                   <div className="flex justify-between items-center py-3 border-b border-border">
