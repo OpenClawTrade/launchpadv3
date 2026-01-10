@@ -17,7 +17,7 @@ import {
   Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import trenchesLogo from "@/assets/trenches-logo.png";
+import trenchesLogo from "@/assets/trenches-logo-optimized.png";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
