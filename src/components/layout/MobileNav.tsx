@@ -1,7 +1,7 @@
 import { forwardRef, useState } from "react";
 import type { ComponentPropsWithoutRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Search, Bell, Mail, Feather, Menu, LogIn, User, Bookmark, Users, Sparkles, Settings, X, Rocket } from "lucide-react";
+import { Home, Search, Bell, Mail, Feather, Menu, LogIn, User, Bookmark, Users, Sparkles, Settings, X, Rocket, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,7 @@ const menuItems = [
   { icon: Bell, label: "Notifications", href: "/notifications" },
   { icon: Mail, label: "Messages", href: "/messages" },
   { icon: Sparkles, label: "Trenches AI", href: "/ai" },
+  { icon: Map, label: "Roadmap", href: "/roadmap" },
   { icon: Bookmark, label: "Bookmarks", href: "/bookmarks" },
   { icon: Users, label: "Communities", href: "/communities" },
   { icon: User, label: "Profile", href: "/profile" },
