@@ -102,7 +102,7 @@ const socialPlatformSections: RoadmapSection[] = [
     status: "completed",
     progress: 100,
     features: [
-      { name: "Privy Auth", description: "Wallet, Twitter, email login", status: "done", icon: Lock },
+      { name: "Privy Auth", description: "Wallet, social, email login", status: "done", icon: Lock },
       { name: "Solana Wallet Auto-Creation", description: "Every user gets a wallet on signup", status: "done", icon: Wallet },
       { name: "Profile Editing", description: "Bio, location, website, avatar, cover", status: "done", icon: Edit },
       { name: "Profile Tabs", description: "Posts, Replies, Media, Likes views", status: "done", icon: Users },
@@ -458,7 +458,7 @@ export default function RoadmapPage() {
             </div>
             <p className="text-muted-foreground max-w-2xl mb-6">
               Complete development roadmap for the TRENCHES platform — a revolutionary combination of 
-              social media and token trading, inspired by X.com and axiom.trade.
+              social media and token trading with advanced trading tools.
             </p>
             
             {/* Quick Stats */}
@@ -518,7 +518,7 @@ export default function RoadmapPage() {
                   {Math.round((completedSocialFeatures / totalSocialFeatures) * 100)}% Complete
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  X.com-inspired social media platform
+                  Full-featured social media platform
                 </span>
               </div>
               {socialPlatformSections.map((section) => (
@@ -533,7 +533,7 @@ export default function RoadmapPage() {
                   {Math.round((completedLaunchpadFeatures / totalLaunchpadFeatures) * 100)}% Complete
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  axiom.trade-inspired token launchpad
+                  Advanced token launchpad with trading tools
                 </span>
               </div>
               {launchpadSections.map((section) => (
@@ -556,17 +556,17 @@ export default function RoadmapPage() {
                 <CardContent className="pt-6">
                   <h3 className="font-semibold mb-2">Why This Matters</h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Unlike axiom.trade (trading-only) or X.com (social-only), TRENCHES combines both into 
+                    Unlike trading-only platforms or social-only platforms, TRENCHES combines both into 
                     a single platform. This creates viral loops where social engagement drives token discovery, 
                     and token trading drives social interaction.
                   </p>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="p-3 rounded-lg bg-background/50">
-                      <p className="font-medium">axiom.trade</p>
+                      <p className="font-medium">Trading Platforms</p>
                       <p className="text-xs text-muted-foreground">Trading only, no social layer</p>
                     </div>
                     <div className="p-3 rounded-lg bg-background/50">
-                      <p className="font-medium">X.com</p>
+                      <p className="font-medium">Social Platforms</p>
                       <p className="text-xs text-muted-foreground">Social only, no native trading</p>
                     </div>
                     <div className="col-span-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
@@ -632,7 +632,7 @@ export default function RoadmapPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">X.com Feature Parity</CardTitle>
+                  <CardTitle className="text-lg">Social Platform Features</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
