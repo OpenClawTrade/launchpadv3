@@ -63,9 +63,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { privyUserId, display_name, bio, location, website, avatar_url, cover_url, username, username_changed_at } = await req.json();
+    const body = await req.json();
+    console.log("update-profile received:", JSON.stringify(body));
+    
+    const { privyUserId, display_name, bio, location, website, avatar_url, cover_url, username, username_changed_at } = body;
 
     if (!privyUserId) {
+      console.error("Missing privyUserId");
       return new Response(
         JSON.stringify({ error: "privyUserId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -73,7 +77,7 @@ Deno.serve(async (req) => {
     }
 
     const profileId = await privyUserIdToUuid(privyUserId);
-
+    console.log("Resolved profileId:", profileId);
     // Create Supabase client with service role for bypassing RLS
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -97,6 +101,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log("Attempting update with:", JSON.stringify(updates));
+
     const { data, error: updateError } = await supabase
       .from("profiles")
       .update(updates)
@@ -111,6 +117,8 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("Update successful, profile:", JSON.stringify(data));
 
     return new Response(
       JSON.stringify({ success: true, profile: data }),
