@@ -70,6 +70,11 @@ type SocialWriteRequest =
       type: "mark_messages_read";
       userId: string;
       conversationId: string;
+    }
+  | {
+      type: "toggle_pin";
+      userId: string;
+      postId: string;
     };
 
 function json(data: unknown, status = 200) {
@@ -562,6 +567,44 @@ Deno.serve(async (req) => {
       }
 
       return json({ success: true });
+    }
+
+    if (body.type === "toggle_pin") {
+      if (!body.userId || !body.postId) {
+        return json({ error: "userId and postId are required" }, 400);
+      }
+
+      // Check if user can pin posts (admin or gold verified)
+      const { data: canPin } = await supabase.rpc("can_pin_posts", { _user_id: body.userId });
+      
+      if (!canPin) {
+        return json({ error: "You don't have permission to pin posts" }, 403);
+      }
+
+      // Get current pin status
+      const { data: postRow, error: fetchError } = await supabase
+        .from("posts")
+        .select("pinned")
+        .eq("id", body.postId)
+        .single();
+
+      if (fetchError) return json({ error: fetchError.message }, 500);
+
+      const newPinnedStatus = !postRow.pinned;
+      
+      const { error: updateError } = await supabase
+        .from("posts")
+        .update({
+          pinned: newPinnedStatus,
+          pinned_at: newPinnedStatus ? new Date().toISOString() : null,
+          pinned_by: newPinnedStatus ? body.userId : null,
+        })
+        .eq("id", body.postId);
+
+      if (updateError) return json({ error: updateError.message }, 500);
+
+      console.log(`Post ${body.postId} ${newPinnedStatus ? 'pinned' : 'unpinned'} by ${body.userId}`);
+      return json({ pinned: newPinnedStatus });
     }
 
     return json({ error: "Unsupported operation" }, 400);

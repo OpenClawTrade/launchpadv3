@@ -613,6 +613,9 @@ export type Database = {
           likes_count: number | null
           original_post_id: string | null
           parent_id: string | null
+          pinned: boolean | null
+          pinned_at: string | null
+          pinned_by: string | null
           replies_count: number | null
           reposts_count: number | null
           short_id: string | null
@@ -629,6 +632,9 @@ export type Database = {
           likes_count?: number | null
           original_post_id?: string | null
           parent_id?: string | null
+          pinned?: boolean | null
+          pinned_at?: string | null
+          pinned_by?: string | null
           replies_count?: number | null
           reposts_count?: number | null
           short_id?: string | null
@@ -645,6 +651,9 @@ export type Database = {
           likes_count?: number | null
           original_post_id?: string | null
           parent_id?: string | null
+          pinned?: boolean | null
+          pinned_at?: string | null
+          pinned_by?: string | null
           replies_count?: number | null
           reposts_count?: number | null
           short_id?: string | null
@@ -1078,6 +1087,7 @@ export type Database = {
         Returns: boolean
       }
       calculate_trending_topics: { Args: never; Returns: undefined }
+      can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
       generate_short_id: { Args: never; Returns: string }
       get_suggested_users: {
         Args: { current_user_id: string; limit_count?: number }

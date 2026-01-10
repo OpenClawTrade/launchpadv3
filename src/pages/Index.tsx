@@ -3,9 +3,10 @@ import { PostCard, ComposePost } from "@/components/post";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts, PostWithProfile } from "@/hooks/usePosts";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PostData } from "@/components/post";
 import { PostSkeletonList } from "@/components/ui/post-skeleton";
+import { supabase } from "@/integrations/supabase/client";
 
 // Transform database post to PostData format
 function transformPost(post: PostWithProfile): PostData {
@@ -32,6 +33,7 @@ function transformPost(post: PostWithProfile): PostData {
     isLiked: post.is_liked,
     isBookmarked: post.is_bookmarked,
     isReposted: post.is_reposted,
+    isPinned: post.pinned || false,
   };
 }
 
@@ -39,7 +41,27 @@ const Index = () => {
   const { user, isAuthenticated } = useAuth();
   const { posts, isLoading, createPost, toggleLike, toggleBookmark, toggleRepost, deletePost, quotePost, refetch } = usePosts();
   const [activeTab, setActiveTab] = useState("for-you");
+  const [canPin, setCanPin] = useState(false);
   
+  // Check if user can pin posts (admin or gold verified)
+  useEffect(() => {
+    if (!user?.id) {
+      setCanPin(false);
+      return;
+    }
+    
+    const checkPinPermission = async () => {
+      try {
+        const { data } = await supabase.rpc("can_pin_posts", { _user_id: user.id });
+        setCanPin(!!data);
+      } catch (err) {
+        console.error("Error checking pin permission:", err);
+        setCanPin(false);
+      }
+    };
+    
+    checkPinPermission();
+  }, [user?.id]);
   // Build current user object from auth context
   const currentUser = user ? {
     name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
@@ -75,6 +97,11 @@ const Index = () => {
 
   const handleQuote = async (id: string, content: string, imageFile?: File) => {
     await quotePost(id, content, imageFile);
+  };
+
+  const handlePin = () => {
+    // Refresh posts to get updated pin status
+    refetch();
   };
 
   return (
@@ -132,6 +159,8 @@ const Index = () => {
                 onRepost={handleRepost}
                 onDelete={user?.id === post.user_id ? handleDelete : undefined}
                 onQuote={handleQuote}
+                onPin={handlePin}
+                canPin={canPin}
               />
             </div>
           ))

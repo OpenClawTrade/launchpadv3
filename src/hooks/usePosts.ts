@@ -17,6 +17,9 @@ export interface PostWithProfile {
   parent_id: string | null;
   is_repost: boolean;
   original_post_id: string | null;
+  pinned: boolean;
+  pinned_at: string | null;
+  pinned_by: string | null;
   is_liked?: boolean;
   is_bookmarked?: boolean;
   is_reposted?: boolean;
@@ -52,23 +55,46 @@ export function usePosts(options: UsePostsOptions = {}) {
     try {
       setIsLoading(true);
 
-      const { data: postsData, error: postsError } = await supabase
-        .from("posts")
-        .select(`
-          *,
-          profiles!posts_user_id_fkey (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            verified_type
-          )
-        `)
-        .is("parent_id", null)
-        .order("created_at", { ascending: false })
-        .limit(50);
+      // Fetch pinned posts first, then regular posts
+      const [pinnedRes, regularRes] = await Promise.all([
+        supabase
+          .from("posts")
+          .select(`
+            *,
+            profiles!posts_user_id_fkey (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              verified_type
+            )
+          `)
+          .is("parent_id", null)
+          .eq("pinned", true)
+          .order("pinned_at", { ascending: false }),
+        supabase
+          .from("posts")
+          .select(`
+            *,
+            profiles!posts_user_id_fkey (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              verified_type
+            )
+          `)
+          .is("parent_id", null)
+          .eq("pinned", false)
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ]);
 
-      if (postsError) throw postsError;
+      if (pinnedRes.error) throw pinnedRes.error;
+      if (regularRes.error) throw regularRes.error;
+
+      // Combine: pinned posts first, then regular posts
+      const postsData = [...(pinnedRes.data || []), ...(regularRes.data || [])];
 
       // If user is authenticated, fetch their likes, bookmarks, and reposts
       let userLikes: string[] = [];
