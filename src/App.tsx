@@ -35,6 +35,7 @@ const LaunchpadPage = lazy(() => import("./pages/LaunchpadPage"));
 const LaunchTokenPage = lazy(() => import("./pages/LaunchTokenPage"));
 const TokenDetailPage = lazy(() => import("./pages/TokenDetailPage"));
 const EarningsPage = lazy(() => import("./pages/EarningsPage"));
+const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
@@ -88,6 +89,7 @@ const App = () => (
                   <Route path="/launch" element={<LaunchTokenPage />} />
                   <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
                   <Route path="/earnings" element={<EarningsPage />} />
+                  <Route path="/portfolio" element={<PortfolioPage />} />
                   <Route path="/:username" element={<UserProfilePage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
