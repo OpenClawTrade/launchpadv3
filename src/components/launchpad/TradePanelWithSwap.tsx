@@ -83,8 +83,8 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       toast({ 
         title: `${isBuy ? 'Buy' : 'Sell'} successful!`,
         description: isBuy 
-          ? `You bought ${formatTokenAmount(result.tokensOut)} ${token.ticker}`
-          : `You sold for ${formatSolAmount(result.solOut)} SOL`,
+          ? `You bought ${formatTokenAmount(result.tokensOut || 0)} ${token.ticker}`
+          : `You sold for ${formatSolAmount(result.solOut || 0)} SOL`,
       });
 
       if (result.graduated) {

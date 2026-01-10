@@ -47,7 +47,7 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
 
       toast({
         title: "Buy successful!",
-        description: `Bought ${formatTokenAmount(result.tokensOut)} ${token.ticker} for ${solAmount} SOL`,
+        description: `Bought ${formatTokenAmount(result.tokensOut || 0)} ${token.ticker} for ${solAmount} SOL`,
       });
 
       if (result.graduated) {
@@ -99,7 +99,7 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
 
       toast({
         title: "Sell successful!",
-        description: `Sold ${formatTokenAmount(tokenAmount)} ${token.ticker} for ${formatSolAmount(result.solOut)} SOL`,
+        description: `Sold ${formatTokenAmount(tokenAmount)} ${token.ticker} for ${formatSolAmount(result.solOut || 0)} SOL`,
       });
 
       onTradeComplete?.();
