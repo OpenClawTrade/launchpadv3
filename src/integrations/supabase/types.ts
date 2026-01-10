@@ -778,6 +778,61 @@ export type Database = {
         }
         Relationships: []
       }
+      token_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          likes_count: number | null
+          parent_id: string | null
+          token_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          likes_count?: number | null
+          parent_id?: string | null
+          token_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          likes_count?: number | null
+          parent_id?: string | null
+          token_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "token_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_comments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_holdings: {
         Row: {
           balance: number | null
@@ -823,6 +878,47 @@ export type Database = {
           },
         ]
       }
+      token_price_history: {
+        Row: {
+          created_at: string
+          id: string
+          interval_type: string
+          market_cap_sol: number
+          price_sol: number
+          timestamp: string
+          token_id: string
+          volume_sol: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interval_type?: string
+          market_cap_sol?: number
+          price_sol: number
+          timestamp?: string
+          token_id: string
+          volume_sol?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interval_type?: string
+          market_cap_sol?: number
+          price_sol?: number
+          timestamp?: string
+          token_id?: string
+          volume_sol?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tokens: {
         Row: {
           bonding_curve_progress: number | null
@@ -845,6 +941,8 @@ export type Database = {
           migration_status: string | null
           mint_address: string
           name: string
+          price_24h_ago: number | null
+          price_change_24h: number | null
           price_sol: number | null
           quote_decimals: number | null
           quote_token: string | null
@@ -884,6 +982,8 @@ export type Database = {
           migration_status?: string | null
           mint_address: string
           name: string
+          price_24h_ago?: number | null
+          price_change_24h?: number | null
           price_sol?: number | null
           quote_decimals?: number | null
           quote_token?: string | null
@@ -923,6 +1023,8 @@ export type Database = {
           migration_status?: string | null
           mint_address?: string
           name?: string
+          price_24h_ago?: number | null
+          price_change_24h?: number | null
           price_sol?: number | null
           quote_decimals?: number | null
           quote_token?: string | null
@@ -1111,6 +1213,7 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       release_claim_lock: { Args: { p_token_id: string }; Returns: undefined }
+      update_token_24h_stats: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout";
-import { BondingCurveProgress, TransactionHistory } from "@/components/launchpad";
+import { BondingCurveProgress, TransactionHistory, PriceChart, TokenComments } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,7 @@ import {
   MessageCircle,
   Users,
   TrendingUp,
+  TrendingDown,
   Clock,
   CheckCircle
 } from "lucide-react";
@@ -208,6 +209,13 @@ export default function TokenDetailPage() {
           </div>
         </Card>
 
+        {/* Price Chart */}
+        <PriceChart
+          tokenId={token.id}
+          currentPrice={token.price_sol}
+          priceChange24h={(token as any).price_change_24h || 0}
+        />
+
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3 text-center">
@@ -253,14 +261,17 @@ export default function TokenDetailPage() {
           userBalance={userBalance}
         />
 
-        {/* Tabs for Transactions & Holders */}
+        {/* Tabs for Transactions, Holders & Discussion */}
         <Tabs defaultValue="transactions" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="transactions" className="flex-1">
-              Transactions
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="transactions">
+              Trades
             </TabsTrigger>
-            <TabsTrigger value="holders" className="flex-1">
+            <TabsTrigger value="holders">
               Holders ({holders.length})
+            </TabsTrigger>
+            <TabsTrigger value="discussion">
+              Discussion
             </TabsTrigger>
           </TabsList>
 
@@ -308,6 +319,10 @@ export default function TokenDetailPage() {
                 <p className="text-center text-muted-foreground py-8">No holders yet</p>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="discussion" className="mt-4">
+            <TokenComments tokenId={token.id} />
           </TabsContent>
         </Tabs>
 

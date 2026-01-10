@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { BondingCurveProgress } from "./BondingCurveProgress";
 import { Token, formatSolAmount, formatTokenAmount } from "@/hooks/useLaunchpad";
-import { TrendingUp, Users, Clock, ExternalLink } from "lucide-react";
+import { TrendingUp, TrendingDown, Users, Clock, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface TokenCardProps {
@@ -14,6 +14,8 @@ interface TokenCardProps {
 
 export function TokenCard({ token }: TokenCardProps) {
   const isGraduated = token.status === 'graduated';
+  const priceChange = (token as any).price_change_24h || 0;
+  const isPositive = priceChange >= 0;
 
   return (
     <Link to={`/launchpad/${token.mint_address}`}>
@@ -60,15 +62,24 @@ export function TokenCard({ token }: TokenCardProps) {
             )}
 
             {/* Stats Row */}
-            <div className="flex items-center gap-4 mt-3 text-sm">
+            <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
               <div className="flex items-center gap-1 text-muted-foreground">
-                <TrendingUp className="h-4 w-4" />
-                <span>{formatSolAmount(token.price_sol)} SOL</span>
+                {isPositive ? (
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-500" />
+                )}
+                <span className={isPositive ? "text-green-500" : "text-red-500"}>
+                  {isPositive ? "+" : ""}{priceChange.toFixed(2)}%
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-primary font-medium">
+                  {formatSolAmount(token.price_sol)} SOL
+                </span>
               </div>
               <div className="flex items-center gap-1 text-muted-foreground">
-                <span className="text-primary font-medium">
-                  MC: {formatSolAmount(token.market_cap_sol)} SOL
-                </span>
+                <span>MC: {formatSolAmount(token.market_cap_sol)}</span>
               </div>
               <div className="flex items-center gap-1 text-muted-foreground">
                 <Users className="h-4 w-4" />

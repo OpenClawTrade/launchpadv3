@@ -16,7 +16,8 @@ import {
   UserPlus,
   Shield,
   Rocket,
-  DollarSign
+  DollarSign,
+  Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import trenchesLogo from "@/assets/trenches-logo.png";
@@ -49,6 +50,7 @@ const baseNavItems: NavItem[] = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Search, label: "Explore", href: "/explore" },
   { icon: Rocket, label: "Launchpad", href: "/launchpad" },
+  { icon: Wallet, label: "Portfolio", href: "/portfolio" },
   { icon: DollarSign, label: "Earnings", href: "/earnings" },
   { icon: Bell, label: "Notifications", href: "/notifications", badgeKey: "notifications" },
   { icon: Mail, label: "Messages", href: "/messages", badgeKey: "messages" },

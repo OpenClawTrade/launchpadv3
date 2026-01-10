@@ -114,6 +114,16 @@ serve(async (req) => {
     const newStatus = shouldGraduate ? "graduated" : "bonding";
     const marketCap = newPrice * (token.total_supply || 1_000_000_000);
 
+    // Calculate 24h volume from transactions
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentTxs } = await supabase
+      .from('launchpad_transactions')
+      .select('sol_amount')
+      .eq('token_id', token.id)
+      .gte('created_at', twentyFourHoursAgo);
+    
+    const volume24h = (recentTxs || []).reduce((sum, tx) => sum + Number(tx.sol_amount), 0) + solAmount;
+
     // Update token
     const { error: updateError } = await supabase
       .from("tokens")
@@ -124,6 +134,7 @@ serve(async (req) => {
         price_sol: newPrice,
         bonding_curve_progress: bondingProgress,
         market_cap_sol: marketCap,
+        volume_24h_sol: volume24h,
         status: newStatus,
         graduated_at: shouldGraduate && !token.graduated_at ? new Date().toISOString() : token.graduated_at,
         updated_at: new Date().toISOString(),
@@ -134,6 +145,16 @@ serve(async (req) => {
       console.error("[launchpad-swap] Token update error:", updateError);
       throw updateError;
     }
+
+    // Record price history for charts
+    await supabase.from('token_price_history').insert({
+      token_id: token.id,
+      price_sol: newPrice,
+      market_cap_sol: marketCap,
+      volume_sol: solAmount,
+      interval_type: '1m',
+      timestamp: new Date().toISOString(),
+    });
 
     // Generate mock signature (in production, this would be the real tx signature)
     const signature = `sim_${Date.now()}_${Math.random().toString(36).slice(2)}`;
