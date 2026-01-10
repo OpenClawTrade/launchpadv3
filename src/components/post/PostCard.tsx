@@ -16,7 +16,9 @@ import {
   Flag,
   Trash2,
   Quote,
-  Pencil
+  Pencil,
+  Pin,
+  PinOff
 } from "lucide-react";
 import { PostContent } from "./PostContent";
 import { cn } from "@/lib/utils";
@@ -67,6 +69,7 @@ export interface PostData {
   isLiked?: boolean;
   isReposted?: boolean;
   isBookmarked?: boolean;
+  isPinned?: boolean;
 }
 
 interface PostCardProps {
@@ -78,6 +81,8 @@ interface PostCardProps {
   onDelete?: (id: string) => void;
   onEdit?: (id: string, content: string, imageUrl: string | null) => void;
   onQuote?: (id: string, content: string, imageFile?: File) => Promise<void>;
+  onPin?: (id: string) => void;
+  canPin?: boolean;
 }
 
 function formatNumber(num: number): string {
@@ -98,13 +103,16 @@ export function PostCard({
   onReply,
   onDelete,
   onEdit,
-  onQuote
+  onQuote,
+  onPin,
+  canPin = false
 }: PostCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isReposted, setIsReposted] = useState(post.isReposted || false);
   const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked || false);
+  const [isPinned, setIsPinned] = useState(post.isPinned || false);
   const [likeCount, setLikeCount] = useState(post.stats.likes);
   const [repostCount, setRepostCount] = useState(post.stats.reposts);
   const [viewCount, setViewCount] = useState(post.stats.views);
@@ -114,6 +122,7 @@ export function PostCard({
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPinning, setIsPinning] = useState(false);
   const [currentContent, setCurrentContent] = useState(post.content);
   const [currentImageUrl, setCurrentImageUrl] = useState(post.media?.[0]?.url || null);
   const isOwnPost = !!(user?.id && post.authorId && user.id === post.authorId);
@@ -264,6 +273,32 @@ export function PostCard({
     }
   };
 
+  const handlePin = async () => {
+    if (!user?.id) return;
+    
+    setIsPinning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "toggle_pin",
+          userId: user.id,
+          postId: post.id,
+        },
+      });
+
+      if (error) throw error;
+      
+      setIsPinned(data.pinned);
+      onPin?.(post.id);
+      toast.success(data.pinned ? "Post pinned to feed" : "Post unpinned");
+    } catch (err) {
+      console.error("Error pinning post:", err);
+      toast.error("Failed to pin post");
+    } finally {
+      setIsPinning(false);
+    }
+  };
+
   const handlePostClick = (e: React.MouseEvent) => {
     // Don't navigate if clicking on interactive elements
     const target = e.target as HTMLElement;
@@ -274,7 +309,10 @@ export function PostCard({
   return (
     <article 
       ref={viewTrackingRef as React.RefObject<HTMLElement>}
-      className="px-4 py-3 border-b border-border post-hover animate-fadeIn cursor-pointer"
+      className={cn(
+        "px-4 py-3 border-b border-border post-hover animate-fadeIn cursor-pointer",
+        isPinned && "bg-primary/5 border-l-2 border-l-primary"
+      )}
       onClick={handlePostClick}
     >
       <div className="flex gap-3">
@@ -294,6 +332,14 @@ export function PostCard({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
+          {/* Pinned indicator */}
+          {isPinned && (
+            <div className="flex items-center gap-1 text-xs text-primary mb-1">
+              <Pin className="h-3 w-3" />
+              <span>Pinned post</span>
+            </div>
+          )}
+          
           {/* Header */}
           <div className="flex items-center gap-1 flex-wrap">
             <Link 
@@ -375,6 +421,27 @@ export function PostCard({
                     
                     <DropdownMenuSeparator />
                   </>
+                )}
+                
+                {/* Pin option for admins/gold users */}
+                {canPin && (
+                  <DropdownMenuItem 
+                    onClick={(e) => { e.stopPropagation(); handlePin(); }}
+                    className="gap-2"
+                    disabled={isPinning}
+                  >
+                    {isPinned ? (
+                      <>
+                        <PinOff className="h-4 w-4" />
+                        Unpin from feed
+                      </>
+                    ) : (
+                      <>
+                        <Pin className="h-4 w-4" />
+                        Pin to feed
+                      </>
+                    )}
+                  </DropdownMenuItem>
                 )}
                 
                 {/* Quote option */}
