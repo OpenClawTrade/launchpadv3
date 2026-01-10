@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { RightSidebar } from "./RightSidebar";
-import { MobileNav } from "./MobileNav";
+import { MobileNav, MobileHeader } from "./MobileNav";
 
 export interface MainLayoutProps {
   children: ReactNode;
@@ -16,6 +16,9 @@ export interface MainLayoutProps {
 export function MainLayout({ children, user, hideRightSidebar }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
+      {/* Mobile Header - Only visible on mobile */}
+      <MobileHeader user={user} />
+
       {/* Centered container for desktop */}
       <div className="mx-auto flex max-w-[1280px] justify-center">
         {/* Left Sidebar - Hidden on mobile */}

@@ -1,12 +1,16 @@
 import { forwardRef, useState } from "react";
 import type { ComponentPropsWithoutRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Search, Bell, Mail, Feather } from "lucide-react";
+import { Home, Search, Bell, Mail, Feather, Menu, LogIn, User, Bookmark, Users, Sparkles, Settings, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts } from "@/hooks/usePosts";
 import { ComposeModal } from "@/components/post/ComposeModal";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import trenchesLogo from "@/assets/trenches-logo.png";
 
 const baseNavItems = [
   { icon: Home, href: "/", badgeKey: null },
@@ -15,7 +19,137 @@ const baseNavItems = [
   { icon: Mail, href: "/messages", badgeKey: "messages" as const },
 ];
 
+const menuItems = [
+  { icon: Home, label: "Home", href: "/" },
+  { icon: Search, label: "Explore", href: "/explore" },
+  { icon: Bell, label: "Notifications", href: "/notifications" },
+  { icon: Mail, label: "Messages", href: "/messages" },
+  { icon: Sparkles, label: "Trenches AI", href: "/ai" },
+  { icon: Bookmark, label: "Bookmarks", href: "/bookmarks" },
+  { icon: Users, label: "Communities", href: "/communities" },
+  { icon: User, label: "Profile", href: "/profile" },
+  { icon: Settings, label: "Settings", href: "/settings" },
+];
+
 export type MobileNavProps = ComponentPropsWithoutRef<"nav">;
+
+interface MobileHeaderProps {
+  user?: {
+    name: string;
+    handle: string;
+    avatar?: string;
+  } | null;
+}
+
+export function MobileHeader({ user }: MobileHeaderProps) {
+  const location = useLocation();
+  const { isAuthenticated, login, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border md:hidden">
+      <div className="flex items-center justify-between h-14 px-4">
+        {/* Hamburger Menu */}
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 p-0 bg-background">
+            <div className="flex flex-col h-full">
+              {/* Menu Header */}
+              <div className="p-4 border-b border-border">
+                {user ? (
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {user.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{user.name}</p>
+                      <p className="text-muted-foreground text-xs truncate">@{user.handle}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <img src={trenchesLogo} alt="TRENCHES" className="h-8 w-auto" />
+                    <span className="font-bold text-lg">TRENCHES</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Menu Items */}
+              <nav className="flex-1 p-2 overflow-y-auto">
+                {menuItems.map((item) => {
+                  const isActive = location.pathname === item.href;
+                  const Icon = item.icon;
+
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={() => setMenuOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                        isActive
+                          ? "bg-secondary text-primary font-semibold"
+                          : "text-foreground hover:bg-secondary"
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              {/* Menu Footer */}
+              {user && (
+                <div className="p-4 border-t border-border">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      logout();
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Log out
+                  </Button>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Logo */}
+        <Link to="/" className="flex items-center">
+          <img src={trenchesLogo} alt="TRENCHES" className="h-8 w-auto" />
+        </Link>
+
+        {/* Login Button */}
+        {!isAuthenticated ? (
+          <Button onClick={login} size="sm" className="h-9">
+            <LogIn className="h-4 w-4 mr-2" />
+            Log In
+          </Button>
+        ) : (
+          <Link to="/profile">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.avatar} alt={user?.name} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                {user?.name?.charAt(0).toUpperCase() || "?"}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
+        )}
+      </div>
+    </header>
+  );
+}
 
 export const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
   ({ className, ...props }, ref) => {
