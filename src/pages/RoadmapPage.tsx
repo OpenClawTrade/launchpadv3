@@ -1,8 +1,7 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { 
   Rocket, 
   Zap, 
@@ -20,11 +19,8 @@ import {
   Bell,
   Shield,
   Globe,
-  Link2,
-  ArrowRight
+  Link2
 } from "lucide-react";
-
-// ==================== NOW-NEXT-LATER ROADMAP ====================
 
 interface RoadmapItem {
   title: string;
@@ -36,356 +32,202 @@ interface RoadmapPhase {
   id: "now" | "next" | "later";
   title: string;
   subtitle: string;
-  color: string;
-  bgColor: string;
-  borderColor: string;
   items: RoadmapItem[];
 }
 
 const roadmapPhases: RoadmapPhase[] = [
   {
     id: "now",
-    title: "Now",
-    subtitle: "Live & Active",
-    color: "text-green-500",
-    bgColor: "bg-green-500/10",
-    borderColor: "border-green-500/30",
+    title: "Live Now",
+    subtitle: "Shipped & Available",
     items: [
-      { title: "Social Platform", description: "Full-featured social experience with posts, DMs, notifications, and communities", icon: Users },
-      { title: "Token Launchpad", description: "Create and trade tokens on bonding curves with automatic graduation", icon: Rocket },
-      { title: "Real-time Trading", description: "Instant buy/sell with live price charts and transaction history", icon: TrendingUp },
-      { title: "Wallet Integration", description: "Automatic Solana wallet creation with seamless authentication", icon: Wallet },
-      { title: "Creator Earnings", description: "Token creators earn 1% of all trading fees automatically", icon: Sparkles },
-      { title: "AI Assistant", description: "Built-in AI chat for platform guidance and crypto insights", icon: MessageSquare },
+      { title: "Social Platform", description: "Posts, DMs, notifications, communities, profiles", icon: Users },
+      { title: "Token Launchpad", description: "Create tokens with bonding curves & auto-graduation", icon: Rocket },
+      { title: "Real-time Trading", description: "Instant buy/sell with live charts & history", icon: TrendingUp },
+      { title: "Wallet Integration", description: "Auto Solana wallet creation on signup", icon: Wallet },
+      { title: "Creator Earnings", description: "1% fee on all trades to token creators", icon: Sparkles },
+      { title: "AI Assistant", description: "Built-in AI for platform help & crypto insights", icon: MessageSquare },
     ]
   },
   {
     id: "next",
-    title: "Next",
-    subtitle: "Q1 2026",
-    color: "text-yellow-500",
-    bgColor: "bg-yellow-500/10",
-    borderColor: "border-yellow-500/30",
+    title: "Coming Q1 2026",
+    subtitle: "In Development",
     items: [
-      { title: "Quick Trading", description: "One-click buy/sell with preset amounts (0.1, 0.5, 1, 5 SOL)", icon: Zap },
-      { title: "Limit Orders", description: "Set target prices for automatic buy/sell execution", icon: Target },
-      { title: "TRENCHES Pulse", description: "Real-time token discovery feed with new launches and graduating tokens", icon: BarChart3 },
-      { title: "$TICKER Linking", description: "Token mentions in posts become clickable links to trading pages", icon: Link2 },
-      { title: "Price Alerts", description: "Get notified when tokens hit your target prices", icon: Bell },
-      { title: "MEV Protection", description: "Jito bundle routing to prevent sandwich attacks", icon: Shield },
+      { title: "Quick Trading", description: "One-click preset amounts (0.1, 0.5, 1, 5 SOL)", icon: Zap },
+      { title: "Limit Orders", description: "Set target prices for automatic execution", icon: Target },
+      { title: "TRENCHES Pulse", description: "Real-time feed of new launches & graduating tokens", icon: BarChart3 },
+      { title: "$TICKER Linking", description: "Token mentions become clickable trading links", icon: Link2 },
+      { title: "Price Alerts", description: "Notifications when tokens hit target prices", icon: Bell },
+      { title: "MEV Protection", description: "Jito bundles to prevent sandwich attacks", icon: Shield },
     ]
   },
   {
     id: "later",
-    title: "Later",
+    title: "Future Plans",
     subtitle: "Q2-Q3 2026",
-    color: "text-muted-foreground",
-    bgColor: "bg-muted/50",
-    borderColor: "border-border",
     items: [
-      { title: "Wallet Tracking", description: "Follow successful traders and copy their moves", icon: Users },
-      { title: "Token-Gated Content", description: "Exclusive posts and communities for token holders", icon: Shield },
-      { title: "Mobile App", description: "Native iOS and Android apps with push notifications", icon: Smartphone },
-      { title: "Advanced Charts", description: "TradingView integration with professional indicators", icon: BarChart3 },
-      { title: "Social Trading", description: "Share trades, track PnL, and build trading reputation", icon: Globe },
-      { title: "Perps & Yield", description: "Leverage trading and staking integrations", icon: TrendingUp },
+      { title: "Wallet Tracking", description: "Follow & copy successful traders", icon: Users },
+      { title: "Token-Gated Content", description: "Exclusive posts for token holders", icon: Shield },
+      { title: "Mobile App", description: "Native iOS & Android with push notifications", icon: Smartphone },
+      { title: "Advanced Charts", description: "TradingView with professional indicators", icon: BarChart3 },
+      { title: "Social Trading", description: "Share trades & build trading reputation", icon: Globe },
+      { title: "Perps & Yield", description: "Leverage trading & staking integrations", icon: TrendingUp },
     ]
   }
 ];
 
-// ==================== STRATEGIC THEMES ====================
-
-interface Theme {
-  id: string;
-  title: string;
-  tagline: string;
-  description: string;
-  progress: number;
-  icon: React.ElementType;
-  color: string;
-  highlights: string[];
-}
-
-const strategicThemes: Theme[] = [
-  {
-    id: "social",
-    title: "Social Experience",
-    tagline: "Where communities form",
-    description: "A complete social platform where crypto communities can connect, share, and grow together.",
-    progress: 95,
-    icon: Users,
-    color: "text-blue-500",
-    highlights: [
-      "Posts, replies, reposts, quotes",
-      "Direct messaging with media",
-      "Follow graphs & notifications",
-      "Community creation & discovery",
-      "Profile customization & verification"
-    ]
-  },
-  {
-    id: "trading",
-    title: "Token Trading",
-    tagline: "Where tokens launch",
-    description: "Fair launch platform with bonding curves, automatic DEX graduation, and creator revenue sharing.",
-    progress: 70,
-    icon: TrendingUp,
-    color: "text-green-500",
-    highlights: [
-      "Bonding curve launches",
-      "Real-time price charts",
-      "Automatic DEX graduation",
-      "Creator fee distribution",
-      "Transaction history & analytics"
-    ]
-  },
-  {
-    id: "integration",
-    title: "Social + Trading",
-    tagline: "Where it all connects",
-    description: "The unique TRENCHES advantage — deep integration between social engagement and token trading.",
-    progress: 30,
-    icon: Link2,
-    color: "text-purple-500",
-    highlights: [
-      "Creator profiles linked to tokens",
-      "$TICKER mentions (coming soon)",
-      "In-feed trading (coming soon)",
-      "Token-gated content (coming soon)",
-      "Trade sharing (coming soon)"
-    ]
+const getPhaseStyles = (id: string) => {
+  switch (id) {
+    case "now":
+      return {
+        dot: "bg-green-500",
+        badge: "bg-green-500/10 text-green-500 border-green-500/30",
+        icon: CheckCircle2,
+        iconColor: "text-green-500"
+      };
+    case "next":
+      return {
+        dot: "bg-yellow-500",
+        badge: "bg-yellow-500/10 text-yellow-500 border-yellow-500/30",
+        icon: Clock,
+        iconColor: "text-yellow-500"
+      };
+    default:
+      return {
+        dot: "bg-muted-foreground",
+        badge: "bg-muted text-muted-foreground border-border",
+        icon: Circle,
+        iconColor: "text-muted-foreground"
+      };
   }
-];
-
-// ==================== COMPONENT ====================
-
-function PhaseCard({ phase, index }: { phase: RoadmapPhase; index: number }) {
-  return (
-    <div className="relative">
-      {/* Connection line */}
-      {index < roadmapPhases.length - 1 && (
-        <div className="hidden lg:block absolute top-1/2 -right-4 w-8 h-0.5 bg-border z-0">
-          <ArrowRight className="absolute -right-1 -top-2 h-4 w-4 text-muted-foreground" />
-        </div>
-      )}
-      
-      <Card className={`h-full ${phase.borderColor} border-2`}>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${phase.bgColor}`}>
-                {phase.id === "now" && <CheckCircle2 className={`h-5 w-5 ${phase.color}`} />}
-                {phase.id === "next" && <Clock className={`h-5 w-5 ${phase.color}`} />}
-                {phase.id === "later" && <Circle className={`h-5 w-5 ${phase.color}`} />}
-              </div>
-              <div>
-                <CardTitle className={`text-xl ${phase.color}`}>{phase.title}</CardTitle>
-                <p className="text-xs text-muted-foreground">{phase.subtitle}</p>
-              </div>
-            </div>
-            <Badge variant="outline" className={phase.bgColor}>
-              {phase.items.length} features
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {phase.items.map((item) => (
-            <div 
-              key={item.title}
-              className="flex items-start gap-3 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-            >
-              <div className={`p-1.5 rounded-md ${phase.bgColor}`}>
-                <item.icon className={`h-4 w-4 ${phase.color}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-sm">{item.title}</h4>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function ThemeCard({ theme }: { theme: Theme }) {
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl bg-secondary`}>
-              <theme.icon className={`h-6 w-6 ${theme.color}`} />
-            </div>
-            <div>
-              <CardTitle className="text-lg">{theme.title}</CardTitle>
-              <p className="text-sm text-muted-foreground">{theme.tagline}</p>
-            </div>
-          </div>
-          <Badge variant="outline" className={theme.progress === 100 ? "bg-green-500/10 text-green-500" : ""}>
-            {theme.progress}%
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">{theme.description}</p>
-        
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium">{theme.progress}%</span>
-          </div>
-          <Progress value={theme.progress} className="h-2" />
-        </div>
-        
-        <div className="space-y-1.5">
-          {theme.highlights.map((highlight) => (
-            <div key={highlight} className="flex items-center gap-2 text-sm">
-              {highlight.includes("coming soon") ? (
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-              )}
-              <span className={highlight.includes("coming soon") ? "text-muted-foreground" : ""}>
-                {highlight}
-              </span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+};
 
 export default function RoadmapPage() {
-  const totalFeatures = roadmapPhases.reduce((acc, phase) => acc + phase.items.length, 0);
-  const liveFeatures = roadmapPhases[0].items.length;
-
   return (
     <MainLayout>
       <div className="min-h-screen pb-20 md:pb-4">
-        {/* Hero */}
-        <div className="relative overflow-hidden border-b border-border">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-green-500/5" />
-          <div className="relative px-4 py-8 md:py-12">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-xl bg-primary/10">
-                <Rocket className="h-6 w-6 text-primary" />
-              </div>
-              <h1 className="text-2xl md:text-3xl font-bold">Product Roadmap</h1>
+        {/* Header */}
+        <div className="border-b border-border px-4 py-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Rocket className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold">Roadmap</h1>
+          </div>
+          <p className="text-muted-foreground">
+            What we've built and what's coming next
+          </p>
+          
+          <div className="flex gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <span className="text-sm">Live</span>
             </div>
-            <p className="text-muted-foreground max-w-2xl mb-6">
-              Building the first platform where social communities and token trading are deeply integrated. 
-              Here's what we've shipped and what's coming next.
-            </p>
-            
-            {/* Quick Stats */}
-            <div className="flex flex-wrap gap-3">
-              <div className="px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                <span className="text-lg font-bold text-green-500">{liveFeatures}</span>
-                <span className="text-sm text-muted-foreground ml-2">Live Now</span>
-              </div>
-              <div className="px-4 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                <span className="text-lg font-bold text-yellow-500">{roadmapPhases[1].items.length}</span>
-                <span className="text-sm text-muted-foreground ml-2">Coming Q1</span>
-              </div>
-              <div className="px-4 py-2 rounded-lg bg-muted border border-border">
-                <span className="text-lg font-bold">{totalFeatures}</span>
-                <span className="text-sm text-muted-foreground ml-2">Total Planned</span>
-              </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <span className="text-sm">Building</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-muted-foreground" />
+              <span className="text-sm">Planned</span>
             </div>
           </div>
         </div>
 
-        {/* Now-Next-Later Timeline */}
-        <div className="p-4 space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-1">Development Timeline</h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Our Now-Next-Later framework keeps us focused while staying flexible
-            </p>
+        {/* Timeline */}
+        <div className="p-4 space-y-8">
+          {roadmapPhases.map((phase) => {
+            const styles = getPhaseStyles(phase.id);
+            const StatusIcon = styles.icon;
             
-            <div className="grid gap-6 lg:grid-cols-3">
-              {roadmapPhases.map((phase, index) => (
-                <PhaseCard key={phase.id} phase={phase} index={index} />
-              ))}
-            </div>
-          </div>
-
-          <Separator className="my-8" />
-
-          {/* Strategic Themes */}
-          <div>
-            <h2 className="text-xl font-semibold mb-1">Strategic Themes</h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Three pillars that define the TRENCHES platform
-            </p>
-            
-            <div className="grid gap-6 md:grid-cols-3">
-              {strategicThemes.map((theme) => (
-                <ThemeCard key={theme.id} theme={theme} />
-              ))}
-            </div>
-          </div>
-
-          <Separator className="my-8" />
-
-          {/* Why TRENCHES is Different */}
-          <Card className="bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
-            <CardContent className="pt-6">
-              <h3 className="font-semibold text-lg mb-3">Why TRENCHES is Different</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Other platforms are either social-only or trading-only. We're building both together, 
-                creating unique features that aren't possible anywhere else.
-              </p>
-              
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="p-4 rounded-lg bg-background/50 text-center">
-                  <div className="text-3xl font-bold text-primary mb-1">1</div>
-                  <p className="text-sm font-medium">Platform</p>
-                  <p className="text-xs text-muted-foreground">Not two separate apps</p>
+            return (
+              <div key={phase.id} className="relative">
+                {/* Phase Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-4 h-4 rounded-full ${styles.dot} ring-4 ring-background`} />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-lg font-semibold">{phase.title}</h2>
+                      <Badge variant="outline" className={styles.badge}>
+                        <StatusIcon className={`h-3 w-3 mr-1 ${styles.iconColor}`} />
+                        {phase.subtitle}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-                <div className="p-4 rounded-lg bg-background/50 text-center">
-                  <div className="text-3xl font-bold text-primary mb-1">1%</div>
-                  <p className="text-sm font-medium">Creator Fee</p>
-                  <p className="text-xs text-muted-foreground">On every trade, forever</p>
-                </div>
-                <div className="p-4 rounded-lg bg-background/50 text-center">
-                  <div className="text-3xl font-bold text-primary mb-1">85</div>
-                  <p className="text-sm font-medium">SOL to Graduate</p>
-                  <p className="text-xs text-muted-foreground">Fair launch for everyone</p>
+
+                {/* Features Grid */}
+                <div className="ml-2 pl-5 border-l-2 border-border">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {phase.items.map((item) => (
+                      <Card key={item.title} className="bg-card/50 hover:bg-card transition-colors">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className={`p-2 rounded-lg ${phase.id === "now" ? "bg-green-500/10" : phase.id === "next" ? "bg-yellow-500/10" : "bg-muted"}`}>
+                              <item.icon className={`h-4 w-4 ${phase.id === "now" ? "text-green-500" : phase.id === "next" ? "text-yellow-500" : "text-muted-foreground"}`} />
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-sm">{item.title}</h3>
+                              <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            );
+          })}
+        </div>
 
-          {/* Technical Specs (Collapsed) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Technical Foundation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">Blockchain</p>
-                  <p className="font-medium">Solana</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">DEX</p>
-                  <p className="font-medium">Meteora DAMM V2</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">Virtual Liquidity</p>
-                  <p className="font-medium">30 SOL</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">Trading Fee</p>
-                  <p className="font-medium">2% (50/50 split)</p>
-                </div>
+        {/* Progress Overview */}
+        <div className="p-4 border-t border-border">
+          <h2 className="text-lg font-semibold mb-4">Platform Progress</h2>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Social Features</span>
+                <span className="text-green-500">95%</span>
               </div>
-            </CardContent>
-          </Card>
+              <Progress value={95} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Trading Features</span>
+                <span className="text-yellow-500">70%</span>
+              </div>
+              <Progress value={70} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Social + Trading Integration</span>
+                <span className="text-muted-foreground">30%</span>
+              </div>
+              <Progress value={30} className="h-2" />
+            </div>
+          </div>
+        </div>
+
+        {/* Key Stats */}
+        <div className="p-4 border-t border-border">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="text-center p-4 rounded-lg bg-secondary/50">
+              <div className="text-2xl font-bold text-primary">30</div>
+              <div className="text-xs text-muted-foreground">SOL Virtual Liquidity</div>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-secondary/50">
+              <div className="text-2xl font-bold text-primary">85</div>
+              <div className="text-xs text-muted-foreground">SOL to Graduate</div>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-secondary/50">
+              <div className="text-2xl font-bold text-primary">2%</div>
+              <div className="text-xs text-muted-foreground">Trading Fee</div>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-secondary/50">
+              <div className="text-2xl font-bold text-primary">1%</div>
+              <div className="text-xs text-muted-foreground">Creator Earnings</div>
+            </div>
+          </div>
         </div>
       </div>
     </MainLayout>
