@@ -38,8 +38,8 @@ interface RoadmapPhase {
 const roadmapPhases: RoadmapPhase[] = [
   {
     id: "now",
-    title: "Live Now",
-    subtitle: "Shipped & Available",
+    title: "Live",
+    subtitle: "Currently Active",
     items: [
       { title: "Social Platform", description: "Posts, DMs, notifications, communities, profiles", icon: Users },
       { title: "Token Launchpad", description: "Create tokens with bonding curves & auto-graduation", icon: Rocket },
@@ -51,7 +51,7 @@ const roadmapPhases: RoadmapPhase[] = [
   },
   {
     id: "next",
-    title: "Coming Q1 2026",
+    title: "Q1 2026",
     subtitle: "In Development",
     items: [
       { title: "Quick Trading", description: "One-click preset amounts (0.1, 0.5, 1, 5 SOL)", icon: Zap },
@@ -64,8 +64,8 @@ const roadmapPhases: RoadmapPhase[] = [
   },
   {
     id: "later",
-    title: "Future Plans",
-    subtitle: "Q2-Q3 2026",
+    title: "Q2-Q3 2026",
+    subtitle: "Planned",
     items: [
       { title: "Wallet Tracking", description: "Follow & copy successful traders", icon: Users },
       { title: "Token-Gated Content", description: "Exclusive posts for token holders", icon: Shield },
