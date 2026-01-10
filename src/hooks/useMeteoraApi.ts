@@ -95,12 +95,31 @@ interface SwapResponse {
   marketCap: number;
 }
 
-// Fee claim response
+// Fee claim response (legacy)
 interface ClaimFeesResponse {
   success: boolean;
   claimedAmount: number;
   signature: string;
   isPending: boolean;
+}
+
+// Treasury pool fee claim response
+interface ClaimPoolFeesResponse {
+  success: boolean;
+  signature: string;
+  claimedSol: number;
+  poolAddress: string;
+  tokenId: string;
+  treasuryWallet: string;
+}
+
+// Claimable fees response
+interface ClaimableFeesResponse {
+  success: boolean;
+  poolAddress: string;
+  claimableSol: number;
+  claimableTokens: number;
+  totalTradingFee: number;
 }
 
 // Sync response
@@ -278,7 +297,7 @@ export function useMeteoraApi() {
     }
   }, []);
 
-  // Claim fees
+  // Legacy claim fees (redirects to pool-based claiming)
   const claimFees = useCallback(async (params: {
     tokenId: string;
     walletAddress: string;
@@ -287,6 +306,56 @@ export function useMeteoraApi() {
     setIsLoading(true);
     try {
       const result = await apiRequest<ClaimFeesResponse>('/fees/claim', params);
+      return result;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Get claimable fees from a pool (treasury use)
+  const getClaimableFees = useCallback(async (poolAddress: string): Promise<ClaimableFeesResponse> => {
+    const apiUrl = getApiUrl();
+    const url = `${apiUrl}/api/fees/claim-from-pool?poolAddress=${encodeURIComponent(poolAddress)}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to get claimable fees');
+    }
+    
+    return data;
+  }, []);
+
+  // Claim fees from DBC pool (treasury use - pre-graduation)
+  const claimPoolFees = useCallback(async (params: {
+    poolAddress: string;
+    tokenId?: string;
+  }): Promise<ClaimPoolFeesResponse> => {
+    setIsLoading(true);
+    try {
+      const result = await apiRequest<ClaimPoolFeesResponse>('/fees/claim-from-pool', params);
+      return result;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Claim fees from DAMM V2 (treasury use - post-graduation)
+  const claimDammFees = useCallback(async (params: {
+    tokenId?: string;
+    dammPoolAddress?: string;
+    positionNftMint?: string;
+  }): Promise<{ success: boolean; message: string; info: Record<string, unknown> }> => {
+    setIsLoading(true);
+    try {
+      const result = await apiRequest<{ success: boolean; message: string; info: Record<string, unknown> }>(
+        '/fees/claim-damm-fees', 
+        params
+      );
       return result;
     } finally {
       setIsLoading(false);
@@ -322,6 +391,9 @@ export function useMeteoraApi() {
     createPool,
     executeSwap,
     claimFees,
+    getClaimableFees,
+    claimPoolFees,
+    claimDammFees,
     syncTokenData,
     migratePool,
   };

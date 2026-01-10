@@ -21,11 +21,12 @@ export const TOTAL_SUPPLY = 1_000_000_000;
 export const INITIAL_VIRTUAL_SOL = 30; // Starting virtual SOL reserves
 export const GRADUATION_THRESHOLD_SOL = 85; // SOL needed to graduate
 
-// Trading fees - 2% total
-// Split: 1% to Creator, 0.5% to Platform, 0.5% to $TRENCHES buyback
+// Trading fees - 2% total to treasury
+// 100% of 2% goes to platform treasury wallet
+// Treasury handles all fee distribution (buybacks, operations, etc.)
 export const TRADING_FEE_BPS = 200; // 2% (200 basis points)
-export const CREATOR_FEE_SHARE = 0.5; // 50% of fees = 1% of trade
-export const SYSTEM_FEE_SHARE = 0.5; // 50% of fees = 1% of trade (includes buyback)
+export const CREATOR_FEE_SHARE = 0; // 0% - No on-chain creator fees
+export const SYSTEM_FEE_SHARE = 1.0; // 100% of fees go to treasury
 
 // LP distribution on graduation
 // 100% of LP locked to platform treasury - no rugs possible
