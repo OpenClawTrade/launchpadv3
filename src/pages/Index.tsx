@@ -3,10 +3,16 @@ import { PostCard, ComposePost } from "@/components/post";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts, PostWithProfile } from "@/hooks/usePosts";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { PostData } from "@/components/post";
 import { PostSkeletonList } from "@/components/ui/post-skeleton";
 import { supabase } from "@/integrations/supabase/client";
+
+interface DbProfile {
+  display_name: string;
+  username: string;
+  avatar_url: string | null;
+}
 
 // Transform database post to PostData format
 function transformPost(post: PostWithProfile): PostData {
@@ -42,6 +48,33 @@ const Index = () => {
   const { posts, isLoading, createPost, toggleLike, toggleBookmark, toggleRepost, deletePost, quotePost, refetch } = usePosts();
   const [activeTab, setActiveTab] = useState("for-you");
   const [canPin, setCanPin] = useState(false);
+  const [dbProfile, setDbProfile] = useState<DbProfile | null>(null);
+  
+  // Fetch user profile from database to get current username/display_name
+  useEffect(() => {
+    if (!user?.id) {
+      setDbProfile(null);
+      return;
+    }
+    
+    const fetchProfile = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("display_name, username, avatar_url")
+          .eq("id", user.id)
+          .single();
+        
+        if (!error && data) {
+          setDbProfile(data);
+        }
+      } catch (err) {
+        console.error("Error fetching profile:", err);
+      }
+    };
+    
+    fetchProfile();
+  }, [user?.id]);
   
   // Check if user can pin posts (admin or gold verified)
   useEffect(() => {
@@ -62,12 +95,17 @@ const Index = () => {
     
     checkPinPermission();
   }, [user?.id]);
-  // Build current user object from auth context
-  const currentUser = user ? {
-    name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
-    handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
-    avatar: user.avatarUrl,
-  } : null;
+
+  // Build current user object from database profile (preferred) or auth context (fallback)
+  const currentUser = useMemo(() => {
+    if (!user) return null;
+    
+    return {
+      name: dbProfile?.display_name ?? user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
+      handle: dbProfile?.username ?? user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
+      avatar: dbProfile?.avatar_url ?? user.avatarUrl,
+    };
+  }, [user, dbProfile]);
 
   const handlePost = async (content: string, media?: File[]) => {
     const imageFile = media?.[0];
