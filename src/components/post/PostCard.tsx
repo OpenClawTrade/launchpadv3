@@ -41,7 +41,18 @@ import { QuoteModal } from "./QuoteModal";
 import { EditPostModal } from "./EditPostModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useViewTracking } from "@/hooks/useViewTracking";
+import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export interface PostData {
   id: string;
@@ -109,6 +120,7 @@ export function PostCard({
 }: PostCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isAdmin } = useAdmin();
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isReposted, setIsReposted] = useState(post.isReposted || false);
   const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked || false);
@@ -121,8 +133,10 @@ export function PostCard({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showBanDialog, setShowBanDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
+  const [isBanning, setIsBanning] = useState(false);
   const [currentContent, setCurrentContent] = useState(post.content);
   const [currentImageUrl, setCurrentImageUrl] = useState(post.media?.[0]?.url || null);
   const isOwnPost = !!(user?.id && post.authorId && user.id === post.authorId);
@@ -296,6 +310,48 @@ export function PostCard({
       toast.error("Failed to pin post");
     } finally {
       setIsPinning(false);
+    }
+  };
+
+  const handleBanUser = async () => {
+    if (!user?.id || !post.authorId || isOwnPost) return;
+    
+    setIsBanning(true);
+    try {
+      // Ban the user
+      const { error: banError } = await supabase
+        .from("user_bans")
+        .insert({
+          user_id: post.authorId,
+          banned_by: user.id,
+          reason: "Banned via post moderation",
+        });
+
+      if (banError) {
+        if (banError.code === "23505") {
+          toast.error("User is already banned");
+        } else {
+          throw banError;
+        }
+        return;
+      }
+
+      // Delete all their posts
+      await supabase
+        .from("posts")
+        .delete()
+        .eq("user_id", post.authorId);
+
+      toast.success(`User @${post.author.handle} has been banned and all posts deleted`);
+      setShowBanDialog(false);
+      
+      // Navigate away from the now-deleted post
+      navigate("/");
+    } catch (err) {
+      console.error("Error banning user:", err);
+      toast.error("Failed to ban user");
+    } finally {
+      setIsBanning(false);
     }
   };
 
@@ -489,6 +545,20 @@ export function PostCard({
                     Report post
                   </DropdownMenuItem>
                 )}
+                
+                {/* Admin ban option */}
+                {isAdmin && !isOwnPost && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={(e) => { e.stopPropagation(); setShowBanDialog(true); }}
+                      className="gap-2 text-destructive focus:text-destructive font-semibold"
+                    >
+                      <Ban className="h-4 w-4" />
+                      Ban User & Delete Posts
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -643,6 +713,31 @@ export function PostCard({
         initialImageUrl={currentImageUrl}
         onSave={handleEdit}
       />
+      
+      {/* Admin Ban Dialog */}
+      <AlertDialog open={showBanDialog} onOpenChange={setShowBanDialog}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <Ban className="h-5 w-5" />
+              Ban User
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently ban <strong>@{post.author.handle}</strong> from the platform and delete all their posts. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBanning}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBanUser}
+              disabled={isBanning}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBanning ? "Banning..." : "Ban & Delete All Posts"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </article>
   );
 }
