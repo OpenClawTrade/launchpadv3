@@ -24,12 +24,19 @@ export default function LaunchTokenPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-lg font-bold">Launch Token</h1>
         </div>
       </header>
 
+      {/* Hero Section */}
+      <div className="text-center py-8 px-4">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2">Launch on Trenches</h1>
+        <p className="text-muted-foreground">
+          Create a coin, raise money, and share with friends.
+        </p>
+      </div>
+
       {/* Form */}
-      <div className="p-4 max-w-lg mx-auto space-y-4">
+      <div className="px-4 pb-8 max-w-md mx-auto space-y-4">
         <WalletBalanceCard minRequired={0.05} />
         <LaunchTokenForm />
       </div>
