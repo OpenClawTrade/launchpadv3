@@ -6,9 +6,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMeteoraApi } from "@/hooks/useMeteoraApi";
+import { useSolanaWallet } from "@/hooks/useSolanaWallet";
 import { Loader2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Transaction, VersionedTransaction } from "@solana/web3.js";
 
 interface LaunchTokenFormProps {
   onSuccess?: (mintAddress: string) => void;
@@ -18,6 +20,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const { solanaAddress, isAuthenticated, login, user } = useAuth();
   const { toast } = useToast();
   const { createPool, isLoading: isApiLoading } = useMeteoraApi();
+  const { getSolanaWallet } = useSolanaWallet();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -44,6 +47,28 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
       }
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  // Sign transaction using Privy wallet
+  const signTransaction = async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
+    const wallet = getSolanaWallet();
+    if (!wallet) {
+      throw new Error('No wallet connected');
+    }
+
+    try {
+      // Get provider from wallet
+      const provider = await (wallet as any).getEthereumProvider?.() || wallet;
+      
+      if (provider.signTransaction) {
+        return await provider.signTransaction(tx);
+      }
+      
+      throw new Error('Wallet does not support transaction signing');
+    } catch (error) {
+      console.error('Transaction signing error:', error);
+      throw error;
     }
   };
 
@@ -87,19 +112,23 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         imageUrl = urlData.publicUrl;
       }
 
-      const data = await createPool({
-        creatorWallet: solanaAddress,
-        privyUserId: user?.privyId,
-        name: formData.name,
-        ticker: formData.ticker.toUpperCase(),
-        description: formData.description,
-        imageUrl,
-        websiteUrl: formData.websiteUrl || undefined,
-        twitterUrl: formData.twitterUrl || undefined,
-        telegramUrl: formData.telegramUrl || undefined,
-        discordUrl: formData.discordUrl || undefined,
-        initialBuySol: formData.initialBuySol,
-      });
+      // Create pool with optional transaction signing
+      const data = await createPool(
+        {
+          creatorWallet: solanaAddress,
+          privyUserId: user?.privyId,
+          name: formData.name,
+          ticker: formData.ticker.toUpperCase(),
+          description: formData.description,
+          imageUrl,
+          websiteUrl: formData.websiteUrl || undefined,
+          twitterUrl: formData.twitterUrl || undefined,
+          telegramUrl: formData.telegramUrl || undefined,
+          discordUrl: formData.discordUrl || undefined,
+          initialBuySol: formData.initialBuySol,
+        },
+        signTransaction // Pass signing function for on-chain creation
+      );
 
       if (!data.success) throw new Error('Failed to create token');
 
@@ -271,9 +300,9 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         <Button
           type="submit"
           className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
-          disabled={isLoading || !formData.name || !formData.ticker}
+          disabled={isLoading || isApiLoading || !formData.name || !formData.ticker}
         >
-          {isLoading ? (
+          {isLoading || isApiLoading ? (
             <>
               <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               Creating Token...

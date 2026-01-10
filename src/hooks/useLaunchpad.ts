@@ -334,7 +334,18 @@ export function useLaunchpad() {
         throw new Error('Swap failed');
       }
 
-      return result;
+      // Return normalized result with both naming conventions for compatibility
+      return {
+        success: result.success,
+        tokensOut: result.tokensOut || 0,
+        solOut: result.solOut || 0,
+        newPrice: result.newPrice,
+        bondingProgress: result.bondingProgress,
+        graduated: result.graduated,
+        marketCap: result.marketCap,
+        signature: result.signature,
+        transaction: result.transaction,
+      };
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['launchpad-token', variables.mintAddress] });

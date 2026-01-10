@@ -7,6 +7,7 @@ export { CopyTrading } from './CopyTrading';
 export { TokenCard } from './TokenCard';
 export { WalletBalanceCard } from './WalletBalanceCard';
 export { TradePanel } from './TradePanel';
+export { TradePanelWithSwap } from './TradePanelWithSwap';
 export { LaunchTokenForm } from './LaunchTokenForm';
 export { TransactionHistory } from './TransactionHistory';
 export { PriceChart } from './PriceChart';

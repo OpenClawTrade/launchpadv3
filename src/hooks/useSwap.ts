@@ -14,7 +14,7 @@ interface SwapParams {
 
 interface SwapResult {
   success: boolean;
-  signature: string;
+  signature?: string;
   tokensOut: number;
   solOut: number;
   newPrice: number;
@@ -23,7 +23,7 @@ interface SwapResult {
 
 export function useSwap() {
   const { executeSwap } = useMeteoraApi();
-  const { walletAddress, isWalletReady, getBalance, getTokenBalance } = useSolanaWallet();
+  const { walletAddress, isWalletReady, getBalance, getTokenBalance, signAndSendTransaction } = useSolanaWallet();
   const { profileId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -59,7 +59,7 @@ export function useSwap() {
         }
       }
 
-      // Execute swap via API
+      // Execute swap via API (returns transaction to sign)
       const result = await executeSwap({
         mintAddress: params.mintAddress,
         userWallet: walletAddress,
