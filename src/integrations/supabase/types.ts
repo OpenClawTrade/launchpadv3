@@ -178,6 +178,139 @@ export type Database = {
           },
         ]
       }
+      copy_trade_executions: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          executed_at: string | null
+          id: string
+          signature: string | null
+          sol_amount: number
+          status: string
+          token_amount: number
+          tracked_wallet_id: string
+          user_profile_id: string
+          user_wallet: string
+          wallet_trade_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          signature?: string | null
+          sol_amount: number
+          status?: string
+          token_amount: number
+          tracked_wallet_id: string
+          user_profile_id: string
+          user_wallet: string
+          wallet_trade_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          signature?: string | null
+          sol_amount?: number
+          status?: string
+          token_amount?: number
+          tracked_wallet_id?: string
+          user_profile_id?: string
+          user_wallet?: string
+          wallet_trade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copy_trade_executions_tracked_wallet_id_fkey"
+            columns: ["tracked_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_wallets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copy_trade_executions_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copy_trade_executions_wallet_trade_id_fkey"
+            columns: ["wallet_trade_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dca_orders: {
+        Row: {
+          amount_per_order: number
+          created_at: string
+          id: string
+          interval_seconds: number
+          next_execution_at: string | null
+          orders_executed: number
+          profile_id: string | null
+          side: string
+          slippage_bps: number | null
+          status: string
+          token_id: string
+          total_orders: number
+          updated_at: string
+          user_wallet: string
+        }
+        Insert: {
+          amount_per_order: number
+          created_at?: string
+          id?: string
+          interval_seconds: number
+          next_execution_at?: string | null
+          orders_executed?: number
+          profile_id?: string | null
+          side: string
+          slippage_bps?: number | null
+          status?: string
+          token_id: string
+          total_orders: number
+          updated_at?: string
+          user_wallet: string
+        }
+        Update: {
+          amount_per_order?: number
+          created_at?: string
+          id?: string
+          interval_seconds?: number
+          next_execution_at?: string | null
+          orders_executed?: number
+          profile_id?: string | null
+          side?: string
+          slippage_bps?: number | null
+          status?: string
+          token_id?: string
+          total_orders?: number
+          updated_at?: string
+          user_wallet?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dca_orders_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dca_orders_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_claims: {
         Row: {
           amount_sol: number
@@ -490,6 +623,78 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      limit_orders: {
+        Row: {
+          amount: number
+          amount_type: string
+          created_at: string
+          executed_at: string | null
+          executed_signature: string | null
+          expires_at: string | null
+          id: string
+          order_type: string
+          profile_id: string | null
+          side: string
+          slippage_bps: number | null
+          status: string
+          token_id: string
+          trigger_price: number
+          updated_at: string
+          user_wallet: string
+        }
+        Insert: {
+          amount: number
+          amount_type?: string
+          created_at?: string
+          executed_at?: string | null
+          executed_signature?: string | null
+          expires_at?: string | null
+          id?: string
+          order_type: string
+          profile_id?: string | null
+          side: string
+          slippage_bps?: number | null
+          status?: string
+          token_id: string
+          trigger_price: number
+          updated_at?: string
+          user_wallet: string
+        }
+        Update: {
+          amount?: number
+          amount_type?: string
+          created_at?: string
+          executed_at?: string | null
+          executed_signature?: string | null
+          expires_at?: string | null
+          id?: string
+          order_type?: string
+          profile_id?: string | null
+          side?: string
+          slippage_bps?: number | null
+          status?: string
+          token_id?: string
+          trigger_price?: number
+          updated_at?: string
+          user_wallet?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "limit_orders_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "limit_orders_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
             referencedColumns: ["id"]
           },
         ]
@@ -1080,6 +1285,62 @@ export type Database = {
           },
         ]
       }
+      tracked_wallets: {
+        Row: {
+          copy_amount_sol: number | null
+          copy_percentage: number | null
+          created_at: string
+          id: string
+          is_copy_trading_enabled: boolean
+          max_per_trade_sol: number | null
+          notifications_enabled: boolean
+          total_pnl_sol: number | null
+          trades_copied: number | null
+          updated_at: string
+          user_profile_id: string
+          wallet_address: string
+          wallet_label: string | null
+        }
+        Insert: {
+          copy_amount_sol?: number | null
+          copy_percentage?: number | null
+          created_at?: string
+          id?: string
+          is_copy_trading_enabled?: boolean
+          max_per_trade_sol?: number | null
+          notifications_enabled?: boolean
+          total_pnl_sol?: number | null
+          trades_copied?: number | null
+          updated_at?: string
+          user_profile_id: string
+          wallet_address: string
+          wallet_label?: string | null
+        }
+        Update: {
+          copy_amount_sol?: number | null
+          copy_percentage?: number | null
+          created_at?: string
+          id?: string
+          is_copy_trading_enabled?: boolean
+          max_per_trade_sol?: number | null
+          notifications_enabled?: boolean
+          total_pnl_sol?: number | null
+          trades_copied?: number | null
+          updated_at?: string
+          user_profile_id?: string
+          wallet_address?: string
+          wallet_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracked_wallets_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trending_topics: {
         Row: {
           calculated_at: string | null
@@ -1246,6 +1507,65 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      wallet_trades: {
+        Row: {
+          copied_by_count: number | null
+          created_at: string
+          id: string
+          price_per_token: number
+          signature: string
+          slot: number | null
+          sol_amount: number
+          token_amount: number
+          token_mint: string
+          token_name: string | null
+          token_ticker: string | null
+          tracked_wallet_id: string | null
+          trade_type: string
+          wallet_address: string
+        }
+        Insert: {
+          copied_by_count?: number | null
+          created_at?: string
+          id?: string
+          price_per_token: number
+          signature: string
+          slot?: number | null
+          sol_amount: number
+          token_amount: number
+          token_mint: string
+          token_name?: string | null
+          token_ticker?: string | null
+          tracked_wallet_id?: string | null
+          trade_type: string
+          wallet_address: string
+        }
+        Update: {
+          copied_by_count?: number | null
+          created_at?: string
+          id?: string
+          price_per_token?: number
+          signature?: string
+          slot?: number | null
+          sol_amount?: number
+          token_amount?: number
+          token_mint?: string
+          token_name?: string | null
+          token_ticker?: string | null
+          tracked_wallet_id?: string | null
+          trade_type?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_trades_tracked_wallet_id_fkey"
+            columns: ["tracked_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

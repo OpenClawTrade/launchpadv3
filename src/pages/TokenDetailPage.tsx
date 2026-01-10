@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout";
-import { BondingCurveProgress, TransactionHistory, PriceChart, TokenComments } from "@/components/launchpad";
+import { BondingCurveProgress, TransactionHistory, PriceChart, TokenComments, QuickTradeButtons, AdvancedOrderForm, PendingOrders } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/contexts/AuthContext";
@@ -255,11 +255,20 @@ export default function TokenDetailPage() {
           </Card>
         )}
 
+        {/* Quick Trade Buttons */}
+        <QuickTradeButtons token={token} userBalance={userBalance} />
+
         {/* Trade Panel */}
         <TradePanelWithSwap
           token={token}
           userBalance={userBalance}
         />
+
+        {/* Advanced Orders */}
+        <AdvancedOrderForm token={token} userBalance={userBalance} />
+
+        {/* Pending Orders */}
+        <PendingOrders tokenId={token.id} />
 
         {/* Tabs for Transactions, Holders & Discussion */}
         <Tabs defaultValue="transactions" className="w-full">
