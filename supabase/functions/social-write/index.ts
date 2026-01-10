@@ -53,6 +53,23 @@ type SocialWriteRequest =
       type: "verify_user";
       userId: string;
       verifiedType: "blue" | "gold";
+    }
+  | {
+      type: "get_or_create_conversation";
+      userId: string;
+      otherUserId: string;
+    }
+  | {
+      type: "send_message";
+      userId: string;
+      conversationId: string;
+      content?: string | null;
+      imageUrl?: string | null;
+    }
+  | {
+      type: "mark_messages_read";
+      userId: string;
+      conversationId: string;
     };
 
 function json(data: unknown, status = 200) {
@@ -389,6 +406,119 @@ Deno.serve(async (req) => {
 
       console.log(`User ${body.userId} verified as ${body.verifiedType}`);
       return json({ verified: true, verifiedType: body.verifiedType });
+    }
+
+    if (body.type === "get_or_create_conversation") {
+      if (!body.userId || !body.otherUserId) {
+        return json({ error: "userId and otherUserId are required" }, 400);
+      }
+      if (body.userId === body.otherUserId) {
+        return json({ error: "Cannot create conversation with yourself" }, 400);
+      }
+
+      // Check if conversation already exists (in either direction)
+      const { data: existing } = await supabase
+        .from("conversations")
+        .select("id")
+        .or(
+          `and(participant_1.eq.${body.userId},participant_2.eq.${body.otherUserId}),and(participant_1.eq.${body.otherUserId},participant_2.eq.${body.userId})`
+        )
+        .maybeSingle();
+
+      if (existing) {
+        return json({ conversationId: existing.id });
+      }
+
+      // Create new conversation
+      const { data: newConv, error: convError } = await supabase
+        .from("conversations")
+        .insert({
+          participant_1: body.userId,
+          participant_2: body.otherUserId,
+        })
+        .select("id")
+        .single();
+
+      if (convError) {
+        console.error("Error creating conversation:", convError);
+        return json({ error: convError.message }, 500);
+      }
+
+      return json({ conversationId: newConv.id });
+    }
+
+    if (body.type === "send_message") {
+      if (!body.userId || !body.conversationId) {
+        return json({ error: "userId and conversationId are required" }, 400);
+      }
+      if (!body.content?.trim() && !body.imageUrl) {
+        return json({ error: "content or imageUrl is required" }, 400);
+      }
+
+      // Verify user is participant in conversation
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("participant_1, participant_2")
+        .eq("id", body.conversationId)
+        .maybeSingle();
+
+      if (!conv) {
+        return json({ error: "Conversation not found" }, 404);
+      }
+
+      if (conv.participant_1 !== body.userId && conv.participant_2 !== body.userId) {
+        return json({ error: "Not a participant in this conversation" }, 403);
+      }
+
+      // Insert message
+      const messageContent = body.content?.trim() || null;
+      const { data: message, error: msgError } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: body.conversationId,
+          sender_id: body.userId,
+          content: messageContent,
+          image_url: body.imageUrl || null,
+        })
+        .select("*")
+        .single();
+
+      if (msgError) {
+        console.error("Error sending message:", msgError);
+        return json({ error: msgError.message }, 500);
+      }
+
+      // Update conversation with last message preview
+      await supabase
+        .from("conversations")
+        .update({
+          last_message_preview: messageContent || "[Image]",
+          last_message_at: new Date().toISOString(),
+        })
+        .eq("id", body.conversationId);
+
+      return json({ message });
+    }
+
+    if (body.type === "mark_messages_read") {
+      if (!body.userId || !body.conversationId) {
+        return json({ error: "userId and conversationId are required" }, 400);
+      }
+
+      // Mark all messages from other users in this conversation as read
+      const { error: readError } = await supabase
+        .from("messages")
+        .update({ read: true })
+        .eq("conversation_id", body.conversationId)
+        .neq("sender_id", body.userId)
+        .eq("read", false);
+
+      if (readError) {
+        console.error("Error marking messages as read:", readError);
+        return json({ error: readError.message }, 500);
+      }
+
+      return json({ success: true });
     }
 
     return json({ error: "Unsupported operation" }, 400);

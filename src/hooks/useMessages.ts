@@ -94,38 +94,34 @@ export function useMessages() {
     if (!user?.id) return null;
 
     try {
-      // Check if conversation exists (in either direction)
-      const { data: existing } = await supabase
-        .from("conversations")
-        .select("id")
-        .or(
-          `and(participant_1.eq.${user.id},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${user.id})`
-        )
-        .maybeSingle();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/social-write`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "get_or_create_conversation",
+            userId: user.id,
+            otherUserId,
+          }),
+        }
+      );
 
-      if (existing) return existing.id;
-
-      // Create new conversation
-      const { data: newConv, error } = await supabase
-        .from("conversations")
-        .insert({
-          participant_1: user.id,
-          participant_2: otherUserId,
-        })
-        .select("id")
-        .single();
-
-      if (error) {
-        console.error("Error creating conversation:", error);
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("Error creating conversation:", data.error);
         return null;
       }
 
-      return newConv.id;
+      // Refetch conversations to include the new one
+      await fetchConversations();
+
+      return data.conversationId;
     } catch (error) {
       console.error("Error in getOrCreateConversation:", error);
       return null;
     }
-  }, [user?.id]);
+  }, [user?.id, fetchConversations]);
 
   // Fetch on mount
   useEffect(() => {
@@ -210,14 +206,20 @@ export function useConversation(conversationId: string | null) {
 
       setMessages(data || []);
 
-      // Mark messages as read
+      // Mark messages as read via edge function
       if (user?.id) {
-        await supabase
-          .from("messages")
-          .update({ read: true })
-          .eq("conversation_id", conversationId)
-          .neq("sender_id", user.id)
-          .eq("read", false);
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/social-write`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "mark_messages_read",
+              userId: user.id,
+              conversationId,
+            }),
+          }
+        ).catch((err) => console.error("Error marking messages read:", err));
       }
     } catch (error) {
       console.error("Error in fetchMessages:", error);
@@ -231,17 +233,24 @@ export function useConversation(conversationId: string | null) {
 
     setIsSending(true);
     try {
-      const { error } = await supabase
-        .from("messages")
-        .insert({
-          conversation_id: conversationId,
-          sender_id: user.id,
-          content: content.trim() || null,
-          image_url: imageUrl || null,
-        });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/social-write`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "send_message",
+            userId: user.id,
+            conversationId,
+            content: content.trim() || null,
+            imageUrl: imageUrl || null,
+          }),
+        }
+      );
 
-      if (error) {
-        console.error("Error sending message:", error);
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("Error sending message:", data.error);
         return false;
       }
 
