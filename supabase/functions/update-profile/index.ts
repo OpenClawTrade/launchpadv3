@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { privyUserId, display_name, bio, location, website, avatar_url, cover_url } = await req.json();
+    const { privyUserId, display_name, bio, location, website, avatar_url, cover_url, username, username_changed_at } = await req.json();
 
     if (!privyUserId) {
       return new Response(
@@ -87,6 +87,8 @@ Deno.serve(async (req) => {
     if (website !== undefined) updates.website = website;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
     if (cover_url !== undefined) updates.cover_url = cover_url;
+    if (username !== undefined) updates.username = username;
+    if (username_changed_at !== undefined) updates.username_changed_at = username_changed_at;
 
     if (Object.keys(updates).length === 0) {
       return new Response(

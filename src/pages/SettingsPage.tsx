@@ -118,7 +118,7 @@ export default function SettingsPage() {
         .select("id")
         .eq("username", username.toLowerCase())
         .neq("id", profileId)
-        .single();
+        .maybeSingle();
       
       if (existing) {
         toast.error("Username is already taken");
@@ -126,15 +126,17 @@ export default function SettingsPage() {
         return;
       }
       
-      const { error } = await supabase
-        .from("profiles")
-        .update({ 
+      // Use edge function to bypass RLS
+      const { data, error } = await supabase.functions.invoke("update-profile", {
+        body: {
+          privyUserId: user.privyId,
           username: username.toLowerCase(),
           username_changed_at: new Date().toISOString()
-        })
-        .eq("id", profileId);
+        }
+      });
       
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       
       setOriginalUsername(username.toLowerCase());
       setUsername(username.toLowerCase());
