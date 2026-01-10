@@ -1,0 +1,237 @@
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatSolAmount, formatTokenAmount, Token } from "@/hooks/useLaunchpad";
+import { 
+  Flame, 
+  Rocket, 
+  TrendingUp, 
+  Clock, 
+  Zap,
+  ArrowUp,
+  ArrowDown,
+  Sparkles
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
+
+type PulseFilter = 'new' | 'hot' | 'graduating' | 'volume';
+
+export function TrenchesPulse() {
+  const [filter, setFilter] = useState<PulseFilter>('hot');
+  const queryClient = useQueryClient();
+
+  // Fetch tokens with different sorting based on filter
+  const { data: tokens = [], isLoading } = useQuery({
+    queryKey: ['pulse-tokens', filter],
+    queryFn: async () => {
+      let query = supabase
+        .from('tokens')
+        .select(`
+          *,
+          profiles:creator_id (
+            display_name,
+            username,
+            avatar_url,
+            verified_type
+          )
+        `)
+        .eq('status', 'bonding');
+
+      switch (filter) {
+        case 'new':
+          query = query.order('created_at', { ascending: false }).limit(20);
+          break;
+        case 'hot':
+          query = query.order('volume_24h_sol', { ascending: false }).limit(20);
+          break;
+        case 'graduating':
+          query = query.gte('bonding_curve_progress', 50).order('bonding_curve_progress', { ascending: false }).limit(20);
+          break;
+        case 'volume':
+          query = query.gt('volume_24h_sol', 0).order('volume_24h_sol', { ascending: false }).limit(20);
+          break;
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as Token[];
+    },
+    refetchInterval: 10000, // Refetch every 10 seconds for real-time feel
+  });
+
+  // Subscribe to realtime token updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('pulse-tokens-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tokens' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['pulse-tokens'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  const getFilterIcon = (f: PulseFilter) => {
+    switch (f) {
+      case 'new': return <Sparkles className="h-3.5 w-3.5" />;
+      case 'hot': return <Flame className="h-3.5 w-3.5" />;
+      case 'graduating': return <Rocket className="h-3.5 w-3.5" />;
+      case 'volume': return <TrendingUp className="h-3.5 w-3.5" />;
+    }
+  };
+
+  const getTimeAgo = (date: string) => {
+    const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+    return `${Math.floor(seconds / 86400)}d`;
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-primary/20 rounded-lg">
+            <Zap className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-bold text-lg">TRENCHES Pulse</h2>
+            <p className="text-xs text-muted-foreground">Real-time token discovery</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="p-3 border-b border-border bg-secondary/30">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as PulseFilter)}>
+          <TabsList className="w-full grid grid-cols-4 h-auto">
+            <TabsTrigger value="new" className="gap-1.5 text-xs py-2">
+              {getFilterIcon('new')}
+              New
+            </TabsTrigger>
+            <TabsTrigger value="hot" className="gap-1.5 text-xs py-2">
+              {getFilterIcon('hot')}
+              Hot
+            </TabsTrigger>
+            <TabsTrigger value="graduating" className="gap-1.5 text-xs py-2">
+              {getFilterIcon('graduating')}
+              Graduating
+            </TabsTrigger>
+            <TabsTrigger value="volume" className="gap-1.5 text-xs py-2">
+              {getFilterIcon('volume')}
+              Volume
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Token List */}
+      <div className="divide-y divide-border">
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="p-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-secondary rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <div className="w-24 h-4 bg-secondary rounded" />
+                  <div className="w-16 h-3 bg-secondary rounded" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : tokens.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <p>No tokens found</p>
+          </div>
+        ) : (
+          tokens.map((token, index) => (
+            <Link
+              key={token.id}
+              to={`/launchpad/${token.mint_address}`}
+              className="flex items-center gap-3 p-3 hover:bg-secondary/50 transition-colors"
+            >
+              {/* Rank */}
+              <span className="w-5 text-sm font-medium text-muted-foreground">
+                {index + 1}
+              </span>
+
+              {/* Token Image */}
+              <Avatar className="h-10 w-10 rounded-lg">
+                <AvatarImage src={token.image_url || undefined} />
+                <AvatarFallback className="rounded-lg text-xs font-bold bg-primary/10 text-primary">
+                  {token.ticker.slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+
+              {/* Token Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm truncate">{token.name}</span>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    ${token.ticker}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {getTimeAgo(token.created_at)}
+                  </span>
+                  {filter === 'graduating' && (
+                    <span className="text-primary font-medium">
+                      {token.bonding_curve_progress?.toFixed(0)}% bonded
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="text-right">
+                <div className="flex items-center gap-1 justify-end">
+                  <span className="font-semibold text-sm">
+                    {formatSolAmount(token.price_sol || 0)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">SOL</span>
+                </div>
+              <div className={cn(
+                  "flex items-center gap-0.5 text-xs justify-end",
+                  ((token as any).price_change_24h || 0) >= 0 ? "text-green-500" : "text-red-500"
+                )}>
+                  {((token as any).price_change_24h || 0) >= 0 ? (
+                    <ArrowUp className="h-3 w-3" />
+                  ) : (
+                    <ArrowDown className="h-3 w-3" />
+                  )}
+                  {Math.abs((token as any).price_change_24h || 0).toFixed(1)}%
+                </div>
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="p-3 border-t border-border">
+        <Link to="/launchpad">
+          <Button variant="ghost" className="w-full text-sm">
+            View All Tokens
+          </Button>
+        </Link>
+      </div>
+    </Card>
+  );
+}

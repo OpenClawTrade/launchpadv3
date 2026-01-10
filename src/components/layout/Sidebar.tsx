@@ -18,7 +18,8 @@ import {
   Rocket,
   DollarSign,
   Wallet,
-  Map
+  Map,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import trenchesLogo from "@/assets/trenches-logo.png";
@@ -53,6 +54,7 @@ const baseNavItems: NavItem[] = [
   { icon: Bell, label: "Notifications", href: "/notifications", badgeKey: "notifications" },
   { icon: Mail, label: "Messages", href: "/messages", badgeKey: "messages" },
   { icon: Sparkles, label: "Trenches AI", href: "/ai" },
+  { icon: Zap, label: "Pulse", href: "/pulse" },
   { icon: Map, label: "Roadmap", href: "/roadmap" },
   { icon: Bookmark, label: "Bookmarks", href: "/bookmarks" },
   { icon: Users, label: "Communities", href: "/communities" },
