@@ -294,19 +294,24 @@ Deno.serve(async (req) => {
     if (body.type === "track_view") {
       if (!body.postId) return json({ error: "postId is required" }, 400);
 
+      // Determine if it's a UUID or short_id (8-char alphanumeric)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.postId);
+      const lookupColumn = isUuid ? "id" : "short_id";
+
       const { data: postRow, error: fetchError } = await supabase
         .from("posts")
-        .select("views_count")
-        .eq("id", body.postId)
-        .single();
+        .select("id, views_count")
+        .eq(lookupColumn, body.postId)
+        .maybeSingle();
 
       if (fetchError) return json({ error: fetchError.message }, 500);
+      if (!postRow) return json({ error: "Post not found" }, 404);
 
       const views_count = (postRow.views_count ?? 0) + 1;
       const { error: updError } = await supabase
         .from("posts")
         .update({ views_count })
-        .eq("id", body.postId);
+        .eq("id", postRow.id);
 
       if (updError) return json({ error: updError.message }, 500);
 
