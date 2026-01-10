@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { PublicKey } from '@solana/web3.js';
 import { 
   TRADING_FEE_BPS, 
   CREATOR_FEE_SHARE, 
@@ -7,6 +8,8 @@ import {
   TOTAL_SUPPLY,
 } from '../lib/config';
 import { getSupabaseClient, getTokenByMint } from '../lib/supabase';
+import { getConnection } from '../lib/solana';
+import { executeMeteoraSwap, getPoolState, migratePool, serializeTransaction } from '../lib/meteora';
 
 // CORS headers
 const corsHeaders = {
@@ -49,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = getSupabaseClient();
 
-    // Get token
+    // Get token from database
     const token = await getTokenByMint(mintAddress);
     if (!token) {
       return res.status(404).json({ error: 'Token not found' });
@@ -62,56 +65,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Calculate using bonding curve (constant product: x * y = k)
-    const virtualSol = token.virtual_sol_reserves || 30;
-    const virtualToken = token.virtual_token_reserves || TOTAL_SUPPLY;
-    const realSol = token.real_sol_reserves || 0;
-    const k = virtualSol * virtualToken;
+    // Check if pool address exists
+    if (!token.dbc_pool_address) {
+      return res.status(400).json({ error: 'Pool not initialized on-chain' });
+    }
 
-    let tokensOut = 0;
-    let solOut = 0;
-    let newPrice = token.price_sol || 0.00000003;
-    let newVirtualSol = virtualSol;
-    let newVirtualToken = virtualToken;
-    let newRealSol = realSol;
-    let systemFee = 0;
-    let creatorFee = 0;
-    let solAmount = 0;
-    let tokenAmount = 0;
-
-    if (isBuy) {
-      // Buy: SOL -> Token
-      const grossSolIn = amount;
-      const totalFee = (grossSolIn * TRADING_FEE_BPS) / 10000;
-      systemFee = totalFee * SYSTEM_FEE_SHARE;
-      creatorFee = totalFee * CREATOR_FEE_SHARE;
-      const netSolIn = grossSolIn - totalFee;
-
-      newVirtualSol = virtualSol + netSolIn;
-      newVirtualToken = k / newVirtualSol;
-      tokensOut = virtualToken - newVirtualToken;
-      newRealSol = realSol + netSolIn;
-      newPrice = newVirtualSol / newVirtualToken;
-      solAmount = grossSolIn;
-      tokenAmount = tokensOut;
-
-      // Apply slippage check
-      const minTokensOut = tokensOut * (1 - slippageBps / 10000);
-      
-      console.log('[swap/execute] Buy calculated:', { 
-        netSolIn, 
-        tokensOut, 
-        minTokensOut,
-        newPrice, 
-        systemFee, 
-        creatorFee 
-      });
-
-    } else {
-      // Sell: Token -> SOL
-      const tokensIn = amount;
-      
-      // Check user has enough tokens
+    // For sells, verify user has enough tokens
+    if (!isBuy) {
       const { data: holding } = await supabase
         .from('token_holdings')
         .select('balance')
@@ -119,40 +79,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('wallet_address', userWallet)
         .single();
       
-      if (!holding || holding.balance < tokensIn) {
+      if (!holding || holding.balance < amount) {
         return res.status(400).json({ error: 'Insufficient token balance' });
       }
-
-      newVirtualToken = virtualToken + tokensIn;
-      newVirtualSol = k / newVirtualToken;
-      const grossSolOut = virtualSol - newVirtualSol;
-      
-      const totalFee = (grossSolOut * TRADING_FEE_BPS) / 10000;
-      systemFee = totalFee * SYSTEM_FEE_SHARE;
-      creatorFee = totalFee * CREATOR_FEE_SHARE;
-      solOut = grossSolOut - totalFee;
-      
-      newRealSol = Math.max(0, realSol - grossSolOut);
-      newPrice = newVirtualSol / newVirtualToken;
-      solAmount = solOut;
-      tokenAmount = tokensIn;
-
-      // Apply slippage check
-      const minSolOut = solOut * (1 - slippageBps / 10000);
-
-      console.log('[swap/execute] Sell calculated:', { 
-        tokensIn, 
-        solOut,
-        minSolOut,
-        newPrice 
-      });
     }
 
-    // Check graduation status
-    const bondingProgress = Math.min(100, (newRealSol / GRADUATION_THRESHOLD_SOL) * 100);
-    const shouldGraduate = newRealSol >= GRADUATION_THRESHOLD_SOL;
+    // Execute swap on Meteora
+    console.log('[swap/execute] Executing Meteora swap...');
+    
+    const { transaction, estimatedOutput } = await executeMeteoraSwap({
+      poolAddress: token.dbc_pool_address,
+      userWallet,
+      amount,
+      isBuy,
+      slippageBps,
+    });
+
+    // Get updated pool state from chain
+    const poolState = await getPoolState(token.dbc_pool_address);
+    if (!poolState) {
+      throw new Error('Failed to get pool state');
+    }
+
+    // Calculate fees
+    const solAmount = isBuy ? amount : estimatedOutput;
+    const totalFee = (solAmount * TRADING_FEE_BPS) / 10000;
+    const systemFee = totalFee * SYSTEM_FEE_SHARE;
+    const creatorFee = totalFee * CREATOR_FEE_SHARE;
+
+    const tokensOut = isBuy ? estimatedOutput : 0;
+    const solOut = isBuy ? 0 : estimatedOutput;
+    const tokenAmount = isBuy ? estimatedOutput : amount;
+
+    // Update database with on-chain state
+    const bondingProgress = Math.min(100, (poolState.virtualSolReserves / GRADUATION_THRESHOLD_SOL) * 100);
+    const shouldGraduate = poolState.isMigrated || poolState.virtualSolReserves >= GRADUATION_THRESHOLD_SOL;
     const newStatus = shouldGraduate ? 'graduated' : 'bonding';
-    const marketCap = newPrice * TOTAL_SUPPLY;
+    const newPrice = poolState.price;
+    const marketCap = poolState.marketCap;
 
     // Calculate 24h volume
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -164,13 +128,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     const volume24h = (recentTxs || []).reduce((sum, tx) => sum + Number(tx.sol_amount), 0) + solAmount;
 
-    // Update token state
+    // Update token state in database
     await supabase
       .from('tokens')
       .update({
-        virtual_sol_reserves: newVirtualSol,
-        virtual_token_reserves: newVirtualToken,
-        real_sol_reserves: newRealSol,
+        virtual_sol_reserves: poolState.virtualSolReserves,
+        virtual_token_reserves: poolState.virtualTokenReserves,
+        real_sol_reserves: poolState.virtualSolReserves - 30, // Real = Virtual - Initial
         price_sol: newPrice,
         bonding_curve_progress: bondingProgress,
         market_cap_sol: marketCap,
@@ -191,9 +155,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       timestamp: new Date().toISOString(),
     });
 
-    // Generate transaction signature (mock for now)
-    // In production, this would be the actual Solana tx signature
-    const signature = `tx_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    // Serialize transaction for client signing
+    const serializedTransaction = serializeTransaction(transaction);
+
+    // Generate a placeholder signature (real signature comes after client signs)
+    const signature = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
     // Record transaction
     await supabase.from('launchpad_transactions').insert({
@@ -307,17 +273,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .update({ holder_count: holderCount || 0 })
       .eq('id', token.id);
 
-    console.log('[swap/execute] Success:', { signature, tokensOut, solOut, newPrice, graduated: shouldGraduate });
+    // If graduated, trigger migration
+    if (shouldGraduate && !token.graduated_at) {
+      console.log('[swap/execute] Token graduated, triggering migration...');
+      try {
+        const migrationSigs = await migratePool(token.dbc_pool_address);
+        console.log('[swap/execute] Migration complete:', migrationSigs);
+        
+        await supabase
+          .from('tokens')
+          .update({ 
+            migration_status: 'damm_v2_active',
+            damm_pool_address: token.dbc_pool_address, // DAMM uses same address post-migration
+          })
+          .eq('id', token.id);
+      } catch (migrationError) {
+        console.error('[swap/execute] Migration error:', migrationError);
+        // Don't fail the swap, migration can be retried
+      }
+    }
+
+    console.log('[swap/execute] Success:', { tokensOut, solOut, newPrice, graduated: shouldGraduate });
 
     return res.status(200).json({
       success: true,
-      signature,
+      transaction: serializedTransaction,
       tokensOut: isBuy ? tokensOut : 0,
       solOut: isBuy ? 0 : solOut,
       newPrice,
       bondingProgress,
       graduated: shouldGraduate,
       marketCap,
+      signature,
     });
 
   } catch (error) {
