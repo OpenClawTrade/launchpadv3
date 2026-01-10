@@ -1097,6 +1097,33 @@ export type Database = {
           },
         ]
       }
+      user_bans: {
+        Row: {
+          banned_by: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          banned_by: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          banned_by?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_blocks: {
         Row: {
           blocked_user_id: string
@@ -1212,6 +1239,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_user_banned: { Args: { _user_id: string }; Returns: boolean }
       release_claim_lock: { Args: { p_token_id: string }; Returns: undefined }
       update_token_24h_stats: { Args: never; Returns: undefined }
     }
