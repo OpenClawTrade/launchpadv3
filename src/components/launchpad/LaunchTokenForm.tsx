@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMeteoraApi } from "@/hooks/useMeteoraApi";
-import { Loader2, Upload, Rocket, Twitter, Globe, MessageCircle, Image as ImageIcon } from "lucide-react";
+import { Loader2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface LaunchTokenFormProps {
   onSuccess?: (mintAddress: string) => void;
@@ -35,6 +33,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSocialLinks, setShowSocialLinks] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,7 +68,6 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
     setIsLoading(true);
 
     try {
-      // 1. Upload image to storage if provided
       let imageUrl: string | null = null;
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
@@ -89,7 +87,6 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         imageUrl = urlData.publicUrl;
       }
 
-      // 2. Call the Vercel API to create the token (real Solana transactions)
       const data = await createPool({
         creatorWallet: solanaAddress,
         privyUserId: user?.privyId,
@@ -128,169 +125,152 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
     }
   };
 
-  if (!isAuthenticated) {
-    return (
-      <Card className="p-8 text-center">
-        <div className="space-y-4">
-          <Rocket className="h-16 w-16 mx-auto text-primary" />
-          <h2 className="text-2xl font-bold">Launch Your Token</h2>
-          <p className="text-muted-foreground">
-            Connect your wallet to create and launch your own token on Solana.
-          </p>
-          <Button onClick={() => login()} size="lg">
-            Connect Wallet
-          </Button>
-        </div>
-      </Card>
-    );
-  }
+  // Calculate USD value (mock SOL price ~$150)
+  const solPrice = 150;
+  const usdValue = (formData.initialBuySol * solPrice).toFixed(2);
 
   return (
-    <Card className="p-6">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold">Launch Your Token</h2>
-          <p className="text-muted-foreground">Create and launch your token in minutes</p>
-        </div>
-
-        {/* Token Image */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <Avatar className="h-24 w-24 rounded-xl border-2 border-dashed border-border">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Token Info Section */}
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+          Token Info
+        </h3>
+        
+        <div className="flex gap-4">
+          {/* Image Upload */}
+          <label className="flex-shrink-0 cursor-pointer group">
+            <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border bg-secondary/30 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-secondary/50 transition-all">
               {imagePreview ? (
-                <AvatarImage src={imagePreview} />
+                <img src={imagePreview} alt="Token" className="w-full h-full object-cover rounded-xl" />
               ) : (
-                <AvatarFallback className="bg-secondary rounded-xl">
-                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                </AvatarFallback>
+                <>
+                  <ImageIcon className="h-6 w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    Upload Image
+                  </span>
+                </>
               )}
-            </Avatar>
-            <label className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors">
-              <Upload className="h-4 w-4" />
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageChange}
-              />
-            </label>
-          </div>
-          <span className="text-sm text-muted-foreground">Upload token image (optional)</span>
-        </div>
-
-        {/* Basic Info */}
-        <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Token Name *</Label>
-              <Input
-                id="name"
-                placeholder="e.g., Trenches Coin"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="ticker">Ticker *</Label>
-              <Input
-                id="ticker"
-                placeholder="e.g., TRENCH"
-                value={formData.ticker}
-                onChange={(e) => setFormData({ ...formData, ticker: e.target.value.toUpperCase() })}
-                maxLength={10}
-                required
-              />
-            </div>
-          </div>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageChange}
+            />
+          </label>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Tell the world about your token..."
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
+          {/* Name & Ticker */}
+          <div className="flex-1 space-y-3">
+            <Input
+              placeholder="Name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
+              required
+            />
+            <Input
+              placeholder="Ticker"
+              value={formData.ticker}
+              onChange={(e) => setFormData({ ...formData, ticker: e.target.value.toUpperCase() })}
+              maxLength={10}
+              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
+              required
             />
           </div>
         </div>
 
-        {/* Social Links */}
-        <div className="space-y-4">
-          <h3 className="font-semibold">Social Links (optional)</h3>
-          <div className="grid gap-4">
-            <div className="flex items-center gap-3">
-              <Globe className="h-5 w-5 text-muted-foreground" />
-              <Input
-                placeholder="Website URL"
-                value={formData.websiteUrl}
-                onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <Twitter className="h-5 w-5 text-muted-foreground" />
-              <Input
-                placeholder="Twitter URL"
-                value={formData.twitterUrl}
-                onChange={(e) => setFormData({ ...formData, twitterUrl: e.target.value })}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <MessageCircle className="h-5 w-5 text-muted-foreground" />
-              <Input
-                placeholder="Telegram URL"
-                value={formData.telegramUrl}
-                onChange={(e) => setFormData({ ...formData, telegramUrl: e.target.value })}
-              />
+        {/* Description */}
+        <Textarea
+          placeholder="Description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          className="mt-3 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60 min-h-[80px] resize-none"
+        />
+
+        {/* Social Links Collapsible */}
+        <Collapsible open={showSocialLinks} onOpenChange={setShowSocialLinks}>
+          <CollapsibleTrigger className="flex items-center gap-2 mt-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+            Social Links (optional)
+            {showSocialLinks ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 mt-3">
+            <Input
+              placeholder="Website URL"
+              value={formData.websiteUrl}
+              onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
+              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
+            />
+            <Input
+              placeholder="Twitter URL"
+              value={formData.twitterUrl}
+              onChange={(e) => setFormData({ ...formData, twitterUrl: e.target.value })}
+              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
+            />
+            <Input
+              placeholder="Telegram URL"
+              value={formData.telegramUrl}
+              onChange={(e) => setFormData({ ...formData, telegramUrl: e.target.value })}
+              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
+            />
+            <Input
+              placeholder="Discord URL"
+              value={formData.discordUrl}
+              onChange={(e) => setFormData({ ...formData, discordUrl: e.target.value })}
+              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
+            />
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+
+      {/* Initial Buy Section */}
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+          Initial Buy (optional)
+        </h3>
+        
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center">
+              <span className="text-[10px] font-bold text-white">◎</span>
             </div>
           </div>
-        </div>
-
-        {/* Initial Buy */}
-        <div className="space-y-2">
-          <Label htmlFor="initialBuy">Initial Buy (SOL)</Label>
           <Input
-            id="initialBuy"
             type="number"
             min="0"
-            step="0.1"
-            placeholder="0"
+            step="0.01"
+            placeholder="0.00 SOL"
             value={formData.initialBuySol || ''}
             onChange={(e) => setFormData({ ...formData, initialBuySol: parseFloat(e.target.value) || 0 })}
+            className="h-12 bg-secondary/50 border-0 rounded-xl pl-10 text-lg font-medium placeholder:text-muted-foreground/60"
           />
-          <p className="text-xs text-muted-foreground">
-            Optional: Buy tokens immediately after creation (protects against snipers)
-          </p>
         </div>
-
-        {/* Launch Info */}
-        <div className="bg-secondary/50 rounded-lg p-4 space-y-2 text-sm">
-          <h4 className="font-semibold">Token Details</h4>
-          <div className="grid gap-1 text-muted-foreground">
-            <div className="flex justify-between">
-              <span>Total Supply:</span>
-              <span className="font-medium text-foreground">1,000,000,000</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Initial Virtual Liquidity:</span>
-              <span className="font-medium text-foreground">30 SOL</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Graduation Threshold:</span>
-              <span className="font-medium text-foreground">85 SOL</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Trading Fee:</span>
-              <span className="font-medium text-foreground">2% (1% to you)</span>
-            </div>
+        
+        <p className="text-xs text-muted-foreground mt-3">
+          We recommend a minimum 0.5 SOL initial buy to avoid snipers.
+        </p>
+        
+        <div className="flex items-center justify-between mt-3 text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="6" width="18" height="14" rx="2" />
+              <path d="M3 10h18" />
+            </svg>
+            <span>{formData.initialBuySol || 0} SOL</span>
           </div>
+          <span className="text-muted-foreground">${usdValue}</span>
         </div>
+      </div>
 
-        {/* Submit */}
+      {/* Launch Button */}
+      {isAuthenticated ? (
         <Button
           type="submit"
-          className="w-full h-12 text-lg font-bold"
+          className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
           disabled={isLoading || !formData.name || !formData.ticker}
         >
           {isLoading ? (
@@ -299,13 +279,18 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
               Creating Token...
             </>
           ) : (
-            <>
-              <Rocket className="h-5 w-5 mr-2" />
-              Launch Token
-            </>
+            'Launch Token'
           )}
         </Button>
-      </form>
-    </Card>
+      ) : (
+        <Button
+          type="button"
+          onClick={() => login()}
+          className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
+        >
+          Log in to launch
+        </Button>
+      )}
+    </form>
   );
 }
