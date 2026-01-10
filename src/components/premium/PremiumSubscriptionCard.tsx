@@ -189,13 +189,14 @@ export function PremiumSubscriptionCard() {
           <div className="flex items-center gap-2">
             <VerifiedBadge type="blue" className="h-4 w-4" />
             <span className="text-sm font-medium">Blue Checkmark</span>
-            <span className="text-xs text-muted-foreground ml-auto">${BLUE_PRICE_USD}</span>
+            <span className="text-xs text-muted-foreground ml-auto">${BLUE_PRICE_USD} forever</span>
           </div>
           <div className="flex items-center gap-2">
             <VerifiedBadge type="gold" className="h-4 w-4" />
             <span className="text-sm font-medium">Gold Checkmark</span>
-            <span className="text-xs text-muted-foreground ml-auto">${GOLD_PRICE_USD}</span>
+            <span className="text-xs text-muted-foreground ml-auto">${GOLD_PRICE_USD} forever</span>
           </div>
+          <p className="text-xs text-muted-foreground pt-1">One-time payment, lifetime access</p>
         </div>
         <Button 
           onClick={handleSubscribeClick}
@@ -236,7 +237,7 @@ export function PremiumSubscriptionCard() {
                   <div className="text-right">
                     <div className="font-bold">${plan.priceUsd}</div>
                     <div className="text-xs text-muted-foreground">
-                      ~{plan.priceSol.toFixed(4)} SOL
+                      ~{plan.priceSol.toFixed(4)} SOL · One-time
                     </div>
                   </div>
                 </div>
