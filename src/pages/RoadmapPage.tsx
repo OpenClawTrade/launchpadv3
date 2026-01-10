@@ -1,8 +1,6 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Rocket, 
@@ -22,120 +20,67 @@ import {
   Shield,
   Globe,
   Link2,
-  Database,
-  Server,
-  Code,
-  Lock,
   DollarSign,
-  Eye,
-  Search,
-  Share2,
-  Bot
+  RefreshCw,
+  ArrowRight
 } from "lucide-react";
 
 // ==================== LIVE FEATURES ====================
 const liveFeatures = {
   social: [
-    "Posts with text, images, and video (mp4, webm, mov, avi)",
-    "Like, repost, quote, and bookmark posts",
+    "Posts with text, images, and video support",
+    "Like, repost, quote, and bookmark functionality",
     "Threaded replies and conversations",
-    "Follow/unfollow with real-time counts",
-    "Direct messaging with media support",
-    "Notifications (likes, follows, replies, mentions)",
-    "Profile customization (avatar, cover, bio, links)",
-    "Verified badges (Premium, Gold, Blue)",
-    "Explore page with search",
+    "Follow system with real-time counts",
+    "Direct messaging with media sharing",
+    "Notifications for all interactions",
+    "Profile customization with verification badges",
+    "Explore page with advanced search",
     "Trending topics algorithm",
-    "Who to follow suggestions",
-    "Communities creation and membership",
-    "Mute and block users",
-    "Report system for content moderation",
-    "View count tracking (50% visibility threshold)",
-    "AI chat assistant"
+    "Who to follow recommendations",
+    "Communities with membership management",
+    "User moderation (mute, block, report)",
+    "View count analytics",
+    "AI-powered chat assistant"
   ],
   launchpad: [
-    "Token creation with custom metadata",
-    "Bonding curve trading (constant product x·y=k)",
-    "Real-time price charts (1-minute candles)",
-    "Transaction history with on-chain verification",
-    "Automatic graduation to Meteora DAMM V2",
-    "Creator fee distribution (50% of 2% trading fee)",
-    "Token comments and discussions",
-    "Holder tracking with real-time balances",
-    "Portfolio dashboard for holdings",
-    "Earnings dashboard for fee claims"
+    "Token creation with custom branding",
+    "Bonding curve trading engine",
+    "Real-time price charts with candlestick data",
+    "On-chain transaction verification",
+    "Automatic DEX graduation",
+    "Creator fee distribution system",
+    "Token discussion threads",
+    "Holder tracking and analytics",
+    "Portfolio management dashboard",
+    "Earnings and fee claim interface"
   ]
 };
 
-// ==================== ECONOMIC PARAMETERS ====================
-const economicParams = [
-  { label: "Initial Virtual Liquidity", value: "30 SOL", description: "Starting virtual SOL in bonding curve" },
-  { label: "Graduation Threshold", value: "85 SOL", description: "Real SOL reserves needed to graduate" },
-  { label: "Total Token Supply", value: "1,000,000,000", description: "Tokens minted per launch" },
-  { label: "Token Decimals", value: "6", description: "SPL token decimal places" },
-  { label: "Trading Fee", value: "2%", description: "Fee charged on each trade" },
-  { label: "Creator Fee Share", value: "50% (1%)", description: "Creator receives 50% of trading fee" },
-  { label: "Platform Fee Share", value: "50% (1%)", description: "Platform receives 50% of trading fee" },
-  { label: "Post-Graduation Fee", value: "2%", description: "Fee on DAMM V2 pool trades" },
-  { label: "LP Token Lockup", value: "100%", description: "All LP locked to treasury wallet" },
-];
-
-// ==================== ARCHITECTURE ====================
-const architectureLayers = [
-  {
-    title: "Frontend",
-    icon: Globe,
-    tech: "React + Vite + TypeScript",
-    components: [
-      "LaunchpadPage.tsx — Token discovery & filtering",
-      "LaunchTokenPage.tsx — Token creation flow",
-      "TokenDetailPage.tsx — Trading interface + charts",
-      "PortfolioPage.tsx — Holdings dashboard",
-      "EarningsPage.tsx — Fee claim management"
-    ]
-  },
-  {
-    title: "API Layer",
-    icon: Server,
-    tech: "Vercel Node.js + Meteora SDK",
-    components: [
-      "/api/pool/create — DBC pool creation",
-      "/api/swap/execute — On-chain swap execution",
-      "/api/fees/claim — Creator fee claims",
-      "/api/data/sync — External data synchronization"
-    ]
-  },
-  {
-    title: "Database",
-    icon: Database,
-    tech: "Supabase PostgreSQL + Realtime",
-    components: [
-      "tokens — Metadata, reserves, status",
-      "token_holdings — Wallet balances per token",
-      "launchpad_transactions — Buy/sell history",
-      "token_price_history — OHLCV candle data",
-      "token_comments — Threaded discussions",
-      "fee_earners — Creator/system fee tracking"
-    ]
-  },
-  {
-    title: "On-Chain",
-    icon: Lock,
-    tech: "Solana + Helius RPC",
-    components: [
-      "Meteora DBC — Bonding curve pools",
-      "Meteora DAMM V2 — Graduated liquidity pools",
-      "SPL Token Program — Token operations",
-      "Treasury Wallet — LP lockup & fees"
-    ]
-  }
-];
+// ==================== TOKENOMICS ====================
+const tokenomics = {
+  bondingCurve: [
+    { label: "Initial Virtual Liquidity", value: "30 SOL" },
+    { label: "Graduation Threshold", value: "85 SOL" },
+    { label: "Total Token Supply", value: "1,000,000,000" },
+    { label: "Token Decimals", value: "6" },
+  ],
+  fees: [
+    { label: "Trading Fee", value: "2%", description: "Applied to each trade on bonding curve" },
+    { label: "Creator Share", value: "1%", description: "50% of trading fee distributed to token creator" },
+    { label: "Platform Share", value: "0.5%", description: "Platform operations and development" },
+    { label: "$TRENCHES Buyback", value: "0.5%", description: "Automated buyback via smart contract" },
+  ],
+  postGraduation: [
+    { label: "DAMM V2 Pool Fee", value: "2%" },
+    { label: "LP Token Lockup", value: "100%" },
+  ]
+};
 
 // ==================== ROADMAP PHASES ====================
 interface RoadmapFeature {
   name: string;
   description: string;
-  priority: "HIGH" | "MEDIUM" | "LOW";
 }
 
 interface RoadmapPhase {
@@ -143,26 +88,22 @@ interface RoadmapPhase {
   title: string;
   timeline: string;
   status: "live" | "in-progress" | "planned";
-  description: string;
   features: RoadmapFeature[];
 }
 
 const roadmapPhases: RoadmapPhase[] = [
   {
     id: "phase-1",
-    title: "Core Trading Enhancement",
+    title: "Trading Enhancement",
     timeline: "Q1 2026",
     status: "in-progress",
-    description: "Advanced order types and trading interface improvements",
     features: [
-      { name: "Quick Buy/Sell Buttons", description: "One-click trading with preset amounts (0.1, 0.5, 1, 5 SOL) and sell percentages (25%, 50%, 75%, 100%)", priority: "HIGH" },
-      { name: "Limit Orders", description: "Set target buy/sell prices with off-chain order book and on-chain settlement", priority: "HIGH" },
-      { name: "Stop-Loss Orders", description: "Automatic sell when price drops below threshold", priority: "HIGH" },
-      { name: "Take-Profit Orders", description: "Automatic sell when price reaches target", priority: "HIGH" },
-      { name: "Custom Slippage", description: "User-adjustable slippage tolerance (0.1% - 50%)", priority: "HIGH" },
-      { name: "MEV Protection", description: "Jito bundle routing to prevent sandwich attacks", priority: "HIGH" },
-      { name: "Priority Fees", description: "Configurable priority fee for faster transaction inclusion", priority: "MEDIUM" },
-      { name: "DCA Orders", description: "Scheduled recurring buys with cron-based execution", priority: "MEDIUM" },
+      { name: "Quick Buy/Sell", description: "Preset trade amounts and percentage-based selling" },
+      { name: "Limit Orders", description: "Target price execution with on-chain settlement" },
+      { name: "Stop-Loss & Take-Profit", description: "Automated position management" },
+      { name: "Slippage Controls", description: "User-configurable tolerance settings" },
+      { name: "MEV Protection", description: "Jito bundle routing for transaction security" },
+      { name: "DCA Orders", description: "Scheduled recurring purchases" },
     ]
   },
   {
@@ -170,31 +111,25 @@ const roadmapPhases: RoadmapPhase[] = [
     title: "Discovery & Analytics",
     timeline: "Q1-Q2 2026",
     status: "planned",
-    description: "Token discovery dashboard and wallet tracking features",
     features: [
-      { name: "TRENCHES Pulse", description: "Real-time token lifecycle tracking with New Launches, Bonding Progress, Recently Graduated, and Trending sections", priority: "HIGH" },
-      { name: "Smart Filters", description: "Filter by Top 10 Holders %, Dev Holding %, Sniper %, Insider %, Bundle %, Pro Trader %", priority: "HIGH" },
-      { name: "Wallet Tracking", description: "Monitor any Solana wallet with trade history, PnL analysis, and alerts", priority: "MEDIUM" },
-      { name: "Copy Trading", description: "Auto-execute trades from tracked wallets with configurable delay and limits", priority: "MEDIUM" },
-      { name: "$TICKER Auto-Linking", description: "Token mentions in posts become clickable links to trading pages", priority: "HIGH" },
-      { name: "Social Score", description: "Token ranking based on social engagement and mention velocity", priority: "MEDIUM" },
-      { name: "In-Feed Trading", description: "Buy/sell tokens directly from post cards in the feed", priority: "MEDIUM" },
+      { name: "TRENCHES Pulse", description: "Real-time token lifecycle monitoring" },
+      { name: "Advanced Filters", description: "Holder distribution, dev allocation, trading patterns" },
+      { name: "Wallet Tracking", description: "Monitor addresses with PnL analysis" },
+      { name: "Copy Trading", description: "Automated trade mirroring with customizable parameters" },
+      { name: "$TICKER Linking", description: "Token mentions as interactive trading links" },
+      { name: "Social Scoring", description: "Engagement-based token rankings" },
     ]
   },
   {
     id: "phase-3",
-    title: "Advanced Trading Tools",
+    title: "Advanced Tools",
     timeline: "Q2 2026",
     status: "planned",
-    description: "Detection systems and professional charting",
     features: [
-      { name: "Sniper Detection", description: "Identify first-block buys with high allocation (🎯 badge)", priority: "MEDIUM" },
-      { name: "Bundler Detection", description: "Detect coordinated trading from multiple wallets in same tx (📦 badge)", priority: "MEDIUM" },
-      { name: "Insider Detection", description: "Flag pre-launch wallet activity (🔒 badge)", priority: "MEDIUM" },
-      { name: "Buy on Migration", description: "Auto-buy when token graduates from bonding curve to DAMM V2", priority: "HIGH" },
-      { name: "Migration Alerts", description: "Push notifications when watched tokens graduate", priority: "HIGH" },
-      { name: "TradingView Charts", description: "Professional charting with RSI, MACD, Bollinger Bands, Volume Profile", priority: "MEDIUM" },
-      { name: "Trade Markers", description: "Show your trades on the price chart", priority: "LOW" },
+      { name: "Pattern Detection", description: "Sniper, bundler, and insider identification" },
+      { name: "Migration Automation", description: "Actions triggered on DEX graduation" },
+      { name: "TradingView Integration", description: "Professional charting with technical indicators" },
+      { name: "In-Feed Trading", description: "Execute trades directly from social posts" },
     ]
   },
   {
@@ -202,41 +137,35 @@ const roadmapPhases: RoadmapPhase[] = [
     title: "Platform Expansion",
     timeline: "Q2-Q3 2026",
     status: "planned",
-    description: "Fee sharing, leverage, and yield products",
     features: [
-      { name: "Multi-Earner Fee Sharing", description: "Split creator fees with up to 100 addresses including Twitter handle resolution", priority: "MEDIUM" },
-      { name: "Referral Fees", description: "Share trading fees with users who refer buyers", priority: "MEDIUM" },
-      { name: "Token-Gated Communities", description: "Exclusive content and chat for token holders", priority: "MEDIUM" },
-      { name: "Perp Trading", description: "Up to 50x leverage via Hyperliquid integration", priority: "LOW" },
-      { name: "SOL Staking", description: "Jito liquid staking (jitoSOL) integration", priority: "LOW" },
-      { name: "USDC Yield", description: "Marginfi lending integration", priority: "LOW" },
+      { name: "Fee Sharing", description: "Multi-address revenue distribution" },
+      { name: "Referral System", description: "Incentivized user acquisition" },
+      { name: "Token-Gated Access", description: "Holder-exclusive content and communities" },
+      { name: "Perpetual Trading", description: "Leverage trading via protocol integration" },
+      { name: "Yield Products", description: "Staking and lending integrations" },
     ]
   },
   {
     id: "phase-5",
-    title: "Mobile & Notifications",
+    title: "Mobile Platform",
     timeline: "Q3 2026",
     status: "planned",
-    description: "Native mobile apps and comprehensive alerts",
     features: [
-      { name: "Mobile App", description: "React Native app for iOS and Android with shared codebase", priority: "MEDIUM" },
-      { name: "Biometric Auth", description: "Face ID / Fingerprint for secure trading", priority: "MEDIUM" },
-      { name: "Push Notifications", description: "Price alerts, wallet activity, social mentions, order fills", priority: "HIGH" },
-      { name: "Home Screen Widgets", description: "Price tickers and portfolio overview", priority: "LOW" },
+      { name: "Native Applications", description: "iOS and Android with biometric authentication" },
+      { name: "Push Notifications", description: "Price alerts, trade confirmations, social activity" },
+      { name: "Home Screen Widgets", description: "Portfolio and price monitoring" },
     ]
   }
 ];
 
 // ==================== SOCIAL INTEGRATION ====================
 const socialIntegrations = [
-  { social: "Posts", launchpad: "Embed token cards, $TICKER auto-linking" },
-  { social: "Profiles", launchpad: "Display created tokens, trading history, PnL" },
-  { social: "Notifications", launchpad: "Token mentions, follower trades, price alerts" },
-  { social: "Trending", launchpad: "Token leaderboard by social velocity" },
-  { social: "Communities", launchpad: "Token-gated access for holders" },
-  { social: "DMs", launchpad: "Trade discussions, deal negotiations" },
-  { social: "Verified Badges", launchpad: "Premium traders, top creators" },
-  { social: "AI Assistant", launchpad: "Trading advice, token analysis" },
+  { feature: "Token Cards in Posts", description: "Embed interactive token data in social content" },
+  { feature: "Profile Trading Stats", description: "Display holdings, PnL, and trading history" },
+  { feature: "Trading Notifications", description: "Alerts for price movements and follower activity" },
+  { feature: "Social Trending", description: "Token rankings based on mention velocity" },
+  { feature: "Holder Communities", description: "Token-gated groups and discussions" },
+  { feature: "AI Trading Insights", description: "Automated analysis and recommendations" },
 ];
 
 // ==================== HELPER FUNCTIONS ====================
@@ -256,14 +185,6 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "HIGH": return "text-red-400";
-    case "MEDIUM": return "text-yellow-400";
-    default: return "text-muted-foreground";
-  }
-};
-
 // ==================== COMPONENT ====================
 export default function RoadmapPage() {
   return (
@@ -273,24 +194,22 @@ export default function RoadmapPage() {
         <div className="border-b border-border px-4 py-6">
           <div className="flex items-center gap-3 mb-2">
             <Rocket className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">TRENCHES Technical Roadmap</h1>
+            <h1 className="text-2xl font-bold">Product Roadmap</h1>
           </div>
           <p className="text-muted-foreground max-w-2xl">
-            Comprehensive development roadmap for the TRENCHES platform — combining social media with token trading infrastructure.
+            Strategic development plan for the TRENCHES platform — integrating social engagement with decentralized token trading.
           </p>
         </div>
 
         <Tabs defaultValue="overview" className="p-4">
           <TabsList className="w-full justify-start mb-6 flex-wrap h-auto gap-1">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="architecture">Architecture</TabsTrigger>
-            <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
-            <TabsTrigger value="economics">Economics</TabsTrigger>
+            <TabsTrigger value="overview">Platform Overview</TabsTrigger>
+            <TabsTrigger value="roadmap">Development Roadmap</TabsTrigger>
+            <TabsTrigger value="tokenomics">Tokenomics</TabsTrigger>
           </TabsList>
 
           {/* OVERVIEW TAB */}
           <TabsContent value="overview" className="space-y-6">
-            {/* Live Features */}
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -337,70 +256,26 @@ export default function RoadmapPage() {
               </Card>
             </div>
 
-            {/* Social Integration Matrix */}
+            {/* Social + Trading Integration */}
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Link2 className="h-5 w-5 text-purple-500" />
-                  <CardTitle>Social + Launchpad Integration</CardTitle>
+                  <CardTitle>Platform Integration</CardTitle>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Unique advantage: Deep integration between social features and token trading
+                  Unified experience connecting social engagement with token trading
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {socialIntegrations.map((item) => (
-                    <div key={item.social} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
-                      <Badge variant="outline" className="text-xs">{item.social}</Badge>
-                      <span className="text-sm text-muted-foreground">{item.launchpad}</span>
+                    <div key={item.feature} className="p-3 rounded-lg bg-secondary/50 border border-border/50">
+                      <h4 className="font-medium text-sm mb-1">{item.feature}</h4>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ARCHITECTURE TAB */}
-          <TabsContent value="architecture" className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              {architectureLayers.map((layer) => (
-                <Card key={layer.title}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-2">
-                      <layer.icon className="h-5 w-5 text-primary" />
-                      <CardTitle className="text-lg">{layer.title}</CardTitle>
-                    </div>
-                    <Badge variant="outline" className="w-fit text-xs">{layer.tech}</Badge>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-1.5">
-                      {layer.components.map((component) => (
-                        <li key={component} className="text-sm text-muted-foreground font-mono">
-                          {component}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Treasury Info */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Lock className="h-5 w-5 text-primary" />
-                  <CardTitle>Treasury Wallet</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <code className="text-sm bg-secondary px-3 py-2 rounded block break-all">
-                  7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2
-                </code>
-                <p className="text-sm text-muted-foreground mt-2">
-                  All LP tokens are locked to this treasury. Platform fees are collected here.
-                </p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -415,10 +290,7 @@ export default function RoadmapPage() {
                     <div className="flex items-start justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-3">
                         <StatusIcon className={`h-5 w-5 ${phase.status === "live" ? "text-green-500" : phase.status === "in-progress" ? "text-yellow-500" : "text-muted-foreground"}`} />
-                        <div>
-                          <CardTitle>{phase.title}</CardTitle>
-                          <p className="text-sm text-muted-foreground">{phase.description}</p>
-                        </div>
+                        <CardTitle>{phase.title}</CardTitle>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">{phase.timeline}</Badge>
@@ -429,15 +301,10 @@ export default function RoadmapPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {phase.features.map((feature) => (
                         <div key={feature.name} className="p-3 rounded-lg bg-secondary/50 border border-border/50">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className="font-medium text-sm">{feature.name}</h4>
-                            <span className={`text-xs font-medium ${getPriorityColor(feature.priority)}`}>
-                              {feature.priority}
-                            </span>
-                          </div>
+                          <h4 className="font-medium text-sm mb-1">{feature.name}</h4>
                           <p className="text-xs text-muted-foreground">{feature.description}</p>
                         </div>
                       ))}
@@ -447,147 +314,165 @@ export default function RoadmapPage() {
               );
             })}
 
-            {/* Timeline Summary */}
+            {/* Timeline */}
             <Card>
               <CardHeader>
-                <CardTitle>Release Timeline</CardTitle>
+                <CardTitle>Release Schedule</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 text-sm">
-                  <div>
-                    <p className="font-medium text-yellow-500">Q1 2026</p>
-                    <ul className="text-muted-foreground ml-4 mt-1 space-y-1">
-                      <li>• Jan: Quick Buy/Sell UI, Slippage Controls</li>
-                      <li>• Feb: Limit Orders, Stop-Loss/Take-Profit</li>
-                      <li>• Mar: TRENCHES Pulse v1, Basic Wallet Tracking</li>
-                    </ul>
+                  <div className="flex items-start gap-4">
+                    <Badge className="bg-yellow-500 text-black">Q1 2026</Badge>
+                    <div>
+                      <p className="font-medium">Trading Enhancement</p>
+                      <p className="text-muted-foreground">Quick trading interface, order types, MEV protection</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-muted-foreground">Q2 2026</p>
-                    <ul className="text-muted-foreground ml-4 mt-1 space-y-1">
-                      <li>• Apr: Sniper/Bundler Detection, Migration Tools</li>
-                      <li>• May: Advanced Charts, Social Integration v2</li>
-                      <li>• Jun: Fee Sharing System, Notification System</li>
-                    </ul>
+                  <div className="flex items-start gap-4">
+                    <Badge variant="outline">Q2 2026</Badge>
+                    <div>
+                      <p className="font-medium">Discovery & Advanced Tools</p>
+                      <p className="text-muted-foreground">TRENCHES Pulse, wallet tracking, professional charting</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-muted-foreground">Q3 2026</p>
-                    <ul className="text-muted-foreground ml-4 mt-1 space-y-1">
-                      <li>• Jul: Mobile App Beta (iOS/Android)</li>
-                      <li>• Aug: Copy Trading, Pro Trader Signals</li>
-                      <li>• Sep: Perp Trading Integration, Yield Products</li>
-                    </ul>
+                  <div className="flex items-start gap-4">
+                    <Badge variant="outline">Q3 2026</Badge>
+                    <div>
+                      <p className="font-medium">Platform Expansion & Mobile</p>
+                      <p className="text-muted-foreground">Native apps, perpetual trading, yield products</p>
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* ECONOMICS TAB */}
-          <TabsContent value="economics" className="space-y-6">
+          {/* TOKENOMICS TAB */}
+          <TabsContent value="tokenomics" className="space-y-6">
+            {/* Bonding Curve Parameters */}
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-primary" />
-                  <CardTitle>Bonding Curve Economics</CardTitle>
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <CardTitle>Bonding Curve Parameters</CardTitle>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Constant product formula (x · y = k) with virtual liquidity
+                  Constant product formula (x · y = k) with virtual liquidity initialization
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {economicParams.map((param) => (
-                    <div key={param.label} className="p-4 rounded-lg bg-secondary/50 border border-border/50">
-                      <p className="text-xs text-muted-foreground">{param.label}</p>
-                      <p className="text-lg font-bold text-primary">{param.value}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{param.description}</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {tokenomics.bondingCurve.map((param) => (
+                    <div key={param.label} className="p-4 rounded-lg bg-secondary/50 border border-border/50 text-center">
+                      <p className="text-xs text-muted-foreground mb-1">{param.label}</p>
+                      <p className="text-xl font-bold text-primary">{param.value}</p>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Fee Flow */}
+            {/* Fee Structure */}
             <Card>
               <CardHeader>
-                <CardTitle>Fee Distribution Flow</CardTitle>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                  <CardTitle>Fee Distribution</CardTitle>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-4 flex-wrap">
-                  <div className="p-3 rounded-lg bg-secondary/50 text-center flex-1 min-w-[120px]">
-                    <p className="text-xs text-muted-foreground">Trade Amount</p>
-                    <p className="font-bold">100%</p>
-                  </div>
-                  <span className="text-muted-foreground">→</span>
-                  <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-center flex-1 min-w-[120px]">
-                    <p className="text-xs text-muted-foreground">Trading Fee</p>
-                    <p className="font-bold text-yellow-500">2%</p>
-                  </div>
-                  <span className="text-muted-foreground">→</span>
-                  <div className="flex-1 space-y-2 min-w-[200px]">
-                    <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
-                      <p className="text-xs text-muted-foreground">Creator</p>
-                      <p className="font-bold text-green-500">1% (50%)</p>
+              <CardContent className="space-y-6">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {tokenomics.fees.map((fee) => (
+                    <div key={fee.label} className="p-4 rounded-lg bg-secondary/50 border border-border/50">
+                      <p className="text-xs text-muted-foreground mb-1">{fee.label}</p>
+                      <p className="text-2xl font-bold text-primary mb-2">{fee.value}</p>
+                      <p className="text-xs text-muted-foreground">{fee.description}</p>
                     </div>
-                    <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/30 text-center">
-                      <p className="text-xs text-muted-foreground">Platform</p>
-                      <p className="font-bold text-blue-500">1% (50%)</p>
+                  ))}
+                </div>
+
+                {/* Fee Flow Diagram */}
+                <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                  <h4 className="font-medium mb-4">Fee Allocation Flow</h4>
+                  <div className="flex items-center justify-center gap-2 flex-wrap text-sm">
+                    <div className="px-4 py-2 rounded-lg bg-background border">
+                      <p className="text-xs text-muted-foreground">Trade Volume</p>
+                      <p className="font-bold">100%</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="px-4 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                      <p className="text-xs text-muted-foreground">Trading Fee</p>
+                      <p className="font-bold text-yellow-500">2%</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="space-y-2">
+                      <div className="px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
+                        <p className="text-xs text-muted-foreground">Creator</p>
+                        <p className="font-bold text-green-500">1%</p>
+                      </div>
+                      <div className="px-4 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30 text-center">
+                        <p className="text-xs text-muted-foreground">Platform</p>
+                        <p className="font-bold text-blue-500">0.5%</p>
+                      </div>
+                      <div className="px-4 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-center">
+                        <p className="text-xs text-muted-foreground">$TRENCHES Buyback</p>
+                        <p className="font-bold text-purple-500">0.5%</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Success Metrics */}
+            {/* Buyback Mechanism */}
+            <Card className="border-purple-500/30 bg-purple-500/5">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5 text-purple-500" />
+                  <CardTitle>$TRENCHES Buyback Mechanism</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  0.5% of all launchpad trading volume is automatically allocated to $TRENCHES token buybacks, 
+                  executed via smart contract to ensure transparent and consistent demand pressure.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="p-3 rounded-lg bg-background/50 border border-border/50 text-center">
+                    <Zap className="h-5 w-5 text-purple-500 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">Automated Execution</p>
+                    <p className="text-sm font-medium">Smart Contract</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background/50 border border-border/50 text-center">
+                    <Shield className="h-5 w-5 text-purple-500 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">Allocation</p>
+                    <p className="text-sm font-medium">0.5% of Volume</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background/50 border border-border/50 text-center">
+                    <TrendingUp className="h-5 w-5 text-purple-500 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">Effect</p>
+                    <p className="text-sm font-medium">Continuous Demand</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Post-Graduation */}
             <Card>
               <CardHeader>
-                <CardTitle>Target Metrics</CardTitle>
+                <CardTitle>Post-Graduation Economics</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Parameters applied after token graduates to Meteora DAMM V2
+                </p>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 font-medium">Metric</th>
-                        <th className="text-center py-2 font-medium">Q1 Target</th>
-                        <th className="text-center py-2 font-medium">Q2 Target</th>
-                        <th className="text-center py-2 font-medium">Q3 Target</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-muted-foreground">
-                      <tr className="border-b border-border/50">
-                        <td className="py-2">Daily Active Traders</td>
-                        <td className="text-center py-2">1,000</td>
-                        <td className="text-center py-2">5,000</td>
-                        <td className="text-center py-2">15,000</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2">Daily Trading Volume</td>
-                        <td className="text-center py-2">$100K</td>
-                        <td className="text-center py-2">$1M</td>
-                        <td className="text-center py-2">$10M</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2">Tokens Launched</td>
-                        <td className="text-center py-2">100</td>
-                        <td className="text-center py-2">1,000</td>
-                        <td className="text-center py-2">5,000</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2">Graduation Rate</td>
-                        <td className="text-center py-2">10%</td>
-                        <td className="text-center py-2">15%</td>
-                        <td className="text-center py-2">20%</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2">Creator Fee Claims</td>
-                        <td className="text-center py-2">$10K</td>
-                        <td className="text-center py-2">$100K</td>
-                        <td className="text-center py-2">$500K</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {tokenomics.postGraduation.map((param) => (
+                    <div key={param.label} className="p-4 rounded-lg bg-secondary/50 border border-border/50">
+                      <p className="text-xs text-muted-foreground mb-1">{param.label}</p>
+                      <p className="text-xl font-bold text-primary">{param.value}</p>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
