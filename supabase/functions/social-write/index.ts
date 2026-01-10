@@ -97,18 +97,61 @@ Deno.serve(async (req) => {
       const content = body.content?.trim();
       if (!body.userId || !content) return json({ error: "userId and content are required" }, 400);
 
+      // Resolve parentId: could be UUID or short_id
+      let resolvedParentId: string | null = null;
+      if (body.parentId) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.parentId);
+        if (isUuid) {
+          resolvedParentId = body.parentId;
+        } else {
+          // Look up by short_id
+          const { data: parentPost, error: parentError } = await supabase
+            .from("posts")
+            .select("id")
+            .eq("short_id", body.parentId)
+            .maybeSingle();
+          
+          if (parentError) {
+            console.error("Error looking up parent post:", parentError);
+            return json({ error: parentError.message }, 500);
+          }
+          if (!parentPost) {
+            return json({ error: "Parent post not found" }, 404);
+          }
+          resolvedParentId = parentPost.id;
+        }
+      }
+
       const { data: inserted, error: insertError } = await supabase
         .from("posts")
         .insert({
           user_id: body.userId,
           content,
           image_url: body.imageUrl ?? null,
-          parent_id: body.parentId ?? null,
+          parent_id: resolvedParentId,
         })
         .select("id")
         .single();
 
-      if (insertError) return json({ error: insertError.message }, 500);
+      if (insertError) {
+        console.error("Error inserting post:", insertError);
+        return json({ error: insertError.message }, 500);
+      }
+
+      // If this is a reply, increment the parent's replies_count
+      if (resolvedParentId) {
+        const { data: parentPost } = await supabase
+          .from("posts")
+          .select("replies_count")
+          .eq("id", resolvedParentId)
+          .single();
+        
+        const newCount = (parentPost?.replies_count ?? 0) + 1;
+        await supabase
+          .from("posts")
+          .update({ replies_count: newCount })
+          .eq("id", resolvedParentId);
+      }
 
       const { data: post, error: postError } = await supabase
         .from("posts")
