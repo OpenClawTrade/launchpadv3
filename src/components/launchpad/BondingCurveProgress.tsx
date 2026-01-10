@@ -7,6 +7,7 @@ interface BondingCurveProgressProps {
   graduationThreshold: number;
   className?: string;
   showDetails?: boolean;
+  compact?: boolean;
 }
 
 export function BondingCurveProgress({
@@ -15,9 +16,29 @@ export function BondingCurveProgress({
   graduationThreshold,
   className = "",
   showDetails = true,
+  compact = false,
 }: BondingCurveProgressProps) {
-  const isNearGraduation = progress >= 85;
+  const isNearGraduation = progress >= 80;
   const isGraduated = progress >= 100;
+
+  if (compact) {
+    return (
+      <div className={`flex items-center gap-2 ${className}`}>
+        <div className="flex-1 relative">
+          <Progress 
+            value={Math.min(progress, 100)} 
+            className={`h-1.5 ${isNearGraduation ? 'glow-yellow' : ''}`}
+          />
+        </div>
+        <span className={`text-xs font-medium tabular-nums ${isNearGraduation ? 'text-primary' : 'text-muted-foreground'}`}>
+          {progress.toFixed(0)}%
+        </span>
+        {isNearGraduation && !isGraduated && (
+          <Rocket className="h-3.5 w-3.5 text-primary animate-pulse" />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-2 ${className}`}>
@@ -32,7 +53,7 @@ export function BondingCurveProgress({
             {isGraduated ? "Graduated!" : "Bonding Curve"}
           </span>
         </div>
-        <span className={`font-bold ${isNearGraduation ? 'text-primary' : 'text-muted-foreground'}`}>
+        <span className={`font-bold tabular-nums ${isNearGraduation ? 'text-primary' : 'text-muted-foreground'}`}>
           {progress.toFixed(1)}%
         </span>
       </div>
@@ -40,11 +61,11 @@ export function BondingCurveProgress({
       <div className="relative">
         <Progress 
           value={Math.min(progress, 100)} 
-          className={`h-3 ${isNearGraduation ? 'glow-yellow' : ''}`}
+          className={`h-2.5 ${isNearGraduation ? 'glow-yellow' : ''}`}
         />
         {isNearGraduation && !isGraduated && (
-          <div className="absolute -top-1 -right-1 h-5 w-5 bg-primary rounded-full animate-pulse flex items-center justify-center">
-            <Rocket className="h-3 w-3 text-primary-foreground" />
+          <div className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-primary rounded-full animate-pulse flex items-center justify-center shadow-lg">
+            <Rocket className="h-2.5 w-2.5 text-primary-foreground" />
           </div>
         )}
       </div>
