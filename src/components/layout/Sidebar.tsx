@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import trenchesLogo from "@/assets/trenches-logo.png";
+import trenchesLogoFull from "@/assets/trenches-logo-full.png";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -104,10 +105,17 @@ export function Sidebar({ user }: SidebarProps) {
             to="/" 
             className="flex justify-center rounded-lg hover:bg-secondary transition-colors duration-200 mb-2 py-2"
           >
+            {/* Small icon logo for mobile/collapsed sidebar */}
             <img 
               src={trenchesLogo} 
               alt="TRENCHES" 
-              className="h-12 w-auto xl:h-16"
+              className="h-12 w-auto xl:hidden"
+            />
+            {/* Full text logo for desktop/expanded sidebar */}
+            <img 
+              src={trenchesLogoFull} 
+              alt="TRENCHES" 
+              className="h-10 w-auto hidden xl:block"
             />
           </Link>
 
