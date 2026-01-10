@@ -49,9 +49,6 @@ interface NavItem {
 const baseNavItems: NavItem[] = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Search, label: "Explore", href: "/explore" },
-  { icon: Rocket, label: "Launchpad", href: "/launchpad" },
-  { icon: Wallet, label: "Portfolio", href: "/portfolio" },
-  { icon: DollarSign, label: "Earnings", href: "/earnings" },
   { icon: Bell, label: "Notifications", href: "/notifications", badgeKey: "notifications" },
   { icon: Mail, label: "Messages", href: "/messages", badgeKey: "messages" },
   { icon: Sparkles, label: "Trenches AI", href: "/ai" },
