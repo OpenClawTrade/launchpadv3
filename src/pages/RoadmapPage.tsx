@@ -478,7 +478,7 @@ export default function RoadmapPage() {
                 <p className="text-xs text-muted-foreground">Features Planned</p>
               </div>
               <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-2xl font-bold text-primary">Q3 2026</p>
+                <p className="text-2xl font-bold text-primary">Q1 2026</p>
                 <p className="text-xs text-muted-foreground">Full Platform Launch</p>
               </div>
             </div>
