@@ -26,6 +26,7 @@ interface AuthContextType {
   login: () => void;
   logout: () => Promise<void>;
   solanaAddress: string | null;
+  profileId: string | null;
   ready: boolean;
 }
 
@@ -55,6 +56,7 @@ function FallbackAuthProvider({ children }: AuthProviderProps) {
     },
     logout: async () => {},
     solanaAddress: null,
+    profileId: null,
     ready: true,
   };
 
@@ -212,6 +214,7 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     solanaAddress,
+    profileId: dbUserId,
     ready,
   };
 

@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout";
-import { BondingCurveProgress, TradePanel, TransactionHistory } from "@/components/launchpad";
+import { BondingCurveProgress, TransactionHistory } from "@/components/launchpad";
+import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -247,10 +248,9 @@ export default function TokenDetailPage() {
         )}
 
         {/* Trade Panel */}
-        <TradePanel
+        <TradePanelWithSwap
           token={token}
           userBalance={userBalance}
-          userSolBalance={0} // TODO: Get actual SOL balance
         />
 
         {/* Tabs for Transactions & Holders */}

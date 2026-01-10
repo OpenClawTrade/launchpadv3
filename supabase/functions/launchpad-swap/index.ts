@@ -1,0 +1,260 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const PLATFORM_FEE_WALLET = "7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2";
+const FEE_BPS = 200; // 2% fee
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { mintAddress, userWallet, amount, isBuy, privyUserId, profileId } = await req.json();
+
+    console.log("[launchpad-swap] Request:", { mintAddress, userWallet, amount, isBuy });
+
+    if (!mintAddress || !userWallet || amount === undefined) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: mintAddress, userWallet, amount" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get token
+    const { data: token, error: tokenError } = await supabase
+      .from("tokens")
+      .select("*")
+      .eq("mint_address", mintAddress)
+      .single();
+
+    if (tokenError || !token) {
+      console.error("[launchpad-swap] Token not found:", tokenError);
+      return new Response(
+        JSON.stringify({ error: "Token not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (token.status === "graduated") {
+      return new Response(
+        JSON.stringify({ error: "Token has graduated. Trade on DEX." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Calculate using bonding curve
+    const virtualSol = token.virtual_sol_reserves || 30;
+    const virtualToken = token.virtual_token_reserves || 1_000_000_000;
+    const realSol = token.real_sol_reserves || 0;
+    const k = virtualSol * virtualToken;
+
+    let tokensOut = 0;
+    let solOut = 0;
+    let newPrice = token.price_sol || 0.00000003;
+    let newVirtualSol = virtualSol;
+    let newVirtualToken = virtualToken;
+    let newRealSol = realSol;
+    let systemFee = 0;
+    let creatorFee = 0;
+    let solAmount = 0;
+    let tokenAmount = 0;
+
+    if (isBuy) {
+      // Buy: SOL -> Token
+      const grossSolIn = amount;
+      const totalFee = (grossSolIn * FEE_BPS) / 10000;
+      systemFee = totalFee * 0.5;
+      creatorFee = totalFee * 0.5;
+      const solIn = grossSolIn - totalFee;
+
+      newVirtualSol = virtualSol + solIn;
+      newVirtualToken = k / newVirtualSol;
+      tokensOut = virtualToken - newVirtualToken;
+      newRealSol = realSol + solIn;
+      newPrice = newVirtualSol / newVirtualToken;
+      solAmount = grossSolIn;
+      tokenAmount = tokensOut;
+
+      console.log("[launchpad-swap] Buy calculated:", { solIn, tokensOut, newPrice, systemFee, creatorFee });
+
+    } else {
+      // Sell: Token -> SOL
+      const tokensIn = amount;
+      newVirtualToken = virtualToken + tokensIn;
+      newVirtualSol = k / newVirtualToken;
+      const grossSolOut = virtualSol - newVirtualSol;
+      
+      const totalFee = (grossSolOut * FEE_BPS) / 10000;
+      systemFee = totalFee * 0.5;
+      creatorFee = totalFee * 0.5;
+      solOut = grossSolOut - totalFee;
+      
+      newRealSol = Math.max(0, realSol - grossSolOut);
+      newPrice = newVirtualSol / newVirtualToken;
+      solAmount = solOut;
+      tokenAmount = tokensIn;
+
+      console.log("[launchpad-swap] Sell calculated:", { tokensIn, solOut, newPrice });
+    }
+
+    // Calculate bonding curve progress and check graduation
+    const graduationThreshold = token.graduation_threshold_sol || 85;
+    const bondingProgress = Math.min(100, (newRealSol / graduationThreshold) * 100);
+    const shouldGraduate = newRealSol >= graduationThreshold;
+    const newStatus = shouldGraduate ? "graduated" : "bonding";
+    const marketCap = newPrice * (token.total_supply || 1_000_000_000);
+
+    // Update token
+    const { error: updateError } = await supabase
+      .from("tokens")
+      .update({
+        virtual_sol_reserves: newVirtualSol,
+        virtual_token_reserves: newVirtualToken,
+        real_sol_reserves: newRealSol,
+        price_sol: newPrice,
+        bonding_curve_progress: bondingProgress,
+        market_cap_sol: marketCap,
+        status: newStatus,
+        graduated_at: shouldGraduate && !token.graduated_at ? new Date().toISOString() : token.graduated_at,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", token.id);
+
+    if (updateError) {
+      console.error("[launchpad-swap] Token update error:", updateError);
+      throw updateError;
+    }
+
+    // Generate mock signature (in production, this would be the real tx signature)
+    const signature = `sim_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    // Record transaction
+    const { error: txError } = await supabase.from("launchpad_transactions").insert({
+      token_id: token.id,
+      user_wallet: userWallet,
+      user_profile_id: profileId || null,
+      transaction_type: isBuy ? "buy" : "sell",
+      sol_amount: solAmount,
+      token_amount: tokenAmount,
+      price_per_token: newPrice,
+      system_fee_sol: systemFee,
+      creator_fee_sol: creatorFee,
+      signature,
+    });
+
+    if (txError) {
+      console.error("[launchpad-swap] Transaction insert error:", txError);
+    }
+
+    // Update/create token holding
+    if (isBuy) {
+      // Check existing holding
+      const { data: existingHolding } = await supabase
+        .from("token_holdings")
+        .select("*")
+        .eq("token_id", token.id)
+        .eq("wallet_address", userWallet)
+        .single();
+
+      if (existingHolding) {
+        await supabase
+          .from("token_holdings")
+          .update({
+            balance: existingHolding.balance + tokensOut,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingHolding.id);
+      } else {
+        await supabase.from("token_holdings").insert({
+          token_id: token.id,
+          wallet_address: userWallet,
+          profile_id: profileId || null,
+          balance: tokensOut,
+        });
+      }
+    } else {
+      // Sell: reduce balance
+      const { data: existingHolding } = await supabase
+        .from("token_holdings")
+        .select("*")
+        .eq("token_id", token.id)
+        .eq("wallet_address", userWallet)
+        .single();
+
+      if (existingHolding) {
+        const newBalance = Math.max(0, existingHolding.balance - amount);
+        await supabase
+          .from("token_holdings")
+          .update({
+            balance: newBalance,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingHolding.id);
+      }
+    }
+
+    // Update fee earners (creator gets their share tracked)
+    if (creatorFee > 0) {
+      const { data: creatorEarner } = await supabase
+        .from("fee_earners")
+        .select("*")
+        .eq("token_id", token.id)
+        .eq("earner_type", "creator")
+        .single();
+
+      if (creatorEarner) {
+        await supabase
+          .from("fee_earners")
+          .update({
+            unclaimed_sol: (creatorEarner.unclaimed_sol || 0) + creatorFee,
+            total_earned_sol: (creatorEarner.total_earned_sol || 0) + creatorFee,
+          })
+          .eq("id", creatorEarner.id);
+      }
+    }
+
+    // Update holder count
+    const { count: holderCount } = await supabase
+      .from("token_holdings")
+      .select("*", { count: "exact", head: true })
+      .eq("token_id", token.id)
+      .gt("balance", 0);
+
+    await supabase
+      .from("tokens")
+      .update({ holder_count: holderCount || 0 })
+      .eq("id", token.id);
+
+    console.log("[launchpad-swap] Success:", { signature, tokensOut, solOut, newPrice });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        signature,
+        tokensOut: isBuy ? tokensOut : 0,
+        solOut: isBuy ? 0 : solOut,
+        newPrice,
+        bondingProgress,
+        graduated: shouldGraduate,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("[launchpad-swap] Error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

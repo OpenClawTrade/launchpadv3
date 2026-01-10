@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.launchpad-create]
 verify_jwt = false
+
+[functions.launchpad-swap]
+verify_jwt = false
+
+[functions.launchpad-claim-fees]
+verify_jwt = false
+
+[functions.launchpad-earnings]
+verify_jwt = false
