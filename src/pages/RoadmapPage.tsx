@@ -193,10 +193,10 @@ export default function RoadmapPage() {
           </p>
         </div>
 
-        <Tabs defaultValue="overview" className="p-4">
+        <Tabs defaultValue="roadmap" className="p-4">
           <TabsList className="w-full justify-start mb-6 flex-wrap h-auto gap-1">
-            <TabsTrigger value="overview">Platform Overview</TabsTrigger>
             <TabsTrigger value="roadmap">Development Roadmap</TabsTrigger>
+            <TabsTrigger value="overview">Platform Overview</TabsTrigger>
             <TabsTrigger value="tokenomics">Tokenomics</TabsTrigger>
           </TabsList>
 
