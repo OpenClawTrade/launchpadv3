@@ -17,7 +17,7 @@ import {
   Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import trenchesLogo from "@/assets/trenches-logo-optimized.png";
+
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -101,13 +101,11 @@ export function Sidebar({ user }: SidebarProps) {
         <div className="flex flex-col">
           <Link 
             to="/" 
-            className="flex justify-center rounded-lg hover:bg-secondary transition-colors duration-200 mb-2"
+            className="flex justify-center rounded-lg hover:bg-secondary transition-colors duration-200 mb-2 py-4"
           >
-            <img 
-              src={trenchesLogo} 
-              alt="TRENCHES" 
-              className="h-16 w-auto xl:h-20"
-            />
+            <span className="text-primary font-bold text-lg xl:text-2xl tracking-[0.3em]">
+              TRENCHES
+            </span>
           </Link>
 
           {/* Mobile Auth Button - Only show on mobile since desktop has right sidebar */}
