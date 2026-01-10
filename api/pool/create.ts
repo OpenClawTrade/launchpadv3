@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Keypair, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import { 
   PLATFORM_FEE_WALLET, 
   INITIAL_VIRTUAL_SOL, 
@@ -9,7 +9,8 @@ import {
   TRADING_FEE_BPS,
 } from '../lib/config';
 import { getSupabaseClient } from '../lib/supabase';
-import { getConnection, generateMockMintAddress, serializeTransaction } from '../lib/solana';
+import { getConnection, serializeTransaction } from '../lib/solana';
+import { createMeteoraPool, getRequiredSigners, serializeTransaction as serializeMeteoraTransaction } from '../lib/meteora';
 
 // CORS headers
 const corsHeaders = {
@@ -58,6 +59,11 @@ async function uuidV5(name: string, namespaceUuid: string): Promise<string> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
+
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return res.status(200).json({});
@@ -96,17 +102,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       creatorId = await uuidV5(privyUserId, UUID_V5_NAMESPACE_DNS);
     }
 
-    // For production: Use Meteora SDK to create real pool
-    // The Meteora SDK would be imported and used here to:
-    // 1. Generate token mint keypair
-    // 2. Generate config keypair
-    // 3. Build pool creation transaction
-    // 4. Return serialized transaction for client signing
+    // Create real Meteora pool
+    console.log('[pool/create] Creating Meteora pool...');
     
-    // For now, generate mock addresses (replace with real Meteora SDK calls)
-    const mintAddress = generateMockMintAddress();
-    const dbcPoolAddress: string | null = null; // Would come from Meteora SDK
+    const { transaction, mintKeypair, configKeypair, poolAddress } = await createMeteoraPool({
+      creatorWallet,
+      name,
+      ticker: ticker.toUpperCase(),
+      description,
+      imageUrl,
+      websiteUrl,
+      twitterUrl,
+      telegramUrl,
+      discordUrl,
+      initialBuySol,
+    });
+
+    const mintAddress = mintKeypair.publicKey.toBase58();
+    const dbcPoolAddress = poolAddress.toBase58();
     
+    console.log('[pool/create] Meteora pool created:', { mintAddress, dbcPoolAddress });
+
     // Calculate initial price
     const virtualSol = INITIAL_VIRTUAL_SOL;
     const virtualToken = TOTAL_SUPPLY;
@@ -136,7 +152,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         price_sol: initialPrice,
         market_cap_sol: virtualSol,
         status: 'bonding',
-        migration_status: dbcPoolAddress ? 'dbc_active' : 'pending',
+        migration_status: 'dbc_active',
         creator_fee_bps: TRADING_FEE_BPS / 2,
         system_fee_bps: TRADING_FEE_BPS / 2,
         holder_count: initialBuySol > 0 ? 1 : 0,
@@ -166,7 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     ]);
 
-    // If initial buy, calculate and record
+    // If initial buy, calculate and record holdings
     if (initialBuySol > 0) {
       const k = virtualSol * virtualToken;
       const newVirtualSol = virtualSol + initialBuySol;
@@ -187,16 +203,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }).eq('id', token.id);
     }
 
-    console.log('[pool/create] Token created:', { tokenId: token.id, mintAddress });
+    // Serialize transaction and signers for client signing
+    const serializedTransaction = serializeMeteoraTransaction(transaction);
+    const signers = getRequiredSigners(mintKeypair, configKeypair);
+
+    console.log('[pool/create] Success:', { tokenId: token.id, mintAddress, dbcPoolAddress });
 
     return res.status(200).json({
       success: true,
       tokenId: token.id,
       mintAddress: token.mint_address,
       dbcPoolAddress: token.dbc_pool_address,
-      // In production, would also return:
-      // transactions: [/* serialized transactions for client signing */],
-      // signers: { config: '...', baseMint: '...' },
+      // Serialized transaction for client wallet signing
+      transaction: serializedTransaction,
+      // Keypairs that need to sign (mint and config)
+      signers: {
+        mint: signers.mint,
+        config: signers.config,
+      },
     });
 
   } catch (error) {

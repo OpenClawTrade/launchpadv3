@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Connection, Transaction, VersionedTransaction, Keypair } from '@solana/web3.js';
 
 // Get API URL from environment
 const getApiUrl = () => {
@@ -15,6 +16,11 @@ const getApiUrl = () => {
   }
   
   return '';
+};
+
+// Get RPC URL
+const getRpcUrl = () => {
+  return import.meta.env.VITE_HELIUS_RPC_URL || 'https://api.mainnet-beta.solana.com';
 };
 
 // API request helper
@@ -44,23 +50,43 @@ async function apiRequest<T>(
   return data;
 }
 
+// Deserialize transaction from base64
+function deserializeTransaction(base64: string): Transaction | VersionedTransaction {
+  const buffer = Buffer.from(base64, 'base64');
+  
+  // Check if it's a versioned transaction (first byte indicates version)
+  try {
+    // Try versioned first
+    return VersionedTransaction.deserialize(buffer);
+  } catch {
+    // Fall back to legacy transaction
+    return Transaction.from(buffer);
+  }
+}
+
+// Deserialize keypair from base64
+function deserializeKeypair(base64: string): Keypair {
+  const secretKey = Buffer.from(base64, 'base64');
+  return Keypair.fromSecretKey(secretKey);
+}
+
 // Pool creation response
 interface CreatePoolResponse {
   success: boolean;
   tokenId: string;
   mintAddress: string;
   dbcPoolAddress: string | null;
-  transactions?: string[];
+  transaction?: string; // Serialized transaction
   signers?: {
-    config: string;
-    baseMint: string;
+    mint: string; // Base64 encoded secret key
+    config: string; // Base64 encoded secret key
   };
 }
 
 // Swap execution response
 interface SwapResponse {
   success: boolean;
-  signature: string;
+  transaction?: string; // Serialized transaction for signing
   tokensOut: number;
   solOut: number;
   newPrice: number;
@@ -87,27 +113,105 @@ interface SyncResponse {
   }>;
 }
 
+// Migration response
+interface MigrateResponse {
+  success: boolean;
+  signatures: string[];
+  dammPoolAddress: string;
+  message: string;
+}
+
 export function useMeteoraApi() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   // Create a new token pool
-  const createPool = useCallback(async (params: {
-    creatorWallet: string;
-    privyUserId?: string;
-    name: string;
-    ticker: string;
-    description?: string;
-    imageUrl?: string;
-    websiteUrl?: string;
-    twitterUrl?: string;
-    telegramUrl?: string;
-    discordUrl?: string;
-    initialBuySol?: number;
-  }): Promise<CreatePoolResponse> => {
+  const createPool = useCallback(async (
+    params: {
+      creatorWallet: string;
+      privyUserId?: string;
+      name: string;
+      ticker: string;
+      description?: string;
+      imageUrl?: string;
+      websiteUrl?: string;
+      twitterUrl?: string;
+      telegramUrl?: string;
+      discordUrl?: string;
+      initialBuySol?: number;
+    },
+    signTransaction?: (tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>
+  ): Promise<CreatePoolResponse & { signature?: string }> => {
     setIsLoading(true);
     try {
+      // Step 1: Get transaction from API
       const result = await apiRequest<CreatePoolResponse>('/pool/create', params);
+      
+      // Step 2: If transaction needs signing
+      if (result.transaction && result.signers && signTransaction) {
+        const connection = new Connection(getRpcUrl(), 'confirmed');
+        
+        // Deserialize transaction and signers
+        const tx = deserializeTransaction(result.transaction);
+        const mintKeypair = deserializeKeypair(result.signers.mint);
+        const configKeypair = deserializeKeypair(result.signers.config);
+        
+        // For legacy transactions
+        if (tx instanceof Transaction) {
+          // Get recent blockhash
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+          tx.recentBlockhash = blockhash;
+          tx.lastValidBlockHeight = lastValidBlockHeight;
+          
+          // Sign with generated keypairs first
+          tx.partialSign(mintKeypair, configKeypair);
+          
+          // Then sign with user's wallet
+          const signedTx = await signTransaction(tx);
+          
+          // Send transaction
+          const signature = await connection.sendRawTransaction(
+            signedTx instanceof Transaction 
+              ? signedTx.serialize() 
+              : signedTx.serialize()
+          );
+          
+          // Confirm transaction
+          await connection.confirmTransaction({
+            signature,
+            blockhash,
+            lastValidBlockHeight,
+          }, 'confirmed');
+          
+          console.log('[useMeteoraApi] Pool created on-chain:', signature);
+          
+          return { ...result, signature };
+        }
+        
+        // For versioned transactions
+        if (tx instanceof VersionedTransaction) {
+          tx.sign([mintKeypair, configKeypair]);
+          const signedTx = await signTransaction(tx);
+          
+          const signature = await connection.sendRawTransaction(
+            signedTx instanceof VersionedTransaction 
+              ? signedTx.serialize() 
+              : (signedTx as Transaction).serialize()
+          );
+          
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+          await connection.confirmTransaction({
+            signature,
+            blockhash,
+            lastValidBlockHeight,
+          }, 'confirmed');
+          
+          console.log('[useMeteoraApi] Pool created on-chain:', signature);
+          
+          return { ...result, signature };
+        }
+      }
+      
       return result;
     } finally {
       setIsLoading(false);
@@ -115,17 +219,59 @@ export function useMeteoraApi() {
   }, []);
 
   // Execute a swap
-  const executeSwap = useCallback(async (params: {
-    mintAddress: string;
-    userWallet: string;
-    amount: number;
-    isBuy: boolean;
-    slippageBps?: number;
-    profileId?: string;
-  }): Promise<SwapResponse> => {
+  const executeSwap = useCallback(async (
+    params: {
+      mintAddress: string;
+      userWallet: string;
+      amount: number;
+      isBuy: boolean;
+      slippageBps?: number;
+      profileId?: string;
+    },
+    signTransaction?: (tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>
+  ): Promise<SwapResponse & { signature?: string }> => {
     setIsLoading(true);
     try {
+      // Step 1: Get transaction from API
       const result = await apiRequest<SwapResponse>('/swap/execute', params);
+      
+      // Step 2: If transaction needs signing
+      if (result.transaction && signTransaction) {
+        const connection = new Connection(getRpcUrl(), 'confirmed');
+        
+        // Deserialize transaction
+        const tx = deserializeTransaction(result.transaction);
+        
+        // Get recent blockhash for legacy transactions
+        if (tx instanceof Transaction) {
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+          tx.recentBlockhash = blockhash;
+          tx.lastValidBlockHeight = lastValidBlockHeight;
+        }
+        
+        // Sign with user's wallet
+        const signedTx = await signTransaction(tx);
+        
+        // Send transaction
+        const signature = await connection.sendRawTransaction(
+          signedTx instanceof Transaction 
+            ? signedTx.serialize() 
+            : signedTx.serialize()
+        );
+        
+        // Confirm transaction
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+        await connection.confirmTransaction({
+          signature,
+          blockhash,
+          lastValidBlockHeight,
+        }, 'confirmed');
+        
+        console.log('[useMeteoraApi] Swap executed on-chain:', signature);
+        
+        return { ...result, signature };
+      }
+      
       return result;
     } finally {
       setIsLoading(false);
@@ -147,11 +293,24 @@ export function useMeteoraApi() {
     }
   }, []);
 
-  // Sync token data from DexScreener
+  // Sync token data from on-chain
   const syncTokenData = useCallback(async (): Promise<SyncResponse> => {
     setIsLoading(true);
     try {
       const result = await apiRequest<SyncResponse>('/data/sync', {});
+      return result;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Migrate pool to DAMM V2
+  const migratePool = useCallback(async (params: {
+    mintAddress: string;
+  }): Promise<MigrateResponse> => {
+    setIsLoading(true);
+    try {
+      const result = await apiRequest<MigrateResponse>('/pool/migrate', params);
       return result;
     } finally {
       setIsLoading(false);
@@ -164,5 +323,6 @@ export function useMeteoraApi() {
     executeSwap,
     claimFees,
     syncTokenData,
+    migratePool,
   };
 }
