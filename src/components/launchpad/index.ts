@@ -1,5 +1,6 @@
 export { BondingCurveProgress } from './BondingCurveProgress';
 export { TokenCard } from './TokenCard';
+export { WalletBalanceCard } from './WalletBalanceCard';
 export { TradePanel } from './TradePanel';
 export { LaunchTokenForm } from './LaunchTokenForm';
 export { TransactionHistory } from './TransactionHistory';

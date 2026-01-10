@@ -1,12 +1,12 @@
 import { MainLayout } from "@/components/layout";
-import { TokenCard } from "@/components/launchpad";
+import { TokenCard, WalletBalanceCard } from "@/components/launchpad";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Rocket, Search, TrendingUp, Clock, Sparkles, Zap, GraduationCap, Flame } from "lucide-react";
+import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
 
@@ -92,6 +92,9 @@ export default function LaunchpadPage() {
               </Button>
             </Link>
           </div>
+
+          {/* Wallet Balance Card */}
+          <WalletBalanceCard className="mb-4" />
 
           {/* Quick Stats */}
           <div className="grid grid-cols-4 gap-2 mb-4">

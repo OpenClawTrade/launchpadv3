@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout";
-import { LaunchTokenForm } from "@/components/launchpad";
+import { LaunchTokenForm, WalletBalanceCard } from "@/components/launchpad";
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -29,7 +29,8 @@ export default function LaunchTokenPage() {
       </header>
 
       {/* Form */}
-      <div className="p-4 max-w-lg mx-auto">
+      <div className="p-4 max-w-lg mx-auto space-y-4">
+        <WalletBalanceCard minRequired={0.05} />
         <LaunchTokenForm />
       </div>
     </MainLayout>
