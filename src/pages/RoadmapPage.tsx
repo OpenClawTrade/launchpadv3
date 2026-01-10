@@ -101,8 +101,8 @@ const roadmapPhases: RoadmapPhase[] = [
   {
     id: "phase-2",
     title: "Discovery & Analytics",
-    timeline: "Q1-Q2 2026",
-    status: "planned",
+    timeline: "Q1 2026",
+    status: "in-progress",
     features: [
       { name: "TRENCHES Pulse", description: "Real-time token lifecycle monitoring" },
       { name: "Advanced Filters", description: "Holder distribution, dev allocation, trading patterns" },
@@ -115,8 +115,8 @@ const roadmapPhases: RoadmapPhase[] = [
   {
     id: "phase-3",
     title: "Advanced Tools",
-    timeline: "Q2 2026",
-    status: "planned",
+    timeline: "Q1 2026",
+    status: "in-progress",
     features: [
       { name: "Pattern Detection", description: "Sniper, bundler, and insider identification" },
       { name: "Migration Automation", description: "Actions triggered on DEX graduation" },
@@ -127,8 +127,8 @@ const roadmapPhases: RoadmapPhase[] = [
   {
     id: "phase-4",
     title: "Platform Expansion",
-    timeline: "Q2-Q3 2026",
-    status: "planned",
+    timeline: "Q1 2026",
+    status: "in-progress",
     features: [
       { name: "Fee Sharing", description: "Multi-address revenue distribution" },
       { name: "Referral System", description: "Incentivized user acquisition" },
@@ -140,8 +140,8 @@ const roadmapPhases: RoadmapPhase[] = [
   {
     id: "phase-5",
     title: "Mobile Platform",
-    timeline: "Q3 2026",
-    status: "planned",
+    timeline: "Q1 2026",
+    status: "in-progress",
     features: [
       { name: "Native Applications", description: "iOS and Android with biometric authentication" },
       { name: "Push Notifications", description: "Price alerts, trade confirmations, social activity" },
@@ -316,22 +316,8 @@ export default function RoadmapPage() {
                   <div className="flex items-start gap-4">
                     <Badge className="bg-yellow-500 text-black">Q1 2026</Badge>
                     <div>
-                      <p className="font-medium">Trading Enhancement</p>
-                      <p className="text-muted-foreground">Quick trading interface, order types, MEV protection</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <Badge variant="outline">Q2 2026</Badge>
-                    <div>
-                      <p className="font-medium">Discovery & Advanced Tools</p>
-                      <p className="text-muted-foreground">TRENCHES Pulse, wallet tracking, professional charting</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <Badge variant="outline">Q3 2026</Badge>
-                    <div>
-                      <p className="font-medium">Platform Expansion & Mobile</p>
-                      <p className="text-muted-foreground">Native apps, perpetual trading, yield products</p>
+                      <p className="font-medium">Complete Platform Launch</p>
+                      <p className="text-muted-foreground">Trading enhancement, discovery tools, analytics, mobile apps, and platform expansion</p>
                     </div>
                   </div>
                 </div>
