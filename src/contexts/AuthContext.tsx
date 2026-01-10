@@ -91,26 +91,17 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
 
   // Privy user IDs are not UUIDs. Convert deterministically to a UUID so we can
   // use them with the backend schema (which uses UUID primary keys).
+  // PERFORMANCE: Do this synchronously inline to avoid extra render cycles
   useEffect(() => {
     if (!privyUser?.id) {
       setDbUserId(null);
       return;
     }
 
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const uuid = await privyUserIdToUuid(privyUser.id);
-        if (!cancelled) setDbUserId(uuid);
-      } catch {
-        if (!cancelled) setDbUserId(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    // Convert immediately - don't wait for next tick
+    privyUserIdToUuid(privyUser.id)
+      .then(setDbUserId)
+      .catch(() => setDbUserId(null));
   }, [privyUser?.id]);
 
   // Sync user profile to database via edge function
