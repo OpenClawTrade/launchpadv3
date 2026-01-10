@@ -15,7 +15,7 @@ export default function LaunchTokenPage() {
   } : null;
 
   return (
-    <MainLayout user={currentUser} hideRightSidebar>
+    <MainLayout user={currentUser}>
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-4 px-4 h-14">
