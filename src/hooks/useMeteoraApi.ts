@@ -113,13 +113,31 @@ interface ClaimPoolFeesResponse {
   treasuryWallet: string;
 }
 
-// Claimable fees response
-interface ClaimableFeesResponse {
+// Treasury pool fee claim response (DAMM V2)
+interface ClaimDammFeesResponse {
   success: boolean;
+  signature: string;
   poolAddress: string;
-  claimableSol: number;
-  claimableTokens: number;
-  totalTradingFee: number;
+  positionAddress: string;
+  tokenId?: string;
+  treasuryWallet: string;
+}
+
+// Treasury positions response
+interface TreasuryPositionsResponse {
+  success: boolean;
+  treasuryWallet: string;
+  positionCount: number;
+  positions: Array<{
+    position: string;
+    positionNftAccount: string;
+    pool: string;
+    liquidity: string;
+    tokenAMint: string;
+    tokenBMint: string;
+    feeAOwed: string;
+    feeBOwed: string;
+  }>;
 }
 
 // Sync response
@@ -313,7 +331,13 @@ export function useMeteoraApi() {
   }, []);
 
   // Get claimable fees from a pool (treasury use)
-  const getClaimableFees = useCallback(async (poolAddress: string): Promise<ClaimableFeesResponse> => {
+  const getClaimableFees = useCallback(async (poolAddress: string): Promise<{
+    success: boolean;
+    poolAddress: string;
+    claimableSol: number;
+    claimableTokens: number;
+    totalTradingFee: number;
+  }> => {
     const apiUrl = getApiUrl();
     const url = `${apiUrl}/api/fees/claim-from-pool?poolAddress=${encodeURIComponent(poolAddress)}`;
     
@@ -348,11 +372,11 @@ export function useMeteoraApi() {
   const claimDammFees = useCallback(async (params: {
     tokenId?: string;
     dammPoolAddress?: string;
-    positionNftMint?: string;
-  }): Promise<{ success: boolean; message: string; info: Record<string, unknown> }> => {
+    positionAddress?: string;
+  }): Promise<ClaimDammFeesResponse> => {
     setIsLoading(true);
     try {
-      const result = await apiRequest<{ success: boolean; message: string; info: Record<string, unknown> }>(
+      const result = await apiRequest<ClaimDammFeesResponse>(
         '/fees/claim-damm-fees', 
         params
       );
@@ -360,6 +384,24 @@ export function useMeteoraApi() {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  // Get treasury DAMM V2 positions
+  const getTreasuryPositions = useCallback(async (): Promise<TreasuryPositionsResponse> => {
+    const apiUrl = getApiUrl();
+    const url = `${apiUrl}/api/fees/claim-damm-fees`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to get treasury positions');
+    }
+    
+    return data;
   }, []);
 
   // Sync token data from on-chain
@@ -394,6 +436,7 @@ export function useMeteoraApi() {
     getClaimableFees,
     claimPoolFees,
     claimDammFees,
+    getTreasuryPositions,
     syncTokenData,
     migratePool,
   };

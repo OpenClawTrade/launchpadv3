@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { PublicKey } from '@solana/web3.js';
+import { CpAmm, deriveTokenVaultAddress, derivePositionNftAccount } from '@meteora-ag/cp-amm-sdk';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { PLATFORM_FEE_WALLET } from '../lib/config';
 import { getSupabaseClient } from '../lib/supabase';
 import { getConnection, getTreasuryKeypair } from '../lib/solana';
@@ -23,26 +25,69 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({});
   }
 
+  if (req.method === 'GET') {
+    // Get treasury positions and claimable fees
+    try {
+      const connection = getConnection();
+      const treasury = getTreasuryKeypair();
+      const cpAmm = new CpAmm(connection);
+      
+      // Get all positions held by treasury
+      const positions = await cpAmm.getPositionsByUser(treasury.publicKey);
+      
+      const positionData = await Promise.all(positions.map(async pos => {
+        // Get pool state for additional info
+        const poolState = await cpAmm.fetchPoolState(pos.positionState.pool);
+        
+        return {
+          position: pos.position.toBase58(),
+          positionNftAccount: pos.positionNftAccount.toBase58(),
+          pool: pos.positionState.pool.toBase58(),
+          liquidity: pos.positionState.liquidity.toString(),
+          tokenAMint: poolState.tokenAMint.toBase58(),
+          tokenBMint: poolState.tokenBMint.toBase58(),
+          // Fee info from position state
+          feeAOwed: pos.positionState.feeAOwed?.toString() || '0',
+          feeBOwed: pos.positionState.feeBOwed?.toString() || '0',
+        };
+      }));
+      
+      return res.status(200).json({
+        success: true,
+        treasuryWallet: PLATFORM_FEE_WALLET,
+        positionCount: positions.length,
+        positions: positionData,
+      });
+      
+    } catch (error) {
+      console.error('[fees/claim-damm-fees] GET Error:', error);
+      return res.status(500).json({ 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { tokenId, dammPoolAddress, positionNftMint } = req.body;
+    const { tokenId, dammPoolAddress, positionAddress } = req.body;
 
-    console.log('[fees/claim-damm-fees] Request:', { tokenId, dammPoolAddress, positionNftMint });
+    console.log('[fees/claim-damm-fees] Request:', { tokenId, dammPoolAddress, positionAddress });
 
-    if (!tokenId && !dammPoolAddress) {
+    if (!tokenId && !dammPoolAddress && !positionAddress) {
       return res.status(400).json({ 
-        error: 'Either tokenId or dammPoolAddress is required' 
+        error: 'Either tokenId, dammPoolAddress, or positionAddress is required' 
       });
     }
 
     const supabase = getSupabaseClient();
     const connection = getConnection();
     const treasury = getTreasuryKeypair();
+    const cpAmm = new CpAmm(connection);
 
-    // Get token
+    // Get token if tokenId provided
     let token = null;
     if (tokenId) {
       const { data } = await supabase
@@ -60,52 +105,133 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       token = data;
     }
 
-    if (!token) {
-      return res.status(404).json({ error: 'Token not found' });
+    if (token) {
+      // Verify token is graduated
+      if (token.status !== 'graduated' || token.migration_status !== 'damm_v2_active') {
+        return res.status(400).json({ 
+          error: 'Token has not graduated to DAMM V2 yet',
+          currentStatus: token.status,
+          migrationStatus: token.migration_status,
+        });
+      }
     }
 
-    // Verify token is graduated
-    if (token.status !== 'graduated' || token.migration_status !== 'damm_v2_active') {
+    // Get treasury positions
+    console.log('[fees/claim-damm-fees] Fetching treasury positions...');
+    const positions = await cpAmm.getPositionsByUser(treasury.publicKey);
+    
+    if (positions.length === 0) {
       return res.status(400).json({ 
-        error: 'Token has not graduated to DAMM V2 yet',
-        currentStatus: token.status,
-        migrationStatus: token.migration_status,
+        error: 'No LP positions found for treasury wallet',
+        treasuryWallet: PLATFORM_FEE_WALLET,
       });
     }
 
-    const poolAddress = token.damm_pool_address || token.dbc_pool_address;
+    // Find the correct position
+    let targetPosition = null;
+    const poolAddress = token?.damm_pool_address || token?.dbc_pool_address || dammPoolAddress;
     
-    // Note: Full DAMM V2 fee claiming requires the CpAmm SDK
-    // This is a placeholder that will need the actual implementation
-    // when the user provides the CpAmm usage details from their other project
+    if (positionAddress) {
+      // Find by specific position address
+      targetPosition = positions.find(p => 
+        p.position.toBase58() === positionAddress
+      );
+    } else if (poolAddress) {
+      // Find by pool address
+      targetPosition = positions.find(p => 
+        p.positionState.pool.toBase58() === poolAddress
+      );
+    }
+
+    if (!targetPosition) {
+      return res.status(404).json({ 
+        error: 'Position not found',
+        searchedPool: poolAddress,
+        searchedPosition: positionAddress,
+        availablePositions: positions.map(p => ({
+          position: p.position.toBase58(),
+          pool: p.positionState.pool.toBase58(),
+        })),
+      });
+    }
+
+    // Get pool state for token info
+    const poolPubkey = targetPosition.positionState.pool;
+    const poolState = await cpAmm.fetchPoolState(poolPubkey);
     
-    console.log('[fees/claim-damm-fees] DAMM V2 claim requested for pool:', poolAddress);
+    // Derive vault addresses
+    const tokenAVault = deriveTokenVaultAddress(poolState.tokenAMint, poolPubkey);
+    const tokenBVault = deriveTokenVaultAddress(poolState.tokenBMint, poolPubkey);
     
-    // For now, return info about what would be needed
-    // The actual implementation requires:
-    // 1. Import CpAmm from appropriate Meteora package
-    // 2. Get treasury positions: cpAmm.getUserPositions(treasuryWallet)
-    // 3. Find position for this pool
-    // 4. Call: cpAmm.claimPositionFee({ owner, pool, positionNftMint })
+    // Build claim fee transaction using claimPositionFee
+    console.log('[fees/claim-damm-fees] Building claim transaction...');
     
+    const claimTxBuilder = cpAmm.claimPositionFee({
+      owner: treasury.publicKey,
+      position: targetPosition.position,
+      pool: poolPubkey,
+      positionNftAccount: targetPosition.positionNftAccount,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      receiver: treasury.publicKey,
+    });
+
+    // Build and sign transaction
+    const claimTx = await claimTxBuilder.buildAndSign({ signer: treasury });
+    
+    // Send transaction
+    const signature = await connection.sendRawTransaction(claimTx.serialize());
+    
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+    await connection.confirmTransaction({
+      signature,
+      blockhash,
+      lastValidBlockHeight,
+    }, 'confirmed');
+
+    console.log('[fees/claim-damm-fees] Fees claimed:', signature);
+
+    // Record the claim in database
+    if (token) {
+      await supabase.from('fee_pool_claims').insert({
+        token_id: token.id,
+        pool_address: poolAddress,
+        signature,
+        claimed_at: new Date().toISOString(),
+        processed: true,
+        processed_at: new Date().toISOString(),
+      });
+
+      // Update system fee earner
+      const { data: systemEarner } = await supabase
+        .from('fee_earners')
+        .select('*')
+        .eq('token_id', token.id)
+        .eq('earner_type', 'system')
+        .single();
+
+      if (systemEarner) {
+        await supabase
+          .from('fee_earners')
+          .update({
+            unclaimed_sol: 0,
+            last_claimed_at: new Date().toISOString(),
+          })
+          .eq('id', systemEarner.id);
+      }
+    }
+
     return res.status(200).json({
-      success: false,
-      message: 'DAMM V2 fee claiming requires CpAmm SDK integration',
-      info: {
-        tokenId: token.id,
-        poolAddress,
-        treasuryWallet: PLATFORM_FEE_WALLET,
-        status: 'pending_implementation',
-      },
-      requiredData: {
-        description: 'Please provide the CpAmm import and claimPositionFee implementation from your working Meteora project',
-        needed: [
-          'CpAmm package import path',
-          'getUserPositions method signature',
-          'claimPositionFee method signature',
-          'Position NFT discovery logic',
-        ],
-      },
+      success: true,
+      signature,
+      poolAddress: poolPubkey.toBase58(),
+      positionAddress: targetPosition.position.toBase58(),
+      tokenId: token?.id,
+      treasuryWallet: PLATFORM_FEE_WALLET,
     });
 
   } catch (error) {
