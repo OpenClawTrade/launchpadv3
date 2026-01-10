@@ -55,46 +55,56 @@ export function usePosts(options: UsePostsOptions = {}) {
     try {
       setIsLoading(true);
 
+      // Fetch banned user IDs to filter them out
+      const { data: bannedUsers } = await supabase
+        .from("user_bans")
+        .select("user_id")
+        .or("expires_at.is.null,expires_at.gt.now()");
+      
+      const bannedUserIds = bannedUsers?.map(b => b.user_id) || [];
+
       // Fetch pinned posts first, then regular posts
-      const [pinnedRes, regularRes] = await Promise.all([
-        supabase
-          .from("posts")
-          .select(`
-            *,
-            profiles!posts_user_id_fkey (
-              id,
-              username,
-              display_name,
-              avatar_url,
-              verified_type
-            )
-          `)
-          .is("parent_id", null)
-          .eq("pinned", true)
-          .order("pinned_at", { ascending: false }),
-        supabase
-          .from("posts")
-          .select(`
-            *,
-            profiles!posts_user_id_fkey (
-              id,
-              username,
-              display_name,
-              avatar_url,
-              verified_type
-            )
-          `)
-          .is("parent_id", null)
-          .eq("pinned", false)
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ]);
+      let pinnedQuery = supabase
+        .from("posts")
+        .select(`
+          *,
+          profiles!posts_user_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            verified_type
+          )
+        `)
+        .is("parent_id", null)
+        .eq("pinned", true)
+        .order("pinned_at", { ascending: false });
+
+      let regularQuery = supabase
+        .from("posts")
+        .select(`
+          *,
+          profiles!posts_user_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            verified_type
+          )
+        `)
+        .is("parent_id", null)
+        .eq("pinned", false)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      const [pinnedRes, regularRes] = await Promise.all([pinnedQuery, regularQuery]);
 
       if (pinnedRes.error) throw pinnedRes.error;
       if (regularRes.error) throw regularRes.error;
 
-      // Combine: pinned posts first, then regular posts
-      const postsData = [...(pinnedRes.data || []), ...(regularRes.data || [])];
+      // Combine and filter out banned users' posts
+      const allPosts = [...(pinnedRes.data || []), ...(regularRes.data || [])];
+      const postsData = allPosts.filter(post => !bannedUserIds.includes(post.user_id));
 
       // If user is authenticated, fetch their likes, bookmarks, and reposts
       let userLikes: string[] = [];

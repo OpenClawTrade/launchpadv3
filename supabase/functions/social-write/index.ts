@@ -98,9 +98,20 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Helper function to check if user is banned
+    const checkUserBanned = async (userId: string): Promise<boolean> => {
+      const { data } = await supabase.rpc("is_user_banned", { _user_id: userId });
+      return data === true;
+    };
+
     if (body.type === "create_post") {
       const content = body.content?.trim();
       if (!body.userId || !content) return json({ error: "userId and content are required" }, 400);
+
+      // Check if user is banned
+      if (await checkUserBanned(body.userId)) {
+        return json({ error: "Your account has been suspended" }, 403);
+      }
 
       // Resolve parentId: could be UUID or short_id
       let resolvedParentId: string | null = null;
@@ -310,6 +321,11 @@ Deno.serve(async (req) => {
 
     if (body.type === "toggle_repost") {
       if (!body.userId || !body.postId) return json({ error: "userId and postId are required" }, 400);
+
+      // Check if user is banned
+      if (await checkUserBanned(body.userId)) {
+        return json({ error: "Your account has been suspended" }, 403);
+      }
 
       const { data: existingRepost } = await supabase
         .from("posts")
