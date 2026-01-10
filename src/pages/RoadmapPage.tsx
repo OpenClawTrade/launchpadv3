@@ -66,7 +66,7 @@ const socialPlatformSections: RoadmapSection[] = [
   {
     id: "social-core",
     title: "Core Social Features",
-    quarter: "Q3-Q4 2025",
+    quarter: "Launched",
     status: "completed",
     progress: 100,
     features: [
@@ -84,7 +84,7 @@ const socialPlatformSections: RoadmapSection[] = [
   {
     id: "social-users",
     title: "User Interactions",
-    quarter: "Q4 2025",
+    quarter: "Launched",
     status: "completed",
     progress: 100,
     features: [
@@ -98,7 +98,7 @@ const socialPlatformSections: RoadmapSection[] = [
   {
     id: "social-profiles",
     title: "Profiles & Authentication",
-    quarter: "Q4 2025",
+    quarter: "Launched",
     status: "completed",
     progress: 100,
     features: [
@@ -113,7 +113,7 @@ const socialPlatformSections: RoadmapSection[] = [
   {
     id: "social-discovery",
     title: "Discovery & Navigation",
-    quarter: "Q4 2025",
+    quarter: "Launched",
     status: "completed",
     progress: 100,
     features: [
@@ -128,7 +128,7 @@ const socialPlatformSections: RoadmapSection[] = [
   {
     id: "social-messaging",
     title: "Messaging & Notifications",
-    quarter: "Q4 2025",
+    quarter: "Launched",
     status: "completed",
     progress: 100,
     features: [
@@ -141,7 +141,7 @@ const socialPlatformSections: RoadmapSection[] = [
   {
     id: "social-communities",
     title: "Communities & Admin",
-    quarter: "Q4 2025",
+    quarter: "Launched",
     status: "completed",
     progress: 100,
     features: [
@@ -155,7 +155,7 @@ const socialPlatformSections: RoadmapSection[] = [
   {
     id: "social-ai",
     title: "AI Features",
-    quarter: "Q4 2025",
+    quarter: "Launched",
     status: "completed",
     progress: 100,
     features: [
@@ -184,7 +184,7 @@ const launchpadSections: RoadmapSection[] = [
   {
     id: "launchpad-core",
     title: "Core Infrastructure",
-    quarter: "Q4 2025",
+    quarter: "Launched",
     status: "completed",
     progress: 100,
     features: [
