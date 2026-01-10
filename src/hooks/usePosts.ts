@@ -472,7 +472,7 @@ export function usePost(postId: string | null) {
         return;
       }
 
-      // Fetch replies
+      // Fetch replies using the actual UUID (postData.id), not the short_id
       const { data: repliesData, error: repliesError } = await supabase
         .from("posts")
         .select(`
@@ -485,7 +485,7 @@ export function usePost(postId: string | null) {
             verified_type
           )
         `)
-        .eq("parent_id", postId)
+        .eq("parent_id", postData.id)
         .order("created_at", { ascending: true });
 
       if (repliesError) throw repliesError;
@@ -496,23 +496,25 @@ export function usePost(postId: string | null) {
       let isReposted = false;
 
       if (user?.id) {
+        // Use the actual UUID for all lookups
+        const actualPostId = postData.id;
         const [likeRes, bookmarkRes, repostRes] = await Promise.all([
           supabase
             .from("likes")
             .select("id")
-            .eq("post_id", postId)
+            .eq("post_id", actualPostId)
             .eq("user_id", user.id)
             .maybeSingle(),
           supabase
             .from("bookmarks")
             .select("id")
-            .eq("post_id", postId)
+            .eq("post_id", actualPostId)
             .eq("user_id", user.id)
             .maybeSingle(),
           supabase
             .from("posts")
             .select("id")
-            .eq("original_post_id", postId)
+            .eq("original_post_id", actualPostId)
             .eq("user_id", user.id)
             .eq("is_repost", true)
             .maybeSingle()
