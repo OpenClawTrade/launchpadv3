@@ -178,6 +178,139 @@ export type Database = {
           },
         ]
       }
+      fee_claims: {
+        Row: {
+          amount_sol: number
+          created_at: string | null
+          fee_earner_id: string
+          id: string
+          signature: string
+        }
+        Insert: {
+          amount_sol: number
+          created_at?: string | null
+          fee_earner_id: string
+          id?: string
+          signature: string
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string | null
+          fee_earner_id?: string
+          id?: string
+          signature?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_claims_fee_earner_id_fkey"
+            columns: ["fee_earner_id"]
+            isOneToOne: false
+            referencedRelation: "fee_earners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_earners: {
+        Row: {
+          created_at: string | null
+          earner_type: string
+          id: string
+          last_claimed_at: string | null
+          profile_id: string | null
+          share_bps: number
+          token_id: string
+          total_earned_sol: number | null
+          twitter_handle: string | null
+          unclaimed_sol: number | null
+          wallet_address: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          earner_type: string
+          id?: string
+          last_claimed_at?: string | null
+          profile_id?: string | null
+          share_bps?: number
+          token_id: string
+          total_earned_sol?: number | null
+          twitter_handle?: string | null
+          unclaimed_sol?: number | null
+          wallet_address?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          earner_type?: string
+          id?: string
+          last_claimed_at?: string | null
+          profile_id?: string | null
+          share_bps?: number
+          token_id?: string
+          total_earned_sol?: number | null
+          twitter_handle?: string | null
+          unclaimed_sol?: number | null
+          wallet_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_earners_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_earners_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_pool_claims: {
+        Row: {
+          claimed_at: string | null
+          claimed_sol: number | null
+          created_at: string | null
+          id: string
+          pool_address: string
+          processed: boolean | null
+          processed_at: string | null
+          signature: string
+          token_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_sol?: number | null
+          created_at?: string | null
+          id?: string
+          pool_address: string
+          processed?: boolean | null
+          processed_at?: string | null
+          signature: string
+          token_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_sol?: number | null
+          created_at?: string | null
+          id?: string
+          pool_address?: string
+          processed?: boolean | null
+          processed_at?: string | null
+          signature?: string
+          token_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_pool_claims_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follows: {
         Row: {
           created_at: string
@@ -234,6 +367,69 @@ export type Database = {
           post_count?: number | null
         }
         Relationships: []
+      }
+      launchpad_transactions: {
+        Row: {
+          created_at: string | null
+          creator_fee_sol: number | null
+          id: string
+          price_per_token: number
+          signature: string
+          slot: number | null
+          sol_amount: number
+          system_fee_sol: number | null
+          token_amount: number
+          token_id: string
+          transaction_type: string
+          user_profile_id: string | null
+          user_wallet: string
+        }
+        Insert: {
+          created_at?: string | null
+          creator_fee_sol?: number | null
+          id?: string
+          price_per_token: number
+          signature: string
+          slot?: number | null
+          sol_amount: number
+          system_fee_sol?: number | null
+          token_amount: number
+          token_id: string
+          transaction_type: string
+          user_profile_id?: string | null
+          user_wallet: string
+        }
+        Update: {
+          created_at?: string | null
+          creator_fee_sol?: number | null
+          id?: string
+          price_per_token?: number
+          signature?: string
+          slot?: number | null
+          sol_amount?: number
+          system_fee_sol?: number | null
+          token_amount?: number
+          token_id?: string
+          transaction_type?: string
+          user_profile_id?: string | null
+          user_wallet?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launchpad_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "launchpad_transactions_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       likes: {
         Row: {
@@ -573,6 +769,179 @@ export type Database = {
         }
         Relationships: []
       }
+      token_holdings: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          id: string
+          profile_id: string | null
+          token_id: string
+          updated_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          profile_id?: string | null
+          token_id: string
+          updated_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          profile_id?: string | null
+          token_id?: string
+          updated_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_holdings_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_holdings_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tokens: {
+        Row: {
+          bonding_curve_progress: number | null
+          claim_locked_at: string | null
+          created_at: string | null
+          creator_fee_bps: number | null
+          creator_id: string | null
+          creator_wallet: string
+          damm_pool_address: string | null
+          dbc_pool_address: string | null
+          description: string | null
+          discord_url: string | null
+          graduated_at: string | null
+          graduation_threshold_sol: number | null
+          holder_count: number | null
+          id: string
+          image_url: string | null
+          last_claim_at: string | null
+          market_cap_sol: number | null
+          migration_status: string | null
+          mint_address: string
+          name: string
+          price_sol: number | null
+          quote_decimals: number | null
+          quote_token: string | null
+          real_sol_reserves: number | null
+          real_token_reserves: number | null
+          status: string | null
+          system_fee_bps: number | null
+          system_unclaimed_sol: number | null
+          telegram_url: string | null
+          ticker: string
+          total_supply: number | null
+          twitter_url: string | null
+          updated_at: string | null
+          virtual_sol_reserves: number | null
+          virtual_token_reserves: number | null
+          volume_24h_sol: number | null
+          website_url: string | null
+        }
+        Insert: {
+          bonding_curve_progress?: number | null
+          claim_locked_at?: string | null
+          created_at?: string | null
+          creator_fee_bps?: number | null
+          creator_id?: string | null
+          creator_wallet: string
+          damm_pool_address?: string | null
+          dbc_pool_address?: string | null
+          description?: string | null
+          discord_url?: string | null
+          graduated_at?: string | null
+          graduation_threshold_sol?: number | null
+          holder_count?: number | null
+          id?: string
+          image_url?: string | null
+          last_claim_at?: string | null
+          market_cap_sol?: number | null
+          migration_status?: string | null
+          mint_address: string
+          name: string
+          price_sol?: number | null
+          quote_decimals?: number | null
+          quote_token?: string | null
+          real_sol_reserves?: number | null
+          real_token_reserves?: number | null
+          status?: string | null
+          system_fee_bps?: number | null
+          system_unclaimed_sol?: number | null
+          telegram_url?: string | null
+          ticker: string
+          total_supply?: number | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          virtual_sol_reserves?: number | null
+          virtual_token_reserves?: number | null
+          volume_24h_sol?: number | null
+          website_url?: string | null
+        }
+        Update: {
+          bonding_curve_progress?: number | null
+          claim_locked_at?: string | null
+          created_at?: string | null
+          creator_fee_bps?: number | null
+          creator_id?: string | null
+          creator_wallet?: string
+          damm_pool_address?: string | null
+          dbc_pool_address?: string | null
+          description?: string | null
+          discord_url?: string | null
+          graduated_at?: string | null
+          graduation_threshold_sol?: number | null
+          holder_count?: number | null
+          id?: string
+          image_url?: string | null
+          last_claim_at?: string | null
+          market_cap_sol?: number | null
+          migration_status?: string | null
+          mint_address?: string
+          name?: string
+          price_sol?: number | null
+          quote_decimals?: number | null
+          quote_token?: string | null
+          real_sol_reserves?: number | null
+          real_token_reserves?: number | null
+          status?: string | null
+          system_fee_bps?: number | null
+          system_unclaimed_sol?: number | null
+          telegram_url?: string | null
+          ticker?: string
+          total_supply?: number | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          virtual_sol_reserves?: number | null
+          virtual_token_reserves?: number | null
+          volume_24h_sol?: number | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tokens_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trending_topics: {
         Row: {
           calculated_at: string | null
@@ -704,6 +1073,10 @@ export type Database = {
       }
     }
     Functions: {
+      acquire_claim_lock: {
+        Args: { p_lock_duration_seconds?: number; p_token_id: string }
+        Returns: boolean
+      }
       calculate_trending_topics: { Args: never; Returns: undefined }
       generate_short_id: { Args: never; Returns: string }
       get_suggested_users: {
@@ -727,6 +1100,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      release_claim_lock: { Args: { p_token_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
