@@ -87,6 +87,7 @@ const App = () => (
                   <Route path="/launchpad" element={<LaunchpadPage />} />
                   <Route path="/launch" element={<LaunchTokenPage />} />
                   <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
+                  <Route path="/earnings" element={<EarningsPage />} />
                   <Route path="/:username" element={<UserProfilePage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

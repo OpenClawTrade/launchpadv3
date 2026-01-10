@@ -116,9 +116,9 @@ export function useLaunchpad() {
     },
   });
 
-  // Subscribe to realtime updates for tokens
+  // Subscribe to realtime updates for tokens and transactions
   useEffect(() => {
-    const channel = supabase
+    const tokenChannel = supabase
       .channel('tokens-realtime')
       .on(
         'postgres_changes',
@@ -133,8 +133,41 @@ export function useLaunchpad() {
       )
       .subscribe();
 
+    const txChannel = supabase
+      .channel('transactions-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'launchpad_transactions' },
+        (payload) => {
+          console.log('[useLaunchpad] New transaction:', payload);
+          if (payload.new && 'token_id' in payload.new) {
+            queryClient.invalidateQueries({ queryKey: ['launchpad-transactions', payload.new.token_id] });
+          }
+        }
+      )
+      .subscribe();
+
+    const holdersChannel = supabase
+      .channel('holders-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'token_holdings' },
+        (payload) => {
+          console.log('[useLaunchpad] Holdings update:', payload);
+          if (payload.new && 'token_id' in payload.new) {
+            queryClient.invalidateQueries({ queryKey: ['launchpad-holders', payload.new.token_id] });
+          }
+          if (payload.new && 'wallet_address' in payload.new) {
+            queryClient.invalidateQueries({ queryKey: ['user-holdings', payload.new.wallet_address] });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(tokenChannel);
+      supabase.removeChannel(txChannel);
+      supabase.removeChannel(holdersChannel);
     };
   }, [queryClient]);
 
