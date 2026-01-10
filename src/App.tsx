@@ -30,6 +30,11 @@ const CookiesPage = lazy(() => import("./pages/CookiesPage"));
 const AccessibilityPage = lazy(() => import("./pages/AccessibilityPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+// Launchpad pages
+const LaunchpadPage = lazy(() => import("./pages/LaunchpadPage"));
+const LaunchTokenPage = lazy(() => import("./pages/LaunchTokenPage"));
+const TokenDetailPage = lazy(() => import("./pages/TokenDetailPage"));
+
 // Minimal loading spinner for route transitions
 function RouteLoader() {
   return (
@@ -78,6 +83,9 @@ const App = () => (
                   <Route path="/cookies" element={<CookiesPage />} />
                   <Route path="/accessibility" element={<AccessibilityPage />} />
                   <Route path="/post/:postId" element={<PostDetailPage />} />
+                  <Route path="/launchpad" element={<LaunchpadPage />} />
+                  <Route path="/launch" element={<LaunchTokenPage />} />
+                  <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
                   <Route path="/:username" element={<UserProfilePage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

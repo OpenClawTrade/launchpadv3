@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Platform fee wallet - receives 50% of trading fees
+const PLATFORM_FEE_WALLET = "7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2";
+
 // UUID v5 implementation for Privy ID to UUID mapping
 const UUID_V5_NAMESPACE_DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
@@ -27,7 +30,8 @@ function bytesToUuid(bytes: Uint8Array): string {
 }
 
 async function sha1(data: Uint8Array): Promise<Uint8Array> {
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data as ArrayBuffer);
+  const buffer = new Uint8Array(data).buffer as ArrayBuffer;
+  const hashBuffer = await crypto.subtle.digest("SHA-1", buffer);
   return new Uint8Array(hashBuffer);
 }
 
@@ -45,6 +49,16 @@ async function uuidV5(name: string, namespaceUuid: string): Promise<string> {
 
 async function privyUserIdToUuid(privyUserId: string): Promise<string> {
   return uuidV5(privyUserId, UUID_V5_NAMESPACE_DNS);
+}
+
+// Generate a pseudo-random base58 address for development
+function generateMockMintAddress(): string {
+  const chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let result = "";
+  for (let i = 0; i < 44; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
 serve(async (req) => {
@@ -87,47 +101,18 @@ serve(async (req) => {
       creatorId = await privyUserIdToUuid(privyUserId);
     }
 
-    // Generate a mock mint address for now (in production, this would come from Meteora API)
-    // For full implementation, you need to call your Vercel Meteora API to get real addresses
-    const meteoraApiUrl = Deno.env.get("METEORA_API_URL");
-    let mintAddress: string;
-    let dbcPoolAddress: string | null = null;
+    // Generate mock mint address for development
+    // In production, this would come from the Meteora SDK via a Vercel API
+    // The Meteora SDK is a Node.js package and can't run in Deno edge functions
+    // You would need to deploy a separate Vercel project with endpoints like:
+    // - POST /api/pool/create - Creates token + DBC pool
+    // - POST /api/swap/execute - Executes buy/sell swaps
+    // - POST /api/fees/claim - Claims trading fees from pools
+    const mintAddress = generateMockMintAddress();
+    const dbcPoolAddress: string | null = null; // Would be set by Meteora API
 
-    if (meteoraApiUrl) {
-      // Call Meteora API to create the pool
-      try {
-        const meteoraResponse = await fetch(`${meteoraApiUrl}/api/pool/create`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            creatorWallet,
-            name,
-            ticker,
-            description,
-            imageUrl,
-            initialBuySol,
-          }),
-        });
-
-        if (!meteoraResponse.ok) {
-          throw new Error(`Meteora API error: ${meteoraResponse.statusText}`);
-        }
-
-        const meteoraData = await meteoraResponse.json();
-        mintAddress = meteoraData.mintAddress;
-        dbcPoolAddress = meteoraData.poolAddress;
-        
-        console.log("Meteora pool created:", { mintAddress, dbcPoolAddress });
-      } catch (error) {
-        console.error("Meteora API call failed, using mock data:", error);
-        // Fallback to mock data for development
-        mintAddress = `mock_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`;
-      }
-    } else {
-      // Development mode - generate mock address
-      mintAddress = `mock_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`;
-      console.log("No METEORA_API_URL configured, using mock mint address");
-    }
+    console.log("Generated mock mint address:", mintAddress);
+    console.log("NOTE: For production, deploy Meteora SDK to Vercel and set METEORA_API_URL");
 
     // Calculate initial price (virtual reserves / virtual tokens)
     const virtualSol = 30;
@@ -156,7 +141,7 @@ serve(async (req) => {
         price_sol: initialPrice,
         market_cap_sol: virtualSol,
         status: "bonding",
-        migration_status: dbcPoolAddress ? "dbc_active" : "pending",
+        migration_status: "pending", // Would be "dbc_active" with real Meteora integration
         holder_count: initialBuySol > 0 ? 1 : 0,
       })
       .select()
@@ -169,7 +154,7 @@ serve(async (req) => {
 
     console.log("Token created:", token.id);
 
-    // Create fee earners (creator gets 50%, system gets 50%)
+    // Create fee earners (creator gets 50%, system/platform gets 50%)
     const { error: earnerError } = await supabase.from("fee_earners").insert([
       {
         token_id: token.id,
@@ -180,6 +165,7 @@ serve(async (req) => {
       },
       {
         token_id: token.id,
+        wallet_address: PLATFORM_FEE_WALLET,
         earner_type: "system",
         share_bps: 5000, // 50%
       },
@@ -214,6 +200,7 @@ serve(async (req) => {
         tokenId: token.id,
         mintAddress: token.mint_address,
         dbcPoolAddress: token.dbc_pool_address,
+        message: "Token created in development mode. For real Solana tokens, deploy Meteora SDK to Vercel.",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -227,7 +214,7 @@ serve(async (req) => {
   }
 });
 
-// Helper function to calculate buy output
+// Helper function to calculate buy output using constant product formula
 function calculateBuyOutput(solIn: number, virtualSol: number, virtualToken: number): number {
   const k = virtualSol * virtualToken;
   const newVirtualSol = virtualSol + solIn;
