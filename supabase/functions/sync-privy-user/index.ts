@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-forwarded-for, x-real-ip",
 };
 
 const UUID_V5_NAMESPACE_DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
@@ -57,6 +57,24 @@ async function privyUserIdToUuid(privyUserId: string): Promise<string> {
   return uuidV5(privyUserId, UUID_V5_NAMESPACE_DNS);
 }
 
+// Extract client IP from request headers
+function getClientIp(req: Request): string | null {
+  // Try various headers that might contain the real IP
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    // x-forwarded-for can contain multiple IPs, take the first one
+    return forwardedFor.split(",")[0].trim();
+  }
+  
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp;
+  
+  const cfConnectingIp = req.headers.get("cf-connecting-ip");
+  if (cfConnectingIp) return cfConnectingIp;
+  
+  return null;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -79,6 +97,93 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get client IP and user agent
+    const clientIp = getClientIp(req);
+    const userAgent = req.headers.get("user-agent") || null;
+
+    console.log(`Sync request for user ${profileId} from IP: ${clientIp}`);
+
+    // Check if user is banned
+    const { data: userBan } = await supabase
+      .from("user_bans")
+      .select("id, reason")
+      .eq("user_id", profileId)
+      .is("expires_at", null)
+      .maybeSingle();
+
+    if (userBan) {
+      console.log(`User ${profileId} is banned: ${userBan.reason}`);
+      return new Response(
+        JSON.stringify({ error: "banned", reason: userBan.reason || "Account suspended" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if IP is banned
+    if (clientIp) {
+      const { data: ipBan } = await supabase
+        .from("ip_bans")
+        .select("id, reason")
+        .eq("ip_address", clientIp)
+        .maybeSingle();
+
+      // Also check for unexpired bans
+      if (!ipBan) {
+        const { data: activeIpBan } = await supabase
+          .from("ip_bans")
+          .select("id, reason")
+          .eq("ip_address", clientIp)
+          .or("expires_at.is.null,expires_at.gt.now()")
+          .maybeSingle();
+        
+        if (activeIpBan) {
+          console.log(`IP ${clientIp} is banned: ${activeIpBan.reason}`);
+          return new Response(
+            JSON.stringify({ error: "ip_banned", reason: activeIpBan.reason || "Access denied" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        console.log(`IP ${clientIp} is banned: ${ipBan.reason}`);
+        return new Response(
+          JSON.stringify({ error: "ip_banned", reason: ipBan.reason || "Access denied" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Log the IP address for this user
+    if (clientIp) {
+      const { error: ipLogError } = await supabase
+        .from("user_ip_logs")
+        .upsert(
+          {
+            user_id: profileId,
+            ip_address: clientIp,
+            user_agent: userAgent,
+            last_seen_at: new Date().toISOString(),
+            request_count: 1,
+          },
+          {
+            onConflict: "user_id,ip_address",
+          }
+        );
+
+      if (ipLogError) {
+        console.error("Error logging IP:", ipLogError);
+      } else {
+        // Update request count and last_seen_at for existing records
+        await supabase
+          .from("user_ip_logs")
+          .update({ 
+            last_seen_at: new Date().toISOString(),
+            request_count: 1 // Will be incremented by trigger if needed
+          })
+          .eq("user_id", profileId)
+          .eq("ip_address", clientIp);
+      }
+    }
 
     // Generate username from available data
     const username = twitterUsername ?? email?.split("@")[0] ?? `user_${profileId.slice(-8)}`;
@@ -153,4 +258,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-

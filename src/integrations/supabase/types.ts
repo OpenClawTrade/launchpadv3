@@ -368,6 +368,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ip_bans: {
+        Row: {
+          banned_by: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          ip_address: string
+          reason: string | null
+        }
+        Insert: {
+          banned_by: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ip_address: string
+          reason?: string | null
+        }
+        Update: {
+          banned_by?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ip_address?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       launchpad_transactions: {
         Row: {
           created_at: string | null
@@ -1099,6 +1126,7 @@ export type Database = {
       }
       user_bans: {
         Row: {
+          associated_ips: string[] | null
           banned_by: string
           created_at: string
           expires_at: string | null
@@ -1107,6 +1135,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          associated_ips?: string[] | null
           banned_by: string
           created_at?: string
           expires_at?: string | null
@@ -1115,6 +1144,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          associated_ips?: string[] | null
           banned_by?: string
           created_at?: string
           expires_at?: string | null
@@ -1141,6 +1171,36 @@ export type Database = {
           blocked_user_id?: string
           created_at?: string
           id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_ip_logs: {
+        Row: {
+          first_seen_at: string
+          id: string
+          ip_address: string
+          last_seen_at: string
+          request_count: number | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          first_seen_at?: string
+          id?: string
+          ip_address: string
+          last_seen_at?: string
+          request_count?: number | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          first_seen_at?: string
+          id?: string
+          ip_address?: string
+          last_seen_at?: string
+          request_count?: number | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -1231,6 +1291,7 @@ export type Database = {
           verified_type: string
         }[]
       }
+      get_user_ips: { Args: { _user_id: string }; Returns: string[] }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1239,6 +1300,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_ip_banned: { Args: { _ip_address: string }; Returns: boolean }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
       release_claim_lock: { Args: { p_token_id: string }; Returns: undefined }
       update_token_24h_stats: { Args: never; Returns: undefined }

@@ -61,6 +61,7 @@ interface UserBan {
   reason: string | null;
   created_at: string;
   expires_at: string | null;
+  associated_ips: string[] | null;
   profile?: {
     username: string;
     display_name: string;
@@ -71,12 +72,40 @@ interface UserBan {
   };
 }
 
+interface IpBan {
+  id: string;
+  ip_address: string;
+  banned_by: string;
+  reason: string | null;
+  created_at: string;
+  expires_at: string | null;
+  banned_by_profile?: {
+    username: string;
+  };
+}
+
+interface UserIpLog {
+  id: string;
+  user_id: string;
+  ip_address: string;
+  user_agent: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  request_count: number;
+  profile?: {
+    username: string;
+    display_name: string;
+  };
+}
+
 export default function AdminPage() {
   const { isAdmin, isLoading: adminLoading } = useAdmin();
   const { isAuthenticated, login, isLoading: authLoading, user } = useAuth();
   const [reports, setReports] = useState<Report[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [userBans, setUserBans] = useState<UserBan[]>([]);
+  const [ipBans, setIpBans] = useState<IpBan[]>([]);
+  const [userIpLogs, setUserIpLogs] = useState<UserIpLog[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [addingAdmin, setAddingAdmin] = useState(false);
@@ -84,6 +113,10 @@ export default function AdminPage() {
   const [banReason, setBanReason] = useState("");
   const [banningUser, setBanningUser] = useState(false);
   const [deletePostsOnBan, setDeletePostsOnBan] = useState(true);
+  const [banIpsOnBan, setBanIpsOnBan] = useState(true);
+  const [newBanIp, setNewBanIp] = useState("");
+  const [banIpReason, setBanIpReason] = useState("");
+  const [banningIp, setBanningIp] = useState(false);
 
   // Fetch reports and user roles
   useEffect(() => {
@@ -210,6 +243,51 @@ export default function AdminPage() {
             })
           );
           setUserBans(bansWithProfiles);
+        }
+
+        // Fetch IP bans
+        const { data: ipBansData, error: ipBansError } = await supabase
+          .from("ip_bans")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (ipBansError) {
+          console.error("Error fetching IP bans:", ipBansError);
+        } else {
+          const ipBansWithProfiles = await Promise.all(
+            (ipBansData || []).map(async (ipBan: any) => {
+              const { data: bannedByProfile } = await supabase
+                .from("profiles")
+                .select("username")
+                .eq("id", ipBan.banned_by)
+                .single();
+              return { ...ipBan, banned_by_profile: bannedByProfile };
+            })
+          );
+          setIpBans(ipBansWithProfiles);
+        }
+
+        // Fetch recent IP logs
+        const { data: ipLogsData, error: ipLogsError } = await supabase
+          .from("user_ip_logs")
+          .select("*")
+          .order("last_seen_at", { ascending: false })
+          .limit(100);
+
+        if (ipLogsError) {
+          console.error("Error fetching IP logs:", ipLogsError);
+        } else {
+          const logsWithProfiles = await Promise.all(
+            (ipLogsData || []).map(async (log: any) => {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("username, display_name")
+                .eq("id", log.user_id)
+                .single();
+              return { ...log, profile };
+            })
+          );
+          setUserIpLogs(logsWithProfiles);
         }
       } catch (err) {
         console.error("Failed to fetch admin data:", err);
@@ -407,6 +485,35 @@ export default function AdminPage() {
         return;
       }
 
+      // Get user's associated IPs and ban them if requested
+      if (banIpsOnBan) {
+        const { data: ipLogs } = await supabase
+          .from("user_ip_logs")
+          .select("ip_address")
+          .eq("user_id", profile.id);
+
+        const associatedIps = ipLogs?.map(log => log.ip_address) || [];
+
+        // Update the ban with associated IPs
+        if (associatedIps.length > 0) {
+          await supabase
+            .from("user_bans")
+            .update({ associated_ips: associatedIps })
+            .eq("user_id", profile.id);
+
+          // Ban all associated IPs
+          for (const ip of associatedIps) {
+            await supabase
+              .from("ip_bans")
+              .upsert({
+                ip_address: ip,
+                banned_by: adminId,
+                reason: `Associated with banned user @${banUsername}`,
+              }, { onConflict: "ip_address" });
+          }
+        }
+      }
+
       // Delete all posts if requested
       if (deletePostsOnBan) {
         const { error: deleteError } = await supabase
@@ -419,7 +526,7 @@ export default function AdminPage() {
         }
       }
 
-      toast.success(`User @${banUsername} has been banned${deletePostsOnBan ? " and all posts deleted" : ""}`);
+      toast.success(`User @${banUsername} has been banned${deletePostsOnBan ? " and all posts deleted" : ""}${banIpsOnBan ? " (IPs banned)" : ""}`);
       setBanUsername("");
       setBanReason("");
 
@@ -465,6 +572,76 @@ export default function AdminPage() {
     } else {
       toast.success("User unbanned");
       setUserBans(userBans.filter(b => b.id !== banId));
+    }
+  };
+
+  const banIp = async () => {
+    if (!newBanIp.trim()) {
+      toast.error("Please enter an IP address");
+      return;
+    }
+
+    setBanningIp(true);
+
+    try {
+      const { error } = await supabase
+        .from("ip_bans")
+        .insert({
+          ip_address: newBanIp.trim(),
+          banned_by: user?.id,
+          reason: banIpReason.trim() || "Manual IP ban",
+        });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("IP is already banned");
+        } else {
+          toast.error("Failed to ban IP");
+        }
+        return;
+      }
+
+      toast.success(`IP ${newBanIp} has been banned`);
+      setNewBanIp("");
+      setBanIpReason("");
+
+      // Refresh IP bans
+      const { data: ipBansData } = await supabase
+        .from("ip_bans")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (ipBansData) {
+        const ipBansWithProfiles = await Promise.all(
+          ipBansData.map(async (ipBan: any) => {
+            const { data: bannedByProfile } = await supabase
+              .from("profiles")
+              .select("username")
+              .eq("id", ipBan.banned_by)
+              .single();
+            return { ...ipBan, banned_by_profile: bannedByProfile };
+          })
+        );
+        setIpBans(ipBansWithProfiles);
+      }
+    } catch (err) {
+      toast.error("Failed to ban IP");
+    } finally {
+      setBanningIp(false);
+    }
+  };
+
+  const unbanIp = async (banId: string) => {
+    const { error } = await supabase
+      .from("ip_bans")
+      .delete()
+      .eq("id", banId);
+
+    if (error) {
+      toast.error("Failed to unban IP");
+    } else {
+      toast.success("IP unbanned");
+      setIpBans(ipBans.filter(b => b.id !== banId));
     }
   };
 
@@ -578,6 +755,13 @@ export default function AdminPage() {
               Bans
               {userBans.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{userBans.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="ip-bans" className="gap-2">
+              <Ban className="h-4 w-4" />
+              IP Bans
+              {ipBans.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{ipBans.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
@@ -787,17 +971,31 @@ export default function AdminPage() {
                     onChange={(e) => setBanReason(e.target.value)}
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="deletePostsOnBan"
-                    checked={deletePostsOnBan}
-                    onChange={(e) => setDeletePostsOnBan(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="deletePostsOnBan" className="text-sm text-muted-foreground">
-                    Delete all posts from this user
-                  </label>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="deletePostsOnBan"
+                      checked={deletePostsOnBan}
+                      onChange={(e) => setDeletePostsOnBan(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="deletePostsOnBan" className="text-sm text-muted-foreground">
+                      Delete all posts
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="banIpsOnBan"
+                      checked={banIpsOnBan}
+                      onChange={(e) => setBanIpsOnBan(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="banIpsOnBan" className="text-sm text-muted-foreground">
+                      Ban associated IPs
+                    </label>
+                  </div>
                 </div>
                 <Button 
                   variant="destructive" 
@@ -835,6 +1033,11 @@ export default function AdminPage() {
                         <p className="text-xs text-muted-foreground mt-1">
                           Banned by @{ban.banned_by_profile?.username || "admin"} • {ban.reason || "No reason provided"}
                         </p>
+                        {ban.associated_ips && ban.associated_ips.length > 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            {ban.associated_ips.length} IP(s) banned
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(ban.created_at), { addSuffix: true })}
                         </p>
@@ -861,6 +1064,126 @@ export default function AdminPage() {
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          {/* IP Bans Tab */}
+          <TabsContent value="ip-bans" className="mt-4">
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Ban className="h-5 w-5 text-destructive" />
+                  Ban IP Address
+                </CardTitle>
+                <CardDescription>
+                  Block an IP address from accessing the platform
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="IP address (e.g. 192.168.1.1)"
+                    value={newBanIp}
+                    onChange={(e) => setNewBanIp(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Input
+                    placeholder="Reason for ban (optional)"
+                    value={banIpReason}
+                    onChange={(e) => setBanIpReason(e.target.value)}
+                  />
+                </div>
+                <Button 
+                  variant="destructive" 
+                  onClick={banIp} 
+                  disabled={banningIp || !newBanIp.trim()}
+                  className="w-full"
+                >
+                  {banningIp ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Ban className="h-4 w-4 mr-2" />
+                  )}
+                  Ban IP
+                </Button>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold mb-3">Banned IPs ({ipBans.length})</h3>
+              {ipBans.map((ipBan) => (
+                <Card key={ipBan.id}>
+                  <CardContent className="flex items-center justify-between p-4">
+                    <div>
+                      <p className="font-mono font-medium">{ipBan.ip_address}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Banned by @{ipBan.banned_by_profile?.username || "admin"} • {ipBan.reason || "No reason provided"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(ipBan.created_at), { addSuffix: true })}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => unbanIp(ipBan.id)}
+                    >
+                      Unban
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {ipBans.length === 0 && (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
+                    <p className="text-muted-foreground">No banned IPs</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Recent IP Activity */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="text-lg">Recent IP Activity</CardTitle>
+                <CardDescription>
+                  Track user IP addresses for moderation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-2">
+                    {userIpLogs.map((log) => (
+                      <div key={log.id} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <p className="text-sm font-medium">@{log.profile?.username || "unknown"}</p>
+                          <p className="font-mono text-xs text-muted-foreground">{log.ip_address}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Last seen: {formatDistanceToNow(new Date(log.last_seen_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => {
+                            setNewBanIp(log.ip_address);
+                            setBanIpReason(`Associated with @${log.profile?.username}`);
+                          }}
+                        >
+                          <Ban className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    {userIpLogs.length === 0 && (
+                      <p className="text-center text-muted-foreground py-4">No IP logs yet</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

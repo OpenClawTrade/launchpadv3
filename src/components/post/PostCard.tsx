@@ -318,13 +318,22 @@ export function PostCard({
     
     setIsBanning(true);
     try {
-      // Ban the user
+      // Get user's associated IPs first
+      const { data: ipLogs } = await supabase
+        .from("user_ip_logs")
+        .select("ip_address")
+        .eq("user_id", post.authorId);
+
+      const associatedIps = ipLogs?.map(log => log.ip_address) || [];
+
+      // Ban the user with associated IPs
       const { error: banError } = await supabase
         .from("user_bans")
         .insert({
           user_id: post.authorId,
           banned_by: user.id,
           reason: "Banned via post moderation",
+          associated_ips: associatedIps,
         });
 
       if (banError) {
@@ -336,13 +345,29 @@ export function PostCard({
         return;
       }
 
+      // Ban all associated IPs
+      if (associatedIps.length > 0) {
+        for (const ip of associatedIps) {
+          await supabase
+            .from("ip_bans")
+            .upsert({
+              ip_address: ip,
+              banned_by: user.id,
+              reason: `Associated with banned user @${post.author.handle}`,
+            }, { onConflict: "ip_address" });
+        }
+      }
+
       // Delete all their posts
       await supabase
         .from("posts")
         .delete()
         .eq("user_id", post.authorId);
 
-      toast.success(`User @${post.author.handle} has been banned and all posts deleted`);
+      const ipMessage = associatedIps.length > 0 
+        ? ` and ${associatedIps.length} IP(s) banned` 
+        : "";
+      toast.success(`User @${post.author.handle} banned${ipMessage}, all posts deleted`);
       setShowBanDialog(false);
       
       // Navigate away from the now-deleted post
