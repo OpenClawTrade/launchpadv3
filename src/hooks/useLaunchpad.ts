@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 export interface Token {
   id: string;
@@ -70,6 +71,25 @@ export interface TokenHolding {
   } | null;
 }
 
+export interface FeeEarning {
+  id: string;
+  token_id: string;
+  earner_type: string;
+  share_bps: number;
+  unclaimed_sol: number;
+  total_earned_sol: number;
+  wallet_address: string | null;
+  tokens?: {
+    id: string;
+    name: string;
+    ticker: string;
+    image_url: string | null;
+    mint_address: string;
+    status: string;
+    volume_24h_sol: number;
+  } | null;
+}
+
 export function useLaunchpad() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -95,6 +115,28 @@ export function useLaunchpad() {
       return data as Token[];
     },
   });
+
+  // Subscribe to realtime updates for tokens
+  useEffect(() => {
+    const channel = supabase
+      .channel('tokens-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tokens' },
+        (payload) => {
+          console.log('[useLaunchpad] Token update:', payload);
+          queryClient.invalidateQueries({ queryKey: ['launchpad-tokens'] });
+          if (payload.new && 'mint_address' in payload.new) {
+            queryClient.invalidateQueries({ queryKey: ['launchpad-token', payload.new.mint_address] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Fetch single token by mint address
   const useToken = (mintAddress: string) => {
@@ -227,6 +269,98 @@ export function useLaunchpad() {
     });
   };
 
+  // Execute swap
+  const executeSwap = useMutation({
+    mutationFn: async ({
+      mintAddress,
+      userWallet,
+      amount,
+      isBuy,
+      profileId,
+    }: {
+      mintAddress: string;
+      userWallet: string;
+      amount: number;
+      isBuy: boolean;
+      profileId?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('launchpad-swap', {
+        body: { mintAddress, userWallet, amount, isBuy, profileId },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['launchpad-token', variables.mintAddress] });
+      queryClient.invalidateQueries({ queryKey: ['launchpad-tokens'] });
+      queryClient.invalidateQueries({ queryKey: ['user-holdings', variables.userWallet] });
+      queryClient.invalidateQueries({ queryKey: ['launchpad-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['launchpad-holders'] });
+    },
+  });
+
+  // Claim fees
+  const claimFees = useMutation({
+    mutationFn: async ({
+      tokenId,
+      walletAddress,
+      profileId,
+    }: {
+      tokenId: string;
+      walletAddress: string;
+      profileId?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('launchpad-claim-fees', {
+        body: { tokenId, walletAddress, profileId },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-earnings'] });
+    },
+  });
+
+  // Fetch user earnings
+  const useUserEarnings = (walletAddress: string | undefined, profileId: string | undefined) => {
+    return useQuery({
+      queryKey: ['user-earnings', walletAddress, profileId],
+      queryFn: async () => {
+        const params = new URLSearchParams();
+        if (walletAddress) params.set('wallet', walletAddress);
+        if (profileId) params.set('profileId', profileId);
+
+        const { data, error } = await supabase.functions.invoke('launchpad-earnings', {
+          method: 'GET',
+          body: null,
+          headers: {},
+        });
+
+        // For GET requests with query params, we use a different approach
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/launchpad-earnings?${params.toString()}`,
+          {
+            headers: {
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch earnings');
+        }
+
+        return response.json();
+      },
+      enabled: !!(walletAddress || profileId),
+    });
+  };
+
   return {
     tokens,
     isLoadingTokens,
@@ -236,6 +370,9 @@ export function useLaunchpad() {
     useTokenHolders,
     useUserTokens,
     useUserHoldings,
+    useUserEarnings,
+    executeSwap,
+    claimFees,
   };
 }
 

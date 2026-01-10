@@ -34,6 +34,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const LaunchpadPage = lazy(() => import("./pages/LaunchpadPage"));
 const LaunchTokenPage = lazy(() => import("./pages/LaunchTokenPage"));
 const TokenDetailPage = lazy(() => import("./pages/TokenDetailPage"));
+const EarningsPage = lazy(() => import("./pages/EarningsPage"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
