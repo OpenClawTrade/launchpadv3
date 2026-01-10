@@ -31,13 +31,19 @@ export default function SettingsPage() {
   const [showBlockedMutedModal, setShowBlockedMutedModal] = useState(false);
   const [blockedMutedTab, setBlockedMutedTab] = useState<"blocked" | "muted">("blocked");
   
-  // Redirect unauthenticated users
+  // Settings state
+  const [darkMode, setDarkMode] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState(false);
+  const [mentionNotifications, setMentionNotifications] = useState(true);
+  const [privateAccount, setPrivateAccount] = useState(false);
+
+  // Prompt login for unauthenticated users
   useEffect(() => {
     if (ready && !isAuthenticated) {
-      navigate("/", { replace: true });
       login();
     }
-  }, [ready, isAuthenticated, navigate, login]);
+  }, [ready, isAuthenticated, login]);
   
   // Fetch current username
   useEffect(() => {
@@ -65,13 +71,17 @@ export default function SettingsPage() {
     };
     fetchUsername();
   }, [user?.privyId]);
-  
-  // Settings state
-  const [darkMode, setDarkMode] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [mentionNotifications, setMentionNotifications] = useState(true);
-  const [privateAccount, setPrivateAccount] = useState(false);
+
+  // Show loading while auth is initializing
+  if (!ready) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   const handleLogout = async () => {
     await logout();
