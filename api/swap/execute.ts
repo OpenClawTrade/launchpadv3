@@ -255,7 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Update fee earners
+    // Update fee earners - both creator and system
     if (creatorFee > 0) {
       const { data: creatorEarner } = await supabase
         .from('fee_earners')
@@ -272,6 +272,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             total_earned_sol: (creatorEarner.total_earned_sol || 0) + creatorFee,
           })
           .eq('id', creatorEarner.id);
+      }
+    }
+
+    // Track system/platform fees
+    if (systemFee > 0) {
+      const { data: systemEarner } = await supabase
+        .from('fee_earners')
+        .select('*')
+        .eq('token_id', token.id)
+        .eq('earner_type', 'system')
+        .single();
+
+      if (systemEarner) {
+        await supabase
+          .from('fee_earners')
+          .update({
+            unclaimed_sol: (systemEarner.unclaimed_sol || 0) + systemFee,
+            total_earned_sol: (systemEarner.total_earned_sol || 0) + systemFee,
+          })
+          .eq('id', systemEarner.id);
       }
     }
 

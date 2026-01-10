@@ -9,7 +9,7 @@ export const DAMM_V2_PROGRAM_ID = 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG';
 export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 // Platform Configuration
-export const PLATFORM_FEE_WALLET = process.env.PLATFORM_FEE_WALLET || 'EtgMQBGZjwwjfjsCtHL534rf259a6eKWD6yCnGkVJFWL';
+export const PLATFORM_FEE_WALLET = '7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2';
 
 // Token settings
 export const TOKEN_DECIMALS = 6;
