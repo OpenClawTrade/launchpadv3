@@ -125,10 +125,8 @@ export function MobileHeader({ user }: MobileHeaderProps) {
           </SheetContent>
         </Sheet>
 
-        {/* Logo */}
-        <Link to="/" className="flex items-center">
-          <img src={trenchesLogo} alt="TRENCHES" className="h-8 w-auto" />
-        </Link>
+        {/* Spacer to center the layout */}
+        <div className="flex-1" />
 
         {/* Login Button */}
         {!isAuthenticated ? (
