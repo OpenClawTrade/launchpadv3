@@ -54,14 +54,36 @@ interface UserRole {
   };
 }
 
+interface UserBan {
+  id: string;
+  user_id: string;
+  banned_by: string;
+  reason: string | null;
+  created_at: string;
+  expires_at: string | null;
+  profile?: {
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+  banned_by_profile?: {
+    username: string;
+  };
+}
+
 export default function AdminPage() {
   const { isAdmin, isLoading: adminLoading } = useAdmin();
-  const { isAuthenticated, login, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, login, isLoading: authLoading, user } = useAuth();
   const [reports, setReports] = useState<Report[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [userBans, setUserBans] = useState<UserBan[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [addingAdmin, setAddingAdmin] = useState(false);
+  const [banUsername, setBanUsername] = useState("");
+  const [banReason, setBanReason] = useState("");
+  const [banningUser, setBanningUser] = useState(false);
+  const [deletePostsOnBan, setDeletePostsOnBan] = useState(true);
 
   // Fetch reports and user roles
   useEffect(() => {
@@ -160,6 +182,34 @@ export default function AdminPage() {
             })
           );
           setUserRoles(rolesWithProfiles);
+        }
+
+        // Fetch user bans
+        const { data: bansData, error: bansError } = await supabase
+          .from("user_bans")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (bansError) {
+          console.error("Error fetching bans:", bansError);
+        } else {
+          // Fetch profiles for each ban
+          const bansWithProfiles = await Promise.all(
+            (bansData || []).map(async (ban: any) => {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("username, display_name, avatar_url")
+                .eq("id", ban.user_id)
+                .single();
+              const { data: bannedByProfile } = await supabase
+                .from("profiles")
+                .select("username")
+                .eq("id", ban.banned_by)
+                .single();
+              return { ...ban, profile, banned_by_profile: bannedByProfile };
+            })
+          );
+          setUserBans(bansWithProfiles);
         }
       } catch (err) {
         console.error("Failed to fetch admin data:", err);
@@ -313,6 +363,111 @@ export default function AdminPage() {
     }
   };
 
+  const banUser = async () => {
+    if (!banUsername.trim()) {
+      toast.error("Please enter a username");
+      return;
+    }
+
+    setBanningUser(true);
+
+    try {
+      // Find user by username
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", banUsername.trim())
+        .single();
+
+      if (profileError || !profile) {
+        toast.error("User not found");
+        setBanningUser(false);
+        return;
+      }
+
+      // Use current admin's user id
+      const adminId = user?.id;
+
+      // Ban the user
+      const { error: banError } = await supabase
+        .from("user_bans")
+        .insert({
+          user_id: profile.id,
+          banned_by: adminId,
+          reason: banReason.trim() || "Violation of platform rules",
+        });
+
+      if (banError) {
+        if (banError.code === "23505") {
+          toast.error("User is already banned");
+        } else {
+          toast.error("Failed to ban user");
+        }
+        setBanningUser(false);
+        return;
+      }
+
+      // Delete all posts if requested
+      if (deletePostsOnBan) {
+        const { error: deleteError } = await supabase
+          .from("posts")
+          .delete()
+          .eq("user_id", profile.id);
+
+        if (deleteError) {
+          console.error("Failed to delete posts:", deleteError);
+        }
+      }
+
+      toast.success(`User @${banUsername} has been banned${deletePostsOnBan ? " and all posts deleted" : ""}`);
+      setBanUsername("");
+      setBanReason("");
+
+      // Refresh bans list
+      const { data: bansData } = await supabase
+        .from("user_bans")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (bansData) {
+        const bansWithProfiles = await Promise.all(
+          bansData.map(async (ban: any) => {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("username, display_name, avatar_url")
+              .eq("id", ban.user_id)
+              .single();
+            const { data: bannedByProf } = await supabase
+              .from("profiles")
+              .select("username")
+              .eq("id", ban.banned_by)
+              .single();
+            return { ...ban, profile: prof, banned_by_profile: bannedByProf };
+          })
+        );
+        setUserBans(bansWithProfiles);
+      }
+    } catch (err) {
+      toast.error("Failed to ban user");
+    } finally {
+      setBanningUser(false);
+    }
+  };
+
+  const unbanUser = async (banId: string) => {
+    const { error } = await supabase
+      .from("user_bans")
+      .delete()
+      .eq("id", banId);
+
+    if (error) {
+      toast.error("Failed to unban user");
+    } else {
+      toast.success("User unbanned");
+      setUserBans(userBans.filter(b => b.id !== banId));
+    }
+  };
+
   // Loading state
   if (authLoading || adminLoading) {
     return (
@@ -396,10 +551,10 @@ export default function AdminPage() {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <FileText className="h-8 w-8 text-muted-foreground" />
+              <Ban className="h-8 w-8 text-destructive" />
               <div>
-                <p className="text-2xl font-bold">{reports.length}</p>
-                <p className="text-xs text-muted-foreground">Total Reports</p>
+                <p className="text-2xl font-bold">{userBans.length}</p>
+                <p className="text-xs text-muted-foreground">Banned Users</p>
               </div>
             </CardContent>
           </Card>
@@ -417,6 +572,13 @@ export default function AdminPage() {
             <TabsTrigger value="admins" className="gap-2">
               <Shield className="h-4 w-4" />
               Admins
+            </TabsTrigger>
+            <TabsTrigger value="bans" className="gap-2">
+              <Ban className="h-4 w-4" />
+              Bans
+              {userBans.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{userBans.length}</Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -592,6 +754,109 @@ export default function AdminPage() {
                     <Users className="h-12 w-12 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">No admins configured yet</p>
                     <p className="text-sm text-muted-foreground">Add an admin above to get started</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Bans Tab */}
+          <TabsContent value="bans" className="mt-4">
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Ban className="h-5 w-5 text-destructive" />
+                  Ban User
+                </CardTitle>
+                <CardDescription>
+                  Ban a user from the platform and optionally delete all their content
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Username to ban"
+                    value={banUsername}
+                    onChange={(e) => setBanUsername(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Input
+                    placeholder="Reason for ban (optional)"
+                    value={banReason}
+                    onChange={(e) => setBanReason(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="deletePostsOnBan"
+                    checked={deletePostsOnBan}
+                    onChange={(e) => setDeletePostsOnBan(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="deletePostsOnBan" className="text-sm text-muted-foreground">
+                    Delete all posts from this user
+                  </label>
+                </div>
+                <Button 
+                  variant="destructive" 
+                  onClick={banUser} 
+                  disabled={banningUser || !banUsername.trim()}
+                  className="w-full"
+                >
+                  {banningUser ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Ban className="h-4 w-4 mr-2" />
+                  )}
+                  Ban User
+                </Button>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold mb-3">Banned Users ({userBans.length})</h3>
+              {userBans.map((ban) => (
+                <Card key={ban.id}>
+                  <CardContent className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarImage src={ban.profile?.avatar_url || ""} />
+                        <AvatarFallback>
+                          {ban.profile?.display_name?.charAt(0) || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{ban.profile?.display_name || "Unknown"}</p>
+                        <p className="text-sm text-muted-foreground">
+                          @{ban.profile?.username || "unknown"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Banned by @{ban.banned_by_profile?.username || "admin"} • {ban.reason || "No reason provided"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(ban.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => unbanUser(ban.id)}
+                    >
+                      Unban
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {userBans.length === 0 && (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
+                    <p className="text-muted-foreground">No banned users</p>
+                    <p className="text-sm text-muted-foreground">The platform is clean!</p>
                   </CardContent>
                 </Card>
               )}
