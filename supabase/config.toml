@@ -5,3 +5,12 @@ verify_jwt = false
 
 [functions.ai-chat]
 verify_jwt = false
+
+[functions.social-write]
+verify_jwt = false
+
+[functions.sync-privy-user]
+verify_jwt = false
+
+[functions.update-profile]
+verify_jwt = false
