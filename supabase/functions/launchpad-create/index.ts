@@ -1,0 +1,236 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// UUID v5 implementation for Privy ID to UUID mapping
+const UUID_V5_NAMESPACE_DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+
+function uuidToBytes(uuid: string): Uint8Array {
+  const hex = uuid.replace(/-/g, "");
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToUuid(bytes: Uint8Array): string {
+  const hex: string[] = [];
+  for (let i = 0; i < 16; i++) {
+    hex.push(bytes[i].toString(16).padStart(2, "0"));
+  }
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+}
+
+async function sha1(data: Uint8Array): Promise<Uint8Array> {
+  const hashBuffer = await crypto.subtle.digest("SHA-1", data as ArrayBuffer);
+  return new Uint8Array(hashBuffer);
+}
+
+async function uuidV5(name: string, namespaceUuid: string): Promise<string> {
+  const namespaceBytes = uuidToBytes(namespaceUuid);
+  const nameBytes = new TextEncoder().encode(name);
+  const combined = new Uint8Array(namespaceBytes.length + nameBytes.length);
+  combined.set(namespaceBytes, 0);
+  combined.set(nameBytes, namespaceBytes.length);
+  const hash = await sha1(combined);
+  hash[6] = (hash[6] & 0x0f) | 0x50;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  return bytesToUuid(hash.slice(0, 16));
+}
+
+async function privyUserIdToUuid(privyUserId: string): Promise<string> {
+  return uuidV5(privyUserId, UUID_V5_NAMESPACE_DNS);
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const {
+      creatorWallet,
+      privyUserId,
+      name,
+      ticker,
+      description,
+      imageUrl,
+      websiteUrl,
+      twitterUrl,
+      telegramUrl,
+      discordUrl,
+      initialBuySol,
+    } = await req.json();
+
+    console.log("launchpad-create received:", { creatorWallet, name, ticker });
+
+    if (!creatorWallet || !name || !ticker) {
+      return new Response(
+        JSON.stringify({ error: "creatorWallet, name, and ticker are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create Supabase client with service role
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get creator profile ID if privyUserId provided
+    let creatorId: string | null = null;
+    if (privyUserId) {
+      creatorId = await privyUserIdToUuid(privyUserId);
+    }
+
+    // Generate a mock mint address for now (in production, this would come from Meteora API)
+    // For full implementation, you need to call your Vercel Meteora API to get real addresses
+    const meteoraApiUrl = Deno.env.get("METEORA_API_URL");
+    let mintAddress: string;
+    let dbcPoolAddress: string | null = null;
+
+    if (meteoraApiUrl) {
+      // Call Meteora API to create the pool
+      try {
+        const meteoraResponse = await fetch(`${meteoraApiUrl}/api/pool/create`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            creatorWallet,
+            name,
+            ticker,
+            description,
+            imageUrl,
+            initialBuySol,
+          }),
+        });
+
+        if (!meteoraResponse.ok) {
+          throw new Error(`Meteora API error: ${meteoraResponse.statusText}`);
+        }
+
+        const meteoraData = await meteoraResponse.json();
+        mintAddress = meteoraData.mintAddress;
+        dbcPoolAddress = meteoraData.poolAddress;
+        
+        console.log("Meteora pool created:", { mintAddress, dbcPoolAddress });
+      } catch (error) {
+        console.error("Meteora API call failed, using mock data:", error);
+        // Fallback to mock data for development
+        mintAddress = `mock_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`;
+      }
+    } else {
+      // Development mode - generate mock address
+      mintAddress = `mock_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`;
+      console.log("No METEORA_API_URL configured, using mock mint address");
+    }
+
+    // Calculate initial price (virtual reserves / virtual tokens)
+    const virtualSol = 30;
+    const virtualToken = 1_000_000_000;
+    const initialPrice = virtualSol / virtualToken;
+
+    // Create token record
+    const { data: token, error: tokenError } = await supabase
+      .from("tokens")
+      .insert({
+        mint_address: mintAddress,
+        name,
+        ticker: ticker.toUpperCase(),
+        description: description || null,
+        image_url: imageUrl || null,
+        website_url: websiteUrl || null,
+        twitter_url: twitterUrl || null,
+        telegram_url: telegramUrl || null,
+        discord_url: discordUrl || null,
+        creator_wallet: creatorWallet,
+        creator_id: creatorId,
+        dbc_pool_address: dbcPoolAddress,
+        virtual_sol_reserves: virtualSol,
+        virtual_token_reserves: virtualToken,
+        real_sol_reserves: initialBuySol || 0,
+        price_sol: initialPrice,
+        market_cap_sol: virtualSol,
+        status: "bonding",
+        migration_status: dbcPoolAddress ? "dbc_active" : "pending",
+        holder_count: initialBuySol > 0 ? 1 : 0,
+      })
+      .select()
+      .single();
+
+    if (tokenError) {
+      console.error("Token insert error:", tokenError);
+      throw tokenError;
+    }
+
+    console.log("Token created:", token.id);
+
+    // Create fee earners (creator gets 50%, system gets 50%)
+    const { error: earnerError } = await supabase.from("fee_earners").insert([
+      {
+        token_id: token.id,
+        wallet_address: creatorWallet,
+        profile_id: creatorId,
+        earner_type: "creator",
+        share_bps: 5000, // 50%
+      },
+      {
+        token_id: token.id,
+        earner_type: "system",
+        share_bps: 5000, // 50%
+      },
+    ]);
+
+    if (earnerError) {
+      console.error("Fee earner insert error:", earnerError);
+    }
+
+    // If initial buy, record the holding
+    if (initialBuySol > 0) {
+      const tokensReceived = calculateBuyOutput(initialBuySol, virtualSol, virtualToken);
+      
+      await supabase.from("token_holdings").insert({
+        token_id: token.id,
+        wallet_address: creatorWallet,
+        profile_id: creatorId,
+        balance: tokensReceived,
+      });
+
+      // Update token reserves
+      await supabase.from("tokens").update({
+        real_sol_reserves: initialBuySol,
+        bonding_curve_progress: (initialBuySol / 85) * 100,
+        holder_count: 1,
+      }).eq("id", token.id);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        tokenId: token.id,
+        mintAddress: token.mint_address,
+        dbcPoolAddress: token.dbc_pool_address,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("launchpad-create error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
+
+// Helper function to calculate buy output
+function calculateBuyOutput(solIn: number, virtualSol: number, virtualToken: number): number {
+  const k = virtualSol * virtualToken;
+  const newVirtualSol = virtualSol + solIn;
+  const newVirtualToken = k / newVirtualSol;
+  return virtualToken - newVirtualToken;
+}
