@@ -94,7 +94,13 @@ export function useSuggestedUsers(limit: number = 5) {
   };
 
   useEffect(() => {
-    fetchSuggestedUsers();
+    // Defer to not block critical rendering path
+    const timeoutId = setTimeout(() => {
+      fetchSuggestedUsers();
+    }, 150);
+    
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, limit]);
 
   return {

@@ -53,7 +53,10 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
     if (checked || fetchAttempted.current) return;
     fetchAttempted.current = true;
 
-    // Only fetch if build-time value is missing
+    // Only fetch if build-time value is missing - use AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
     const fetchRuntimeConfig = async () => {
       try {
         const { data, error } = await supabase.functions.invoke("public-config", {
@@ -66,11 +69,17 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
       } catch (e) {
         console.warn("Failed to fetch runtime config for Privy", e);
       } finally {
+        clearTimeout(timeoutId);
         setChecked(true);
       }
     };
 
     fetchRuntimeConfig();
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [checked]);
 
   const appId = resolvedAppId;

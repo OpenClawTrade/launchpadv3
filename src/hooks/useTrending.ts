@@ -99,7 +99,13 @@ export function useTrending(limit: number = 5) {
   };
 
   useEffect(() => {
-    fetchTrending();
+    // Defer to not block critical rendering path
+    const timeoutId = setTimeout(() => {
+      fetchTrending();
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [limit]);
 
   return {
