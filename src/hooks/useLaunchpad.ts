@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
+import { useMeteoraApi } from "./useMeteoraApi";
 
 export interface Token {
   id: string;
@@ -21,7 +22,7 @@ export interface Token {
   virtual_sol_reserves: number;
   virtual_token_reserves: number;
   real_sol_reserves: number;
-  real_token_reserves: number;
+  real_token_reserves: number; // Calculated field, defaults to 0
   total_supply: number;
   bonding_curve_progress: number;
   graduation_threshold_sol: number;
@@ -93,6 +94,7 @@ export interface FeeEarning {
 export function useLaunchpad() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { executeSwap: executeSwapApi, claimFees: claimFeesApi } = useMeteoraApi();
 
   // Fetch all tokens
   const { data: tokens = [], isLoading: isLoadingTokens, refetch: refetchTokens } = useQuery({
@@ -302,28 +304,37 @@ export function useLaunchpad() {
     });
   };
 
-  // Execute swap
+  // Execute swap using Vercel API
   const executeSwap = useMutation({
     mutationFn: async ({
       mintAddress,
       userWallet,
       amount,
       isBuy,
+      slippageBps = 500,
       profileId,
     }: {
       mintAddress: string;
       userWallet: string;
       amount: number;
       isBuy: boolean;
+      slippageBps?: number;
       profileId?: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('launchpad-swap', {
-        body: { mintAddress, userWallet, amount, isBuy, profileId },
+      const result = await executeSwapApi({
+        mintAddress,
+        userWallet,
+        amount,
+        isBuy,
+        slippageBps,
+        profileId,
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
+      if (!result.success) {
+        throw new Error('Swap failed');
+      }
+
+      return result;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['launchpad-token', variables.mintAddress] });
@@ -334,7 +345,7 @@ export function useLaunchpad() {
     },
   });
 
-  // Claim fees
+  // Claim fees using Vercel API
   const claimFees = useMutation({
     mutationFn: async ({
       tokenId,
@@ -345,13 +356,17 @@ export function useLaunchpad() {
       walletAddress: string;
       profileId?: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('launchpad-claim-fees', {
-        body: { tokenId, walletAddress, profileId },
+      const result = await claimFeesApi({
+        tokenId,
+        walletAddress,
+        profileId,
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
+      if (!result.success) {
+        throw new Error('Claim failed');
+      }
+
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-earnings'] });

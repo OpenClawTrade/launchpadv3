@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useMeteoraApi } from "@/hooks/useMeteoraApi";
 import { Loader2, Upload, Rocket, Twitter, Globe, MessageCircle, Image as ImageIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -18,6 +19,7 @@ interface LaunchTokenFormProps {
 export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const { solanaAddress, isAuthenticated, login, user } = useAuth();
   const { toast } = useToast();
+  const { createPool, isLoading: isApiLoading } = useMeteoraApi();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -87,24 +89,22 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         imageUrl = urlData.publicUrl;
       }
 
-      // 2. Call the launchpad edge function to create the token
-      const { data, error } = await supabase.functions.invoke('launchpad-create', {
-        body: {
-          creatorWallet: solanaAddress,
-          privyUserId: user?.privyId,
-          name: formData.name,
-          ticker: formData.ticker.toUpperCase(),
-          description: formData.description,
-          imageUrl,
-          websiteUrl: formData.websiteUrl || null,
-          twitterUrl: formData.twitterUrl || null,
-          telegramUrl: formData.telegramUrl || null,
-          discordUrl: formData.discordUrl || null,
-          initialBuySol: formData.initialBuySol,
-        },
+      // 2. Call the Vercel API to create the token (real Solana transactions)
+      const data = await createPool({
+        creatorWallet: solanaAddress,
+        privyUserId: user?.privyId,
+        name: formData.name,
+        ticker: formData.ticker.toUpperCase(),
+        description: formData.description,
+        imageUrl,
+        websiteUrl: formData.websiteUrl || undefined,
+        twitterUrl: formData.twitterUrl || undefined,
+        telegramUrl: formData.telegramUrl || undefined,
+        discordUrl: formData.discordUrl || undefined,
+        initialBuySol: formData.initialBuySol,
       });
 
-      if (error) throw error;
+      if (!data.success) throw new Error('Failed to create token');
 
       toast({
         title: "Token created successfully! 🚀",

@@ -27,8 +27,9 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
   const numericAmount = parseFloat(amount) || 0;
 
   // Calculate quote based on trade type
-  const virtualSol = token.virtual_sol_reserves + token.real_sol_reserves;
-  const virtualToken = token.virtual_token_reserves - token.real_token_reserves;
+  // Use virtual reserves + real reserves for calculation
+  const virtualSol = (token.virtual_sol_reserves || 30) + (token.real_sol_reserves || 0);
+  const virtualToken = (token.virtual_token_reserves || 1_000_000_000) - (token.real_token_reserves || 0);
   
   const buyQuote = calculateBuyQuote(numericAmount, virtualSol, virtualToken);
   const sellQuote = calculateSellQuote(numericAmount, virtualSol, virtualToken);
