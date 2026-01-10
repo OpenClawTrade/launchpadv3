@@ -165,20 +165,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw tokenError;
     }
 
-    // Create fee earners - creator gets 50%, platform treasury gets 50%
+    // Create fee earners - 100% goes to platform treasury
+    // Creator entry kept for UI consistency but with 0% share
     await supabase.from('fee_earners').insert([
       {
         token_id: token.id,
         wallet_address: creatorWallet,
         profile_id: creatorId,
         earner_type: 'creator',
-        share_bps: 5000, // 50% of 2% = 1%
+        share_bps: 0, // 0% - No on-chain creator fees
       },
       {
         token_id: token.id,
         wallet_address: PLATFORM_FEE_WALLET, // 7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2
         earner_type: 'system',
-        share_bps: 5000, // 50% of 2% = 1%
+        share_bps: 10000, // 100% of 2% = 2% to treasury
       },
     ]);
 

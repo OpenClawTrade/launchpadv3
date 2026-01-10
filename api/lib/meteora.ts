@@ -204,8 +204,8 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
       postMigrationTokenSupply: new BN(TOTAL_SUPPLY).mul(new BN(10).pow(new BN(TOKEN_DECIMALS))),
     },
     
-    // Creator trading fee percentage (of the 2%)
-    creatorTradingFeePercentage: Math.floor(CREATOR_FEE_SHARE * 100), // 50%
+    // Creator trading fee percentage - 0% means 100% goes to feeClaimer (treasury)
+    creatorTradingFeePercentage: 0, // 0% to creator, 100% to treasury
     
     // Immutable metadata
     tokenUpdateAuthority: 1,
@@ -472,6 +472,72 @@ export async function migratePool(poolAddress: string): Promise<string[]> {
   }
   
   return signatures;
+}
+
+// Claim partner trading fees from DBC pool (pre-graduation)
+// Only the feeClaimer (treasury) can call this
+export async function claimPartnerFees(poolAddress: string): Promise<{
+  signature: string;
+  claimedSol: number;
+}> {
+  const client = getMeteoraClient();
+  const connection = getConnection();
+  const treasury = getTreasuryKeypair();
+  
+  const poolPubkey = new PublicKey(poolAddress);
+  
+  // Get pool fee metrics
+  const feeMetrics = await client.state.getPoolFeeMetrics(poolPubkey);
+  if (!feeMetrics) {
+    throw new Error('Failed to get pool fee metrics');
+  }
+  
+  const partnerQuoteFee = Number(feeMetrics.current.partnerQuoteFee.toString()) / 1e9;
+  
+  if (partnerQuoteFee < 0.001) {
+    throw new Error('Insufficient fees to claim (minimum 0.001 SOL)');
+  }
+  
+  // Build claim transaction
+  const claimTx = await client.partner.claimPartnerTradingFee({
+    pool: poolPubkey,
+    feeClaimer: treasury.publicKey,
+    maxBaseAmount: new BN('18446744073709551615'), // Max uint64
+    maxQuoteAmount: new BN('18446744073709551615'), // Max uint64
+  });
+  
+  const { blockhash } = await connection.getLatestBlockhash('confirmed');
+  claimTx.recentBlockhash = blockhash;
+  claimTx.feePayer = treasury.publicKey;
+  
+  const signature = await connection.sendTransaction(claimTx, [treasury]);
+  await connection.confirmTransaction(signature, 'confirmed');
+  
+  return {
+    signature,
+    claimedSol: partnerQuoteFee,
+  };
+}
+
+// Get claimable fees from DBC pool
+export async function getClaimableFees(poolAddress: string): Promise<{
+  partnerQuoteFee: number;
+  partnerBaseFee: number;
+  totalTradingFee: number;
+}> {
+  const client = getMeteoraClient();
+  const poolPubkey = new PublicKey(poolAddress);
+  
+  const feeMetrics = await client.state.getPoolFeeMetrics(poolPubkey);
+  if (!feeMetrics) {
+    throw new Error('Failed to get pool fee metrics');
+  }
+  
+  return {
+    partnerQuoteFee: Number(feeMetrics.current.partnerQuoteFee.toString()) / 1e9,
+    partnerBaseFee: Number(feeMetrics.current.partnerBaseFee.toString()) / Math.pow(10, TOKEN_DECIMALS),
+    totalTradingFee: Number(feeMetrics.current.totalTradingQuoteFee.toString()) / 1e9,
+  };
 }
 
 // Serialize transaction for client signing

@@ -101,11 +101,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error('Failed to get pool state');
     }
 
-    // Calculate fees
+    // Calculate fees - 100% of 2% goes to treasury
     const solAmount = isBuy ? amount : estimatedOutput;
     const totalFee = (solAmount * TRADING_FEE_BPS) / 10000;
-    const systemFee = totalFee * SYSTEM_FEE_SHARE;
-    const creatorFee = totalFee * CREATOR_FEE_SHARE;
+    const systemFee = totalFee * SYSTEM_FEE_SHARE; // 100% of fee
+    const creatorFee = totalFee * CREATOR_FEE_SHARE; // 0% (kept for DB compatibility)
 
     const tokensOut = isBuy ? estimatedOutput : 0;
     const solOut = isBuy ? 0 : estimatedOutput;
@@ -221,27 +221,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Update fee earners - both creator and system
-    if (creatorFee > 0) {
-      const { data: creatorEarner } = await supabase
-        .from('fee_earners')
-        .select('*')
-        .eq('token_id', token.id)
-        .eq('earner_type', 'creator')
-        .single();
+    // Note: Creator fee is 0 - no update needed for creator earner
+    // All fees go to system/treasury
 
-      if (creatorEarner) {
-        await supabase
-          .from('fee_earners')
-          .update({
-            unclaimed_sol: (creatorEarner.unclaimed_sol || 0) + creatorFee,
-            total_earned_sol: (creatorEarner.total_earned_sol || 0) + creatorFee,
-          })
-          .eq('id', creatorEarner.id);
-      }
-    }
-
-    // Track system/platform fees
+    // Track system/platform fees - receives 100% of 2%
     if (systemFee > 0) {
       const { data: systemEarner } = await supabase
         .from('fee_earners')
@@ -260,6 +243,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('id', systemEarner.id);
       }
     }
+
 
     // Update holder count
     const { count: holderCount } = await supabase
