@@ -7,10 +7,11 @@ interface PrivyWalletProviderProps {
 
 export default function PrivyWalletProvider({ onWalletsChange }: PrivyWalletProviderProps) {
   const { wallets } = useWallets();
-  
+
   useEffect(() => {
     onWalletsChange(wallets || []);
   }, [wallets, onWalletsChange]);
-  
+
   return null;
 }
+
