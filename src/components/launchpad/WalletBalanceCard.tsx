@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSolanaWallet } from "@/hooks/useSolanaWallet";
+import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { Button } from "@/components/ui/button";
 import { Wallet, Copy, Check, RefreshCw, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +11,7 @@ interface WalletBalanceCardProps {
   className?: string;
 }
 
-export function WalletBalanceCard({ minRequired, className = "" }: WalletBalanceCardProps) {
+function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCardProps) {
   const { user } = useAuth();
   const { walletAddress, isWalletReady, getBalance } = useSolanaWallet();
   const { toast } = useToast();
@@ -35,11 +36,11 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
   useEffect(() => {
     if (isWalletReady) {
       fetchBalance();
-      
+
       const interval = setInterval(() => {
         fetchBalance();
       }, 10000);
-      
+
       return () => clearInterval(interval);
     }
   }, [isWalletReady]);
@@ -69,25 +70,11 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
 
   const hasEnough = minRequired === undefined || (balance !== null && balance >= minRequired);
 
-  if (!user) {
-    return (
-      <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}>
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-muted rounded-lg">
-            <Wallet className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Connect wallet to view balance</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Show loading state while wallet is connecting
   if (!isWalletReady || !walletAddress) {
     return (
-      <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}>
+      <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}
+      >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -101,9 +88,7 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
           <div className="h-8 bg-muted/50 rounded animate-pulse" />
           <div className="h-9 bg-muted/50 rounded animate-pulse" />
         </div>
-        <p className="text-xs text-muted-foreground mt-3">
-          Loading your embedded Solana wallet...
-        </p>
+        <p className="text-xs text-muted-foreground mt-3">Loading your embedded Solana wallet...</p>
       </div>
     );
   }
@@ -125,7 +110,7 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
           onClick={fetchBalance}
           disabled={isLoading}
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
@@ -134,23 +119,14 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
         <div className="flex-1 bg-background/50 rounded-lg px-3 py-2 font-mono text-sm text-muted-foreground truncate">
           {truncateAddress(walletAddress)}
         </div>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 shrink-0"
-          onClick={handleCopy}
-        >
-          {copied ? (
-            <Check className="h-4 w-4 text-green-500" />
-          ) : (
-            <Copy className="h-4 w-4" />
-          )}
+        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={handleCopy}>
+          {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
         </Button>
         <Button
           variant="outline"
           size="icon"
           className="h-9 w-9 shrink-0"
-          onClick={() => window.open(`https://solscan.io/account/${walletAddress}`, '_blank')}
+          onClick={() => window.open(`https://solscan.io/account/${walletAddress}`, "_blank")}
         >
           <ExternalLink className="h-4 w-4" />
         </Button>
@@ -171,19 +147,41 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
           <span className="text-muted-foreground font-medium">SOL</span>
         </div>
         {minRequired !== undefined && (
-          <p className={`text-xs mt-1 ${hasEnough ? 'text-muted-foreground' : 'text-destructive'}`}>
-            {hasEnough 
-              ? `✓ Sufficient for launch (min ${minRequired} SOL)`
-              : `⚠ Need at least ${minRequired} SOL to launch`
-            }
+          <p className={`text-xs mt-1 ${hasEnough ? "text-muted-foreground" : "text-destructive"}`}>
+            {hasEnough ? `✓ Sufficient for launch (min ${minRequired} SOL)` : `⚠ Need at least ${minRequired} SOL to launch`}
           </p>
         )}
       </div>
 
       {/* Top-up hint */}
-      <p className="text-xs text-muted-foreground">
-        Copy your address above to send SOL from an exchange or another wallet
-      </p>
+      <p className="text-xs text-muted-foreground">Copy your address above to send SOL from an exchange or another wallet</p>
     </div>
   );
+}
+
+export function WalletBalanceCard({ minRequired, className = "" }: WalletBalanceCardProps) {
+  const privyAvailable = usePrivyAvailable();
+  const { user } = useAuth();
+
+  // If Privy is not available (App ID not loaded yet), DO NOT call Privy hooks.
+  if (!privyAvailable) {
+    return (
+      <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-muted rounded-lg">
+            <Wallet className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {user ? 'Loading wallet system...' : 'Connect wallet to view balance'}
+            </p>
+            <p className="text-xs text-muted-foreground">If this keeps spinning, refresh and disable ad blockers.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Privy is available, safe to use wallet hooks inside Inner component
+  return <WalletBalanceCardInner minRequired={minRequired} className={className} />;
 }

@@ -20,7 +20,15 @@ const getApiUrl = () => {
 
 // Get RPC URL
 const getRpcUrl = () => {
-  return import.meta.env.VITE_HELIUS_RPC_URL || 'https://api.mainnet-beta.solana.com';
+  const explicit = import.meta.env.VITE_HELIUS_RPC_URL;
+  if (explicit && !explicit.includes('${')) return explicit;
+
+  const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
+  if (apiKey && !apiKey.includes('${')) {
+    return `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
+  }
+
+  return 'https://api.mainnet-beta.solana.com';
 };
 
 // API request helper
