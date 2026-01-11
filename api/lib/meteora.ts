@@ -206,7 +206,9 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     },
     
     // Migration fee option
-    migrationFeeOption: 2,
+    // IMPORTANT: if you set a non-empty `migratedPoolFee`, the SDK requires `migrationFeeOption` to be Customizable (6)
+    // when `migrationOption` is MET_DAMM_V2.
+    migrationFeeOption: 6,
     
     // Token supply
     tokenSupply: {
