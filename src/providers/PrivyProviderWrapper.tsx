@@ -53,33 +53,52 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
     if (checked || fetchAttempted.current) return;
     fetchAttempted.current = true;
 
-    // Only fetch if build-time value is missing - use AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
-
-    const fetchRuntimeConfig = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("public-config", {
-          body: {},
-        });
-
-        if (!error && data?.privyAppId) {
-          setResolvedAppId((data.privyAppId ?? "").trim());
+    // Only fetch if build-time value is missing
+    const fetchRuntimeConfig = async (retries = 3): Promise<void> => {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          // Use direct fetch with timeout for more reliability
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-config`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+              body: JSON.stringify({}),
+              signal: controller.signal,
+            }
+          );
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.privyAppId) {
+              console.log('[Privy] Loaded App ID from edge function');
+              setResolvedAppId((data.privyAppId ?? "").trim());
+              setChecked(true);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn(`[Privy] Config fetch attempt ${attempt}/${retries} failed:`, e);
+          if (attempt < retries) {
+            // Wait before retry with exponential backoff
+            await new Promise(r => setTimeout(r, 500 * attempt));
+          }
         }
-      } catch (e) {
-        console.warn("Failed to fetch runtime config for Privy", e);
-      } finally {
-        clearTimeout(timeoutId);
-        setChecked(true);
       }
+      
+      console.warn('[Privy] All config fetch attempts failed');
+      setChecked(true);
     };
 
     fetchRuntimeConfig();
-
-    return () => {
-      clearTimeout(timeoutId);
-      controller.abort();
-    };
   }, [checked]);
 
   const appId = resolvedAppId;
