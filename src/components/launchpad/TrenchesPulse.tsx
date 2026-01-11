@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatSolAmount, formatTokenAmount, Token } from "@/hooks/useLaunchpad";
+import { formatSolAmount, Token } from "@/hooks/useLaunchpad";
 import { 
   Flame, 
   Rocket, 
@@ -18,12 +18,11 @@ import {
   ArrowDown,
   Sparkles
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 type PulseFilter = 'new' | 'hot' | 'graduating' | 'volume';
 
-export function TrenchesPulse() {
+export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(function TrenchesPulse(_props, ref) {
   const [filter, setFilter] = useState<PulseFilter>('hot');
   const queryClient = useQueryClient();
 
@@ -102,7 +101,7 @@ export function TrenchesPulse() {
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card ref={ref} className="overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
         <div className="flex items-center gap-2">
@@ -234,4 +233,6 @@ export function TrenchesPulse() {
       </div>
     </Card>
   );
-}
+});
+
+TrenchesPulse.displayName = "TrenchesPulse";
