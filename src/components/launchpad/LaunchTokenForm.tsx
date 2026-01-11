@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,11 +11,13 @@ import { Loader2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
-import { useWallets } from "@privy-io/react-auth";
 
 interface LaunchTokenFormProps {
   onSuccess?: (mintAddress: string) => void;
 }
+
+// Lazy load a wrapper that uses Privy hooks
+const PrivyWalletProvider = lazy(() => import("./PrivyWalletProvider"));
 
 export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const { solanaAddress, isAuthenticated, login, user } = useAuth();
@@ -24,8 +26,8 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const privyAvailable = usePrivyAvailable();
   const navigate = useNavigate();
   
-  // Get wallets from Privy - this must be at component level
-  const { wallets } = useWallets();
+  // Wallet state from Privy (will be set by PrivyWalletProvider)
+  const [wallets, setWallets] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -171,6 +173,12 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Lazy load Privy wallet provider only when available */}
+      {privyAvailable && (
+        <Suspense fallback={null}>
+          <PrivyWalletProvider onWalletsChange={setWallets} />
+        </Suspense>
+      )}
       {/* Token Info Section */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
