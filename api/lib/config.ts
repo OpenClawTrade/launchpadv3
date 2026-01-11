@@ -42,11 +42,23 @@ export const MIGRATED_POOL_FEE_BPS = 200; // 2% on graduated pools
 export const TOKEN_TYPE = 0; // 0 = SPL Token (not Token-2022)
 export const TOKEN_UPDATE_AUTHORITY = 1; // 1 = immutable metadata
 
-// Environment variables
+// Environment variables with validation
 export const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL || '';
 export const SUPABASE_URL = process.env.SUPABASE_URL || '';
 export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 export const TREASURY_PRIVATE_KEY = process.env.TREASURY_PRIVATE_KEY || '';
+
+// Get RPC URL with helpful error messages
+export function getHeliusRpcUrl(): string {
+  const url = process.env.HELIUS_RPC_URL;
+  if (!url) {
+    console.error('[Config] HELIUS_RPC_URL is not set!');
+    console.error('[Config] Available env vars:', Object.keys(process.env).filter(k => k.includes('HELIUS') || k.includes('RPC')));
+    throw new Error('HELIUS_RPC_URL environment variable is required');
+  }
+  console.log('[Config] Using Helius RPC:', url.substring(0, 50) + '...');
+  return url;
+}
 
 // Validate required environment variables
 export function validateEnv() {
@@ -59,6 +71,10 @@ export function validateEnv() {
   const missing = required.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
+    console.error('[Config] Missing environment variables:', missing);
+    console.error('[Config] All env vars:', Object.keys(process.env).join(', '));
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
+  
+  console.log('[Config] All required environment variables are set ✓');
 }

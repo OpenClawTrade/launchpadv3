@@ -2,25 +2,35 @@ import { useCallback, useMemo } from 'react';
 import { Connection } from '@solana/web3.js';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Get a working Solana RPC URL (browser-friendly CORS)
-// PublicNode is reliable and doesn't require authentication
+// Get a working Solana RPC URL 
+// Priority: VITE_HELIUS_RPC_URL > VITE_HELIUS_API_KEY > PublicNode fallback
 export const getRpcUrl = (): { url: string; source: string } => {
-  const explicit = import.meta.env.VITE_HELIUS_RPC_URL;
-  if (explicit && !explicit.includes('${')) {
-    return { url: explicit, source: 'VITE_HELIUS_RPC_URL' };
+  // Debug: Log all env vars at startup (only in dev)
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    console.log('[RPC Config]', {
+      VITE_HELIUS_RPC_URL: import.meta.env.VITE_HELIUS_RPC_URL ? 'SET' : 'NOT SET',
+      VITE_HELIUS_API_KEY: import.meta.env.VITE_HELIUS_API_KEY ? 'SET' : 'NOT SET',
+    });
   }
 
+  // Option 1: Direct RPC URL
+  const explicitUrl = import.meta.env.VITE_HELIUS_RPC_URL;
+  if (explicitUrl && typeof explicitUrl === 'string' && explicitUrl.startsWith('https://')) {
+    console.log('[RPC] Using VITE_HELIUS_RPC_URL');
+    return { url: explicitUrl, source: 'VITE_HELIUS_RPC_URL' };
+  }
+
+  // Option 2: Build URL from API key
   const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
-  const hasKey = !!apiKey && apiKey.length > 10 && !apiKey.includes('${');
-  if (hasKey) {
-    return {
-      url: `https://mainnet.helius-rpc.com/?api-key=${apiKey}`,
-      source: 'VITE_HELIUS_API_KEY',
-    };
+  if (apiKey && typeof apiKey === 'string' && apiKey.length > 10 && !apiKey.includes('$')) {
+    const url = `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
+    console.log('[RPC] Using VITE_HELIUS_API_KEY');
+    return { url, source: 'VITE_HELIUS_API_KEY' };
   }
 
-  // PublicNode is CORS-friendly and doesn't require API key
-  return { url: 'https://solana.publicnode.com', source: 'publicnode' };
+  // Fallback: PublicNode (CORS-friendly, no auth)
+  console.warn('[RPC] No Helius config found, using PublicNode fallback');
+  return { url: 'https://solana.publicnode.com', source: 'publicnode_fallback' };
 };
 
 // Simple wallet hook that gets wallet from AuthContext (works without direct Privy hooks)
