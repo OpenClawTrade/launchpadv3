@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrivyProviderWrapper } from "@/providers/PrivyProviderWrapper";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 
 // Critical: Load Index page eagerly for instant home page
 import Index from "./pages/Index";
@@ -62,6 +63,7 @@ const queryClient = new QueryClient({
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <RuntimeConfigBootstrap />
     <PrivyProviderWrapper>
       <AuthProvider>
         <TooltipProvider delayDuration={300}>

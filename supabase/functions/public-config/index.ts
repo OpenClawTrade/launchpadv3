@@ -14,15 +14,27 @@ serve(async (req) => {
     const appIdRaw = Deno.env.get("VITE_PRIVY_APP_ID") ?? Deno.env.get("PRIVY_APP_ID") ?? "";
     const privyAppId = appIdRaw.trim();
 
-    return new Response(JSON.stringify({ privyAppId }), {
+    // Public runtime config (lets the frontend work even when Vite env vars are not injected)
+    const meteoraApiUrlRaw =
+      Deno.env.get("VITE_METEORA_API_URL") ?? Deno.env.get("METEORA_API_URL") ?? "";
+    const meteoraApiUrl = meteoraApiUrlRaw.trim();
+
+    const heliusRpcUrlRaw =
+      Deno.env.get("VITE_HELIUS_RPC_URL") ?? Deno.env.get("HELIUS_RPC_URL") ?? "";
+    const heliusRpcUrl = heliusRpcUrlRaw.trim();
+
+    return new Response(JSON.stringify({ privyAppId, meteoraApiUrl, heliusRpcUrl }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("public-config error:", e);
-    return new Response(JSON.stringify({ privyAppId: "", error: "Failed to load config" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ privyAppId: "", meteoraApiUrl: "", heliusRpcUrl: "", error: "Failed to load config" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });

@@ -2,10 +2,24 @@ import { useCallback, useMemo } from 'react';
 import { Connection } from '@solana/web3.js';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Get a working Solana RPC URL 
-// Priority: VITE_HELIUS_RPC_URL > VITE_HELIUS_API_KEY > PublicNode fallback
+// Get a working Solana RPC URL
+// Priority: VITE_HELIUS_RPC_URL > VITE_HELIUS_API_KEY > runtime config > PublicNode fallback
+let lastRpcSourceLogged: string | null = null;
+
+const logRpcSource = (source: string) => {
+  if (lastRpcSourceLogged === source) return;
+  lastRpcSourceLogged = source;
+
+  if (source === 'publicnode_fallback') {
+    console.warn('[RPC] No Helius config found, using PublicNode fallback');
+    return;
+  }
+
+  console.log(`[RPC] Using ${source}`);
+};
+
 export const getRpcUrl = (): { url: string; source: string } => {
-  // Debug: Log all env vars at startup (only in dev)
+  // Debug: Log env presence at startup (only in dev)
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
     console.log('[RPC Config]', {
       VITE_HELIUS_RPC_URL: import.meta.env.VITE_HELIUS_RPC_URL ? 'SET' : 'NOT SET',
@@ -16,7 +30,7 @@ export const getRpcUrl = (): { url: string; source: string } => {
   // Option 1: Direct RPC URL
   const explicitUrl = import.meta.env.VITE_HELIUS_RPC_URL;
   if (explicitUrl && typeof explicitUrl === 'string' && explicitUrl.startsWith('https://')) {
-    console.log('[RPC] Using VITE_HELIUS_RPC_URL');
+    logRpcSource('VITE_HELIUS_RPC_URL');
     return { url: explicitUrl, source: 'VITE_HELIUS_RPC_URL' };
   }
 
@@ -24,12 +38,25 @@ export const getRpcUrl = (): { url: string; source: string } => {
   const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
   if (apiKey && typeof apiKey === 'string' && apiKey.length > 10 && !apiKey.includes('$')) {
     const url = `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
-    console.log('[RPC] Using VITE_HELIUS_API_KEY');
+    logRpcSource('VITE_HELIUS_API_KEY');
     return { url, source: 'VITE_HELIUS_API_KEY' };
   }
 
+  // Option 3: Runtime config (set by RuntimeConfigBootstrap)
+  if (typeof window !== 'undefined') {
+    const runtimeUrl =
+      ((window as any)?.__PUBLIC_CONFIG__?.heliusRpcUrl as string | undefined) ||
+      localStorage.getItem('heliusRpcUrl') ||
+      '';
+
+    if (runtimeUrl && runtimeUrl.startsWith('https://') && !runtimeUrl.includes('${')) {
+      logRpcSource('runtime_public_config');
+      return { url: runtimeUrl, source: 'runtime_public_config' };
+    }
+  }
+
   // Fallback: PublicNode (CORS-friendly, no auth)
-  console.warn('[RPC] No Helius config found, using PublicNode fallback');
+  logRpcSource('publicnode_fallback');
   return { url: 'https://solana.publicnode.com', source: 'publicnode_fallback' };
 };
 
