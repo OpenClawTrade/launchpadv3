@@ -6,11 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMeteoraApi } from "@/hooks/useMeteoraApi";
-import { useSolanaWallet } from "@/hooks/useSolanaWallet";
+import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { Loader2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { useWallets } from "@privy-io/react-auth";
 
 interface LaunchTokenFormProps {
   onSuccess?: (mintAddress: string) => void;
@@ -20,8 +21,11 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const { solanaAddress, isAuthenticated, login, user } = useAuth();
   const { toast } = useToast();
   const { createPool, isLoading: isApiLoading } = useMeteoraApi();
-  const { getSolanaWallet } = useSolanaWallet();
+  const privyAvailable = usePrivyAvailable();
   const navigate = useNavigate();
+  
+  // Get wallets from Privy - this must be at component level
+  const { wallets } = useWallets();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -52,17 +56,24 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
 
   // Sign transaction using Privy wallet
   const signTransaction = async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
-    const wallet = getSolanaWallet();
+    // Get the Privy embedded wallet
+    const wallet = wallets?.find((w: any) => w.walletClientType === 'privy') || wallets?.[0];
+    
     if (!wallet) {
       throw new Error('No wallet connected');
     }
 
     try {
-      // Get provider from wallet
-      const provider = await (wallet as any).getEthereumProvider?.() || wallet;
+      // Get Solana provider from the wallet
+      const provider = await (wallet as any).getProvider?.();
       
-      if (provider.signTransaction) {
+      if (provider && provider.signTransaction) {
         return await provider.signTransaction(tx);
+      }
+      
+      // Fallback: try direct signTransaction
+      if ((wallet as any).signTransaction) {
+        return await (wallet as any).signTransaction(tx);
       }
       
       throw new Error('Wallet does not support transaction signing');
