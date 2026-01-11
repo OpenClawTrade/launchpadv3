@@ -83,23 +83,33 @@ async function apiRequest<T>(
   return data as T;
 }
 
-// Deserialize transaction from base64
+// Deserialize transaction from base64 (browser-compatible)
 function deserializeTransaction(base64: string): Transaction | VersionedTransaction {
-  const buffer = Buffer.from(base64, 'base64');
+  // Convert base64 to Uint8Array (browser-compatible, no Buffer needed)
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
   
   // Check if it's a versioned transaction (first byte indicates version)
   try {
     // Try versioned first
-    return VersionedTransaction.deserialize(buffer);
+    return VersionedTransaction.deserialize(bytes);
   } catch {
     // Fall back to legacy transaction
-    return Transaction.from(buffer);
+    return Transaction.from(bytes);
   }
 }
 
-// Deserialize keypair from base64
+// Deserialize keypair from base64 (browser-compatible)
 function deserializeKeypair(base64: string): Keypair {
-  const secretKey = Buffer.from(base64, 'base64');
+  // Convert base64 to Uint8Array (browser-compatible, no Buffer needed)
+  const binaryString = atob(base64);
+  const secretKey = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    secretKey[i] = binaryString.charCodeAt(i);
+  }
   return Keypair.fromSecretKey(secretKey);
 }
 
