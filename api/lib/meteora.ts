@@ -101,6 +101,7 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   mintKeypair: Keypair;
   configKeypair: Keypair;
   poolAddress: PublicKey;
+  lastValidBlockHeight: number;
 }> {
   const client = getMeteoraClient();
   const connection = getConnection();
@@ -253,17 +254,36 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     firstBuyParam,
   });
 
-  // Collect transactions
-  const transactions: Transaction[] = [createConfigTx, createPoolTx];
+  // Get recent blockhash for all transactions
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+  
+  // Set blockhash and fee payer on all transactions
+  const preparedTransactions: Transaction[] = [];
+  
+  if (createConfigTx) {
+    createConfigTx.recentBlockhash = blockhash;
+    createConfigTx.feePayer = creatorPubkey;
+    preparedTransactions.push(createConfigTx);
+  }
+  
+  if (createPoolTx) {
+    createPoolTx.recentBlockhash = blockhash;
+    createPoolTx.feePayer = creatorPubkey;
+    preparedTransactions.push(createPoolTx);
+  }
+  
   if (swapBuyTx) {
-    transactions.push(swapBuyTx);
+    swapBuyTx.recentBlockhash = blockhash;
+    swapBuyTx.feePayer = creatorPubkey;
+    preparedTransactions.push(swapBuyTx);
   }
 
   return {
-    transactions,
+    transactions: preparedTransactions,
     mintKeypair,
     configKeypair,
     poolAddress,
+    lastValidBlockHeight,
   };
 }
 
