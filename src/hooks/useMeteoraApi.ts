@@ -236,28 +236,19 @@ export function useMeteoraApi() {
             ? [result.transaction]
             : [];
 
-      // Step 2: If transactions need signing
-      if (txBase64s.length > 0 && result.signers && signTransaction) {
+      // Step 2: If transactions need signing by user wallet
+      if (txBase64s.length > 0 && signTransaction) {
         const connection = new Connection(getRpcUrl(), 'confirmed');
-
-        const mintKeypair = deserializeKeypair(result.signers.mint);
-        const configKeypair = deserializeKeypair(result.signers.config);
 
         const signatures: string[] = [];
 
         for (const txBase64 of txBase64s) {
           const tx = deserializeTransaction(txBase64);
 
-          // Legacy transactions
+          // Legacy transactions - already pre-signed by backend with mint/config keypairs
+          // We just need user wallet signature
           if (tx instanceof Transaction) {
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-            tx.recentBlockhash = blockhash;
-            tx.lastValidBlockHeight = lastValidBlockHeight;
-
-            // Program-required signers first
-            tx.partialSign(mintKeypair, configKeypair);
-
-            // Then user wallet
+            // User wallet signs
             const signedTx = await signTransaction(tx);
 
             const signature = await connection.sendRawTransaction(
@@ -266,6 +257,7 @@ export function useMeteoraApi() {
                 : (signedTx as VersionedTransaction).serialize()
             );
 
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
             await connection.confirmTransaction(
               {
                 signature,
@@ -279,12 +271,9 @@ export function useMeteoraApi() {
             continue;
           }
 
-          // Versioned transactions
+          // Versioned transactions - already pre-signed by backend
           if (tx instanceof VersionedTransaction) {
-            // Program-required signers first
-            tx.sign([mintKeypair, configKeypair]);
-
-            // Then user wallet
+            // User wallet signs
             const signedTx = await signTransaction(tx);
 
             const signature = await connection.sendRawTransaction(
