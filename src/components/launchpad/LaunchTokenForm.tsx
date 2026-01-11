@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +28,31 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   
   // Wallet state from Privy (will be set by PrivyWalletProvider)
   const [wallets, setWallets] = useState<any[]>([]);
+  const walletsRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    walletsRef.current = wallets;
+  }, [wallets]);
+
+  const getWalletForSigning = useCallback(async () => {
+    const pick = (list: any[]) =>
+      list.find((w: any) => w.walletClientType === "privy") ??
+      list.find((w: any) => w.chainType === "solana") ??
+      list[0] ??
+      null;
+
+    let wallet = pick(walletsRef.current);
+    if (wallet) return wallet;
+
+    const started = Date.now();
+    while (Date.now() - started < 8000) {
+      await new Promise((r) => setTimeout(r, 200));
+      wallet = pick(walletsRef.current);
+      if (wallet) return wallet;
+    }
+
+    return null;
+  }, []);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -57,33 +82,31 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   };
 
   // Sign transaction using Privy wallet
-  const signTransaction = async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
-    // Get the Privy embedded wallet
-    const wallet = wallets?.find((w: any) => w.walletClientType === 'privy') || wallets?.[0];
-    
-    if (!wallet) {
-      throw new Error('No wallet connected');
-    }
+  const signTransaction = useCallback(
+    async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
+      const wallet = await getWalletForSigning();
 
-    try {
-      // Get Solana provider from the wallet
-      const provider = await (wallet as any).getProvider?.();
-      
-      if (provider && provider.signTransaction) {
+      if (!wallet) {
+        throw new Error("Wallet is still initializing. Please wait a few seconds and try again.");
+      }
+
+      const provider =
+        (wallet as any).getProvider ? await (wallet as any).getProvider() :
+        (wallet as any).getSolanaProvider ? await (wallet as any).getSolanaProvider() :
+        null;
+
+      if (provider?.signTransaction) {
         return await provider.signTransaction(tx);
       }
-      
-      // Fallback: try direct signTransaction
+
       if ((wallet as any).signTransaction) {
         return await (wallet as any).signTransaction(tx);
       }
-      
-      throw new Error('Wallet does not support transaction signing');
-    } catch (error) {
-      console.error('Transaction signing error:', error);
-      throw error;
-    }
-  };
+
+      throw new Error("Wallet does not support transaction signing");
+    },
+    [getWalletForSigning]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +123,25 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
 
     if (formData.ticker.length > 10) {
       toast({ title: "Ticker must be 10 characters or less", variant: "destructive" });
+      return;
+    }
+
+    if (!privyAvailable) {
+      toast({
+        title: "Wallet not ready",
+        description: "Wallet system is still initializing. Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const signerWallet = await getWalletForSigning();
+    if (!signerWallet) {
+      toast({
+        title: "No wallet connected",
+        description: "Wait a few seconds for the embedded wallet to load, then try again.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -319,15 +361,23 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         <Button
           type="submit"
           className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
-          disabled={isLoading || isApiLoading || !formData.name || !formData.ticker}
+          disabled={
+            isLoading ||
+            isApiLoading ||
+            !formData.name ||
+            !formData.ticker ||
+            (privyAvailable && wallets.length === 0)
+          }
         >
           {isLoading || isApiLoading ? (
             <>
               <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               Creating Token...
             </>
+          ) : privyAvailable && wallets.length === 0 ? (
+            "Initializing wallet..."
           ) : (
-            'Launch Token'
+            "Launch Token"
           )}
         </Button>
       ) : (
