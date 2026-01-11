@@ -19,6 +19,30 @@ export default defineConfig(({ mode }) => ({
         if (warning?.code === "INVALID_ANNOTATION") return;
         warn(warning);
       },
+      output: {
+        manualChunks: {
+          // Core React dependencies
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          // UI components
+          'vendor-radix': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-tooltip',
+            '@radix-ui/react-avatar',
+            '@radix-ui/react-scroll-area',
+          ],
+          // Charts
+          'vendor-charts': ['recharts'],
+          // Solana/Web3
+          'vendor-solana': ['@solana/web3.js', '@solana/spl-token'],
+          // Date utilities
+          'vendor-date': ['date-fns'],
+          // Query/state management
+          'vendor-query': ['@tanstack/react-query'],
+        },
+      },
     },
   },
   resolve: {
