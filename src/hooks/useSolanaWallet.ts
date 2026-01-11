@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useCallback, useState, useMemo } from 'react';
 import { Connection, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { useToast } from '@/hooks/use-toast';
+import { usePrivyAvailable } from '@/providers/PrivyProviderWrapper';
 
 // Get a working Solana RPC URL (browser-friendly CORS)
-const getRpcUrl = (): { url: string; source: string } => {
+export const getRpcUrl = (): { url: string; source: string } => {
   const explicit = import.meta.env.VITE_HELIUS_RPC_URL;
   if (explicit && !explicit.includes('${')) {
     return { url: explicit, source: 'VITE_HELIUS_RPC_URL' };
@@ -12,7 +12,6 @@ const getRpcUrl = (): { url: string; source: string } => {
 
   const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
   const hasKey = !!apiKey && apiKey.length > 10 && !apiKey.includes('${');
-  console.log('[RPC] VITE_HELIUS_API_KEY present:', hasKey);
   if (hasKey) {
     return {
       url: `https://mainnet.helius-rpc.com/?api-key=${apiKey}`,
@@ -21,11 +20,14 @@ const getRpcUrl = (): { url: string; source: string } => {
   }
 
   // Public fallbacks (many providers block browser CORS or rate-limit aggressively).
-  // Prefer endpoints known to work in the browser.
+  // Use Ankr which is known to work with browser CORS
   return { url: 'https://rpc.ankr.com/solana', source: 'public_ankr' };
 };
 
-export function useSolanaWallet() {
+// Inner hook that uses Privy - MUST only be called inside PrivyProvider
+export function useSolanaWalletWithPrivy() {
+  // Import Privy hooks at runtime to avoid issues when called outside provider
+  const { usePrivy, useWallets } = require('@privy-io/react-auth');
   const { authenticated, user, ready } = usePrivy();
   const { wallets } = useWallets();
   const { toast } = useToast();
@@ -40,7 +42,7 @@ export function useSolanaWallet() {
 
   // Get the Privy embedded wallet (primary) from useWallets
   const getEmbeddedWallet = useCallback(() => {
-    const embeddedWallet = wallets.find((w) => w.walletClientType === 'privy');
+    const embeddedWallet = wallets?.find((w: any) => w.walletClientType === 'privy');
     return embeddedWallet;
   }, [wallets]);
 
@@ -51,7 +53,7 @@ export function useSolanaWallet() {
     if (embedded) return embedded;
 
     // Fallback to any connected wallet
-    return wallets[0] || null;
+    return wallets?.[0] || null;
   }, [wallets, getEmbeddedWallet]);
 
   // IMPORTANT: Also check Privy user's linkedAccounts for wallet address
@@ -198,7 +200,7 @@ export function useSolanaWallet() {
     };
   }, [getConnection, rpcUrl, rpcSource]);
 
-  const debug = {
+  const debug = useMemo(() => ({
     rpcUrl,
     rpcSource,
     privyReady: ready,
@@ -216,7 +218,7 @@ export function useSolanaWallet() {
     privyUserWallet: (user as any)?.wallet?.address ?? null,
     linkedAccountsCount: (user as any)?.linkedAccounts?.length ?? 0,
     linkedSolanaWallet: getWalletAddressFromPrivyUser(),
-  };
+  }), [rpcUrl, rpcSource, ready, authenticated, walletAddress, wallets, user, getSolanaWallet, getWalletAddressFromPrivyUser]);
 
   // Get token balance (simplified - fetch from database)
   const getTokenBalance = useCallback(async (mintAddress: string): Promise<number> => {
@@ -240,4 +242,74 @@ export function useSolanaWallet() {
     getSolanaWallet,
     getEmbeddedWallet,
   };
+}
+
+// Fallback hook when Privy is not available - safe to call anywhere
+export function useSolanaWalletFallback() {
+  const { url: rpcUrl, source: rpcSource } = getRpcUrl();
+
+  const getConnection = useCallback(() => {
+    return new Connection(rpcUrl, 'confirmed');
+  }, [rpcUrl]);
+
+  const testRpc = useCallback(async () => {
+    const connection = getConnection();
+    const started = performance.now();
+
+    const version = await connection.getVersion();
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+
+    return {
+      rpcUrl,
+      rpcSource,
+      version: version['solana-core'],
+      blockhash,
+      latencyMs: Math.round(performance.now() - started),
+    };
+  }, [getConnection, rpcUrl, rpcSource]);
+
+  const debug = useMemo(() => ({
+    rpcUrl,
+    rpcSource,
+    privyReady: false,
+    authenticated: false,
+    walletAddress: null,
+    walletSource: 'none',
+    wallets: [],
+    privyUserWallet: null,
+    linkedAccountsCount: 0,
+    linkedSolanaWallet: null,
+  }), [rpcUrl, rpcSource]);
+
+  return {
+    walletAddress: null as string | null,
+    isWalletReady: false,
+    isConnecting: false,
+    rpcUrl,
+    debug,
+    testRpc,
+    getConnection,
+    getBalance: async (): Promise<number> => 0,
+    getBalanceStrict: async (): Promise<number> => { throw new Error('Wallet not connected'); },
+    getTokenBalance: async (_mintAddress: string): Promise<number> => 0,
+    signAndSendTransaction: async (): Promise<{ signature: string; confirmed: boolean }> => { 
+      throw new Error('Wallet not connected'); 
+    },
+    getSolanaWallet: () => null,
+    getEmbeddedWallet: () => null,
+  };
+}
+
+// Main hook - uses the privyAvailable context to decide which implementation to use
+// IMPORTANT: Components that call this must be inside PrivyProviderWrapper
+export function useSolanaWallet() {
+  const privyAvailable = usePrivyAvailable();
+  
+  if (!privyAvailable) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useSolanaWalletFallback();
+  }
+  
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useSolanaWalletWithPrivy();
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSolanaWallet } from "@/hooks/useSolanaWallet";
+import { useSolanaWalletWithPrivy, useSolanaWalletFallback, getRpcUrl } from "@/hooks/useSolanaWallet";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { Button } from "@/components/ui/button";
 import { Wallet, Copy, Check, RefreshCw, ExternalLink } from "lucide-react";
@@ -11,7 +11,8 @@ interface WalletBalanceCardProps {
   className?: string;
 }
 
-function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCardProps) {
+// Inner component that uses Privy wallet hooks - ONLY rendered when privyAvailable is true
+function WalletBalanceCardWithPrivy({ minRequired, className = "" }: WalletBalanceCardProps) {
   const { user } = useAuth();
   const {
     walletAddress,
@@ -20,7 +21,7 @@ function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCa
     getBalanceStrict,
     testRpc,
     debug,
-  } = useSolanaWallet() as any;
+  } = useSolanaWalletWithPrivy();
 
   const { toast } = useToast();
   const [balance, setBalance] = useState<number | null>(null);
@@ -276,14 +277,34 @@ function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCa
   );
 }
 
-export function WalletBalanceCard({ minRequired, className = "" }: WalletBalanceCardProps) {
-  const privyAvailable = usePrivyAvailable();
+// Fallback component when Privy is not available
+function WalletBalanceCardFallback({ className = "" }: WalletBalanceCardProps) {
   const { user } = useAuth();
+  const { testRpc, debug } = useSolanaWalletFallback();
+  const [rpcStatus, setRpcStatus] = useState<
+    | { state: 'idle' }
+    | { state: 'running' }
+    | { state: 'ok'; data: any }
+    | { state: 'error'; error: string }
+  >({ state: 'idle' });
+  const [showDebug, setShowDebug] = useState(false);
 
-  // If Privy is not available (App ID not loaded yet), DO NOT call Privy hooks.
-  if (!privyAvailable) {
-    return (
-      <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}>
+  const runRpcTest = async () => {
+    setRpcStatus({ state: 'running' });
+    try {
+      const data = await testRpc();
+      setRpcStatus({ state: 'ok', data });
+      setShowDebug(true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'RPC test failed';
+      setRpcStatus({ state: 'error', error: msg });
+      setShowDebug(true);
+    }
+  };
+
+  return (
+    <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}>
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-muted rounded-lg">
             <Wallet className="h-5 w-5 text-muted-foreground" />
@@ -295,10 +316,49 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
             <p className="text-xs text-muted-foreground">If this keeps spinning, refresh and disable ad blockers.</p>
           </div>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-xs"
+          onClick={runRpcTest}
+          disabled={rpcStatus.state === 'running'}
+        >
+          Test
+        </Button>
       </div>
-    );
+      {showDebug && (
+        <div className="mt-2 rounded-lg border border-border bg-background/40 p-2 text-xs text-muted-foreground space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-foreground">Diagnostics</span>
+            <button className="text-primary hover:underline" onClick={() => setShowDebug(false)}>
+              Hide
+            </button>
+          </div>
+          <div className="break-all">RPC: {debug?.rpcUrl ?? '—'} ({debug?.rpcSource ?? 'unknown'})</div>
+          <div>Privy available: false</div>
+          {rpcStatus.state === 'ok' && (
+            <div className="text-green-500">
+              ✓ RPC OK ({rpcStatus.data.latencyMs}ms) • v{rpcStatus.data.version}
+            </div>
+          )}
+          {rpcStatus.state === 'error' && (
+            <div className="text-destructive break-all">✗ RPC error: {rpcStatus.error}</div>
+          )}
+          {rpcStatus.state === 'running' && <div>Testing RPC…</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function WalletBalanceCard({ minRequired, className = "" }: WalletBalanceCardProps) {
+  const privyAvailable = usePrivyAvailable();
+
+  // If Privy is not available (App ID not loaded yet), show fallback that doesn't call Privy hooks
+  if (!privyAvailable) {
+    return <WalletBalanceCardFallback minRequired={minRequired} className={className} />;
   }
 
-  // Privy is available, safe to use wallet hooks inside Inner component
-  return <WalletBalanceCardInner minRequired={minRequired} className={className} />;
+  // Privy is available, safe to use wallet hooks inside the Privy-enabled component
+  return <WalletBalanceCardWithPrivy minRequired={minRequired} className={className} />;
 }
