@@ -10,7 +10,7 @@ import {
 } from '../lib/config.js';
 import { getSupabaseClient } from '../lib/supabase.js';
 import { getConnection, serializeTransaction } from '../lib/solana.js';
-import { createMeteoraPool, getRequiredSigners, serializeTransaction as serializeMeteoraTransaction } from '../lib/meteora.js';
+import { createMeteoraPool, serializeTransaction as serializeMeteoraTransaction } from '../lib/meteora.js';
 
 // CORS headers
 const corsHeaders = {
@@ -227,9 +227,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await supabase.rpc('backend_update_holder_count', { p_token_id: tokenId });
     }
 
-    // Serialize transactions and signers for client signing
+    // Serialize transactions for client wallet signing
     const serializedTransactions = transactions.map(tx => serializeMeteoraTransaction(tx));
-    const signers = getRequiredSigners(mintKeypair, configKeypair);
 
     console.log('[pool/create] Success:', { tokenId, mintAddress, dbcPoolAddress });
 
@@ -240,11 +239,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       dbcPoolAddress: dbcPoolAddress,
       // Serialized transactions for client wallet signing
       transactions: serializedTransactions,
-      // Keypairs that need to sign (mint and config)
-      signers: {
-        mint: signers.mint,
-        config: signers.config,
-      },
     });
 
   } catch (error) {

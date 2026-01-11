@@ -257,22 +257,27 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   // Get recent blockhash for all transactions
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
   
-  // Set blockhash, fee payer, and pre-sign with program-required keypairs
+  // Set blockhash, fee payer, and pre-sign ONLY when the key is actually a required signer
   const preparedTransactions: Transaction[] = [];
-  
+
+  const signIfRequired = (tx: Transaction, kp: Keypair) => {
+    const required = tx.signatures.some(s => s.publicKey.equals(kp.publicKey));
+    if (required) tx.partialSign(kp);
+  };
+
   if (createConfigTx) {
     createConfigTx.recentBlockhash = blockhash;
     createConfigTx.feePayer = creatorPubkey;
-    // Pre-sign with mint and config keypairs (required by the program)
-    createConfigTx.partialSign(mintKeypair, configKeypair);
+    signIfRequired(createConfigTx, mintKeypair);
+    signIfRequired(createConfigTx, configKeypair);
     preparedTransactions.push(createConfigTx);
   }
-  
+
   if (createPoolTx) {
     createPoolTx.recentBlockhash = blockhash;
     createPoolTx.feePayer = creatorPubkey;
-    // Pre-sign with mint and config keypairs (required by the program)
-    createPoolTx.partialSign(mintKeypair, configKeypair);
+    signIfRequired(createPoolTx, mintKeypair);
+    signIfRequired(createPoolTx, configKeypair);
     preparedTransactions.push(createPoolTx);
   }
   
