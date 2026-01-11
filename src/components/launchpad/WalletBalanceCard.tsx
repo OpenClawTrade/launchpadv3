@@ -77,6 +77,30 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
     );
   }
 
+  // Show loading state while wallet is connecting
+  if (!isWalletReady || !walletAddress) {
+    return (
+      <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Wallet className="h-4 w-4 text-primary" />
+            </div>
+            <span className="font-medium text-sm">Your Wallet</span>
+          </div>
+          <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+        <div className="space-y-2">
+          <div className="h-8 bg-muted/50 rounded animate-pulse" />
+          <div className="h-9 bg-muted/50 rounded animate-pulse" />
+        </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          Loading your embedded Solana wallet...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}>
       {/* Header */}
@@ -98,11 +122,44 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
         </Button>
       </div>
 
+      {/* Address & Actions */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex-1 bg-background/50 rounded-lg px-3 py-2 font-mono text-sm text-muted-foreground truncate">
+          {truncateAddress(walletAddress)}
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={handleCopy}
+        >
+          {copied ? (
+            <Check className="h-4 w-4 text-green-500" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => window.open(`https://solscan.io/account/${walletAddress}`, '_blank')}
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+      </div>
+
       {/* Balance */}
-      <div className="mb-3">
+      <div className="mb-2">
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-bold">
-            {balance !== null ? balance.toFixed(4) : "—"}
+            {isLoading ? (
+              <span className="inline-block h-8 w-20 bg-muted/50 rounded animate-pulse" />
+            ) : balance !== null ? (
+              balance.toFixed(4)
+            ) : (
+              "0.0000"
+            )}
           </span>
           <span className="text-muted-foreground font-medium">SOL</span>
         </div>
@@ -116,37 +173,8 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
         )}
       </div>
 
-      {/* Address & Actions */}
-      {walletAddress && (
-        <div className="flex items-center gap-2">
-          <div className="flex-1 bg-background/50 rounded-lg px-3 py-2 font-mono text-sm text-muted-foreground">
-            {truncateAddress(walletAddress)}
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0"
-            onClick={handleCopy}
-          >
-            {copied ? (
-              <Check className="h-4 w-4 text-green-500" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0"
-            onClick={() => window.open(`https://solscan.io/account/${walletAddress}`, '_blank')}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-
       {/* Top-up hint */}
-      <p className="text-xs text-muted-foreground mt-3">
+      <p className="text-xs text-muted-foreground">
         Copy your address above to send SOL from an exchange or another wallet
       </p>
     </div>
