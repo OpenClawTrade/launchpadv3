@@ -166,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Build claim fee transaction using claimPositionFee
     console.log('[fees/claim-damm-fees] Building claim transaction...');
     
-    const claimTxBuilder = cpAmm.claimPositionFee({
+    const claimTx = await cpAmm.claimPositionFee({
       owner: treasury.publicKey,
       position: targetPosition.position,
       pool: poolPubkey,
@@ -180,19 +180,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       receiver: treasury.publicKey,
     });
 
-    // Build and sign transaction
-    const claimTx = await claimTxBuilder.build();
-    claimTx.sign([treasury]);
-    
+    // Set recent blockhash + fee payer, then sign
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+    claimTx.feePayer = treasury.publicKey;
+    claimTx.recentBlockhash = blockhash;
+    claimTx.sign(treasury);
+
     // Send transaction
     const signature = await connection.sendRawTransaction(claimTx.serialize());
-    
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-    await connection.confirmTransaction({
-      signature,
-      blockhash,
-      lastValidBlockHeight,
-    }, 'confirmed');
+
+    await connection.confirmTransaction(
+      { signature, blockhash, lastValidBlockHeight },
+      'confirmed'
+    );
 
     console.log('[fees/claim-damm-fees] Fees claimed:', signature);
 
