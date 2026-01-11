@@ -36,16 +36,20 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
 
   const getWalletForSigning = useCallback(async () => {
     const pick = (list: any[]) =>
+      // Prefer the wallet matching the logged-in Solana address (most reliable)
       list.find((w: any) => (w?.address && solanaAddress && w.address === solanaAddress)) ??
-      list.find((w: any) => w.walletClientType === "privy") ??
-      list.find((w: any) => w.chainType === "solana") ??
+      // Privy embedded wallet (Solana recipe uses standardWallet.name === 'Privy')
+      list.find((w: any) => w?.standardWallet?.name === "Privy") ??
+      // Fallbacks
+      list.find((w: any) => w?.walletClientType === "privy") ??
+      list.find((w: any) => w?.chainType === "solana") ??
       list[0] ??
       null;
 
     let wallet = pick(walletsRef.current);
     if (wallet) return wallet;
 
-    // Privy can take a moment to hydrate useWallets() after login.
+    // Privy can take a moment to hydrate Solana wallets after login.
     const started = Date.now();
     while (Date.now() - started < 8000) {
       await new Promise((r) => setTimeout(r, 200));
