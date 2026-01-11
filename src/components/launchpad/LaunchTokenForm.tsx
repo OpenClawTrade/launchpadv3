@@ -36,6 +36,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
 
   const getWalletForSigning = useCallback(async () => {
     const pick = (list: any[]) =>
+      list.find((w: any) => (w?.address && solanaAddress && w.address === solanaAddress)) ??
       list.find((w: any) => w.walletClientType === "privy") ??
       list.find((w: any) => w.chainType === "solana") ??
       list[0] ??
@@ -44,6 +45,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
     let wallet = pick(walletsRef.current);
     if (wallet) return wallet;
 
+    // Privy can take a moment to hydrate useWallets() after login.
     const started = Date.now();
     while (Date.now() - started < 8000) {
       await new Promise((r) => setTimeout(r, 200));
@@ -52,7 +54,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
     }
 
     return null;
-  }, []);
+  }, [solanaAddress]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -361,21 +363,13 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         <Button
           type="submit"
           className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
-          disabled={
-            isLoading ||
-            isApiLoading ||
-            !formData.name ||
-            !formData.ticker ||
-            (privyAvailable && wallets.length === 0)
-          }
+          disabled={isLoading || isApiLoading || !formData.name || !formData.ticker}
         >
           {isLoading || isApiLoading ? (
             <>
               <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               Creating Token...
             </>
-          ) : privyAvailable && wallets.length === 0 ? (
-            "Initializing wallet..."
           ) : (
             "Launch Token"
           )}
