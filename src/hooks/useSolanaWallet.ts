@@ -6,11 +6,15 @@ import { useToast } from '@/hooks/use-toast';
 // Get Helius RPC URL
 const getHeliusRpcUrl = () => {
   const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
-  if (apiKey && !apiKey.includes('${')) {
+  console.log('[RPC] VITE_HELIUS_API_KEY present:', !!apiKey, apiKey ? `(${apiKey.slice(0,4)}...)` : '');
+  
+  if (apiKey && apiKey.length > 10 && !apiKey.includes('${')) {
     return `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
   }
-  // Fallback to public RPC
-  return 'https://api.mainnet-beta.solana.com';
+  
+  // Try backup RPC endpoints that are more reliable than mainnet-beta
+  // Fallback order: Helius free tier, Alchemy, then mainnet-beta
+  return 'https://solana-mainnet.g.alchemy.com/v2/demo'; // Alchemy has a demo endpoint
 };
 
 export function useSolanaWallet() {
@@ -26,13 +30,13 @@ export function useSolanaWallet() {
     return new Connection(rpcUrl, 'confirmed');
   }, [rpcUrl]);
 
-  // Get the Privy embedded wallet (primary)
+  // Get the Privy embedded wallet (primary) from useWallets
   const getEmbeddedWallet = useCallback(() => {
     const embeddedWallet = wallets.find((w) => w.walletClientType === 'privy');
     return embeddedWallet;
   }, [wallets]);
 
-  // Get any Solana wallet
+  // Get any Solana wallet from useWallets
   const getSolanaWallet = useCallback(() => {
     // Prefer embedded wallet
     const embedded = getEmbeddedWallet();
@@ -42,8 +46,26 @@ export function useSolanaWallet() {
     return wallets[0] || null;
   }, [wallets, getEmbeddedWallet]);
 
-  // Get wallet address
-  const walletAddress = getSolanaWallet()?.address || null;
+  // IMPORTANT: Also check Privy user's linkedAccounts for wallet address
+  // This is more reliable than useWallets() which can be empty initially
+  const getWalletAddressFromPrivyUser = useCallback(() => {
+    if (!user) return null;
+    
+    // Check linkedAccounts for Solana wallet
+    const solanaWallet = (user as any).linkedAccounts?.find(
+      (account: any) => account.type === 'wallet' && account.chainType === 'solana'
+    );
+    if (solanaWallet?.address) return solanaWallet.address;
+    
+    // Check embedded wallet on user object
+    const embeddedWallet = (user as any).wallet;
+    if (embeddedWallet?.address) return embeddedWallet.address;
+    
+    return null;
+  }, [user]);
+
+  // Get wallet address - prefer useWallets, fallback to linkedAccounts
+  const walletAddress = getSolanaWallet()?.address || getWalletAddressFromPrivyUser() || null;
 
   // Check if wallet is ready
   const isWalletReady = ready && authenticated && !!walletAddress;
@@ -172,12 +194,14 @@ export function useSolanaWallet() {
     privyReady: ready,
     authenticated,
     walletAddress,
+    walletSource: getSolanaWallet()?.address ? 'useWallets' : (getWalletAddressFromPrivyUser() ? 'linkedAccounts' : 'none'),
     wallets: (wallets ?? []).map((w: any) => ({
       walletClientType: w.walletClientType,
       address: w.address,
     })),
     privyUserWallet: (user as any)?.wallet?.address ?? null,
     linkedAccountsCount: (user as any)?.linkedAccounts?.length ?? 0,
+    linkedSolanaWallet: getWalletAddressFromPrivyUser(),
   };
 
   // Get token balance (simplified - fetch from database)

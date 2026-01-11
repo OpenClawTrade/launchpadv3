@@ -141,17 +141,19 @@ function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCa
                 Hide
               </button>
             </div>
-            <div>RPC: {debug?.rpcUrl ?? '—'}</div>
-            <div>Wallet address: {walletAddress ?? '—'}</div>
+            <div className="break-all">RPC: {debug?.rpcUrl ?? '—'}</div>
+            <div>Wallet: {walletAddress ?? '—'} ({debug?.walletSource ?? 'none'})</div>
             <div>Privy ready/auth: {String(debug?.privyReady)} / {String(debug?.authenticated)}</div>
-            <div>Wallets detected: {debug?.wallets?.length ?? 0}</div>
+            <div>Wallets (useWallets): {debug?.wallets?.length ?? 0}</div>
+            <div>LinkedAccounts: {debug?.linkedAccountsCount ?? 0}</div>
+            <div>LinkedSolanaWallet: {debug?.linkedSolanaWallet ?? '—'}</div>
             {rpcStatus.state === 'ok' && (
-              <div>
-                RPC OK ({rpcStatus.data.latencyMs}ms) • v{rpcStatus.data.version} • {rpcStatus.data.blockhash.slice(0, 8)}…
+              <div className="text-green-500">
+                ✓ RPC OK ({rpcStatus.data.latencyMs}ms) • v{rpcStatus.data.version}
               </div>
             )}
             {rpcStatus.state === 'error' && (
-              <div className="text-destructive">RPC error: {rpcStatus.error}</div>
+              <div className="text-destructive break-all">✗ RPC error: {rpcStatus.error}</div>
             )}
             {rpcStatus.state === 'running' && <div>Testing RPC…</div>}
           </div>
@@ -243,17 +245,19 @@ function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCa
                 Hide
               </button>
             </div>
-            <div>RPC: {debug?.rpcUrl ?? '—'}</div>
-            <div>Wallet address: {walletAddress ?? '—'}</div>
+            <div className="break-all">RPC: {debug?.rpcUrl ?? '—'}</div>
+            <div>Wallet: {walletAddress ?? '—'} ({debug?.walletSource ?? 'none'})</div>
             <div>Privy ready/auth: {String(debug?.privyReady)} / {String(debug?.authenticated)}</div>
-            <div>Wallets detected: {debug?.wallets?.length ?? 0}</div>
+            <div>Wallets (useWallets): {debug?.wallets?.length ?? 0}</div>
+            <div>LinkedAccounts: {debug?.linkedAccountsCount ?? 0}</div>
+            <div>LinkedSolanaWallet: {debug?.linkedSolanaWallet ?? '—'}</div>
             {rpcStatus.state === 'ok' && (
-              <div>
-                RPC OK ({rpcStatus.data.latencyMs}ms) • v{rpcStatus.data.version} • {rpcStatus.data.blockhash.slice(0, 8)}…
+              <div className="text-green-500">
+                ✓ RPC OK ({rpcStatus.data.latencyMs}ms) • v{rpcStatus.data.version}
               </div>
             )}
             {rpcStatus.state === 'error' && (
-              <div className="text-destructive">RPC error: {rpcStatus.error}</div>
+              <div className="text-destructive break-all">✗ RPC error: {rpcStatus.error}</div>
             )}
             {rpcStatus.state === 'running' && <div>Testing RPC…</div>}
           </div>
