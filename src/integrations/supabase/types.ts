@@ -1634,6 +1634,57 @@ export type Database = {
         }
         Returns: string
       }
+      backend_record_transaction: {
+        Args: {
+          p_creator_fee_sol?: number
+          p_price_per_token: number
+          p_signature: string
+          p_slot?: number
+          p_sol_amount: number
+          p_system_fee_sol?: number
+          p_token_amount: number
+          p_token_id: string
+          p_transaction_type: string
+          p_user_profile_id?: string
+          p_user_wallet: string
+        }
+        Returns: string
+      }
+      backend_update_fee_earner: {
+        Args: {
+          p_earner_type: string
+          p_fee_amount: number
+          p_token_id: string
+        }
+        Returns: undefined
+      }
+      backend_update_holder_count: {
+        Args: { p_token_id: string }
+        Returns: undefined
+      }
+      backend_update_token_state: {
+        Args: {
+          p_bonding_curve_progress: number
+          p_market_cap_sol: number
+          p_price_sol: number
+          p_real_sol_reserves: number
+          p_real_token_reserves: number
+          p_token_id: string
+          p_virtual_sol_reserves: number
+          p_virtual_token_reserves: number
+          p_volume_delta?: number
+        }
+        Returns: undefined
+      }
+      backend_upsert_token_holding: {
+        Args: {
+          p_balance_delta: number
+          p_profile_id?: string
+          p_token_id: string
+          p_wallet_address: string
+        }
+        Returns: undefined
+      }
       calculate_trending_topics: { Args: never; Returns: undefined }
       can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
       generate_short_id: { Args: never; Returns: string }
