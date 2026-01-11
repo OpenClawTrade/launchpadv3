@@ -25,14 +25,14 @@ const getRpcUrl = () => getBaseRpcUrl().url;
 
 // API request helper
 async function apiRequest<T>(
-  endpoint: string, 
+  endpoint: string,
   body: Record<string, unknown>
 ): Promise<T> {
   const apiUrl = getApiUrl();
   const url = `${apiUrl}/api${endpoint}`;
-  
+
   console.log('[useMeteoraApi] Request:', { url, body });
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -40,14 +40,27 @@ async function apiRequest<T>(
     },
     body: JSON.stringify(body),
   });
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.error || 'API request failed');
+
+  const text = await response.text();
+
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    // This usually means the request hit a static HTML page (e.g. missing /api deployment)
+    const snippet = text?.slice(0, 200) ?? '';
+    throw new Error(
+      `Backend API returned non-JSON (HTTP ${response.status}). ` +
+        `This typically means /api is not deployed on that domain. ` +
+        `Response starts with: ${JSON.stringify(snippet)}`
+    );
   }
-  
-  return data;
+
+  if (!response.ok) {
+    throw new Error(data?.error || data?.message || `API request failed (HTTP ${response.status})`);
+  }
+
+  return data as T;
 }
 
 // Deserialize transaction from base64
@@ -76,7 +89,9 @@ interface CreatePoolResponse {
   tokenId: string;
   mintAddress: string;
   dbcPoolAddress: string | null;
-  transaction?: string; // Serialized transaction
+  // Backwards/forwards compatibility:
+  transaction?: string; // single serialized transaction
+  transactions?: string[]; // multiple serialized transactions
   signers?: {
     mint: string; // Base64 encoded secret key
     config: string; // Base64 encoded secret key
@@ -178,77 +193,99 @@ export function useMeteoraApi() {
       initialBuySol?: number;
     },
     signTransaction?: (tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>
-  ): Promise<CreatePoolResponse & { signature?: string }> => {
+  ): Promise<CreatePoolResponse & { signature?: string; signatures?: string[] }> => {
     setIsLoading(true);
     try {
-      // Step 1: Get transaction from API
+      // Step 1: Get transactions from API
       const result = await apiRequest<CreatePoolResponse>('/pool/create', params);
-      
-      // Step 2: If transaction needs signing
-      if (result.transaction && result.signers && signTransaction) {
+
+      const txBase64s =
+        result.transactions && result.transactions.length > 0
+          ? result.transactions
+          : result.transaction
+            ? [result.transaction]
+            : [];
+
+      // Step 2: If transactions need signing
+      if (txBase64s.length > 0 && result.signers && signTransaction) {
         const connection = new Connection(getRpcUrl(), 'confirmed');
-        
-        // Deserialize transaction and signers
-        const tx = deserializeTransaction(result.transaction);
+
         const mintKeypair = deserializeKeypair(result.signers.mint);
         const configKeypair = deserializeKeypair(result.signers.config);
-        
-        // For legacy transactions
-        if (tx instanceof Transaction) {
-          // Get recent blockhash
-          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-          tx.recentBlockhash = blockhash;
-          tx.lastValidBlockHeight = lastValidBlockHeight;
-          
-          // Sign with generated keypairs first
-          tx.partialSign(mintKeypair, configKeypair);
-          
-          // Then sign with user's wallet
-          const signedTx = await signTransaction(tx);
-          
-          // Send transaction
-          const signature = await connection.sendRawTransaction(
-            signedTx instanceof Transaction 
-              ? signedTx.serialize() 
-              : signedTx.serialize()
-          );
-          
-          // Confirm transaction
-          await connection.confirmTransaction({
-            signature,
-            blockhash,
-            lastValidBlockHeight,
-          }, 'confirmed');
-          
-          console.log('[useMeteoraApi] Pool created on-chain:', signature);
-          
-          return { ...result, signature };
+
+        const signatures: string[] = [];
+
+        for (const txBase64 of txBase64s) {
+          const tx = deserializeTransaction(txBase64);
+
+          // Legacy transactions
+          if (tx instanceof Transaction) {
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+            tx.recentBlockhash = blockhash;
+            tx.lastValidBlockHeight = lastValidBlockHeight;
+
+            // Program-required signers first
+            tx.partialSign(mintKeypair, configKeypair);
+
+            // Then user wallet
+            const signedTx = await signTransaction(tx);
+
+            const signature = await connection.sendRawTransaction(
+              signedTx instanceof Transaction
+                ? signedTx.serialize()
+                : (signedTx as VersionedTransaction).serialize()
+            );
+
+            await connection.confirmTransaction(
+              {
+                signature,
+                blockhash,
+                lastValidBlockHeight,
+              },
+              'confirmed'
+            );
+
+            signatures.push(signature);
+            continue;
+          }
+
+          // Versioned transactions
+          if (tx instanceof VersionedTransaction) {
+            // Program-required signers first
+            tx.sign([mintKeypair, configKeypair]);
+
+            // Then user wallet
+            const signedTx = await signTransaction(tx);
+
+            const signature = await connection.sendRawTransaction(
+              signedTx instanceof VersionedTransaction
+                ? signedTx.serialize()
+                : (signedTx as Transaction).serialize()
+            );
+
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+            await connection.confirmTransaction(
+              {
+                signature,
+                blockhash,
+                lastValidBlockHeight,
+              },
+              'confirmed'
+            );
+
+            signatures.push(signature);
+          }
         }
-        
-        // For versioned transactions
-        if (tx instanceof VersionedTransaction) {
-          tx.sign([mintKeypair, configKeypair]);
-          const signedTx = await signTransaction(tx);
-          
-          const signature = await connection.sendRawTransaction(
-            signedTx instanceof VersionedTransaction 
-              ? signedTx.serialize() 
-              : (signedTx as Transaction).serialize()
-          );
-          
-          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-          await connection.confirmTransaction({
-            signature,
-            blockhash,
-            lastValidBlockHeight,
-          }, 'confirmed');
-          
-          console.log('[useMeteoraApi] Pool created on-chain:', signature);
-          
-          return { ...result, signature };
-        }
+
+        console.log('[useMeteoraApi] Pool created on-chain:', signatures);
+
+        return {
+          ...result,
+          signatures,
+          signature: signatures[0],
+        };
       }
-      
+
       return result;
     } finally {
       setIsLoading(false);
