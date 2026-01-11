@@ -226,11 +226,11 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
       creatorFeePercentage: 0,
     },
     
-    // Post-migration pool fees
+    // Post-migration pool fees - 2% continues after graduation
     migratedPoolFee: {
-      collectFeeMode: CollectFeeMode.QuoteToken,
-      dynamicFee: DammV2DynamicFeeMode.Disabled,
-      poolFeeBps: MIGRATED_POOL_FEE_BPS,
+      collectFeeMode: 0, // Collect in quote token (SOL)
+      dynamicFee: 0,     // Disabled
+      poolFeeBps: MIGRATED_POOL_FEE_BPS, // 200 bps = 2%
     },
     
     padding: [],
