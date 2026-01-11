@@ -28,7 +28,8 @@ const getRpcUrl = () => {
     return `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
   }
 
-  return 'https://api.mainnet-beta.solana.com';
+  // Browser-friendly public fallback (avoids 403/CORS on api.mainnet-beta.solana.com)
+  return 'https://rpc.ankr.com/solana';
 };
 
 // API request helper

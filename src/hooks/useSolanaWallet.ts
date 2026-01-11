@@ -3,18 +3,26 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { Connection, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { useToast } from '@/hooks/use-toast';
 
-// Get Helius RPC URL
-const getHeliusRpcUrl = () => {
-  const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
-  console.log('[RPC] VITE_HELIUS_API_KEY present:', !!apiKey, apiKey ? `(${apiKey.slice(0,4)}...)` : '');
-  
-  if (apiKey && apiKey.length > 10 && !apiKey.includes('${')) {
-    return `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
+// Get a working Solana RPC URL (browser-friendly CORS)
+const getRpcUrl = (): { url: string; source: string } => {
+  const explicit = import.meta.env.VITE_HELIUS_RPC_URL;
+  if (explicit && !explicit.includes('${')) {
+    return { url: explicit, source: 'VITE_HELIUS_RPC_URL' };
   }
-  
-  // Try backup RPC endpoints that are more reliable than mainnet-beta
-  // Fallback order: Helius free tier, Alchemy, then mainnet-beta
-  return 'https://solana-mainnet.g.alchemy.com/v2/demo'; // Alchemy has a demo endpoint
+
+  const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
+  const hasKey = !!apiKey && apiKey.length > 10 && !apiKey.includes('${');
+  console.log('[RPC] VITE_HELIUS_API_KEY present:', hasKey);
+  if (hasKey) {
+    return {
+      url: `https://mainnet.helius-rpc.com/?api-key=${apiKey}`,
+      source: 'VITE_HELIUS_API_KEY',
+    };
+  }
+
+  // Public fallbacks (many providers block browser CORS or rate-limit aggressively).
+  // Prefer endpoints known to work in the browser.
+  return { url: 'https://rpc.ankr.com/solana', source: 'public_ankr' };
 };
 
 export function useSolanaWallet() {
@@ -23,7 +31,7 @@ export function useSolanaWallet() {
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const rpcUrl = getHeliusRpcUrl();
+  const { url: rpcUrl, source: rpcSource } = getRpcUrl();
 
   // Get connection
   const getConnection = useCallback(() => {
@@ -173,7 +181,7 @@ export function useSolanaWallet() {
     return balance / LAMPORTS_PER_SOL;
   }, [walletAddress, getConnection]);
 
-  // RPC connectivity test (helps debug Helius/mainnet issues)
+  // RPC connectivity test (helps debug RPC issues)
   const testRpc = useCallback(async () => {
     const connection = getConnection();
     const started = performance.now();
@@ -183,18 +191,24 @@ export function useSolanaWallet() {
 
     return {
       rpcUrl,
-      version: version["solana-core"],
+      rpcSource,
+      version: version['solana-core'],
       blockhash,
       latencyMs: Math.round(performance.now() - started),
     };
-  }, [getConnection, rpcUrl]);
+  }, [getConnection, rpcUrl, rpcSource]);
 
   const debug = {
     rpcUrl,
+    rpcSource,
     privyReady: ready,
     authenticated,
     walletAddress,
-    walletSource: getSolanaWallet()?.address ? 'useWallets' : (getWalletAddressFromPrivyUser() ? 'linkedAccounts' : 'none'),
+    walletSource: getSolanaWallet()?.address
+      ? 'useWallets'
+      : getWalletAddressFromPrivyUser()
+        ? 'linkedAccounts'
+        : 'none',
     wallets: (wallets ?? []).map((w: any) => ({
       walletClientType: w.walletClientType,
       address: w.address,

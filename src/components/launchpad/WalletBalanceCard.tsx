@@ -107,7 +107,9 @@ function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCa
 
   const hasEnough = minRequired === undefined || (balance !== null && balance >= minRequired);
 
-  // Show loading state while wallet is connecting
+  // Show loading / missing-wallet state
+  const noWalletDetected = Boolean(debug?.privyReady && debug?.authenticated && !walletAddress);
+
   if (!isWalletReady || !walletAddress) {
     return (
       <div className={`bg-secondary/50 rounded-xl p-4 border border-border ${className}`}>
@@ -132,7 +134,11 @@ function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCa
           <div className="h-8 bg-muted/50 rounded animate-pulse" />
           <div className="h-9 bg-muted/50 rounded animate-pulse" />
         </div>
-        <p className="text-xs text-muted-foreground mt-3">Loading your embedded Solana wallet...</p>
+        <p className={`text-xs mt-3 ${noWalletDetected ? 'text-destructive' : 'text-muted-foreground'}`}>
+          {noWalletDetected
+            ? 'No Solana wallet detected for this account (check Diagnostics → LinkedSolanaWallet).'
+            : 'Loading your embedded Solana wallet…'}
+        </p>
         {showDebug && (
           <div className="mt-2 rounded-lg border border-border bg-background/40 p-2 text-xs text-muted-foreground space-y-1">
             <div className="flex items-center justify-between">
@@ -141,7 +147,7 @@ function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCa
                 Hide
               </button>
             </div>
-            <div className="break-all">RPC: {debug?.rpcUrl ?? '—'}</div>
+            <div className="break-all">RPC: {debug?.rpcUrl ?? '—'} ({debug?.rpcSource ?? 'unknown'})</div>
             <div>Wallet: {walletAddress ?? '—'} ({debug?.walletSource ?? 'none'})</div>
             <div>Privy ready/auth: {String(debug?.privyReady)} / {String(debug?.authenticated)}</div>
             <div>Wallets (useWallets): {debug?.wallets?.length ?? 0}</div>
@@ -245,7 +251,7 @@ function WalletBalanceCardInner({ minRequired, className = "" }: WalletBalanceCa
                 Hide
               </button>
             </div>
-            <div className="break-all">RPC: {debug?.rpcUrl ?? '—'}</div>
+            <div className="break-all">RPC: {debug?.rpcUrl ?? '—'} ({debug?.rpcSource ?? 'unknown'})</div>
             <div>Wallet: {walletAddress ?? '—'} ({debug?.walletSource ?? 'none'})</div>
             <div>Privy ready/auth: {String(debug?.privyReady)} / {String(debug?.authenticated)}</div>
             <div>Wallets (useWallets): {debug?.wallets?.length ?? 0}</div>
