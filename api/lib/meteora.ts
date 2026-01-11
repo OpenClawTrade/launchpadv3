@@ -113,7 +113,9 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   const platformPubkey = new PublicKey(PLATFORM_FEE_WALLET);
   
   // Calculate fee numerator (2% = 200 bps = 2,000,000 / 100,000,000)
-  const feeNumerator = new BN(TRADING_FEE_BPS * 10000); // 2% = 2000000
+  // Fee numerator formula: fee% * 100_000_000 / 100
+  // 2% = 2 * 1_000_000 = 2_000_000
+  const feeNumerator = new BN(2_000_000); // 2% fee
   
   // Prepare initial buy if specified
   let firstBuyParam = null;
