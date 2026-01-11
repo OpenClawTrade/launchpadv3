@@ -33,6 +33,7 @@ export interface Token {
   status: 'bonding' | 'graduated' | 'failed';
   migration_status: string;
   holder_count: number;
+  graduated_at: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -277,65 +277,68 @@ export async function executeMeteoraSwap(params: {
     throw new Error('Pool has graduated. Trade on DEX.');
   }
   
-  let transaction: Transaction | VersionedTransaction;
+  // Get pool config
+  const poolConfig = await client.state.getPoolConfig(poolState.config);
+  if (!poolConfig) {
+    throw new Error('Pool config not found');
+  }
+  
+  let transaction: Transaction;
   let estimatedOutput: number;
   
   if (params.isBuy) {
-    // Buy: SOL -> Token
-    const amountIn = await prepareSwapAmountParam(
-      params.amount,
-      new PublicKey(WSOL_MINT),
-      connection
-    );
+    // Buy: SOL -> Token (swapBaseForQuote = false, we're swapping quote for base)
+    const amountInLamports = new BN(Math.floor(params.amount * 1e9));
     
-    // Get quote
-    const quote = await client.pool.getSwapQuote({
-      pool: poolPubkey,
-      inAmount: amountIn,
-      inputMint: new PublicKey(WSOL_MINT),
+    // Get quote using the correct parameters
+    const quote = client.pool.swapQuote({
+      virtualPool: poolState,
+      config: poolConfig,
+      swapBaseForQuote: false, // Buying token with SOL
+      amountIn: amountInLamports,
       slippageBps: slippage,
+      hasReferral: false,
+      currentPoint: poolState.currentPoint || new BN(0),
     });
     
-    estimatedOutput = Number(quote.outAmount.toString()) / Math.pow(10, TOKEN_DECIMALS);
+    estimatedOutput = Number(quote.amountOut.toString()) / Math.pow(10, TOKEN_DECIMALS);
     
     // Build swap transaction
-    const result = await client.pool.swap({
-      payer: userPubkey,
+    transaction = await client.pool.swap({
+      owner: userPubkey,
       pool: poolPubkey,
-      inAmount: amountIn,
-      inputMint: new PublicKey(WSOL_MINT),
-      minimumAmountOut: quote.minOutAmount,
+      amountIn: amountInLamports,
+      minimumAmountOut: quote.minimumAmountOut,
+      swapBaseForQuote: false,
       referralTokenAccount: null,
     });
-    
-    transaction = result.transaction;
     
   } else {
-    // Sell: Token -> SOL
-    const tokenMint = poolState.baseMint;
-    const amountIn = new BN(params.amount * Math.pow(10, TOKEN_DECIMALS));
+    // Sell: Token -> SOL (swapBaseForQuote = true)
+    const amountIn = new BN(Math.floor(params.amount * Math.pow(10, TOKEN_DECIMALS)));
     
     // Get quote
-    const quote = await client.pool.getSwapQuote({
-      pool: poolPubkey,
-      inAmount: amountIn,
-      inputMint: tokenMint,
+    const quote = client.pool.swapQuote({
+      virtualPool: poolState,
+      config: poolConfig,
+      swapBaseForQuote: true, // Selling token for SOL
+      amountIn: amountIn,
       slippageBps: slippage,
+      hasReferral: false,
+      currentPoint: poolState.currentPoint || new BN(0),
     });
     
-    estimatedOutput = Number(quote.outAmount.toString()) / 1e9; // Convert lamports to SOL
+    estimatedOutput = Number(quote.amountOut.toString()) / 1e9; // Convert lamports to SOL
     
     // Build swap transaction
-    const result = await client.pool.swap({
-      payer: userPubkey,
+    transaction = await client.pool.swap({
+      owner: userPubkey,
       pool: poolPubkey,
-      inAmount: amountIn,
-      inputMint: tokenMint,
-      minimumAmountOut: quote.minOutAmount,
+      amountIn: amountIn,
+      minimumAmountOut: quote.minimumAmountOut,
+      swapBaseForQuote: true,
       referralTokenAccount: null,
     });
-    
-    transaction = result.transaction;
   }
   
   return {
@@ -500,8 +503,9 @@ export async function claimPartnerFees(poolAddress: string): Promise<{
   
   // Build claim transaction
   const claimTx = await client.partner.claimPartnerTradingFee({
-    pool: poolPubkey,
+    payer: treasury.publicKey,
     feeClaimer: treasury.publicKey,
+    pool: poolPubkey,
     maxBaseAmount: new BN('18446744073709551615'), // Max uint64
     maxQuoteAmount: new BN('18446744073709551615'), // Max uint64
   });
@@ -536,7 +540,7 @@ export async function getClaimableFees(poolAddress: string): Promise<{
   return {
     partnerQuoteFee: Number(feeMetrics.current.partnerQuoteFee.toString()) / 1e9,
     partnerBaseFee: Number(feeMetrics.current.partnerBaseFee.toString()) / Math.pow(10, TOKEN_DECIMALS),
-    totalTradingFee: Number(feeMetrics.current.totalTradingQuoteFee.toString()) / 1e9,
+    totalTradingFee: (Number(feeMetrics.current.partnerQuoteFee.toString()) + Number(feeMetrics.current.creatorQuoteFee.toString())) / 1e9,
   };
 }
 
