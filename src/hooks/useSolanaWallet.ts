@@ -19,10 +19,12 @@ export function useSolanaWallet() {
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
 
+  const rpcUrl = getHeliusRpcUrl();
+
   // Get connection
   const getConnection = useCallback(() => {
-    return new Connection(getHeliusRpcUrl(), 'confirmed');
-  }, []);
+    return new Connection(rpcUrl, 'confirmed');
+  }, [rpcUrl]);
 
   // Get the Privy embedded wallet (primary)
   const getEmbeddedWallet = useCallback(() => {
@@ -120,7 +122,7 @@ export function useSolanaWallet() {
     [getSolanaWallet, getConnection]
   );
 
-  // Get SOL balance
+  // Get SOL balance (legacy - returns 0 on error)
   const getBalance = useCallback(async (): Promise<number> => {
     if (!walletAddress) return 0;
 
@@ -136,6 +138,48 @@ export function useSolanaWallet() {
     }
   }, [walletAddress, getConnection]);
 
+  // Get SOL balance (strict - surfaces errors to UI)
+  const getBalanceStrict = useCallback(async (): Promise<number> => {
+    if (!walletAddress) {
+      throw new Error('No wallet address');
+    }
+
+    const connection = getConnection();
+    const { PublicKey, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+    const pubkey = new PublicKey(walletAddress);
+    const balance = await connection.getBalance(pubkey);
+    return balance / LAMPORTS_PER_SOL;
+  }, [walletAddress, getConnection]);
+
+  // RPC connectivity test (helps debug Helius/mainnet issues)
+  const testRpc = useCallback(async () => {
+    const connection = getConnection();
+    const started = performance.now();
+
+    const version = await connection.getVersion();
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+
+    return {
+      rpcUrl,
+      version: version["solana-core"],
+      blockhash,
+      latencyMs: Math.round(performance.now() - started),
+    };
+  }, [getConnection, rpcUrl]);
+
+  const debug = {
+    rpcUrl,
+    privyReady: ready,
+    authenticated,
+    walletAddress,
+    wallets: (wallets ?? []).map((w: any) => ({
+      walletClientType: w.walletClientType,
+      address: w.address,
+    })),
+    privyUserWallet: (user as any)?.wallet?.address ?? null,
+    linkedAccountsCount: (user as any)?.linkedAccounts?.length ?? 0,
+  };
+
   // Get token balance (simplified - fetch from database)
   const getTokenBalance = useCallback(async (mintAddress: string): Promise<number> => {
     // Token balances are tracked in the database for bonding curve tokens
@@ -147,8 +191,12 @@ export function useSolanaWallet() {
     walletAddress,
     isWalletReady,
     isConnecting,
+    rpcUrl,
+    debug,
+    testRpc,
     getConnection,
     getBalance,
+    getBalanceStrict,
     getTokenBalance,
     signAndSendTransaction,
     getSolanaWallet,
