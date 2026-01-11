@@ -7,7 +7,7 @@ import {
   LAMPORTS_PER_SOL,
   SystemProgram,
 } from '@solana/web3.js';
-import { HELIUS_RPC_URL, TREASURY_PRIVATE_KEY } from './config';
+import { HELIUS_RPC_URL, TREASURY_PRIVATE_KEY } from './config.js';
 
 // Get Solana connection
 export function getConnection(): Connection {

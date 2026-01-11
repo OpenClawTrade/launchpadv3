@@ -43,12 +43,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           position: pos.position.toBase58(),
           positionNftAccount: pos.positionNftAccount.toBase58(),
           pool: pos.positionState.pool.toBase58(),
-          liquidity: pos.positionState.liquidity.toString(),
+          liquidity: pos.positionState.unlockedLiquidity.toString(),
           tokenAMint: poolState.tokenAMint.toBase58(),
           tokenBMint: poolState.tokenBMint.toBase58(),
           // Fee info from position state
-          feeAOwed: pos.positionState.feeAOwed?.toString() || '0',
-          feeBOwed: pos.positionState.feeBOwed?.toString() || '0',
+          feeAOwed: pos.positionState.feeAPending?.toString() || '0',
+          feeBOwed: pos.positionState.feeBPending?.toString() || '0',
         };
       }));
       
@@ -181,7 +181,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // Build and sign transaction
-    const claimTx = await claimTxBuilder.buildAndSign({ signer: treasury });
+    const claimTx = await claimTxBuilder.build();
+    claimTx.sign([treasury]);
     
     // Send transaction
     const signature = await connection.sendRawTransaction(claimTx.serialize());
