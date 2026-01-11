@@ -49,6 +49,7 @@
     "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.89.0",
     "@tanstack/react-query": "^5.83.0",
+    "@vercel/node": "^5.5.16",
     "bn.js": "^5.2.2",
     "bs58": "^6.0.0",
     "class-variance-authority": "^0.7.1",

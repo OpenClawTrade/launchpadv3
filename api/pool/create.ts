@@ -7,10 +7,10 @@ import {
   GRADUATION_THRESHOLD_SOL,
   TOKEN_DECIMALS,
   TRADING_FEE_BPS,
-} from '../lib/config';
-import { getSupabaseClient } from '../lib/supabase';
-import { getConnection, serializeTransaction } from '../lib/solana';
-import { createMeteoraPool, getRequiredSigners, serializeTransaction as serializeMeteoraTransaction } from '../lib/meteora';
+} from '../lib/config.js';
+import { getSupabaseClient } from '../lib/supabase.js';
+import { getConnection, serializeTransaction } from '../lib/solana.js';
+import { createMeteoraPool, getRequiredSigners, serializeTransaction as serializeMeteoraTransaction } from '../lib/meteora.js';
 
 // CORS headers
 const corsHeaders = {
