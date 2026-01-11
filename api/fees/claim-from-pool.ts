@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { PLATFORM_FEE_WALLET } from '../lib/config';
-import { getSupabaseClient } from '../lib/supabase';
-import { claimPartnerFees, getClaimableFees } from '../lib/meteora';
+import { PLATFORM_FEE_WALLET } from '../lib/config.js';
+import { getSupabaseClient } from '../lib/supabase.js';
+import { claimPartnerFees, getClaimableFees } from '../lib/meteora.js';
 
 // CORS headers
 const corsHeaders = {
