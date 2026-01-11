@@ -27,7 +27,7 @@ export const getRpcUrl = (): { url: string; source: string } => {
     });
   }
 
-  // Option 1: Direct RPC URL
+  // Option 1: Direct RPC URL from Vite env
   const explicitUrl = import.meta.env.VITE_HELIUS_RPC_URL;
   if (explicitUrl && typeof explicitUrl === 'string' && explicitUrl.startsWith('https://')) {
     logRpcSource('VITE_HELIUS_RPC_URL');
@@ -42,16 +42,21 @@ export const getRpcUrl = (): { url: string; source: string } => {
     return { url, source: 'VITE_HELIUS_API_KEY' };
   }
 
-  // Option 3: Runtime config (set by RuntimeConfigBootstrap)
+  // Option 3: localStorage first (persists across sessions)
   if (typeof window !== 'undefined') {
-    const runtimeUrl =
-      ((window as any)?.__PUBLIC_CONFIG__?.heliusRpcUrl as string | undefined) ||
-      localStorage.getItem('heliusRpcUrl') ||
-      '';
+    const fromStorage = localStorage.getItem('heliusRpcUrl');
+    if (fromStorage && fromStorage.startsWith('https://') && !fromStorage.includes('${')) {
+      logRpcSource('localStorage_heliusRpcUrl');
+      return { url: fromStorage, source: 'localStorage_heliusRpcUrl' };
+    }
+  }
 
-    if (runtimeUrl && runtimeUrl.startsWith('https://') && !runtimeUrl.includes('${')) {
+  // Option 4: Window runtime config
+  if (typeof window !== 'undefined') {
+    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.heliusRpcUrl as string | undefined;
+    if (fromWindow && fromWindow.startsWith('https://') && !fromWindow.includes('${')) {
       logRpcSource('runtime_public_config');
-      return { url: runtimeUrl, source: 'runtime_public_config' };
+      return { url: fromWindow, source: 'runtime_public_config' };
     }
   }
 

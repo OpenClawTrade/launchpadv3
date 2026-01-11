@@ -3,28 +3,35 @@ import { useToast } from '@/hooks/use-toast';
 import { Connection, Transaction, VersionedTransaction, Keypair } from '@solana/web3.js';
 
 // Get API URL from environment (or runtime config)
-const getApiUrl = () => {
+// Called fresh on every API request to ensure we pick up async-loaded config
+const getApiUrl = (): string => {
   const normalize = (url: string) => url.replace(/\/+$/, "");
 
-  // 1) Runtime config (loaded from backend)
+  // 1) localStorage first (persists across sessions, set by RuntimeConfigBootstrap)
   if (typeof window !== "undefined") {
-    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
-    const fromStorage = localStorage.getItem("meteoraApiUrl") ?? undefined;
-    const runtimeUrl = (fromWindow || fromStorage || "").trim();
-
-    if (runtimeUrl && !runtimeUrl.includes("${")) {
-      return normalize(runtimeUrl);
+    const fromStorage = localStorage.getItem("meteoraApiUrl");
+    if (fromStorage && fromStorage.startsWith("https://") && !fromStorage.includes("${")) {
+      return normalize(fromStorage);
     }
   }
 
-  // 2) Build-time Vite env var
+  // 2) Window runtime config (set by RuntimeConfigBootstrap in current session)
+  if (typeof window !== "undefined") {
+    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
+    if (fromWindow && fromWindow.startsWith("https://") && !fromWindow.includes("${")) {
+      return normalize(fromWindow);
+    }
+  }
+
+  // 3) Build-time Vite env var
   const meteoraUrl = import.meta.env.VITE_METEORA_API_URL;
-  if (meteoraUrl && !meteoraUrl.includes("${")) {
+  if (meteoraUrl && typeof meteoraUrl === "string" && meteoraUrl.startsWith("https://") && !meteoraUrl.includes("${")) {
     return normalize(meteoraUrl.trim());
   }
 
-  // 3) Fallback to current origin
+  // 4) Fallback to current origin (will fail on trenches.to but at least shows clear error)
   if (typeof window !== "undefined") {
+    console.warn("[getApiUrl] No API URL configured, falling back to origin:", window.location.origin);
     return window.location.origin;
   }
 
