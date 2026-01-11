@@ -27,8 +27,8 @@ import {
   CREATOR_LOCKED_LP_PERCENTAGE,
   MIGRATED_POOL_FEE_BPS,
   WSOL_MINT,
-} from './config';
-import { getConnection, getTreasuryKeypair } from './solana';
+} from './config.js';
+import { getConnection, getTreasuryKeypair } from './solana.js';
 
 // Meteora client singleton
 let meteoraClient: DynamicBondingCurveClient | null = null;
@@ -43,7 +43,7 @@ export function getMeteoraClient(): DynamicBondingCurveClient {
 
 // Calculate sqrt price from virtual reserves
 // Formula: sqrtPrice = sqrt(virtualSol / virtualToken) * 2^64
-export function calculateSqrtStartPrice(virtualSol: number, virtualToken: number): BN {
+export function calculateSqrtStartPrice(virtualSol: number, virtualToken: number): InstanceType<typeof BN> {
   const price = virtualSol / virtualToken;
   const sqrtPrice = Math.sqrt(price);
   // Scale by 2^64 for Meteora's fixed-point representation
@@ -53,7 +53,7 @@ export function calculateSqrtStartPrice(virtualSol: number, virtualToken: number
 
 // Calculate bonding curve points for Meteora
 // This creates a curve that graduates at GRADUATION_THRESHOLD_SOL
-export function calculateBondingCurve(): Array<{ sqrtPrice: BN; liquidity: BN }> {
+export function calculateBondingCurve(): Array<{ sqrtPrice: InstanceType<typeof BN>; liquidity: InstanceType<typeof BN> }> {
   // Start price (at launch)
   const startSqrtPrice = calculateSqrtStartPrice(30, TOTAL_SUPPLY);
   
@@ -97,7 +97,7 @@ export interface CreatePoolParams {
 
 // Create a new token pool on Meteora
 export async function createMeteoraPool(params: CreatePoolParams): Promise<{
-  transaction: Transaction | VersionedTransaction;
+  transactions: Transaction[];
   mintKeypair: Keypair;
   configKeypair: Keypair;
   poolAddress: PublicKey;
@@ -134,8 +134,16 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   // Build token metadata URI
   const metadataUri = params.imageUrl || `https://trenches.app/api/metadata/${mintKeypair.publicKey.toBase58()}`;
 
+  // Derive pool address
+  const { deriveDbcPoolAddress } = await import('@meteora-ag/dynamic-bonding-curve-sdk');
+  const poolAddress = deriveDbcPoolAddress(
+    new PublicKey(WSOL_MINT),
+    mintKeypair.publicKey,
+    configKeypair.publicKey
+  );
+
   // Create pool with config
-  const { transaction, pool: poolAddress } = await client.pool.createConfigAndPoolWithFirstBuy({
+  const { createConfigTx, createPoolTx, swapBuyTx } = await client.pool.createConfigAndPoolWithFirstBuy({
     payer: creatorPubkey,
     config: configKeypair.publicKey,
     feeClaimer: platformPubkey, // Platform receives fees, distributes via our system
@@ -241,8 +249,14 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     firstBuyParam,
   });
 
+  // Collect transactions
+  const transactions: Transaction[] = [createConfigTx, createPoolTx];
+  if (swapBuyTx) {
+    transactions.push(swapBuyTx);
+  }
+
   return {
-    transaction,
+    transactions,
     mintKeypair,
     configKeypair,
     poolAddress,
@@ -291,6 +305,8 @@ export async function executeMeteoraSwap(params: {
     const amountInLamports = new BN(Math.floor(params.amount * 1e9));
     
     // Get quote using the correct parameters
+    // Use activationPoint from pool config
+    const currentPoint = poolState.activationPoint || new BN(0);
     const quote = client.pool.swapQuote({
       virtualPool: poolState,
       config: poolConfig,
@@ -298,10 +314,10 @@ export async function executeMeteoraSwap(params: {
       amountIn: amountInLamports,
       slippageBps: slippage,
       hasReferral: false,
-      currentPoint: poolState.currentPoint || new BN(0),
+      currentPoint,
     });
     
-    estimatedOutput = Number(quote.amountOut.toString()) / Math.pow(10, TOKEN_DECIMALS);
+    estimatedOutput = Number(quote.outputAmount.toString()) / Math.pow(10, TOKEN_DECIMALS);
     
     // Build swap transaction
     transaction = await client.pool.swap({
@@ -318,6 +334,7 @@ export async function executeMeteoraSwap(params: {
     const amountIn = new BN(Math.floor(params.amount * Math.pow(10, TOKEN_DECIMALS)));
     
     // Get quote
+    const currentPoint = poolState.activationPoint || new BN(0);
     const quote = client.pool.swapQuote({
       virtualPool: poolState,
       config: poolConfig,
@@ -325,10 +342,10 @@ export async function executeMeteoraSwap(params: {
       amountIn: amountIn,
       slippageBps: slippage,
       hasReferral: false,
-      currentPoint: poolState.currentPoint || new BN(0),
+      currentPoint,
     });
     
-    estimatedOutput = Number(quote.amountOut.toString()) / 1e9; // Convert lamports to SOL
+    estimatedOutput = Number(quote.outputAmount.toString()) / 1e9; // Convert lamports to SOL
     
     // Build swap transaction
     transaction = await client.pool.swap({
