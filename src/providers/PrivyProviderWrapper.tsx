@@ -149,8 +149,14 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
   }
 
   return (
-    <PrivyAvailableContext.Provider value={true}>
-      <Suspense fallback={children}>
+    <Suspense
+      fallback={
+        <PrivyAvailableContext.Provider value={false}>
+          {children}
+        </PrivyAvailableContext.Provider>
+      }
+    >
+      <PrivyAvailableContext.Provider value={true}>
         <PrivyProvider
           appId={appId}
           config={{
@@ -184,7 +190,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
         >
           {children}
         </PrivyProvider>
-      </Suspense>
-    </PrivyAvailableContext.Provider>
+      </PrivyAvailableContext.Provider>
+    </Suspense>
   );
 }
