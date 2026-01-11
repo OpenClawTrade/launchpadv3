@@ -31,9 +31,16 @@ export function WalletBalanceCard({ minRequired, className = "" }: WalletBalance
     }
   };
 
+  // Fetch balance on mount and every 10 seconds
   useEffect(() => {
     if (isWalletReady) {
       fetchBalance();
+      
+      const interval = setInterval(() => {
+        fetchBalance();
+      }, 10000);
+      
+      return () => clearInterval(interval);
     }
   }, [isWalletReady]);
 
