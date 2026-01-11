@@ -18,19 +18,10 @@ const getApiUrl = () => {
   return '';
 };
 
-// Get RPC URL
-const getRpcUrl = () => {
-  const explicit = import.meta.env.VITE_HELIUS_RPC_URL;
-  if (explicit && !explicit.includes('${')) return explicit;
+// Get RPC URL - use the centralized function
+import { getRpcUrl as getBaseRpcUrl } from '@/hooks/useSolanaWallet';
 
-  const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
-  if (apiKey && !apiKey.includes('${')) {
-    return `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
-  }
-
-  // Browser-friendly public fallback (avoids 403/CORS on api.mainnet-beta.solana.com)
-  return 'https://rpc.ankr.com/solana';
-};
+const getRpcUrl = () => getBaseRpcUrl().url;
 
 // API request helper
 async function apiRequest<T>(
