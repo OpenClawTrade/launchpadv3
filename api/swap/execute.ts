@@ -128,24 +128,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     const volume24h = (recentTxs || []).reduce((sum, tx) => sum + Number(tx.sol_amount), 0) + solAmount;
 
-    // Update token state in database
-    await supabase
-      .from('tokens')
-      .update({
-        virtual_sol_reserves: poolState.virtualSolReserves,
-        virtual_token_reserves: poolState.virtualTokenReserves,
-        real_sol_reserves: poolState.virtualSolReserves - 30, // Real = Virtual - Initial
-        price_sol: newPrice,
-        bonding_curve_progress: bondingProgress,
-        market_cap_sol: marketCap,
-        volume_24h_sol: volume24h,
-        status: newStatus,
-        graduated_at: shouldGraduate && !token.graduated_at ? new Date().toISOString() : token.graduated_at,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', token.id);
+    // Update token state in database using RPC function
+    const { error: stateError } = await supabase.rpc('backend_update_token_state', {
+      p_token_id: token.id,
+      p_virtual_sol_reserves: poolState.virtualSolReserves,
+      p_virtual_token_reserves: poolState.virtualTokenReserves,
+      p_real_sol_reserves: poolState.virtualSolReserves - 30, // Real = Virtual - Initial
+      p_real_token_reserves: poolState.virtualTokenReserves,
+      p_price_sol: newPrice,
+      p_market_cap_sol: marketCap,
+      p_bonding_curve_progress: bondingProgress,
+      p_volume_delta: solAmount,
+    });
 
-    // Record price history
+    if (stateError) {
+      console.error('[swap/execute] Token state update error:', stateError);
+    }
+
+    // Handle graduation status update separately (if graduated)
+    if (shouldGraduate && !token.graduated_at) {
+      await supabase
+        .from('tokens')
+        .update({
+          status: 'graduated',
+          graduated_at: new Date().toISOString(),
+        })
+        .eq('id', token.id);
+    }
+
+    // Record price history (using direct insert since this is a new record with no RLS issues)
     await supabase.from('token_price_history').insert({
       token_id: token.id,
       price_sol: newPrice,
@@ -161,101 +172,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Generate a placeholder signature (real signature comes after client signs)
     const signature = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-    // Record transaction
-    await supabase.from('launchpad_transactions').insert({
-      token_id: token.id,
-      user_wallet: userWallet,
-      user_profile_id: profileId || null,
-      transaction_type: isBuy ? 'buy' : 'sell',
-      sol_amount: solAmount,
-      token_amount: tokenAmount,
-      price_per_token: newPrice,
-      system_fee_sol: systemFee,
-      creator_fee_sol: creatorFee,
-      signature,
+    // Record transaction using RPC function
+    const { error: txError } = await supabase.rpc('backend_record_transaction', {
+      p_token_id: token.id,
+      p_user_wallet: userWallet,
+      p_transaction_type: isBuy ? 'buy' : 'sell',
+      p_sol_amount: solAmount,
+      p_token_amount: tokenAmount,
+      p_price_per_token: newPrice,
+      p_signature: signature,
+      p_system_fee_sol: systemFee,
+      p_creator_fee_sol: creatorFee,
+      p_user_profile_id: profileId || null,
     });
 
-    // Update token holdings
-    if (isBuy) {
-      const { data: existingHolding } = await supabase
-        .from('token_holdings')
-        .select('*')
-        .eq('token_id', token.id)
-        .eq('wallet_address', userWallet)
-        .single();
-
-      if (existingHolding) {
-        await supabase
-          .from('token_holdings')
-          .update({
-            balance: existingHolding.balance + tokensOut,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingHolding.id);
-      } else {
-        await supabase.from('token_holdings').insert({
-          token_id: token.id,
-          wallet_address: userWallet,
-          profile_id: profileId || null,
-          balance: tokensOut,
-        });
-      }
-    } else {
-      // Sell: reduce balance
-      const { data: existingHolding } = await supabase
-        .from('token_holdings')
-        .select('*')
-        .eq('token_id', token.id)
-        .eq('wallet_address', userWallet)
-        .single();
-
-      if (existingHolding) {
-        const newBalance = Math.max(0, existingHolding.balance - amount);
-        await supabase
-          .from('token_holdings')
-          .update({
-            balance: newBalance,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingHolding.id);
-      }
+    if (txError) {
+      console.error('[swap/execute] Transaction record error:', txError);
     }
 
-    // Note: Creator fee is 0 - no update needed for creator earner
-    // All fees go to system/treasury
+    // Update token holdings using RPC function
+    const balanceDelta = isBuy ? tokensOut : -amount;
+    const { error: holdingsError } = await supabase.rpc('backend_upsert_token_holding', {
+      p_token_id: token.id,
+      p_wallet_address: userWallet,
+      p_balance_delta: balanceDelta,
+      p_profile_id: profileId || null,
+    });
 
-    // Track system/platform fees - receives 100% of 2%
+    if (holdingsError) {
+      console.error('[swap/execute] Holdings update error:', holdingsError);
+    }
+
+    // Update system/platform fees using RPC function - receives 100% of 2%
     if (systemFee > 0) {
-      const { data: systemEarner } = await supabase
-        .from('fee_earners')
-        .select('*')
-        .eq('token_id', token.id)
-        .eq('earner_type', 'system')
-        .single();
+      const { error: feeError } = await supabase.rpc('backend_update_fee_earner', {
+        p_token_id: token.id,
+        p_earner_type: 'system',
+        p_fee_amount: systemFee,
+      });
 
-      if (systemEarner) {
-        await supabase
-          .from('fee_earners')
-          .update({
-            unclaimed_sol: (systemEarner.unclaimed_sol || 0) + systemFee,
-            total_earned_sol: (systemEarner.total_earned_sol || 0) + systemFee,
-          })
-          .eq('id', systemEarner.id);
+      if (feeError) {
+        console.error('[swap/execute] Fee earner update error:', feeError);
       }
     }
 
-
-    // Update holder count
-    const { count: holderCount } = await supabase
-      .from('token_holdings')
-      .select('*', { count: 'exact', head: true })
-      .eq('token_id', token.id)
-      .gt('balance', 0);
-
-    await supabase
-      .from('tokens')
-      .update({ holder_count: holderCount || 0 })
-      .eq('id', token.id);
+    // Update holder count using RPC function
+    await supabase.rpc('backend_update_holder_count', { p_token_id: token.id });
 
     // If graduated, trigger migration
     if (shouldGraduate && !token.graduated_at) {

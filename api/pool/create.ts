@@ -128,60 +128,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const virtualToken = TOTAL_SUPPLY;
     const initialPrice = virtualSol / virtualToken;
 
-    // Create token record in database
-    const { data: token, error: tokenError } = await supabase
-      .from('tokens')
-      .insert({
-        mint_address: mintAddress,
-        name,
-        ticker: ticker.toUpperCase(),
-        description: description || null,
-        image_url: imageUrl || null,
-        website_url: websiteUrl || null,
-        twitter_url: twitterUrl || null,
-        telegram_url: telegramUrl || null,
-        discord_url: discordUrl || null,
-        creator_wallet: creatorWallet,
-        creator_id: creatorId,
-        dbc_pool_address: dbcPoolAddress,
-        virtual_sol_reserves: virtualSol,
-        virtual_token_reserves: virtualToken,
-        real_sol_reserves: initialBuySol || 0,
-        total_supply: TOTAL_SUPPLY,
-        graduation_threshold_sol: GRADUATION_THRESHOLD_SOL,
-        price_sol: initialPrice,
-        market_cap_sol: virtualSol,
-        status: 'bonding',
-        migration_status: 'dbc_active',
-        creator_fee_bps: TRADING_FEE_BPS / 2,
-        system_fee_bps: TRADING_FEE_BPS / 2,
-        holder_count: initialBuySol > 0 ? 1 : 0,
-      })
-      .select()
-      .single();
+    // Generate a UUID for the token
+    const crypto = await import('crypto');
+    const tokenId = crypto.randomUUID();
+
+    // Create token record using RPC function (bypasses RLS)
+    const { error: tokenError } = await supabase.rpc('backend_create_token', {
+      p_id: tokenId,
+      p_mint_address: mintAddress,
+      p_name: name,
+      p_ticker: ticker.toUpperCase(),
+      p_creator_wallet: creatorWallet,
+      p_creator_id: creatorId,
+      p_dbc_pool_address: dbcPoolAddress,
+      p_description: description || null,
+      p_image_url: imageUrl || null,
+      p_website_url: websiteUrl || null,
+      p_twitter_url: twitterUrl || null,
+      p_telegram_url: telegramUrl || null,
+      p_discord_url: discordUrl || null,
+      p_virtual_sol_reserves: virtualSol,
+      p_virtual_token_reserves: virtualToken,
+      p_real_sol_reserves: initialBuySol || 0,
+      p_total_supply: TOTAL_SUPPLY,
+      p_price_sol: initialPrice,
+      p_market_cap_sol: virtualSol,
+      p_graduation_threshold_sol: GRADUATION_THRESHOLD_SOL,
+      p_system_fee_bps: Math.floor(TRADING_FEE_BPS / 2),
+      p_creator_fee_bps: Math.floor(TRADING_FEE_BPS / 2),
+    });
 
     if (tokenError) {
       console.error('[pool/create] Token insert error:', tokenError);
       throw tokenError;
     }
 
-    // Create fee earners - 100% goes to platform treasury
+    // Create fee earners using RPC functions
     // Creator entry kept for UI consistency but with 0% share
-    await supabase.from('fee_earners').insert([
-      {
-        token_id: token.id,
-        wallet_address: creatorWallet,
-        profile_id: creatorId,
-        earner_type: 'creator',
-        share_bps: 0, // 0% - No on-chain creator fees
-      },
-      {
-        token_id: token.id,
-        wallet_address: PLATFORM_FEE_WALLET, // 7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2
-        earner_type: 'system',
-        share_bps: 10000, // 100% of 2% = 2% to treasury
-      },
-    ]);
+    const { error: creatorFeeError } = await supabase.rpc('backend_create_fee_earner', {
+      p_token_id: tokenId,
+      p_earner_type: 'creator',
+      p_share_bps: 0, // 0% - No on-chain creator fees
+      p_wallet_address: creatorWallet,
+      p_profile_id: creatorId,
+    });
+
+    if (creatorFeeError) {
+      console.error('[pool/create] Creator fee earner error:', creatorFeeError);
+    }
+
+    const { error: systemFeeError } = await supabase.rpc('backend_create_fee_earner', {
+      p_token_id: tokenId,
+      p_earner_type: 'system',
+      p_share_bps: 10000, // 100% of 2% = 2% to treasury
+      p_wallet_address: PLATFORM_FEE_WALLET, // 7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2
+    });
+
+    if (systemFeeError) {
+      console.error('[pool/create] System fee earner error:', systemFeeError);
+    }
 
     // If initial buy, calculate and record holdings
     if (initialBuySol > 0) {
@@ -190,31 +195,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const newVirtualToken = k / newVirtualSol;
       const tokensReceived = virtualToken - newVirtualToken;
 
-      await supabase.from('token_holdings').insert({
-        token_id: token.id,
-        wallet_address: creatorWallet,
-        profile_id: creatorId,
-        balance: tokensReceived,
+      // Use RPC function for token holdings
+      const { error: holdingsError } = await supabase.rpc('backend_upsert_token_holding', {
+        p_token_id: tokenId,
+        p_wallet_address: creatorWallet,
+        p_balance_delta: tokensReceived,
+        p_profile_id: creatorId,
       });
 
-      await supabase.from('tokens').update({
-        real_sol_reserves: initialBuySol,
-        bonding_curve_progress: (initialBuySol / GRADUATION_THRESHOLD_SOL) * 100,
-        holder_count: 1,
-      }).eq('id', token.id);
+      if (holdingsError) {
+        console.error('[pool/create] Holdings insert error:', holdingsError);
+      }
+
+      // Use RPC function to update token state
+      const { error: updateError } = await supabase.rpc('backend_update_token_state', {
+        p_token_id: tokenId,
+        p_virtual_sol_reserves: newVirtualSol,
+        p_virtual_token_reserves: newVirtualToken,
+        p_real_sol_reserves: initialBuySol,
+        p_real_token_reserves: TOTAL_SUPPLY - tokensReceived,
+        p_price_sol: newVirtualSol / newVirtualToken,
+        p_market_cap_sol: newVirtualSol,
+        p_bonding_curve_progress: (initialBuySol / GRADUATION_THRESHOLD_SOL) * 100,
+      });
+
+      if (updateError) {
+        console.error('[pool/create] Token update error:', updateError);
+      }
+
+      // Update holder count
+      await supabase.rpc('backend_update_holder_count', { p_token_id: tokenId });
     }
 
     // Serialize transactions and signers for client signing
     const serializedTransactions = transactions.map(tx => serializeMeteoraTransaction(tx));
     const signers = getRequiredSigners(mintKeypair, configKeypair);
 
-    console.log('[pool/create] Success:', { tokenId: token.id, mintAddress, dbcPoolAddress });
+    console.log('[pool/create] Success:', { tokenId, mintAddress, dbcPoolAddress });
 
     return res.status(200).json({
       success: true,
-      tokenId: token.id,
-      mintAddress: token.mint_address,
-      dbcPoolAddress: token.dbc_pool_address,
+      tokenId: tokenId,
+      mintAddress: mintAddress,
+      dbcPoolAddress: dbcPoolAddress,
       // Serialized transactions for client wallet signing
       transactions: serializedTransactions,
       // Keypairs that need to sign (mint and config)
