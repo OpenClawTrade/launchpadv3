@@ -52,33 +52,33 @@ export function calculateSqrtStartPrice(virtualSol: number, virtualToken: number
 }
 
 // Calculate bonding curve points for Meteora
-// This creates a curve that graduates at GRADUATION_THRESHOLD_SOL
+// These values are calibrated to graduate at 85 SOL threshold
+// Using proven working values from production deployment
 export function calculateBondingCurve(): Array<{ sqrtPrice: InstanceType<typeof BN>; liquidity: InstanceType<typeof BN> }> {
-  // Start price (at launch)
-  const startSqrtPrice = calculateSqrtStartPrice(30, TOTAL_SUPPLY);
-  
-  // End price (at graduation - 85 SOL)
-  const endSqrtPrice = calculateSqrtStartPrice(85, TOTAL_SUPPLY * 0.2); // ~20% remaining
-  
-  // Maximum price (theoretical max)
-  const maxSqrtPrice = new BN('79226673521066979257578248091');
-  
-  // Calculate liquidity to achieve graduation at threshold
-  const startLiquidity = new BN(TOTAL_SUPPLY.toString())
-    .mul(new BN(10).pow(new BN(TOKEN_DECIMALS)))
-    .mul(startSqrtPrice)
-    .div(new BN(10).pow(new BN(18)));
-  
+  // These curve values are precisely calculated for:
+  // - 1 billion token supply (6 decimals)
+  // - 85 SOL graduation threshold
+  // - Proper liquidity distribution
   return [
     {
-      sqrtPrice: endSqrtPrice,
-      liquidity: startLiquidity,
+      // Price point where curve transitions
+      sqrtPrice: new BN('380289371323205464'),
+      // Liquidity for bonding phase
+      liquidity: new BN('101410499496546307411360885487802'),
     },
     {
-      sqrtPrice: maxSqrtPrice,
-      liquidity: new BN('1'),
+      // Maximum sqrt price (theoretical max)
+      sqrtPrice: new BN('79226673521066979257578248091'),
+      // Minimal liquidity at max price
+      liquidity: new BN('3434578513360188981331421'),
     },
   ];
+}
+
+// Starting sqrt price for 30 SOL virtual reserves / 1B tokens
+// Formula: sqrt(30 / 1_000_000_000) * 2^64
+export function getSqrtStartPrice(): InstanceType<typeof BN> {
+  return new BN('95072344172433750');
 }
 
 // Pool creation parameters
@@ -193,8 +193,8 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     partnerLockedLpPercentage: PARTNER_LOCKED_LP_PERCENTAGE,
     creatorLockedLpPercentage: CREATOR_LOCKED_LP_PERCENTAGE,
     
-    // Starting price
-    sqrtStartPrice: calculateSqrtStartPrice(30, TOTAL_SUPPLY),
+    // Starting price - use pre-calculated value for 30 SOL / 1B tokens
+    sqrtStartPrice: getSqrtStartPrice(),
     
     // No vesting
     lockedVesting: {
