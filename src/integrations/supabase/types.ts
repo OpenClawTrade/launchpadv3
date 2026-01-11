@@ -1595,6 +1595,45 @@ export type Database = {
         Args: { p_lock_duration_seconds?: number; p_token_id: string }
         Returns: boolean
       }
+      backend_create_fee_earner: {
+        Args: {
+          p_earner_type: string
+          p_profile_id?: string
+          p_share_bps: number
+          p_token_id: string
+          p_twitter_handle?: string
+          p_wallet_address?: string
+        }
+        Returns: string
+      }
+      backend_create_token: {
+        Args: {
+          p_creator_fee_bps?: number
+          p_creator_id?: string
+          p_creator_wallet: string
+          p_dbc_pool_address?: string
+          p_description?: string
+          p_discord_url?: string
+          p_graduation_threshold_sol?: number
+          p_id: string
+          p_image_url?: string
+          p_market_cap_sol?: number
+          p_mint_address: string
+          p_name: string
+          p_price_sol?: number
+          p_real_sol_reserves?: number
+          p_real_token_reserves?: number
+          p_system_fee_bps?: number
+          p_telegram_url?: string
+          p_ticker: string
+          p_total_supply?: number
+          p_twitter_url?: string
+          p_virtual_sol_reserves?: number
+          p_virtual_token_reserves?: number
+          p_website_url?: string
+        }
+        Returns: string
+      }
       calculate_trending_topics: { Args: never; Returns: undefined }
       can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
       generate_short_id: { Args: never; Returns: string }
