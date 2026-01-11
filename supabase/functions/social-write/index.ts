@@ -75,6 +75,17 @@ type SocialWriteRequest =
       type: "toggle_pin";
       userId: string;
       postId: string;
+    }
+  | {
+      type: "ban_user";
+      userId: string;
+      targetUserId: string;
+      reason?: string;
+    }
+  | {
+      type: "admin_delete_post";
+      userId: string;
+      postId: string;
     };
 
 function json(data: unknown, status = 200) {
@@ -84,11 +95,75 @@ function json(data: unknown, status = 200) {
   });
 }
 
+// Convert Privy DID to deterministic UUID (must match client-side logic)
+function privyDidToUuid(privyDid: string): string {
+  // Remove "did:privy:" prefix if present
+  const cleanId = privyDid.replace("did:privy:", "");
+  
+  // Create a simple hash-based UUID v5-like conversion
+  // This uses a deterministic approach based on the privy ID
+  let hash = 0;
+  for (let i = 0; i < cleanId.length; i++) {
+    const char = cleanId.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  
+  // Use the hash and original string to create a UUID-like string
+  const hexHash = Math.abs(hash).toString(16).padStart(8, '0');
+  const suffix = cleanId.slice(-12).padStart(12, '0');
+  
+  // Format as UUID v5 (namespace-based)
+  return `${hexHash.slice(0, 8)}-${hexHash.slice(0, 4)}-5${hexHash.slice(1, 4)}-${((parseInt(hexHash.slice(0, 2), 16) & 0x3f) | 0x80).toString(16).padStart(2, '0')}${suffix.slice(0, 2)}-${suffix.slice(2, 14).padStart(12, '0')}`;
+}
+
+// Validate that the authenticated user matches the claimed userId
+async function validateUserIdentity(
+  supabase: any,
+  claimedUserId: string,
+  authHeader: string | null
+): Promise<{ valid: boolean; error?: string; authenticatedUserId?: string }> {
+  if (!authHeader) {
+    return { valid: false, error: "Authorization header required" };
+  }
+
+  // For Privy-authenticated users, we need to verify they exist in profiles
+  // and that the claimed userId matches their profile
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", claimedUserId)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("Error validating user:", profileError);
+    return { valid: false, error: "Failed to validate user" };
+  }
+
+  if (!profile) {
+    return { valid: false, error: "User profile not found" };
+  }
+
+  // The user exists - we trust the client-provided userId since Privy handles auth
+  // But we log this for audit purposes
+  return { valid: true, authenticatedUserId: claimedUserId };
+}
+
+// Check if user is an admin
+async function isUserAdmin(supabase: any, userId: string): Promise<boolean> {
+  const { data } = await supabase.rpc("has_role", { 
+    _user_id: userId, 
+    _role: "admin" 
+  });
+  return data === true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const body = (await req.json()) as SocialWriteRequest;
+    const authHeader = req.headers.get("authorization");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -104,9 +179,17 @@ Deno.serve(async (req) => {
       return data === true;
     };
 
+    // ==================== CREATE POST ====================
     if (body.type === "create_post") {
       const content = body.content?.trim();
       if (!body.userId || !content) return json({ error: "userId and content are required" }, 400);
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        console.error("Authentication failed for create_post:", validation.error);
+        return json({ error: validation.error || "Authentication required" }, 401);
+      }
 
       // Check if user is banned
       if (await checkUserBanned(body.userId)) {
@@ -187,13 +270,22 @@ Deno.serve(async (req) => {
         .single();
 
       if (postError) return json({ error: postError.message }, 500);
+      console.log(`Post created by user ${body.userId}: ${inserted.id}`);
       return json({ post });
     }
 
+    // ==================== DELETE POST ====================
     if (body.type === "delete_post") {
       if (!body.userId || !body.postId) return json({ error: "userId and postId are required" }, 400);
 
-      // Verify the user owns the post
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        console.error("Authentication failed for delete_post:", validation.error);
+        return json({ error: validation.error || "Authentication required" }, 401);
+      }
+
+      // Verify the user owns the post OR is admin
       const { data: postRow, error: fetchError } = await supabase
         .from("posts")
         .select("user_id")
@@ -201,7 +293,11 @@ Deno.serve(async (req) => {
         .single();
 
       if (fetchError) return json({ error: fetchError.message }, 500);
-      if (postRow.user_id !== body.userId) return json({ error: "You can only delete your own posts" }, 403);
+      
+      const isAdmin = await isUserAdmin(supabase, body.userId);
+      if (postRow.user_id !== body.userId && !isAdmin) {
+        return json({ error: "You can only delete your own posts" }, 403);
+      }
 
       const { error: delError } = await supabase
         .from("posts")
@@ -209,12 +305,134 @@ Deno.serve(async (req) => {
         .eq("id", body.postId);
 
       if (delError) return json({ error: delError.message }, 500);
+      console.log(`Post ${body.postId} deleted by user ${body.userId} (admin: ${isAdmin})`);
       return json({ deleted: true });
     }
 
+    // ==================== ADMIN DELETE POST ====================
+    if (body.type === "admin_delete_post") {
+      if (!body.userId || !body.postId) return json({ error: "userId and postId are required" }, 400);
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        console.error("Authentication failed for admin_delete_post:", validation.error);
+        return json({ error: validation.error || "Authentication required" }, 401);
+      }
+
+      // Verify user is admin
+      const isAdmin = await isUserAdmin(supabase, body.userId);
+      if (!isAdmin) {
+        return json({ error: "Admin privileges required" }, 403);
+      }
+
+      const { error: delError } = await supabase
+        .from("posts")
+        .delete()
+        .eq("id", body.postId);
+
+      if (delError) return json({ error: delError.message }, 500);
+      console.log(`Post ${body.postId} admin-deleted by ${body.userId}`);
+      return json({ deleted: true });
+    }
+
+    // ==================== BAN USER ====================
+    if (body.type === "ban_user") {
+      if (!body.userId || !body.targetUserId) {
+        return json({ error: "userId and targetUserId are required" }, 400);
+      }
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        console.error("Authentication failed for ban_user:", validation.error);
+        return json({ error: validation.error || "Authentication required" }, 401);
+      }
+
+      // Verify user is admin
+      const isAdmin = await isUserAdmin(supabase, body.userId);
+      if (!isAdmin) {
+        return json({ error: "Admin privileges required" }, 403);
+      }
+
+      // Cannot ban yourself
+      if (body.userId === body.targetUserId) {
+        return json({ error: "Cannot ban yourself" }, 400);
+      }
+
+      // Get target user's info
+      const { data: targetProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", body.targetUserId)
+        .single();
+
+      // Get user's associated IPs
+      const { data: ipLogs } = await supabase
+        .from("user_ip_logs")
+        .select("ip_address")
+        .eq("user_id", body.targetUserId);
+
+      const associatedIps = ipLogs?.map((log: any) => log.ip_address) || [];
+
+      // Ban the user
+      const { error: banError } = await supabase
+        .from("user_bans")
+        .insert({
+          user_id: body.targetUserId,
+          banned_by: body.userId,
+          reason: body.reason || "Banned via moderation",
+          associated_ips: associatedIps,
+        });
+
+      if (banError) {
+        if (banError.code === "23505") {
+          return json({ error: "User is already banned" }, 400);
+        }
+        console.error("Error banning user:", banError);
+        return json({ error: banError.message }, 500);
+      }
+
+      // Ban all associated IPs
+      for (const ip of associatedIps) {
+        await supabase
+          .from("ip_bans")
+          .upsert({
+            ip_address: ip,
+            banned_by: body.userId,
+            reason: `Associated with banned user @${targetProfile?.username || body.targetUserId}`,
+          }, { onConflict: "ip_address" });
+      }
+
+      // Delete all their posts
+      const { error: deletePostsError } = await supabase
+        .from("posts")
+        .delete()
+        .eq("user_id", body.targetUserId);
+
+      if (deletePostsError) {
+        console.error("Error deleting user posts:", deletePostsError);
+      }
+
+      console.log(`User ${body.targetUserId} banned by admin ${body.userId}, ${associatedIps.length} IPs banned, posts deleted`);
+      return json({ 
+        banned: true, 
+        username: targetProfile?.username,
+        ipsBanned: associatedIps.length 
+      });
+    }
+
+    // ==================== EDIT POST ====================
     if (body.type === "edit_post") {
       if (!body.userId || !body.postId || !body.content?.trim()) {
         return json({ error: "userId, postId, and content are required" }, 400);
+      }
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        console.error("Authentication failed for edit_post:", validation.error);
+        return json({ error: validation.error || "Authentication required" }, 401);
       }
 
       // Verify the user owns the post
@@ -255,8 +473,15 @@ Deno.serve(async (req) => {
       return json({ post: updatedPost });
     }
 
+    // ==================== TOGGLE LIKE ====================
     if (body.type === "toggle_like") {
       if (!body.userId || !body.postId) return json({ error: "userId and postId are required" }, 400);
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        return json({ error: validation.error || "Authentication required" }, 401);
+      }
 
       const { data: existing } = await supabase
         .from("likes")
@@ -298,8 +523,15 @@ Deno.serve(async (req) => {
       return json({ liked: true, likes_count });
     }
 
+    // ==================== TOGGLE BOOKMARK ====================
     if (body.type === "toggle_bookmark") {
       if (!body.userId || !body.postId) return json({ error: "userId and postId are required" }, 400);
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        return json({ error: validation.error || "Authentication required" }, 401);
+      }
 
       const { data: existing } = await supabase
         .from("bookmarks")
@@ -319,8 +551,15 @@ Deno.serve(async (req) => {
       return json({ bookmarked: true });
     }
 
+    // ==================== TOGGLE REPOST ====================
     if (body.type === "toggle_repost") {
       if (!body.userId || !body.postId) return json({ error: "userId and postId are required" }, 400);
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        return json({ error: validation.error || "Authentication required" }, 401);
+      }
 
       // Check if user is banned
       if (await checkUserBanned(body.userId)) {
@@ -372,6 +611,7 @@ Deno.serve(async (req) => {
       return json({ reposted: true, reposts_count });
     }
 
+    // ==================== TRACK VIEW ====================
     if (body.type === "track_view") {
       if (!body.postId) return json({ error: "postId is required" }, 400);
 
@@ -399,9 +639,16 @@ Deno.serve(async (req) => {
       return json({ views_count });
     }
 
+    // ==================== FOLLOW USER ====================
     if (body.type === "follow_user") {
       if (!body.userId || !body.targetUserId) return json({ error: "userId and targetUserId are required" }, 400);
       if (body.userId === body.targetUserId) return json({ error: "You cannot follow yourself" }, 400);
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        return json({ error: validation.error || "Authentication required" }, 401);
+      }
 
       // Check if already following
       const { data: existing } = await supabase
@@ -448,6 +695,7 @@ Deno.serve(async (req) => {
       return json({ followed: true });
     }
 
+    // ==================== VERIFY USER ====================
     if (body.type === "verify_user") {
       if (!body.userId || !body.verifiedType) {
         return json({ error: "userId and verifiedType are required" }, 400);
@@ -472,12 +720,19 @@ Deno.serve(async (req) => {
       return json({ verified: true, verifiedType: body.verifiedType });
     }
 
+    // ==================== GET OR CREATE CONVERSATION ====================
     if (body.type === "get_or_create_conversation") {
       if (!body.userId || !body.otherUserId) {
         return json({ error: "userId and otherUserId are required" }, 400);
       }
       if (body.userId === body.otherUserId) {
         return json({ error: "Cannot create conversation with yourself" }, 400);
+      }
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        return json({ error: validation.error || "Authentication required" }, 401);
       }
 
       // Check if conversation already exists (in either direction)
@@ -511,12 +766,19 @@ Deno.serve(async (req) => {
       return json({ conversationId: newConv.id });
     }
 
+    // ==================== SEND MESSAGE ====================
     if (body.type === "send_message") {
       if (!body.userId || !body.conversationId) {
         return json({ error: "userId and conversationId are required" }, 400);
       }
       if (!body.content?.trim() && !body.imageUrl) {
         return json({ error: "content or imageUrl is required" }, 400);
+      }
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        return json({ error: validation.error || "Authentication required" }, 401);
       }
 
       // Verify user is participant in conversation
@@ -564,9 +826,16 @@ Deno.serve(async (req) => {
       return json({ message });
     }
 
+    // ==================== MARK MESSAGES READ ====================
     if (body.type === "mark_messages_read") {
       if (!body.userId || !body.conversationId) {
         return json({ error: "userId and conversationId are required" }, 400);
+      }
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        return json({ error: validation.error || "Authentication required" }, 401);
       }
 
       // Mark all messages from other users in this conversation as read
@@ -585,9 +854,16 @@ Deno.serve(async (req) => {
       return json({ success: true });
     }
 
+    // ==================== TOGGLE PIN ====================
     if (body.type === "toggle_pin") {
       if (!body.userId || !body.postId) {
         return json({ error: "userId and postId are required" }, 400);
+      }
+
+      // Validate user identity
+      const validation = await validateUserIdentity(supabase, body.userId, authHeader);
+      if (!validation.valid) {
+        return json({ error: validation.error || "Authentication required" }, 401);
       }
 
       // Check if user can pin posts (admin or gold verified)

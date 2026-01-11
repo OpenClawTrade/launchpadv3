@@ -318,56 +318,31 @@ export function PostCard({
     
     setIsBanning(true);
     try {
-      // Get user's associated IPs first
-      const { data: ipLogs } = await supabase
-        .from("user_ip_logs")
-        .select("ip_address")
-        .eq("user_id", post.authorId);
-
-      const associatedIps = ipLogs?.map(log => log.ip_address) || [];
-
-      // Ban the user with associated IPs
-      const { error: banError } = await supabase
-        .from("user_bans")
-        .insert({
-          user_id: post.authorId,
-          banned_by: user.id,
+      // Use edge function for ban - bypasses RLS and handles everything server-side
+      const { data, error } = await supabase.functions.invoke("social-write", {
+        body: {
+          type: "ban_user",
+          userId: user.id,
+          targetUserId: post.authorId,
           reason: "Banned via post moderation",
-          associated_ips: associatedIps,
-        });
+        },
+      });
 
-      if (banError) {
-        if (banError.code === "23505") {
+      if (error) throw error;
+      
+      if (data?.error) {
+        if (data.error === "User is already banned") {
           toast.error("User is already banned");
         } else {
-          throw banError;
+          throw new Error(data.error);
         }
         return;
       }
 
-      // Ban all associated IPs
-      if (associatedIps.length > 0) {
-        for (const ip of associatedIps) {
-          await supabase
-            .from("ip_bans")
-            .upsert({
-              ip_address: ip,
-              banned_by: user.id,
-              reason: `Associated with banned user @${post.author.handle}`,
-            }, { onConflict: "ip_address" });
-        }
-      }
-
-      // Delete all their posts
-      await supabase
-        .from("posts")
-        .delete()
-        .eq("user_id", post.authorId);
-
-      const ipMessage = associatedIps.length > 0 
-        ? ` and ${associatedIps.length} IP(s) banned` 
+      const ipMessage = data?.ipsBanned > 0 
+        ? ` and ${data.ipsBanned} IP(s) banned` 
         : "";
-      toast.success(`User @${post.author.handle} banned${ipMessage}, all posts deleted`);
+      toast.success(`User @${data?.username || post.author.handle} banned${ipMessage}, all posts deleted`);
       setShowBanDialog(false);
       
       // Navigate away from the now-deleted post
@@ -547,8 +522,8 @@ export function PostCard({
                   </DropdownMenuItem>
                 )}
                 
-                {/* Delete option for own posts */}
-                {isOwnPost && onDelete && (
+                {/* Delete option for own posts OR admin */}
+                {(isOwnPost || isAdmin) && onDelete && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -556,7 +531,7 @@ export function PostCard({
                       className="gap-2 text-destructive focus:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
-                      Delete post
+                      {isAdmin && !isOwnPost ? "Delete post (Admin)" : "Delete post"}
                     </DropdownMenuItem>
                   </>
                 )}
