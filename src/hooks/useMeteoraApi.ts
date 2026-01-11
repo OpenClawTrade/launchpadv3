@@ -2,20 +2,33 @@ import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Connection, Transaction, VersionedTransaction, Keypair } from '@solana/web3.js';
 
-// Get API URL from environment
+// Get API URL from environment (or runtime config)
 const getApiUrl = () => {
-  // Check for configured Meteora API URL
-  const meteoraUrl = import.meta.env.VITE_METEORA_API_URL;
-  if (meteoraUrl && !meteoraUrl.includes('${')) {
-    return meteoraUrl;
+  const normalize = (url: string) => url.replace(/\/+$/, "");
+
+  // 1) Runtime config (loaded from backend)
+  if (typeof window !== "undefined") {
+    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
+    const fromStorage = localStorage.getItem("meteoraApiUrl") ?? undefined;
+    const runtimeUrl = (fromWindow || fromStorage || "").trim();
+
+    if (runtimeUrl && !runtimeUrl.includes("${")) {
+      return normalize(runtimeUrl);
+    }
   }
-  
-  // Fallback to current origin for Vercel deployment
-  if (typeof window !== 'undefined') {
+
+  // 2) Build-time Vite env var
+  const meteoraUrl = import.meta.env.VITE_METEORA_API_URL;
+  if (meteoraUrl && !meteoraUrl.includes("${")) {
+    return normalize(meteoraUrl.trim());
+  }
+
+  // 3) Fallback to current origin
+  if (typeof window !== "undefined") {
     return window.location.origin;
   }
-  
-  return '';
+
+  return "";
 };
 
 // Get RPC URL - use the centralized function
