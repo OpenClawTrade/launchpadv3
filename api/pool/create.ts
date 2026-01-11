@@ -105,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Create real Meteora pool
     console.log('[pool/create] Creating Meteora pool...');
     
-    const { transaction, mintKeypair, configKeypair, poolAddress } = await createMeteoraPool({
+    const { transactions, mintKeypair, configKeypair, poolAddress } = await createMeteoraPool({
       creatorWallet,
       name,
       ticker: ticker.toUpperCase(),
@@ -204,8 +204,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }).eq('id', token.id);
     }
 
-    // Serialize transaction and signers for client signing
-    const serializedTransaction = serializeMeteoraTransaction(transaction);
+    // Serialize transactions and signers for client signing
+    const serializedTransactions = transactions.map(tx => serializeMeteoraTransaction(tx));
     const signers = getRequiredSigners(mintKeypair, configKeypair);
 
     console.log('[pool/create] Success:', { tokenId: token.id, mintAddress, dbcPoolAddress });
@@ -215,8 +215,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tokenId: token.id,
       mintAddress: token.mint_address,
       dbcPoolAddress: token.dbc_pool_address,
-      // Serialized transaction for client wallet signing
-      transaction: serializedTransaction,
+      // Serialized transactions for client wallet signing
+      transactions: serializedTransactions,
       // Keypairs that need to sign (mint and config)
       signers: {
         mint: signers.mint,
