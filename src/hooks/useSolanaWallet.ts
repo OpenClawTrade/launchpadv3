@@ -3,6 +3,7 @@ import { Connection } from '@solana/web3.js';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Get a working Solana RPC URL (browser-friendly CORS)
+// PublicNode is reliable and doesn't require authentication
 export const getRpcUrl = (): { url: string; source: string } => {
   const explicit = import.meta.env.VITE_HELIUS_RPC_URL;
   if (explicit && !explicit.includes('${')) {
@@ -18,7 +19,8 @@ export const getRpcUrl = (): { url: string; source: string } => {
     };
   }
 
-  return { url: 'https://rpc.ankr.com/solana', source: 'public_ankr' };
+  // PublicNode is CORS-friendly and doesn't require API key
+  return { url: 'https://solana.publicnode.com', source: 'publicnode' };
 };
 
 // Simple wallet hook that gets wallet from AuthContext (works without direct Privy hooks)

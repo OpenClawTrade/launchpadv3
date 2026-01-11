@@ -11,7 +11,9 @@ export function useSolanaWalletWithPrivy() {
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const { url: rpcUrl, source: rpcSource } = getRpcUrl();
+  const rpcData = getRpcUrl();
+  const rpcUrl = rpcData.url;
+  const rpcSource = rpcData.source;
 
   // Get connection
   const getConnection = useCallback(() => {
