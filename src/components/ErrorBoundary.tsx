@@ -6,6 +6,20 @@ type ErrorBoundaryState = {
   error?: unknown;
 };
 
+// Check if error is a dynamic import failure (stale cache)
+function isDynamicImportError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return (
+      msg.includes("failed to fetch dynamically imported module") ||
+      msg.includes("loading chunk") ||
+      msg.includes("loading css chunk") ||
+      msg.includes("dynamically imported module")
+    );
+  }
+  return false;
+}
+
 export class ErrorBoundary extends React.Component<
   React.PropsWithChildren,
   ErrorBoundaryState
@@ -20,9 +34,25 @@ export class ErrorBoundary extends React.Component<
     // Keep this console output: it helps pinpoint which component caused the crash.
     // eslint-disable-next-line no-console
     console.error("UI crashed in ErrorBoundary", { error, info });
+
+    // Auto-reload on dynamic import failures (stale cache after deploy)
+    if (isDynamicImportError(error)) {
+      // Check if we already tried reloading to prevent infinite loops
+      const reloadKey = "error_boundary_reload";
+      const lastReload = sessionStorage.getItem(reloadKey);
+      const now = Date.now();
+
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem(reloadKey, now.toString());
+        window.location.reload();
+        return;
+      }
+    }
   }
 
   private handleReload = () => {
+    // Clear reload flag and force reload
+    sessionStorage.removeItem("error_boundary_reload");
     window.location.reload();
   };
 
@@ -34,12 +64,18 @@ export class ErrorBoundary extends React.Component<
         ? this.state.error.message
         : "Something went wrong while rendering.";
 
+    const isDynamicError = isDynamicImportError(this.state.error);
+
     return (
       <main className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
         <section className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h1 className="text-xl font-bold">We hit a rendering error</h1>
+          <h1 className="text-xl font-bold">
+            {isDynamicError ? "App Updated" : "We hit a rendering error"}
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {message}
+            {isDynamicError
+              ? "A new version is available. Please reload to get the latest updates."
+              : message}
           </p>
           <div className="mt-6 flex items-center gap-3">
             <Button onClick={this.handleReload}>Reload</Button>
@@ -47,11 +83,13 @@ export class ErrorBoundary extends React.Component<
               Go back
             </Button>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            If this keeps happening, it’s usually an import/export mismatch (a component
-            is <code>undefined</code>), or a cached bundle after a refactor. Reloading
-            typically fixes it.
-          </p>
+          {!isDynamicError && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              If this keeps happening, it's usually an import/export mismatch (a component
+              is <code>undefined</code>), or a cached bundle after a refactor. Reloading
+              typically fixes it.
+            </p>
+          )}
         </section>
       </main>
     );
