@@ -43,9 +43,18 @@ export const TOKEN_TYPE = 0; // 0 = SPL Token (not Token-2022)
 export const TOKEN_UPDATE_AUTHORITY = 1; // 1 = immutable metadata
 
 // Environment variables with validation
-export const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL || '';
+// SUPABASE_URL is required
 export const SUPABASE_URL = process.env.SUPABASE_URL || '';
+
+// Use ANON_KEY (publishable) for reads - no service role needed for basic operations
+// The anon key is safe to use since RLS policies protect the data
+export const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+
+// Service role key is OPTIONAL - only needed for admin operations that bypass RLS
+// If not provided, we'll use anon key with security definer functions for writes
 export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+export const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL || '';
 export const TREASURY_PRIVATE_KEY = process.env.TREASURY_PRIVATE_KEY || '';
 
 // Get RPC URL with helpful error messages
@@ -60,15 +69,26 @@ export function getHeliusRpcUrl(): string {
   return url;
 }
 
+// Check if service role key is available for admin operations
+export function hasServiceRoleKey(): boolean {
+  return !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+}
+
 // Validate required environment variables
 export function validateEnv() {
-  const required = [
-    'HELIUS_RPC_URL', 
-    'SUPABASE_URL', 
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'TREASURY_PRIVATE_KEY',
-  ];
-  const missing = required.filter(key => !process.env[key]);
+  // Minimum required: SUPABASE_URL and either ANON_KEY or SERVICE_ROLE_KEY
+  const baseRequired = ['SUPABASE_URL', 'HELIUS_RPC_URL', 'TREASURY_PRIVATE_KEY'];
+  
+  // Need at least one Supabase key
+  const hasAnonKey = !!process.env.SUPABASE_ANON_KEY;
+  const hasServiceRoleKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!hasAnonKey && !hasServiceRoleKey) {
+    console.error('[Config] Missing Supabase credentials! Need SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('Missing Supabase credentials. Set SUPABASE_ANON_KEY (recommended) or SUPABASE_SERVICE_ROLE_KEY');
+  }
+  
+  const missing = baseRequired.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
     console.error('[Config] Missing environment variables:', missing);
@@ -76,5 +96,6 @@ export function validateEnv() {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
   
-  console.log('[Config] All required environment variables are set ✓');
+  console.log('[Config] Environment validated ✓');
+  console.log('[Config] Using:', hasServiceRoleKey ? 'SERVICE_ROLE_KEY' : 'ANON_KEY');
 }

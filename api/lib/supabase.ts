@@ -1,13 +1,76 @@
-import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from './config.js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { 
+  SUPABASE_URL, 
+  SUPABASE_ANON_KEY, 
+  SUPABASE_SERVICE_ROLE_KEY,
+  hasServiceRoleKey 
+} from './config.js';
 
-// Create Supabase client with service role key for backend operations
-export function getSupabaseClient() {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('Supabase credentials not configured');
+// Cached clients
+let anonClient: SupabaseClient | null = null;
+let serviceClient: SupabaseClient | null = null;
+
+/**
+ * Get Supabase client with anon key (for RLS-protected operations)
+ * This is the preferred client for most operations
+ */
+export function getSupabaseAnonClient(): SupabaseClient {
+  if (!SUPABASE_URL) {
+    throw new Error('SUPABASE_URL not configured');
   }
   
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  if (!SUPABASE_ANON_KEY) {
+    throw new Error('SUPABASE_ANON_KEY not configured');
+  }
+  
+  if (!anonClient) {
+    anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  
+  return anonClient;
+}
+
+/**
+ * Get Supabase client with service role key (bypasses RLS)
+ * Use only when absolutely necessary for admin operations
+ */
+export function getSupabaseServiceClient(): SupabaseClient {
+  if (!SUPABASE_URL) {
+    throw new Error('SUPABASE_URL not configured');
+  }
+  
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured - use anon client instead');
+  }
+  
+  if (!serviceClient) {
+    serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  }
+  
+  return serviceClient;
+}
+
+/**
+ * Get the best available Supabase client
+ * Prefers service role key if available for write operations,
+ * falls back to anon key (which requires RLS to allow the operation)
+ */
+export function getSupabaseClient(): SupabaseClient {
+  if (!SUPABASE_URL) {
+    throw new Error('SUPABASE_URL not configured');
+  }
+  
+  // Prefer service role key if available (for backward compatibility)
+  if (hasServiceRoleKey()) {
+    return getSupabaseServiceClient();
+  }
+  
+  // Fall back to anon key
+  if (SUPABASE_ANON_KEY) {
+    return getSupabaseAnonClient();
+  }
+  
+  throw new Error('No Supabase credentials configured. Set SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY');
 }
 
 // Token type definition
