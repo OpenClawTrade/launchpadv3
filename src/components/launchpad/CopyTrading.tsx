@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, forwardRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
@@ -54,7 +54,7 @@ interface WalletTrade {
   created_at: string;
 }
 
-export function CopyTrading() {
+export const CopyTrading = forwardRef<HTMLDivElement, Record<string, never>>(function CopyTrading(_props, ref) {
   const { profileId, isAuthenticated, login } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -216,7 +216,7 @@ export function CopyTrading() {
 
   if (!isAuthenticated) {
     return (
-      <Card className="p-6 text-center">
+      <Card ref={ref} className="p-6 text-center">
         <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
         <h3 className="font-bold text-lg mb-2">Copy Trading</h3>
         <p className="text-muted-foreground text-sm mb-4">
@@ -231,7 +231,7 @@ export function CopyTrading() {
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={ref} className="space-y-4">
       {/* Header */}
       <Card className="p-4">
         <div className="flex items-center justify-between">
@@ -425,4 +425,6 @@ export function CopyTrading() {
       )}
     </div>
   );
-}
+});
+
+CopyTrading.displayName = "CopyTrading";
