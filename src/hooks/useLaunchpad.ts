@@ -96,8 +96,13 @@ export function useLaunchpad() {
   const queryClient = useQueryClient();
   const { executeSwap: executeSwapApi, claimFees: claimFeesApi } = useMeteoraApi();
 
-  // Fetch all tokens - only show tokens with real trading activity
-  const { data: tokens = [], isLoading: isLoadingTokens, refetch: refetchTokens } = useQuery({
+  // Fetch all tokens
+  const {
+    data: tokens = [],
+    isLoading: isLoadingTokens,
+    error: tokensError,
+    refetch: refetchTokens,
+  } = useQuery({
     queryKey: ['launchpad-tokens'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -116,7 +121,18 @@ export function useLaunchpad() {
       if (error) throw error;
       return data as Token[];
     },
+    retry: 2,
   });
+
+  useEffect(() => {
+    if (tokensError) {
+      toast({
+        title: "Couldn't load tokens",
+        description: tokensError instanceof Error ? tokensError.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [tokensError, toast]);
 
   // Subscribe to realtime updates for tokens and transactions
   useEffect(() => {
@@ -423,6 +439,7 @@ export function useLaunchpad() {
   return {
     tokens,
     isLoadingTokens,
+    tokensError,
     refetchTokens,
     useToken,
     useTokenTransactions,

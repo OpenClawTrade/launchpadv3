@@ -33,8 +33,8 @@ export function RightSidebar() {
   const { isAuthenticated, login } = useAuth();
   const { trends, isLoading: trendsLoading } = useTrending(5);
   const { suggestedUsers, isLoading: usersLoading, followUser } = useSuggestedUsers(3);
-  const { tokens, isLoadingTokens } = useLaunchpad();
-  
+  const { tokens, isLoadingTokens, tokensError, refetchTokens } = useLaunchpad();
+
   // Get latest 3 tokens
   const latestTokens = tokens
     ?.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
@@ -81,6 +81,19 @@ export function RightSidebar() {
           {isLoadingTokens ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          ) : tokensError ? (
+            <div className="px-4 py-6 text-center">
+              <p className="text-sm font-medium text-foreground">Couldn't load tokens</p>
+              <p className="text-xs text-muted-foreground mt-1">Check your connection and try again.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => refetchTokens()}
+              >
+                Retry
+              </Button>
             </div>
           ) : latestTokens.length === 0 ? (
             <div className="px-4 py-8 text-center">
