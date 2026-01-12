@@ -5,12 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Token, formatSolAmount } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Target, Shield, TrendingDown, Repeat, AlertTriangle } from "lucide-react";
+import { Loader2, Target, Shield, TrendingDown, Repeat, AlertTriangle, Lock } from "lucide-react";
 
 interface AdvancedOrderFormProps {
   token: Token;
@@ -35,90 +34,6 @@ export function AdvancedOrderForm({ token, userBalance = 0, onOrderCreated }: Ad
 
   const currentPrice = token.price_sol || 0;
 
-  const handleCreateOrder = async () => {
-    if (!isAuthenticated) {
-      login();
-      return;
-    }
-
-    if (!solanaAddress) {
-      toast({ title: "Please connect your wallet", variant: "destructive" });
-      return;
-    }
-
-    const numAmount = parseFloat(amount);
-    const numTriggerPrice = parseFloat(triggerPrice);
-
-    if (!numAmount || numAmount <= 0) {
-      toast({ title: "Invalid amount", variant: "destructive" });
-      return;
-    }
-
-    if (orderType !== 'dca' && (!numTriggerPrice || numTriggerPrice <= 0)) {
-      toast({ title: "Invalid trigger price", variant: "destructive" });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      if (orderType === 'dca') {
-        // Create DCA order
-        const { error } = await supabase.from('dca_orders').insert({
-          token_id: token.id,
-          user_wallet: solanaAddress,
-          profile_id: profileId || null,
-          side,
-          amount_per_order: numAmount,
-          total_orders: parseInt(dcaOrders),
-          interval_seconds: parseInt(dcaInterval),
-          next_execution_at: new Date(Date.now() + parseInt(dcaInterval) * 1000).toISOString(),
-          status: 'active',
-        });
-
-        if (error) throw error;
-
-        toast({
-          title: "DCA Order Created!",
-          description: `${parseInt(dcaOrders)} orders of ${numAmount} SOL each`,
-        });
-      } else {
-        // Create limit/stop-loss/take-profit order
-        const { error } = await supabase.from('limit_orders').insert({
-          token_id: token.id,
-          user_wallet: solanaAddress,
-          profile_id: profileId || null,
-          order_type: orderType,
-          side,
-          trigger_price: numTriggerPrice,
-          amount: numAmount,
-          amount_type: side === 'buy' ? 'sol' : 'token',
-          status: 'pending',
-        });
-
-        if (error) throw error;
-
-        toast({
-          title: "Order Created!",
-          description: `${orderType.replace('_', ' ')} ${side} at ${formatSolAmount(numTriggerPrice)} SOL`,
-        });
-      }
-
-      // Reset form
-      setAmount('');
-      setTriggerPrice('');
-      onOrderCreated?.();
-    } catch (error) {
-      console.error('Create order error:', error);
-      toast({
-        title: "Failed to create order",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const getOrderTypeIcon = (type: OrderType) => {
     switch (type) {
       case 'limit': return <Target className="h-4 w-4" />;
@@ -135,7 +50,19 @@ export function AdvancedOrderForm({ token, userBalance = 0, onOrderCreated }: Ad
   }
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="relative p-4 space-y-4 overflow-hidden">
+      {/* Blur overlay with "Available Soon" */}
+      <div className="absolute inset-0 z-10 backdrop-blur-sm bg-background/60 flex flex-col items-center justify-center">
+        <div className="flex items-center gap-2 bg-primary/20 text-primary px-4 py-2 rounded-full border border-primary/30">
+          <Lock className="h-4 w-4" />
+          <span className="font-semibold text-sm">Available Soon</span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2 text-center px-4">
+          Advanced trading features coming soon
+        </p>
+      </div>
+
+      {/* Original content (blurred) */}
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-sm">Advanced Orders</h3>
         <span className="text-xs text-muted-foreground">
@@ -195,12 +122,8 @@ export function AdvancedOrderForm({ token, userBalance = 0, onOrderCreated }: Ad
                 value={triggerPrice}
                 onChange={(e) => setTriggerPrice(e.target.value)}
                 step="0.000001"
+                disabled
               />
-              {triggerPrice && (
-                <p className="text-xs text-muted-foreground">
-                  {((parseFloat(triggerPrice) - currentPrice) / currentPrice * 100).toFixed(2)}% from current
-                </p>
-              )}
             </div>
           )}
 
@@ -213,6 +136,7 @@ export function AdvancedOrderForm({ token, userBalance = 0, onOrderCreated }: Ad
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              disabled
             />
           </div>
 
@@ -221,58 +145,36 @@ export function AdvancedOrderForm({ token, userBalance = 0, onOrderCreated }: Ad
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs">Number of Orders</Label>
-                  <Select value={dcaOrders} onValueChange={setDcaOrders}>
+                  <Select value={dcaOrders} onValueChange={setDcaOrders} disabled>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="5">5 orders</SelectItem>
                       <SelectItem value="10">10 orders</SelectItem>
-                      <SelectItem value="20">20 orders</SelectItem>
-                      <SelectItem value="50">50 orders</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Interval</Label>
-                  <Select value={dcaInterval} onValueChange={setDcaInterval}>
+                  <Select value={dcaInterval} onValueChange={setDcaInterval} disabled>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="300">5 min</SelectItem>
-                      <SelectItem value="900">15 min</SelectItem>
                       <SelectItem value="3600">1 hour</SelectItem>
-                      <SelectItem value="86400">24 hours</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="p-3 bg-secondary/50 rounded-lg text-xs text-muted-foreground">
-                Total: {(parseFloat(amount || '0') * parseInt(dcaOrders)).toFixed(4)} SOL over{' '}
-                {parseInt(dcaOrders) * parseInt(dcaInterval) / 3600} hours
-              </div>
             </>
-          )}
-
-          {/* Warning for stop-loss */}
-          {orderType === 'stop_loss' && side === 'sell' && (
-            <div className="flex items-start gap-2 p-3 bg-destructive/10 rounded-lg text-xs text-destructive">
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>Stop-loss will sell your tokens when price drops to trigger price</span>
-            </div>
           )}
 
           <Button
             className={`w-full ${side === 'buy' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
-            onClick={handleCreateOrder}
-            disabled={isLoading || !amount}
+            disabled
           >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              `Create ${orderType.replace('_', ' ')} Order`
-            )}
+            Create Order
           </Button>
         </div>
       </Tabs>
