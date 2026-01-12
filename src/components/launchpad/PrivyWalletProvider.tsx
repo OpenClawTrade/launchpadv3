@@ -36,12 +36,42 @@ export default function PrivyWalletProvider({
   // Create signer using Wallet Standard interface directly (NOT Privy hooks!)
   const signer = useMemo(() => {
     const list = wallets || [];
-    const wallet = pickWallet(list);
-    if (!wallet) return null;
+    if (list.length === 0) return null;
 
     return async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
+      // Extract fee payer from transaction to find the correct wallet
+      let feePayerAddress: string | null = null;
+      if (tx instanceof VersionedTransaction) {
+        // For versioned transactions, fee payer is first static account key
+        const keys = tx.message.staticAccountKeys;
+        if (keys && keys.length > 0) {
+          feePayerAddress = keys[0].toBase58();
+        }
+      } else {
+        // For legacy transactions
+        feePayerAddress = tx.feePayer?.toBase58() || null;
+      }
+      
+      console.log('[PrivyWalletProvider] Transaction fee payer:', feePayerAddress);
+      console.log('[PrivyWalletProvider] Available wallets:', list.map((w: any) => w.address));
+      
+      // Find the wallet that matches the fee payer
+      let wallet = feePayerAddress 
+        ? list.find((w: any) => w.address === feePayerAddress)
+        : null;
+      
+      // Fallback to preferred or first wallet if no match
+      if (!wallet) {
+        console.warn('[PrivyWalletProvider] No wallet matches fee payer, using fallback');
+        wallet = pickWallet(list);
+      }
+      
+      if (!wallet) {
+        throw new Error('No Solana wallet available');
+      }
+      
       console.log('[PrivyWalletProvider] Signing with wallet:', wallet.address);
-      console.log('[PrivyWalletProvider] Wallet type:', wallet.walletClientType);
+      console.log('[PrivyWalletProvider] Wallet type:', (wallet as any).walletClientType);
       
       // Get the standard wallet interface
       const standardWallet = (wallet as any).standardWallet;
@@ -60,16 +90,18 @@ export default function PrivyWalletProvider({
         throw new Error('Wallet does not support signTransaction');
       }
       
-      // Find the account for this wallet
+      // Find the account for this wallet - must match the fee payer!
+      const targetAddress = feePayerAddress || wallet.address;
       const account = standardWallet.accounts?.find(
-        (a: any) => a.address === wallet.address
+        (a: any) => a.address === targetAddress
       );
       if (!account) {
-        console.error('[PrivyWalletProvider] Could not find account for address:', wallet.address);
-        throw new Error('Could not find wallet account');
+        console.error('[PrivyWalletProvider] Could not find account for address:', targetAddress);
+        console.error('[PrivyWalletProvider] Available accounts:', standardWallet.accounts?.map((a: any) => a.address));
+        throw new Error(`Could not find wallet account for ${targetAddress}`);
       }
       
-      console.log('[PrivyWalletProvider] Found account:', account.address);
+      console.log('[PrivyWalletProvider] Using account:', account.address);
       
       // Serialize transaction to bytes
       const txBytes: Uint8Array =
