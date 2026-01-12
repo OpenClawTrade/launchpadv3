@@ -1606,6 +1606,10 @@ export type Database = {
         }
         Returns: string
       }
+      backend_create_system_post: {
+        Args: { p_content: string; p_image_url?: string; p_user_id: string }
+        Returns: string
+      }
       backend_create_token: {
         Args: {
           p_creator_fee_bps?: number
