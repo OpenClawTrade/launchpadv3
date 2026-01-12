@@ -36,7 +36,7 @@ export default function LaunchTokenPage() {
       </div>
 
       {/* Form */}
-      <div className="px-4 pb-8 max-w-md mx-auto space-y-4">
+      <div className="px-4 pb-8 space-y-4">
         <WalletBalanceCard minRequired={0.05} />
         <LaunchTokenForm />
       </div>
