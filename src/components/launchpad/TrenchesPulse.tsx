@@ -27,6 +27,7 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
   const queryClient = useQueryClient();
 
   // Fetch tokens with different sorting based on filter
+  // IMPORTANT: Only show tokens with real trading activity (volume > 0)
   const { data: tokens = [], isLoading } = useQuery({
     queryKey: ['pulse-tokens', filter],
     queryFn: async () => {
@@ -41,7 +42,8 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
             verified_type
           )
         `)
-        .eq('status', 'bonding');
+        .eq('status', 'bonding')
+        .gt('volume_24h_sol', 0); // Only show tokens with actual trading volume
 
       switch (filter) {
         case 'new':
@@ -54,7 +56,7 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
           query = query.gte('bonding_curve_progress', 50).order('bonding_curve_progress', { ascending: false }).limit(20);
           break;
         case 'volume':
-          query = query.gt('volume_24h_sol', 0).order('volume_24h_sol', { ascending: false }).limit(20);
+          query = query.order('volume_24h_sol', { ascending: false }).limit(20);
           break;
       }
 
