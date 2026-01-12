@@ -1,4 +1,4 @@
-import { Settings, TrendingUp, LogIn, UserPlus, Loader2 } from "lucide-react";
+import { Settings, TrendingUp, LogIn, UserPlus, Loader2, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
@@ -6,8 +6,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrending } from "@/hooks/useTrending";
 import { useSuggestedUsers } from "@/hooks/useSuggestedUsers";
+import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { PremiumSubscriptionCard } from "@/components/premium/PremiumSubscriptionCard";
-
 function formatPostCount(count: number): string {
   if (count >= 1000000) return (count / 1000000).toFixed(1) + "M";
   if (count >= 1000) return (count / 1000).toFixed(1) + "K";
@@ -33,6 +33,12 @@ export function RightSidebar() {
   const { isAuthenticated, login } = useAuth();
   const { trends, isLoading: trendsLoading } = useTrending(5);
   const { suggestedUsers, isLoading: usersLoading, followUser } = useSuggestedUsers(3);
+  const { tokens, isLoadingTokens } = useLaunchpad();
+  
+  // Get latest 3 tokens
+  const latestTokens = tokens
+    ?.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .slice(0, 3) || [];
 
   const handleFollow = async (userId: string) => {
     if (!isAuthenticated) {
@@ -65,6 +71,65 @@ export function RightSidebar() {
 
       {/* Premium Card */}
       <PremiumSubscriptionCard />
+
+      {/* Latest Token Launches */}
+      <div className="flex-none bg-card rounded-lg border border-border overflow-hidden">
+        <div className="flex items-center justify-between p-4 pb-2">
+          <div className="flex items-center gap-2">
+            <Rocket className="h-4 w-4 text-primary" />
+            <h2 className="text-base font-semibold">Latest Launches</h2>
+          </div>
+        </div>
+        <div className="divide-y divide-border">
+          {isLoadingTokens ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          ) : latestTokens.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm font-medium text-foreground">No tokens yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Be the first to launch a token!
+              </p>
+            </div>
+          ) : (
+            latestTokens.map((token) => (
+              <Link
+                key={token.id}
+                to={`/token/${token.mint_address}`}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/50 transition-colors duration-200"
+              >
+                <Avatar className="h-9 w-9 rounded-lg">
+                  <AvatarImage src={token.image_url || undefined} alt={token.name} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm rounded-lg">
+                    {token.ticker?.charAt(0) || "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{token.name}</p>
+                  <p className="text-xs text-muted-foreground">${token.ticker?.toUpperCase()}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-medium text-primary">
+                    New
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {((token.bonding_curve_progress || 0) * 100).toFixed(0)}% bonded
+                  </p>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+        {latestTokens.length > 0 && (
+          <button 
+            onClick={() => navigate("/launchpad")}
+            className="w-full text-left px-4 py-3 text-primary text-sm font-medium hover:bg-secondary/50 transition-colors duration-200"
+          >
+            View all tokens
+          </button>
+        )}
+      </div>
 
       {/* Trends */}
       <div className="flex-none bg-card rounded-lg border border-border overflow-hidden">
