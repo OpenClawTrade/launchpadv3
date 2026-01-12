@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useWallets } from "@privy-io/react-auth/solana";
-import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Transaction, VersionedTransaction, PublicKey } from "@solana/web3.js";
+
+// Type for signing that returns raw bytes
+export type SignTransactionBytes = (txBytes: Uint8Array) => Promise<Uint8Array>;
 
 interface PrivyWalletProviderProps {
   preferredAddress?: string | null;
@@ -8,6 +11,7 @@ interface PrivyWalletProviderProps {
   onSignTransactionChange: (
     fn: ((tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>) | null
   ) => void;
+  onSignTransactionBytesChange?: (fn: SignTransactionBytes | null) => void;
   onSigningWalletChange?: (address: string | null) => void;
 }
 
@@ -15,6 +19,7 @@ export default function PrivyWalletProvider({
   preferredAddress,
   onWalletsChange,
   onSignTransactionChange,
+  onSignTransactionBytesChange,
   onSigningWalletChange,
 }: PrivyWalletProviderProps) {
   const { wallets } = useWallets();
@@ -35,28 +40,29 @@ export default function PrivyWalletProvider({
     [preferredAddress]
   );
 
-  // Create signer using Wallet Standard interface directly (NOT Privy hooks!)
-  const signer = useMemo(() => {
+  // Get the current signing wallet
+  const currentWallet = useMemo(() => {
     const list = wallets || [];
-    if (list.length === 0) return null;
+    return pickWallet(list);
+  }, [wallets, pickWallet]);
 
-    // Pick the wallet we'll use for signing
-    const wallet = pickWallet(list);
-    if (!wallet) return null;
+  // Direct bytes signing function - THIS IS THE CRITICAL ONE
+  // Returns raw signed bytes for direct use with sendRawTransaction
+  const signTransactionBytes = useMemo((): SignTransactionBytes | null => {
+    if (!currentWallet) return null;
 
-    return async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
-      console.log('[PrivyWalletProvider] Signing with wallet:', wallet.address);
-      console.log('[PrivyWalletProvider] Wallet type:', (wallet as any).walletClientType);
+    return async (txBytes: Uint8Array): Promise<Uint8Array> => {
+      console.log('[PrivyWalletProvider] signTransactionBytes called');
+      console.log('[PrivyWalletProvider] Signing with wallet:', currentWallet.address);
       
       // Get the standard wallet interface
-      const standardWallet = (wallet as any).standardWallet;
+      const standardWallet = (currentWallet as any).standardWallet;
       if (!standardWallet) {
         console.error('[PrivyWalletProvider] No standardWallet interface found');
         throw new Error('Wallet does not support standard interface');
       }
       
       console.log('[PrivyWalletProvider] Standard wallet name:', standardWallet.name);
-      console.log('[PrivyWalletProvider] Standard wallet features:', Object.keys(standardWallet.features || {}));
       
       // Get the signTransaction feature
       const signFeature = standardWallet.features['solana:signTransaction'];
@@ -67,25 +73,16 @@ export default function PrivyWalletProvider({
       
       // Find the account for this wallet
       const account = standardWallet.accounts?.find(
-        (a: any) => a.address === wallet.address
+        (a: any) => a.address === currentWallet.address
       );
       if (!account) {
-        console.error('[PrivyWalletProvider] Could not find account for address:', wallet.address);
-        console.error('[PrivyWalletProvider] Available accounts:', standardWallet.accounts?.map((a: any) => a.address));
-        throw new Error(`Could not find wallet account for ${wallet.address}`);
+        console.error('[PrivyWalletProvider] Could not find account for address:', currentWallet.address);
+        throw new Error(`Could not find wallet account for ${currentWallet.address}`);
       }
-      
-      console.log('[PrivyWalletProvider] Using account:', account.address);
-      
-      // Serialize transaction to bytes
-      const txBytes: Uint8Array =
-        tx instanceof VersionedTransaction
-          ? tx.serialize()
-          : tx.serialize({ requireAllSignatures: false, verifySignatures: false });
       
       console.log('[PrivyWalletProvider] TX bytes length:', txBytes.length);
       
-      // Sign using Wallet Standard - NO RPC CALLS, returns actually signed bytes
+      // Sign using Wallet Standard - returns actually signed bytes
       const results = await signFeature.signTransaction({
         transaction: txBytes,
         chain: 'solana:mainnet',
@@ -101,31 +98,48 @@ export default function PrivyWalletProvider({
       
       console.log('[PrivyWalletProvider] Signed TX bytes length:', signedBytes.length);
       
-      // Log first signature to verify it's not all zeros
+      // Verify signature is not all zeros
       const sig = signedBytes.slice(0, 64);
       const isAllZeros = sig.every((b: number) => b === 0);
-      console.log('[PrivyWalletProvider] Signature is all zeros:', isAllZeros);
       if (isAllZeros) {
         console.error('[PrivyWalletProvider] WARNING: Signature is all zeros!');
+        throw new Error('Wallet returned invalid (zero) signature');
       }
+      
+      console.log('[PrivyWalletProvider] Signature valid (not all zeros)');
+      
+      return signedBytes;
+    };
+  }, [currentWallet]);
+
+  // Legacy Transaction/VersionedTransaction signer for backwards compatibility
+  const signer = useMemo(() => {
+    if (!signTransactionBytes) return null;
+
+    return async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
+      // Serialize transaction to bytes
+      const txBytes: Uint8Array =
+        tx instanceof VersionedTransaction
+          ? tx.serialize()
+          : tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+      
+      // Sign the bytes
+      const signedBytes = await signTransactionBytes(txBytes);
       
       // Deserialize back to Transaction/VersionedTransaction
       return tx instanceof VersionedTransaction
         ? VersionedTransaction.deserialize(signedBytes)
         : Transaction.from(signedBytes);
     };
-  }, [wallets, pickWallet]);
+  }, [signTransactionBytes]);
 
   const prevWalletSigRef = useRef<string>("");
   const prevSignerRef = useRef<typeof signer>(null);
+  const prevSignerBytesRef = useRef<typeof signTransactionBytes>(null);
   const prevSigningWalletRef = useRef<string | null>(null);
 
   // Get the current signing wallet address
-  const signingWalletAddress = useMemo(() => {
-    const list = wallets || [];
-    const wallet = pickWallet(list);
-    return wallet?.address || null;
-  }, [wallets, pickWallet]);
+  const signingWalletAddress = currentWallet?.address || null;
 
   useEffect(() => {
     const list = wallets || [];
@@ -159,14 +173,17 @@ export default function PrivyWalletProvider({
       onSignTransactionChange(signer);
     }
 
+    if (prevSignerBytesRef.current !== signTransactionBytes) {
+      prevSignerBytesRef.current = signTransactionBytes;
+      onSignTransactionBytesChange?.(signTransactionBytes);
+    }
+
     if (prevSigningWalletRef.current !== signingWalletAddress) {
       prevSigningWalletRef.current = signingWalletAddress;
       onSigningWalletChange?.(signingWalletAddress);
       console.log('[PrivyWalletProvider] Signing wallet changed to:', signingWalletAddress);
     }
-  }, [wallets, signer, signingWalletAddress, onWalletsChange, onSignTransactionChange, onSigningWalletChange]);
+  }, [wallets, signer, signTransactionBytes, signingWalletAddress, onWalletsChange, onSignTransactionChange, onSignTransactionBytesChange, onSigningWalletChange]);
 
   return null;
 }
-
-
