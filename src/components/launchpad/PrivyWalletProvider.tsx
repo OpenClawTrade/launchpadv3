@@ -8,12 +8,14 @@ interface PrivyWalletProviderProps {
   onSignTransactionChange: (
     fn: ((tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>) | null
   ) => void;
+  onSigningWalletChange?: (address: string | null) => void;
 }
 
 export default function PrivyWalletProvider({
   preferredAddress,
   onWalletsChange,
   onSignTransactionChange,
+  onSigningWalletChange,
 }: PrivyWalletProviderProps) {
   const { wallets } = useWallets();
 
@@ -38,38 +40,11 @@ export default function PrivyWalletProvider({
     const list = wallets || [];
     if (list.length === 0) return null;
 
+    // Pick the wallet we'll use for signing
+    const wallet = pickWallet(list);
+    if (!wallet) return null;
+
     return async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
-      // Extract fee payer from transaction to find the correct wallet
-      let feePayerAddress: string | null = null;
-      if (tx instanceof VersionedTransaction) {
-        // For versioned transactions, fee payer is first static account key
-        const keys = tx.message.staticAccountKeys;
-        if (keys && keys.length > 0) {
-          feePayerAddress = keys[0].toBase58();
-        }
-      } else {
-        // For legacy transactions
-        feePayerAddress = tx.feePayer?.toBase58() || null;
-      }
-      
-      console.log('[PrivyWalletProvider] Transaction fee payer:', feePayerAddress);
-      console.log('[PrivyWalletProvider] Available wallets:', list.map((w: any) => w.address));
-      
-      // Find the wallet that matches the fee payer
-      let wallet = feePayerAddress 
-        ? list.find((w: any) => w.address === feePayerAddress)
-        : null;
-      
-      // Fallback to preferred or first wallet if no match
-      if (!wallet) {
-        console.warn('[PrivyWalletProvider] No wallet matches fee payer, using fallback');
-        wallet = pickWallet(list);
-      }
-      
-      if (!wallet) {
-        throw new Error('No Solana wallet available');
-      }
-      
       console.log('[PrivyWalletProvider] Signing with wallet:', wallet.address);
       console.log('[PrivyWalletProvider] Wallet type:', (wallet as any).walletClientType);
       
@@ -90,15 +65,14 @@ export default function PrivyWalletProvider({
         throw new Error('Wallet does not support signTransaction');
       }
       
-      // Find the account for this wallet - must match the fee payer!
-      const targetAddress = feePayerAddress || wallet.address;
+      // Find the account for this wallet
       const account = standardWallet.accounts?.find(
-        (a: any) => a.address === targetAddress
+        (a: any) => a.address === wallet.address
       );
       if (!account) {
-        console.error('[PrivyWalletProvider] Could not find account for address:', targetAddress);
+        console.error('[PrivyWalletProvider] Could not find account for address:', wallet.address);
         console.error('[PrivyWalletProvider] Available accounts:', standardWallet.accounts?.map((a: any) => a.address));
-        throw new Error(`Could not find wallet account for ${targetAddress}`);
+        throw new Error(`Could not find wallet account for ${wallet.address}`);
       }
       
       console.log('[PrivyWalletProvider] Using account:', account.address);
@@ -144,6 +118,14 @@ export default function PrivyWalletProvider({
 
   const prevWalletSigRef = useRef<string>("");
   const prevSignerRef = useRef<typeof signer>(null);
+  const prevSigningWalletRef = useRef<string | null>(null);
+
+  // Get the current signing wallet address
+  const signingWalletAddress = useMemo(() => {
+    const list = wallets || [];
+    const wallet = pickWallet(list);
+    return wallet?.address || null;
+  }, [wallets, pickWallet]);
 
   useEffect(() => {
     const list = wallets || [];
@@ -176,7 +158,13 @@ export default function PrivyWalletProvider({
       prevSignerRef.current = signer;
       onSignTransactionChange(signer);
     }
-  }, [wallets, signer, onWalletsChange, onSignTransactionChange]);
+
+    if (prevSigningWalletRef.current !== signingWalletAddress) {
+      prevSigningWalletRef.current = signingWalletAddress;
+      onSigningWalletChange?.(signingWalletAddress);
+      console.log('[PrivyWalletProvider] Signing wallet changed to:', signingWalletAddress);
+    }
+  }, [wallets, signer, signingWalletAddress, onWalletsChange, onSignTransactionChange, onSigningWalletChange]);
 
   return null;
 }
