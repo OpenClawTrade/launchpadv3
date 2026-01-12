@@ -333,7 +333,7 @@ export function useMeteoraApi() {
               signature = await connection.sendRawTransaction(serializedTx, {
                 skipPreflight: true, // Skip since we already simulated
                 preflightCommitment: 'confirmed',
-                maxRetries: 3,
+                maxRetries: 5,
               });
             } catch (sendError: any) {
               console.error('[createPool] sendRawTransaction error:', sendError);
@@ -350,23 +350,60 @@ export function useMeteoraApi() {
               throw new Error('Transaction failed - RPC returned null signature. This usually means the transaction was rejected.');
             }
 
-            console.log('[createPool] Confirming TX...');
+            console.log('[createPool] Confirming TX with polling fallback...');
             const confirmStartTime = Date.now();
             
-            const confirmation = await connection.confirmTransaction(
-              {
-                signature,
-                blockhash,
-                lastValidBlockHeight,
-              },
-              'confirmed'
-            );
+            // Use polling-based confirmation with timeout instead of blockhash expiry
+            const MAX_CONFIRM_TIME_MS = 60000; // 60 seconds max
+            const POLL_INTERVAL_MS = 2000; // Check every 2 seconds
             
-            console.log('[createPool] TX confirmed in', Date.now() - confirmStartTime, 'ms');
+            let confirmed = false;
+            let txError: any = null;
             
-            if (confirmation.value.err) {
-              console.error('[createPool] TX confirmed but has error:', confirmation.value.err);
-              throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+            while (Date.now() - confirmStartTime < MAX_CONFIRM_TIME_MS && !confirmed) {
+              try {
+                const statuses = await connection.getSignatureStatuses([signature]);
+                const status = statuses.value[0];
+                
+                if (status) {
+                  if (status.err) {
+                    txError = status.err;
+                    console.error('[createPool] TX failed on-chain:', status.err);
+                    break;
+                  }
+                  
+                  if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+                    confirmed = true;
+                    console.log('[createPool] TX confirmed via polling in', Date.now() - confirmStartTime, 'ms');
+                    console.log('[createPool] Confirmation status:', status.confirmationStatus);
+                    break;
+                  }
+                }
+                
+                // Wait before next poll
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+                
+              } catch (pollError) {
+                console.warn('[createPool] Polling error (will retry):', pollError);
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+              }
+            }
+            
+            if (txError) {
+              throw new Error(`Transaction failed on-chain: ${JSON.stringify(txError)}`);
+            }
+            
+            if (!confirmed) {
+              // One final check before giving up
+              const finalStatus = await connection.getSignatureStatuses([signature]);
+              if (finalStatus.value[0]?.confirmationStatus === 'confirmed' || 
+                  finalStatus.value[0]?.confirmationStatus === 'finalized') {
+                confirmed = true;
+                console.log('[createPool] TX confirmed on final check');
+              } else {
+                console.error('[createPool] TX confirmation timeout after', MAX_CONFIRM_TIME_MS, 'ms');
+                throw new Error(`Transaction confirmation timeout. Check signature on explorer: ${signature}`);
+              }
             }
 
             signatures.push(signature);
