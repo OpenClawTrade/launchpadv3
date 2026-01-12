@@ -106,7 +106,7 @@ export function RightSidebar() {
             latestTokens.map((token) => (
               <Link
                 key={token.id}
-                to={`/token/${token.mint_address}`}
+                to={`/launchpad/${token.mint_address}`}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/50 transition-colors duration-200"
               >
                 <Avatar className="h-9 w-9 rounded-lg">
