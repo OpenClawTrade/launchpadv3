@@ -11,6 +11,7 @@ import {
 } from "react";
 import trenchesLogo from "@/assets/trenches-logo.png";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 
 // Lazy load Privy - it's a heavy dependency
 const PrivyProvider = lazy(() =>
@@ -30,6 +31,39 @@ interface PrivyProviderWrapperProps {
 
 function isValidPrivyAppId(appId: string) {
   return appId.length > 0 && !appId.includes("${");
+}
+
+function getHeliusRpcUrlFromRuntime(): string | null {
+  // 1) localStorage (set by RuntimeConfigBootstrap)
+  if (typeof window !== "undefined") {
+    const fromStorage = localStorage.getItem("heliusRpcUrl");
+    if (fromStorage && fromStorage.startsWith("https://") && !fromStorage.includes("${")) {
+      return fromStorage.trim();
+    }
+
+    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.heliusRpcUrl as string | undefined;
+    if (fromWindow && fromWindow.startsWith("https://") && !fromWindow.includes("${")) {
+      return fromWindow.trim();
+    }
+  }
+
+  // 2) build-time env
+  const fromEnv = import.meta.env.VITE_HELIUS_RPC_URL;
+  if (fromEnv && typeof fromEnv === "string" && fromEnv.startsWith("https://") && !fromEnv.includes("${")) {
+    return fromEnv.trim();
+  }
+
+  // 3) api key -> construct paid Helius URL
+  const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
+  if (apiKey && typeof apiKey === "string" && apiKey.trim().length > 10 && !apiKey.includes("${")) {
+    return `https://mainnet.helius-rpc.com/?api-key=${apiKey.trim()}`;
+  }
+
+  return null;
+}
+
+function toWebsocketUrl(httpUrl: string): string {
+  return httpUrl.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:");
 }
 
 async function fetchPrivyAppIdFromBackend(): Promise<string> {
@@ -140,6 +174,9 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
     []
   );
 
+  const heliusRpcUrl = getHeliusRpcUrlFromRuntime();
+  const solanaWsUrl = heliusRpcUrl ? toWebsocketUrl(heliusRpcUrl) : null;
+
   if (!privyAvailable) {
     return (
       <PrivyAvailableContext.Provider value={false}>
@@ -166,6 +203,20 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
                 connectors: solanaConnectors,
               },
             },
+            // Required for Privy's embedded wallet transaction UIs.
+            // Without this, Privy can throw: "No RPC configuration found for chain solana:mainnet".
+            solana:
+              heliusRpcUrl && solanaWsUrl
+                ? {
+                    rpcs: {
+                      "solana:mainnet": {
+                        rpc: createSolanaRpc(heliusRpcUrl),
+                        rpcSubscriptions: createSolanaRpcSubscriptions(solanaWsUrl),
+                        blockExplorerUrl: "https://solscan.io",
+                      },
+                    },
+                  }
+                : undefined,
             appearance: {
               theme: "dark",
               accentColor: "#9945FF", // Solana purple
