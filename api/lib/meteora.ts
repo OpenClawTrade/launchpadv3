@@ -1,7 +1,7 @@
 // TRENCHES Launchpad - Meteora SDK Integration
 // Full on-chain integration with Meteora Dynamic Bonding Curve
 
-import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction, ComputeBudgetProgram } from '@solana/web3.js';
 import {
   DynamicBondingCurveClient,
   BaseFeeMode,
@@ -257,15 +257,32 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   // Get recent blockhash for all transactions
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
   
-  // Set blockhash, fee payer, and pre-sign ONLY when the key is actually a required signer
+  // Priority fee settings for faster confirmation
+  const PRIORITY_FEE_MICRO_LAMPORTS = 100_000; // 0.0001 SOL per compute unit
+  const COMPUTE_UNITS = 400_000; // 400k compute units per tx
+  
+  const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
+    microLamports: PRIORITY_FEE_MICRO_LAMPORTS,
+  });
+  const computeUnitsIx = ComputeBudgetProgram.setComputeUnitLimit({
+    units: COMPUTE_UNITS,
+  });
+  
+  // Set blockhash, fee payer, add priority fees, and pre-sign ONLY when the key is actually a required signer
   const preparedTransactions: Transaction[] = [];
 
   const signIfRequired = (tx: Transaction, kp: Keypair) => {
     const required = tx.signatures.some(s => s.publicKey.equals(kp.publicKey));
     if (required) tx.partialSign(kp);
   };
+  
+  const addPriorityFees = (tx: Transaction) => {
+    // Prepend priority fee instructions
+    tx.instructions = [computeUnitsIx, priorityFeeIx, ...tx.instructions];
+  };
 
   if (createConfigTx) {
+    addPriorityFees(createConfigTx);
     createConfigTx.recentBlockhash = blockhash;
     createConfigTx.feePayer = creatorPubkey;
     signIfRequired(createConfigTx, mintKeypair);
@@ -274,6 +291,7 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   }
 
   if (createPoolTx) {
+    addPriorityFees(createPoolTx);
     createPoolTx.recentBlockhash = blockhash;
     createPoolTx.feePayer = creatorPubkey;
     signIfRequired(createPoolTx, mintKeypair);
@@ -282,6 +300,7 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   }
   
   if (swapBuyTx) {
+    addPriorityFees(swapBuyTx);
     swapBuyTx.recentBlockhash = blockhash;
     swapBuyTx.feePayer = creatorPubkey;
     // Swap tx may not need mint/config signatures, but include if they're required
@@ -295,6 +314,8 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     }
     preparedTransactions.push(swapBuyTx);
   }
+
+  console.log('[meteora] Added priority fees to', preparedTransactions.length, 'transactions');
 
   return {
     transactions: preparedTransactions,
