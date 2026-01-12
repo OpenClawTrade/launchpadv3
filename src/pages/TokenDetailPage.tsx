@@ -309,6 +309,18 @@ export default function TokenDetailPage() {
                     Solscan
                   </Button>
                 </a>
+                <a 
+                  href={`https://axiom.trade/meme/${token.mint_address}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <Button size="sm" className="h-8 gap-1.5 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white border-0">
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Trade on Axiom
+                  </Button>
+                </a>
               </div>
             </div>
           </div>
