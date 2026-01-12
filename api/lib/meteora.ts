@@ -134,8 +134,10 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     };
   }
 
-  // Build token metadata URI
-  const metadataUri = params.imageUrl || `https://trenches.app/api/metadata/${mintKeypair.publicKey.toBase58()}`;
+  // Build token metadata URI - points to our edge function that serves Metaplex-standard JSON
+  // This includes name, symbol, description, image, and social links
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
+  const metadataUri = `${supabaseUrl}/functions/v1/token-metadata/${mintKeypair.publicKey.toBase58()}`;
 
   // Derive pool address
   const { deriveDbcPoolAddress } = await import('@meteora-ag/dynamic-bonding-curve-sdk');

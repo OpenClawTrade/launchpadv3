@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.launchpad-earnings]
 verify_jwt = false
+
+[functions.token-metadata]
+verify_jwt = false
