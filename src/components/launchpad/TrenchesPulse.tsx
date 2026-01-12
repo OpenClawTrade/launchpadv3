@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef } from "react";
+import { useState, useEffect, forwardRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,9 +26,36 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
   const [filter, setFilter] = useState<PulseFilter>('hot');
   const queryClient = useQueryClient();
 
+  // Calculate "hotness" score for trending algorithm
+  const calculateHotScore = (token: Token) => {
+    const now = Date.now();
+    const createdAt = new Date(token.created_at).getTime();
+    const ageHours = (now - createdAt) / (1000 * 60 * 60);
+    
+    // Volume score (primary factor)
+    const volumeScore = Math.log10(token.volume_24h_sol + 1) * 30;
+    
+    // Recency bonus (newer tokens get a boost, decays over 24h)
+    const recencyScore = Math.max(0, 20 - ageHours * 0.8);
+    
+    // Price momentum
+    const priceChangeRaw = (token as any).price_change_24h || 0;
+    const momentumScore = Math.min(20, Math.max(-10, priceChangeRaw * 0.5));
+    
+    // Holder count
+    const holderScore = Math.log10(token.holder_count + 1) * 10;
+    
+    // Bonding progress bonus
+    const bondingBonus = token.status === 'bonding' 
+      ? (token.bonding_curve_progress || 0) * 0.2 
+      : 0;
+    
+    return volumeScore + recencyScore + momentumScore + holderScore + bondingBonus;
+  };
+
   // Fetch tokens with different sorting based on filter
   // IMPORTANT: Only show tokens with real trading activity (volume > 0)
-  const { data: tokens = [], isLoading } = useQuery({
+  const { data: rawTokens = [], isLoading } = useQuery({
     queryKey: ['pulse-tokens', filter],
     queryFn: async () => {
       let query = supabase
@@ -45,27 +72,39 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
         .eq('status', 'bonding')
         .gt('volume_24h_sol', 0); // Only show tokens with actual trading volume
 
-      switch (filter) {
-        case 'new':
-          query = query.order('created_at', { ascending: false }).limit(20);
-          break;
-        case 'hot':
-          query = query.order('volume_24h_sol', { ascending: false }).limit(20);
-          break;
-        case 'graduating':
-          query = query.gte('bonding_curve_progress', 50).order('bonding_curve_progress', { ascending: false }).limit(20);
-          break;
-        case 'volume':
-          query = query.order('volume_24h_sol', { ascending: false }).limit(20);
-          break;
-      }
+      // For all filters, get enough tokens to sort client-side
+      query = query.order('created_at', { ascending: false }).limit(50);
 
       const { data, error } = await query;
       if (error) throw error;
       return data as Token[];
     },
-    refetchInterval: 10000, // Refetch every 10 seconds for real-time feel
+    refetchInterval: 10000,
   });
+
+  // Sort tokens based on filter
+  const tokens = useMemo(() => {
+    let result = [...rawTokens];
+    
+    switch (filter) {
+      case 'new':
+        result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case 'hot':
+        result.sort((a, b) => calculateHotScore(b) - calculateHotScore(a));
+        break;
+      case 'graduating':
+        result = result
+          .filter(t => (t.bonding_curve_progress || 0) >= 50)
+          .sort((a, b) => (b.bonding_curve_progress || 0) - (a.bonding_curve_progress || 0));
+        break;
+      case 'volume':
+        result.sort((a, b) => b.volume_24h_sol - a.volume_24h_sol);
+        break;
+    }
+    
+    return result.slice(0, 20);
+  }, [rawTokens, filter]);
 
   // Subscribe to realtime token updates
   useEffect(() => {
