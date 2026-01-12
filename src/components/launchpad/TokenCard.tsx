@@ -36,16 +36,26 @@ export function TokenCard({ token }: TokenCardProps) {
                 {token.ticker.slice(0, 2)}
               </AvatarFallback>
             </Avatar>
-            {/* Status indicator */}
-            {isGraduated ? (
-              <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-background">
-                <Sparkles className="h-2.5 w-2.5 text-white" />
-              </div>
-            ) : token.bonding_curve_progress >= 80 ? (
-              <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1 border-2 border-background animate-pulse">
-                <Zap className="h-2.5 w-2.5 text-primary-foreground" />
-              </div>
-            ) : null}
+            {/* Status indicator - calculate progress from real reserves */}
+            {(() => {
+              const threshold = token.graduation_threshold_sol || 85;
+              const progress = token.real_sol_reserves > 0 ? (token.real_sol_reserves / threshold) * 100 : 0;
+              
+              if (isGraduated) {
+                return (
+                  <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-background">
+                    <Sparkles className="h-2.5 w-2.5 text-white" />
+                  </div>
+                );
+              } else if (progress >= 80) {
+                return (
+                  <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1 border-2 border-background animate-pulse">
+                    <Zap className="h-2.5 w-2.5 text-primary-foreground" />
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           {/* Token Info */}
@@ -124,13 +134,12 @@ export function TokenCard({ token }: TokenCardProps) {
               )}
             </div>
 
-            {/* Bonding Curve - Compact */}
+            {/* Bonding Curve - Compact - Use real_sol_reserves for accurate progress */}
             {!isGraduated && (
               <div className="mt-3">
                 <BondingCurveProgress
-                  progress={token.bonding_curve_progress}
                   realSolReserves={token.real_sol_reserves}
-                  graduationThreshold={token.graduation_threshold_sol}
+                  graduationThreshold={token.graduation_threshold_sol || 85}
                   showDetails={false}
                   compact
                 />
