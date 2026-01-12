@@ -1,16 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Keypair, PublicKey } from '@solana/web3.js';
-import { 
+import {
   PLATFORM_FEE_WALLET, 
   INITIAL_VIRTUAL_SOL, 
   TOTAL_SUPPLY,
   GRADUATION_THRESHOLD_SOL,
   TOKEN_DECIMALS,
   TRADING_FEE_BPS,
+  SUPABASE_URL,
 } from '../lib/config.js';
 import { getSupabaseClient } from '../lib/supabase.js';
 import { getConnection, serializeTransaction } from '../lib/solana.js';
 import { createMeteoraPool, serializeTransaction as serializeMeteoraTransaction } from '../lib/meteora.js';
+
+// SYSTEM account UUID for automated posts
+const SYSTEM_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001';
 
 // CORS headers
 const corsHeaders = {
@@ -225,6 +229,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Update holder count
       await supabase.rpc('backend_update_holder_count', { p_token_id: tokenId });
+    }
+
+    // Create automated SYSTEM post announcing the new token launch
+    try {
+      const tokenPageUrl = `/token/${mintAddress}`;
+      const socialLinks = [];
+      if (websiteUrl) socialLinks.push(`🌐 ${websiteUrl}`);
+      if (twitterUrl) socialLinks.push(`🐦 ${twitterUrl}`);
+      if (telegramUrl) socialLinks.push(`💬 ${telegramUrl}`);
+      
+      const systemPostContent = `🚀 **NEW TOKEN LAUNCHED**
+
+💎 **${name}** ($${ticker.toUpperCase()})
+
+${description ? `📝 ${description.slice(0, 200)}${description.length > 200 ? '...' : ''}` : ''}
+
+📊 **Token Details:**
+• Initial Price: ${(INITIAL_VIRTUAL_SOL / TOTAL_SUPPLY).toFixed(10)} SOL
+• Total Supply: ${(TOTAL_SUPPLY / 1_000_000_000).toFixed(0)}B tokens
+• Graduation: ${GRADUATION_THRESHOLD_SOL} SOL
+
+${socialLinks.length > 0 ? `🔗 **Links:**\n${socialLinks.join('\n')}` : ''}
+
+👉 Trade now: ${tokenPageUrl}
+
+#TRENCHESlaunch #${ticker.toUpperCase()} $${ticker.toUpperCase()}`;
+
+      const { error: postError } = await supabase
+        .from('posts')
+        .insert({
+          user_id: SYSTEM_ACCOUNT_ID,
+          content: systemPostContent,
+          image_url: imageUrl || null,
+        });
+
+      if (postError) {
+        console.error('[pool/create] System post error:', postError);
+      } else {
+        console.log('[pool/create] System announcement posted for token:', ticker);
+      }
+    } catch (postErr) {
+      console.error('[pool/create] Failed to create system post:', postErr);
+      // Don't fail the token creation if post fails
     }
 
     // Serialize transactions for client wallet signing
