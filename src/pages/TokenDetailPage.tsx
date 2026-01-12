@@ -1,9 +1,13 @@
 import { useParams, Link } from "react-router-dom";
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout";
 import { BondingCurveProgress, TransactionHistory, PriceChart, TokenComments, QuickTradeButtons, AdvancedOrderForm, PendingOrders } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
+import { WalletSettingsModal } from "@/components/launchpad/WalletSettingsModal";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,11 +25,7 @@ import {
   Globe, 
   Twitter, 
   MessageCircle,
-  Users,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  CheckCircle
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,11 +34,104 @@ export default function TokenDetailPage() {
   const { user, solanaAddress } = useAuth();
   const { useToken, useTokenTransactions, useTokenHolders, useUserHoldings } = useLaunchpad();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const { data: token, isLoading: isLoadingToken } = useToken(mintAddress || '');
-  const { data: transactions = [], isLoading: isLoadingTxs } = useTokenTransactions(token?.id || '');
-  const { data: holders = [] } = useTokenHolders(token?.id || '');
-  const { data: userHoldings } = useUserHoldings(solanaAddress);
+  const { data: token, isLoading: isLoadingToken, refetch: refetchToken } = useToken(mintAddress || '');
+  const { data: transactions = [], isLoading: isLoadingTxs, refetch: refetchTxs } = useTokenTransactions(token?.id || '');
+  const { data: holders = [], refetch: refetchHolders } = useTokenHolders(token?.id || '');
+  const { data: userHoldings, refetch: refetchHoldings } = useUserHoldings(solanaAddress);
+
+  // Real-time subscriptions for live data
+  useEffect(() => {
+    if (!token?.id) return;
+
+    // Subscribe to token updates
+    const tokenChannel = supabase
+      .channel(`token-detail-${token.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tokens',
+          filter: `id=eq.${token.id}`
+        },
+        (payload) => {
+          console.log('[TokenDetail] Token updated:', payload);
+          refetchToken();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to transactions
+    const txChannel = supabase
+      .channel(`token-txs-${token.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'launchpad_transactions',
+          filter: `token_id=eq.${token.id}`
+        },
+        (payload) => {
+          console.log('[TokenDetail] New transaction:', payload);
+          refetchTxs();
+          refetchToken(); // Also refresh token for price updates
+        }
+      )
+      .subscribe();
+
+    // Subscribe to holders
+    const holdersChannel = supabase
+      .channel(`token-holders-${token.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'token_holdings',
+          filter: `token_id=eq.${token.id}`
+        },
+        (payload) => {
+          console.log('[TokenDetail] Holdings updated:', payload);
+          refetchHolders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tokenChannel);
+      supabase.removeChannel(txChannel);
+      supabase.removeChannel(holdersChannel);
+    };
+  }, [token?.id, refetchToken, refetchTxs, refetchHolders]);
+
+  // Subscribe to user's holdings updates
+  useEffect(() => {
+    if (!solanaAddress) return;
+
+    const userHoldingsChannel = supabase
+      .channel(`user-holdings-${solanaAddress}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'token_holdings',
+          filter: `wallet_address=eq.${solanaAddress}`
+        },
+        (payload) => {
+          console.log('[TokenDetail] User holdings updated:', payload);
+          refetchHoldings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(userHoldingsChannel);
+    };
+  }, [solanaAddress, refetchHoldings]);
 
   const currentUser = user ? {
     name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
@@ -66,6 +159,14 @@ export default function TokenDetailPage() {
       navigator.clipboard.writeText(window.location.href);
       toast({ title: "Link copied!" });
     }
+  };
+
+  const handleRefresh = () => {
+    refetchToken();
+    refetchTxs();
+    refetchHolders();
+    if (solanaAddress) refetchHoldings();
+    toast({ title: "Data refreshed!" });
   };
 
   if (isLoadingToken) {
@@ -116,11 +217,15 @@ export default function TokenDetailPage() {
               <span className="text-xs text-muted-foreground">${token.ticker}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={copyAddress}>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRefresh}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <WalletSettingsModal walletAddress={solanaAddress || undefined} />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={copyAddress}>
               <Copy className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={shareToken}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={shareToken}>
               <Share2 className="h-4 w-4" />
             </Button>
           </div>
@@ -259,7 +364,15 @@ export default function TokenDetailPage() {
         )}
 
         {/* Quick Trade Buttons */}
-        <QuickTradeButtons token={token} userBalance={userBalance} />
+        <QuickTradeButtons 
+          token={token} 
+          userBalance={userBalance} 
+          onTradeComplete={() => {
+            refetchToken();
+            refetchHoldings();
+            refetchTxs();
+          }}
+        />
 
         {/* Trade Panel */}
         <TradePanelWithSwap
@@ -267,11 +380,11 @@ export default function TokenDetailPage() {
           userBalance={userBalance}
         />
 
-        {/* Advanced Orders */}
+        {/* Advanced Orders - Now with "Available Soon" overlay */}
         <AdvancedOrderForm token={token} userBalance={userBalance} />
 
-        {/* Pending Orders */}
-        <PendingOrders tokenId={token.id} />
+        {/* Pending Orders - Hidden for now */}
+        {/* <PendingOrders tokenId={token.id} /> */}
 
         {/* Tabs for Transactions, Holders & Discussion */}
         <Tabs defaultValue="transactions" className="w-full">
