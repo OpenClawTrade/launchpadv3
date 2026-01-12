@@ -195,7 +195,7 @@ const Index = () => {
                 onLike={handleLike}
                 onBookmark={handleBookmark}
                 onRepost={handleRepost}
-                onDelete={user?.id === post.user_id ? handleDelete : undefined}
+                onDelete={handleDelete}
                 onQuote={handleQuote}
                 onPin={handlePin}
                 canPin={canPin}

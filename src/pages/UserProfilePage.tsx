@@ -311,7 +311,7 @@ export default function UserProfilePage() {
                 post={transformPost(post)}
                 onLike={handleLike}
                 onBookmark={handleBookmark}
-                onDelete={isOwnProfile ? handleDelete : undefined}
+                onDelete={handleDelete}
               />
             ))
           )}
@@ -325,7 +325,7 @@ export default function UserProfilePage() {
                 post={transformPost(reply)}
                 onLike={handleLike}
                 onBookmark={handleBookmark}
-                onDelete={isOwnProfile ? handleDelete : undefined}
+                onDelete={handleDelete}
               />
             ))
           ) : (
