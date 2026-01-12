@@ -69,9 +69,6 @@ export function RightSidebar() {
         </div>
       )}
 
-      {/* Premium Card */}
-      <PremiumSubscriptionCard />
-
       {/* Latest Token Launches */}
       <div className="flex-none bg-card rounded-lg border border-border overflow-hidden">
         <div className="flex items-center justify-between p-4 pb-2">
@@ -180,6 +177,9 @@ export function RightSidebar() {
           </button>
         )}
       </div>
+
+      {/* Premium Card */}
+      <PremiumSubscriptionCard />
 
       {/* Who to follow */}
       <div className="flex-none bg-card rounded-lg border border-border overflow-hidden">
