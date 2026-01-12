@@ -1,14 +1,13 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { formatSolAmount } from "@/hooks/useLaunchpad";
-import { format } from "date-fns";
-import { ExternalLink, BarChart3, LineChart } from "lucide-react";
+import { ExternalLink, BarChart3, CandlestickChart, TrendingUp } from "lucide-react";
+import { LightweightChart } from "./LightweightChart";
 
 interface PriceChartProps {
   tokenId: string;
@@ -20,12 +19,58 @@ interface PriceChartProps {
 }
 
 type TimeRange = "1h" | "24h" | "7d" | "30d" | "all";
+type ChartType = "candle" | "area";
 type ChartView = "internal" | "dextools";
 
 interface PricePoint {
   timestamp: string;
   price_sol: number;
   volume_sol: number;
+}
+
+// Aggregate price data into OHLCV candles
+function aggregateToCandles(data: PricePoint[], intervalMs: number) {
+  if (data.length === 0) return [];
+  
+  const candles: { time: number; open: number; high: number; low: number; close: number; volume: number }[] = [];
+  
+  let currentBucket = Math.floor(new Date(data[0].timestamp).getTime() / intervalMs) * intervalMs;
+  let currentCandle = {
+    time: Math.floor(currentBucket / 1000), // lightweight-charts uses seconds
+    open: data[0].price_sol,
+    high: data[0].price_sol,
+    low: data[0].price_sol,
+    close: data[0].price_sol,
+    volume: data[0].volume_sol || 0,
+  };
+
+  for (let i = 1; i < data.length; i++) {
+    const pointTime = new Date(data[i].timestamp).getTime();
+    const bucket = Math.floor(pointTime / intervalMs) * intervalMs;
+    
+    if (bucket === currentBucket) {
+      // Same candle - update OHLC
+      currentCandle.high = Math.max(currentCandle.high, data[i].price_sol);
+      currentCandle.low = Math.min(currentCandle.low, data[i].price_sol);
+      currentCandle.close = data[i].price_sol;
+      currentCandle.volume += data[i].volume_sol || 0;
+    } else {
+      // New candle
+      candles.push(currentCandle);
+      currentBucket = bucket;
+      currentCandle = {
+        time: Math.floor(bucket / 1000),
+        open: data[i].price_sol,
+        high: data[i].price_sol,
+        low: data[i].price_sol,
+        close: data[i].price_sol,
+        volume: data[i].volume_sol || 0,
+      };
+    }
+  }
+  
+  candles.push(currentCandle);
+  return candles;
 }
 
 export function PriceChart({ 
@@ -37,10 +82,38 @@ export function PriceChart({
   status
 }: PriceChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
+  const [chartType, setChartType] = useState<ChartType>("candle");
+  const queryClient = useQueryClient();
   
   // Show DEXTools by default for graduated tokens with pool address
   const isGraduated = status === 'graduated' && !!poolAddress;
   const [chartView, setChartView] = useState<ChartView>(isGraduated ? "dextools" : "internal");
+
+  // Real-time subscription for price updates
+  useEffect(() => {
+    if (!tokenId) return;
+
+    const channel = supabase
+      .channel(`price-history-${tokenId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'token_price_history',
+          filter: `token_id=eq.${tokenId}`
+        },
+        () => {
+          // Invalidate query to fetch new data
+          queryClient.invalidateQueries({ queryKey: ["token-price-history", tokenId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tokenId, queryClient]);
 
   const { data: priceHistory = [], isLoading } = useQuery({
     queryKey: ["token-price-history", tokenId, timeRange],
@@ -76,28 +149,50 @@ export function PriceChart({
     },
     enabled: !!tokenId && chartView === "internal",
     staleTime: 30000,
+    refetchInterval: 60000, // Refresh every minute
   });
+
+  // Get candle interval based on time range
+  const candleInterval = useMemo(() => {
+    switch (timeRange) {
+      case "1h": return 60 * 1000; // 1 minute candles
+      case "24h": return 5 * 60 * 1000; // 5 minute candles
+      case "7d": return 60 * 60 * 1000; // 1 hour candles
+      case "30d": return 4 * 60 * 60 * 1000; // 4 hour candles
+      case "all": return 24 * 60 * 60 * 1000; // Daily candles
+      default: return 5 * 60 * 1000;
+    }
+  }, [timeRange]);
 
   const chartData = useMemo(() => {
     if (priceHistory.length === 0) {
-      // Generate placeholder data if no history
-      const now = Date.now();
+      // Generate placeholder data
+      const now = Math.floor(Date.now() / 1000);
+      if (chartType === "candle") {
+        return [
+          { time: now - 3600, open: currentPrice * 0.98, high: currentPrice * 1.01, low: currentPrice * 0.97, close: currentPrice * 0.99, volume: 0.1 },
+          { time: now - 1800, open: currentPrice * 0.99, high: currentPrice * 1.02, low: currentPrice * 0.98, close: currentPrice, volume: 0.15 },
+          { time: now, open: currentPrice, high: currentPrice * 1.01, low: currentPrice * 0.99, close: currentPrice, volume: 0.1 },
+        ];
+      }
       return [
-        { time: now - 3600000, price: currentPrice * 0.98, formattedTime: "Earlier" },
-        { time: now, price: currentPrice, formattedTime: "Now" },
+        { time: now - 3600, value: currentPrice * 0.98 },
+        { time: now, value: currentPrice },
       ];
     }
 
+    if (chartType === "candle") {
+      return aggregateToCandles(priceHistory, candleInterval);
+    }
+
+    // Area chart data
     return priceHistory.map((point) => ({
-      time: new Date(point.timestamp).getTime(),
-      price: Number(point.price_sol),
-      volume: Number(point.volume_sol),
-      formattedTime: format(new Date(point.timestamp), timeRange === "1h" ? "HH:mm" : "MMM d HH:mm"),
+      time: Math.floor(new Date(point.timestamp).getTime() / 1000),
+      value: Number(point.price_sol),
     }));
-  }, [priceHistory, currentPrice, timeRange]);
+  }, [priceHistory, currentPrice, chartType, candleInterval]);
 
   const isPositive = priceChange24h >= 0;
-  const chartColor = isPositive ? "hsl(var(--chart-2))" : "hsl(var(--destructive))";
 
   const timeRanges: TimeRange[] = ["1h", "24h", "7d", "30d", "all"];
 
@@ -116,7 +211,7 @@ export function PriceChart({
   if (isLoading && chartView === "internal") {
     return (
       <Card className="p-4">
-        <Skeleton className="h-[300px] w-full" />
+        <Skeleton className="h-[350px] w-full" />
       </Card>
     );
   }
@@ -124,7 +219,7 @@ export function PriceChart({
   return (
     <Card className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <p className="text-2xl font-bold">{formatSolAmount(currentPrice)} SOL</p>
           <p className={`text-sm font-medium ${isPositive ? "text-green-500" : "text-red-500"}`}>
@@ -132,18 +227,32 @@ export function PriceChart({
           </p>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Chart Source Toggle - only show if graduated with pool */}
           {isGraduated && (
-            <Tabs value={chartView} onValueChange={(v) => setChartView(v as ChartView)} className="mr-2">
+            <Tabs value={chartView} onValueChange={(v) => setChartView(v as ChartView)}>
               <TabsList className="h-8">
                 <TabsTrigger value="dextools" className="h-7 px-2 text-xs gap-1">
                   <BarChart3 className="h-3 w-3" />
                   DEXTools
                 </TabsTrigger>
                 <TabsTrigger value="internal" className="h-7 px-2 text-xs gap-1">
-                  <LineChart className="h-3 w-3" />
-                  Simple
+                  <CandlestickChart className="h-3 w-3" />
+                  Internal
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+
+          {/* Chart Type Toggle - for internal chart */}
+          {chartView === "internal" && (
+            <Tabs value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="candle" className="h-7 px-2 text-xs gap-1">
+                  <CandlestickChart className="h-3 w-3" />
+                </TabsTrigger>
+                <TabsTrigger value="area" className="h-7 px-2 text-xs gap-1">
+                  <TrendingUp className="h-3 w-3" />
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -195,55 +304,19 @@ export function PriceChart({
           </div>
         </div>
       ) : (
-        <div className="h-[200px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={chartColor} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={chartColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="formattedTime"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                domain={["auto", "auto"]}
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickFormatter={(value) => formatSolAmount(value)}
-                width={60}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-                formatter={(value: number) => [formatSolAmount(value) + " SOL", "Price"]}
-              />
-              <Area
-                type="monotone"
-                dataKey="price"
-                stroke={chartColor}
-                strokeWidth={2}
-                fill="url(#priceGradient)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <LightweightChart
+          data={chartData}
+          chartType={chartType === "candle" ? "candlestick" : "area"}
+          height={300}
+          showVolume={chartType === "candle"}
+          isPositive={isPositive}
+        />
       )}
 
       {/* Info banner for bonding tokens */}
       {!isGraduated && (
         <div className="mt-3 text-xs text-muted-foreground text-center bg-secondary/50 rounded-lg py-2">
-          🚀 Advanced charts available after graduation to DEX
+          📊 Professional TradingView-style charts • Real-time updates
         </div>
       )}
     </Card>
