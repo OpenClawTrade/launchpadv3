@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useRef, useMemo } from "react";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { usePrivy, useLogout } from "@privy-io/react-auth";
+import { useWallets } from "@privy-io/react-auth/solana";
 import { supabase } from "@/integrations/supabase/client";
 import { privyUserIdToUuid } from "@/lib/privyUuid";
 
@@ -76,6 +77,7 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
     login: privyLogin,
   } = usePrivy();
   
+  const { wallets } = useWallets();
   const { logout: privyLogout } = useLogout();
   
   const [user, setUser] = useState<User | null>(null);
@@ -83,11 +85,23 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const walletSavedRef = useRef<string | null>(null);
 
-  // Get the primary Solana wallet address from linked accounts
-  const solanaWallet = privyUser?.linkedAccounts?.find(
-    (account) => account.type === "wallet" && (account as any).chainType === "solana"
-  );
-  const solanaAddress = solanaWallet ? (solanaWallet as any).address : null;
+  // Get the Privy EMBEDDED Solana wallet from useWallets (NOT external/linked wallets)
+  const embeddedWallet = useMemo(() => {
+    if (!wallets || wallets.length === 0) return null;
+    
+    // Find Privy embedded wallet
+    const embedded = wallets.find((w: any) => {
+      const walletClientType = w?.walletClientType;
+      const standardName = w?.standardWallet?.name;
+      const name = (w?.name || '').toLowerCase();
+      return walletClientType === 'privy' || standardName === 'Privy' || name.includes('privy') || name.includes('embedded');
+    });
+    
+    return embedded || wallets[0] || null;
+  }, [wallets]);
+
+  // Use ONLY the embedded wallet address
+  const solanaAddress = embeddedWallet?.address || null;
 
   // Privy user IDs are not UUIDs. Convert deterministically to a UUID so we can
   // use them with the backend schema (which uses UUID primary keys).
@@ -156,22 +170,15 @@ function PrivyAuthProvider({ children }: AuthProviderProps) {
       // Extract user data from Privy
       const email = privyUser.email?.address;
       const twitter = privyUser.twitter;
-      const linkedWallet = privyUser.wallet;
-      
-      // Find Solana embedded wallet
-      const embeddedSolanaWallet = privyUser.linkedAccounts?.find(
-        (account) => account.type === "wallet" && (account as any).chainType === "solana"
-      );
 
+      // Use ONLY the embedded wallet (from useWallets, already computed above)
       const userData: User = {
         id: dbUserId,
         privyId: privyUser.id,
         email,
-        wallet: embeddedSolanaWallet 
-          ? { address: (embeddedSolanaWallet as any).address, chainType: "solana" }
-          : linkedWallet 
-            ? { address: linkedWallet.address, chainType: linkedWallet.chainType }
-            : undefined,
+        wallet: solanaAddress 
+          ? { address: solanaAddress, chainType: "solana" }
+          : undefined,
         twitter: twitter 
           ? { username: twitter.username ?? "" }
           : undefined,
