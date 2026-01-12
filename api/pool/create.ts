@@ -257,11 +257,10 @@ ${socialLinks.length > 0 ? `🔗 **Links:**\n${socialLinks.join('\n')}` : ''}
 #TRENCHESlaunch #${ticker.toUpperCase()} $${ticker.toUpperCase()}`;
 
       const { error: postError } = await supabase
-        .from('posts')
-        .insert({
-          user_id: SYSTEM_ACCOUNT_ID,
-          content: systemPostContent,
-          image_url: imageUrl || null,
+        .rpc('backend_create_system_post', {
+          p_user_id: SYSTEM_ACCOUNT_ID,
+          p_content: systemPostContent,
+          p_image_url: imageUrl || null,
         });
 
       if (postError) {

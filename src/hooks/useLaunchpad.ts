@@ -111,7 +111,6 @@ export function useLaunchpad() {
             verified_type
           )
         `)
-        .gt('volume_24h_sol', 0) // Only show tokens with actual trading volume
         .order('created_at', { ascending: false });
 
       if (error) throw error;
