@@ -96,20 +96,24 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         throw new Error("Wallet is still initializing. Please wait a few seconds and try again.");
       }
 
+      // IMPORTANT: Prefer Solana provider. Using getProvider() first can return an EVM provider
+      // which causes Privy to throw "Invalid transaction request" for Solana txs.
       const provider =
-        (wallet as any).getProvider ? await (wallet as any).getProvider() :
-        (wallet as any).getSolanaProvider ? await (wallet as any).getSolanaProvider() :
-        null;
-
-      if (provider?.signTransaction) {
-        return await provider.signTransaction(tx);
-      }
+        (wallet as any).getSolanaProvider
+          ? await (wallet as any).getSolanaProvider()
+          : (wallet as any).getProvider
+            ? await (wallet as any).getProvider()
+            : null;
 
       if ((wallet as any).signTransaction) {
         return await (wallet as any).signTransaction(tx);
       }
 
-      throw new Error("Wallet does not support transaction signing");
+      if (provider?.signTransaction) {
+        return await provider.signTransaction(tx);
+      }
+
+      throw new Error("Wallet does not support Solana transaction signing");
     },
     [getWalletForSigning]
   );
