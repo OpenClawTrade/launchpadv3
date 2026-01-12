@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export interface Notification {
   id: string;
-  type: "like" | "repost" | "follow" | "mention" | "reply";
+  type: "like" | "repost" | "follow" | "mention" | "reply" | "token_launch";
   actor: {
     id: string;
     username: string;
@@ -16,6 +16,11 @@ export interface Notification {
   content: string | null;
   read: boolean;
   created_at: string;
+  metadata?: {
+    mint_address?: string;
+    token_name?: string;
+    token_ticker?: string;
+  } | null;
 }
 
 export function useNotifications() {
@@ -37,6 +42,7 @@ export function useNotifications() {
           content,
           read,
           created_at,
+          metadata,
           actor:profiles!notifications_actor_id_fkey(
             id,
             username,
@@ -62,6 +68,7 @@ export function useNotifications() {
         content: n.content,
         read: n.read,
         created_at: n.created_at,
+        metadata: n.metadata,
       }));
 
       setNotifications(formattedNotifications);
@@ -163,6 +170,7 @@ export function useNotifications() {
               content: data.content,
               read: data.read,
               created_at: data.created_at,
+              metadata: (data as any).metadata,
             };
 
             setNotifications((prev) => [newNotification, ...prev]);

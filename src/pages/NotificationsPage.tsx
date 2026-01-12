@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout";
-import { Settings, Heart, Repeat2, User, AtSign, MessageCircle, Loader2 } from "lucide-react";
+import { Settings, Heart, Repeat2, User, AtSign, MessageCircle, Loader2, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -17,6 +17,7 @@ const iconMap = {
   follow: User,
   mention: AtSign,
   reply: MessageCircle,
+  token_launch: Rocket,
 };
 
 const colorMap = {
@@ -25,6 +26,7 @@ const colorMap = {
   follow: "text-primary bg-primary/10",
   mention: "text-primary bg-primary/10",
   reply: "text-primary bg-primary/10",
+  token_launch: "text-green-500 bg-green-500/10",
 };
 
 const typeTextMap = {
@@ -33,6 +35,7 @@ const typeTextMap = {
   follow: "followed you",
   mention: "mentioned you",
   reply: "replied to your post",
+  token_launch: "launched a new token",
 };
 
 export default function NotificationsPage() {
@@ -179,6 +182,60 @@ function NotificationItem({
 
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), { addSuffix: false });
 
+  // For token_launch, show minimal info with trade link
+  if (notification.type === "token_launch" && notification.metadata?.mint_address) {
+    return (
+      <div
+        className={cn(
+          "px-4 py-3 hover:bg-secondary/50 transition-colors animate-fadeIn",
+          !notification.read && "bg-primary/5"
+        )}
+      >
+        <div className="flex gap-3">
+          <div className={cn("p-2 rounded-full h-fit", colorClass)}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={notification.actor.avatar_url || undefined} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                  {notification.actor.display_name?.charAt(0) || "?"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="font-bold">{notification.actor.display_name}</span>
+                {notification.actor.verified_type && (
+                  <VerifiedBadge
+                    type={notification.actor.verified_type as "blue" | "gold"}
+                    className="h-4 w-4"
+                  />
+                )}
+              </div>
+              <span className="text-muted-foreground text-sm">{timeAgo}</span>
+            </div>
+            <p className="text-muted-foreground">
+              {typeText}: <span className="font-semibold text-foreground">${notification.metadata.token_ticker || 'Token'}</span>
+            </p>
+            <Link 
+              to={`/launchpad/${notification.metadata.mint_address}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-block mt-2"
+            >
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5">
+                <Rocket className="h-3 w-3" />
+                Trade Now
+              </Button>
+            </Link>
+          </div>
+          {!notification.read && (
+            <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-2" />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={onClick}
@@ -211,9 +268,6 @@ function NotificationItem({
             <span className="text-muted-foreground text-sm">{timeAgo}</span>
           </div>
           <p className="text-muted-foreground">{typeText}</p>
-          {notification.content && (
-            <p className="text-foreground mt-1 line-clamp-2">{notification.content}</p>
-          )}
         </div>
         {!notification.read && (
           <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-2" />
