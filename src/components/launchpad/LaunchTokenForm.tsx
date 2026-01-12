@@ -28,6 +28,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   
   // Wallet state from Privy (will be set by PrivyWalletProvider)
   const [wallets, setWallets] = useState<any[]>([]);
+  const [signingWalletAddress, setSigningWalletAddress] = useState<string | null>(null);
   const [privySignTransaction, setPrivySignTransaction] = useState<
     ((tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>) | null
   >(null);
@@ -41,6 +42,10 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
     },
     []
   );
+
+  const handleSigningWalletChange = useCallback((address: string | null) => {
+    setSigningWalletAddress(address);
+  }, []);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -139,10 +144,16 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         imageUrl = urlData.publicUrl;
       }
 
+      // Use the Privy signing wallet address (not profile wallet) for transaction creation
+      const walletToUse = signingWalletAddress || solanaAddress;
+      console.log('[LaunchTokenForm] Using wallet for createPool:', walletToUse);
+      console.log('[LaunchTokenForm] Profile wallet:', solanaAddress);
+      console.log('[LaunchTokenForm] Privy signing wallet:', signingWalletAddress);
+
       // Create pool with optional transaction signing
       const data = await createPool(
         {
-          creatorWallet: solanaAddress,
+          creatorWallet: walletToUse,
           privyUserId: user?.privyId,
           name: formData.name,
           ticker: formData.ticker.toUpperCase(),
@@ -194,6 +205,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
             preferredAddress={solanaAddress}
             onWalletsChange={setWallets}
             onSignTransactionChange={handleSignTransactionChange}
+            onSigningWalletChange={handleSigningWalletChange}
           />
         </Suspense>
       )}
