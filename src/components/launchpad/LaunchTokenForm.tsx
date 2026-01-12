@@ -183,7 +183,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
           <PrivyWalletProvider
             preferredAddress={solanaAddress}
             onWalletsChange={setWallets}
-            onSignTransactionChange={setPrivySignTransaction}
+            onSignTransactionChange={(fn) => setPrivySignTransaction(() => fn)}
           />
         </Suspense>
       )}
