@@ -96,7 +96,7 @@ export function useLaunchpad() {
   const queryClient = useQueryClient();
   const { executeSwap: executeSwapApi, claimFees: claimFeesApi } = useMeteoraApi();
 
-  // Fetch all tokens
+  // Fetch all tokens - only show tokens with real trading activity
   const { data: tokens = [], isLoading: isLoadingTokens, refetch: refetchTokens } = useQuery({
     queryKey: ['launchpad-tokens'],
     queryFn: async () => {
@@ -111,6 +111,7 @@ export function useLaunchpad() {
             verified_type
           )
         `)
+        .gt('volume_24h_sol', 0) // Only show tokens with actual trading volume
         .order('created_at', { ascending: false });
 
       if (error) throw error;
