@@ -327,7 +327,7 @@ export default function ProfilePage() {
               <PostCard 
                 key={post.id} 
                 post={transformPost(post)} 
-                onDelete={isOwnProfile ? handleDelete : undefined}
+                onDelete={handleDelete}
               />
             ))
           ) : (
@@ -343,7 +343,7 @@ export default function ProfilePage() {
               <PostCard 
                 key={post.id} 
                 post={transformPost(post)} 
-                onDelete={isOwnProfile ? handleDelete : undefined}
+                onDelete={handleDelete}
               />
             ))
           ) : (
