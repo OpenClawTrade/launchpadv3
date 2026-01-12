@@ -118,7 +118,7 @@ export default function WalletBalanceCardPrivy({ minRequired, className = "" }: 
             <div className="p-2 bg-primary/10 rounded-lg">
               <Wallet className="h-4 w-4 text-primary" />
             </div>
-            <span className="font-medium text-sm">Your Wallet</span>
+            <span className="font-medium text-sm">Embedded Wallet</span>
           </div>
           <Button
             variant="ghost"
@@ -181,7 +181,7 @@ export default function WalletBalanceCardPrivy({ minRequired, className = "" }: 
           <div className="p-2 bg-primary/10 rounded-lg">
             <Wallet className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-medium text-sm">Your Wallet</span>
+          <span className="font-medium text-sm">Embedded Wallet</span>
         </div>
         <div className="flex items-center gap-1">
           <Button

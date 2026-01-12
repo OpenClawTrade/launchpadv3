@@ -21,17 +21,34 @@ export function useSolanaWalletWithPrivy() {
     return new Connection(rpcUrl, 'confirmed');
   }, [rpcUrl]);
 
+  const isPrivyEmbeddedWallet = useCallback((w: any) => {
+    const walletClientType = w?.walletClientType;
+    const standardName = w?.standardWallet?.name;
+    const name = (w?.name || '').toLowerCase();
+
+    return (
+      walletClientType === 'privy' ||
+      standardName === 'Privy' ||
+      name.includes('privy') ||
+      name.includes('embedded')
+    );
+  }, []);
+
   // Get the Privy embedded wallet (primary) from useWallets
   const getEmbeddedWallet = useCallback(() => {
-    const embeddedWallet = wallets?.find((w: any) => w.walletClientType === 'privy');
-    return embeddedWallet;
-  }, [wallets]);
+    const embeddedWallet = wallets?.find((w: any) => isPrivyEmbeddedWallet(w));
+    return embeddedWallet || null;
+  }, [wallets, isPrivyEmbeddedWallet]);
 
   // Get any Solana wallet from useWallets
   const getSolanaWallet = useCallback(() => {
     // Prefer embedded wallet
     const embedded = getEmbeddedWallet();
     if (embedded) return embedded;
+
+    // Prefer any wallet that supports Solana signing
+    const anySolana = wallets?.find((w: any) => !!w?.standardWallet?.features?.['solana:signTransaction']);
+    if (anySolana) return anySolana;
 
     // Fallback to any connected wallet
     return wallets?.[0] || null;
