@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useCallback, useEffect, useRef } from "react";
+import { useState, lazy, Suspense, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,16 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const [privySignTransaction, setPrivySignTransaction] = useState<
     ((tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>) | null
   >(null);
+
+  const handleSignTransactionChange = useCallback(
+    (
+      fn: ((tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>) | null
+    ) => {
+      // IMPORTANT: wrap to prevent React treating fn as a state updater
+      setPrivySignTransaction(() => fn);
+    },
+    []
+  );
 
   const [formData, setFormData] = useState({
     name: '',
@@ -183,7 +193,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
           <PrivyWalletProvider
             preferredAddress={solanaAddress}
             onWalletsChange={setWallets}
-            onSignTransactionChange={(fn) => setPrivySignTransaction(() => fn)}
+            onSignTransactionChange={handleSignTransactionChange}
           />
         </Suspense>
       )}

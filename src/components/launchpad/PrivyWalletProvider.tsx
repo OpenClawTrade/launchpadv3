@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSignTransaction, useWallets } from "@privy-io/react-auth/solana";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
 
@@ -36,12 +36,10 @@ export default function PrivyWalletProvider({
 
     return async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
       // Serialize transaction to Uint8Array (Privy's signTransaction expects bytes)
-      let txBytes: Uint8Array;
-      if (tx instanceof VersionedTransaction) {
-        txBytes = tx.serialize();
-      } else {
-        txBytes = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
-      }
+      const txBytes: Uint8Array =
+        tx instanceof VersionedTransaction
+          ? tx.serialize()
+          : tx.serialize({ requireAllSignatures: false, verifySignatures: false });
 
       // Call Privy's signTransaction with { transaction: Uint8Array, wallet, chain }
       const result = await privySignTransaction({
@@ -54,32 +52,49 @@ export default function PrivyWalletProvider({
       const signedBytes = result.signedTransaction;
 
       // Deserialize back to Transaction/VersionedTransaction
-      if (tx instanceof VersionedTransaction) {
-        return VersionedTransaction.deserialize(signedBytes);
-      } else {
-        return Transaction.from(signedBytes);
-      }
+      return tx instanceof VersionedTransaction
+        ? VersionedTransaction.deserialize(signedBytes)
+        : Transaction.from(signedBytes);
     };
   }, [wallets, pickWallet, privySignTransaction]);
+
+  const prevWalletSigRef = useRef<string>("");
+  const prevSignerRef = useRef<typeof signer>(null);
 
   useEffect(() => {
     const list = wallets || [];
 
-    // Debug: helps confirm if Privy Solana wallets are hydrated
-    console.log(
-      "[PrivyWalletProvider] wallets:",
-      list.map((w: any) => ({
-        address: w?.address,
-        standardWallet: w?.standardWallet?.name,
-        walletClientType: w?.walletClientType,
-        chainType: w?.chainType,
-      }))
-    );
+    // Create a stable "signature" for the wallet list to prevent re-render loops
+    const walletSig = list
+      .map((w: any) => `${w?.chainType ?? ""}:${w?.walletClientType ?? ""}:${w?.address ?? ""}`)
+      .join("|");
 
-    onWalletsChange(list);
-    onSignTransactionChange(signer);
+    if (walletSig !== prevWalletSigRef.current) {
+      prevWalletSigRef.current = walletSig;
+
+      // Keep this debug log from spamming the console
+      if (import.meta.env.DEV) {
+        console.log(
+          "[PrivyWalletProvider] wallets:",
+          list.map((w: any) => ({
+            address: w?.address,
+            standardWallet: w?.standardWallet?.name,
+            walletClientType: w?.walletClientType,
+            chainType: w?.chainType,
+          }))
+        );
+      }
+
+      onWalletsChange(list);
+    }
+
+    if (prevSignerRef.current !== signer) {
+      prevSignerRef.current = signer;
+      onSignTransactionChange(signer);
+    }
   }, [wallets, signer, onWalletsChange, onSignTransactionChange]);
 
   return null;
 }
+
 
