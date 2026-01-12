@@ -331,3 +331,19 @@
     transform: rotate(360deg);
   }
 }
+
+/* Ensure Privy modals are fully interactive */
+[data-privy-dialog],
+[class*="privy"],
+#privy-modal-content,
+#privy-iframe-container {
+  pointer-events: auto !important;
+  z-index: 999999 !important;
+}
+
+/* Privy close button fix */
+[data-privy-dialog] button,
+[class*="privy"] button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
