@@ -297,21 +297,57 @@ export function useMeteoraApi() {
             
             console.log('[createPool] Serialized TX size:', serializedTx.length, 'bytes');
 
+            // First, simulate the transaction to get detailed errors
+            console.log('[createPool] Simulating TX first...');
+            try {
+              let simulation;
+              if (signedTx instanceof VersionedTransaction) {
+                simulation = await connection.simulateTransaction(signedTx, { commitment: 'confirmed' });
+              } else {
+                // For legacy transactions, we need to use a different approach
+                simulation = await connection.simulateTransaction(signedTx, undefined, true);
+              }
+              
+              if (simulation.value.err) {
+                console.error('[createPool] Simulation FAILED:', simulation.value.err);
+                console.error('[createPool] Simulation logs:', simulation.value.logs);
+                throw new Error(`Transaction simulation failed: ${JSON.stringify(simulation.value.err)}\nLogs: ${simulation.value.logs?.join('\n')}`);
+              }
+              console.log('[createPool] Simulation SUCCESS');
+              console.log('[createPool] Simulation logs:', simulation.value.logs?.slice(-5));
+            } catch (simError: any) {
+              console.error('[createPool] Simulation error:', simError);
+              // If simulation throws (not just fails), it might be a different issue
+              if (simError.message?.includes('simulation failed')) {
+                throw simError;
+              }
+              // Continue to try sending anyway
+              console.log('[createPool] Continuing despite simulation error...');
+            }
+
             console.log('[createPool] Sending TX to network...');
             const sendStartTime = Date.now();
             
-            const signature = await connection.sendRawTransaction(serializedTx, {
-              skipPreflight: false,
-              preflightCommitment: 'confirmed',
-              maxRetries: 3,
-            });
+            let signature: string;
+            try {
+              signature = await connection.sendRawTransaction(serializedTx, {
+                skipPreflight: true, // Skip since we already simulated
+                preflightCommitment: 'confirmed',
+                maxRetries: 3,
+              });
+            } catch (sendError: any) {
+              console.error('[createPool] sendRawTransaction error:', sendError);
+              console.error('[createPool] sendRawTransaction logs:', sendError?.logs);
+              throw new Error(`Failed to send transaction: ${sendError?.message || sendError}`);
+            }
             
             console.log('[createPool] TX sent in', Date.now() - sendStartTime, 'ms');
             console.log('[createPool] TX signature:', signature);
             
             // Validate signature isn't a placeholder
             if (!signature || signature === '1111111111111111111111111111111111111111111111111111111111111111') {
-              throw new Error('Invalid signature returned from RPC - transaction may have failed');
+              console.error('[createPool] Got null/placeholder signature - TX failed silently');
+              throw new Error('Transaction failed - RPC returned null signature. This usually means the transaction was rejected.');
             }
 
             console.log('[createPool] Confirming TX...');
