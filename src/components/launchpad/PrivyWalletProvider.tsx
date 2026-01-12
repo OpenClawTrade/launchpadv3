@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useSignTransaction, useWallets } from "@privy-io/react-auth/solana";
-import type { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Transaction, VersionedTransaction } from "@solana/web3.js";
 
 interface PrivyWalletProviderProps {
   preferredAddress?: string | null;
@@ -16,7 +16,7 @@ export default function PrivyWalletProvider({
   onSignTransactionChange,
 }: PrivyWalletProviderProps) {
   const { wallets } = useWallets();
-  const { signTransaction } = useSignTransaction();
+  const { signTransaction: privySignTransaction } = useSignTransaction();
 
   const pickWallet = useCallback(
     (list: any[]) =>
@@ -34,11 +34,33 @@ export default function PrivyWalletProvider({
     const wallet = pickWallet(list);
     if (!wallet) return null;
 
-    return async (tx: Transaction | VersionedTransaction) => {
-      // Privy expects a request object shape: { transaction, wallet, chain }
-      return await signTransaction({ transaction: tx, wallet, chain: "solana:mainnet" });
+    return async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
+      // Serialize transaction to Uint8Array (Privy's signTransaction expects bytes)
+      let txBytes: Uint8Array;
+      if (tx instanceof VersionedTransaction) {
+        txBytes = tx.serialize();
+      } else {
+        txBytes = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+      }
+
+      // Call Privy's signTransaction with { transaction: Uint8Array, wallet, chain }
+      const result = await privySignTransaction({
+        transaction: txBytes,
+        wallet,
+        chain: "solana:mainnet",
+      });
+
+      // Privy returns { signedTransaction: Uint8Array }
+      const signedBytes = result.signedTransaction;
+
+      // Deserialize back to Transaction/VersionedTransaction
+      if (tx instanceof VersionedTransaction) {
+        return VersionedTransaction.deserialize(signedBytes);
+      } else {
+        return Transaction.from(signedBytes);
+      }
     };
-  }, [wallets, pickWallet, signTransaction]);
+  }, [wallets, pickWallet, privySignTransaction]);
 
   useEffect(() => {
     const list = wallets || [];
