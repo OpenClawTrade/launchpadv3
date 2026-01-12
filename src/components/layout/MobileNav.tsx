@@ -21,6 +21,7 @@ const baseNavItems = [
 
 const menuItems = [
   { icon: Home, label: "Home", href: "/" },
+  { icon: Rocket, label: "Launchpad", href: "/launchpad" },
   { icon: Search, label: "Explore", href: "/explore" },
   { icon: Bell, label: "Notifications", href: "/notifications" },
   { icon: Mail, label: "Messages", href: "/messages" },
