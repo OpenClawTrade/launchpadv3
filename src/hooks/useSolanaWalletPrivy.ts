@@ -1,150 +1,89 @@
-import { useCallback, useState, useMemo } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
-import { useWallets } from '@privy-io/react-auth/solana';
-import { Connection, Transaction, VersionedTransaction } from '@solana/web3.js';
-import { useToast } from '@/hooks/use-toast';
-import { getRpcUrl } from './useSolanaWallet';
+import { useCallback, useMemo, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
+import { useWallets } from "@privy-io/react-auth/solana";
+import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
+import { getRpcUrl } from "./useSolanaWallet";
 
 // Hook that uses Privy - MUST only be called inside PrivyProvider when privyAvailable is true
+// IMPORTANT: This project uses EMBEDDED wallets only. External wallets are intentionally ignored.
 export function useSolanaWalletWithPrivy() {
   const { authenticated, user, ready } = usePrivy();
   const { wallets } = useWallets();
-  const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
 
   const rpcData = getRpcUrl();
   const rpcUrl = rpcData.url;
   const rpcSource = rpcData.source;
 
-  // Get connection
-  const getConnection = useCallback(() => {
-    return new Connection(rpcUrl, 'confirmed');
-  }, [rpcUrl]);
+  const getConnection = useCallback(() => new Connection(rpcUrl, "confirmed"), [rpcUrl]);
 
   const isPrivyEmbeddedWallet = useCallback((w: any) => {
     const walletClientType = w?.walletClientType;
     const standardName = w?.standardWallet?.name;
-    const name = (w?.name || '').toLowerCase();
+    const name = String(w?.name ?? "").toLowerCase();
 
     return (
-      walletClientType === 'privy' ||
-      standardName === 'Privy' ||
-      name.includes('privy') ||
-      name.includes('embedded')
+      walletClientType === "privy" ||
+      standardName === "Privy" ||
+      name.includes("privy") ||
+      name.includes("embedded")
     );
   }, []);
 
-  // Get the Privy embedded wallet (primary) from useWallets
+  // Embedded wallet ONLY
   const getEmbeddedWallet = useCallback(() => {
-    const embeddedWallet = wallets?.find((w: any) => isPrivyEmbeddedWallet(w));
-    return embeddedWallet || null;
+    const embedded = wallets?.find((w: any) => isPrivyEmbeddedWallet(w));
+    return embedded || null;
   }, [wallets, isPrivyEmbeddedWallet]);
 
-  // Get any Solana wallet from useWallets
-  const getSolanaWallet = useCallback(() => {
-    // Prefer embedded wallet
-    const embedded = getEmbeddedWallet();
-    if (embedded) return embedded;
+  // Alias kept for compatibility with existing callers
+  const getSolanaWallet = useCallback(() => getEmbeddedWallet(), [getEmbeddedWallet]);
 
-    // Prefer any wallet that supports Solana signing
-    const anySolana = wallets?.find((w: any) => !!w?.standardWallet?.features?.['solana:signTransaction']);
-    if (anySolana) return anySolana;
+  // Wallet address is embedded wallet only (no linkedAccounts fallback)
+  const walletAddress = getEmbeddedWallet()?.address || null;
 
-    // Fallback to any connected wallet
-    return wallets?.[0] || null;
-  }, [wallets, getEmbeddedWallet]);
-
-  // IMPORTANT: Also check Privy user's linkedAccounts for wallet address
-  // This is more reliable than useWallets() which can be empty initially
-  const getWalletAddressFromPrivyUser = useCallback(() => {
-    if (!user) return null;
-    
-    // Check linkedAccounts for Solana wallet
-    const solanaWallet = (user as any).linkedAccounts?.find(
-      (account: any) => account.type === 'wallet' && account.chainType === 'solana'
-    );
-    if (solanaWallet?.address) return solanaWallet.address;
-    
-    // Check embedded wallet on user object
-    const embeddedWallet = (user as any).wallet;
-    if (embeddedWallet?.address) return embeddedWallet.address;
-    
-    return null;
-  }, [user]);
-
-  // Get wallet address - prefer useWallets, fallback to linkedAccounts
-  const walletAddress = getSolanaWallet()?.address || getWalletAddressFromPrivyUser() || null;
-
-  // Check if wallet is ready
   const isWalletReady = ready && authenticated && !!walletAddress;
 
-  // Sign and send transaction
   const signAndSendTransaction = useCallback(
     async (
       transaction: Transaction | VersionedTransaction,
       options?: { skipPreflight?: boolean }
     ): Promise<{ signature: string; confirmed: boolean }> => {
       const wallet = getSolanaWallet();
-      if (!wallet) {
-        throw new Error('No wallet connected');
-      }
+      if (!wallet) throw new Error("No embedded wallet connected");
 
       const connection = getConnection();
 
       try {
         setIsConnecting(true);
 
-        // Get fresh blockhash
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
 
-        // Update transaction blockhash
-        if (!('version' in transaction)) {
-          transaction.recentBlockhash = blockhash;
-          transaction.feePayer = wallet.address
-            ? new (await import('@solana/web3.js')).PublicKey(wallet.address)
-            : undefined;
+        // Update legacy transaction blockhash + fee payer
+        if (!(transaction as any)?.version) {
+          (transaction as Transaction).recentBlockhash = blockhash;
+          const { PublicKey } = await import("@solana/web3.js");
+          (transaction as Transaction).feePayer = wallet.address ? new PublicKey(wallet.address) : undefined;
         }
 
-        // Get provider from wallet
         const provider = (wallet as any).getEthereumProvider?.() || wallet;
+        if (!provider) throw new Error("Could not get wallet provider");
 
-        if (!provider) {
-          throw new Error('Could not get wallet provider');
-        }
+        const signedTx = provider.signTransaction ? await provider.signTransaction(transaction) : transaction;
 
-        // Sign transaction
-        const signedTx = provider.signTransaction
-          ? await provider.signTransaction(transaction)
-          : transaction;
-
-        // Send the signed transaction
         const signature = await connection.sendRawTransaction(signedTx.serialize(), {
           skipPreflight: options?.skipPreflight ?? true,
-          preflightCommitment: 'confirmed',
+          preflightCommitment: "confirmed",
         });
 
-        console.log('[useSolanaWallet] Transaction sent:', signature);
-
-        // Confirm transaction
         const confirmation = await connection.confirmTransaction(
-          {
-            signature,
-            blockhash,
-            lastValidBlockHeight,
-          },
-          'confirmed'
+          { signature, blockhash, lastValidBlockHeight },
+          "confirmed"
         );
 
-        if (confirmation.value.err) {
-          throw new Error(`Transaction failed: ${confirmation.value.err}`);
-        }
-
-        console.log('[useSolanaWallet] Transaction confirmed:', signature);
+        if (confirmation.value.err) throw new Error(`Transaction failed: ${confirmation.value.err}`);
 
         return { signature, confirmed: true };
-      } catch (error) {
-        console.error('[useSolanaWallet] Transaction error:', error);
-        throw error;
       } finally {
         setIsConnecting(false);
       }
@@ -152,76 +91,52 @@ export function useSolanaWalletWithPrivy() {
     [getSolanaWallet, getConnection]
   );
 
-  // Get SOL balance (legacy - returns 0 on error)
   const getBalance = useCallback(async (): Promise<number> => {
     if (!walletAddress) return 0;
 
     try {
       const connection = getConnection();
-      const { PublicKey, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+      const { PublicKey, LAMPORTS_PER_SOL } = await import("@solana/web3.js");
       const pubkey = new PublicKey(walletAddress);
       const balance = await connection.getBalance(pubkey);
       return balance / LAMPORTS_PER_SOL;
     } catch (error) {
-      console.error('[useSolanaWallet] Balance error:', error);
+      console.error("[useSolanaWalletWithPrivy] Balance error:", error);
       return 0;
     }
   }, [walletAddress, getConnection]);
 
-  // Get SOL balance (strict - surfaces errors to UI)
   const getBalanceStrict = useCallback(async (): Promise<number> => {
-    if (!walletAddress) {
-      throw new Error('No wallet address');
-    }
+    if (!walletAddress) throw new Error("No wallet address");
 
     const connection = getConnection();
-    const { PublicKey, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+    const { PublicKey, LAMPORTS_PER_SOL } = await import("@solana/web3.js");
     const pubkey = new PublicKey(walletAddress);
     const balance = await connection.getBalance(pubkey);
     return balance / LAMPORTS_PER_SOL;
   }, [walletAddress, getConnection]);
 
-  // RPC connectivity test (helps debug RPC issues)
-  const testRpc = useCallback(async () => {
-    const connection = getConnection();
-    const started = performance.now();
-
-    const version = await connection.getVersion();
-    const { blockhash } = await connection.getLatestBlockhash('confirmed');
-
-    return {
+  const debug = useMemo(
+    () => ({
       rpcUrl,
       rpcSource,
-      version: version['solana-core'],
-      blockhash,
-      latencyMs: Math.round(performance.now() - started),
-    };
-  }, [getConnection, rpcUrl, rpcSource]);
+      privyReady: ready,
+      authenticated,
+      walletAddress,
+      walletSource: walletAddress ? "useWallets_embedded" : "none",
+      wallets: (wallets ?? []).map((w: any) => ({
+        walletClientType: w?.walletClientType,
+        standardName: w?.standardWallet?.name,
+        address: w?.address,
+      })),
+      privyUserWallet: (user as any)?.wallet?.address ?? null,
+      linkedAccountsCount: (user as any)?.linkedAccounts?.length ?? 0,
+    }),
+    [rpcUrl, rpcSource, ready, authenticated, walletAddress, wallets, user]
+  );
 
-  const debug = useMemo(() => ({
-    rpcUrl,
-    rpcSource,
-    privyReady: ready,
-    authenticated,
-    walletAddress,
-    walletSource: getSolanaWallet()?.address
-      ? 'useWallets'
-      : getWalletAddressFromPrivyUser()
-        ? 'linkedAccounts'
-        : 'none',
-    wallets: (wallets ?? []).map((w: any) => ({
-      walletClientType: w.walletClientType,
-      address: w.address,
-    })),
-    privyUserWallet: (user as any)?.wallet?.address ?? null,
-    linkedAccountsCount: (user as any)?.linkedAccounts?.length ?? 0,
-    linkedSolanaWallet: getWalletAddressFromPrivyUser(),
-  }), [rpcUrl, rpcSource, ready, authenticated, walletAddress, wallets, user, getSolanaWallet, getWalletAddressFromPrivyUser]);
-
-  // Get token balance (simplified - fetch from database)
-  const getTokenBalance = useCallback(async (mintAddress: string): Promise<number> => {
+  const getTokenBalance = useCallback(async (_mintAddress: string): Promise<number> => {
     // Token balances are tracked in the database for bonding curve tokens
-    // For graduated tokens, would need to query on-chain
     return 0;
   }, []);
 
@@ -231,7 +146,6 @@ export function useSolanaWalletWithPrivy() {
     isConnecting,
     rpcUrl,
     debug,
-    testRpc,
     getConnection,
     getBalance,
     getBalanceStrict,
