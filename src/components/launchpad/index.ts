@@ -12,3 +12,4 @@ export { LaunchTokenForm } from './LaunchTokenForm';
 export { TransactionHistory } from './TransactionHistory';
 export { PriceChart } from './PriceChart';
 export { TokenComments } from './TokenComments';
+export { LightweightChart } from './LightweightChart';
