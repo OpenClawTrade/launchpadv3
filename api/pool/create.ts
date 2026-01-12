@@ -105,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Create real Meteora pool
     console.log('[pool/create] Creating Meteora pool...');
     
-    const { transactions, mintKeypair, configKeypair, poolAddress } = await createMeteoraPool({
+    const { transactions, mintKeypair, configKeypair, poolAddress, lastValidBlockHeight } = await createMeteoraPool({
       creatorWallet,
       name,
       ticker: ticker.toUpperCase(),
