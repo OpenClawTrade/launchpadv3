@@ -14,13 +14,41 @@ export default function LaunchpadPage() {
   const { user } = useAuth();
   const { tokens, isLoadingTokens } = useLaunchpad();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("new");
 
   const currentUser = user ? {
     name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
     handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
     avatar: user.avatarUrl,
   } : null;
+
+  // Calculate "hotness" score for trending algorithm
+  // Factors: volume, price change, holder count, recency, bonding progress
+  const calculateHotScore = (token: typeof tokens[0]) => {
+    const now = Date.now();
+    const createdAt = new Date(token.created_at).getTime();
+    const ageHours = (now - createdAt) / (1000 * 60 * 60);
+    
+    // Volume score (primary factor)
+    const volumeScore = Math.log10(token.volume_24h_sol + 1) * 30;
+    
+    // Recency bonus (newer tokens get a boost, decays over 24h)
+    const recencyScore = Math.max(0, 20 - ageHours * 0.8);
+    
+    // Price momentum (positive changes are good)
+    const priceChangeRaw = (token as any).price_change_24h || 0;
+    const momentumScore = Math.min(20, Math.max(-10, priceChangeRaw * 0.5));
+    
+    // Holder count (more holders = more interest)
+    const holderScore = Math.log10(token.holder_count + 1) * 10;
+    
+    // Bonding progress bonus (tokens close to graduation are exciting)
+    const bondingBonus = token.status === 'bonding' 
+      ? (token.bonding_curve_progress || 0) * 0.2 
+      : 0;
+    
+    return volumeScore + recencyScore + momentumScore + holderScore + bondingBonus;
+  };
 
   // Filter tokens based on search and tab
   const filteredTokens = useMemo(() => {
@@ -36,19 +64,26 @@ export default function LaunchpadPage() {
       );
     }
 
-    // Tab filter
+    // Tab filter with specific algorithms
     switch (activeTab) {
+      case "hot":
+        // HOT: Sort by calculated hotness score (volume + momentum + recency)
+        result = [...result].sort((a, b) => calculateHotScore(b) - calculateHotScore(a));
+        break;
       case "bonding":
-        result = result.filter(t => t.status === 'bonding');
+        // BONDING: Only bonding tokens, sorted by bonding progress (closest to graduation first)
+        result = result
+          .filter(t => t.status === 'bonding')
+          .sort((a, b) => (b.bonding_curve_progress || 0) - (a.bonding_curve_progress || 0));
         break;
       case "graduated":
-        result = result.filter(t => t.status === 'graduated');
-        break;
-      case "trending":
-        result = [...result].sort((a, b) => b.volume_24h_sol - a.volume_24h_sol);
+        // LIVE: Only graduated tokens, sorted by 24h volume
+        result = result
+          .filter(t => t.status === 'graduated')
+          .sort((a, b) => b.volume_24h_sol - a.volume_24h_sol);
         break;
       default:
-        // all - sort by newest
+        // NEW: Sort by creation date (newest first)
         result = [...result].sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
@@ -132,14 +167,14 @@ export default function LaunchpadPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full h-12 bg-transparent rounded-none p-0 border-0 grid grid-cols-4 gap-0">
             <TabsTrigger 
-              value="all" 
+              value="new" 
               className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-sm transition-all"
             >
               <Clock className="h-4 w-4 mr-1.5" />
               New
             </TabsTrigger>
             <TabsTrigger 
-              value="trending" 
+              value="hot" 
               className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-sm transition-all"
             >
               <Flame className="h-4 w-4 mr-1.5" />
