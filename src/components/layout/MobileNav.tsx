@@ -14,7 +14,7 @@ import trenchesLogo from "@/assets/trenches-logo.png";
 
 const baseNavItems = [
   { icon: Home, href: "/", badgeKey: null },
-  { icon: Search, href: "/explore", badgeKey: null },
+  { icon: Rocket, href: "/launchpad", badgeKey: null },
   { icon: Bell, href: "/notifications", badgeKey: "notifications" as const },
   { icon: Mail, href: "/messages", badgeKey: "messages" as const },
 ];
