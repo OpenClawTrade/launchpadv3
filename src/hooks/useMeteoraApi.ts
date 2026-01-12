@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Connection, Transaction, VersionedTransaction, Keypair } from '@solana/web3.js';
+import { Connection, Transaction, VersionedTransaction, Keypair, ComputeBudgetProgram, TransactionMessage } from '@solana/web3.js';
 
 // Get API URL from environment (or runtime config)
 // Called fresh on every API request to ensure we pick up async-loaded config
@@ -297,32 +297,28 @@ export function useMeteoraApi() {
             
             console.log('[createPool] Serialized TX size:', serializedTx.length, 'bytes');
 
-            // First, simulate the transaction to get detailed errors
-            console.log('[createPool] Simulating TX first...');
+            // Validate transaction will succeed (dry run)
+            console.log('[createPool] Validating TX before send...');
             try {
               let simulation;
               if (signedTx instanceof VersionedTransaction) {
                 simulation = await connection.simulateTransaction(signedTx, { commitment: 'confirmed' });
               } else {
-                // For legacy transactions, we need to use a different approach
                 simulation = await connection.simulateTransaction(signedTx, undefined, true);
               }
               
               if (simulation.value.err) {
-                console.error('[createPool] Simulation FAILED:', simulation.value.err);
-                console.error('[createPool] Simulation logs:', simulation.value.logs);
-                throw new Error(`Transaction simulation failed: ${JSON.stringify(simulation.value.err)}\nLogs: ${simulation.value.logs?.join('\n')}`);
+                console.error('[createPool] Validation FAILED:', simulation.value.err);
+                console.error('[createPool] Validation logs:', simulation.value.logs);
+                throw new Error(`Transaction validation failed: ${JSON.stringify(simulation.value.err)}\nLogs: ${simulation.value.logs?.join('\n')}`);
               }
-              console.log('[createPool] Simulation SUCCESS');
-              console.log('[createPool] Simulation logs:', simulation.value.logs?.slice(-5));
+              console.log('[createPool] Validation OK - TX looks good');
             } catch (simError: any) {
-              console.error('[createPool] Simulation error:', simError);
-              // If simulation throws (not just fails), it might be a different issue
-              if (simError.message?.includes('simulation failed')) {
+              console.error('[createPool] Validation error:', simError);
+              if (simError.message?.includes('validation failed')) {
                 throw simError;
               }
-              // Continue to try sending anyway
-              console.log('[createPool] Continuing despite simulation error...');
+              console.log('[createPool] Continuing despite validation warning...');
             }
 
             console.log('[createPool] Sending TX to network...');
