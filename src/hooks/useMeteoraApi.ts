@@ -83,14 +83,19 @@ async function apiRequest<T>(
   return data as T;
 }
 
-// Deserialize transaction from base64 (browser-compatible)
-function deserializeTransaction(base64: string): Transaction | VersionedTransaction {
-  // Convert base64 to Uint8Array (browser-compatible, no Buffer needed)
+// Convert base64 to Uint8Array (browser-compatible)
+function base64ToBytes(base64: string): Uint8Array {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
+  return bytes;
+}
+
+// Deserialize transaction from base64 (browser-compatible)
+function deserializeTransaction(base64: string): Transaction | VersionedTransaction {
+  const bytes = base64ToBytes(base64);
   
   // Check if it's a versioned transaction (first byte indicates version)
   try {
@@ -104,12 +109,7 @@ function deserializeTransaction(base64: string): Transaction | VersionedTransact
 
 // Deserialize keypair from base64 (browser-compatible)
 function deserializeKeypair(base64: string): Keypair {
-  // Convert base64 to Uint8Array (browser-compatible, no Buffer needed)
-  const binaryString = atob(base64);
-  const secretKey = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    secretKey[i] = binaryString.charCodeAt(i);
-  }
+  const secretKey = base64ToBytes(base64);
   return Keypair.fromSecretKey(secretKey);
 }
 
@@ -207,7 +207,7 @@ export function useMeteoraApi() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  // Create a new token pool
+  // Create a new token pool - matches working flow exactly
   const createPool = useCallback(async (
     params: {
       creatorWallet: string;
@@ -265,79 +265,47 @@ export function useMeteoraApi() {
         for (let i = 0; i < txBase64s.length; i++) {
           const txBase64 = txBase64s[i];
           console.log(`[createPool] Processing transaction ${i + 1}/${txBase64s.length}...`);
-          console.log(`[createPool] TX base64 length: ${txBase64.length} chars`);
           
-          console.log('[createPool] Deserializing transaction...');
+          // Convert base64 to bytes
+          const txBytes = base64ToBytes(txBase64);
+          console.log('[createPool] TX bytes length:', txBytes.length);
+          
+          // Deserialize to determine type and for signing
           const tx = deserializeTransaction(txBase64);
           const txType = tx instanceof VersionedTransaction ? 'VersionedTransaction' : 'LegacyTransaction';
           console.log(`[createPool] Deserialized as: ${txType}`);
 
-          // Get fresh blockhash BEFORE signing
-          console.log('[createPool] Getting fresh blockhash...');
+          // Get blockhash for confirmation (NOT for updating the transaction)
+          // The backend's blockhash is fresh enough - we trust it
+          console.log('[createPool] Getting blockhash for confirmation...');
           const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-          console.log('[createPool] Blockhash:', blockhash, 'Height:', lastValidBlockHeight);
-
-          // Update blockhash for legacy transactions
-          if (tx instanceof Transaction) {
-            tx.recentBlockhash = blockhash;
-            tx.lastValidBlockHeight = lastValidBlockHeight;
-          }
+          console.log('[createPool] Blockhash for confirm:', blockhash, 'Height:', lastValidBlockHeight);
 
           console.log('[createPool] Requesting user signature via Privy...');
           const signStartTime = Date.now();
           
           try {
+            // Sign the transaction (returns Transaction or VersionedTransaction)
             const signedTx = await signTransaction(tx);
             console.log('[createPool] User signed TX in', Date.now() - signStartTime, 'ms');
             
-            // Serialize the signed transaction
-            const serializedTx = signedTx instanceof Transaction
+            // Serialize signed transaction to bytes for sending
+            const signedBytes: Uint8Array = signedTx instanceof Transaction
               ? signedTx.serialize()
               : (signedTx as VersionedTransaction).serialize();
             
-            console.log('[createPool] Serialized TX size:', serializedTx.length, 'bytes');
+            console.log('[createPool] Signed TX bytes:', signedBytes.length);
 
-            // Optional validation (dev-only). Disabled by default for speed.
-            const shouldValidate =
-              typeof window !== 'undefined' && localStorage.getItem('debugTxValidation') === '1';
-
-            if (shouldValidate) {
-              console.log('[createPool] Validating TX before send...');
-              try {
-                let simulation;
-                if (signedTx instanceof VersionedTransaction) {
-                  simulation = await connection.simulateTransaction(signedTx, { commitment: 'processed' });
-                } else {
-                  simulation = await connection.simulateTransaction(signedTx, undefined, true);
-                }
-
-                if (simulation.value.err) {
-                  console.error('[createPool] Validation FAILED:', simulation.value.err);
-                  console.error('[createPool] Validation logs:', simulation.value.logs);
-                  throw new Error(
-                    `Transaction validation failed: ${JSON.stringify(simulation.value.err)}\nLogs: ${simulation.value.logs?.join('\n')}`
-                  );
-                }
-                console.log('[createPool] Validation OK - TX looks good');
-              } catch (simError: any) {
-                console.error('[createPool] Validation error:', simError);
-                if (simError.message?.includes('validation failed')) {
-                  throw simError;
-                }
-                console.log('[createPool] Continuing despite validation warning...');
-              }
-            }
+            // Send to network - use skipPreflight: true as per working flow
             console.log('[createPool] Sending TX to network...');
             const sendStartTime = Date.now();
 
             let signature: string;
             try {
-              // IMPORTANT: do NOT skip preflight here. If the transaction is invalid or blockhash is stale,
-              // we want the RPC to fail fast instead of returning a signature that never lands.
-              signature = await connection.sendRawTransaction(serializedTx, {
-                skipPreflight: false,
-                preflightCommitment: 'processed',
-                maxRetries: 10,
+              signature = await connection.sendRawTransaction(signedBytes, {
+                skipPreflight: true,
+                preflightCommitment: 'confirmed',
+                maxRetries: 5,
               });
             } catch (sendError: any) {
               console.error('[createPool] sendRawTransaction error:', sendError);
@@ -349,61 +317,47 @@ export function useMeteoraApi() {
             console.log('[createPool] TX signature:', signature);
 
             if (!signature || signature === '1111111111111111111111111111111111111111111111111111111111111111') {
-              console.error('[createPool] Got null/placeholder signature - TX failed silently');
+              console.error('[createPool] Got null/placeholder signature');
               throw new Error('Transaction failed - RPC returned null signature.');
             }
 
-            // Fast confirm for sequencing: 'processed' is usually a few seconds and is enough to submit the next tx.
-            // We'll still do a short poll afterward to detect on-chain errors.
+            // Confirm using blockhash strategy (as per working flow)
+            console.log('[createPool] Confirming TX...');
             const confirmStartTime = Date.now();
-            console.log('[createPool] Waiting for processed confirmation...');
 
             try {
-              await connection.confirmTransaction(signature, 'processed');
-              console.log('[createPool] Processed confirmation in', Date.now() - confirmStartTime, 'ms');
-            } catch (e) {
-              console.warn('[createPool] confirmTransaction(processed) did not resolve quickly:', e);
-            }
-
-            // Short status polling (avoid 60s stalls)
-            const MAX_STATUS_POLL_MS = 15000;
-            const POLL_INTERVAL_MS = 1000;
-
-            let txError: any = null;
-            let sawStatus = false;
-
-            while (Date.now() - confirmStartTime < MAX_STATUS_POLL_MS) {
+              const confirmation = await connection.confirmTransaction({
+                signature,
+                blockhash,
+                lastValidBlockHeight,
+              }, 'confirmed');
+              
+              console.log('[createPool] TX confirmed in', Date.now() - confirmStartTime, 'ms');
+              
+              if (confirmation.value.err) {
+                console.error('[createPool] TX confirmed but has error:', confirmation.value.err);
+                throw new Error(`Transaction failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+              }
+            } catch (confirmError: any) {
+              // If confirmation fails, check if tx actually landed
+              console.warn('[createPool] confirmTransaction error:', confirmError?.message);
+              
+              // Quick status check
               const statuses = await connection.getSignatureStatuses([signature], {
                 searchTransactionHistory: true,
               });
               const status = statuses.value[0];
-
-              if (status) {
-                sawStatus = true;
-
-                if (status.err) {
-                  txError = status.err;
-                  break;
-                }
-
-                // If it reached confirmed/finalized, great. If not, we still proceed after timeout.
-                if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-                  console.log('[createPool] Confirmation status:', status.confirmationStatus);
-                  break;
-                }
+              
+              if (status?.err) {
+                throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
               }
-
-              await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-            }
-
-            if (txError) {
-              throw new Error(`Transaction failed on-chain: ${JSON.stringify(txError)}`);
-            }
-
-            if (!sawStatus) {
-              // At this point we couldn't even see the signature from the RPC node.
-              // That strongly suggests the tx was dropped and will never confirm.
-              throw new Error(`Transaction not observed by RPC (dropped). Signature: ${signature}`);
+              
+              if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+                console.log('[createPool] TX confirmed via status check:', status.confirmationStatus);
+              } else {
+                // Re-throw original error if we can't confirm it landed
+                throw confirmError;
+              }
             }
 
             signatures.push(signature);
@@ -413,7 +367,6 @@ export function useMeteoraApi() {
             console.error('[createPool] Error during TX signing/sending:', signError);
             console.error('[createPool] Error name:', signError?.name);
             console.error('[createPool] Error message:', signError?.message);
-            console.error('[createPool] Error logs:', signError?.logs);
             throw signError;
           }
         }
