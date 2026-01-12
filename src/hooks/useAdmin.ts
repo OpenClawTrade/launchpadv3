@@ -16,9 +16,14 @@ export function useAdmin() {
       }
 
       try {
-        // Call the is_admin() function we created
-        const { data, error } = await supabase.rpc("is_admin");
-        
+        // Determine admin status via role lookup.
+        // This does NOT rely on a Supabase auth session (we use Privy for auth),
+        // so it works reliably for showing admin UI controls.
+        const { data, error } = await supabase.rpc("has_role", {
+          _user_id: user.id,
+          _role: "admin",
+        });
+
         if (error) {
           console.error("Error checking admin status:", error);
           setIsAdmin(false);
