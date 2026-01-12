@@ -297,114 +297,118 @@ export function useMeteoraApi() {
             
             console.log('[createPool] Serialized TX size:', serializedTx.length, 'bytes');
 
-            // Validate transaction will succeed (dry run)
-            console.log('[createPool] Validating TX before send...');
-            try {
-              let simulation;
-              if (signedTx instanceof VersionedTransaction) {
-                simulation = await connection.simulateTransaction(signedTx, { commitment: 'confirmed' });
-              } else {
-                simulation = await connection.simulateTransaction(signedTx, undefined, true);
-              }
-              
-              if (simulation.value.err) {
-                console.error('[createPool] Validation FAILED:', simulation.value.err);
-                console.error('[createPool] Validation logs:', simulation.value.logs);
-                throw new Error(`Transaction validation failed: ${JSON.stringify(simulation.value.err)}\nLogs: ${simulation.value.logs?.join('\n')}`);
-              }
-              console.log('[createPool] Validation OK - TX looks good');
-            } catch (simError: any) {
-              console.error('[createPool] Validation error:', simError);
-              if (simError.message?.includes('validation failed')) {
-                throw simError;
-              }
-              console.log('[createPool] Continuing despite validation warning...');
-            }
+            // Optional validation (dev-only). Disabled by default for speed.
+            const shouldValidate =
+              typeof window !== 'undefined' && localStorage.getItem('debugTxValidation') === '1';
 
+            if (shouldValidate) {
+              console.log('[createPool] Validating TX before send...');
+              try {
+                let simulation;
+                if (signedTx instanceof VersionedTransaction) {
+                  simulation = await connection.simulateTransaction(signedTx, { commitment: 'processed' });
+                } else {
+                  simulation = await connection.simulateTransaction(signedTx, undefined, true);
+                }
+
+                if (simulation.value.err) {
+                  console.error('[createPool] Validation FAILED:', simulation.value.err);
+                  console.error('[createPool] Validation logs:', simulation.value.logs);
+                  throw new Error(
+                    `Transaction validation failed: ${JSON.stringify(simulation.value.err)}\nLogs: ${simulation.value.logs?.join('\n')}`
+                  );
+                }
+                console.log('[createPool] Validation OK - TX looks good');
+              } catch (simError: any) {
+                console.error('[createPool] Validation error:', simError);
+                if (simError.message?.includes('validation failed')) {
+                  throw simError;
+                }
+                console.log('[createPool] Continuing despite validation warning...');
+              }
+            }
             console.log('[createPool] Sending TX to network...');
             const sendStartTime = Date.now();
-            
+
             let signature: string;
             try {
+              // IMPORTANT: do NOT skip preflight here. If the transaction is invalid or blockhash is stale,
+              // we want the RPC to fail fast instead of returning a signature that never lands.
               signature = await connection.sendRawTransaction(serializedTx, {
-                skipPreflight: true, // Skip since we already simulated
-                preflightCommitment: 'confirmed',
-                maxRetries: 5,
+                skipPreflight: false,
+                preflightCommitment: 'processed',
+                maxRetries: 10,
               });
             } catch (sendError: any) {
               console.error('[createPool] sendRawTransaction error:', sendError);
               console.error('[createPool] sendRawTransaction logs:', sendError?.logs);
               throw new Error(`Failed to send transaction: ${sendError?.message || sendError}`);
             }
-            
+
             console.log('[createPool] TX sent in', Date.now() - sendStartTime, 'ms');
             console.log('[createPool] TX signature:', signature);
-            
-            // Validate signature isn't a placeholder
+
             if (!signature || signature === '1111111111111111111111111111111111111111111111111111111111111111') {
               console.error('[createPool] Got null/placeholder signature - TX failed silently');
-              throw new Error('Transaction failed - RPC returned null signature. This usually means the transaction was rejected.');
+              throw new Error('Transaction failed - RPC returned null signature.');
             }
 
-            console.log('[createPool] Confirming TX with polling fallback...');
+            // Fast confirm for sequencing: 'processed' is usually a few seconds and is enough to submit the next tx.
+            // We'll still do a short poll afterward to detect on-chain errors.
             const confirmStartTime = Date.now();
-            
-            // Use polling-based confirmation with timeout instead of blockhash expiry
-            const MAX_CONFIRM_TIME_MS = 60000; // 60 seconds max
-            const POLL_INTERVAL_MS = 2000; // Check every 2 seconds
-            
-            let confirmed = false;
-            let txError: any = null;
-            
-            while (Date.now() - confirmStartTime < MAX_CONFIRM_TIME_MS && !confirmed) {
-              try {
-                const statuses = await connection.getSignatureStatuses([signature]);
-                const status = statuses.value[0];
-                
-                if (status) {
-                  if (status.err) {
-                    txError = status.err;
-                    console.error('[createPool] TX failed on-chain:', status.err);
-                    break;
-                  }
-                  
-                  if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-                    confirmed = true;
-                    console.log('[createPool] TX confirmed via polling in', Date.now() - confirmStartTime, 'ms');
-                    console.log('[createPool] Confirmation status:', status.confirmationStatus);
-                    break;
-                  }
-                }
-                
-                // Wait before next poll
-                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-                
-              } catch (pollError) {
-                console.warn('[createPool] Polling error (will retry):', pollError);
-                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-              }
+            console.log('[createPool] Waiting for processed confirmation...');
+
+            try {
+              await connection.confirmTransaction(signature, 'processed');
+              console.log('[createPool] Processed confirmation in', Date.now() - confirmStartTime, 'ms');
+            } catch (e) {
+              console.warn('[createPool] confirmTransaction(processed) did not resolve quickly:', e);
             }
-            
+
+            // Short status polling (avoid 60s stalls)
+            const MAX_STATUS_POLL_MS = 15000;
+            const POLL_INTERVAL_MS = 1000;
+
+            let txError: any = null;
+            let sawStatus = false;
+
+            while (Date.now() - confirmStartTime < MAX_STATUS_POLL_MS) {
+              const statuses = await connection.getSignatureStatuses([signature], {
+                searchTransactionHistory: true,
+              });
+              const status = statuses.value[0];
+
+              if (status) {
+                sawStatus = true;
+
+                if (status.err) {
+                  txError = status.err;
+                  break;
+                }
+
+                // If it reached confirmed/finalized, great. If not, we still proceed after timeout.
+                if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+                  console.log('[createPool] Confirmation status:', status.confirmationStatus);
+                  break;
+                }
+              }
+
+              await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+            }
+
             if (txError) {
               throw new Error(`Transaction failed on-chain: ${JSON.stringify(txError)}`);
             }
-            
-            if (!confirmed) {
-              // One final check before giving up
-              const finalStatus = await connection.getSignatureStatuses([signature]);
-              if (finalStatus.value[0]?.confirmationStatus === 'confirmed' || 
-                  finalStatus.value[0]?.confirmationStatus === 'finalized') {
-                confirmed = true;
-                console.log('[createPool] TX confirmed on final check');
-              } else {
-                console.error('[createPool] TX confirmation timeout after', MAX_CONFIRM_TIME_MS, 'ms');
-                throw new Error(`Transaction confirmation timeout. Check signature on explorer: ${signature}`);
-              }
+
+            if (!sawStatus) {
+              // At this point we couldn't even see the signature from the RPC node.
+              // That strongly suggests the tx was dropped and will never confirm.
+              throw new Error(`Transaction not observed by RPC (dropped). Signature: ${signature}`);
             }
 
             signatures.push(signature);
             console.log(`[createPool] Transaction ${i + 1} complete!`);
-            
+
           } catch (signError: any) {
             console.error('[createPool] Error during TX signing/sending:', signError);
             console.error('[createPool] Error name:', signError?.name);
