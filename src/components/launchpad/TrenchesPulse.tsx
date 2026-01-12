@@ -45,10 +45,12 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
     // Holder count
     const holderScore = Math.log10(token.holder_count + 1) * 10;
     
-    // Bonding progress bonus
-    const bondingBonus = token.status === 'bonding' 
-      ? (token.bonding_curve_progress || 0) * 0.2 
+    // Bonding progress bonus (calculate from real_sol_reserves for accuracy)
+    const graduationThreshold = token.graduation_threshold_sol || 85;
+    const actualProgress = token.real_sol_reserves > 0 
+      ? (token.real_sol_reserves / graduationThreshold) * 100 
       : 0;
+    const bondingBonus = token.status === 'bonding' ? actualProgress * 0.2 : 0;
     
     return volumeScore + recencyScore + momentumScore + holderScore + bondingBonus;
   };
@@ -95,8 +97,18 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
         break;
       case 'graduating':
         result = result
-          .filter(t => (t.bonding_curve_progress || 0) >= 50)
-          .sort((a, b) => (b.bonding_curve_progress || 0) - (a.bonding_curve_progress || 0));
+          .filter(t => {
+            const threshold = t.graduation_threshold_sol || 85;
+            const progress = t.real_sol_reserves > 0 ? (t.real_sol_reserves / threshold) * 100 : 0;
+            return progress >= 50;
+          })
+          .sort((a, b) => {
+            const thresholdA = a.graduation_threshold_sol || 85;
+            const thresholdB = b.graduation_threshold_sol || 85;
+            const progressA = a.real_sol_reserves > 0 ? (a.real_sol_reserves / thresholdA) * 100 : 0;
+            const progressB = b.real_sol_reserves > 0 ? (b.real_sol_reserves / thresholdB) * 100 : 0;
+            return progressB - progressA;
+          });
         break;
       case 'volume':
         result.sort((a, b) => b.volume_24h_sol - a.volume_24h_sol);
@@ -233,7 +245,11 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
                   </span>
                   {filter === 'graduating' && (
                     <span className="text-primary font-medium">
-                      {token.bonding_curve_progress?.toFixed(0)}% bonded
+                      {(() => {
+                        const threshold = token.graduation_threshold_sol || 85;
+                        const progress = token.real_sol_reserves > 0 ? (token.real_sol_reserves / threshold) * 100 : 0;
+                        return `${progress.toFixed(0)}% bonded`;
+                      })()}
                     </span>
                   )}
                 </div>

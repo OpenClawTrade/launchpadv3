@@ -124,7 +124,13 @@ export function RightSidebar() {
                     New
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {((token.bonding_curve_progress || 0) * 100).toFixed(0)}% bonded
+                    {(() => {
+                      const threshold = token.graduation_threshold_sol || 85;
+                      const progress = token.real_sol_reserves > 0 
+                        ? (token.real_sol_reserves / threshold) * 100 
+                        : 0;
+                      return `${progress.toFixed(0)}% bonded`;
+                    })()}
                   </p>
                 </div>
               </Link>

@@ -6,6 +6,7 @@ import { BondingCurveProgress, TransactionHistory, TokenComments, QuickTradeButt
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { WalletSettingsModal } from "@/components/launchpad/WalletSettingsModal";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
+import { usePoolState } from "@/hooks/usePoolState";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,6 +41,13 @@ export default function TokenDetailPage() {
   const { data: transactions = [], isLoading: isLoadingTxs, refetch: refetchTxs } = useTokenTransactions(token?.id || '');
   const { data: holders = [], refetch: refetchHolders } = useTokenHolders(token?.id || '');
   const { data: userHoldings, refetch: refetchHoldings } = useUserHoldings(solanaAddress);
+  
+  // Live pool state for accurate bonding progress
+  const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
+    mintAddress: mintAddress || '',
+    enabled: !!mintAddress && token?.status === 'bonding',
+    refetchInterval: 10000, // Refresh every 10 seconds
+  });
 
   // Real-time subscriptions for live data
   useEffect(() => {
@@ -165,9 +173,15 @@ export default function TokenDetailPage() {
     refetchToken();
     refetchTxs();
     refetchHolders();
+    refetchPoolState();
     if (solanaAddress) refetchHoldings();
     toast({ title: "Data refreshed!" });
   };
+  
+  // Use live pool state when available, fallback to database values
+  const realSolReserves = livePoolState?.realSolReserves ?? token?.real_sol_reserves ?? 0;
+  const graduationThreshold = livePoolState?.graduationThreshold ?? token?.graduation_threshold_sol ?? 85;
+  const bondingProgress = livePoolState?.bondingProgress ?? ((realSolReserves / graduationThreshold) * 100);
 
   if (isLoadingToken) {
     return (
@@ -356,14 +370,19 @@ export default function TokenDetailPage() {
           </Card>
         </div>
 
-        {/* Bonding Curve Progress */}
+        {/* Bonding Curve Progress - Uses live data */}
         {token.status === 'bonding' && (
           <Card className="p-4">
             <BondingCurveProgress
-              progress={token.bonding_curve_progress}
-              realSolReserves={token.real_sol_reserves}
-              graduationThreshold={token.graduation_threshold_sol}
+              progress={bondingProgress}
+              realSolReserves={realSolReserves}
+              graduationThreshold={graduationThreshold}
             />
+            {livePoolState && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                🔴 Live from Meteora • Updated every 10s
+              </p>
+            )}
           </Card>
         )}
 
