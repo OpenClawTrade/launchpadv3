@@ -272,86 +272,76 @@ export function useMeteoraApi() {
           const txType = tx instanceof VersionedTransaction ? 'VersionedTransaction' : 'LegacyTransaction';
           console.log(`[createPool] Deserialized as: ${txType}`);
 
-          // Legacy transactions - already pre-signed by backend with mint/config keypairs
-          // We just need user wallet signature
+          // Get fresh blockhash BEFORE signing
+          console.log('[createPool] Getting fresh blockhash...');
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+          console.log('[createPool] Blockhash:', blockhash, 'Height:', lastValidBlockHeight);
+
+          // Update blockhash for legacy transactions
           if (tx instanceof Transaction) {
-            console.log('[createPool] Legacy TX - requesting user signature...');
-            const signStartTime = Date.now();
-            
-            try {
-              const signedTx = await signTransaction(tx);
-              console.log('[createPool] User signed TX in', Date.now() - signStartTime, 'ms');
-
-              console.log('[createPool] Sending TX to network...');
-              const sendStartTime = Date.now();
-              const signature = await connection.sendRawTransaction(
-                signedTx instanceof Transaction
-                  ? signedTx.serialize()
-                  : (signedTx as VersionedTransaction).serialize()
-              );
-              console.log('[createPool] TX sent in', Date.now() - sendStartTime, 'ms');
-              console.log('[createPool] TX signature:', signature);
-
-              console.log('[createPool] Confirming TX...');
-              const confirmStartTime = Date.now();
-              const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-              await connection.confirmTransaction(
-                {
-                  signature,
-                  blockhash,
-                  lastValidBlockHeight,
-                },
-                'confirmed'
-              );
-              console.log('[createPool] TX confirmed in', Date.now() - confirmStartTime, 'ms');
-
-              signatures.push(signature);
-              console.log(`[createPool] Transaction ${i + 1} complete!`);
-              continue;
-            } catch (signError) {
-              console.error('[createPool] Error during legacy TX signing/sending:', signError);
-              throw signError;
-            }
+            tx.recentBlockhash = blockhash;
+            tx.lastValidBlockHeight = lastValidBlockHeight;
           }
 
-          // Versioned transactions - already pre-signed by backend
-          if (tx instanceof VersionedTransaction) {
-            console.log('[createPool] Versioned TX - requesting user signature...');
-            const signStartTime = Date.now();
+          console.log('[createPool] Requesting user signature via Privy...');
+          const signStartTime = Date.now();
+          
+          try {
+            const signedTx = await signTransaction(tx);
+            console.log('[createPool] User signed TX in', Date.now() - signStartTime, 'ms');
             
-            try {
-              const signedTx = await signTransaction(tx);
-              console.log('[createPool] User signed TX in', Date.now() - signStartTime, 'ms');
+            // Serialize the signed transaction
+            const serializedTx = signedTx instanceof Transaction
+              ? signedTx.serialize()
+              : (signedTx as VersionedTransaction).serialize();
+            
+            console.log('[createPool] Serialized TX size:', serializedTx.length, 'bytes');
 
-              console.log('[createPool] Sending TX to network...');
-              const sendStartTime = Date.now();
-              const signature = await connection.sendRawTransaction(
-                signedTx instanceof VersionedTransaction
-                  ? signedTx.serialize()
-                  : (signedTx as Transaction).serialize()
-              );
-              console.log('[createPool] TX sent in', Date.now() - sendStartTime, 'ms');
-              console.log('[createPool] TX signature:', signature);
-
-              console.log('[createPool] Confirming TX...');
-              const confirmStartTime = Date.now();
-              const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-              await connection.confirmTransaction(
-                {
-                  signature,
-                  blockhash,
-                  lastValidBlockHeight,
-                },
-                'confirmed'
-              );
-              console.log('[createPool] TX confirmed in', Date.now() - confirmStartTime, 'ms');
-
-              signatures.push(signature);
-              console.log(`[createPool] Transaction ${i + 1} complete!`);
-            } catch (signError) {
-              console.error('[createPool] Error during versioned TX signing/sending:', signError);
-              throw signError;
+            console.log('[createPool] Sending TX to network...');
+            const sendStartTime = Date.now();
+            
+            const signature = await connection.sendRawTransaction(serializedTx, {
+              skipPreflight: false,
+              preflightCommitment: 'confirmed',
+              maxRetries: 3,
+            });
+            
+            console.log('[createPool] TX sent in', Date.now() - sendStartTime, 'ms');
+            console.log('[createPool] TX signature:', signature);
+            
+            // Validate signature isn't a placeholder
+            if (!signature || signature === '1111111111111111111111111111111111111111111111111111111111111111') {
+              throw new Error('Invalid signature returned from RPC - transaction may have failed');
             }
+
+            console.log('[createPool] Confirming TX...');
+            const confirmStartTime = Date.now();
+            
+            const confirmation = await connection.confirmTransaction(
+              {
+                signature,
+                blockhash,
+                lastValidBlockHeight,
+              },
+              'confirmed'
+            );
+            
+            console.log('[createPool] TX confirmed in', Date.now() - confirmStartTime, 'ms');
+            
+            if (confirmation.value.err) {
+              console.error('[createPool] TX confirmed but has error:', confirmation.value.err);
+              throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+            }
+
+            signatures.push(signature);
+            console.log(`[createPool] Transaction ${i + 1} complete!`);
+            
+          } catch (signError: any) {
+            console.error('[createPool] Error during TX signing/sending:', signError);
+            console.error('[createPool] Error name:', signError?.name);
+            console.error('[createPool] Error message:', signError?.message);
+            console.error('[createPool] Error logs:', signError?.logs);
+            throw signError;
           }
         }
 
