@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout";
-import { BondingCurveProgress, TransactionHistory, PriceChart, TokenComments, QuickTradeButtons, AdvancedOrderForm, PendingOrders } from "@/components/launchpad";
+import { BondingCurveProgress, TransactionHistory, TokenComments, QuickTradeButtons, AdvancedOrderForm, PendingOrders } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { WalletSettingsModal } from "@/components/launchpad/WalletSettingsModal";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
@@ -314,15 +314,7 @@ export default function TokenDetailPage() {
           </div>
         </Card>
 
-        {/* Price Chart */}
-        <PriceChart
-          tokenId={token.id}
-          currentPrice={token.price_sol}
-          priceChange24h={(token as any).price_change_24h || 0}
-          mintAddress={token.mint_address}
-          poolAddress={token.damm_pool_address || undefined}
-          status={token.status || 'bonding'}
-        />
+        {/* Price Chart - temporarily disabled */}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

@@ -2,7 +2,7 @@ import { Progress } from "@/components/ui/progress";
 import { Zap, Rocket } from "lucide-react";
 
 interface BondingCurveProgressProps {
-  progress: number;
+  progress?: number;
   realSolReserves: number;
   graduationThreshold: number;
   className?: string;
@@ -11,13 +11,21 @@ interface BondingCurveProgressProps {
 }
 
 export function BondingCurveProgress({
-  progress,
+  progress: providedProgress,
   realSolReserves,
   graduationThreshold,
   className = "",
   showDetails = true,
   compact = false,
 }: BondingCurveProgressProps) {
+  // Calculate progress from reserves if not provided or if it seems incorrect
+  const calculatedProgress = graduationThreshold > 0 
+    ? (realSolReserves / graduationThreshold) * 100 
+    : 0;
+  
+  // Use calculated progress - it's more reliable than the stored value
+  const progress = calculatedProgress;
+  
   const isNearGraduation = progress >= 80;
   const isGraduated = progress >= 100;
 
