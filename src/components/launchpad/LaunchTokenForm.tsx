@@ -62,32 +62,13 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   // Sign transaction using Privy wallet
   const signTransaction = useCallback(
     async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
-      const wallet = await getWalletForSigning();
-
-      if (!wallet) {
+      if (!privySignTransaction) {
         throw new Error("Wallet is still initializing. Please wait a few seconds and try again.");
       }
 
-      // IMPORTANT: Prefer Solana provider. Using getProvider() first can return an EVM provider
-      // which causes Privy to throw "Invalid transaction request" for Solana txs.
-      const provider =
-        (wallet as any).getSolanaProvider
-          ? await (wallet as any).getSolanaProvider()
-          : (wallet as any).getProvider
-            ? await (wallet as any).getProvider()
-            : null;
-
-      if ((wallet as any).signTransaction) {
-        return await (wallet as any).signTransaction(tx);
-      }
-
-      if (provider?.signTransaction) {
-        return await provider.signTransaction(tx);
-      }
-
-      throw new Error("Wallet does not support Solana transaction signing");
+      return await privySignTransaction(tx);
     },
-    [getWalletForSigning]
+    [privySignTransaction]
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,8 +98,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
       return;
     }
 
-    const signerWallet = await getWalletForSigning();
-    if (!signerWallet) {
+    if (!privySignTransaction) {
       toast({
         title: "No wallet connected",
         description: "Wait a few seconds for the embedded wallet to load, then try again.",
@@ -200,7 +180,11 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
       {/* Lazy load Privy wallet provider only when available */}
       {privyAvailable && (
         <Suspense fallback={null}>
-          <PrivyWalletProvider onWalletsChange={setWallets} />
+          <PrivyWalletProvider
+            preferredAddress={solanaAddress}
+            onWalletsChange={setWallets}
+            onSignTransactionChange={setPrivySignTransaction}
+          />
         </Suspense>
       )}
       {/* Token Info Section */}
