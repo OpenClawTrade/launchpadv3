@@ -230,7 +230,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Serialize transactions for client wallet signing
     const serializedTransactions = transactions.map(tx => serializeMeteoraTransaction(tx));
 
-    console.log('[pool/create] Success:', { tokenId, mintAddress, dbcPoolAddress });
+    // Export keypairs for frontend to re-sign with fresh blockhash
+    // This is necessary because user may take time to approve, and blockhash expires
+    const mintKeypairBase64 = Buffer.from(mintKeypair.secretKey).toString('base64');
+    const configKeypairBase64 = Buffer.from(configKeypair.secretKey).toString('base64');
+
+    console.log('[pool/create] Success:', { tokenId, mintAddress, dbcPoolAddress, txCount: serializedTransactions.length });
 
     return res.status(200).json({
       success: true,
@@ -239,6 +244,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       dbcPoolAddress: dbcPoolAddress,
       // Serialized transactions for client wallet signing
       transactions: serializedTransactions,
+      // Keypairs for re-signing if blockhash expires
+      signers: {
+        mint: mintKeypairBase64,
+        config: configKeypairBase64,
+      },
+      // Block height hint
+      lastValidBlockHeight,
     });
 
   } catch (error) {
