@@ -214,6 +214,9 @@ export default function TokenDetailPage() {
           tokenId={token.id}
           currentPrice={token.price_sol}
           priceChange24h={(token as any).price_change_24h || 0}
+          mintAddress={token.mint_address}
+          poolAddress={token.damm_pool_address || undefined}
+          status={token.status || 'bonding'}
         />
 
         {/* Stats Grid */}
