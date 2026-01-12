@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabaseClient, getTokenByMint } from '../lib/supabase.js';
-import { migratePool, getPoolState } from '../lib/meteora.js';
+import { migratePool, getPoolState, claimPartnerFees } from '../lib/meteora.js';
 
 // CORS headers
 const corsHeaders = {
@@ -67,8 +67,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Execute migration
-    console.log('[pool/migrate] Migrating pool...');
+    // CRITICAL: Claim any unclaimed DBC fees BEFORE migration
+    // After migration, DBC pool is closed and unclaimed fees will be lost!
+    let preClaimSignature: string | null = null;
+    let preClaimSol = 0;
+    
+    try {
+      console.log('[pool/migrate] Claiming pre-migration DBC fees...');
+      const { signature, claimedSol } = await claimPartnerFees(token.dbc_pool_address);
+      preClaimSignature = signature;
+      preClaimSol = claimedSol;
+      console.log('[pool/migrate] Pre-migration fees claimed:', claimedSol, 'SOL, sig:', signature);
+      
+      // Record the claim
+      await supabase.from('fee_pool_claims').insert({
+        token_id: token.id,
+        pool_address: token.dbc_pool_address,
+        signature,
+        claimed_sol: claimedSol,
+        claimed_at: new Date().toISOString(),
+        processed: true,
+        processed_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      // No fees to claim or already claimed - that's okay
+      console.log('[pool/migrate] No pre-migration fees to claim:', e instanceof Error ? e.message : 'Unknown');
+    }
+
+    // Execute migration to DAMM V2
+    console.log('[pool/migrate] Migrating pool to DAMM V2...');
     const signatures = await migratePool(token.dbc_pool_address);
     console.log('[pool/migrate] Migration complete:', signatures);
 
@@ -88,7 +115,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       signatures,
       dammPoolAddress: token.dbc_pool_address,
-      message: 'Pool successfully migrated to DAMM V2',
+      preClaimSignature,
+      preClaimSol,
+      message: `Pool successfully migrated to DAMM V2${preClaimSol > 0 ? `. Claimed ${preClaimSol} SOL in pre-migration fees.` : ''}`,
     });
 
   } catch (error) {
