@@ -28,37 +28,9 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   
   // Wallet state from Privy (will be set by PrivyWalletProvider)
   const [wallets, setWallets] = useState<any[]>([]);
-  const walletsRef = useRef<any[]>([]);
-
-  useEffect(() => {
-    walletsRef.current = wallets;
-  }, [wallets]);
-
-  const getWalletForSigning = useCallback(async () => {
-    const pick = (list: any[]) =>
-      // Prefer the wallet matching the logged-in Solana address (most reliable)
-      list.find((w: any) => (w?.address && solanaAddress && w.address === solanaAddress)) ??
-      // Privy embedded wallet (Solana recipe uses standardWallet.name === 'Privy')
-      list.find((w: any) => w?.standardWallet?.name === "Privy") ??
-      // Fallbacks
-      list.find((w: any) => w?.walletClientType === "privy") ??
-      list.find((w: any) => w?.chainType === "solana") ??
-      list[0] ??
-      null;
-
-    let wallet = pick(walletsRef.current);
-    if (wallet) return wallet;
-
-    // Privy can take a moment to hydrate Solana wallets after login.
-    const started = Date.now();
-    while (Date.now() - started < 8000) {
-      await new Promise((r) => setTimeout(r, 200));
-      wallet = pick(walletsRef.current);
-      if (wallet) return wallet;
-    }
-
-    return null;
-  }, [solanaAddress]);
+  const [privySignTransaction, setPrivySignTransaction] = useState<
+    ((tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>) | null
+  >(null);
 
   const [formData, setFormData] = useState({
     name: '',
