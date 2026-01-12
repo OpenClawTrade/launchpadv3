@@ -1,5 +1,6 @@
 import { useCallback, useState, useMemo } from 'react';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { usePrivy } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth/solana';
 import { Connection, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { useToast } from '@/hooks/use-toast';
 import { getRpcUrl } from './useSolanaWallet';
