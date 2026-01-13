@@ -10,8 +10,12 @@ const corsHeaders = {
 
 // Treasury wallet
 const TREASURY_WALLET = "7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2";
-// Creator gets 50% of fees
-const CREATOR_FEE_SHARE = 0.5;
+
+// Fee distribution splits
+const CREATOR_FEE_SHARE = 0.5;    // 50% to creator
+const BUYBACK_FEE_SHARE = 0.3;   // 30% for buybacks
+const SYSTEM_FEE_SHARE = 0.2;    // 20% kept for system expenses
+
 // Minimum SOL to distribute (to avoid dust)
 const MIN_DISTRIBUTION_SOL = 0.001;
 
@@ -74,10 +78,21 @@ serve(async (req) => {
       );
     }
 
-    const results: Array<{
+    const creatorResults: Array<{
       tokenId: string;
+      tokenName: string;
       creatorWallet: string;
       amountSol: number;
+      success: boolean;
+      signature?: string;
+      error?: string;
+    }> = [];
+
+    const buybackResults: Array<{
+      tokenId: string;
+      tokenName: string;
+      amountSol: number;
+      tokensBought?: number;
       success: boolean;
       signature?: string;
       error?: string;
@@ -86,10 +101,10 @@ serve(async (req) => {
     // Get previous distributions to calculate undistributed fees
     const { data: previousDistributions } = await supabase
       .from("fun_distributions")
-      .select("fun_token_id, amount_sol")
+      .select("fun_token_id, amount_sol, distribution_type")
       .eq("status", "completed");
 
-    // Calculate total distributed per token
+    // Calculate total distributed per token (all types)
     const distributedPerToken: Record<string, number> = {};
     previousDistributions?.forEach(d => {
       distributedPerToken[d.fun_token_id] = (distributedPerToken[d.fun_token_id] || 0) + Number(d.amount_sol);
@@ -101,104 +116,95 @@ serve(async (req) => {
         const totalEarned = Number(token.total_fees_earned) || 0;
         const alreadyDistributed = distributedPerToken[token.id] || 0;
         const undistributed = totalEarned - alreadyDistributed;
-        
-        // Creator's share of undistributed fees
+
+        if (undistributed < MIN_DISTRIBUTION_SOL) {
+          console.log(`[fun-distribute] Skipping ${token.ticker}: undistributed amount too small (${undistributed} SOL)`);
+          continue;
+        }
+
+        // Calculate shares
         const creatorAmount = undistributed * CREATOR_FEE_SHARE;
+        const buybackAmount = undistributed * BUYBACK_FEE_SHARE;
+        const systemAmount = undistributed * SYSTEM_FEE_SHARE;
 
-        if (creatorAmount < MIN_DISTRIBUTION_SOL) {
-          console.log(`[fun-distribute] Skipping ${token.ticker}: amount too small (${creatorAmount} SOL)`);
-          continue;
-        }
+        console.log(`[fun-distribute] ${token.ticker}: Creator ${creatorAmount}, Buyback ${buybackAmount}, System ${systemAmount} SOL`);
 
-        console.log(`[fun-distribute] Distributing ${creatorAmount} SOL to ${token.creator_wallet} for ${token.ticker}`);
-
-        // Create distribution record first (pending)
-        const { data: distribution, error: insertError } = await supabase
-          .from("fun_distributions")
-          .insert({
-            fun_token_id: token.id,
-            creator_wallet: token.creator_wallet,
-            amount_sol: creatorAmount,
-            status: "pending",
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error(`[fun-distribute] Failed to create distribution record:`, insertError);
-          continue;
-        }
-
-        // Send SOL to creator wallet
-        try {
-          const recipientPubkey = new PublicKey(token.creator_wallet);
-          const lamports = Math.floor(creatorAmount * 1e9);
-
-          const transaction = new Transaction().add(
-            SystemProgram.transfer({
-              fromPubkey: treasuryKeypair.publicKey,
-              toPubkey: recipientPubkey,
-              lamports,
-            })
+        // 1. Send creator share
+        if (creatorAmount >= MIN_DISTRIBUTION_SOL) {
+          const creatorResult = await sendDistribution(
+            supabase,
+            connection,
+            treasuryKeypair,
+            token,
+            token.creator_wallet,
+            creatorAmount,
+            "creator"
           );
-
-          const { blockhash } = await connection.getLatestBlockhash();
-          transaction.recentBlockhash = blockhash;
-          transaction.feePayer = treasuryKeypair.publicKey;
-
-          const signature = await sendAndConfirmTransaction(connection, transaction, [treasuryKeypair], {
-            commitment: "confirmed",
-          });
-
-          console.log(`[fun-distribute] Sent ${creatorAmount} SOL to ${token.creator_wallet}, sig: ${signature}`);
-
-          // Update distribution record as completed
-          await supabase
-            .from("fun_distributions")
-            .update({
-              status: "completed",
-              signature,
-            })
-            .eq("id", distribution.id);
-
-          // Update token last distribution time
-          await supabase
-            .from("fun_tokens")
-            .update({
-              last_distribution_at: new Date().toISOString(),
-            })
-            .eq("id", token.id);
-
-          results.push({
+          creatorResults.push({
             tokenId: token.id,
+            tokenName: token.name,
             creatorWallet: token.creator_wallet,
             amountSol: creatorAmount,
-            success: true,
-            signature,
-          });
-        } catch (txError) {
-          console.error(`[fun-distribute] Transfer failed for ${token.ticker}:`, txError);
-          
-          // Update distribution record as failed
-          await supabase
-            .from("fun_distributions")
-            .update({
-              status: "failed",
-            })
-            .eq("id", distribution.id);
-
-          results.push({
-            tokenId: token.id,
-            creatorWallet: token.creator_wallet,
-            amountSol: creatorAmount,
-            success: false,
-            error: txError instanceof Error ? txError.message : "Transfer failed",
+            ...creatorResult,
           });
         }
+
+        // 2. Record buyback (for now just record, actual buyback can be manual or separate process)
+        if (buybackAmount >= MIN_DISTRIBUTION_SOL) {
+          // Record buyback entry
+          const { data: buyback, error: buybackError } = await supabase
+            .from("fun_buybacks")
+            .insert({
+              fun_token_id: token.id,
+              amount_sol: buybackAmount,
+              status: "pending",
+            })
+            .select()
+            .single();
+
+          if (!buybackError) {
+            buybackResults.push({
+              tokenId: token.id,
+              tokenName: token.name,
+              amountSol: buybackAmount,
+              success: true,
+            });
+
+            // Also record in distributions for tracking
+            await supabase.from("fun_distributions").insert({
+              fun_token_id: token.id,
+              creator_wallet: TREASURY_WALLET,
+              amount_sol: buybackAmount,
+              distribution_type: "buyback",
+              status: "completed",
+            });
+          }
+        }
+
+        // 3. Record system fee (kept in treasury)
+        if (systemAmount >= MIN_DISTRIBUTION_SOL) {
+          await supabase.from("fun_distributions").insert({
+            fun_token_id: token.id,
+            creator_wallet: TREASURY_WALLET,
+            amount_sol: systemAmount,
+            distribution_type: "system",
+            status: "completed",
+          });
+        }
+
+        // Update token last distribution time
+        await supabase
+          .from("fun_tokens")
+          .update({
+            last_distribution_at: new Date().toISOString(),
+          })
+          .eq("id", token.id);
+
       } catch (tokenError) {
         console.error(`[fun-distribute] Error processing ${token.ticker}:`, tokenError);
-        results.push({
+        creatorResults.push({
           tokenId: token.id,
+          tokenName: token.name,
           creatorWallet: token.creator_wallet,
           amountSol: 0,
           success: false,
@@ -207,18 +213,22 @@ serve(async (req) => {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const totalDistributed = results.filter(r => r.success).reduce((sum, r) => sum + r.amountSol, 0);
+    const successCount = creatorResults.filter(r => r.success).length;
+    const totalDistributed = creatorResults.filter(r => r.success).reduce((sum, r) => sum + r.amountSol, 0);
+    const totalBuybacks = buybackResults.filter(r => r.success).reduce((sum, r) => sum + r.amountSol, 0);
 
-    console.log(`[fun-distribute] Complete: ${successCount}/${results.length} distributions, ${totalDistributed} SOL total`);
+    console.log(`[fun-distribute] Complete: ${successCount} creator distributions (${totalDistributed} SOL), ${buybackResults.length} buybacks (${totalBuybacks} SOL)`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        processed: results.length,
-        successful: successCount,
+        creatorDistributions: creatorResults.length,
+        creatorSuccessful: successCount,
         totalDistributedSol: totalDistributed,
-        results,
+        buybacksRecorded: buybackResults.length,
+        totalBuybackSol: totalBuybacks,
+        creatorResults,
+        buybackResults,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -236,3 +246,77 @@ serve(async (req) => {
     );
   }
 });
+
+async function sendDistribution(
+  supabase: any,
+  connection: Connection,
+  treasuryKeypair: Keypair,
+  token: any,
+  recipientWallet: string,
+  amount: number,
+  distributionType: string
+): Promise<{ success: boolean; signature?: string; error?: string }> {
+  // Create distribution record first (pending)
+  const { data: distribution, error: insertError } = await supabase
+    .from("fun_distributions")
+    .insert({
+      fun_token_id: token.id,
+      creator_wallet: recipientWallet,
+      amount_sol: amount,
+      distribution_type: distributionType,
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    console.error(`[fun-distribute] Failed to create distribution record:`, insertError);
+    return { success: false, error: insertError.message };
+  }
+
+  try {
+    const recipientPubkey = new PublicKey(recipientWallet);
+    const lamports = Math.floor(amount * 1e9);
+
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: treasuryKeypair.publicKey,
+        toPubkey: recipientPubkey,
+        lamports,
+      })
+    );
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = treasuryKeypair.publicKey;
+
+    const signature = await sendAndConfirmTransaction(connection, transaction, [treasuryKeypair], {
+      commitment: "confirmed",
+    });
+
+    console.log(`[fun-distribute] Sent ${amount} SOL to ${recipientWallet}, sig: ${signature}`);
+
+    // Update distribution record as completed
+    await supabase
+      .from("fun_distributions")
+      .update({
+        status: "completed",
+        signature,
+      })
+      .eq("id", distribution.id);
+
+    return { success: true, signature };
+  } catch (txError) {
+    console.error(`[fun-distribute] Transfer failed:`, txError);
+
+    // Update distribution record as failed
+    await supabase
+      .from("fun_distributions")
+      .update({
+        status: "failed",
+      })
+      .eq("id", distribution.id);
+
+    return { success: false, error: txError instanceof Error ? txError.message : "Transfer failed" };
+  }
+}

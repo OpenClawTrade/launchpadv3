@@ -5,9 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
+import { useFunFeeClaims, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
 import { 
   Shuffle, 
   Rocket, 
@@ -20,7 +22,10 @@ import {
   Zap,
   ExternalLink,
   Copy,
-  CheckCircle
+  CheckCircle,
+  Coins,
+  ArrowDownCircle,
+  Wallet
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -34,6 +39,10 @@ interface MemeToken {
 export default function FunLauncherPage() {
   const { toast } = useToast();
   const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
+  const { data: feeClaims = [], isLoading: claimsLoading } = useFunFeeClaims();
+  const { data: distributions = [], isLoading: distributionsLoading } = useFunDistributions();
+  const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
+  
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -55,6 +64,10 @@ export default function FunLauncherPage() {
     navigator.clipboard.writeText(text);
     setCopiedAddress(text);
     setTimeout(() => setCopiedAddress(null), 2000);
+  };
+
+  const shortenAddress = (address: string) => {
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
 
   const handleRandomize = useCallback(async () => {
@@ -140,17 +153,17 @@ export default function FunLauncherPage() {
     }
   }, [meme, walletAddress, toast]);
 
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-    if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
-    return num.toFixed(4);
-  };
-
   const formatSOL = (sol: number) => {
     if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K`;
     if (sol >= 1) return sol.toFixed(2);
     return sol.toFixed(6);
   };
+
+  // Calculate totals
+  const totalClaimed = feeClaims.reduce((sum, c) => sum + Number(c.claimed_sol || 0), 0);
+  const totalBuybacks = buybacks.reduce((sum, b) => sum + Number(b.amount_sol || 0), 0);
+  const creatorDistributions = distributions.filter(d => d.distribution_type === 'creator');
+  const totalCreatorPaid = creatorDistributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0);
 
   return (
     <div className="min-h-screen bg-[#0d0d0f] text-white">
@@ -276,173 +289,432 @@ export default function FunLauncherPage() {
                 <div className="text-xs text-gray-400">Total Tokens</div>
               </Card>
               <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-                <div className="text-2xl font-bold text-[#00d4aa]">50%</div>
-                <div className="text-xs text-gray-400">Fee Share</div>
+                <div className="text-2xl font-bold text-[#00d4aa]">{formatSOL(totalClaimed)}</div>
+                <div className="text-xs text-gray-400">Fees Claimed</div>
               </Card>
             </div>
+
+            {/* Fee Split Info */}
+            <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
+              <h3 className="text-sm font-semibold text-white mb-3">Fee Distribution</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Creator Share</span>
+                  <span className="text-[#00d4aa] font-semibold">50%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Buybacks</span>
+                  <span className="text-blue-400 font-semibold">30%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">System/Expenses</span>
+                  <span className="text-gray-400 font-semibold">20%</span>
+                </div>
+              </div>
+            </Card>
           </div>
 
-          {/* Right Panel - Token List */}
+          {/* Right Panel - Tabbed Content */}
           <div className="lg:col-span-2">
-            <Card className="bg-[#12121a] border-[#1a1a1f]">
-              {/* Table Header */}
-              <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
-                <h2 className="font-semibold text-white flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-[#00d4aa]" />
-                  Live Tokens
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-[#00d4aa] rounded-full animate-pulse" />
-                  <span className="text-xs text-gray-400">Real-time</span>
-                </div>
-              </div>
+            <Tabs defaultValue="tokens" className="w-full">
+              <TabsList className="w-full bg-[#12121a] border border-[#1a1a1f] p-1 mb-4">
+                <TabsTrigger 
+                  value="tokens" 
+                  className="flex-1 data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400"
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Tokens ({tokens.length})
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="claims" 
+                  className="flex-1 data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400"
+                >
+                  <Coins className="h-4 w-4 mr-2" />
+                  Claimed Fees ({feeClaims.length})
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="buybacks" 
+                  className="flex-1 data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400"
+                >
+                  <ArrowDownCircle className="h-4 w-4 mr-2" />
+                  Buybacks ({buybacks.length})
+                </TabsTrigger>
+              </TabsList>
 
-              {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
-                      <th className="text-left p-3 font-medium">#</th>
-                      <th className="text-left p-3 font-medium">Token</th>
-                      <th className="text-right p-3 font-medium">Price</th>
-                      <th className="text-right p-3 font-medium">Market Cap</th>
-                      <th className="text-right p-3 font-medium">Volume 24h</th>
-                      <th className="text-right p-3 font-medium">Holders</th>
-                      <th className="text-center p-3 font-medium">Progress</th>
-                      <th className="text-right p-3 font-medium">Age</th>
-                      <th className="text-center p-3 font-medium">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tokensLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => (
-                        <tr key={i} className="border-b border-[#1a1a1f]">
-                          <td className="p-3"><Skeleton className="h-4 w-6 bg-[#1a1a1f]" /></td>
-                          <td className="p-3"><Skeleton className="h-8 w-32 bg-[#1a1a1f]" /></td>
-                          <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                          <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                          <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                          <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
-                          <td className="p-3"><Skeleton className="h-4 w-20 bg-[#1a1a1f]" /></td>
-                          <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
-                          <td className="p-3"><Skeleton className="h-6 w-16 bg-[#1a1a1f]" /></td>
+              {/* Tokens Tab */}
+              <TabsContent value="tokens">
+                <Card className="bg-[#12121a] border-[#1a1a1f]">
+                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
+                    <h2 className="font-semibold text-white flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-[#00d4aa]" />
+                      Live Tokens
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-[#00d4aa] rounded-full animate-pulse" />
+                      <span className="text-xs text-gray-400">Real-time</span>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
+                          <th className="text-left p-3 font-medium">#</th>
+                          <th className="text-left p-3 font-medium">Token</th>
+                          <th className="text-right p-3 font-medium">Price</th>
+                          <th className="text-right p-3 font-medium">Market Cap</th>
+                          <th className="text-right p-3 font-medium">Holders</th>
+                          <th className="text-center p-3 font-medium">Progress</th>
+                          <th className="text-right p-3 font-medium">Age</th>
+                          <th className="text-center p-3 font-medium">Action</th>
                         </tr>
-                      ))
-                    ) : tokens.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="p-8 text-center text-gray-500">
-                          No tokens launched yet. Be the first!
-                        </td>
-                      </tr>
-                    ) : (
-                      tokens.map((token, index) => (
-                        <tr 
-                          key={token.id} 
-                          className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
-                        >
-                          <td className="p-3 text-sm text-gray-400">{index + 1}</td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
-                                {token.image_url ? (
-                                  <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">
-                                    {token.ticker?.slice(0, 2)}
+                      </thead>
+                      <tbody>
+                        {tokensLoading ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <tr key={i} className="border-b border-[#1a1a1f]">
+                              <td className="p-3"><Skeleton className="h-4 w-6 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-8 w-32 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-20 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-6 w-16 bg-[#1a1a1f]" /></td>
+                            </tr>
+                          ))
+                        ) : tokens.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="p-8 text-center text-gray-500">
+                              No tokens launched yet. Be the first!
+                            </td>
+                          </tr>
+                        ) : (
+                          tokens.map((token, index) => (
+                            <tr 
+                              key={token.id} 
+                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
+                            >
+                              <td className="p-3 text-sm text-gray-400">{index + 1}</td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
+                                    {token.image_url ? (
+                                      <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">
+                                        {token.ticker?.slice(0, 2)}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                              <div>
-                                <div className="font-medium text-white text-sm">{token.name}</div>
-                                <div className="text-xs text-gray-400 font-mono">${token.ticker}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 text-right">
-                            <span className="text-sm text-white font-mono">
-                              {formatSOL(token.price_sol)} SOL
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <span className="text-sm text-white">
-                              {formatSOL(token.market_cap_sol || 30)} SOL
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <span className="text-sm text-white">
-                              {formatSOL(token.volume_24h_sol || 0)} SOL
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Users className="h-3 w-3 text-gray-400" />
-                              <span className="text-sm text-white">{token.holder_count || 0}</span>
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex flex-col items-center gap-1">
-                              <Progress 
-                                value={token.bonding_progress || 0} 
-                                className="h-1.5 w-16 bg-[#1a1a1f] [&>div]:bg-[#00d4aa]" 
-                              />
-                              <span className="text-xs text-gray-400">
-                                {(token.bonding_progress || 0).toFixed(1)}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="p-3 text-right">
-                            <span className="text-xs text-gray-400">
-                              {formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center justify-center gap-1">
-                              {token.mint_address && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => copyToClipboard(token.mint_address!)}
-                                  className="h-7 w-7 p-0 text-gray-400 hover:text-white"
-                                >
-                                  {copiedAddress === token.mint_address ? (
-                                    <CheckCircle className="h-3.5 w-3.5 text-[#00d4aa]" />
-                                  ) : (
-                                    <Copy className="h-3.5 w-3.5" />
+                                  <div>
+                                    <div className="font-medium text-white text-sm">{token.name}</div>
+                                    <div className="text-xs text-gray-400 font-mono">${token.ticker}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className="text-sm text-white font-mono">
+                                  {formatSOL(token.price_sol)} SOL
+                                </span>
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className="text-sm text-white">
+                                  {formatSOL(token.market_cap_sol || 30)} SOL
+                                </span>
+                              </td>
+                              <td className="p-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Users className="h-3 w-3 text-gray-400" />
+                                  <span className="text-sm text-white">{token.holder_count || 0}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex flex-col items-center gap-1">
+                                  <Progress 
+                                    value={token.bonding_progress || 0} 
+                                    className="h-1.5 w-16 bg-[#1a1a1f] [&>div]:bg-[#00d4aa]" 
+                                  />
+                                  <span className="text-xs text-gray-400">
+                                    {(token.bonding_progress || 0).toFixed(1)}%
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className="text-xs text-gray-400">
+                                  {formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center justify-center gap-1">
+                                  {token.mint_address && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => copyToClipboard(token.mint_address!)}
+                                      className="h-7 w-7 p-0 text-gray-400 hover:text-white"
+                                    >
+                                      {copiedAddress === token.mint_address ? (
+                                        <CheckCircle className="h-3.5 w-3.5 text-[#00d4aa]" />
+                                      ) : (
+                                        <Copy className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
                                   )}
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                asChild
-                                className="h-7 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10"
-                              >
-                                <a 
-                                  href={`https://axiom.trade/meme/${token.mint_address}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Trade
-                                  <ExternalLink className="h-3 w-3 ml-1" />
-                                </a>
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    asChild
+                                    className="h-7 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10"
+                                  >
+                                    <a 
+                                      href={`https://axiom.trade/meme/${token.mint_address}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      Trade
+                                      <ExternalLink className="h-3 w-3 ml-1" />
+                                    </a>
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </TabsContent>
 
-              {/* Footer */}
-              {tokens.length > 0 && (
-                <div className="p-3 border-t border-[#1a1a1f] text-xs text-gray-500 flex items-center justify-between">
-                  <span>Showing {tokens.length} tokens</span>
-                  <span>Auto-refresh every 60s</span>
-                </div>
-              )}
-            </Card>
+              {/* Claimed Fees Tab */}
+              <TabsContent value="claims">
+                <Card className="bg-[#12121a] border-[#1a1a1f]">
+                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
+                    <h2 className="font-semibold text-white flex items-center gap-2">
+                      <Coins className="h-4 w-4 text-[#00d4aa]" />
+                      Claimed Fees from Pools
+                    </h2>
+                    <Badge className="bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30">
+                      Total: {formatSOL(totalClaimed)} SOL
+                    </Badge>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
+                          <th className="text-left p-3 font-medium">Token</th>
+                          <th className="text-left p-3 font-medium">Creator Wallet</th>
+                          <th className="text-right p-3 font-medium">Amount (SOL)</th>
+                          <th className="text-right p-3 font-medium">Time</th>
+                          <th className="text-center p-3 font-medium">TX</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {claimsLoading ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <tr key={i} className="border-b border-[#1a1a1f]">
+                              <td className="p-3"><Skeleton className="h-4 w-24 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-20 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
+                            </tr>
+                          ))
+                        ) : feeClaims.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="p-8 text-center text-gray-500">
+                              No fees claimed yet. Cron runs every 30 minutes.
+                            </td>
+                          </tr>
+                        ) : (
+                          feeClaims.map((claim) => (
+                            <tr 
+                              key={claim.id} 
+                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
+                            >
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  {claim.fun_token?.image_url && (
+                                    <img 
+                                      src={claim.fun_token.image_url} 
+                                      alt={claim.fun_token.name} 
+                                      className="w-6 h-6 rounded-full"
+                                    />
+                                  )}
+                                  <div>
+                                    <div className="text-sm text-white">{claim.fun_token?.name || "Unknown"}</div>
+                                    <div className="text-xs text-gray-400">${claim.fun_token?.ticker}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <Wallet className="h-3 w-3 text-gray-400" />
+                                  <span className="text-sm text-gray-300 font-mono">
+                                    {shortenAddress(claim.fun_token?.creator_wallet || "")}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => copyToClipboard(claim.fun_token?.creator_wallet || "")}
+                                    className="h-5 w-5 p-0 text-gray-500 hover:text-white"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className="text-sm text-[#00d4aa] font-semibold">
+                                  +{formatSOL(Number(claim.claimed_sol))} SOL
+                                </span>
+                              </td>
+                              <td className="p-3 text-right text-xs text-gray-400">
+                                {formatDistanceToNow(new Date(claim.claimed_at), { addSuffix: true })}
+                              </td>
+                              <td className="p-3 text-center">
+                                {claim.signature ? (
+                                  <a
+                                    href={`https://solscan.io/tx/${claim.signature}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#00d4aa] hover:underline text-xs flex items-center justify-center gap-1"
+                                  >
+                                    View <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-500 text-xs">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Buybacks Tab */}
+              <TabsContent value="buybacks">
+                <Card className="bg-[#12121a] border-[#1a1a1f]">
+                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
+                    <h2 className="font-semibold text-white flex items-center gap-2">
+                      <ArrowDownCircle className="h-4 w-4 text-blue-400" />
+                      Token Buybacks (30%)
+                    </h2>
+                    <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/30">
+                      Total: {formatSOL(totalBuybacks)} SOL
+                    </Badge>
+                  </div>
+
+                  {/* Info Banner */}
+                  <div className="p-4 bg-blue-500/5 border-b border-[#1a1a1f]">
+                    <p className="text-xs text-gray-400">
+                      30% of all trading fees are allocated for token buybacks to support token price. 
+                      20% is retained for system operating expenses.
+                    </p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
+                          <th className="text-left p-3 font-medium">Token</th>
+                          <th className="text-right p-3 font-medium">Amount (SOL)</th>
+                          <th className="text-right p-3 font-medium">Tokens Bought</th>
+                          <th className="text-center p-3 font-medium">Status</th>
+                          <th className="text-right p-3 font-medium">Time</th>
+                          <th className="text-center p-3 font-medium">TX</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {buybacksLoading ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <tr key={i} className="border-b border-[#1a1a1f]">
+                              <td className="p-3"><Skeleton className="h-4 w-24 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
+                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
+                            </tr>
+                          ))
+                        ) : buybacks.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-gray-500">
+                              No buybacks executed yet. They are processed after fee distribution.
+                            </td>
+                          </tr>
+                        ) : (
+                          buybacks.map((buyback) => (
+                            <tr 
+                              key={buyback.id} 
+                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
+                            >
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  {buyback.fun_token?.image_url && (
+                                    <img 
+                                      src={buyback.fun_token.image_url} 
+                                      alt={buyback.fun_token.name} 
+                                      className="w-6 h-6 rounded-full"
+                                    />
+                                  )}
+                                  <div>
+                                    <div className="text-sm text-white">{buyback.fun_token?.name || "Unknown"}</div>
+                                    <div className="text-xs text-gray-400">${buyback.fun_token?.ticker}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className="text-sm text-blue-400 font-semibold">
+                                  {formatSOL(Number(buyback.amount_sol))} SOL
+                                </span>
+                              </td>
+                              <td className="p-3 text-right text-sm text-white">
+                                {buyback.tokens_bought ? formatSOL(Number(buyback.tokens_bought)) : "-"}
+                              </td>
+                              <td className="p-3 text-center">
+                                <Badge 
+                                  className={
+                                    buyback.status === 'completed' 
+                                      ? "bg-green-500/10 text-green-400 border-green-500/30" 
+                                      : buyback.status === 'pending'
+                                      ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+                                      : "bg-red-500/10 text-red-400 border-red-500/30"
+                                  }
+                                >
+                                  {buyback.status}
+                                </Badge>
+                              </td>
+                              <td className="p-3 text-right text-xs text-gray-400">
+                                {formatDistanceToNow(new Date(buyback.created_at), { addSuffix: true })}
+                              </td>
+                              <td className="p-3 text-center">
+                                {buyback.signature ? (
+                                  <a
+                                    href={`https://solscan.io/tx/${buyback.signature}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-400 hover:underline text-xs flex items-center justify-center gap-1"
+                                  >
+                                    View <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-500 text-xs">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 

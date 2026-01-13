@@ -46,7 +46,7 @@ serve(async (req) => {
       throw new Error("METEORA_API_URL not configured");
     }
 
-    const results: Array<{ tokenId: string; success: boolean; claimedSol?: number; error?: string }> = [];
+    const results: Array<{ tokenId: string; tokenName: string; success: boolean; claimedSol?: number; signature?: string; error?: string }> = [];
 
     // Process each token
     for (const token of funTokens) {
@@ -66,11 +66,22 @@ serve(async (req) => {
         if (claimResponse.ok) {
           const claimData = await claimResponse.json();
           const claimedSol = claimData.claimedSol || 0;
+          const signature = claimData.signature || null;
 
           console.log(`[fun-claim-fees] Claimed ${claimedSol} SOL from ${token.ticker}`);
 
-          // Update token with claimed fees
+          // Record fee claim in database
           if (claimedSol > 0) {
+            await supabase
+              .from("fun_fee_claims")
+              .insert({
+                fun_token_id: token.id,
+                pool_address: token.dbc_pool_address,
+                claimed_sol: claimedSol,
+                signature,
+              });
+
+            // Update token with claimed fees
             await supabase
               .from("fun_tokens")
               .update({
@@ -80,16 +91,17 @@ serve(async (req) => {
               .eq("id", token.id);
           }
 
-          results.push({ tokenId: token.id, success: true, claimedSol });
+          results.push({ tokenId: token.id, tokenName: token.name, success: true, claimedSol, signature });
         } else {
           const errorText = await claimResponse.text();
           console.error(`[fun-claim-fees] Claim failed for ${token.ticker}:`, errorText);
-          results.push({ tokenId: token.id, success: false, error: errorText });
+          results.push({ tokenId: token.id, tokenName: token.name, success: false, error: errorText });
         }
       } catch (tokenError) {
         console.error(`[fun-claim-fees] Error processing ${token.ticker}:`, tokenError);
         results.push({
           tokenId: token.id,
+          tokenName: token.name,
           success: false,
           error: tokenError instanceof Error ? tokenError.message : "Unknown error",
         });
