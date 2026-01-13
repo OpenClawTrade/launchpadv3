@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
@@ -823,6 +823,9 @@ export default function FunLauncherPage() {
                 </>
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              {launchResult?.success ? "Your token has been launched successfully" : "Token launch failed"}
+            </DialogDescription>
           </DialogHeader>
 
           {launchResult?.success ? (

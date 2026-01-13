@@ -69,59 +69,93 @@ serve(async (req) => {
     // Call Vercel API to create real on-chain pool with treasury wallet
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
     
-    let mintAddress: string;
-    let dbcPoolAddress: string | null = null;
-    let onChainSuccess = false;
-
-    if (meteoraApiUrl) {
-      // Get treasury wallet address from private key
-      const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
-      if (!treasuryPrivateKey) {
-        console.warn("[fun-create] ⚠️ TREASURY_PRIVATE_KEY not configured");
-      }
-
-      console.log("[fun-create] 📡 Calling Meteora API:", `${meteoraApiUrl}/api/pool/create-fun`);
-
-      try {
-        // Call the pool creation API with treasury as creator (server-side signing)
-        const poolResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: name.slice(0, 32),
-            ticker: ticker.toUpperCase().slice(0, 10),
-            description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
-            imageUrl: storedImageUrl,
-            serverSideSign: true,
-            feeRecipientWallet: creatorWallet,
-          }),
-        });
-
-        if (poolResponse.ok) {
-          const poolData = await poolResponse.json();
-          mintAddress = poolData.mintAddress;
-          dbcPoolAddress = poolData.dbcPoolAddress || poolData.poolAddress;
-          onChainSuccess = true;
-          console.log("[fun-create] ✅ On-chain pool created:", { mintAddress, dbcPoolAddress });
-        } else {
-          const errorText = await poolResponse.text();
-          console.error("[fun-create] ❌ Pool API error:", poolResponse.status, errorText);
-          // Generate placeholder mint address
-          mintAddress = `Fun${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
-          console.log("[fun-create] ⚠️ Using placeholder mint:", mintAddress);
-        }
-      } catch (fetchError) {
-        console.error("[fun-create] ❌ Pool API fetch error:", fetchError);
-        mintAddress = `Fun${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
-      }
-    } else {
-      console.warn("[fun-create] ⚠️ METEORA_API_URL not configured");
-      mintAddress = `Fun${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    if (!meteoraApiUrl) {
+      console.error("[fun-create] ❌ METEORA_API_URL not configured");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "On-chain pool creation not configured. Please configure METEORA_API_URL." 
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Insert into fun_tokens table
+    // Get treasury wallet address from private key
+    const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+    if (!treasuryPrivateKey) {
+      console.error("[fun-create] ❌ TREASURY_PRIVATE_KEY not configured");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Treasury wallet not configured. Please configure TREASURY_PRIVATE_KEY." 
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("[fun-create] 📡 Calling Meteora API:", `${meteoraApiUrl}/api/pool/create-fun`);
+
+    let mintAddress: string;
+    let dbcPoolAddress: string | null = null;
+
+    try {
+      // Call the pool creation API with treasury as creator (server-side signing)
+      const poolResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.slice(0, 32),
+          ticker: ticker.toUpperCase().slice(0, 10),
+          description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
+          imageUrl: storedImageUrl,
+          serverSideSign: true,
+          feeRecipientWallet: creatorWallet,
+        }),
+      });
+
+      if (!poolResponse.ok) {
+        const errorText = await poolResponse.text();
+        console.error("[fun-create] ❌ Pool API error:", poolResponse.status, errorText);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `On-chain pool creation failed: ${errorText}` 
+          }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const poolData = await poolResponse.json();
+      
+      if (!poolData.success || !poolData.mintAddress) {
+        console.error("[fun-create] ❌ Pool API returned invalid data:", poolData);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: poolData.error || "On-chain pool creation returned invalid data" 
+          }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      mintAddress = poolData.mintAddress;
+      dbcPoolAddress = poolData.dbcPoolAddress || poolData.poolAddress;
+      console.log("[fun-create] ✅ On-chain pool created:", { mintAddress, dbcPoolAddress });
+
+    } catch (fetchError) {
+      console.error("[fun-create] ❌ Pool API fetch error:", fetchError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Failed to connect to pool creation service: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}` 
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Only insert into fun_tokens table if on-chain creation succeeded
     const { data: funToken, error: insertError } = await supabase
       .from("fun_tokens")
       .insert({
@@ -132,7 +166,7 @@ serve(async (req) => {
         creator_wallet: creatorWallet,
         mint_address: mintAddress,
         dbc_pool_address: dbcPoolAddress,
-        status: onChainSuccess ? "active" : "pending",
+        status: "active",
         price_sol: 0.00000003,
       })
       .select()
@@ -149,7 +183,6 @@ serve(async (req) => {
       ticker: funToken.ticker,
       mintAddress,
       dbcPoolAddress,
-      onChainSuccess,
       status: funToken.status,
     });
 
@@ -162,12 +195,10 @@ serve(async (req) => {
         mintAddress,
         dbcPoolAddress,
         imageUrl: storedImageUrl,
-        onChainSuccess,
-        solscanUrl: onChainSuccess ? `https://solscan.io/token/${mintAddress}` : null,
-        tradeUrl: onChainSuccess ? `https://axiom.trade/meme/${mintAddress}` : null,
-        message: onChainSuccess 
-          ? "🚀 Token launched successfully! You'll receive 50% of trading fees every 30 minutes."
-          : "⚠️ Token created but on-chain pool pending. The on-chain integration may need configuration.",
+        onChainSuccess: true,
+        solscanUrl: `https://solscan.io/token/${mintAddress}`,
+        tradeUrl: `https://axiom.trade/meme/${mintAddress}`,
+        message: "🚀 Token launched successfully! You'll receive 50% of trading fees every 30 minutes.",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
