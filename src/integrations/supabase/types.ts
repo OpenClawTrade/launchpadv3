@@ -480,11 +480,50 @@ export type Database = {
           },
         ]
       }
+      fun_buybacks: {
+        Row: {
+          amount_sol: number
+          created_at: string | null
+          fun_token_id: string | null
+          id: string
+          signature: string | null
+          status: string | null
+          tokens_bought: number | null
+        }
+        Insert: {
+          amount_sol: number
+          created_at?: string | null
+          fun_token_id?: string | null
+          id?: string
+          signature?: string | null
+          status?: string | null
+          tokens_bought?: number | null
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string | null
+          fun_token_id?: string | null
+          id?: string
+          signature?: string | null
+          status?: string | null
+          tokens_bought?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fun_buybacks_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fun_distributions: {
         Row: {
           amount_sol: number
           created_at: string | null
           creator_wallet: string
+          distribution_type: string | null
           fun_token_id: string | null
           id: string
           signature: string | null
@@ -494,6 +533,7 @@ export type Database = {
           amount_sol: number
           created_at?: string | null
           creator_wallet: string
+          distribution_type?: string | null
           fun_token_id?: string | null
           id?: string
           signature?: string | null
@@ -503,6 +543,7 @@ export type Database = {
           amount_sol?: number
           created_at?: string | null
           creator_wallet?: string
+          distribution_type?: string | null
           fun_token_id?: string | null
           id?: string
           signature?: string | null
@@ -511,6 +552,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "fun_distributions_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fun_fee_claims: {
+        Row: {
+          claimed_at: string | null
+          claimed_sol: number
+          created_at: string | null
+          fun_token_id: string | null
+          id: string
+          pool_address: string
+          signature: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_sol?: number
+          created_at?: string | null
+          fun_token_id?: string | null
+          id?: string
+          pool_address: string
+          signature?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_sol?: number
+          created_at?: string | null
+          fun_token_id?: string | null
+          id?: string
+          pool_address?: string
+          signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fun_fee_claims_fun_token_id_fkey"
             columns: ["fun_token_id"]
             isOneToOne: false
             referencedRelation: "fun_tokens"
