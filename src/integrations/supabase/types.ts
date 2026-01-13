@@ -480,6 +480,98 @@ export type Database = {
           },
         ]
       }
+      fun_distributions: {
+        Row: {
+          amount_sol: number
+          created_at: string | null
+          creator_wallet: string
+          fun_token_id: string | null
+          id: string
+          signature: string | null
+          status: string | null
+        }
+        Insert: {
+          amount_sol: number
+          created_at?: string | null
+          creator_wallet: string
+          fun_token_id?: string | null
+          id?: string
+          signature?: string | null
+          status?: string | null
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string | null
+          creator_wallet?: string
+          fun_token_id?: string | null
+          id?: string
+          signature?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fun_distributions_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fun_tokens: {
+        Row: {
+          created_at: string | null
+          creator_wallet: string
+          dbc_pool_address: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          last_distribution_at: string | null
+          mint_address: string | null
+          name: string
+          price_sol: number | null
+          status: string | null
+          ticker: string
+          total_fees_earned: number | null
+          updated_at: string | null
+          volume_24h_sol: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          creator_wallet: string
+          dbc_pool_address?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_distribution_at?: string | null
+          mint_address?: string | null
+          name: string
+          price_sol?: number | null
+          status?: string | null
+          ticker: string
+          total_fees_earned?: number | null
+          updated_at?: string | null
+          volume_24h_sol?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          creator_wallet?: string
+          dbc_pool_address?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_distribution_at?: string | null
+          mint_address?: string | null
+          name?: string
+          price_sol?: number | null
+          status?: string | null
+          ticker?: string
+          total_fees_earned?: number | null
+          updated_at?: string | null
+          volume_24h_sol?: number | null
+        }
+        Relationships: []
+      }
       hashtags: {
         Row: {
           created_at: string | null
