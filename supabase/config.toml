@@ -29,3 +29,12 @@ verify_jwt = false
 
 [functions.token-metadata]
 verify_jwt = false
+
+[functions.pool-state]
+verify_jwt = false
+
+[functions.fun-generate]
+verify_jwt = false
+
+[functions.fun-create]
+verify_jwt = false

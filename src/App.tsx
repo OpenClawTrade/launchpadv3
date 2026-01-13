@@ -39,6 +39,7 @@ const EarningsPage = lazy(() => import("./pages/EarningsPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const RoadmapPage = lazy(() => import("./pages/RoadmapPage"));
 const PulsePage = lazy(() => import("./pages/PulsePage"));
+const FunLauncherPage = lazy(() => import("./pages/FunLauncherPage"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
@@ -96,6 +97,7 @@ const App = () => (
                   <Route path="/portfolio" element={<PortfolioPage />} />
                   <Route path="/roadmap" element={<RoadmapPage />} />
                   <Route path="/pulse" element={<PulsePage />} />
+                  <Route path="/fun" element={<FunLauncherPage />} />
                   <Route path="/:username" element={<UserProfilePage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
