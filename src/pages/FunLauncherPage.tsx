@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
@@ -25,7 +26,9 @@ import {
   CheckCircle,
   Coins,
   ArrowDownCircle,
-  Wallet
+  Wallet,
+  AlertTriangle,
+  PartyPopper
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -36,11 +39,24 @@ interface MemeToken {
   imageUrl: string;
 }
 
+interface LaunchResult {
+  success: boolean;
+  name?: string;
+  ticker?: string;
+  mintAddress?: string;
+  imageUrl?: string;
+  onChainSuccess?: boolean;
+  solscanUrl?: string;
+  tradeUrl?: string;
+  message?: string;
+  error?: string;
+}
+
 export default function FunLauncherPage() {
   const { toast } = useToast();
   const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
   const { data: feeClaims = [], isLoading: claimsLoading } = useFunFeeClaims();
-  const { data: distributions = [], isLoading: distributionsLoading } = useFunDistributions();
+  const { data: distributions = [] } = useFunDistributions();
   const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
   
   const [meme, setMeme] = useState<MemeToken | null>(null);
@@ -49,6 +65,8 @@ export default function FunLauncherPage() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
+  const [showResultModal, setShowResultModal] = useState(false);
 
   // Update timestamp
   useEffect(() => {
@@ -120,6 +138,7 @@ export default function FunLauncherPage() {
     }
 
     setIsLaunching(true);
+    console.log("[FunLauncher] Starting token launch:", { name: meme.name, ticker: meme.ticker, wallet: walletAddress });
 
     try {
       const { data, error } = await supabase.functions.invoke("fun-create", {
@@ -132,26 +151,46 @@ export default function FunLauncherPage() {
         }
       });
 
+      console.log("[FunLauncher] Launch response:", data);
+
       if (error) throw error;
 
-      toast({
-        title: "Token Launched! 🚀",
-        description: `${meme.name} is now live!`,
-      });
+      if (!data?.success) {
+        throw new Error(data?.error || "Launch failed");
+      }
 
+      // Set result and show modal
+      setLaunchResult({
+        success: true,
+        name: data.name || meme.name,
+        ticker: data.ticker || meme.ticker,
+        mintAddress: data.mintAddress,
+        imageUrl: data.imageUrl || meme.imageUrl,
+        onChainSuccess: data.onChainSuccess,
+        solscanUrl: data.solscanUrl,
+        tradeUrl: data.tradeUrl,
+        message: data.message,
+      });
+      setShowResultModal(true);
+
+      // Clear form
       setMeme(null);
       setWalletAddress("");
+      
+      // Refresh token list
+      refetch();
+
     } catch (error) {
-      console.error("Launch error:", error);
-      toast({
-        title: "Launch failed",
-        description: error instanceof Error ? error.message : "Failed to launch token",
-        variant: "destructive",
+      console.error("[FunLauncher] Launch error:", error);
+      setLaunchResult({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to launch token",
       });
+      setShowResultModal(true);
     } finally {
       setIsLaunching(false);
     }
-  }, [meme, walletAddress, toast]);
+  }, [meme, walletAddress, toast, refetch]);
 
   const formatSOL = (sol: number) => {
     if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K`;
@@ -766,6 +805,118 @@ export default function FunLauncherPage() {
           </Card>
         </div>
       </div>
+
+      {/* Launch Result Modal */}
+      <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
+        <DialogContent className="bg-[#12121a] border-[#1a1a1f] text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {launchResult?.success ? (
+                <>
+                  <PartyPopper className="h-5 w-5 text-[#00d4aa]" />
+                  Token Launched!
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  Launch Failed
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {launchResult?.success ? (
+            <div className="space-y-4">
+              {/* Token Preview */}
+              <div className="flex items-center gap-4 p-4 bg-[#0d0d0f] rounded-lg">
+                {launchResult.imageUrl && (
+                  <img 
+                    src={launchResult.imageUrl} 
+                    alt={launchResult.name} 
+                    className="w-16 h-16 rounded-full object-cover border-2 border-[#00d4aa]"
+                  />
+                )}
+                <div>
+                  <h3 className="font-bold text-lg">{launchResult.name}</h3>
+                  <span className="text-[#00d4aa] font-mono">${launchResult.ticker}</span>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className={`p-3 rounded-lg ${launchResult.onChainSuccess ? 'bg-green-500/10 border border-green-500/30' : 'bg-yellow-500/10 border border-yellow-500/30'}`}>
+                <p className="text-sm">
+                  {launchResult.message}
+                </p>
+              </div>
+
+              {/* Contract Address */}
+              {launchResult.mintAddress && (
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-400">Contract Address (CA)</label>
+                  <div className="flex items-center gap-2 p-3 bg-[#0d0d0f] rounded-lg">
+                    <code className="flex-1 text-sm font-mono text-gray-300 break-all">
+                      {launchResult.mintAddress}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(launchResult.mintAddress!)}
+                      className="shrink-0"
+                    >
+                      {copiedAddress === launchResult.mintAddress ? (
+                        <CheckCircle className="h-4 w-4 text-[#00d4aa]" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Links */}
+              <div className="flex gap-2">
+                {launchResult.solscanUrl && (
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-[#1a1a1f] hover:bg-[#1a1a1f]"
+                    asChild
+                  >
+                    <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer">
+                      View on Solscan
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </a>
+                  </Button>
+                )}
+                {launchResult.tradeUrl && (
+                  <Button
+                    className="flex-1 bg-[#00d4aa] hover:bg-[#00b894] text-black"
+                    asChild
+                  >
+                    <a href={launchResult.tradeUrl} target="_blank" rel="noopener noreferrer">
+                      Trade Now
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-sm text-red-400">
+                  {launchResult?.error || "An unknown error occurred"}
+                </p>
+              </div>
+              <Button
+                onClick={() => setShowResultModal(false)}
+                className="w-full bg-[#1a1a1f] hover:bg-[#252530]"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
