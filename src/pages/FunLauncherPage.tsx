@@ -1,12 +1,28 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Shuffle, Rocket, ArrowLeft, Sparkles, Coins, Wallet } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useFunTokens } from "@/hooks/useFunTokens";
+import { 
+  Shuffle, 
+  Rocket, 
+  Sparkles, 
+  TrendingUp, 
+  Users, 
+  BarChart3, 
+  Clock,
+  RefreshCw,
+  Zap,
+  ExternalLink,
+  Copy,
+  CheckCircle
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 interface MemeToken {
   name: string;
@@ -17,17 +33,30 @@ interface MemeToken {
 
 export default function FunLauncherPage() {
   const { toast } = useToast();
+  const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // Validate Solana wallet address
+  // Update timestamp
+  useEffect(() => {
+    const interval = setInterval(() => setLastUpdate(new Date()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
   const isValidSolanaAddress = (address: string) => {
     return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
   };
 
-  // Generate a new meme token using AI
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedAddress(text);
+    setTimeout(() => setCopiedAddress(null), 2000);
+  };
+
   const handleRandomize = useCallback(async () => {
     setIsGenerating(true);
     setMeme(null);
@@ -58,7 +87,6 @@ export default function FunLauncherPage() {
     }
   }, [toast]);
 
-  // Launch the token
   const handleLaunch = useCallback(async () => {
     if (!meme) {
       toast({
@@ -72,7 +100,7 @@ export default function FunLauncherPage() {
     if (!walletAddress || !isValidSolanaAddress(walletAddress)) {
       toast({
         title: "Invalid wallet address",
-        description: "Please enter a valid Solana wallet address to receive fee rewards",
+        description: "Please enter a valid Solana wallet address",
         variant: "destructive",
       });
       return;
@@ -95,10 +123,9 @@ export default function FunLauncherPage() {
 
       toast({
         title: "Token Launched! 🚀",
-        description: `${meme.name} is now live! You'll receive 50% of trading fees every 6 hours.`,
+        description: `${meme.name} is now live!`,
       });
 
-      // Reset state for next launch
       setMeme(null);
       setWalletAddress("");
     } catch (error) {
@@ -113,197 +140,360 @@ export default function FunLauncherPage() {
     }
   }, [meme, walletAddress, toast]);
 
+  const formatNumber = (num: number) => {
+    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
+    return num.toFixed(4);
+  };
+
+  const formatSOL = (sol: number) => {
+    if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K`;
+    if (sol >= 1) return sol.toFixed(2);
+    return sol.toFixed(6);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container max-w-4xl mx-auto flex items-center gap-4 px-4 h-16">
-          <Link to="/">
-            <Button variant="ghost" size="icon" className="h-10 w-10">
-              <ArrowLeft className="h-5 w-5" />
+    <div className="min-h-screen bg-[#0d0d0f] text-white">
+      {/* Header Bar */}
+      <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Zap className="h-6 w-6 text-[#00d4aa]" />
+            <span className="text-lg font-bold">FUN LAUNCHER</span>
+            <Badge className="bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30">BETA</Badge>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-gray-400">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
+            </span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => refetch()}
+              className="text-gray-400 hover:text-white"
+            >
+              <RefreshCw className="h-4 w-4" />
             </Button>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold">FUN LAUNCHER</h1>
           </div>
         </div>
       </header>
 
-      <main className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Hero Section */}
-        <div className="text-center space-y-4">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
-            One-Click Meme Coins
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            AI generates a random meme token for you. Launch it instantly and earn 50% of all trading fees!
-          </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-4">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="p-4 text-center">
-              <Coins className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <p className="text-2xl font-bold">50%</p>
-              <p className="text-sm text-muted-foreground">Fee Share</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-green-500/5 border-green-500/20">
-            <CardContent className="p-4 text-center">
-              <Rocket className="h-8 w-8 mx-auto mb-2 text-green-500" />
-              <p className="text-2xl font-bold">FREE</p>
-              <p className="text-sm text-muted-foreground">To Launch</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-purple-500/5 border-purple-500/20">
-            <CardContent className="p-4 text-center">
-              <Wallet className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-              <p className="text-2xl font-bold">6h</p>
-              <p className="text-sm text-muted-foreground">Payouts</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Card */}
-        <Card className="border-2 border-dashed border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              Your Random Meme Token
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Preview Area */}
-            <div className="flex flex-col md:flex-row gap-6 items-center">
-              {/* Image Preview */}
-              <div className="w-48 h-48 rounded-full overflow-hidden bg-muted flex-shrink-0 border-4 border-primary/20">
-                {isGenerating ? (
-                  <Skeleton className="w-full h-full rounded-full" />
-                ) : meme?.imageUrl ? (
-                  <img 
-                    src={meme.imageUrl} 
-                    alt={meme.name} 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <Shuffle className="h-12 w-12" />
-                  </div>
-                )}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel - Token Generator */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Generator Card */}
+            <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-white flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#00d4aa]" />
+                  AI Meme Generator
+                </h2>
+                <Badge variant="outline" className="border-[#00d4aa]/30 text-[#00d4aa] text-xs">
+                  FREE
+                </Badge>
               </div>
 
-              {/* Token Details */}
-              <div className="flex-1 space-y-3 text-center md:text-left">
-                {isGenerating ? (
-                  <>
-                    <Skeleton className="h-8 w-48" />
-                    <Skeleton className="h-6 w-24" />
-                    <Skeleton className="h-20 w-full" />
-                  </>
-                ) : meme ? (
-                  <>
-                    <h3 className="text-2xl font-bold">{meme.name}</h3>
-                    <p className="text-lg text-primary font-mono">${meme.ticker}</p>
-                    <p className="text-muted-foreground">{meme.description}</p>
-                  </>
-                ) : (
-                  <div className="text-muted-foreground">
-                    <p className="text-lg">Click "Randomize" to generate a unique meme token!</p>
-                    <p className="text-sm mt-2">AI will create a name, ticker, description, and logo for you.</p>
+              {/* Preview */}
+              <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#1a1a1f]">
+                    {isGenerating ? (
+                      <Skeleton className="w-full h-full bg-[#1a1a1f]" />
+                    ) : meme?.imageUrl ? (
+                      <img src={meme.imageUrl} alt={meme.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Shuffle className="h-8 w-8 text-gray-600" />
+                      </div>
+                    )}
                   </div>
-                )}
+                  <div className="flex-1 min-w-0">
+                    {isGenerating ? (
+                      <>
+                        <Skeleton className="h-5 w-24 bg-[#1a1a1f] mb-2" />
+                        <Skeleton className="h-4 w-16 bg-[#1a1a1f] mb-2" />
+                        <Skeleton className="h-3 w-full bg-[#1a1a1f]" />
+                      </>
+                    ) : meme ? (
+                      <>
+                        <h3 className="font-bold text-white truncate">{meme.name}</h3>
+                        <span className="text-[#00d4aa] font-mono text-sm">${meme.ticker}</span>
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{meme.description}</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500">Click Randomize to generate</p>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Randomize Button */}
-            <Button
-              onClick={handleRandomize}
-              disabled={isGenerating || isLaunching}
-              size="lg"
-              variant="outline"
-              className="w-full h-14 text-lg"
-            >
-              {isGenerating ? (
-                <>
-                  <Shuffle className="h-5 w-5 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Shuffle className="h-5 w-5 mr-2" />
-                  Randomize
-                </>
-              )}
-            </Button>
+              {/* Randomize Button */}
+              <Button
+                onClick={handleRandomize}
+                disabled={isGenerating || isLaunching}
+                className="w-full bg-[#1a1a1f] hover:bg-[#252530] text-white border border-[#2a2a35] mb-3"
+              >
+                {isGenerating ? (
+                  <><Shuffle className="h-4 w-4 mr-2 animate-spin" /> Generating...</>
+                ) : (
+                  <><Shuffle className="h-4 w-4 mr-2" /> Randomize</>
+                )}
+              </Button>
 
-            {/* Wallet Input & Launch */}
-            {meme && (
-              <div className="space-y-4 pt-4 border-t border-border">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Your Solana Wallet Address
-                  </label>
+              {/* Wallet & Launch */}
+              {meme && (
+                <div className="space-y-3 pt-3 border-t border-[#1a1a1f]">
                   <Input
-                    placeholder="Enter your Solana wallet to receive fee rewards..."
+                    placeholder="Your SOL wallet address..."
                     value={walletAddress}
                     onChange={(e) => setWalletAddress(e.target.value)}
-                    className="h-12 text-base font-mono"
+                    className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    You'll receive 50% of all trading fees to this wallet every 6 hours
+                  <p className="text-xs text-gray-500">
+                    Receive 50% of trading fees every 30 min
                   </p>
+                  <Button
+                    onClick={handleLaunch}
+                    disabled={isLaunching || !walletAddress}
+                    className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
+                  >
+                    {isLaunching ? (
+                      <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</>
+                    ) : (
+                      <><Rocket className="h-4 w-4 mr-2" /> Launch Token</>
+                    )}
+                  </Button>
                 </div>
+              )}
+            </Card>
 
-                <Button
-                  onClick={handleLaunch}
-                  disabled={isLaunching || !walletAddress}
-                  size="lg"
-                  className="w-full h-14 text-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                >
-                  {isLaunching ? (
-                    <>
-                      <Rocket className="h-5 w-5 mr-2 animate-bounce" />
-                      Launching...
-                    </>
-                  ) : (
-                    <>
-                      <Rocket className="h-5 w-5 mr-2" />
-                      Launch Token
-                    </>
-                  )}
-                </Button>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
+                <div className="text-2xl font-bold text-white">{tokens.length}</div>
+                <div className="text-xs text-gray-400">Total Tokens</div>
+              </Card>
+              <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
+                <div className="text-2xl font-bold text-[#00d4aa]">50%</div>
+                <div className="text-xs text-gray-400">Fee Share</div>
+              </Card>
+            </div>
+          </div>
+
+          {/* Right Panel - Token List */}
+          <div className="lg:col-span-2">
+            <Card className="bg-[#12121a] border-[#1a1a1f]">
+              {/* Table Header */}
+              <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
+                <h2 className="font-semibold text-white flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-[#00d4aa]" />
+                  Live Tokens
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-[#00d4aa] rounded-full animate-pulse" />
+                  <span className="text-xs text-gray-400">Real-time</span>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Info Section */}
-        <Card className="bg-muted/30">
-          <CardContent className="p-6">
-            <h3 className="font-semibold mb-4">How it works</h3>
-            <ol className="space-y-3 text-sm text-muted-foreground">
-              <li className="flex items-start gap-3">
-                <span className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">1</span>
-                <span>Click <strong>Randomize</strong> - AI generates a unique meme token with name, ticker, description, and logo</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">2</span>
-                <span>Enter your Solana wallet address to receive fee rewards</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">3</span>
-                <span>Click <strong>Launch</strong> - Token is created instantly (no fees for you!)</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">4</span>
-                <span>Earn <strong>50% of all trading fees</strong> paid directly to your wallet every 6 hours</span>
-              </li>
-            </ol>
-          </CardContent>
-        </Card>
-      </main>
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
+                      <th className="text-left p-3 font-medium">#</th>
+                      <th className="text-left p-3 font-medium">Token</th>
+                      <th className="text-right p-3 font-medium">Price</th>
+                      <th className="text-right p-3 font-medium">Market Cap</th>
+                      <th className="text-right p-3 font-medium">Volume 24h</th>
+                      <th className="text-right p-3 font-medium">Holders</th>
+                      <th className="text-center p-3 font-medium">Progress</th>
+                      <th className="text-right p-3 font-medium">Age</th>
+                      <th className="text-center p-3 font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tokensLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i} className="border-b border-[#1a1a1f]">
+                          <td className="p-3"><Skeleton className="h-4 w-6 bg-[#1a1a1f]" /></td>
+                          <td className="p-3"><Skeleton className="h-8 w-32 bg-[#1a1a1f]" /></td>
+                          <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                          <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                          <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
+                          <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
+                          <td className="p-3"><Skeleton className="h-4 w-20 bg-[#1a1a1f]" /></td>
+                          <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
+                          <td className="p-3"><Skeleton className="h-6 w-16 bg-[#1a1a1f]" /></td>
+                        </tr>
+                      ))
+                    ) : tokens.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-gray-500">
+                          No tokens launched yet. Be the first!
+                        </td>
+                      </tr>
+                    ) : (
+                      tokens.map((token, index) => (
+                        <tr 
+                          key={token.id} 
+                          className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
+                        >
+                          <td className="p-3 text-sm text-gray-400">{index + 1}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
+                                {token.image_url ? (
+                                  <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">
+                                    {token.ticker?.slice(0, 2)}
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-medium text-white text-sm">{token.name}</div>
+                                <div className="text-xs text-gray-400 font-mono">${token.ticker}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="text-sm text-white font-mono">
+                              {formatSOL(token.price_sol)} SOL
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="text-sm text-white">
+                              {formatSOL(token.market_cap_sol || 30)} SOL
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="text-sm text-white">
+                              {formatSOL(token.volume_24h_sol || 0)} SOL
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Users className="h-3 w-3 text-gray-400" />
+                              <span className="text-sm text-white">{token.holder_count || 0}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-col items-center gap-1">
+                              <Progress 
+                                value={token.bonding_progress || 0} 
+                                className="h-1.5 w-16 bg-[#1a1a1f] [&>div]:bg-[#00d4aa]" 
+                              />
+                              <span className="text-xs text-gray-400">
+                                {(token.bonding_progress || 0).toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="text-xs text-gray-400">
+                              {formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-center gap-1">
+                              {token.mint_address && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => copyToClipboard(token.mint_address!)}
+                                  className="h-7 w-7 p-0 text-gray-400 hover:text-white"
+                                >
+                                  {copiedAddress === token.mint_address ? (
+                                    <CheckCircle className="h-3.5 w-3.5 text-[#00d4aa]" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                asChild
+                                className="h-7 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10"
+                              >
+                                <a 
+                                  href={`https://axiom.trade/meme/${token.mint_address}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Trade
+                                  <ExternalLink className="h-3 w-3 ml-1" />
+                                </a>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer */}
+              {tokens.length > 0 && (
+                <div className="p-3 border-t border-[#1a1a1f] text-xs text-gray-500 flex items-center justify-between">
+                  <span>Showing {tokens.length} tokens</span>
+                  <span>Auto-refresh every 60s</span>
+                </div>
+              )}
+            </Card>
+          </div>
+        </div>
+
+        {/* Bottom Info */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-[#00d4aa]" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-white">AI Generated</div>
+                <div className="text-xs text-gray-400">Unique meme tokens</div>
+              </div>
+            </div>
+          </Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center">
+                <Rocket className="h-5 w-5 text-[#00d4aa]" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-white">Free Launch</div>
+                <div className="text-xs text-gray-400">No fees to create</div>
+              </div>
+            </div>
+          </Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-[#00d4aa]" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-white">50% Revenue</div>
+                <div className="text-xs text-gray-400">Trading fees to you</div>
+              </div>
+            </div>
+          </Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-[#00d4aa]" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-white">30min Payouts</div>
+                <div className="text-xs text-gray-400">Automatic to wallet</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
