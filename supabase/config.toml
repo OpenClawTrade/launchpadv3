@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.fun-create]
 verify_jwt = false
+
+[functions.fun-claim-fees]
+verify_jwt = false
+
+[functions.fun-distribute]
+verify_jwt = false
