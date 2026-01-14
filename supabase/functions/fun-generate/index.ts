@@ -5,14 +5,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Meme themes for random selection
-const MEME_THEMES = [
-  "a silly frog", "a based cat", "a moon-bound dog", "a diamond hands ape",
-  "a crying pepe", "a gigachad", "a wojak", "a doge with sunglasses",
-  "a laser-eyed cat", "a rocket ship hamster", "a penguin in a suit",
-  "a chad wojak", "a smug pepe", "a galaxy brain", "a stonks man",
-  "a buff doge", "a cheems", "a shiba with a crown", "a frog on a lily pad",
-  "a cat in space", "a golden retriever millionaire", "a chad penguin",
+// Anime-style meme themes for random selection
+const ANIME_THEMES = [
+  "chibi cat girl", "kawaii shiba inu", "neko samurai", "magical kitsune",
+  "tsundere penguin", "super saiyan doge", "mecha hamster", "ninja frog",
+  "sensei owl", "idol bunny", "yokai tanuki", "oni cat",
+  "sakura dragon", "kaiju puppy", "shrine fox", "waifu coin",
+  "baka inu", "sugoi frog", "kawaii pepe", "anime doge",
+  "chibi pepe", "nyan cat", "sailor moon cat", "naruto frog",
+  "pikachu dog", "totoro bunny", "spirited cat", "ghibli hamster",
+];
+
+// Short anime-inspired name prefixes and suffixes
+const NAME_PREFIXES = [
+  "Neko", "Shiba", "Inu", "Kawa", "Chibi", "Nyan", "Baka", "Suki",
+  "Mochi", "Yuki", "Hana", "Kuro", "Aka", "Ao", "Midori", "Usagi",
+  "Kitsune", "Tanuki", "Oni", "Yume", "Hoshi", "Tsuki", "Sora", "Umi",
+];
+
+const NAME_SUFFIXES = [
+  "chan", "kun", "san", "sama", "coin", "inu", "neko", "doge",
+  "moon", "star", "wave", "sun", "fire", "ice", "wind", "leaf",
 ];
 
 serve(async (req) => {
@@ -26,21 +39,26 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    // Step 1: Generate meme concept (name, ticker, description)
-    const randomTheme = MEME_THEMES[Math.floor(Math.random() * MEME_THEMES.length)];
+    // Step 1: Generate anime meme concept (name, ticker, description)
+    const randomTheme = ANIME_THEMES[Math.floor(Math.random() * ANIME_THEMES.length)];
     
-    const conceptPrompt = `Create a funny viral meme coin concept based on: "${randomTheme}"
+    const conceptPrompt = `Create a cute ANIME-STYLE meme coin concept based on: "${randomTheme}"
+
+IMPORTANT REQUIREMENTS:
+1. Name MUST be SHORT (1-2 words, max 12 characters) - use Japanese-inspired words like Neko, Shiba, Kawa, Chibi, Nyan, Mochi, etc.
+2. The name should sound kawaii and anime-inspired
+3. Ticker should be 3-4 letters
 
 Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
 {
-  "name": "Short catchy name (1-3 words, max 20 chars)",
-  "ticker": "3-5 letter ticker in CAPS",
-  "description": "Funny one-liner description (max 100 chars)"
+  "name": "Short anime name (1-2 words, max 12 chars, like 'NekoMoon', 'ShibaChan', 'KawaInu')",
+  "ticker": "3-4 letter ticker in CAPS",
+  "description": "Cute anime-inspired description with emoji (max 80 chars)"
 }
 
-Make it absurd, internet-culture inspired, and something that would go viral on crypto twitter.`;
+Examples of good names: NekoCoin, ShibaSan, KawaChan, ChibiInu, NyanDoge, MochiStar`;
 
-    console.log("[fun-generate] Generating concept for theme:", randomTheme);
+    console.log("[fun-generate] Generating anime concept for theme:", randomTheme);
 
     const conceptResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -79,30 +97,46 @@ Make it absurd, internet-culture inspired, and something that would go viral on 
       }
     } catch (parseError) {
       console.error("[fun-generate] Parse error:", parseError);
-      // Fallback: generate random meme data
+      // Fallback: generate random anime-style name
+      const prefix = NAME_PREFIXES[Math.floor(Math.random() * NAME_PREFIXES.length)];
+      const suffix = NAME_SUFFIXES[Math.floor(Math.random() * NAME_SUFFIXES.length)];
       memeData = {
-        name: `Based ${randomTheme.split(" ").pop()}`,
-        ticker: randomTheme.split(" ").pop()?.slice(0, 4).toUpperCase() || "MEME",
-        description: "The most based meme coin on Solana 🚀",
+        name: `${prefix}${suffix.charAt(0).toUpperCase() + suffix.slice(1)}`,
+        ticker: prefix.slice(0, 4).toUpperCase(),
+        description: "The cutest anime meme coin on Solana! ✨🌸",
       };
     }
 
-    // Validate and sanitize
-    const name = (memeData.name || "Fun Token").slice(0, 20);
-    const ticker = (memeData.ticker || "FUN").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
-    const description = (memeData.description || "A fun meme coin!").slice(0, 150);
+    // Validate and sanitize - enforce short names
+    let name = (memeData.name || "NekoInu").replace(/\s+/g, "").slice(0, 12);
+    const ticker = (memeData.ticker || "NEKO").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    const description = (memeData.description || "Kawaii meme coin! 🌸").slice(0, 100);
 
-    console.log("[fun-generate] Parsed concept:", { name, ticker, description });
+    // If name is still too long, use fallback
+    if (name.length > 12) {
+      const prefix = NAME_PREFIXES[Math.floor(Math.random() * NAME_PREFIXES.length)];
+      const suffix = NAME_SUFFIXES[Math.floor(Math.random() * NAME_SUFFIXES.length)];
+      name = `${prefix}${suffix.charAt(0).toUpperCase() + suffix.slice(1)}`.slice(0, 12);
+    }
 
-    // Step 2: Generate circular logo image
-    const imagePrompt = `Create a circular meme coin logo for "${name}" ($${ticker}).
+    console.log("[fun-generate] Parsed anime concept:", { name, ticker, description });
+
+    // Step 2: Generate anime-style circular logo image
+    const imagePrompt = `Create a CUTE ANIME-STYLE circular meme coin logo for "${name}" ($${ticker}).
+
+STYLE REQUIREMENTS:
+- ANIME/MANGA art style with big expressive eyes
+- Chibi or kawaii character design
+- Vibrant pastel colors with some bold accents
+- Clean bold outlines
+- Sparkles, stars, or sakura petals as accents
+- The character/mascot should look adorable and memeable
+
 Theme: ${randomTheme}
-Style: Vibrant colors, bold outlines, cartoonish, memeable, crypto-inspired.
-The image MUST be perfectly circular with no background outside the circle.
-Make it look like a professional crypto token logo that would go viral.
-${description}`;
+The image MUST be perfectly circular with transparent or simple gradient background.
+Make it look like a cute anime crypto token logo that appeals to anime fans and crypto twitter.`;
 
-    console.log("[fun-generate] Generating image...");
+    console.log("[fun-generate] Generating anime image...");
 
     const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -133,7 +167,7 @@ ${description}`;
       throw new Error("No image generated");
     }
 
-    console.log("[fun-generate] Image generated successfully");
+    console.log("[fun-generate] Anime image generated successfully");
 
     return new Response(
       JSON.stringify({
