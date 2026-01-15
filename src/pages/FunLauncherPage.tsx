@@ -274,16 +274,6 @@ export default function FunLauncherPage() {
                 Narratives
               </Button>
             </Link>
-            <Link to="/vanity">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
-              >
-                <Key className="h-4 w-4 mr-1" />
-                Vanity
-              </Button>
-            </Link>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
               Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}

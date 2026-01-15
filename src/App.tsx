@@ -17,7 +17,6 @@ const LaunchTokenPage = lazy(() => import("./pages/LaunchTokenPage"));
 const TokenDetailPage = lazy(() => import("./pages/TokenDetailPage"));
 const EarningsPage = lazy(() => import("./pages/EarningsPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
-const VanityGeneratorPage = lazy(() => import("./pages/VanityGeneratorPage"));
 const TrendingPage = lazy(() => import("./pages/TrendingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -59,7 +58,6 @@ const App = () => (
                 <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
                 <Route path="/earnings" element={<EarningsPage />} />
                 <Route path="/portfolio" element={<PortfolioPage />} />
-                <Route path="/vanity" element={<VanityGeneratorPage />} />
                 <Route path="/trending" element={<TrendingPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
