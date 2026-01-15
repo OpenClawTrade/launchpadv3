@@ -121,13 +121,14 @@ serve(async (req) => {
           continue;
         }
 
-        // Claim the fees (POST request)
+        // Claim the fees (POST request) - explicitly mark as fun token
         const claimResponse = await fetch(`${meteoraApiUrl}/api/fees/claim-from-pool`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             poolAddress: token.dbc_pool_address,
             tokenId: token.id,
+            isFunToken: true, // Tell the API to check fun_tokens table
           }),
         });
 
