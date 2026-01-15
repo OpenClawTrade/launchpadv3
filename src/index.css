@@ -4,6 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fun floating animation for meme loader */
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+  50% { transform: translateY(-8px) rotate(5deg); opacity: 1; }
+}
+
+.animate-float {
+  animation: float 2s ease-in-out infinite;
+}
+
 /* TRENCHES Design System - Binance Inspired Dark Theme */
 
 @layer base {

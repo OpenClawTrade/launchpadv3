@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
 import { useFunFeeClaims, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
+import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { 
   Shuffle, 
   Rocket, 
@@ -368,7 +369,7 @@ export default function FunLauncherPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#1a1a1f]">
                     {isGenerating ? (
-                      <Skeleton className="w-full h-full bg-[#1a1a1f]" />
+                      <MemeLoadingAnimation />
                     ) : meme?.imageUrl ? (
                       <img src={meme.imageUrl} alt={meme.name} className="w-full h-full object-cover" />
                     ) : (
@@ -379,13 +380,7 @@ export default function FunLauncherPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     {isGenerating ? (
-                      <div className="space-y-2">
-                        <Skeleton className="h-5 w-24 bg-[#1a1a1f]" />
-                        <Skeleton className="h-4 w-16 bg-[#1a1a1f]" />
-                        <p className="text-xs text-[#00d4aa] animate-pulse">
-                          Your next Binance listing meme coin is generating...
-                        </p>
-                      </div>
+                      <MemeLoadingText />
                     ) : meme ? (
                       <div className="space-y-2">
                         <Input
