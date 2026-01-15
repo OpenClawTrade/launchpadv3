@@ -15,9 +15,9 @@ serve(async (req) => {
   }
 
   try {
-    const { mintAddress, userWallet, amount, isBuy, privyUserId, profileId } = await req.json();
+    const { mintAddress, userWallet, amount, isBuy, privyUserId, profileId, signature: clientSignature } = await req.json();
 
-    console.log("[launchpad-swap] Request:", { mintAddress, userWallet, amount, isBuy });
+    console.log("[launchpad-swap] Request:", { mintAddress, userWallet, amount, isBuy, hasSignature: !!clientSignature });
 
     if (!mintAddress || !userWallet || amount === undefined) {
       return new Response(
@@ -47,7 +47,10 @@ serve(async (req) => {
 
     if (token.status === "graduated") {
       return new Response(
-        JSON.stringify({ error: "Token has graduated. Trade on DEX." }),
+        JSON.stringify({ 
+          error: "Token has graduated. Trade on DEX.",
+          jupiterUrl: `https://jup.ag/swap/SOL-${mintAddress}`,
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -73,8 +76,8 @@ serve(async (req) => {
       // Buy: SOL -> Token
       const grossSolIn = amount;
       const totalFee = (grossSolIn * FEE_BPS) / 10000;
-      systemFee = totalFee * 0.5;
-      creatorFee = totalFee * 0.5;
+      systemFee = totalFee; // 100% to platform
+      creatorFee = 0; // No creator fee for now
       const solIn = grossSolIn - totalFee;
 
       newVirtualSol = virtualSol + solIn;
@@ -85,7 +88,7 @@ serve(async (req) => {
       solAmount = grossSolIn;
       tokenAmount = tokensOut;
 
-      console.log("[launchpad-swap] Buy calculated:", { solIn, tokensOut, newPrice, systemFee, creatorFee });
+      console.log("[launchpad-swap] Buy calculated:", { solIn, tokensOut, newPrice, systemFee });
 
     } else {
       // Sell: Token -> SOL
@@ -95,8 +98,8 @@ serve(async (req) => {
       const grossSolOut = virtualSol - newVirtualSol;
       
       const totalFee = (grossSolOut * FEE_BPS) / 10000;
-      systemFee = totalFee * 0.5;
-      creatorFee = totalFee * 0.5;
+      systemFee = totalFee; // 100% to platform
+      creatorFee = 0;
       solOut = grossSolOut - totalFee;
       
       newRealSol = Math.max(0, realSol - grossSolOut);
@@ -156,8 +159,9 @@ serve(async (req) => {
       timestamp: new Date().toISOString(),
     });
 
-    // Generate mock signature (in production, this would be the real tx signature)
-    const signature = `sim_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    // Use client-provided signature or generate a tracking ID
+    // In production, the client sends the real on-chain transaction signature
+    const signature = clientSignature || `pending_${token.id}_${Date.now()}`;
 
     // Record transaction
     const { error: txError } = await supabase.from("launchpad_transactions").insert({
@@ -224,23 +228,23 @@ serve(async (req) => {
       }
     }
 
-    // Update fee earners (creator gets their share tracked)
-    if (creatorFee > 0) {
-      const { data: creatorEarner } = await supabase
+    // Update fee tracking (system fees go to treasury)
+    if (systemFee > 0) {
+      const { data: systemEarner } = await supabase
         .from("fee_earners")
         .select("*")
         .eq("token_id", token.id)
-        .eq("earner_type", "creator")
+        .eq("earner_type", "system")
         .single();
 
-      if (creatorEarner) {
+      if (systemEarner) {
         await supabase
           .from("fee_earners")
           .update({
-            unclaimed_sol: (creatorEarner.unclaimed_sol || 0) + creatorFee,
-            total_earned_sol: (creatorEarner.total_earned_sol || 0) + creatorFee,
+            unclaimed_sol: (systemEarner.unclaimed_sol || 0) + systemFee,
+            total_earned_sol: (systemEarner.total_earned_sol || 0) + systemFee,
           })
-          .eq("id", creatorEarner.id);
+          .eq("id", systemEarner.id);
       }
     }
 
@@ -267,6 +271,7 @@ serve(async (req) => {
         newPrice,
         bondingProgress,
         graduated: shouldGraduate,
+        jupiterUrl: shouldGraduate ? `https://jup.ag/swap/SOL-${mintAddress}` : undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
