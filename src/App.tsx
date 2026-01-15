@@ -41,6 +41,7 @@ const RoadmapPage = lazy(() => import("./pages/RoadmapPage"));
 const PulsePage = lazy(() => import("./pages/PulsePage"));
 const Index = lazy(() => import("./pages/Index"));
 const VanityGeneratorPage = lazy(() => import("./pages/VanityGeneratorPage"));
+const TrendingPage = lazy(() => import("./pages/TrendingPage"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
@@ -100,6 +101,7 @@ const App = () => (
                   <Route path="/pulse" element={<PulsePage />} />
                   <Route path="/feed" element={<Index />} />
                   <Route path="/vanity" element={<VanityGeneratorPage />} />
+                  <Route path="/trending" element={<TrendingPage />} />
                   <Route path="/:username" element={<UserProfilePage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

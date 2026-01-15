@@ -1525,6 +1525,90 @@ export type Database = {
           },
         ]
       }
+      trending_narratives: {
+        Row: {
+          analyzed_at: string
+          created_at: string
+          description: string | null
+          example_tokens: string[] | null
+          id: string
+          is_active: boolean
+          narrative: string
+          popularity_score: number
+          token_count: number
+        }
+        Insert: {
+          analyzed_at?: string
+          created_at?: string
+          description?: string | null
+          example_tokens?: string[] | null
+          id?: string
+          is_active?: boolean
+          narrative: string
+          popularity_score?: number
+          token_count?: number
+        }
+        Update: {
+          analyzed_at?: string
+          created_at?: string
+          description?: string | null
+          example_tokens?: string[] | null
+          id?: string
+          is_active?: boolean
+          narrative?: string
+          popularity_score?: number
+          token_count?: number
+        }
+        Relationships: []
+      }
+      trending_tokens: {
+        Row: {
+          amount: number | null
+          chain_id: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          name: string | null
+          rank: number
+          symbol: string | null
+          synced_at: string
+          token_address: string
+          total_amount: number | null
+          url: string | null
+        }
+        Insert: {
+          amount?: number | null
+          chain_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string | null
+          rank: number
+          symbol?: string | null
+          synced_at?: string
+          token_address: string
+          total_amount?: number | null
+          url?: string | null
+        }
+        Update: {
+          amount?: number | null
+          chain_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string | null
+          rank?: number
+          symbol?: string | null
+          synced_at?: string
+          token_address?: string
+          total_amount?: number | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       trending_topics: {
         Row: {
           calculated_at: string | null

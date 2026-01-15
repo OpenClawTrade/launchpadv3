@@ -259,6 +259,16 @@ export default function FunLauncherPage() {
             <span className="text-lg font-bold">ai67x</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Link to="/trending">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
+              >
+                <TrendingUp className="h-4 w-4 mr-1" />
+                Trending
+              </Button>
+            </Link>
             <Link to="/vanity">
               <Button 
                 variant="ghost" 

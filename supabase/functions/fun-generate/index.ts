@@ -1,19 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Anime-style meme themes for random selection
-const ANIME_THEMES = [
+// Fallback anime-style meme themes (used when no active narrative)
+const FALLBACK_THEMES = [
   "chibi cat girl", "kawaii shiba inu", "neko samurai", "magical kitsune",
   "tsundere penguin", "super saiyan doge", "mecha hamster", "ninja frog",
   "sensei owl", "idol bunny", "yokai tanuki", "oni cat",
   "sakura dragon", "kaiju puppy", "shrine fox", "waifu coin",
-  "baka inu", "sugoi frog", "kawaii pepe", "anime doge",
-  "chibi pepe", "nyan cat", "sailor moon cat", "naruto frog",
-  "pikachu dog", "totoro bunny", "spirited cat", "ghibli hamster",
 ];
 
 // Short anime-inspired name prefixes and suffixes
@@ -39,26 +37,52 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    // Step 1: Generate anime meme concept (name, ticker, description)
-    const randomTheme = ANIME_THEMES[Math.floor(Math.random() * ANIME_THEMES.length)];
+    // Fetch active narrative from database
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let themeContext = "";
+    let narrativeInfo = "";
     
-    const conceptPrompt = `Create a cute ANIME-STYLE meme coin concept based on: "${randomTheme}"
+    const { data: activeNarrative } = await supabase
+      .from("trending_narratives")
+      .select("*")
+      .eq("is_active", true)
+      .single();
+
+    if (activeNarrative) {
+      themeContext = `Current trending narrative: "${activeNarrative.narrative}" - ${activeNarrative.description}. 
+Example tokens in this narrative: ${(activeNarrative.example_tokens || []).join(", ")}.
+Create something that fits this trending theme but with a unique twist!`;
+      narrativeInfo = activeNarrative.narrative;
+      console.log("[fun-generate] Using active narrative:", activeNarrative.narrative);
+    } else {
+      // Fallback to random anime theme
+      const randomTheme = FALLBACK_THEMES[Math.floor(Math.random() * FALLBACK_THEMES.length)];
+      themeContext = `Theme: ${randomTheme}`;
+      narrativeInfo = randomTheme;
+      console.log("[fun-generate] No active narrative, using fallback theme:", randomTheme);
+    }
+    
+    const conceptPrompt = `Create a TRENDING meme coin concept based on current market narratives.
+
+${themeContext}
 
 IMPORTANT REQUIREMENTS:
-1. Name MUST be SHORT (1-2 words, max 12 characters) - use Japanese-inspired words like Neko, Shiba, Kawa, Chibi, Nyan, Mochi, etc.
-2. The name should sound kawaii and anime-inspired
+1. Name MUST be SHORT (1-2 words, max 12 characters)
+2. Make it catchy, viral, and fits the current trending narrative
 3. Ticker should be 3-4 letters
+4. The concept should feel fresh and aligned with what's hot on crypto twitter
 
 Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
 {
-  "name": "Short anime name (1-2 words, max 12 chars, like 'NekoMoon', 'ShibaChan', 'KawaInu')",
+  "name": "Short catchy name (1-2 words, max 12 chars)",
   "ticker": "3-4 letter ticker in CAPS",
-  "description": "Cute anime-inspired description with emoji (max 80 chars)"
-}
+  "description": "Trendy description with emoji (max 80 chars)"
+}`;
 
-Examples of good names: NekoCoin, ShibaSan, KawaChan, ChibiInu, NyanDoge, MochiStar`;
-
-    console.log("[fun-generate] Generating anime concept for theme:", randomTheme);
+    console.log("[fun-generate] Generating concept for narrative:", narrativeInfo);
 
     const conceptResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -121,22 +145,23 @@ Examples of good names: NekoCoin, ShibaSan, KawaChan, ChibiInu, NyanDoge, MochiS
 
     console.log("[fun-generate] Parsed anime concept:", { name, ticker, description });
 
-    // Step 2: Generate anime-style circular logo image
-    const imagePrompt = `Create a CUTE ANIME-STYLE circular meme coin logo for "${name}" ($${ticker}).
+    // Step 2: Generate circular logo image based on narrative
+    const imagePrompt = `Create a VIRAL meme coin circular logo for "${name}" ($${ticker}).
 
 STYLE REQUIREMENTS:
-- ANIME/MANGA art style with big expressive eyes
-- Chibi or kawaii character design
-- Vibrant pastel colors with some bold accents
-- Clean bold outlines
-- Sparkles, stars, or sakura petals as accents
-- The character/mascot should look adorable and memeable
+- Eye-catching and memeable design
+- Vibrant colors that pop
+- Clean bold outlines for clarity at small sizes
+- Should look like a trending crypto token logo
+- Make it feel fresh and aligned with the narrative
 
-Theme: ${randomTheme}
-The image MUST be perfectly circular with transparent or simple gradient background.
-Make it look like a cute anime crypto token logo that appeals to anime fans and crypto twitter.`;
+Narrative/Theme: ${narrativeInfo}
+Description: ${description}
 
-    console.log("[fun-generate] Generating anime image...");
+The image MUST be perfectly circular with simple gradient or transparent background.
+Make it look like a viral crypto token logo that would trend on crypto twitter.`;
+
+    console.log("[fun-generate] Generating image for narrative:", narrativeInfo);
 
     const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
