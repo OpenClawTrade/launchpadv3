@@ -53,21 +53,37 @@ export function useFunTokens(): UseFunTokensResult {
             bonding_progress: 0,
           };
 
-          // Try to get live data from pool-state
-          if (token.dbc_pool_address) {
+          // Only fetch pool state if we have a valid pool address
+          if (token.dbc_pool_address && token.dbc_pool_address.length > 30) {
             try {
-              const { data } = await supabase.functions.invoke("pool-state", {
-                body: { poolAddress: token.dbc_pool_address },
-              });
-              if (data?.success) {
-                liveData = {
-                  holder_count: data.holderCount || 0,
-                  market_cap_sol: data.marketCapSol || liveData.market_cap_sol,
-                  bonding_progress: data.bondingProgress || 0,
-                };
+              // Use GET request with query params (pool-state expects query params, not body)
+              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+              const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+              
+              const response = await fetch(
+                `${supabaseUrl}/functions/v1/pool-state?pool=${token.dbc_pool_address}`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'apikey': supabaseKey,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (data && !data.error) {
+                  liveData = {
+                    holder_count: data.holderCount || 0,
+                    market_cap_sol: data.marketCapSol || liveData.market_cap_sol,
+                    bonding_progress: data.bondingProgress || 0,
+                  };
+                }
               }
             } catch (e) {
               // Silently fail, use defaults
+              console.debug('[useFunTokens] Pool state fetch failed for', token.ticker);
             }
           }
 
