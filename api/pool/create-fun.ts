@@ -70,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { name, ticker, description, imageUrl, feeRecipientWallet, serverSideSign } = req.body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, feeRecipientWallet, serverSideSign } = req.body;
 
     if (!name || !ticker) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
@@ -214,6 +214,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_dbc_pool_address: dbcPoolAddress,
       p_description: description || `${name} - A fun meme coin!`,
       p_image_url: imageUrl || null,
+      p_website_url: websiteUrl || 'https://ai67x.fun',
+      p_twitter_url: twitterUrl || 'https://x.com/ai67x_fun',
       p_virtual_sol_reserves: virtualSol,
       p_virtual_token_reserves: virtualToken,
       p_total_supply: TOTAL_SUPPLY,
