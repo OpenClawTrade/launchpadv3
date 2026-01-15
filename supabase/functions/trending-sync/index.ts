@@ -281,8 +281,23 @@ Return ONLY valid JSON in this exact format:
                 console.log(`Saved ${historyEntries.length} narratives to history`);
               }
               
+              // Check if we should rotate the active narrative (every 30 minutes)
+              const { data: lastActiveNarrative } = await supabase
+                .from("trending_narratives")
+                .select("analyzed_at")
+                .eq("is_active", true)
+                .single();
+              
+              const now = new Date();
+              const lastUpdate = lastActiveNarrative?.analyzed_at 
+                ? new Date(lastActiveNarrative.analyzed_at) 
+                : new Date(0);
+              const minutesSinceLastActive = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
+              const shouldRotateNarrative = minutesSinceLastActive >= 30;
+              
+              console.log(`Minutes since last active narrative: ${minutesSinceLastActive.toFixed(1)}, should rotate: ${shouldRotateNarrative}`);
+              
               // Clear old narratives
-              await supabase.from("trending_narratives").update({ is_active: false }).eq("is_active", true);
               await supabase.from("trending_narratives").delete().neq("id", "00000000-0000-0000-0000-000000000000");
               
               // Insert new narratives
@@ -293,12 +308,13 @@ Return ONLY valid JSON in this exact format:
                 token_count: n.count,
                 example_tokens: n.examples,
                 popularity_score: 100 - (idx * 20), // 100, 80, 60, 40, 20
-                is_active: idx === 0, // First narrative is active by default
+                // Only set first as active if we're rotating, otherwise keep none active until 30 min passes
+                is_active: shouldRotateNarrative && idx === 0,
                 analyzed_at: new Date().toISOString(),
               }));
               
               await supabase.from("trending_narratives").insert(narrativesToInsert);
-              console.log(`Inserted ${narrativesToInsert.length} narratives`);
+              console.log(`Inserted ${narrativesToInsert.length} narratives, active narrative rotated: ${shouldRotateNarrative}`);
             }
           } catch (parseError) {
             console.error("Error parsing AI response:", parseError);
