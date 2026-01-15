@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, TrendingUp, Sparkles, ExternalLink, Clock, History } from "lucide-react";
+import { ArrowLeft, TrendingUp, Sparkles, ExternalLink, Clock, History, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatDistanceToNow } from "date-fns";
 import ai69xLogo from "@/assets/ai69x-logo.png";
 
 interface TrendingToken {
@@ -46,6 +48,8 @@ const TrendingPage = () => {
   const [narratives, setNarratives] = useState<TrendingNarrative[]>([]);
   const [narrativeHistory, setNarrativeHistory] = useState<NarrativeHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("current");
+  const [nextRotation, setNextRotation] = useState<Date | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -53,7 +57,7 @@ const TrendingPage = () => {
       const [tokensResult, narrativesResult, historyResult] = await Promise.all([
         supabase.from("trending_tokens").select("*").order("rank", { ascending: true }),
         supabase.from("trending_narratives").select("*").order("popularity_score", { ascending: false }),
-        supabase.from("narrative_history").select("*").order("snapshot_at", { ascending: false }).limit(20),
+        supabase.from("narrative_history").select("*").order("snapshot_at", { ascending: false }).limit(50),
       ]);
 
       if (tokensResult.data) {
@@ -61,6 +65,14 @@ const TrendingPage = () => {
       }
       if (narrativesResult.data) {
         setNarratives(narrativesResult.data as TrendingNarrative[]);
+        
+        // Calculate next rotation time (every 30 minutes from the last active narrative change)
+        const activeNarr = narrativesResult.data.find(n => n.is_active);
+        if (activeNarr) {
+          const lastAnalyzed = new Date(activeNarr.analyzed_at);
+          const nextRotate = new Date(lastAnalyzed.getTime() + 30 * 60 * 1000);
+          setNextRotation(nextRotate);
+        }
       }
       if (historyResult.data) {
         setNarrativeHistory(historyResult.data as NarrativeHistory[]);
@@ -84,15 +96,34 @@ const TrendingPage = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "trending_narratives" }, () => {
         fetchData();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "narrative_history" }, () => {
+        fetchData();
+      })
       .subscribe();
+
+    // Auto-refresh every 30 seconds for countdown accuracy
+    const refreshInterval = setInterval(() => {
+      fetchData();
+    }, 30000);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(refreshInterval);
     };
   }, []);
 
   const activeNarrative = narratives.find(n => n.is_active);
   const lastSynced = tokens[0]?.synced_at ? new Date(tokens[0].synced_at) : null;
+
+  // Group history by date
+  const groupedHistory = narrativeHistory.reduce((acc, item) => {
+    const date = new Date(item.snapshot_at).toLocaleDateString();
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(item);
+    return acc;
+  }, {} as Record<string, NarrativeHistory[]>);
 
   return (
     <div className="min-h-screen bg-background">
@@ -109,12 +140,20 @@ const TrendingPage = () => {
               <span>Trending Narratives</span>
             </div>
           </div>
-          {lastSynced && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>Auto-updates every 3 min • Last: {lastSynced.toLocaleTimeString()}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {nextRotation && (
+              <div className="flex items-center gap-1 text-xs text-orange-400">
+                <RefreshCw className="h-3 w-3" />
+                <span>Next rotation {formatDistanceToNow(nextRotation, { addSuffix: true })}</span>
+              </div>
+            )}
+            {lastSynced && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span>Updated {formatDistanceToNow(lastSynced, { addSuffix: true })}</span>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -133,6 +172,9 @@ const TrendingPage = () => {
                     <Badge variant="default" className="bg-primary text-primary-foreground">
                       Active
                     </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      • Rotates every 30 minutes
+                    </span>
                   </div>
                   <h3 className="text-2xl font-bold text-primary mb-2">{activeNarrative.narrative}</h3>
                   <p className="text-muted-foreground mb-3">{activeNarrative.description}</p>
@@ -149,7 +191,7 @@ const TrendingPage = () => {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-3">
-                    New tokens created by ai67x will be based on this narrative until the next update
+                    New tokens created by ai67x will be based on this narrative until the next rotation
                   </p>
                 </div>
               </div>
@@ -157,111 +199,150 @@ const TrendingPage = () => {
           </Card>
         )}
 
-        {/* Narratives Grid */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Top Narratives
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="p-4">
-                    <Skeleton className="h-6 w-32 mb-2" />
-                    <Skeleton className="h-4 w-full mb-2" />
-                    <Skeleton className="h-4 w-24" />
-                  </CardContent>
-                </Card>
-              ))
-            ) : narratives.length === 0 ? (
-              <Card className="col-span-full">
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  No narratives analyzed yet. Click "Sync Now" to fetch trending data.
-                </CardContent>
-              </Card>
-            ) : (
-              narratives.map((narrative) => (
-                <Card 
-                  key={narrative.id} 
-                  className={narrative.is_active ? "border-primary" : ""}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold">{narrative.narrative}</h3>
-                      {narrative.is_active && (
-                        <Badge variant="default" className="text-xs">Active</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">{narrative.description}</p>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">{narrative.token_count} tokens</span>
-                      <span className="text-muted-foreground">Score: {narrative.popularity_score}</span>
-                    </div>
-                    {narrative.example_tokens && narrative.example_tokens.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {narrative.example_tokens.slice(0, 3).map((token, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">{token}</Badge>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </div>
+        {/* Tabs for Current/History */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="current" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Current Narratives
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              History ({narrativeHistory.length})
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Narrative History Timeline */}
-        {narrativeHistory.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <History className="h-5 w-5 text-orange-500" />
-              Narrative History
-            </h2>
-            <Card>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  {narrativeHistory.map((history, index) => (
-                    <div 
-                      key={history.id} 
-                      className={`flex gap-4 ${index !== narrativeHistory.length - 1 ? "border-b border-border pb-4" : ""}`}
-                    >
-                      <div className="flex flex-col items-center">
-                        <div className="w-3 h-3 rounded-full bg-primary" />
-                        {index !== narrativeHistory.length - 1 && (
-                          <div className="w-0.5 h-full bg-border mt-1" />
+          <TabsContent value="current" className="mt-6">
+            {/* Narratives Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="p-4">
+                      <Skeleton className="h-6 w-32 mb-2" />
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-24" />
+                    </CardContent>
+                  </Card>
+                ))
+              ) : narratives.length === 0 ? (
+                <Card className="col-span-full">
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    No narratives analyzed yet. Waiting for data sync...
+                  </CardContent>
+                </Card>
+              ) : (
+                narratives.map((narrative) => (
+                  <Card 
+                    key={narrative.id} 
+                    className={narrative.is_active ? "border-primary" : ""}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold">{narrative.narrative}</h3>
+                        {narrative.is_active && (
+                          <Badge variant="default" className="text-xs">Active</Badge>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-sm">{history.narrative}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(history.snapshot_at).toLocaleString()}
-                          </span>
+                      <p className="text-sm text-muted-foreground mb-3">{narrative.description}</p>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{narrative.token_count} tokens</span>
+                        <span className="text-muted-foreground">Score: {narrative.popularity_score}</span>
+                      </div>
+                      {narrative.example_tokens && narrative.example_tokens.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {narrative.example_tokens.slice(0, 3).map((token, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">{token}</Badge>
+                          ))}
                         </div>
-                        {history.description && (
-                          <p className="text-sm text-muted-foreground mb-2">{history.description}</p>
-                        )}
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{history.token_count || 0} tokens</span>
-                          <span>Score: {history.popularity_score || 0}</span>
-                        </div>
-                        {history.example_tokens && history.example_tokens.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {history.example_tokens.slice(0, 4).map((token, i) => (
-                              <Badge key={i} variant="outline" className="text-xs">{token}</Badge>
-                            ))}
-                          </div>
-                        )}
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-6">
+            {/* Narrative History Timeline grouped by date */}
+            {loading ? (
+              <Card>
+                <CardContent className="p-4 space-y-4">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex gap-4">
+                      <Skeleton className="h-3 w-3 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-48 mb-2" />
+                        <Skeleton className="h-3 w-full" />
                       </div>
                     </div>
                   ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                </CardContent>
+              </Card>
+            ) : narrativeHistory.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  No narrative history yet. History is recorded every 30 minutes.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {Object.entries(groupedHistory).map(([date, items]) => (
+                  <div key={date}>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      {date}
+                    </h3>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="space-y-4">
+                          {items.map((history, index) => (
+                            <div 
+                              key={history.id} 
+                              className={`flex gap-4 ${index !== items.length - 1 ? "border-b border-border pb-4" : ""}`}
+                            >
+                              <div className="flex flex-col items-center">
+                                <div className="w-3 h-3 rounded-full bg-primary" />
+                                {index !== items.length - 1 && (
+                                  <div className="w-0.5 h-full bg-border mt-1" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <span className="font-semibold text-sm">{history.narrative}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(history.snapshot_at).toLocaleTimeString()}
+                                  </span>
+                                  <span className="text-xs text-orange-400">
+                                    {formatDistanceToNow(new Date(history.snapshot_at), { addSuffix: true })}
+                                  </span>
+                                </div>
+                                {history.description && (
+                                  <p className="text-sm text-muted-foreground mb-2">{history.description}</p>
+                                )}
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span>{history.token_count || 0} tokens</span>
+                                  <span>Score: {history.popularity_score || 0}</span>
+                                </div>
+                                {history.example_tokens && history.example_tokens.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {history.example_tokens.slice(0, 4).map((token, i) => (
+                                      <Badge key={i} variant="outline" className="text-xs">{token}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* Trending Tokens */}
         <div>
@@ -287,7 +368,7 @@ const TrendingPage = () => {
             ) : tokens.length === 0 ? (
               <Card className="col-span-full">
                 <CardContent className="py-8 text-center text-muted-foreground">
-                  No trending tokens yet. Click "Sync Now" to fetch data from DexScreener.
+                  No trending tokens yet. Waiting for data sync from DexScreener.
                 </CardContent>
               </Card>
             ) : (
