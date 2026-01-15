@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, TrendingUp, Sparkles, RefreshCw, ExternalLink, Clock, History } from "lucide-react";
+import { ArrowLeft, TrendingUp, Sparkles, ExternalLink, Clock, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
 import ai69xLogo from "@/assets/ai69x-logo.png";
 
 interface TrendingToken {
@@ -48,8 +46,6 @@ const TrendingPage = () => {
   const [narratives, setNarratives] = useState<TrendingNarrative[]>([]);
   const [narrativeHistory, setNarrativeHistory] = useState<NarrativeHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const { toast } = useToast();
 
   const fetchData = async () => {
     setLoading(true);
@@ -73,30 +69,6 @@ const TrendingPage = () => {
       console.error("Error fetching trending data:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const syncNow = async () => {
-    setSyncing(true);
-    try {
-      const { error } = await supabase.functions.invoke("trending-sync");
-      if (error) throw error;
-      
-      toast({
-        title: "Synced!",
-        description: "Trending data has been updated",
-      });
-      
-      await fetchData();
-    } catch (error) {
-      console.error("Error syncing:", error);
-      toast({
-        title: "Sync failed",
-        description: "Could not sync trending data",
-        variant: "destructive",
-      });
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -137,23 +109,12 @@ const TrendingPage = () => {
               <span>Trending Narratives</span>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            {lastSynced && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                <span>Updated {lastSynced.toLocaleTimeString()}</span>
-              </div>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={syncNow}
-              disabled={syncing}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Syncing..." : "Sync Now"}
-            </Button>
-          </div>
+          {lastSynced && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>Auto-updates every 3 min • Last: {lastSynced.toLocaleTimeString()}</span>
+            </div>
+          )}
         </div>
       </header>
 
