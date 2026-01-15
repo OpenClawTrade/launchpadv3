@@ -1,3 +1,5 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -5,14 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface DexScreenerBoost {
-  tokenAddress: string;
+interface BoostToken {
+  url: string;
   chainId: string;
-  icon?: string;
+  tokenAddress: string;
   name?: string;
   symbol?: string;
   description?: string;
-  url?: string;
+  icon?: string;
   totalAmount?: number;
   amount?: number;
 }
@@ -37,28 +39,28 @@ interface DexScreenerPair {
   url?: string;
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch top 50 from DexScreener boosts
     console.log("Fetching top 50 tokens from DexScreener boosts...");
-    const dexResponse = await fetch("https://api.dexscreener.com/token-boosts/top/v1");
     
-    if (!dexResponse.ok) {
-      throw new Error(`DexScreener API error: ${dexResponse.status}`);
+    // Fetch boosted tokens from DexScreener
+    const boostResponse = await fetch("https://api.dexscreener.com/token-boosts/top/v1");
+    if (!boostResponse.ok) {
+      throw new Error(`Failed to fetch boosts: ${boostResponse.status}`);
     }
-
-    const boosts: DexScreenerBoost[] = await dexResponse.json();
-    const top50 = boosts.slice(0, 50);
+    
+    const boostData: BoostToken[] = await boostResponse.json();
+    const top50 = boostData.slice(0, 50);
     
     console.log(`Fetched ${top50.length} boosted tokens from DexScreener`);
 
@@ -76,22 +78,30 @@ Deno.serve(async (req) => {
       tokensByChain.get(chain)!.push(token.tokenAddress);
     }
 
-    // Fetch detailed info from DexScreener tokens endpoint (supports multiple addresses)
-    const tokenDetails = new Map<string, { name: string; symbol: string; imageUrl: string | null; description: string | null; url: string | null }>();
-    
+    // Fetch details for each chain's tokens
+    const tokenDetails = new Map<string, { 
+      name: string; 
+      symbol: string; 
+      imageUrl: string | null;
+      description: string | null;
+      url: string | null;
+    }>();
+
     for (const [chain, addresses] of tokensByChain) {
       // DexScreener allows up to 30 addresses per request
       const chunks = [];
       for (let i = 0; i < addresses.length; i += 30) {
         chunks.push(addresses.slice(i, i + 30));
       }
-      
+
       for (const chunk of chunks) {
         try {
           const addressList = chunk.join(",");
           console.log(`Fetching details for ${chunk.length} tokens on ${chain}...`);
           
-          const detailsResponse = await fetch(`https://api.dexscreener.com/tokens/v1/${chain}/${addressList}`);
+          const detailsResponse = await fetch(
+            `https://api.dexscreener.com/tokens/v1/${chain}/${addressList}`
+          );
           
           if (detailsResponse.ok) {
             const pairs: DexScreenerPair[] = await detailsResponse.json();
@@ -252,35 +262,50 @@ Return ONLY valid JSON in this exact format:
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]);
               
+              // Save current narratives to history before clearing
+              const { data: currentNarratives } = await supabase
+                .from("trending_narratives")
+                .select("*");
+              
+              if (currentNarratives && currentNarratives.length > 0) {
+                const historyEntries = currentNarratives.map(n => ({
+                  narrative: n.narrative,
+                  description: n.description,
+                  example_tokens: n.example_tokens,
+                  token_count: n.token_count,
+                  popularity_score: n.popularity_score,
+                  snapshot_at: n.analyzed_at,
+                }));
+                
+                await supabase.from("narrative_history").insert(historyEntries);
+                console.log(`Saved ${historyEntries.length} narratives to history`);
+              }
+              
               // Clear old narratives
               await supabase.from("trending_narratives").update({ is_active: false }).eq("is_active", true);
               await supabase.from("trending_narratives").delete().neq("id", "00000000-0000-0000-0000-000000000000");
               
               // Insert new narratives
-              const narratives = parsed.narratives.map((n: any, idx: number) => ({
+              const narratives = parsed.narratives || [];
+              const narrativesToInsert = narratives.map((n: { name: string; description: string; count: number; examples: string[] }, idx: number) => ({
                 narrative: n.name,
                 description: n.description,
-                token_count: n.count || 0,
-                example_tokens: n.examples || [],
-                popularity_score: (5 - idx) * 20, // Higher score for first narratives
+                token_count: n.count,
+                example_tokens: n.examples,
+                popularity_score: 100 - (idx * 20), // 100, 80, 60, 40, 20
                 is_active: idx === 0, // First narrative is active by default
                 analyzed_at: new Date().toISOString(),
               }));
               
-              const { error: narrativeError } = await supabase.from("trending_narratives").insert(narratives);
-              
-              if (narrativeError) {
-                console.error("Error inserting narratives:", narrativeError);
-              } else {
-                console.log(`Inserted ${narratives.length} narratives`);
-              }
+              await supabase.from("trending_narratives").insert(narrativesToInsert);
+              console.log(`Inserted ${narrativesToInsert.length} narratives`);
             }
           } catch (parseError) {
             console.error("Error parsing AI response:", parseError);
           }
         }
       } else {
-        console.error("AI API error:", await aiResponse.text());
+        console.error("AI narrative analysis failed:", await aiResponse.text());
       }
     }
 
@@ -288,15 +313,17 @@ Return ONLY valid JSON in this exact format:
       JSON.stringify({ 
         success: true, 
         tokensCount: top50.length,
-        detailedCount: tokenDetails.size,
-        message: "Trending data synced successfully" 
+        detailsFound: tokenDetails.size,
+        message: "Trending tokens and narratives synced successfully" 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+
+  } catch (error: unknown) {
     console.error("Error in trending-sync:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

@@ -41,6 +41,9 @@ interface MemeToken {
   ticker: string;
   description: string;
   imageUrl: string;
+  websiteUrl?: string;
+  twitterUrl?: string;
+  narrative?: string;
 }
 
 interface LaunchResult {
@@ -169,6 +172,8 @@ export default function FunLauncherPage() {
           ticker: meme.ticker,
           description: meme.description,
           imageUrl: meme.imageUrl,
+          websiteUrl: meme.websiteUrl,
+          twitterUrl: meme.twitterUrl,
           creatorWallet: walletAddress,
         }
       });

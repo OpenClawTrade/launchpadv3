@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -6,25 +7,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Fallback anime-style meme themes (used when no active narrative)
+// Fallback themes if no narrative is active
 const FALLBACK_THEMES = [
-  "chibi cat girl", "kawaii shiba inu", "neko samurai", "magical kitsune",
-  "tsundere penguin", "super saiyan doge", "mecha hamster", "ninja frog",
-  "sensei owl", "idol bunny", "yokai tanuki", "oni cat",
-  "sakura dragon", "kaiju puppy", "shrine fox", "waifu coin",
+  "Kawaii anime mascot",
+  "Cute chibi character",
+  "Manga-style hero",
+  "Japanese pop culture icon",
+  "Cyber anime girl",
 ];
 
-// Short anime-inspired name prefixes and suffixes
-const NAME_PREFIXES = [
-  "Neko", "Shiba", "Inu", "Kawa", "Chibi", "Nyan", "Baka", "Suki",
-  "Mochi", "Yuki", "Hana", "Kuro", "Aka", "Ao", "Midori", "Usagi",
-  "Kitsune", "Tanuki", "Oni", "Yume", "Hoshi", "Tsuki", "Sora", "Umi",
-];
+// Name generation fallbacks
+const NAME_PREFIXES = ["Neko", "Kira", "Luna", "Miku", "Yuki", "Hana", "Sora", "Riku", "Momo", "Inu"];
+const NAME_SUFFIXES = ["chan", "coin", "inu", "moon", "doge", "pepe", "cat", "punk", "ai"];
 
-const NAME_SUFFIXES = [
-  "chan", "kun", "san", "sama", "coin", "inu", "neko", "doge",
-  "moon", "star", "wave", "sun", "fire", "ice", "wind", "leaf",
-];
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+// Default socials for all generated tokens
+const DEFAULT_WEBSITE = "https://ai67x.fun";
+const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -32,16 +32,15 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    // Fetch active narrative from database
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Fetch the active narrative from trending analysis
     let themeContext = "";
     let narrativeInfo = "";
     
@@ -64,7 +63,7 @@ Create something that fits this trending theme but with a unique twist!`;
       narrativeInfo = randomTheme;
       console.log("[fun-generate] No active narrative, using fallback theme:", randomTheme);
     }
-    
+
     const conceptPrompt = `Create a TRENDING meme coin concept based on current market narratives.
 
 ${themeContext}
@@ -145,7 +144,7 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
 
     console.log("[fun-generate] Parsed anime concept:", { name, ticker, description });
 
-    // Step 2: Generate circular logo image based on narrative
+    // Generate circular logo image
     const imagePrompt = `Create a VIRAL meme coin circular logo for "${name}" ($${ticker}).
 
 STYLE REQUIREMENTS:
@@ -155,13 +154,15 @@ STYLE REQUIREMENTS:
 - Should look like a trending crypto token logo
 - Make it feel fresh and aligned with the narrative
 
-Narrative/Theme: ${narrativeInfo}
-Description: ${description}
+COMPOSITION:
+- Centered character/icon
+- Circular crop format
+- Simple but memorable
+- Professional meme coin aesthetic
 
-The image MUST be perfectly circular with simple gradient or transparent background.
-Make it look like a viral crypto token logo that would trend on crypto twitter.`;
+The design should feel like it belongs on DexScreener trending.`;
 
-    console.log("[fun-generate] Generating image for narrative:", narrativeInfo);
+    console.log("[fun-generate] Generating image...");
 
     const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -192,8 +193,9 @@ Make it look like a viral crypto token logo that would trend on crypto twitter.`
       throw new Error("No image generated");
     }
 
-    console.log("[fun-generate] Anime image generated successfully");
+    console.log("[fun-generate] Image generated successfully");
 
+    // Return the generated meme concept with default socials
     return new Response(
       JSON.stringify({
         success: true,
@@ -202,23 +204,21 @@ Make it look like a viral crypto token logo that would trend on crypto twitter.`
           ticker,
           description,
           imageUrl,
+          narrative: narrativeInfo,
+          // Include default socials
+          websiteUrl: DEFAULT_WEBSITE,
+          twitterUrl: DEFAULT_TWITTER,
         },
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+
+  } catch (error: unknown) {
     console.error("[fun-generate] Error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: false, error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

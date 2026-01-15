@@ -928,6 +928,39 @@ export type Database = {
           },
         ]
       }
+      narrative_history: {
+        Row: {
+          created_at: string
+          description: string | null
+          example_tokens: string[] | null
+          id: string
+          narrative: string
+          popularity_score: number | null
+          snapshot_at: string
+          token_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          example_tokens?: string[] | null
+          id?: string
+          narrative: string
+          popularity_score?: number | null
+          snapshot_at?: string
+          token_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          example_tokens?: string[] | null
+          id?: string
+          narrative?: string
+          popularity_score?: number | null
+          snapshot_at?: string
+          token_count?: number | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           actor_id: string
