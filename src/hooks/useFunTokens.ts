@@ -44,24 +44,25 @@ export function useFunTokens(): UseFunTokensResult {
 
       if (fetchError) throw fetchError;
 
-      // Enrich with live data from pool-state if available
+      // Enrich with live data from fun-pool-state if available
       const enrichedTokens = await Promise.all(
         (funTokens || []).map(async (token) => {
           let liveData = {
             holder_count: 0,
-            market_cap_sol: token.price_sol * 1_000_000_000,
+            market_cap_sol: 30, // Default initial market cap
             bonding_progress: 0,
+            price_sol: 0.00000003, // Default initial price
           };
 
           // Only fetch pool state if we have a valid pool address
           if (token.dbc_pool_address && token.dbc_pool_address.length > 30) {
             try {
-              // Use GET request with query params (pool-state expects query params, not body)
+              // Use fun-pool-state for fun_tokens (not pool-state which is for tokens table)
               const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
               const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
               
               const response = await fetch(
-                `${supabaseUrl}/functions/v1/pool-state?pool=${token.dbc_pool_address}`,
+                `${supabaseUrl}/functions/v1/fun-pool-state?pool=${token.dbc_pool_address}`,
                 {
                   method: 'GET',
                   headers: {
@@ -76,8 +77,9 @@ export function useFunTokens(): UseFunTokensResult {
                 if (data && !data.error) {
                   liveData = {
                     holder_count: data.holderCount || 0,
-                    market_cap_sol: data.marketCapSol || liveData.market_cap_sol,
+                    market_cap_sol: data.marketCapSol || 30,
                     bonding_progress: data.bondingProgress || 0,
+                    price_sol: data.priceSol || 0.00000003,
                   };
                 }
               }
@@ -89,7 +91,10 @@ export function useFunTokens(): UseFunTokensResult {
 
           return {
             ...token,
-            ...liveData,
+            holder_count: liveData.holder_count,
+            market_cap_sol: liveData.market_cap_sol,
+            bonding_progress: liveData.bonding_progress,
+            price_sol: liveData.price_sol,
           };
         })
       );
@@ -147,11 +152,11 @@ export function useFunTokens(): UseFunTokensResult {
     };
   }, []);
 
-  // Poll for live data every minute
+  // Poll for live data every 15 seconds for more accurate updates
   useEffect(() => {
     const interval = setInterval(() => {
       fetchTokens();
-    }, 60_000); // 1 minute
+    }, 15_000); // 15 seconds
 
     return () => clearInterval(interval);
   }, [fetchTokens]);
