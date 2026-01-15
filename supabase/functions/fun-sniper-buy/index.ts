@@ -10,6 +10,39 @@ const corsHeaders = {
 const SNIPER_BUY_SOL = 0.5;
 const PRIORITY_FEE_LAMPORTS = 5_000_000; // 0.005 SOL total priority fee budget
 const COMPUTE_UNITS = 400_000;
+const RETRY_DELAY_MS = 500;
+const MAX_REBROADCAST_ATTEMPTS = 10;
+
+// Parse private key (Base58 or JSON array)
+async function parsePrivateKey(raw: string): Promise<Uint8Array> {
+  const trimmed = raw.trim();
+
+  // Try Base58 first
+  try {
+    const { decode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
+    const decoded = decode(trimmed);
+    if (decoded.length === 64 || decoded.length === 32) {
+      return decoded;
+    }
+  } catch {
+    // Not valid base58, continue
+  }
+
+  // Try JSON array
+  if (trimmed.startsWith('[')) {
+    try {
+      const arr = JSON.parse(trimmed);
+      const bytes = new Uint8Array(arr);
+      if (bytes.length === 64 || bytes.length === 32) {
+        return bytes;
+      }
+    } catch {
+      // Not valid JSON array
+    }
+  }
+
+  throw new Error('Invalid private key format. Expected Base58 string or JSON array.');
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -41,30 +74,25 @@ serve(async (req) => {
     }
 
     // Parse sniper keypair
-    let sniperSecretKey: Uint8Array;
-    try {
-      // Try base58 first
-      const { decode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
-      sniperSecretKey = decode(sniperPrivateKey);
-    } catch {
-      try {
-        // Try JSON array
-        sniperSecretKey = new Uint8Array(JSON.parse(sniperPrivateKey));
-      } catch {
-        throw new Error('Invalid SNIPER_PRIVATE_KEY format');
-      }
-    }
+    const sniperSecretKey = await parsePrivateKey(sniperPrivateKey);
 
     // Import Solana web3
     const {
       Connection,
       Keypair,
-      PublicKey,
       Transaction,
       ComputeBudgetProgram,
     } = await import('https://esm.sh/@solana/web3.js@1.98.0');
 
-    const sniperKeypair = Keypair.fromSecretKey(sniperSecretKey);
+    let sniperKeypair: InstanceType<typeof Keypair>;
+    if (sniperSecretKey.length === 64) {
+      sniperKeypair = Keypair.fromSecretKey(sniperSecretKey);
+    } else if (sniperSecretKey.length === 32) {
+      sniperKeypair = Keypair.fromSeed(sniperSecretKey);
+    } else {
+      throw new Error(`Invalid secret key length: ${sniperSecretKey.length}`);
+    }
+
     const sniperWallet = sniperKeypair.publicKey.toBase58();
     console.log('[fun-sniper-buy] Sniper wallet:', sniperWallet);
 
@@ -155,68 +183,85 @@ serve(async (req) => {
     // Sign
     tx.sign(sniperKeypair);
 
-    // Send (no Jito — most reliable)
-    console.log('[fun-sniper-buy] Sending transaction...');
-    let signature: string;
+    const rawTransaction = tx.serialize();
 
-    try {
-      signature = await connection.sendRawTransaction(tx.serialize(), {
-        skipPreflight: true,
-        preflightCommitment: 'confirmed',
-        maxRetries: 3,
-      });
-    } catch (sendErr) {
-      const msg = sendErr instanceof Error ? sendErr.message : 'sendRawTransaction failed';
-      await supabase.rpc('backend_fail_sniper_trade', { p_id: tradeId, p_error_message: msg });
-      throw sendErr;
-    }
+    // Retry loop with rebroadcasting (best practice for sniping)
+    console.log('[fun-sniper-buy] Sending transaction with retry loop...');
+    let signature: string | null = null;
+    let landed = false;
+    let attempts = 0;
+    let lastError = '';
 
-    console.log('[fun-sniper-buy] Signature:', signature);
+    let blockHeight = await connection.getBlockHeight();
+    const lastValidBlockHeight = latest.lastValidBlockHeight - 10; // Buffer
 
-    try {
-      const confirmation = await connection.confirmTransaction(
-        {
-          signature,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        },
-        'confirmed',
-      );
+    while (blockHeight < lastValidBlockHeight && !landed && attempts < MAX_REBROADCAST_ATTEMPTS) {
+      attempts++;
+      console.log(`[fun-sniper-buy] Attempt #${attempts}, block: ${blockHeight}, cutoff: ${lastValidBlockHeight}`);
 
-      if (confirmation.value.err) {
-        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+      try {
+        signature = await connection.sendRawTransaction(rawTransaction, {
+          skipPreflight: true,
+          maxRetries: 0,
+        });
+        console.log(`[fun-sniper-buy] Sent tx, signature: ${signature}`);
+
+        // Check status
+        const status = await connection.getSignatureStatus(signature, {
+          searchTransactionHistory: false,
+        });
+
+        if (
+          status.value?.confirmationStatus === 'confirmed' ||
+          status.value?.confirmationStatus === 'finalized'
+        ) {
+          console.log(`[fun-sniper-buy] ✅ Confirmed after ${attempts} attempt(s)!`);
+          landed = true;
+          break;
+        }
+
+        if (status.value?.err) {
+          lastError = JSON.stringify(status.value.err);
+          console.log(`[fun-sniper-buy] Transaction error: ${lastError}`);
+          break;
+        }
+      } catch (sendErr) {
+        lastError = sendErr instanceof Error ? sendErr.message : 'sendRawTransaction failed';
+        console.error(`[fun-sniper-buy] Send error: ${lastError}`);
       }
 
-      console.log('[fun-sniper-buy] ✅ Sniper buy confirmed!');
-
-      await supabase.rpc('backend_update_sniper_buy', {
-        p_id: tradeId,
-        p_buy_signature: signature,
-        p_tokens_received: swapResult.estimatedOutput || 0,
-      });
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          tradeId,
-          signature,
-          tokensReceived: swapResult.estimatedOutput,
-          sniperWallet,
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    } catch (confirmError) {
-      console.error('[fun-sniper-buy] Confirmation error:', confirmError);
-
-      await supabase.rpc('backend_fail_sniper_trade', {
-        p_id: tradeId,
-        p_error_message: confirmError instanceof Error ? confirmError.message : 'Confirmation failed',
-      });
-
-      throw confirmError;
+      // Wait before next attempt
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      blockHeight = await connection.getBlockHeight();
     }
+
+    if (!landed || !signature) {
+      const msg = lastError || 'Transaction not confirmed before blockhash expired';
+      await supabase.rpc('backend_fail_sniper_trade', { p_id: tradeId, p_error_message: msg });
+      throw new Error(msg);
+    }
+
+    console.log('[fun-sniper-buy] ✅ Sniper buy confirmed!');
+
+    await supabase.rpc('backend_update_sniper_buy', {
+      p_id: tradeId,
+      p_buy_signature: signature,
+      p_tokens_received: swapResult.estimatedOutput || 0,
+    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        tradeId,
+        signature,
+        tokensReceived: swapResult.estimatedOutput,
+        sniperWallet,
+        attempts,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   } catch (error) {
     console.error('[fun-sniper-buy] Error:', error);
     return new Response(

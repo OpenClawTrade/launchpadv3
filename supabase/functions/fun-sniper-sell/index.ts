@@ -6,19 +6,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function getWalletFromPrivateKey(privateKey: string): Promise<string> {
-  // Parse sniper keypair (base58 or JSON array)
-  let secret: Uint8Array;
+// Parse private key (Base58 or JSON array)
+async function parsePrivateKey(raw: string): Promise<Uint8Array> {
+  const trimmed = raw.trim();
+
+  // Try Base58 first
   try {
     const { decode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
-    secret = decode(privateKey);
+    const decoded = decode(trimmed);
+    if (decoded.length === 64 || decoded.length === 32) {
+      return decoded;
+    }
   } catch {
-    secret = new Uint8Array(JSON.parse(privateKey));
+    // Not valid base58, continue
   }
 
+  // Try JSON array
+  if (trimmed.startsWith('[')) {
+    try {
+      const arr = JSON.parse(trimmed);
+      const bytes = new Uint8Array(arr);
+      if (bytes.length === 64 || bytes.length === 32) {
+        return bytes;
+      }
+    } catch {
+      // Not valid JSON array
+    }
+  }
+
+  throw new Error('Invalid private key format. Expected Base58 string or JSON array.');
+}
+
+async function getWalletFromPrivateKey(privateKey: string): Promise<{ wallet: string; keypair: any }> {
+  const secret = await parsePrivateKey(privateKey);
   const { Keypair } = await import('https://esm.sh/@solana/web3.js@1.98.0');
-  const kp = Keypair.fromSecretKey(secret);
-  return kp.publicKey.toBase58();
+
+  let kp: InstanceType<typeof Keypair>;
+  if (secret.length === 64) {
+    kp = Keypair.fromSecretKey(secret);
+  } else if (secret.length === 32) {
+    kp = Keypair.fromSeed(secret);
+  } else {
+    throw new Error(`Invalid secret key length: ${secret.length}`);
+  }
+
+  return { wallet: kp.publicKey.toBase58(), keypair: kp };
 }
 
 serve(async (req) => {
@@ -36,11 +68,15 @@ serve(async (req) => {
     const sniperPrivateKey = Deno.env.get('SNIPER_PRIVATE_KEY');
     const heliusRpcUrl = Deno.env.get('HELIUS_RPC_URL');
 
-    if (!sniperPrivateKey || !heliusRpcUrl) {
-      throw new Error('Missing required environment variables');
+    if (!sniperPrivateKey) {
+      throw new Error('SNIPER_PRIVATE_KEY not configured');
     }
 
-    const sniperWallet = await getWalletFromPrivateKey(sniperPrivateKey);
+    if (!heliusRpcUrl) {
+      throw new Error('HELIUS_RPC_URL not configured');
+    }
+
+    const { wallet: sniperWallet } = await getWalletFromPrivateKey(sniperPrivateKey);
     console.log('[fun-sniper-sell] Sniper wallet:', sniperWallet);
 
     // Get trades that are ready to sell (bought and past scheduled sell time)
