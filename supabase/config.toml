@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.fun-distribute]
 verify_jwt = false
+
+[functions.fun-pool-state]
+verify_jwt = false
+
+[functions.vanity-save]
+verify_jwt = false
