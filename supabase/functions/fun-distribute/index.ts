@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 // Treasury wallet
-const TREASURY_WALLET = "7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2";
+const TREASURY_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
 
 // Fee distribution splits
 const CREATOR_FEE_SHARE = 0.5;    // 50% to creator
