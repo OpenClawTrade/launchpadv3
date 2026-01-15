@@ -39,7 +39,7 @@ export default function VanityGeneratorPage() {
     fetchSavedKeypairs,
   } = useVanityGenerator();
 
-  const [suffix, setSuffix] = useState("");
+  const [suffix, setSuffix] = useState("6969");
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
