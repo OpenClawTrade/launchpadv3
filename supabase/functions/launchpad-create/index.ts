@@ -9,6 +9,10 @@ const corsHeaders = {
 // Platform fee wallet - receives 50% of trading fees
 const PLATFORM_FEE_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
 
+// Default socials for all tokens
+const DEFAULT_WEBSITE = "https://ai67x.fun";
+const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
+
 // UUID v5 implementation for Privy ID to UUID mapping
 const UUID_V5_NAMESPACE_DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
@@ -128,8 +132,8 @@ serve(async (req) => {
         ticker: ticker.toUpperCase(),
         description: description || null,
         image_url: imageUrl || null,
-        website_url: websiteUrl || null,
-        twitter_url: twitterUrl || null,
+        website_url: websiteUrl || DEFAULT_WEBSITE,
+        twitter_url: twitterUrl || DEFAULT_TWITTER,
         telegram_url: telegramUrl || null,
         discord_url: discordUrl || null,
         creator_wallet: creatorWallet,

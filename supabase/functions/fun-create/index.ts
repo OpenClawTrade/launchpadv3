@@ -6,13 +6,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Default socials for all tokens
+const DEFAULT_WEBSITE = "https://ai67x.fun";
+const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { name, ticker, description, imageUrl, creatorWallet } = await req.json();
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet } = await req.json();
 
     // Validate required fields
     if (!name || !ticker || !creatorWallet) {
@@ -110,6 +114,8 @@ serve(async (req) => {
           ticker: ticker.toUpperCase().slice(0, 10),
           description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
           imageUrl: storedImageUrl,
+          websiteUrl: websiteUrl || DEFAULT_WEBSITE,
+          twitterUrl: twitterUrl || DEFAULT_TWITTER,
           serverSideSign: true,
           feeRecipientWallet: creatorWallet,
         }),
