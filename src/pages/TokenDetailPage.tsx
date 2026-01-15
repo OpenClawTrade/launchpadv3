@@ -1,13 +1,12 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MainLayout } from "@/components/layout";
 import { BondingCurveProgress, TransactionHistory, TokenComments, QuickTradeButtons, AdvancedOrderForm, PendingOrders } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { WalletSettingsModal } from "@/components/launchpad/WalletSettingsModal";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { usePoolState } from "@/hooks/usePoolState";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -141,12 +140,6 @@ export default function TokenDetailPage() {
     };
   }, [solanaAddress, refetchHoldings]);
 
-  const currentUser = user ? {
-    name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
-    handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
-    avatar: user.avatarUrl,
-  } : null;
-
   const userBalance = userHoldings?.find(h => h.token_id === token?.id)?.balance || 0;
 
   const copyAddress = () => {
@@ -185,19 +178,19 @@ export default function TokenDetailPage() {
 
   if (isLoadingToken) {
     return (
-      <MainLayout user={currentUser}>
+      <div className="min-h-screen bg-background">
         <div className="p-4 space-y-4">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
   if (!token) {
     return (
-      <MainLayout user={currentUser}>
+      <div className="min-h-screen bg-background">
         <div className="flex flex-col items-center justify-center py-20">
           <h2 className="text-2xl font-bold">Token not found</h2>
           <p className="text-muted-foreground mt-2">This token doesn't exist or has been removed.</p>
@@ -205,12 +198,12 @@ export default function TokenDetailPage() {
             <Button>Back to Launchpad</Button>
           </Link>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
   return (
-    <MainLayout user={currentUser}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-4 px-4 h-14">
@@ -500,6 +493,6 @@ export default function TokenDetailPage() {
           </div>
         </Card>
       </div>
-    </MainLayout>
+    </div>
   );
 }
