@@ -397,27 +397,34 @@ export default function FunLauncherPage() {
           {/* Right Panel - Tabbed Content */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="w-full bg-[#12121a] border border-[#1a1a1f] p-1 mb-4">
+              <TabsList className="w-full bg-[#12121a] border border-[#1a1a1f] p-1 mb-4 grid grid-cols-4">
                 <TabsTrigger 
                   value="tokens" 
-                  className="flex-1 data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400"
+                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
                 >
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Tokens ({tokens.length})
+                  <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Tokens</span> ({tokens.length})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="claims" 
-                  className="flex-1 data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400"
+                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
                 >
-                  <Coins className="h-4 w-4 mr-2" />
-                  Claimed Fees ({feeClaims.length})
+                  <Coins className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Claimed</span> ({feeClaims.length})
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="creator-fees" 
+                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
+                >
+                  <Wallet className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Creator Fees</span> ({creatorDistributions.length})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="buybacks" 
-                  className="flex-1 data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400"
+                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
                 >
-                  <ArrowDownCircle className="h-4 w-4 mr-2" />
-                  Buybacks ({buybacks.length})
+                  <ArrowDownCircle className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Buybacks</span> ({buybacks.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -779,6 +786,131 @@ export default function FunLauncherPage() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-400 hover:underline text-xs flex items-center justify-center gap-1"
+                                  >
+                                    View <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-500 text-xs">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Creator Fees Tab */}
+              <TabsContent value="creator-fees">
+                <Card className="bg-[#12121a] border-[#1a1a1f]">
+                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
+                    <h2 className="font-semibold text-white flex items-center gap-2">
+                      <Wallet className="h-4 w-4 text-[#00d4aa]" />
+                      Creator Fee Distributions (50%)
+                    </h2>
+                    <Badge className="bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30">
+                      Total Paid: {formatSOL(totalCreatorPaid)} SOL
+                    </Badge>
+                  </div>
+
+                  {/* Info Banner */}
+                  <div className="p-4 bg-[#00d4aa]/5 border-b border-[#1a1a1f]">
+                    <p className="text-xs text-gray-400">
+                      50% of all claimed trading fees are automatically distributed to token creators every 5 minutes.
+                      The wallet address entered during token launch receives the payments.
+                    </p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
+                          <th className="text-left p-3 font-medium">Token</th>
+                          <th className="text-left p-3 font-medium">Creator Wallet</th>
+                          <th className="text-right p-3 font-medium">Amount (SOL)</th>
+                          <th className="text-center p-3 font-medium">Status</th>
+                          <th className="text-right p-3 font-medium">Time</th>
+                          <th className="text-center p-3 font-medium">TX</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {creatorDistributions.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-gray-500">
+                              No creator fees distributed yet. Distributions run every 5 minutes after fee claims.
+                            </td>
+                          </tr>
+                        ) : (
+                          creatorDistributions.map((dist) => (
+                            <tr 
+                              key={dist.id} 
+                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
+                            >
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  {dist.fun_token?.image_url && (
+                                    <img 
+                                      src={dist.fun_token.image_url} 
+                                      alt={dist.fun_token.name} 
+                                      className="w-6 h-6 rounded-full"
+                                    />
+                                  )}
+                                  <div>
+                                    <div className="text-sm text-white">{dist.fun_token?.name || "Unknown"}</div>
+                                    <div className="text-xs text-gray-400">${dist.fun_token?.ticker}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <Wallet className="h-3 w-3 text-gray-400" />
+                                  <span className="text-sm text-gray-300 font-mono">
+                                    {shortenAddress(dist.creator_wallet)}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => copyToClipboard(dist.creator_wallet)}
+                                    className="h-5 w-5 p-0 text-gray-500 hover:text-white"
+                                  >
+                                    {copiedAddress === dist.creator_wallet ? (
+                                      <CheckCircle className="h-3 w-3 text-[#00d4aa]" />
+                                    ) : (
+                                      <Copy className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className="text-sm text-[#00d4aa] font-semibold">
+                                  +{formatSOL(Number(dist.amount_sol))} SOL
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <Badge 
+                                  className={
+                                    dist.status === 'completed' 
+                                      ? "bg-green-500/10 text-green-400 border-green-500/30" 
+                                      : dist.status === 'pending'
+                                      ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+                                      : "bg-red-500/10 text-red-400 border-red-500/30"
+                                  }
+                                >
+                                  {dist.status}
+                                </Badge>
+                              </td>
+                              <td className="p-3 text-right text-xs text-gray-400">
+                                {formatDistanceToNow(new Date(dist.created_at), { addSuffix: true })}
+                              </td>
+                              <td className="p-3 text-center">
+                                {dist.signature ? (
+                                  <a
+                                    href={`https://solscan.io/tx/${dist.signature}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#00d4aa] hover:underline text-xs flex items-center justify-center gap-1"
                                   >
                                     View <ExternalLink className="h-3 w-3" />
                                   </a>
