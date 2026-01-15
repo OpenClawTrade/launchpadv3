@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, TrendingUp, Sparkles, RefreshCw, ExternalLink, Clock } from "lucide-react";
+import { ArrowLeft, TrendingUp, Sparkles, RefreshCw, ExternalLink, Clock, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,9 +33,20 @@ interface TrendingNarrative {
   analyzed_at: string;
 }
 
+interface NarrativeHistory {
+  id: string;
+  narrative: string;
+  description: string | null;
+  example_tokens: string[] | null;
+  popularity_score: number | null;
+  token_count: number | null;
+  snapshot_at: string;
+}
+
 const TrendingPage = () => {
   const [tokens, setTokens] = useState<TrendingToken[]>([]);
   const [narratives, setNarratives] = useState<TrendingNarrative[]>([]);
+  const [narrativeHistory, setNarrativeHistory] = useState<NarrativeHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
@@ -43,9 +54,10 @@ const TrendingPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tokensResult, narrativesResult] = await Promise.all([
+      const [tokensResult, narrativesResult, historyResult] = await Promise.all([
         supabase.from("trending_tokens").select("*").order("rank", { ascending: true }),
         supabase.from("trending_narratives").select("*").order("popularity_score", { ascending: false }),
+        supabase.from("narrative_history").select("*").order("snapshot_at", { ascending: false }).limit(20),
       ]);
 
       if (tokensResult.data) {
@@ -53,6 +65,9 @@ const TrendingPage = () => {
       }
       if (narrativesResult.data) {
         setNarratives(narrativesResult.data as TrendingNarrative[]);
+      }
+      if (historyResult.data) {
+        setNarrativeHistory(historyResult.data as NarrativeHistory[]);
       }
     } catch (error) {
       console.error("Error fetching trending data:", error);
@@ -235,6 +250,57 @@ const TrendingPage = () => {
             )}
           </div>
         </div>
+
+        {/* Narrative History Timeline */}
+        {narrativeHistory.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <History className="h-5 w-5 text-orange-500" />
+              Narrative History
+            </h2>
+            <Card>
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  {narrativeHistory.map((history, index) => (
+                    <div 
+                      key={history.id} 
+                      className={`flex gap-4 ${index !== narrativeHistory.length - 1 ? "border-b border-border pb-4" : ""}`}
+                    >
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-primary" />
+                        {index !== narrativeHistory.length - 1 && (
+                          <div className="w-0.5 h-full bg-border mt-1" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-sm">{history.narrative}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(history.snapshot_at).toLocaleString()}
+                          </span>
+                        </div>
+                        {history.description && (
+                          <p className="text-sm text-muted-foreground mb-2">{history.description}</p>
+                        )}
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{history.token_count || 0} tokens</span>
+                          <span>Score: {history.popularity_score || 0}</span>
+                        </div>
+                        {history.example_tokens && history.example_tokens.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {history.example_tokens.slice(0, 4).map((token, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">{token}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Trending Tokens */}
         <div>
