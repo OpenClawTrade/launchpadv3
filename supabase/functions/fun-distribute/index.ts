@@ -16,8 +16,8 @@ const CREATOR_FEE_SHARE = 0.5;    // 50% to creator
 const BUYBACK_FEE_SHARE = 0.3;   // 30% for buybacks
 const SYSTEM_FEE_SHARE = 0.2;    // 20% kept for system expenses
 
-// Minimum SOL to distribute (to avoid dust and save on tx fees)
-const MIN_DISTRIBUTION_SOL = 0.001;
+// Minimum SOL to distribute to creators (avoid micro-transactions that eat gas)
+const MIN_DISTRIBUTION_SOL = 0.05;
 
 // Maximum retries for transaction
 const MAX_TX_RETRIES = 3;
