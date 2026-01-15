@@ -207,7 +207,7 @@ serve(async (req) => {
         onChainSuccess: true,
         solscanUrl: `https://solscan.io/token/${mintAddress}`,
         tradeUrl: `https://axiom.trade/meme/${mintAddress}`,
-        message: "🚀 Token launched successfully! You'll receive 50% of trading fees every 30 minutes.",
+        message: "🚀 Token launched successfully! You'll receive 50% of trading fees every few minutes.",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

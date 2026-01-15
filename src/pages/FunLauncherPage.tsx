@@ -437,7 +437,7 @@ export default function FunLauncherPage() {
                     className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
                   />
                   <p className="text-xs text-gray-500">
-                    Receive 50% of trading fees every 30 min
+                    Receive 50% of trading fees every few min
                   </p>
                   <Button
                     onClick={handleLaunch}
@@ -697,7 +697,7 @@ export default function FunLauncherPage() {
                         ) : feeClaims.length === 0 ? (
                           <tr>
                             <td colSpan={5} className="p-8 text-center text-gray-500">
-                              No fees claimed yet. Cron runs every 30 minutes.
+                              No fees claimed yet. Cron runs every few minutes.
                             </td>
                           </tr>
                         ) : (
