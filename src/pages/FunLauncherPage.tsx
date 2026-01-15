@@ -29,7 +29,8 @@ import {
   Wallet,
   AlertTriangle,
   PartyPopper,
-  Key
+  Key,
+  Bot
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
@@ -282,6 +283,62 @@ export default function FunLauncherPage() {
           </div>
         </div>
       </header>
+
+      {/* Hero Intro Section */}
+      <section className="border-b border-[#1a1a1f] bg-gradient-to-b from-[#0d0d0f] to-[#12121a]">
+        <div className="max-w-7xl mx-auto px-4 py-10 md:py-14">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 bg-[#00d4aa]/10 border border-[#00d4aa]/20 rounded-full px-4 py-1.5 mb-5">
+              <Bot className="h-4 w-4 text-[#00d4aa]" />
+              <span className="text-sm text-[#00d4aa] font-medium">Fully Autonomous AI Agent</span>
+            </div>
+            
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3 leading-tight">
+              Launch Tokens with{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] to-[#00a8cc]">
+                Zero Friction
+              </span>
+            </h1>
+            
+            <p className="text-gray-400 text-sm md:text-base mb-6 leading-relaxed max-w-2xl mx-auto">
+              ai69x is a fully autonomous agent that handles the entire token launch lifecycle. 
+              No wallet connections. No complex configurations. Simply click, generate, and earn.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
+                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <Zap className="h-4 w-4 text-[#00d4aa]" />
+                </div>
+                <h3 className="font-semibold text-white text-sm mb-1">One-Click Launch</h3>
+                <p className="text-xs text-gray-500">Generate AI memes and deploy tokens instantly without wallet setup</p>
+              </div>
+              
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
+                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <TrendingUp className="h-4 w-4 text-[#00d4aa]" />
+                </div>
+                <h3 className="font-semibold text-white text-sm mb-1">50% Lifetime Fees</h3>
+                <p className="text-xs text-gray-500">Creators receive half of all trading fees automatically to their wallet</p>
+              </div>
+              
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
+                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <RefreshCw className="h-4 w-4 text-[#00d4aa]" />
+                </div>
+                <h3 className="font-semibold text-white text-sm mb-1">30% Buybacks</h3>
+                <p className="text-xs text-gray-500">Fees dedicated to native token buybacks, creating sustained value</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
+              Every token launched through ai69x operates with a unique mechanism designed to pioneer a new narrative in decentralized finance. 
+              The system is fully automated with no developer interaction required. 
+              Open-source code will be published upon achieving community milestones.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
