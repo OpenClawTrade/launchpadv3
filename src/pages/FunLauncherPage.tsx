@@ -304,9 +304,11 @@ export default function FunLauncherPage() {
       <section className="border-b border-[#1a1a1f] bg-gradient-to-b from-[#0d0d0f] to-[#12121a]">
         <div className="max-w-7xl mx-auto px-4 py-10 md:py-14">
           <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 bg-[#00d4aa]/10 border border-[#00d4aa]/20 rounded-full px-4 py-1.5 mb-5">
-              <Bot className="h-4 w-4 text-[#00d4aa]" />
-              <span className="text-sm text-[#00d4aa] font-medium">Fully Autonomous AI Agent</span>
+            <div className="inline-flex items-center gap-1.5 bg-[#1a1a1f] border border-[#2a2a35] rounded px-3 py-1 mb-5">
+              <span className="w-1.5 h-1.5 bg-[#00d4aa] rounded-full animate-pulse" />
+              <span className="text-xs text-gray-300 font-medium tracking-wide uppercase">Live</span>
+              <span className="text-xs text-gray-500">•</span>
+              <span className="text-xs text-gray-400">Token Launchpad</span>
             </div>
             
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3 leading-tight">
