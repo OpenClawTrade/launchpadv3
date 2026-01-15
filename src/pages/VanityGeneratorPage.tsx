@@ -80,13 +80,12 @@ export default function VanityGeneratorPage() {
     setTimeout(() => setCopiedAddress(null), 2000);
   };
 
+  // Estimate based on multi-threaded generation (~5000-15000 keys/sec with parallel workers)
   const estimateTime = (suffixLength: number): string => {
-    // Rough estimates based on base58 character set (58 chars)
-    // Probability = (1/58)^n for case-sensitive
-    // At ~500 keys/sec in browser
     const combinations = Math.pow(58, suffixLength);
     const avgAttempts = combinations / 2;
-    const secondsEstimate = avgAttempts / 500;
+    // Estimate ~10000 keys/sec with parallel workers
+    const secondsEstimate = avgAttempts / 10000;
     
     if (secondsEstimate < 60) return `~${Math.round(secondsEstimate)}s`;
     if (secondsEstimate < 3600) return `~${Math.round(secondsEstimate / 60)}min`;
@@ -181,10 +180,13 @@ export default function VanityGeneratorPage() {
             {isGenerating && progress && (
               <div className="mt-4 p-4 bg-[#0d0d0f] rounded-lg">
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-400">Searching...</span>
-                  <span className="text-[#00d4aa] font-mono">{progress.rate} keys/sec</span>
+                  <span className="text-gray-400 flex items-center gap-2">
+                    <Cpu className="h-4 w-4 animate-pulse" />
+                    {progress.workersActive || 1} workers active
+                  </span>
+                  <span className="text-[#00d4aa] font-mono">{progress.rate.toLocaleString()} keys/sec</span>
                 </div>
-                <Progress value={Math.min((progress.elapsed / 300) * 100, 95)} className="h-2" />
+                <Progress value={Math.min((progress.elapsed / 120) * 100, 95)} className="h-2" />
                 <div className="flex justify-between text-xs text-gray-500 mt-2">
                   <span>{progress.attempts.toLocaleString()} attempts</span>
                   <span>{progress.elapsed}s elapsed</span>
@@ -303,7 +305,10 @@ export default function VanityGeneratorPage() {
 
         {/* Estimation Table */}
         <Card className="bg-[#12121a] border-[#1a1a1f] p-6 mt-6">
-          <h3 className="font-semibold text-white mb-4">Generation Time Estimates</h3>
+          <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-[#00d4aa]" />
+            Generation Time Estimates
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
             {[1, 2, 3, 4, 5].map((len) => (
               <div key={len} className="p-3 bg-[#0d0d0f] rounded-lg">
@@ -314,7 +319,8 @@ export default function VanityGeneratorPage() {
             ))}
           </div>
           <p className="text-xs text-gray-500 mt-4 text-center">
-            * Estimates based on ~500 keys/second. Actual times may vary depending on your device.
+            * Estimates based on ~10,000 keys/second using parallel workers. 
+            Actual times may vary depending on your device's CPU cores.
           </p>
         </Card>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ai69xLogo from "@/assets/ai69x-logo.png";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -253,8 +254,8 @@ export default function FunLauncherPage() {
       {/* Header Bar */}
       <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Zap className="h-6 w-6 text-[#00d4aa]" />
+          <div className="flex items-center gap-2">
+            <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
             <span className="text-lg font-bold">ai69x</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-400">
