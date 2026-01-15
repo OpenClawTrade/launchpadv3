@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface FunToken {
@@ -22,86 +22,154 @@ interface FunToken {
   updated_at: string;
 }
 
+type LiveFields = Pick<FunToken, "price_sol" | "holder_count" | "market_cap_sol" | "bonding_progress">;
+
 interface UseFunTokensResult {
   tokens: FunToken[];
   isLoading: boolean;
   error: string | null;
+  lastUpdate: Date;
   refetch: () => Promise<void>;
 }
+
+const BASE_POLL_INTERVAL_MS = 15_000;
+const LIVE_POLL_INTERVAL_MS = 2_000;
+const MAX_LIVE_TOKENS = 25;
+
+const DEFAULT_LIVE: LiveFields = {
+  holder_count: 0,
+  market_cap_sol: 30,
+  bonding_progress: 0,
+  price_sol: 0.00000003,
+};
 
 export function useFunTokens(): UseFunTokensResult {
   const [tokens, setTokens] = useState<FunToken[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  const fetchTokens = useCallback(async () => {
+  const tokensRef = useRef<FunToken[]>([]);
+  const liveRefreshSeq = useRef(0);
+
+  useEffect(() => {
+    tokensRef.current = tokens;
+  }, [tokens]);
+
+  const mergeLive = useCallback((token: FunToken, live: Partial<LiveFields>): FunToken => {
+    return {
+      ...token,
+      holder_count: live.holder_count ?? token.holder_count ?? DEFAULT_LIVE.holder_count,
+      market_cap_sol: live.market_cap_sol ?? token.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
+      bonding_progress: live.bonding_progress ?? token.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
+      price_sol: live.price_sol ?? token.price_sol ?? DEFAULT_LIVE.price_sol,
+    };
+  }, []);
+
+  const fetchBaseTokens = useCallback(async (): Promise<FunToken[]> => {
+    const { data: funTokens, error: fetchError } = await supabase
+      .from("fun_tokens")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (fetchError) throw fetchError;
+
+    return (funTokens || []).map((t) => ({
+      ...t,
+      holder_count: t.holder_count ?? DEFAULT_LIVE.holder_count,
+      market_cap_sol: t.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
+      bonding_progress: t.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
+      price_sol: t.price_sol ?? DEFAULT_LIVE.price_sol,
+    })) as FunToken[];
+  }, []);
+
+  const fetchLiveForPool = useCallback(async (pool: string): Promise<Partial<LiveFields> | null> => {
     try {
-      // Fetch fun_tokens
-      const { data: funTokens, error: fetchError } = await supabase
-        .from("fun_tokens")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.functions.invoke("fun-pool-state", {
+        body: { pool },
+      });
 
-      if (fetchError) throw fetchError;
+      if (error || !data || data.error) return null;
 
-      // Enrich with live data from fun-pool-state if available
-      const enrichedTokens = await Promise.all(
-        (funTokens || []).map(async (token) => {
-          let liveData = {
-            holder_count: 0,
-            market_cap_sol: 30, // Default initial market cap
-            bonding_progress: 0,
-            price_sol: 0.00000003, // Default initial price
-          };
+      return {
+        holder_count: data.holderCount ?? DEFAULT_LIVE.holder_count,
+        market_cap_sol: data.marketCapSol ?? DEFAULT_LIVE.market_cap_sol,
+        bonding_progress: data.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
+        price_sol: data.priceSol ?? DEFAULT_LIVE.price_sol,
+      };
+    } catch {
+      return null;
+    }
+  }, []);
 
-          // Only fetch pool state if we have a valid pool address
-          if (token.dbc_pool_address && token.dbc_pool_address.length > 30) {
-            try {
-              // Use backend function invocation (avoids manual URL/key handling)
-              const { data, error } = await supabase.functions.invoke('fun-pool-state', {
-                body: { pool: token.dbc_pool_address },
-              });
+  const refreshLiveData = useCallback(
+    async (opts?: { onlyTokenId?: string }) => {
+      const currentSeq = ++liveRefreshSeq.current;
+      const base = tokensRef.current;
+      if (base.length === 0) return;
 
-              if (!error && data && !data.error) {
-                liveData = {
-                  holder_count: data.holderCount || 0,
-                  market_cap_sol: data.marketCapSol || 30,
-                  bonding_progress: data.bondingProgress || 0,
-                  price_sol: data.priceSol || 0.00000003,
-                };
-              }
-            } catch (e) {
-              // Silently fail, use defaults
-              console.debug('[useFunTokens] Pool state fetch failed for', token.ticker);
-            }
+      const subset = opts?.onlyTokenId
+        ? base.filter((t) => t.id === opts.onlyTokenId)
+        : base.slice(0, MAX_LIVE_TOKENS);
+
+      const results = await Promise.allSettled(
+        subset.map(async (token) => {
+          if (!token.dbc_pool_address || token.dbc_pool_address.length <= 30) {
+            return { id: token.id, live: null as Partial<LiveFields> | null };
           }
-
-          return {
-            ...token,
-            holder_count: liveData.holder_count,
-            market_cap_sol: liveData.market_cap_sol,
-            bonding_progress: liveData.bonding_progress,
-            price_sol: liveData.price_sol,
-          };
+          const live = await fetchLiveForPool(token.dbc_pool_address);
+          return { id: token.id, live };
         })
       );
 
-      setTokens(enrichedTokens);
+      // Ignore stale refreshes
+      if (currentSeq !== liveRefreshSeq.current) return;
+
+      const liveMap = new Map<string, Partial<LiveFields>>();
+      for (const r of results) {
+        if (r.status !== "fulfilled") continue;
+        if (r.value.live) liveMap.set(r.value.id, r.value.live);
+      }
+
+      if (liveMap.size === 0) return;
+
+      setTokens((prev) => {
+        const next = prev.map((t) => {
+          const live = liveMap.get(t.id);
+          return live ? mergeLive(t, live) : t;
+        });
+        tokensRef.current = next;
+        return next;
+      });
+
+      setLastUpdate(new Date());
+    },
+    [fetchLiveForPool, mergeLive]
+  );
+
+  const fetchTokens = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const base = await fetchBaseTokens();
+      setTokens(base);
+      tokensRef.current = base;
       setError(null);
+      await refreshLiveData();
+      setLastUpdate(new Date());
     } catch (err) {
       console.error("[useFunTokens] Error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch tokens");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchBaseTokens, refreshLiveData]);
 
   // Initial fetch
   useEffect(() => {
     fetchTokens();
   }, [fetchTokens]);
 
-  // Real-time subscription for new tokens
+  // Realtime subscription for inserts/updates/deletes
   useEffect(() => {
     const channel = supabase
       .channel("fun-tokens-realtime")
@@ -113,22 +181,33 @@ export function useFunTokens(): UseFunTokensResult {
           table: "fun_tokens",
         },
         (payload) => {
-          console.log("[useFunTokens] Realtime update:", payload.eventType);
-          
           if (payload.eventType === "INSERT") {
             const newToken = payload.new as FunToken;
-            setTokens((prev) => [
-              { ...newToken, holder_count: 0, market_cap_sol: 30, bonding_progress: 0 },
-              ...prev,
-            ]);
+            const withDefaults = mergeLive(newToken, DEFAULT_LIVE);
+            setTokens((prev) => {
+              const next = [withDefaults, ...prev];
+              tokensRef.current = next;
+              return next;
+            });
+            // Immediately enrich the new token if it has a pool
+            void refreshLiveData({ onlyTokenId: newToken.id });
+            setLastUpdate(new Date());
           } else if (payload.eventType === "UPDATE") {
             const updatedToken = payload.new as FunToken;
-            setTokens((prev) =>
-              prev.map((t) => (t.id === updatedToken.id ? { ...t, ...updatedToken } : t))
-            );
+            setTokens((prev) => {
+              const next = prev.map((t) => (t.id === updatedToken.id ? { ...t, ...updatedToken } : t));
+              tokensRef.current = next;
+              return next;
+            });
+            setLastUpdate(new Date());
           } else if (payload.eventType === "DELETE") {
-            const deletedId = (payload.old as any).id;
-            setTokens((prev) => prev.filter((t) => t.id !== deletedId));
+            const deletedId = (payload.old as any).id as string;
+            setTokens((prev) => {
+              const next = prev.filter((t) => t.id !== deletedId);
+              tokensRef.current = next;
+              return next;
+            });
+            setLastUpdate(new Date());
           }
         }
       )
@@ -137,21 +216,33 @@ export function useFunTokens(): UseFunTokensResult {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [mergeLive, refreshLiveData]);
 
-  // Poll for live data every 15 seconds for more accurate updates
+  // Base token list refresh (db) - less frequent
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchTokens();
-    }, 15_000); // 15 seconds
+      void fetchTokens();
+    }, BASE_POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [fetchTokens]);
+
+  // Live fields refresh (pool state) - fast
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // avoid burning resources when tab isn't visible
+      if (document.visibilityState !== "visible") return;
+      void refreshLiveData();
+    }, LIVE_POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [refreshLiveData]);
 
   return {
     tokens,
     isLoading,
     error,
+    lastUpdate,
     refetch: fetchTokens,
   };
 }

@@ -64,7 +64,7 @@ interface LaunchResult {
 
 export default function FunLauncherPage() {
   const { toast } = useToast();
-  const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
+  const { tokens, isLoading: tokensLoading, lastUpdate, refetch } = useFunTokens();
   const { data: feeClaims = [], isLoading: claimsLoading } = useFunFeeClaims();
   const { data: distributions = [] } = useFunDistributions();
   const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
@@ -74,18 +74,11 @@ export default function FunLauncherPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
   const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
   
   // Admin check for sniper panel (uses walletAddress from input field)
   const { isAdmin } = useIsAdmin(walletAddress || null);
-
-  // Update timestamp
-  useEffect(() => {
-    const interval = setInterval(() => setLastUpdate(new Date()), 60_000);
-    return () => clearInterval(interval);
-  }, []);
 
   const isValidSolanaAddress = (address: string) => {
     return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
