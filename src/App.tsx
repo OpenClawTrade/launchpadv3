@@ -5,43 +5,21 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrivyProviderWrapper } from "@/providers/PrivyProviderWrapper";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
 
-// Lazy load all other pages - they'll be loaded on demand
-const AuthPage = lazy(() => import("./pages/AuthPage"));
-const ExplorePage = lazy(() => import("./pages/ExplorePage"));
-const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
-const MessagesPage = lazy(() => import("./pages/MessagesPage"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
-const BookmarksPage = lazy(() => import("./pages/BookmarksPage"));
-const CommunitiesPage = lazy(() => import("./pages/CommunitiesPage"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
-const AIPage = lazy(() => import("./pages/AIPage"));
-const AdminPage = lazy(() => import("./pages/AdminPage"));
-const TermsPage = lazy(() => import("./pages/TermsPage"));
-const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
-const CookiesPage = lazy(() => import("./pages/CookiesPage"));
-const AccessibilityPage = lazy(() => import("./pages/AccessibilityPage"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-
-// Launchpad pages
+// Lazy load other pages
 const LaunchpadPage = lazy(() => import("./pages/LaunchpadPage"));
 const LaunchTokenPage = lazy(() => import("./pages/LaunchTokenPage"));
 const TokenDetailPage = lazy(() => import("./pages/TokenDetailPage"));
 const EarningsPage = lazy(() => import("./pages/EarningsPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
-const RoadmapPage = lazy(() => import("./pages/RoadmapPage"));
-const PulsePage = lazy(() => import("./pages/PulsePage"));
-const Index = lazy(() => import("./pages/Index"));
 const VanityGeneratorPage = lazy(() => import("./pages/VanityGeneratorPage"));
 const TrendingPage = lazy(() => import("./pages/TrendingPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
@@ -68,48 +46,27 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <RuntimeConfigBootstrap />
     <PrivyProviderWrapper>
-      <AuthProvider>
-        <TooltipProvider delayDuration={300}>
-          <Toaster />
-          <Sonner />
-          <ErrorBoundary>
-            <BrowserRouter>
-              <Suspense fallback={<RouteLoader />}>
-                <Routes>
-                  <Route path="/" element={<FunLauncherPage />} />
-                  <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/explore" element={<ExplorePage />} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                  <Route path="/messages" element={<MessagesPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/bookmarks" element={<BookmarksPage />} />
-                  <Route path="/communities" element={<CommunitiesPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/ai" element={<AIPage />} />
-                  <Route path="/admin" element={<AdminPage />} />
-                  <Route path="/terms" element={<TermsPage />} />
-                  <Route path="/privacy" element={<PrivacyPage />} />
-                  <Route path="/cookies" element={<CookiesPage />} />
-                  <Route path="/accessibility" element={<AccessibilityPage />} />
-                  <Route path="/post/:postId" element={<PostDetailPage />} />
-                  <Route path="/launchpad" element={<LaunchpadPage />} />
-                  <Route path="/launch" element={<LaunchTokenPage />} />
-                  <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
-                  <Route path="/earnings" element={<EarningsPage />} />
-                  <Route path="/portfolio" element={<PortfolioPage />} />
-                  <Route path="/roadmap" element={<RoadmapPage />} />
-                  <Route path="/pulse" element={<PulsePage />} />
-                  <Route path="/feed" element={<Index />} />
-                  <Route path="/vanity" element={<VanityGeneratorPage />} />
-                  <Route path="/trending" element={<TrendingPage />} />
-                  <Route path="/:username" element={<UserProfilePage />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </ErrorBoundary>
-        </TooltipProvider>
-      </AuthProvider>
+      <TooltipProvider delayDuration={300}>
+        <Toaster />
+        <Sonner />
+        <ErrorBoundary>
+          <BrowserRouter>
+            <Suspense fallback={<RouteLoader />}>
+              <Routes>
+                <Route path="/" element={<FunLauncherPage />} />
+                <Route path="/launchpad" element={<LaunchpadPage />} />
+                <Route path="/launch" element={<LaunchTokenPage />} />
+                <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
+                <Route path="/earnings" element={<EarningsPage />} />
+                <Route path="/portfolio" element={<PortfolioPage />} />
+                <Route path="/vanity" element={<VanityGeneratorPage />} />
+                <Route path="/trending" element={<TrendingPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </ErrorBoundary>
+      </TooltipProvider>
     </PrivyProviderWrapper>
   </QueryClientProvider>
 );

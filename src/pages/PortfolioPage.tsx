@@ -1,6 +1,5 @@
-import { MainLayout } from "@/components/layout";
 import { useLaunchpad, formatTokenAmount, formatSolAmount, Token } from "@/hooks/useLaunchpad";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
-import { Wallet, TrendingUp, TrendingDown, Coins, ArrowRight, Plus } from "lucide-react";
+import { Wallet, TrendingUp, Coins, ArrowRight, Plus, ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
 
 interface HoldingWithToken {
@@ -28,18 +27,12 @@ interface HoldingWithToken {
 }
 
 export default function PortfolioPage() {
-  const { user, solanaAddress, isAuthenticated } = useAuth();
+  const { solanaAddress, isAuthenticated, login } = useAuth();
   const { useUserHoldings, useUserTokens, useUserEarnings } = useLaunchpad();
 
   const { data: holdings = [], isLoading: isLoadingHoldings } = useUserHoldings(solanaAddress);
   const { data: createdTokens = [], isLoading: isLoadingCreated } = useUserTokens(solanaAddress);
   const { data: earnings } = useUserEarnings(solanaAddress, undefined);
-
-  const currentUser = user ? {
-    name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
-    handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
-    avatar: user.avatarUrl,
-  } : null;
 
   const portfolioStats = useMemo(() => {
     const typedHoldings = holdings as HoldingWithToken[];
@@ -59,31 +52,34 @@ export default function PortfolioPage() {
 
   if (!isAuthenticated) {
     return (
-      <MainLayout user={currentUser}>
+      <div className="min-h-screen bg-background">
         <div className="flex flex-col items-center justify-center py-20">
           <Wallet className="h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-bold mb-2">Connect Wallet</h2>
           <p className="text-muted-foreground mb-4 text-center">
             Connect your wallet to view your token portfolio
           </p>
-          <Link to="/auth">
-            <Button>Connect Wallet</Button>
-          </Link>
+          <Button onClick={() => login()}>Connect Wallet</Button>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
   return (
-    <MainLayout user={currentUser}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-4 px-4 h-14">
+          <Link to="/">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
           <h1 className="text-xl font-bold">Portfolio</h1>
         </div>
       </header>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 max-w-2xl mx-auto">
         {/* Stats Overview */}
         <div className="grid grid-cols-3 gap-3">
           <Card className="p-4 text-center">
@@ -195,7 +191,7 @@ export default function PortfolioPage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Launch your own token and earn fees from trading
                 </p>
-                <Link to="/launch-token">
+                <Link to="/launch">
                   <Button className="gap-2">
                     <Plus className="h-4 w-4" />
                     Launch Token
@@ -268,6 +264,6 @@ export default function PortfolioPage() {
           </Link>
         )}
       </div>
-    </MainLayout>
+    </div>
   );
 }

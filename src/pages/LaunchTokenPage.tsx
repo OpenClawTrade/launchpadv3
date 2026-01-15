@@ -1,21 +1,12 @@
-import { MainLayout } from "@/components/layout";
+import { useAuth } from "@/hooks/useAuth";
 import { LaunchTokenForm, WalletBalanceCard } from "@/components/launchpad";
-import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 export default function LaunchTokenPage() {
-  const { user } = useAuth();
-
-  const currentUser = user ? {
-    name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
-    handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
-    avatar: user.avatarUrl,
-  } : null;
-
   return (
-    <MainLayout user={currentUser}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-4 px-4 h-14">
@@ -24,6 +15,7 @@ export default function LaunchTokenPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
+          <span className="font-bold">Launch Token</span>
         </div>
       </header>
 
@@ -36,10 +28,10 @@ export default function LaunchTokenPage() {
       </div>
 
       {/* Form */}
-      <div className="px-4 pb-8 space-y-4">
+      <div className="px-4 pb-8 space-y-4 max-w-2xl mx-auto">
         <WalletBalanceCard minRequired={0.05} />
         <LaunchTokenForm />
       </div>
-    </MainLayout>
+    </div>
   );
 }

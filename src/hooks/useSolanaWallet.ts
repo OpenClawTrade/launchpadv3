@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Connection } from "@solana/web3.js";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 // Get a working Solana RPC URL
 // Priority: VITE_HELIUS_RPC_URL > VITE_HELIUS_API_KEY > runtime config > PublicNode fallback
