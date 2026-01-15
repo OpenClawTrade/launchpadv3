@@ -6,22 +6,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Treasury wallet
+// Treasury wallet that receives all fees
 const TREASURY_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
+
+// Minimum SOL to claim (to avoid dust transactions)
+const MIN_CLAIM_SOL = 0.001;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fun-claim-fees] Starting fee claim process for fun tokens...");
+  const startTime = Date.now();
+  console.log("[fun-claim-fees] ⏰ Cron job started at", new Date().toISOString());
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all active fun tokens with pool addresses
+    // Get all active fun tokens with valid pool addresses
     const { data: funTokens, error: fetchError } = await supabase
       .from("fun_tokens")
       .select("*")
@@ -32,28 +36,92 @@ serve(async (req) => {
       throw new Error(`Failed to fetch fun tokens: ${fetchError.message}`);
     }
 
-    console.log(`[fun-claim-fees] Found ${funTokens?.length || 0} active fun tokens with pools`);
+    // Filter tokens with valid pool addresses (Solana addresses are 32-44 chars)
+    const validTokens = (funTokens || []).filter(
+      (t) => t.dbc_pool_address && t.dbc_pool_address.length >= 32
+    );
 
-    if (!funTokens || funTokens.length === 0) {
+    console.log(`[fun-claim-fees] Found ${validTokens.length} active fun tokens with valid pools`);
+
+    if (validTokens.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: "No active fun tokens to claim fees from" }),
+        JSON.stringify({ 
+          success: true, 
+          message: "No active fun tokens with pools to claim from",
+          duration: Date.now() - startTime,
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
     if (!meteoraApiUrl) {
-      throw new Error("METEORA_API_URL not configured");
+      console.error("[fun-claim-fees] METEORA_API_URL not configured");
+      throw new Error("METEORA_API_URL not configured - cannot claim fees");
     }
 
-    const results: Array<{ tokenId: string; tokenName: string; success: boolean; claimedSol?: number; signature?: string; error?: string }> = [];
+    console.log("[fun-claim-fees] Using Meteora API:", meteoraApiUrl);
 
-    // Process each token
-    for (const token of funTokens) {
+    const results: Array<{
+      tokenId: string;
+      tokenName: string;
+      ticker: string;
+      poolAddress: string;
+      success: boolean;
+      claimedSol?: number;
+      signature?: string;
+      error?: string;
+    }> = [];
+
+    // Process each token sequentially to avoid overwhelming the RPC
+    for (const token of validTokens) {
       try {
-        console.log(`[fun-claim-fees] Claiming fees for ${token.name} (${token.ticker})...`);
+        console.log(`[fun-claim-fees] Processing ${token.name} ($${token.ticker}) - Pool: ${token.dbc_pool_address}`);
 
-        // Call the fee claim API
+        // First, check claimable fees (GET request)
+        const checkResponse = await fetch(
+          `${meteoraApiUrl}/api/fees/claim-from-pool?poolAddress=${token.dbc_pool_address}`,
+          {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (!checkResponse.ok) {
+          const errorText = await checkResponse.text();
+          console.log(`[fun-claim-fees] Check failed for ${token.ticker}:`, errorText);
+          results.push({
+            tokenId: token.id,
+            tokenName: token.name,
+            ticker: token.ticker,
+            poolAddress: token.dbc_pool_address,
+            success: false,
+            error: `Check failed: ${errorText}`,
+          });
+          continue;
+        }
+
+        const checkData = await checkResponse.json();
+        const claimableSol = checkData.claimableSol || 0;
+
+        console.log(`[fun-claim-fees] ${token.ticker} has ${claimableSol} SOL claimable`);
+
+        // Skip if below minimum threshold
+        if (claimableSol < MIN_CLAIM_SOL) {
+          console.log(`[fun-claim-fees] Skipping ${token.ticker} - below minimum (${MIN_CLAIM_SOL} SOL)`);
+          results.push({
+            tokenId: token.id,
+            tokenName: token.name,
+            ticker: token.ticker,
+            poolAddress: token.dbc_pool_address,
+            success: true,
+            claimedSol: 0,
+            error: `Below minimum (${claimableSol} < ${MIN_CLAIM_SOL})`,
+          });
+          continue;
+        }
+
+        // Claim the fees (POST request)
         const claimResponse = await fetch(`${meteoraApiUrl}/api/fees/claim-from-pool`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -68,20 +136,25 @@ serve(async (req) => {
           const claimedSol = claimData.claimedSol || 0;
           const signature = claimData.signature || null;
 
-          console.log(`[fun-claim-fees] Claimed ${claimedSol} SOL from ${token.ticker}`);
+          console.log(`[fun-claim-fees] ✅ Claimed ${claimedSol} SOL from ${token.ticker} - TX: ${signature}`);
 
-          // Record fee claim in database
-          if (claimedSol > 0) {
-            await supabase
+          // Record fee claim in fun_fee_claims table
+          if (claimedSol > 0 && signature) {
+            const { error: insertError } = await supabase
               .from("fun_fee_claims")
               .insert({
                 fun_token_id: token.id,
                 pool_address: token.dbc_pool_address,
                 claimed_sol: claimedSol,
                 signature,
+                claimed_at: new Date().toISOString(),
               });
 
-            // Update token with claimed fees
+            if (insertError) {
+              console.error(`[fun-claim-fees] Failed to record claim for ${token.ticker}:`, insertError);
+            }
+
+            // Update token with total fees earned
             await supabase
               .from("fun_tokens")
               .update({
@@ -91,44 +164,70 @@ serve(async (req) => {
               .eq("id", token.id);
           }
 
-          results.push({ tokenId: token.id, tokenName: token.name, success: true, claimedSol, signature });
+          results.push({
+            tokenId: token.id,
+            tokenName: token.name,
+            ticker: token.ticker,
+            poolAddress: token.dbc_pool_address,
+            success: true,
+            claimedSol,
+            signature,
+          });
         } else {
           const errorText = await claimResponse.text();
-          console.error(`[fun-claim-fees] Claim failed for ${token.ticker}:`, errorText);
-          results.push({ tokenId: token.id, tokenName: token.name, success: false, error: errorText });
+          console.error(`[fun-claim-fees] ❌ Claim failed for ${token.ticker}:`, errorText);
+          results.push({
+            tokenId: token.id,
+            tokenName: token.name,
+            ticker: token.ticker,
+            poolAddress: token.dbc_pool_address,
+            success: false,
+            error: errorText,
+          });
         }
+
+        // Small delay between claims to avoid rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
       } catch (tokenError) {
         console.error(`[fun-claim-fees] Error processing ${token.ticker}:`, tokenError);
         results.push({
           tokenId: token.id,
           tokenName: token.name,
+          ticker: token.ticker,
+          poolAddress: token.dbc_pool_address,
           success: false,
           error: tokenError instanceof Error ? tokenError.message : "Unknown error",
         });
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
+    const successCount = results.filter((r) => r.success && (r.claimedSol || 0) > 0).length;
     const totalClaimed = results.reduce((sum, r) => sum + (r.claimedSol || 0), 0);
+    const duration = Date.now() - startTime;
 
-    console.log(`[fun-claim-fees] Complete: ${successCount}/${results.length} tokens, ${totalClaimed} SOL total`);
+    console.log(`[fun-claim-fees] ✅ Complete: ${successCount} claims, ${totalClaimed.toFixed(6)} SOL total, ${duration}ms`);
 
     return new Response(
       JSON.stringify({
         success: true,
         processed: results.length,
-        successful: successCount,
+        claimed: successCount,
         totalClaimedSol: totalClaimed,
+        treasuryWallet: TREASURY_WALLET,
+        duration,
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (error) {
-    console.error("[fun-claim-fees] Error:", error);
+    console.error("[fun-claim-fees] ❌ Error:", error);
     return new Response(
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
+        duration: Date.now() - startTime,
       }),
       {
         status: 500,
