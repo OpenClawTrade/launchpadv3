@@ -1,12 +1,13 @@
-import { 
-  Connection, 
-  Keypair, 
-  PublicKey, 
+import {
+  Connection,
+  Keypair,
+  PublicKey,
   Transaction,
   sendAndConfirmTransaction,
   LAMPORTS_PER_SOL,
   SystemProgram,
 } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { HELIUS_RPC_URL, TREASURY_PRIVATE_KEY } from './config.js';
 
 // Get Solana connection
@@ -29,7 +30,6 @@ export function getTreasuryKeypair(): Keypair {
     return Keypair.fromSecretKey(Uint8Array.from(secretKey));
   } catch {
     // Try base58 format
-    const bs58 = require('bs58');
     const secretKey = bs58.decode(TREASURY_PRIVATE_KEY);
     return Keypair.fromSecretKey(secretKey);
   }

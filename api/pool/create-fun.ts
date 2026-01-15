@@ -1,12 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { 
-  Connection, 
-  Keypair, 
-  PublicKey, 
+import {
+  Connection,
+  Keypair,
+  PublicKey,
   Transaction,
   sendAndConfirmTransaction,
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
+import bs58 from 'bs58';
 
 // Configuration
 const TREASURY_WALLET = 'CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ';
@@ -40,8 +41,6 @@ function getTreasuryKeypair(): Keypair {
     }
 
     // Base58 encoded (either 64-byte secretKey or 32-byte seed)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const bs58 = require('bs58');
     const decoded: Uint8Array = bs58.decode(raw);
     if (decoded.length === 64) return Keypair.fromSecretKey(decoded);
     if (decoded.length === 32) return Keypair.fromSeed(decoded);
