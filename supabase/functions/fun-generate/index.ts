@@ -26,6 +26,75 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const DEFAULT_WEBSITE = "https://ai67x.fun";
 const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
 
+// Image generation models to try in order
+const IMAGE_MODELS = [
+  "google/gemini-2.5-flash-image-preview",
+  "google/gemini-3-pro-image-preview",
+];
+
+// Helper function to generate image with retry logic
+async function generateImageWithRetry(prompt: string, maxRetries = 3): Promise<string> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    // Cycle through models on each attempt
+    const model = IMAGE_MODELS[attempt % IMAGE_MODELS.length];
+    console.log(`[fun-generate] Image attempt ${attempt + 1}/${maxRetries} using ${model}`);
+    
+    try {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[fun-generate] Model ${model} HTTP error:`, response.status, errorText);
+        lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+        continue;
+      }
+
+      const data = await response.json();
+      console.log(`[fun-generate] Model ${model} response structure:`, JSON.stringify({
+        hasChoices: !!data.choices,
+        choicesLength: data.choices?.length,
+        hasMessage: !!data.choices?.[0]?.message,
+        hasImages: !!data.choices?.[0]?.message?.images,
+        imagesLength: data.choices?.[0]?.message?.images?.length,
+      }));
+      
+      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      
+      if (imageUrl) {
+        console.log(`[fun-generate] Successfully generated image with ${model}`);
+        return imageUrl;
+      }
+      
+      console.warn(`[fun-generate] Model ${model} returned no image URL, retrying...`);
+      lastError = new Error("No image URL in response");
+      
+    } catch (err) {
+      console.error(`[fun-generate] Model ${model} exception:`, err);
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+    
+    // Small delay between retries
+    if (attempt < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  
+  throw lastError || new Error("Failed to generate image after all retries");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -131,44 +200,45 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
     }
 
     const conceptData = await conceptResponse.json();
-    const conceptText = conceptData.choices?.[0]?.message?.content || "";
+    const rawContent = conceptData.choices?.[0]?.message?.content || "";
     
-    console.log("[fun-generate] Raw concept response:", conceptText);
+    console.log("[fun-generate] Raw concept response:", rawContent);
 
-    // Parse JSON from response
-    let memeData;
+    // Parse JSON response - try to extract from possible markdown code blocks
+    let name = "";
+    let ticker = "";
+    let description = "";
+    
     try {
-      // Try to extract JSON from the response
-      const jsonMatch = conceptText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        memeData = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
+      // Remove potential markdown code blocks
+      let jsonStr = rawContent.trim();
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
       }
-    } catch (parseError) {
-      console.error("[fun-generate] Parse error:", parseError);
-      // Fallback: generate random anime-style name
+      
+      const parsed = JSON.parse(jsonStr);
+      name = parsed.name || "";
+      ticker = parsed.ticker || "";
+      description = parsed.description || "";
+    } catch {
+      console.error("[fun-generate] Failed to parse concept JSON, using fallback");
+      // Fallback to random name
       const prefix = NAME_PREFIXES[Math.floor(Math.random() * NAME_PREFIXES.length)];
       const suffix = NAME_SUFFIXES[Math.floor(Math.random() * NAME_SUFFIXES.length)];
-      memeData = {
-        name: `${prefix}${suffix.charAt(0).toUpperCase() + suffix.slice(1)}`,
-        ticker: prefix.slice(0, 4).toUpperCase(),
-        description: "The cutest anime meme coin on Solana! ✨🌸",
-      };
+      name = `${prefix}${suffix.charAt(0).toUpperCase() + suffix.slice(1)}`;
+      ticker = name.slice(0, 4).toUpperCase();
+      description = `The next ${suffix} to moon! 🚀`;
     }
 
-    // Validate and sanitize - enforce short names
-    let name = (memeData.name || "NekoInu").replace(/\s+/g, "").slice(0, 12);
-    let ticker = (memeData.ticker || "NEKO").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
-    const description = (memeData.description || "Kawaii meme coin! 🌸").slice(0, 100);
+    // Ensure name is single word and properly formatted
+    name = name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
+    ticker = ticker.replace(/[^A-Z0-9]/g, "").slice(0, 5).toUpperCase();
 
-    // Check if AI still generated a duplicate name - if so, make it unique
+    // Check if name still exists (in case AI ignored our instructions)
     if (existingNames.has(name.toLowerCase())) {
-      console.log("[fun-generate] AI generated duplicate name, creating unique variant:", name);
-      // Add random suffix to make unique
-      const suffixes = ["X", "2", "AI", "69", "420", "Pro", "Max", "Go"];
-      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
-      name = (name.slice(0, 8) + suffix).slice(0, 12);
+      console.log("[fun-generate] Generated name already exists, creating unique variant");
+      const randomSuffix = Math.floor(Math.random() * 999);
+      name = `${name}${randomSuffix}`.slice(0, 12);
       ticker = name.slice(0, 4).toUpperCase();
     }
 
@@ -201,68 +271,24 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
     }
 
     // Generate meme coin logo with authentic internet meme style
-    const imagePrompt = `Draw a meme coin mascot for "${name}" ($${ticker}).
+    const imagePrompt = `Create a simple meme mascot character for a crypto token called "${name}".
 
-STYLE - CRITICAL:
-- Raw internet meme energy like classic Pepe, Doge, Wojak
-- Hand-drawn MS Paint or crude sketch aesthetic 
-- Imperfect lines, rough edges, intentionally low-fi
-- Single expressive character face or creature
-- Solid flat colors, NO gradients, NO shine effects
-- Transparent or simple solid color background
+Style: Classic internet meme aesthetic like Pepe frog or Doge. Simple, expressive, memorable.
 
-COMPOSITION:
-- Just the mascot character, nothing else
-- Big expressive eyes and simple features
-- Funny or smug expression
-- Close-up face or full body simple pose
+Requirements:
+- Single character on transparent or solid color background
+- Cartoon/hand-drawn style with bold outlines
+- Big expressive face with funny or smug expression
+- Flat colors, no gradients or 3D effects
+- No text, no logos, no crypto symbols
+- Square format, centered composition
 
-VIBE:
-- 4chan meme board culture
-- Absurdist internet humor
-- Deliberately crude but iconic
-- The kind of image that becomes a viral meme
+Make it look like a viral meme that could represent a meme coin. Think iconic internet culture mascots.`;
 
-DO NOT:
-- Make it look polished or professional
-- Add any text, logos, or crypto symbols
-- Use 3D effects, metallic textures, or glossy finishes
-- Create clean vector art or corporate design
-- Add lens flares, glow effects, or gradients
-- Make it look like AI generated art
+    console.log("[fun-generate] Generating image with retry logic...");
 
-Think: original Pepe frog drawing, Doge shiba photo edits, Wojak simple sketches. Raw, iconic, memeable.`;
-
-    console.log("[fun-generate] Generating professional image...");
-
-    const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          { role: "user", content: imagePrompt }
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
-
-    if (!imageResponse.ok) {
-      const errorText = await imageResponse.text();
-      console.error("[fun-generate] Image generation failed:", errorText);
-      throw new Error("Failed to generate meme image");
-    }
-
-    const imageData = await imageResponse.json();
-    const imageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-    if (!imageUrl) {
-      console.error("[fun-generate] No image URL in response");
-      throw new Error("No image generated");
-    }
+    // Use retry logic for image generation
+    const imageUrl = await generateImageWithRetry(imagePrompt, 3);
 
     console.log("[fun-generate] Image generated successfully");
 
