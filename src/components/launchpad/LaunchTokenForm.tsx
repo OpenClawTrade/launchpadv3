@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMeteoraApi } from "@/hooks/useMeteoraApi";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { Loader2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -192,8 +193,8 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
     }
   };
 
-  // Calculate USD value (mock SOL price ~$150)
-  const solPrice = 150;
+  // Live SOL price from Jupiter
+  const { solPrice } = useSolPrice();
   const usdValue = (formData.initialBuySol * solPrice).toFixed(2);
 
   return (

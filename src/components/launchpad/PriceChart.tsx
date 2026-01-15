@@ -166,19 +166,8 @@ export function PriceChart({
 
   const chartData = useMemo(() => {
     if (priceHistory.length === 0) {
-      // Generate placeholder data
-      const now = Math.floor(Date.now() / 1000);
-      if (chartType === "candle") {
-        return [
-          { time: now - 3600, open: currentPrice * 0.98, high: currentPrice * 1.01, low: currentPrice * 0.97, close: currentPrice * 0.99, volume: 0.1 },
-          { time: now - 1800, open: currentPrice * 0.99, high: currentPrice * 1.02, low: currentPrice * 0.98, close: currentPrice, volume: 0.15 },
-          { time: now, open: currentPrice, high: currentPrice * 1.01, low: currentPrice * 0.99, close: currentPrice, volume: 0.1 },
-        ];
-      }
-      return [
-        { time: now - 3600, value: currentPrice * 0.98 },
-        { time: now, value: currentPrice },
-      ];
+      // Return empty array - show "No trades yet" message instead of fake data
+      return [];
     }
 
     if (chartType === "candle") {
@@ -191,6 +180,8 @@ export function PriceChart({
       value: Number(point.price_sol),
     }));
   }, [priceHistory, currentPrice, chartType, candleInterval]);
+
+  const hasNoTrades = priceHistory.length === 0 && chartView === "internal";
 
   const isPositive = priceChange24h >= 0;
 
@@ -302,6 +293,12 @@ export function PriceChart({
           <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm rounded px-2 py-1 text-xs text-muted-foreground">
             Powered by DEXTools
           </div>
+        </div>
+      ) : hasNoTrades ? (
+        <div className="h-[300px] flex flex-col items-center justify-center bg-secondary/20 rounded-lg border border-dashed border-border">
+          <TrendingUp className="h-12 w-12 text-muted-foreground/40 mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">No trades yet</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Be the first to trade this token!</p>
         </div>
       ) : (
         <LightweightChart
