@@ -13,7 +13,7 @@
 | **Bonding Curve Engine** | ✅ Live | Constant product (x·y=k), 30 SOL virtual liquidity |
 | **Graduation Mechanism** | ✅ Live | Auto-migrate at 85 SOL real reserves to Meteora DAMM V2 |
 | **Fee Distribution** | ✅ Live | 2% trading fee, 50/50 creator/platform split |
-| **LP Token Lockup** | ✅ Live | 100% LP locked to treasury (7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2) |
+| **LP Token Lockup** | ✅ Live | 100% LP locked to treasury (CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ) |
 | **Real-time Price Charts** | ✅ Live | `token_price_history` table, 1-minute candles |
 | **Token Comments** | ✅ Live | Threaded discussion per token |
 | **Transaction History** | ✅ Live | Full on-chain tx logging |

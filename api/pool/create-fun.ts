@@ -8,13 +8,12 @@ import {
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
+import { createMeteoraPool } from '../lib/meteora.js';
+import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS } from '../lib/config.js';
 
-// Configuration
+// Configuration - Use new treasury wallet
 const TREASURY_WALLET = 'CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ';
-const TOKEN_SUPPLY = 1_000_000_000;
-const VIRTUAL_SOL = 30;
-const VIRTUAL_TOKENS = 1_000_000_000;
-const INITIAL_PRICE = VIRTUAL_SOL / VIRTUAL_TOKENS;
+const INITIAL_VIRTUAL_SOL = 30;
 
 // CORS headers
 const corsHeaders = {
@@ -51,7 +50,7 @@ function getTreasuryKeypair(): Keypair {
   }
 }
 
-// Get Supabase client (uses anon key - backend_ RPC functions bypass RLS with SECURITY DEFINER)
+// Get Supabase client
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
@@ -94,37 +93,96 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const connection = new Connection(rpcUrl, 'confirmed');
 
-    // For now, we'll create a mock token since full Meteora integration 
-    // requires complex pool setup. In production, this would call createMeteoraPool
+    // Verify treasury wallet matches expected
+    const treasuryAddress = treasuryKeypair.publicKey.toBase58();
+    console.log('[create-fun] Treasury wallet:', treasuryAddress);
+
+    // Create real Meteora pool using the existing SDK integration
+    // Treasury wallet is the "creator" for on-chain purposes
+    console.log('[create-fun] Creating real Meteora DBC pool...');
     
-    // Generate a unique mint address
-    const mintKeypair = Keypair.generate();
+    const { transactions, mintKeypair, configKeypair, poolAddress, lastValidBlockHeight } = await createMeteoraPool({
+      creatorWallet: treasuryAddress, // Treasury signs everything
+      name: name.slice(0, 32),
+      ticker: ticker.toUpperCase().slice(0, 10),
+      description: description || `${name} - A fun meme coin!`,
+      imageUrl: imageUrl || undefined,
+      initialBuySol: 0, // No dev buy for fun tokens
+    });
+
     const mintAddress = mintKeypair.publicKey.toBase58();
-
-    console.log('[create-fun] Generated mint address:', mintAddress);
-
-    // In production: Create actual Meteora pool here
-    // const { transactions, poolAddress } = await createMeteoraPool({...});
-    // Sign and send all transactions with treasury keypair
-
-    // For now, insert into database with mock data
-    const tokenId = crypto.randomUUID();
+    const dbcPoolAddress = poolAddress.toBase58();
     
+    console.log('[create-fun] Pool transactions prepared:', {
+      mintAddress,
+      dbcPoolAddress,
+      txCount: transactions.length,
+    });
+
+    // Sign and send all transactions with treasury keypair (fully server-side)
+    const signatures: string[] = [];
+    
+    for (let i = 0; i < transactions.length; i++) {
+      const tx = transactions[i];
+      
+      // Update blockhash to fresh one (in case of delays)
+      const { blockhash } = await connection.getLatestBlockhash('confirmed');
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = treasuryKeypair.publicKey;
+      
+      // Sign with all required keypairs
+      tx.partialSign(treasuryKeypair);
+      tx.partialSign(mintKeypair);
+      tx.partialSign(configKeypair);
+      
+      console.log(`[create-fun] Sending transaction ${i + 1}/${transactions.length}...`);
+      
+      try {
+        const signature = await sendAndConfirmTransaction(
+          connection,
+          tx,
+          [treasuryKeypair, mintKeypair, configKeypair],
+          {
+            commitment: 'confirmed',
+            skipPreflight: false, // Enable preflight for better error messages
+          }
+        );
+        signatures.push(signature);
+        console.log(`[create-fun] Transaction ${i + 1} confirmed:`, signature);
+      } catch (txError) {
+        console.error(`[create-fun] Transaction ${i + 1} failed:`, txError);
+        throw new Error(`On-chain transaction ${i + 1} failed: ${txError instanceof Error ? txError.message : 'Unknown error'}`);
+      }
+    }
+
+    console.log('[create-fun] All transactions confirmed!', { signatures });
+
+    // Calculate initial values
+    const virtualSol = INITIAL_VIRTUAL_SOL;
+    const virtualToken = TOTAL_SUPPLY;
+    const initialPrice = virtualSol / virtualToken;
+
+    // Generate a UUID for the token
+    const crypto = await import('crypto');
+    const tokenId = crypto.randomUUID();
+
     // Insert token into main tokens table (so it can be traded)
     const { error: tokenError } = await supabase.rpc('backend_create_token', {
       p_id: tokenId,
       p_mint_address: mintAddress,
       p_name: name.slice(0, 32),
       p_ticker: ticker.toUpperCase().slice(0, 10),
-      p_creator_wallet: TREASURY_WALLET, // Treasury is the on-chain creator
+      p_creator_wallet: treasuryAddress, // Treasury is the on-chain creator
+      p_dbc_pool_address: dbcPoolAddress,
       p_description: description || `${name} - A fun meme coin!`,
       p_image_url: imageUrl || null,
-      p_virtual_sol_reserves: VIRTUAL_SOL,
-      p_virtual_token_reserves: VIRTUAL_TOKENS,
-      p_total_supply: TOKEN_SUPPLY,
-      p_price_sol: INITIAL_PRICE,
-      p_market_cap_sol: VIRTUAL_SOL,
-      p_system_fee_bps: 200, // 2% platform fee
+      p_virtual_sol_reserves: virtualSol,
+      p_virtual_token_reserves: virtualToken,
+      p_total_supply: TOTAL_SUPPLY,
+      p_price_sol: initialPrice,
+      p_market_cap_sol: virtualSol,
+      p_graduation_threshold_sol: GRADUATION_THRESHOLD_SOL,
+      p_system_fee_bps: TRADING_FEE_BPS, // 2% platform fee
       p_creator_fee_bps: 0, // No creator fee (handled separately via fun_distributions)
     });
 
@@ -138,18 +196,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_token_id: tokenId,
       p_earner_type: 'system',
       p_share_bps: 10000, // 100% goes to system (distributed via fun_distributions)
-      p_wallet_address: TREASURY_WALLET,
+      p_wallet_address: PLATFORM_FEE_WALLET,
     });
 
-    console.log('[create-fun] Token created successfully:', tokenId);
+    console.log('[create-fun] Token created successfully:', { tokenId, mintAddress, dbcPoolAddress });
 
     return res.status(200).json({
       success: true,
       tokenId,
       mintAddress,
-      dbcPoolAddress: null, // Will be set when real pool is created
-      creatorWallet: TREASURY_WALLET,
+      dbcPoolAddress,
+      poolAddress: dbcPoolAddress,
+      creatorWallet: treasuryAddress,
       feeRecipientWallet,
+      signatures,
+      solscanUrl: `https://solscan.io/token/${mintAddress}`,
+      tradeUrl: `https://axiom.trade/meme/${mintAddress}`,
     });
 
   } catch (error) {
