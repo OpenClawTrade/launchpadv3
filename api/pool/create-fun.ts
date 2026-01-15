@@ -4,7 +4,6 @@ import {
   Keypair,
   PublicKey,
   Transaction,
-  sendAndConfirmTransaction,
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
@@ -100,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Treasury wallet is the "creator" for on-chain purposes
     console.log('[create-fun] Creating real Meteora DBC pool...');
     
-    const { transactions, mintKeypair, configKeypair, poolAddress, lastValidBlockHeight } = await createMeteoraPool({
+    const { transactions, mintKeypair, configKeypair, poolAddress } = await createMeteoraPool({
       creatorWallet: treasuryAddress, // Treasury signs everything
       name: name.slice(0, 32),
       ticker: ticker.toUpperCase().slice(0, 10),
@@ -120,37 +119,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Sign and send all transactions with treasury keypair (fully server-side)
     const signatures: string[] = [];
-    
+
+    const getRequiredSigners = (tx: Transaction): string[] => {
+      const msg = tx.compileMessage();
+      return msg.accountKeys
+        .slice(0, msg.header.numRequiredSignatures)
+        .map((k) => k.toBase58());
+    };
+
     for (let i = 0; i < transactions.length; i++) {
       const tx = transactions[i];
-      
-      // Update blockhash to fresh one (in case of delays)
-      const { blockhash } = await connection.getLatestBlockhash('confirmed');
-      tx.recentBlockhash = blockhash;
+
+      // Fresh blockhash to avoid expiration
+      const latest = await connection.getLatestBlockhash('confirmed');
+      tx.recentBlockhash = latest.blockhash;
       tx.feePayer = treasuryKeypair.publicKey;
-      
-      // Sign with all required keypairs
-      tx.partialSign(treasuryKeypair);
-      tx.partialSign(mintKeypair);
-      tx.partialSign(configKeypair);
-      
+
+      // IMPORTANT:
+      // Transactions returned by the SDK can contain pre-populated signature pubkeys.
+      // If we don't reset, web3.js may throw "unknown signer" for stale signer entries.
+      tx.signatures = [];
+
+      const requiredSigners = getRequiredSigners(tx);
+      console.log(`[create-fun] Tx ${i + 1}/${transactions.length} required signers:`, requiredSigners);
+
       console.log(`[create-fun] Sending transaction ${i + 1}/${transactions.length}...`);
-      
+
       try {
-        const signature = await sendAndConfirmTransaction(
-          connection,
-          tx,
-          [treasuryKeypair, mintKeypair, configKeypair],
+        // tx.sign() compiles the message and signs only the required signers.
+        // If a required signer isn't provided, it throws "unknown signer".
+        tx.sign(treasuryKeypair, mintKeypair, configKeypair);
+
+        const signature = await connection.sendRawTransaction(tx.serialize(), {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+        });
+
+        const confirmation = await connection.confirmTransaction(
           {
-            commitment: 'confirmed',
-            skipPreflight: false, // Enable preflight for better error messages
-          }
+            signature,
+            blockhash: latest.blockhash,
+            lastValidBlockHeight: latest.lastValidBlockHeight,
+          },
+          'confirmed'
         );
+
+        if (confirmation.value.err) {
+          throw new Error(`Transaction ${i + 1} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+        }
+
         signatures.push(signature);
         console.log(`[create-fun] Transaction ${i + 1} confirmed:`, signature);
       } catch (txError) {
         console.error(`[create-fun] Transaction ${i + 1} failed:`, txError);
-        throw new Error(`On-chain transaction ${i + 1} failed: ${txError instanceof Error ? txError.message : 'Unknown error'}`);
+        const msg = txError instanceof Error ? txError.message : 'Unknown error';
+        throw new Error(`On-chain transaction ${i + 1} failed: ${msg}`);
       }
     }
 
