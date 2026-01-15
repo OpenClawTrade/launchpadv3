@@ -9,32 +9,36 @@ const corsHeaders = {
 // Parse private key (Base58 or JSON array)
 async function parsePrivateKey(raw: string): Promise<Uint8Array> {
   const trimmed = raw.trim();
+  console.log(`[parsePrivateKey] Raw length: ${raw.length}, trimmed length: ${trimmed.length}`);
 
-  // Try Base58 first
-  try {
-    const { decode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
-    const decoded = decode(trimmed);
-    if (decoded.length === 64 || decoded.length === 32) {
-      return decoded;
-    }
-  } catch {
-    // Not valid base58, continue
-  }
-
-  // Try JSON array
+  // Try JSON array first (if it starts with "[")
   if (trimmed.startsWith('[')) {
     try {
       const arr = JSON.parse(trimmed);
       const bytes = new Uint8Array(arr);
+      console.log(`[parsePrivateKey] JSON array decoded length: ${bytes.length}`);
       if (bytes.length === 64 || bytes.length === 32) {
         return bytes;
       }
-    } catch {
-      // Not valid JSON array
+    } catch (e) {
+      console.log(`[parsePrivateKey] JSON parse failed: ${e instanceof Error ? e.message : e}`);
     }
   }
 
-  throw new Error('Invalid private key format. Expected Base58 string or JSON array.');
+  // Try Base58 using npm:bs58 (more reliable than deno.land/x/base58)
+  try {
+    const bs58 = await import('npm:bs58@6.0.0');
+    const decoded = bs58.default.decode(trimmed);
+    console.log(`[parsePrivateKey] bs58 decoded length: ${decoded.length}`);
+    if (decoded.length === 64 || decoded.length === 32) {
+      return decoded;
+    }
+    console.log(`[parsePrivateKey] bs58 decoded but wrong length: ${decoded.length}`);
+  } catch (e) {
+    console.log(`[parsePrivateKey] bs58 decode failed: ${e instanceof Error ? e.message : e}`);
+  }
+
+  throw new Error(`Invalid private key format. Length=${trimmed.length}`);
 }
 
 async function getWalletFromPrivateKey(privateKey: string): Promise<{ wallet: string; keypair: any }> {

@@ -16,32 +16,36 @@ const MAX_REBROADCAST_ATTEMPTS = 10;
 // Parse private key (Base58 or JSON array)
 async function parsePrivateKey(raw: string): Promise<Uint8Array> {
   const trimmed = raw.trim();
+  console.log(`[parsePrivateKey] Raw length: ${raw.length}, trimmed length: ${trimmed.length}`);
 
-  // Try Base58 first
-  try {
-    const { decode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
-    const decoded = decode(trimmed);
-    if (decoded.length === 64 || decoded.length === 32) {
-      return decoded;
-    }
-  } catch {
-    // Not valid base58, continue
-  }
-
-  // Try JSON array
+  // Try JSON array first (if it starts with "[")
   if (trimmed.startsWith('[')) {
     try {
       const arr = JSON.parse(trimmed);
       const bytes = new Uint8Array(arr);
+      console.log(`[parsePrivateKey] JSON array decoded length: ${bytes.length}`);
       if (bytes.length === 64 || bytes.length === 32) {
         return bytes;
       }
-    } catch {
-      // Not valid JSON array
+    } catch (e) {
+      console.log(`[parsePrivateKey] JSON parse failed: ${e instanceof Error ? e.message : e}`);
     }
   }
 
-  throw new Error('Invalid private key format. Expected Base58 string or JSON array.');
+  // Try Base58 using npm:bs58 (more reliable than deno.land/x/base58)
+  try {
+    const bs58 = await import('npm:bs58@6.0.0');
+    const decoded = bs58.default.decode(trimmed);
+    console.log(`[parsePrivateKey] bs58 decoded length: ${decoded.length}`);
+    if (decoded.length === 64 || decoded.length === 32) {
+      return decoded;
+    }
+    console.log(`[parsePrivateKey] bs58 decoded but wrong length: ${decoded.length}`);
+  } catch (e) {
+    console.log(`[parsePrivateKey] bs58 decode failed: ${e instanceof Error ? e.message : e}`);
+  }
+
+  throw new Error(`Invalid private key format. Length=${trimmed.length}`);
 }
 
 serve(async (req) => {
@@ -130,18 +134,19 @@ serve(async (req) => {
     // Build swap transaction using Meteora API
     const meteoraApiUrl = Deno.env.get('METEORA_API_URL') || 'https://trenchespost.vercel.app';
 
-    console.log('[fun-sniper-buy] Building swap transaction via Meteora API...');
+    const swapPayload = {
+      mintAddress,
+      userWallet: sniperWallet,
+      amount: SNIPER_BUY_SOL,
+      isBuy: true,
+      slippageBps: 5000,
+    };
+    console.log('[fun-sniper-buy] Building swap transaction via Meteora API:', swapPayload);
+    
     const swapResponse = await fetch(`${meteoraApiUrl}/api/swap/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        poolAddress,
-        userWallet: sniperWallet,
-        amount: SNIPER_BUY_SOL,
-        isBuy: true,
-        slippageBps: 5000, // 50% slippage for guaranteed execution
-        buildOnly: true, // build, don't send
-      }),
+      body: JSON.stringify(swapPayload),
     });
 
     const swapResult = await swapResponse.json();
@@ -167,8 +172,8 @@ serve(async (req) => {
     const encodedTx = swapResult.serializedTransaction || swapResult.transaction;
 
     if (encodedTx) {
-      const { decode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
-      const txBuffer = decode(encodedTx);
+      const bs58 = await import('npm:bs58@6.0.0');
+      const txBuffer = bs58.default.decode(encodedTx);
       const decodedTx = Transaction.from(txBuffer);
       for (const ix of decodedTx.instructions) {
         tx.add(ix);
