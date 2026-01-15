@@ -119,7 +119,7 @@ const TrendingPage = () => {
             </Link>
             <div className="flex items-center gap-2 text-muted-foreground">
               <ArrowLeft className="h-4 w-4" />
-              <span>Trending</span>
+              <span>Trending Narratives</span>
             </div>
           </div>
           <div className="flex items-center gap-4">
