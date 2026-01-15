@@ -44,10 +44,10 @@ function getTreasuryKeypair(): Keypair {
   }
 }
 
-// Get Supabase client
+// Get Supabase client (uses anon key - backend_ RPC functions bypass RLS with SECURITY DEFINER)
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
   if (!url || !key) {
     throw new Error('Supabase credentials not configured');
   }
