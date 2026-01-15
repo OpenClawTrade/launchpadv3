@@ -397,7 +397,7 @@ export default function FunLauncherPage() {
           {/* Right Panel - Tabbed Content */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="w-full bg-[#12121a] border border-[#1a1a1f] p-1 mb-4 grid grid-cols-4">
+              <TabsList className="w-full bg-[#12121a] border border-[#1a1a1f] p-1 mb-4 grid grid-cols-3">
                 <TabsTrigger 
                   value="tokens" 
                   className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
@@ -418,13 +418,6 @@ export default function FunLauncherPage() {
                 >
                   <Wallet className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Creator Fees</span> ({creatorDistributions.length})
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="buybacks" 
-                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
-                >
-                  <ArrowDownCircle className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Buybacks</span> ({buybacks.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -683,124 +676,8 @@ export default function FunLauncherPage() {
                 </Card>
               </TabsContent>
 
-              {/* Buybacks Tab */}
-              <TabsContent value="buybacks">
-                <Card className="bg-[#12121a] border-[#1a1a1f]">
-                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
-                    <h2 className="font-semibold text-white flex items-center gap-2">
-                      <ArrowDownCircle className="h-4 w-4 text-blue-400" />
-                      Token Buybacks (30%)
-                    </h2>
-                    <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/30">
-                      Total: {formatSOL(totalBuybacks)} SOL
-                    </Badge>
-                  </div>
-
-                  {/* Info Banner */}
-                  <div className="p-4 bg-blue-500/5 border-b border-[#1a1a1f]">
-                    <p className="text-xs text-gray-400">
-                      30% of all trading fees are allocated for token buybacks to support token price. 
-                      20% is retained for system operating expenses.
-                    </p>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
-                          <th className="text-left p-3 font-medium">Token</th>
-                          <th className="text-right p-3 font-medium">Amount (SOL)</th>
-                          <th className="text-right p-3 font-medium">Tokens Bought</th>
-                          <th className="text-center p-3 font-medium">Status</th>
-                          <th className="text-right p-3 font-medium">Time</th>
-                          <th className="text-center p-3 font-medium">TX</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {buybacksLoading ? (
-                          Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={i} className="border-b border-[#1a1a1f]">
-                              <td className="p-3"><Skeleton className="h-4 w-24 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
-                            </tr>
-                          ))
-                        ) : buybacks.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="p-8 text-center text-gray-500">
-                              No buybacks executed yet. They are processed after fee distribution.
-                            </td>
-                          </tr>
-                        ) : (
-                          buybacks.map((buyback) => (
-                            <tr 
-                              key={buyback.id} 
-                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
-                            >
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  {buyback.fun_token?.image_url && (
-                                    <img 
-                                      src={buyback.fun_token.image_url} 
-                                      alt={buyback.fun_token.name} 
-                                      className="w-6 h-6 rounded-full"
-                                    />
-                                  )}
-                                  <div>
-                                    <div className="text-sm text-white">{buyback.fun_token?.name || "Unknown"}</div>
-                                    <div className="text-xs text-gray-400">${buyback.fun_token?.ticker}</div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="p-3 text-right">
-                                <span className="text-sm text-blue-400 font-semibold">
-                                  {formatSOL(Number(buyback.amount_sol))} SOL
-                                </span>
-                              </td>
-                              <td className="p-3 text-right text-sm text-white">
-                                {buyback.tokens_bought ? formatSOL(Number(buyback.tokens_bought)) : "-"}
-                              </td>
-                              <td className="p-3 text-center">
-                                <Badge 
-                                  className={
-                                    buyback.status === 'completed' 
-                                      ? "bg-green-500/10 text-green-400 border-green-500/30" 
-                                      : buyback.status === 'pending'
-                                      ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-                                      : "bg-red-500/10 text-red-400 border-red-500/30"
-                                  }
-                                >
-                                  {buyback.status}
-                                </Badge>
-                              </td>
-                              <td className="p-3 text-right text-xs text-gray-400">
-                                {formatDistanceToNow(new Date(buyback.created_at), { addSuffix: true })}
-                              </td>
-                              <td className="p-3 text-center">
-                                {buyback.signature ? (
-                                  <a
-                                    href={`https://solscan.io/tx/${buyback.signature}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-400 hover:underline text-xs flex items-center justify-center gap-1"
-                                  >
-                                    View <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                ) : (
-                                  <span className="text-gray-500 text-xs">-</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </TabsContent>
+              {/* Buybacks Tab - Coming Soon */}
+              {/* This tab is hidden from the UI until buyback execution is implemented */}
 
               {/* Creator Fees Tab */}
               <TabsContent value="creator-fees">
