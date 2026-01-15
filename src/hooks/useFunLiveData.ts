@@ -39,7 +39,15 @@ interface UseFunLiveDataResult {
   refetch: () => Promise<void>;
 }
 
-const POLL_INTERVAL = 10_000; // 10 seconds for live data
+// Meteora DBC API for direct pool data
+const DBC_API_URL = 'https://dbc-api.meteora.ag';
+
+// Poll every 2 seconds for live data
+const POLL_INTERVAL = 2000;
+
+// Cache for Meteora responses to avoid hammering the API
+const poolCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 1500; // 1.5 seconds cache
 
 export function useFunLiveData(): UseFunLiveDataResult {
   const [tokens, setTokens] = useState<FunToken[]>([]);
@@ -47,66 +55,107 @@ export function useFunLiveData(): UseFunLiveDataResult {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const abortControllerRef = useRef<AbortController | null>(null);
+  const baseTokensRef = useRef<FunToken[]>([]);
 
-  // Fetch pool state for a single token
-  const fetchPoolState = async (poolAddress: string): Promise<PoolStateResponse | null> => {
+  // Fetch pool state directly from Meteora DBC API
+  const fetchPoolStateDirect = async (poolAddress: string): Promise<PoolStateResponse | null> => {
+    // Check cache first
+    const cached = poolCache.get(poolAddress);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return parsePoolData(cached.data);
+    }
+
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/fun-pool-state?pool=${poolAddress}`,
-        {
-          method: 'GET',
-          headers: {
-            'apikey': supabaseKey,
-            'Content-Type': 'application/json',
-          },
-          signal: abortControllerRef.current?.signal,
-        }
-      );
-      
+      const response = await fetch(`${DBC_API_URL}/pools/${poolAddress}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: abortControllerRef.current?.signal,
+      });
+
       if (response.ok) {
-        return await response.json();
+        const data = await response.json();
+        poolCache.set(poolAddress, { data, timestamp: Date.now() });
+        return parsePoolData(data);
       }
     } catch (e) {
       if ((e as Error).name !== 'AbortError') {
-        console.debug('[useFunLiveData] Pool state fetch failed for', poolAddress);
+        console.debug('[useFunLiveData] Direct Meteora fetch failed for', poolAddress);
       }
     }
     return null;
   };
 
-  // Main fetch function
-  const fetchTokens = useCallback(async () => {
-    // Cancel any pending requests
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+  // Parse Meteora pool data into our format
+  const parsePoolData = (data: any): PoolStateResponse => {
+    const realSol = parseFloat(data.real_base_amount || data.real_sol_reserves || 0) / 1e9;
+    const virtualSol = parseFloat(data.virtual_base_amount || data.virtual_sol_reserves || 30e9) / 1e9;
+    const virtualTokens = parseFloat(data.virtual_quote_amount || data.virtual_token_reserves || 1e15) / 1e6;
+    
+    const priceSol = virtualTokens > 0 ? virtualSol / virtualTokens : 0.00000003;
+    const totalSupply = 1_000_000_000;
+    const marketCapSol = priceSol * totalSupply;
+    const graduationThreshold = 85;
+    const bondingProgress = Math.min((realSol / graduationThreshold) * 100, 100);
+    
+    return {
+      priceSol,
+      marketCapSol,
+      holderCount: data.holder_count || 0,
+      bondingProgress,
+      realSolReserves: realSol,
+      isGraduated: bondingProgress >= 100,
+    };
+  };
 
+  // Fetch base tokens from database (less frequent)
+  const fetchBaseTokens = useCallback(async () => {
     try {
-      // Fetch fun_tokens from database
       const { data: funTokens, error: fetchError } = await supabase
         .from("fun_tokens")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (fetchError) throw fetchError;
+      
+      // Map database tokens to our FunToken type with default live values
+      const typedTokens: FunToken[] = (funTokens || []).map(t => ({
+        ...t,
+        holder_count: 0,
+        market_cap_sol: 30,
+        bonding_progress: 0,
+      }));
+      
+      baseTokensRef.current = typedTokens;
+      return typedTokens;
+    } catch (err) {
+      console.error("[useFunLiveData] Error fetching base tokens:", err);
+      return [];
+    }
+  }, []);
 
-      // Enrich with live pool data (parallel requests, limited concurrency)
+  // Refresh live data from Meteora for all tokens
+  const refreshLiveData = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    const baseTokens = baseTokensRef.current;
+    if (baseTokens.length === 0) return;
+
+    try {
+      // Fetch live data for all tokens in parallel
       const enrichedTokens = await Promise.all(
-        (funTokens || []).map(async (token) => {
+        baseTokens.map(async (token) => {
           let liveData = {
             holder_count: 0,
-            market_cap_sol: 30, // Default starting market cap
+            market_cap_sol: 30,
             bonding_progress: 0,
             price_sol: token.price_sol || 0.00000003,
           };
 
-          // Fetch live data if pool exists
+          // Fetch directly from Meteora if pool exists
           if (token.dbc_pool_address && token.dbc_pool_address.length > 30) {
-            const poolState = await fetchPoolState(token.dbc_pool_address);
+            const poolState = await fetchPoolStateDirect(token.dbc_pool_address);
             if (poolState) {
               liveData = {
                 holder_count: poolState.holderCount || 0,
@@ -132,13 +181,18 @@ export function useFunLiveData(): UseFunLiveDataResult {
       setLastUpdate(new Date());
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        console.error("[useFunLiveData] Error:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch tokens");
+        console.error("[useFunLiveData] Error refreshing live data:", err);
       }
-    } finally {
-      setIsLoading(false);
     }
   }, []);
+
+  // Full fetch (database + live data)
+  const fetchTokens = useCallback(async () => {
+    setIsLoading(true);
+    await fetchBaseTokens();
+    await refreshLiveData();
+    setIsLoading(false);
+  }, [fetchBaseTokens, refreshLiveData]);
 
   // Initial fetch
   useEffect(() => {
@@ -166,6 +220,16 @@ export function useFunLiveData(): UseFunLiveDataResult {
           
           if (payload.eventType === "INSERT") {
             const newToken = payload.new as FunToken;
+            baseTokensRef.current = [
+              { 
+                ...newToken, 
+                holder_count: 0, 
+                market_cap_sol: 30, 
+                bonding_progress: 0,
+                price_sol: 0.00000003,
+              },
+              ...baseTokensRef.current,
+            ];
             setTokens((prev) => [
               { 
                 ...newToken, 
@@ -179,6 +243,9 @@ export function useFunLiveData(): UseFunLiveDataResult {
             setLastUpdate(new Date());
           } else if (payload.eventType === "UPDATE") {
             const updatedToken = payload.new as FunToken;
+            baseTokensRef.current = baseTokensRef.current.map((t) => 
+              t.id === updatedToken.id ? { ...t, ...updatedToken } : t
+            );
             setTokens((prev) =>
               prev.map((t) => 
                 t.id === updatedToken.id 
@@ -189,6 +256,7 @@ export function useFunLiveData(): UseFunLiveDataResult {
             setLastUpdate(new Date());
           } else if (payload.eventType === "DELETE") {
             const deletedId = (payload.old as any).id;
+            baseTokensRef.current = baseTokensRef.current.filter((t) => t.id !== deletedId);
             setTokens((prev) => prev.filter((t) => t.id !== deletedId));
             setLastUpdate(new Date());
           }
@@ -201,14 +269,14 @@ export function useFunLiveData(): UseFunLiveDataResult {
     };
   }, []);
 
-  // Fast polling for live pool data
+  // Fast polling for live pool data (every 2 seconds)
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchTokens();
+      refreshLiveData();
     }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [fetchTokens]);
+  }, [refreshLiveData]);
 
   return {
     tokens,
