@@ -940,8 +940,8 @@ export default function FunLauncherPage() {
                 <Clock className="h-5 w-5 text-[#00d4aa]" />
               </div>
               <div>
-                <div className="text-sm font-medium text-white">30min Payouts</div>
-                <div className="text-xs text-gray-400">Automatic to wallet</div>
+                <div className="text-sm font-medium text-white">Instant Payouts</div>
+                <div className="text-xs text-gray-400">Every minute to wallet</div>
               </div>
             </div>
           </Card>
