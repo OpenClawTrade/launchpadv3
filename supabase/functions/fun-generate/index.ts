@@ -142,27 +142,58 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
       name = `${prefix}${suffix.charAt(0).toUpperCase() + suffix.slice(1)}`.slice(0, 12);
     }
 
-    console.log("[fun-generate] Parsed anime concept:", { name, ticker, description });
+    console.log("[fun-generate] Parsed concept:", { name, ticker, description });
 
-    // Generate circular logo image
-    const imagePrompt = `Create a VIRAL meme coin circular logo for "${name}" ($${ticker}).
+    // Fetch trending token images for style reference
+    const { data: trendingTokens } = await supabase
+      .from("trending_tokens")
+      .select("name, symbol, image_url, description")
+      .not("image_url", "is", null)
+      .limit(10);
+    
+    // Build style context from trending tokens
+    let styleContext = "";
+    if (trendingTokens && trendingTokens.length > 0) {
+      const tokenStyles = trendingTokens
+        .filter(t => t.image_url)
+        .map(t => `${t.name || t.symbol}: ${t.description || 'trending meme coin'}`)
+        .slice(0, 5)
+        .join("; ");
+      styleContext = `Current trending coin styles: ${tokenStyles}. Match this professional meme coin aesthetic.`;
+      console.log("[fun-generate] Using trending style context:", styleContext);
+    }
 
-STYLE REQUIREMENTS:
-- Eye-catching and memeable design
-- Vibrant colors that pop
-- Clean bold outlines for clarity at small sizes
-- Should look like a trending crypto token logo
-- Make it feel fresh and aligned with the narrative
+    // Generate professional meme coin logo
+    const imagePrompt = `Create a premium quality circular meme coin logo for "${name}" ($${ticker}).
 
-COMPOSITION:
-- Centered character/icon
-- Circular crop format
-- Simple but memorable
-- Professional meme coin aesthetic
+CRITICAL REQUIREMENTS:
+- Professional crypto token logo quality (NOT amateur AI art)
+- Clean vector-style design with smooth gradients
+- High contrast, vibrant color palette
+- Should instantly feel like a $100M+ market cap token
+- Ultra polished, ready for exchange listing
 
-The design should feel like it belongs on DexScreener trending.`;
+TECHNICAL SPECIFICATIONS:
+- Perfect circular composition
+- Centered iconic mascot or symbol
+- Bold, readable design at any size
+- Glossy/metallic finish effects
+- Subtle glow or shine effects
 
-    console.log("[fun-generate] Generating image...");
+STYLE REFERENCE:
+- Match the quality of top DexScreener trending tokens
+- Think Pepe, Doge, Shiba - iconic, memorable, professional
+${styleContext ? `- ${styleContext}` : ""}
+
+AVOID:
+- Cheap clipart look
+- Blurry or pixelated elements
+- Generic AI-generated aesthetic
+- Overly complex busy designs
+
+Create a logo that screams "next Binance listing" - premium, viral, unforgettable.`;
+
+    console.log("[fun-generate] Generating professional image...");
 
     const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
