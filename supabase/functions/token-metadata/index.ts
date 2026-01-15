@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[token-metadata] Found token in ${tokenSource}:`, token.name);
+    console.log(`[token-metadata] Found token in ${tokenSource}:`, token.name, 'website:', token.website_url, 'twitter:', token.twitter_url);
 
     // Build Metaplex-standard metadata JSON
     // See: https://docs.metaplex.com/programs/token-metadata/token-standard
