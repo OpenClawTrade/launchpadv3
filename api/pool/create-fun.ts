@@ -9,7 +9,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration
-const TREASURY_WALLET = '7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2';
+const TREASURY_WALLET = 'CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ';
 const TOKEN_SUPPLY = 1_000_000_000;
 const VIRTUAL_SOL = 30;
 const VIRTUAL_TOKENS = 1_000_000_000;

@@ -11,7 +11,7 @@ export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 // Platform Configuration - Treasury Wallet
 // This wallet receives all platform fees and locked LP tokens
-export const PLATFORM_FEE_WALLET = '7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2';
+export const PLATFORM_FEE_WALLET = 'CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ';
 
 // Token settings
 export const TOKEN_DECIMALS = 6;

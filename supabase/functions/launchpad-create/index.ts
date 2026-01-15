@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Platform fee wallet - receives 50% of trading fees
-const PLATFORM_FEE_WALLET = "7UiXCtz3wxjiKS2W3LQsJcs6GqwfuDbeEcRhaAVwcHB2";
+const PLATFORM_FEE_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
 
 // UUID v5 implementation for Privy ID to UUID mapping
 const UUID_V5_NAMESPACE_DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
