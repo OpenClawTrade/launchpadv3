@@ -74,11 +74,13 @@ export function useFunTokens(): UseFunTokensResult {
 
     if (fetchError) throw fetchError;
 
+    // Map DB rows to FunToken with live fields set to defaults
+    // (holder_count, market_cap_sol, bonding_progress don't exist in DB)
     return (funTokens || []).map((t) => ({
       ...t,
-      holder_count: t.holder_count ?? DEFAULT_LIVE.holder_count,
-      market_cap_sol: t.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
-      bonding_progress: t.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
+      holder_count: DEFAULT_LIVE.holder_count,
+      market_cap_sol: DEFAULT_LIVE.market_cap_sol,
+      bonding_progress: DEFAULT_LIVE.bonding_progress,
       price_sol: t.price_sol ?? DEFAULT_LIVE.price_sol,
     })) as FunToken[];
   }, []);
