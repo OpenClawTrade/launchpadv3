@@ -1239,6 +1239,84 @@ export type Database = {
         }
         Relationships: []
       }
+      sniper_trades: {
+        Row: {
+          bought_at: string | null
+          buy_amount_sol: number
+          buy_signature: string | null
+          buy_slot: number | null
+          created_at: string
+          error_message: string | null
+          fun_token_id: string | null
+          id: string
+          mint_address: string
+          pool_address: string
+          scheduled_sell_at: string | null
+          sell_signature: string | null
+          sell_slot: number | null
+          sol_received: number | null
+          sold_at: string | null
+          status: string
+          token_id: string | null
+          tokens_received: number | null
+        }
+        Insert: {
+          bought_at?: string | null
+          buy_amount_sol?: number
+          buy_signature?: string | null
+          buy_slot?: number | null
+          created_at?: string
+          error_message?: string | null
+          fun_token_id?: string | null
+          id?: string
+          mint_address: string
+          pool_address: string
+          scheduled_sell_at?: string | null
+          sell_signature?: string | null
+          sell_slot?: number | null
+          sol_received?: number | null
+          sold_at?: string | null
+          status?: string
+          token_id?: string | null
+          tokens_received?: number | null
+        }
+        Update: {
+          bought_at?: string | null
+          buy_amount_sol?: number
+          buy_signature?: string | null
+          buy_slot?: number | null
+          created_at?: string
+          error_message?: string | null
+          fun_token_id?: string | null
+          id?: string
+          mint_address?: string
+          pool_address?: string
+          scheduled_sell_at?: string | null
+          sell_signature?: string | null
+          sell_slot?: number | null
+          sol_received?: number | null
+          sold_at?: string | null
+          status?: string
+          token_id?: string | null
+          tokens_received?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sniper_trades_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sniper_trades_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_comments: {
         Row: {
           content: string
@@ -1919,6 +1997,16 @@ export type Database = {
         }
         Returns: string
       }
+      backend_create_sniper_trade: {
+        Args: {
+          p_buy_amount_sol?: number
+          p_fun_token_id?: string
+          p_mint_address?: string
+          p_pool_address?: string
+          p_token_id?: string
+        }
+        Returns: string
+      }
       backend_create_system_post: {
         Args: { p_content: string; p_image_url?: string; p_user_id: string }
         Returns: string
@@ -1951,6 +2039,10 @@ export type Database = {
         }
         Returns: string
       }
+      backend_fail_sniper_trade: {
+        Args: { p_error_message: string; p_id: string }
+        Returns: undefined
+      }
       backend_record_transaction: {
         Args: {
           p_creator_fee_sol?: number
@@ -1977,6 +2069,24 @@ export type Database = {
       }
       backend_update_holder_count: {
         Args: { p_token_id: string }
+        Returns: undefined
+      }
+      backend_update_sniper_buy: {
+        Args: {
+          p_buy_signature: string
+          p_buy_slot?: number
+          p_id: string
+          p_tokens_received?: number
+        }
+        Returns: undefined
+      }
+      backend_update_sniper_sell: {
+        Args: {
+          p_id: string
+          p_sell_signature: string
+          p_sell_slot?: number
+          p_sol_received?: number
+        }
         Returns: undefined
       }
       backend_update_token_state: {

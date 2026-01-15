@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.trending-sync]
 verify_jwt = false
+
+[functions.fun-sniper-sell]
+verify_jwt = false
