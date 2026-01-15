@@ -11,8 +11,8 @@ import bs58 from 'bs58';
 import { createMeteoraPool } from '../lib/meteora.js';
 import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS } from '../lib/config.js';
 
-// Configuration - Use new treasury wallet
-const TREASURY_WALLET = 'CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ';
+// Configuration
+// Treasury address is derived from TREASURY_PRIVATE_KEY - no hardcoding
 const INITIAL_VIRTUAL_SOL = 30;
 
 // CORS headers
@@ -84,6 +84,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[create-fun] Creating fun token:', { name, ticker, feeRecipientWallet });
 
     const treasuryKeypair = getTreasuryKeypair();
+    const treasuryAddress = treasuryKeypair.publicKey.toBase58();
+    console.log('[create-fun] Treasury wallet derived from key:', treasuryAddress);
+    
     const supabase = getSupabase();
     const rpcUrl = process.env.HELIUS_RPC_URL;
 
@@ -92,10 +95,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const connection = new Connection(rpcUrl, 'confirmed');
-
-    // Verify treasury wallet matches expected
-    const treasuryAddress = treasuryKeypair.publicKey.toBase58();
-    console.log('[create-fun] Treasury wallet:', treasuryAddress);
 
     // Create real Meteora pool using the existing SDK integration
     // Treasury wallet is the "creator" for on-chain purposes
