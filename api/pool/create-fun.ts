@@ -197,51 +197,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('[create-fun] All pool transactions confirmed!', { signatures });
 
-    // === SNIPER BUY PHASE (via Edge Function) ===
-    let sniperResult: { success: boolean; tradeId?: string; signature?: string } | null = null;
-    
+    // === SNIPER BUY PHASE (via backend function) ===
+    let sniperResult: { success: boolean; tradeId?: string; signature?: string; error?: string } | null = null;
+
     try {
-      console.log('[create-fun] Triggering sniper buy via edge function...');
-      
+      console.log('[create-fun] Triggering sniper buy via backend function...');
+
       // Use hardcoded values since these are public (anon key)
       const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
-      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44';
-      
-      console.log('[create-fun] Calling sniper at:', `${supabaseUrl}/functions/v1/fun-sniper-buy`);
-      
-      const sniperResponse = await fetch(`${supabaseUrl}/functions/v1/fun-sniper-buy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
+      const supabaseAnonKey =
+        process.env.SUPABASE_ANON_KEY ||
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44';
+
+      const sniperClient = createClient(supabaseUrl, supabaseAnonKey);
+
+      const { data: sniperData, error: sniperError } = await sniperClient.functions.invoke('fun-sniper-buy', {
+        body: {
           poolAddress: dbcPoolAddress,
-          mintAddress: mintAddress,
+          mintAddress,
           tokenId: null,
           funTokenId: null,
-        }),
+        },
       });
 
-      const sniperText = await sniperResponse.text();
-      console.log('[create-fun] Sniper response status:', sniperResponse.status);
-      console.log('[create-fun] Sniper response body:', sniperText);
-      
-      try {
-        sniperResult = JSON.parse(sniperText);
-      } catch {
-        console.error('[create-fun] Failed to parse sniper response');
-        sniperResult = { success: false };
-      }
-      
-      if (sniperResult?.success) {
-        console.log('[create-fun] ✅ Sniper buy succeeded:', sniperResult.signature);
-        signatures.push(sniperResult.signature || 'sniper-pending');
+      console.log('[create-fun] Sniper invoke result:', { sniperData, sniperError });
+
+      if (sniperError) {
+        sniperResult = { success: false, error: sniperError.message };
+        console.error('[create-fun] Sniper buy failed (invoke error):', sniperError);
       } else {
-        console.error('[create-fun] Sniper buy failed:', sniperResult);
+        sniperResult = sniperData as any;
+        if (sniperResult?.success) {
+          console.log('[create-fun] ✅ Sniper buy succeeded:', sniperResult.signature);
+          signatures.push(sniperResult.signature || 'sniper-pending');
+        } else {
+          console.error('[create-fun] Sniper buy failed (function response):', sniperResult);
+        }
       }
     } catch (sniperError) {
       console.error('[create-fun] Sniper buy error:', sniperError);
+      sniperResult = { success: false, error: sniperError instanceof Error ? sniperError.message : 'Unknown sniper error' };
       // Don't fail the entire launch
     }
 

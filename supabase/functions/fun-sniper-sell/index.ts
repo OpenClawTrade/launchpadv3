@@ -6,18 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Jito endpoints
-const JITO_BLOCK_ENGINES = [
-  'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://amsterdam.mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles',
-];
+async function getWalletFromPrivateKey(privateKey: string): Promise<string> {
+  // Parse sniper keypair (base58 or JSON array)
+  let secret: Uint8Array;
+  try {
+    const { decode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
+    secret = decode(privateKey);
+  } catch {
+    secret = new Uint8Array(JSON.parse(privateKey));
+  }
 
-const JITO_TIP_ACCOUNTS = [
-  '96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
-  'HFqU5x63VTqvQss8hp11i4bVmkzf6HbKBJv9fYfZxTdU',
-  'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
-];
+  const { Keypair } = await import('https://esm.sh/@solana/web3.js@1.98.0');
+  const kp = Keypair.fromSecretKey(secret);
+  return kp.publicKey.toBase58();
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -37,6 +39,9 @@ serve(async (req) => {
     if (!sniperPrivateKey || !heliusRpcUrl) {
       throw new Error('Missing required environment variables');
     }
+
+    const sniperWallet = await getWalletFromPrivateKey(sniperPrivateKey);
+    console.log('[fun-sniper-sell] Sniper wallet:', sniperWallet);
 
     // Get trades that are ready to sell (bought and past scheduled sell time)
     const { data: tradesToSell, error: fetchError } = await supabase
@@ -65,29 +70,32 @@ serve(async (req) => {
       try {
         console.log(`[fun-sniper-sell] Processing trade ${trade.id} for pool ${trade.pool_address}`);
 
-        // Call Meteora API to execute sell
+        const tokensToSell = Number(trade.tokens_received || 0);
+        if (!tokensToSell || tokensToSell <= 0) {
+          throw new Error('No tokens_received recorded; cannot sell');
+        }
+
+        // Call Meteora API to execute sell (server-side sign)
         const meteoraApiUrl = Deno.env.get('METEORA_API_URL') || 'https://trenchespost.vercel.app';
-        
-        // Build sell transaction via API
+
         const sellResponse = await fetch(`${meteoraApiUrl}/api/swap/execute`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             poolAddress: trade.pool_address,
-            userWallet: trade.sniper_wallet || getWalletFromPrivateKey(sniperPrivateKey),
-            amount: trade.tokens_received || 0,
-            isBuy: false, // Sell
+            userWallet: sniperWallet,
+            amount: tokensToSell,
+            isBuy: false,
             slippageBps: 5000, // 50% slippage for fast execution
             serverSideSign: true,
-            sniperPrivateKey: sniperPrivateKey,
-            priorityFee: 0.01, // High priority
+            sniperPrivateKey,
+            priorityFee: 0.01,
           }),
         });
 
         const sellResult = await sellResponse.json();
 
         if (sellResult.success) {
-          // Update trade as sold
           await supabase.rpc('backend_update_sniper_sell', {
             p_id: trade.id,
             p_sell_signature: sellResult.signature || 'executed',
@@ -102,8 +110,7 @@ serve(async (req) => {
         }
       } catch (tradeError) {
         console.error(`[fun-sniper-sell] Error selling trade ${trade.id}:`, tradeError);
-        
-        // Mark as failed
+
         await supabase.rpc('backend_fail_sniper_trade', {
           p_id: trade.id,
           p_error_message: tradeError instanceof Error ? tradeError.message : 'Unknown error',
@@ -113,37 +120,31 @@ serve(async (req) => {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
+    const successCount = results.filter((r) => r.success).length;
     console.log(`[fun-sniper-sell] Completed: ${successCount}/${tradesToSell.length} sells succeeded`);
 
-    return new Response(JSON.stringify({
-      success: true,
-      sold: successCount,
-      total: tradesToSell.length,
-      results,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        sold: successCount,
+        total: tradesToSell.length,
+        results,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   } catch (error) {
     console.error('[fun-sniper-sell] Error:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });
-
-// Helper to get wallet address from private key
-function getWalletFromPrivateKey(privateKey: string): string {
-  try {
-    // This is a simplified version - in production use proper key parsing
-    // The actual wallet address should be stored with the trade
-    return 'sniper-wallet';
-  } catch {
-    return 'unknown';
-  }
-}

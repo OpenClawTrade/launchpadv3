@@ -6,34 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Jito Block Engine endpoints
-const JITO_BLOCK_ENGINES = [
-  'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://amsterdam.mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles',
-];
-
-// Jito tip accounts
-const JITO_TIP_ACCOUNTS = [
-  '96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
-  'HFqU5x63VTqvQss8hp11i4bVmkzf6HbKBJv9fYfZxTdU',
-  'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
-  'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49',
-];
-
 // Config
 const SNIPER_BUY_SOL = 0.5;
-const TIP_LAMPORTS = 10_000_000; // 0.01 SOL
-const PRIORITY_FEE_LAMPORTS = 5_000_000; // 0.005 SOL
+const PRIORITY_FEE_LAMPORTS = 5_000_000; // 0.005 SOL total priority fee budget
 const COMPUTE_UNITS = 400_000;
-
-function getRandomTipAccount(): string {
-  return JITO_TIP_ACCOUNTS[Math.floor(Math.random() * JITO_TIP_ACCOUNTS.length)];
-}
-
-function getRandomBlockEngine(): string {
-  return JITO_BLOCK_ENGINES[Math.floor(Math.random() * JITO_BLOCK_ENGINES.length)];
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -80,14 +56,19 @@ serve(async (req) => {
     }
 
     // Import Solana web3
-    const { Connection, Keypair, PublicKey, Transaction, SystemProgram, ComputeBudgetProgram } = 
-      await import('https://esm.sh/@solana/web3.js@1.98.0');
+    const {
+      Connection,
+      Keypair,
+      PublicKey,
+      Transaction,
+      ComputeBudgetProgram,
+    } = await import('https://esm.sh/@solana/web3.js@1.98.0');
 
     const sniperKeypair = Keypair.fromSecretKey(sniperSecretKey);
     const sniperWallet = sniperKeypair.publicKey.toBase58();
     console.log('[fun-sniper-buy] Sniper wallet:', sniperWallet);
 
-    // Create sniper trade record
+    // Create sniper trade record FIRST (so we always have forensic data)
     const { data: tradeData, error: tradeError } = await supabase.rpc('backend_create_sniper_trade', {
       p_token_id: tokenId || null,
       p_fun_token_id: funTokenId || null,
@@ -104,7 +85,6 @@ serve(async (req) => {
     const tradeId = tradeData;
     console.log('[fun-sniper-buy] Created trade record:', tradeId);
 
-    // Connect to RPC
     const connection = new Connection(heliusRpcUrl, 'confirmed');
 
     // Get sniper balance
@@ -112,13 +92,16 @@ serve(async (req) => {
     const balanceSol = balance / 1_000_000_000;
     console.log('[fun-sniper-buy] Sniper balance:', balanceSol, 'SOL');
 
+    // Leave headroom for fees
     if (balanceSol < SNIPER_BUY_SOL + 0.02) {
-      throw new Error(`Insufficient sniper balance: ${balanceSol} SOL (need ${SNIPER_BUY_SOL + 0.02})`);
+      const msg = `Insufficient sniper balance: ${balanceSol} SOL (need ${SNIPER_BUY_SOL + 0.02})`;
+      await supabase.rpc('backend_fail_sniper_trade', { p_id: tradeId, p_error_message: msg });
+      throw new Error(msg);
     }
 
     // Build swap transaction using Meteora API
     const meteoraApiUrl = Deno.env.get('METEORA_API_URL') || 'https://trenchespost.vercel.app';
-    
+
     console.log('[fun-sniper-buy] Building swap transaction via Meteora API...');
     const swapResponse = await fetch(`${meteoraApiUrl}/api/swap/execute`, {
       method: 'POST',
@@ -129,149 +112,122 @@ serve(async (req) => {
         amount: SNIPER_BUY_SOL,
         isBuy: true,
         slippageBps: 5000, // 50% slippage for guaranteed execution
-        buildOnly: true, // Just build, don't send
+        buildOnly: true, // build, don't send
       }),
     });
 
     const swapResult = await swapResponse.json();
-    
-    if (!swapResult.success && !swapResult.transaction) {
+
+    if (!swapResult.success && !swapResult.serializedTransaction && !swapResult.transaction) {
       console.error('[fun-sniper-buy] Swap build failed:', swapResult);
-      throw new Error(swapResult.error || 'Failed to build swap transaction');
+      const msg = swapResult.error || 'Failed to build swap transaction';
+      await supabase.rpc('backend_fail_sniper_trade', { p_id: tradeId, p_error_message: msg });
+      throw new Error(msg);
     }
 
-    console.log('[fun-sniper-buy] Swap transaction built, estimated tokens:', swapResult.estimatedOutput);
-
-    // Get latest blockhash
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-
-    // Build final transaction with priority fees and Jito tip
+    // Deserialize swap tx instructions
     const tx = new Transaction();
-    
-    // Add compute budget instructions
-    tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNITS }));
-    tx.add(ComputeBudgetProgram.setComputeUnitPrice({ 
-      microLamports: Math.floor((PRIORITY_FEE_LAMPORTS * 1_000_000) / COMPUTE_UNITS) 
-    }));
 
-    // If we got serialized transaction, deserialize and add instructions
-    if (swapResult.serializedTransaction) {
+    tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNITS }));
+    tx.add(
+      ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: Math.floor((PRIORITY_FEE_LAMPORTS * 1_000_000) / COMPUTE_UNITS),
+      }),
+    );
+
+    // Support both fields (serializedTransaction preferred)
+    const encodedTx = swapResult.serializedTransaction || swapResult.transaction;
+
+    if (encodedTx) {
       const { decode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
-      const txBuffer = decode(swapResult.serializedTransaction);
+      const txBuffer = decode(encodedTx);
       const decodedTx = Transaction.from(txBuffer);
       for (const ix of decodedTx.instructions) {
         tx.add(ix);
       }
     }
 
-    // Add Jito tip
-    const tipAccount = getRandomTipAccount();
-    tx.add(SystemProgram.transfer({
-      fromPubkey: sniperKeypair.publicKey,
-      toPubkey: new PublicKey(tipAccount),
-      lamports: TIP_LAMPORTS,
-    }));
-
-    tx.recentBlockhash = blockhash;
+    // Fresh blockhash
+    const latest = await connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = latest.blockhash;
     tx.feePayer = sniperKeypair.publicKey;
 
-    // Sign transaction
+    // Sign
     tx.sign(sniperKeypair);
 
-    // Serialize for Jito
-    const { encode } = await import('https://deno.land/x/base58@v0.2.1/mod.ts');
-    const serializedTx = encode(tx.serialize());
+    // Send (no Jito — most reliable)
+    console.log('[fun-sniper-buy] Sending transaction...');
+    let signature: string;
 
-    // Submit to Jito
-    const blockEngine = getRandomBlockEngine();
-    console.log('[fun-sniper-buy] Submitting to Jito:', blockEngine);
-
-    const jitoResponse = await fetch(blockEngine, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'sendBundle',
-        params: [[serializedTx]],
-      }),
-    });
-
-    const jitoResult = await jitoResponse.json();
-    let signature: string | null = null;
-
-    if (jitoResult.error) {
-      console.error('[fun-sniper-buy] Jito bundle error:', jitoResult.error);
-      console.log('[fun-sniper-buy] Falling back to regular transaction...');
-      
-      // Fallback to regular send
+    try {
       signature = await connection.sendRawTransaction(tx.serialize(), {
         skipPreflight: true,
         preflightCommitment: 'confirmed',
+        maxRetries: 3,
       });
-    } else {
-      console.log('[fun-sniper-buy] Jito bundle submitted:', jitoResult.result);
-      // Extract signature from signed tx
-      signature = encode(tx.signature!);
+    } catch (sendErr) {
+      const msg = sendErr instanceof Error ? sendErr.message : 'sendRawTransaction failed';
+      await supabase.rpc('backend_fail_sniper_trade', { p_id: tradeId, p_error_message: msg });
+      throw sendErr;
     }
 
-    console.log('[fun-sniper-buy] Transaction signature:', signature);
+    console.log('[fun-sniper-buy] Signature:', signature);
 
-    // Wait for confirmation
-    if (signature) {
-      try {
-        const confirmation = await connection.confirmTransaction({
+    try {
+      const confirmation = await connection.confirmTransaction(
+        {
           signature,
-          blockhash,
-          lastValidBlockHeight,
-        }, 'confirmed');
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        },
+        'confirmed',
+      );
 
-        if (confirmation.value.err) {
-          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-        }
+      if (confirmation.value.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+      }
 
-        console.log('[fun-sniper-buy] ✅ Sniper buy confirmed!');
+      console.log('[fun-sniper-buy] ✅ Sniper buy confirmed!');
 
-        // Update trade record with success
-        await supabase.rpc('backend_update_sniper_buy', {
-          p_id: tradeId,
-          p_buy_signature: signature,
-          p_tokens_received: swapResult.estimatedOutput || 0,
-        });
+      await supabase.rpc('backend_update_sniper_buy', {
+        p_id: tradeId,
+        p_buy_signature: signature,
+        p_tokens_received: swapResult.estimatedOutput || 0,
+      });
 
-        return new Response(JSON.stringify({
+      return new Response(
+        JSON.stringify({
           success: true,
           tradeId,
           signature,
           tokensReceived: swapResult.estimatedOutput,
           sniperWallet,
-        }), {
+        }),
+        {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        },
+      );
+    } catch (confirmError) {
+      console.error('[fun-sniper-buy] Confirmation error:', confirmError);
 
-      } catch (confirmError) {
-        console.error('[fun-sniper-buy] Confirmation error:', confirmError);
-        
-        // Mark as failed
-        await supabase.rpc('backend_fail_sniper_trade', {
-          p_id: tradeId,
-          p_error_message: confirmError instanceof Error ? confirmError.message : 'Confirmation failed',
-        });
+      await supabase.rpc('backend_fail_sniper_trade', {
+        p_id: tradeId,
+        p_error_message: confirmError instanceof Error ? confirmError.message : 'Confirmation failed',
+      });
 
-        throw confirmError;
-      }
+      throw confirmError;
     }
-
-    throw new Error('No signature obtained');
-
   } catch (error) {
     console.error('[fun-sniper-buy] Error:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });
