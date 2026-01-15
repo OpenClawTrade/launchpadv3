@@ -203,34 +203,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       console.log('[create-fun] Triggering sniper buy via edge function...');
       
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+      // Use hardcoded values since these are public (anon key)
+      const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
+      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44';
       
-      if (supabaseUrl && supabaseAnonKey) {
-        const sniperResponse = await fetch(`${supabaseUrl}/functions/v1/fun-sniper-buy`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
-            poolAddress: dbcPoolAddress,
-            mintAddress: mintAddress,
-            tokenId: null, // Will be updated after token creation
-            funTokenId: null,
-          }),
-        });
+      console.log('[create-fun] Calling sniper at:', `${supabaseUrl}/functions/v1/fun-sniper-buy`);
+      
+      const sniperResponse = await fetch(`${supabaseUrl}/functions/v1/fun-sniper-buy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          poolAddress: dbcPoolAddress,
+          mintAddress: mintAddress,
+          tokenId: null,
+          funTokenId: null,
+        }),
+      });
 
-        sniperResult = await sniperResponse.json();
-        
-        if (sniperResult?.success) {
-          console.log('[create-fun] ✅ Sniper buy succeeded:', sniperResult.signature);
-          signatures.push(sniperResult.signature || 'sniper-pending');
-        } else {
-          console.error('[create-fun] Sniper buy failed:', sniperResult);
-        }
+      const sniperText = await sniperResponse.text();
+      console.log('[create-fun] Sniper response status:', sniperResponse.status);
+      console.log('[create-fun] Sniper response body:', sniperText);
+      
+      try {
+        sniperResult = JSON.parse(sniperText);
+      } catch {
+        console.error('[create-fun] Failed to parse sniper response');
+        sniperResult = { success: false };
+      }
+      
+      if (sniperResult?.success) {
+        console.log('[create-fun] ✅ Sniper buy succeeded:', sniperResult.signature);
+        signatures.push(sniperResult.signature || 'sniper-pending');
       } else {
-        console.warn('[create-fun] Supabase URL/key not configured, skipping sniper');
+        console.error('[create-fun] Sniper buy failed:', sniperResult);
       }
     } catch (sniperError) {
       console.error('[create-fun] Sniper buy error:', sniperError);
