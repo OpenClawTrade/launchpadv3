@@ -57,31 +57,18 @@ export function useFunTokens(): UseFunTokensResult {
           // Only fetch pool state if we have a valid pool address
           if (token.dbc_pool_address && token.dbc_pool_address.length > 30) {
             try {
-              // Use fun-pool-state for fun_tokens (not pool-state which is for tokens table)
-              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-              const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-              
-              const response = await fetch(
-                `${supabaseUrl}/functions/v1/fun-pool-state?pool=${token.dbc_pool_address}`,
-                {
-                  method: 'GET',
-                  headers: {
-                    'apikey': supabaseKey,
-                    'Content-Type': 'application/json',
-                  },
-                }
-              );
-              
-              if (response.ok) {
-                const data = await response.json();
-                if (data && !data.error) {
-                  liveData = {
-                    holder_count: data.holderCount || 0,
-                    market_cap_sol: data.marketCapSol || 30,
-                    bonding_progress: data.bondingProgress || 0,
-                    price_sol: data.priceSol || 0.00000003,
-                  };
-                }
+              // Use backend function invocation (avoids manual URL/key handling)
+              const { data, error } = await supabase.functions.invoke('fun-pool-state', {
+                body: { pool: token.dbc_pool_address },
+              });
+
+              if (!error && data && !data.error) {
+                liveData = {
+                  holder_count: data.holderCount || 0,
+                  market_cap_sol: data.marketCapSol || 30,
+                  bonding_progress: data.bondingProgress || 0,
+                  price_sol: data.priceSol || 0.00000003,
+                };
               }
             } catch (e) {
               // Silently fail, use defaults

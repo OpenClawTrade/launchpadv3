@@ -244,8 +244,12 @@ export default function FunLauncherPage() {
   }, [meme, walletAddress, toast, refetch]);
 
   const formatSOL = (sol: number) => {
+    if (!Number.isFinite(sol)) return "0";
     if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K`;
     if (sol >= 1) return sol.toFixed(2);
+    // Prevent misleading "0.000000" for very small prices
+    if (sol > 0 && sol < 0.000001) return sol.toExponential(2);
+    if (sol > 0 && sol < 0.01) return sol.toFixed(8);
     return sol.toFixed(6);
   };
 
