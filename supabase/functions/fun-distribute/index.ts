@@ -247,33 +247,9 @@ serve(async (req) => {
           })
           .eq("id", claim.id);
 
-        // Record buyback entry (30%)
-        if (buybackAmount >= MIN_DISTRIBUTION_SOL) {
-          await supabase.from("fun_buybacks").insert({
-            fun_token_id: token.id,
-            amount_sol: buybackAmount,
-            status: "pending",
-          });
-
-          await supabase.from("fun_distributions").insert({
-            fun_token_id: token.id,
-            creator_wallet: TREASURY_WALLET,
-            amount_sol: buybackAmount,
-            distribution_type: "buyback",
-            status: "completed",
-          });
-        }
-
-        // Record system fee (20%)
-        if (systemAmount >= MIN_DISTRIBUTION_SOL) {
-          await supabase.from("fun_distributions").insert({
-            fun_token_id: token.id,
-            creator_wallet: TREASURY_WALLET,
-            amount_sol: systemAmount,
-            distribution_type: "system",
-            status: "completed",
-          });
-        }
+        // NOTE: Buyback and system fee recording is disabled until buyback execution is implemented
+        // The 50% creator share is distributed, remaining 50% stays in treasury for future buybacks/expenses
+        console.log(`[fun-distribute] Reserved for buyback: ${buybackAmount.toFixed(6)} SOL, system: ${systemAmount.toFixed(6)} SOL`);
 
         results.push({
           claimId: claim.id,
