@@ -23,6 +23,11 @@ interface DexScreenerPair {
     name: string;
     symbol: string;
   };
+  quoteToken?: {
+    address: string;
+    name: string;
+    symbol: string;
+  };
   info?: {
     imageUrl?: string;
     description?: string;
@@ -57,6 +62,9 @@ Deno.serve(async (req) => {
     
     console.log(`Fetched ${top50.length} boosted tokens from DexScreener`);
 
+    // Create a set of addresses we're looking for (normalized to lowercase)
+    const targetAddresses = new Set(top50.map(t => t.tokenAddress.toLowerCase()));
+
     // Fetch detailed token info for each token to get complete data
     // Group by chain and batch requests
     const tokensByChain = new Map<string, string[]>();
@@ -88,31 +96,54 @@ Deno.serve(async (req) => {
           if (detailsResponse.ok) {
             const pairs: DexScreenerPair[] = await detailsResponse.json();
             
-            // Extract unique token info (may have multiple pairs per token)
+            console.log(`Got ${pairs.length} pairs from DexScreener for ${chain}`);
+            
+            // Extract unique token info - check both baseToken and quoteToken
             for (const pair of pairs) {
-              if (pair.baseToken && !tokenDetails.has(pair.baseToken.address.toLowerCase())) {
-                tokenDetails.set(pair.baseToken.address.toLowerCase(), {
-                  name: pair.baseToken.name,
-                  symbol: pair.baseToken.symbol,
-                  imageUrl: pair.info?.imageUrl || null,
-                  description: pair.info?.description || null,
-                  url: pair.url || null,
-                });
+              // Check baseToken
+              if (pair.baseToken) {
+                const baseAddr = pair.baseToken.address.toLowerCase();
+                if (targetAddresses.has(baseAddr) && !tokenDetails.has(baseAddr)) {
+                  tokenDetails.set(baseAddr, {
+                    name: pair.baseToken.name,
+                    symbol: pair.baseToken.symbol,
+                    imageUrl: pair.info?.imageUrl || null,
+                    description: pair.info?.description || null,
+                    url: pair.url || null,
+                  });
+                  console.log(`Found token: ${pair.baseToken.name} (${pair.baseToken.symbol})`);
+                }
+              }
+              
+              // Also check quoteToken in case our target is the quote
+              if (pair.quoteToken) {
+                const quoteAddr = pair.quoteToken.address.toLowerCase();
+                if (targetAddresses.has(quoteAddr) && !tokenDetails.has(quoteAddr)) {
+                  tokenDetails.set(quoteAddr, {
+                    name: pair.quoteToken.name,
+                    symbol: pair.quoteToken.symbol,
+                    imageUrl: pair.info?.imageUrl || null,
+                    description: pair.info?.description || null,
+                    url: pair.url || null,
+                  });
+                  console.log(`Found token (quote): ${pair.quoteToken.name} (${pair.quoteToken.symbol})`);
+                }
               }
             }
           } else {
-            console.error(`Failed to fetch details for chunk: ${detailsResponse.status}`);
+            const errorText = await detailsResponse.text();
+            console.error(`Failed to fetch details for chunk: ${detailsResponse.status} - ${errorText}`);
           }
           
           // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 150));
         } catch (err) {
           console.error(`Error fetching token details:`, err);
         }
       }
     }
 
-    console.log(`Got detailed info for ${tokenDetails.size} tokens`);
+    console.log(`Got detailed info for ${tokenDetails.size} of ${top50.length} tokens`);
 
     // Clear old trending tokens and insert new ones
     await supabase.from("trending_tokens").delete().neq("id", "00000000-0000-0000-0000-000000000000");
