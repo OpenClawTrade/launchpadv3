@@ -28,9 +28,11 @@ import {
   ArrowDownCircle,
   Wallet,
   AlertTriangle,
-  PartyPopper
+  PartyPopper,
+  Key
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { Link } from "react-router-dom";
 
 interface MemeToken {
   name: string;
@@ -255,7 +257,17 @@ export default function FunLauncherPage() {
             <span className="text-lg font-bold">FUN LAUNCHER</span>
             <Badge className="bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30">BETA</Badge>
           </div>
-          <div className="flex items-center gap-4 text-sm text-gray-400">
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Link to="/vanity">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+              >
+                <Key className="h-4 w-4 mr-1" />
+                Vanity
+              </Button>
+            </Link>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
               Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
