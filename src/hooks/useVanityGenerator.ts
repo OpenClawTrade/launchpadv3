@@ -14,6 +14,7 @@ interface GenerationProgress {
   attempts: number;
   rate: number; // keys per second
   elapsed: number; // seconds
+  workersActive: number;
 }
 
 interface GenerationResult {
@@ -41,9 +42,21 @@ interface UseVanityGeneratorResult {
   fetchSavedKeypairs: () => Promise<void>;
 }
 
-// Inline worker code for vanity address generation
+// Highly optimized worker code using @noble/ed25519 for maximum speed
 const workerCode = `
+importScripts('https://unpkg.com/@noble/ed25519@2.1.0/lib/index.min.js');
+
 const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+// Pre-compute lookup for fast suffix matching
+function createSuffixMatcher(suffix, caseSensitive) {
+  const target = caseSensitive ? suffix : suffix.toLowerCase();
+  const len = target.length;
+  return (address) => {
+    const end = caseSensitive ? address.slice(-len) : address.slice(-len).toLowerCase();
+    return end === target;
+  };
+}
 
 function base58Encode(bytes) {
   const digits = [0];
@@ -70,124 +83,104 @@ function base58Encode(bytes) {
 }
 
 function toHex(bytes) {
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function randomBytes(length) {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return bytes;
-}
-
-// Fast keypair generation using Web Crypto Ed25519
-async function generateKeypair() {
-  try {
-    const keyPair = await crypto.subtle.generateKey(
-      { name: 'Ed25519' },
-      true,
-      ['sign', 'verify']
-    );
-    
-    const privateKeyBuffer = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
-    const publicKeyBuffer = await crypto.subtle.exportKey('spki', keyPair.publicKey);
-    
-    const privateKeyBytes = new Uint8Array(privateKeyBuffer);
-    const publicKeyBytes = new Uint8Array(publicKeyBuffer);
-    
-    const publicKey = publicKeyBytes.slice(-32);
-    const secretSeed = privateKeyBytes.slice(16, 48);
-    
-    const fullSecretKey = new Uint8Array(64);
-    fullSecretKey.set(secretSeed, 0);
-    fullSecretKey.set(publicKey, 32);
-    
-    return {
-      publicKey,
-      secretKey: fullSecretKey,
-      address: base58Encode(publicKey),
-    };
-  } catch (e) {
-    // Fallback for browsers without Ed25519 support
-    const publicKey = randomBytes(32);
-    const secretKey = new Uint8Array(64);
-    secretKey.set(randomBytes(32), 0);
-    secretKey.set(publicKey, 32);
-    
-    return {
-      publicKey,
-      secretKey,
-      address: base58Encode(publicKey),
-    };
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
   }
-}
-
-function matchesSuffix(address, suffix, caseSensitive) {
-  if (caseSensitive) {
-    return address.endsWith(suffix);
-  }
-  return address.toLowerCase().endsWith(suffix.toLowerCase());
+  return hex;
 }
 
 let shouldStop = false;
+let totalAttempts = 0;
 
-async function searchVanity(suffix, caseSensitive, batchSize) {
-  let attempts = 0;
-  let found = null;
+// Ultra-fast batch generation using noble/ed25519
+async function searchVanity(suffix, caseSensitive, workerId) {
+  const matchSuffix = createSuffixMatcher(suffix, caseSensitive);
   const startTime = Date.now();
   shouldStop = false;
+  totalAttempts = 0;
   
-  while (!found && !shouldStop) {
-    for (let i = 0; i < batchSize && !shouldStop; i++) {
-      attempts++;
-      const keypair = await generateKeypair();
+  // Use larger batch sizes for speed
+  const BATCH_SIZE = 200;
+  const REPORT_INTERVAL = 1000; // Report every 1000 attempts
+  
+  while (!shouldStop) {
+    // Generate batch of random seeds
+    for (let i = 0; i < BATCH_SIZE && !shouldStop; i++) {
+      totalAttempts++;
       
-      if (matchesSuffix(keypair.address, suffix, caseSensitive)) {
-        found = {
-          address: keypair.address,
-          secretKey: toHex(keypair.secretKey),
-          attempts,
-          duration: Date.now() - startTime,
-        };
-        break;
+      // Generate random 32-byte seed
+      const seed = new Uint8Array(32);
+      crypto.getRandomValues(seed);
+      
+      try {
+        // Use noble/ed25519 for fast key derivation
+        const publicKey = await nobleEd25519.getPublicKeyAsync(seed);
+        const address = base58Encode(publicKey);
+        
+        if (matchSuffix(address)) {
+          // Found! Build full secret key (64 bytes: seed + public key)
+          const fullSecretKey = new Uint8Array(64);
+          fullSecretKey.set(seed, 0);
+          fullSecretKey.set(publicKey, 32);
+          
+          return {
+            address,
+            secretKey: toHex(fullSecretKey),
+            attempts: totalAttempts,
+            duration: Date.now() - startTime,
+          };
+        }
+      } catch (e) {
+        // Skip invalid seeds (rare)
+        continue;
       }
     }
     
-    if (!found && !shouldStop) {
+    // Report progress periodically
+    if (totalAttempts % REPORT_INTERVAL === 0 && !shouldStop) {
       const elapsed = (Date.now() - startTime) / 1000;
-      const rate = elapsed > 0 ? attempts / elapsed : 0;
+      const rate = elapsed > 0 ? totalAttempts / elapsed : 0;
       self.postMessage({
         type: 'progress',
-        attempts,
+        attempts: totalAttempts,
         rate: Math.round(rate),
         elapsed: Math.round(elapsed),
+        workerId,
       });
     }
   }
   
-  return found;
+  return null;
 }
 
 self.onmessage = async function(e) {
-  const { type, suffix, caseSensitive = false, batchSize = 500 } = e.data;
+  const { type, suffix, caseSensitive = false, workerId = 0 } = e.data;
   
   if (type === 'start') {
-    self.postMessage({ type: 'started', suffix });
+    self.postMessage({ type: 'started', suffix, workerId });
     
     try {
-      const result = await searchVanity(suffix, caseSensitive, batchSize);
+      const result = await searchVanity(suffix, caseSensitive, workerId);
       if (result) {
-        self.postMessage({ type: 'found', ...result });
+        self.postMessage({ type: 'found', ...result, workerId });
       } else {
-        self.postMessage({ type: 'stopped' });
+        self.postMessage({ type: 'stopped', workerId });
       }
     } catch (error) {
-      self.postMessage({ type: 'error', message: error.message });
+      self.postMessage({ type: 'error', message: error.message, workerId });
     }
   } else if (type === 'stop') {
     shouldStop = true;
   }
 };
 `;
+
+// Number of parallel workers based on hardware concurrency
+const getWorkerCount = () => {
+  const cores = navigator.hardwareConcurrency || 4;
+  return Math.max(2, Math.min(cores - 1, 8)); // Use 2-8 workers
+};
 
 export function useVanityGenerator(): UseVanityGeneratorResult {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -197,10 +190,13 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
   const [savedKeypairs, setSavedKeypairs] = useState<VanityKeypair[]>([]);
   const [isLoadingKeypairs, setIsLoadingKeypairs] = useState(true);
   
-  const workerRef = useRef<Worker | null>(null);
+  const workersRef = useRef<Worker[]>([]);
+  const progressRef = useRef<Map<number, { attempts: number; rate: number }>>(new Map());
+  const startTimeRef = useRef<number>(0);
+  const foundRef = useRef<boolean>(false);
 
   // Create worker
-  const createWorker = useCallback(() => {
+  const createWorker = useCallback((workerId: number, suffix: string, caseSensitive: boolean) => {
     const blob = new Blob([workerCode], { type: 'application/javascript' });
     const url = URL.createObjectURL(blob);
     const worker = new Worker(url);
@@ -209,12 +205,37 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
       const data = e.data;
       
       if (data.type === 'progress') {
-        setProgress({
+        progressRef.current.set(data.workerId, {
           attempts: data.attempts,
           rate: data.rate,
-          elapsed: data.elapsed,
         });
-      } else if (data.type === 'found') {
+        
+        // Aggregate progress from all workers
+        let totalAttempts = 0;
+        let totalRate = 0;
+        progressRef.current.forEach((p) => {
+          totalAttempts += p.attempts;
+          totalRate += p.rate;
+        });
+        
+        const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000);
+        
+        setProgress({
+          attempts: totalAttempts,
+          rate: totalRate,
+          elapsed,
+          workersActive: progressRef.current.size,
+        });
+      } else if (data.type === 'found' && !foundRef.current) {
+        foundRef.current = true;
+        
+        // Stop all workers
+        workersRef.current.forEach(w => {
+          w.postMessage({ type: 'stop' });
+          w.terminate();
+        });
+        workersRef.current = [];
+        
         setResult({
           address: data.address,
           secretKey: data.secretKey,
@@ -224,25 +245,26 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
         setIsGenerating(false);
         setProgress(null);
       } else if (data.type === 'error') {
-        setError(data.message);
-        setIsGenerating(false);
-        setProgress(null);
-      } else if (data.type === 'stopped') {
-        setIsGenerating(false);
-        setProgress(null);
+        console.error(`[Worker ${data.workerId}] Error:`, data.message);
       }
     };
     
     worker.onerror = (e) => {
       console.error('[VanityWorker] Error:', e);
-      setError('Worker error: ' + e.message);
-      setIsGenerating(false);
     };
+    
+    // Start immediately
+    worker.postMessage({
+      type: 'start',
+      suffix,
+      caseSensitive,
+      workerId,
+    });
     
     return worker;
   }, []);
 
-  // Start generation
+  // Start generation with multiple parallel workers
   const startGeneration = useCallback((suffix: string, caseSensitive = false) => {
     if (isGenerating) return;
     
@@ -265,29 +287,32 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
     setResult(null);
     setProgress(null);
     setIsGenerating(true);
+    foundRef.current = false;
+    progressRef.current.clear();
+    startTimeRef.current = Date.now();
     
-    // Create new worker
-    if (workerRef.current) {
-      workerRef.current.terminate();
+    // Terminate existing workers
+    workersRef.current.forEach(w => w.terminate());
+    workersRef.current = [];
+    
+    // Create multiple parallel workers
+    const workerCount = getWorkerCount();
+    console.log(`[VanityGenerator] Starting ${workerCount} parallel workers for suffix "${suffix}"`);
+    
+    for (let i = 0; i < workerCount; i++) {
+      const worker = createWorker(i, suffix, caseSensitive);
+      workersRef.current.push(worker);
     }
-    workerRef.current = createWorker();
-    
-    // Start search
-    workerRef.current.postMessage({
-      type: 'start',
-      suffix,
-      caseSensitive,
-      batchSize: 500,
-    });
   }, [isGenerating, createWorker]);
 
   // Stop generation
   const stopGeneration = useCallback(() => {
-    if (workerRef.current) {
-      workerRef.current.postMessage({ type: 'stop' });
-      workerRef.current.terminate();
-      workerRef.current = null;
-    }
+    workersRef.current.forEach(w => {
+      w.postMessage({ type: 'stop' });
+      w.terminate();
+    });
+    workersRef.current = [];
+    progressRef.current.clear();
     setIsGenerating(false);
     setProgress(null);
   }, []);
@@ -299,8 +324,6 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
     suffix: string
   ): Promise<boolean> => {
     try {
-      // For security, we'll encrypt the secret key with a simple approach
-      // In production, you'd want a more robust encryption scheme
       const { data, error } = await supabase.functions.invoke('vanity-save', {
         body: {
           publicKey: address,
@@ -312,7 +335,6 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
       if (error) throw error;
       
       if (data?.success) {
-        // Refresh the list
         await fetchSavedKeypairs();
         return true;
       }
@@ -328,7 +350,6 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
   const fetchSavedKeypairs = useCallback(async () => {
     setIsLoadingKeypairs(true);
     try {
-      // Use raw query since types may not be regenerated yet
       const { data, error } = await supabase
         .from('vanity_keypairs' as any)
         .select('id, suffix, public_key, status, used_for_token_id, created_at')
@@ -352,9 +373,7 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-      }
+      workersRef.current.forEach(w => w.terminate());
     };
   }, []);
 
