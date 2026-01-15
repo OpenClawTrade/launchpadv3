@@ -68,15 +68,16 @@ Create something that fits this trending theme but with a unique twist!`;
 
 ${themeContext}
 
-IMPORTANT REQUIREMENTS:
-1. Name MUST be SHORT (1-2 words, max 12 characters)
-2. Make it catchy, viral, and fits the current trending narrative
-3. Ticker should be 3-4 letters
-4. The concept should feel fresh and aligned with what's hot on crypto twitter
+CRITICAL NAME REQUIREMENTS:
+1. Name MUST be a SINGLE WORD ONLY - NO compound words, NO combining two words
+2. Examples of GOOD names: Pepe, Doge, Shiba, Wojak, Mochi, Neko, Luna, Kira
+3. Examples of BAD names: WaifuWars, MoonDoge, CatPunk, ShibaKing - NEVER do this
+4. Max 10 characters, simple and memorable
+5. Ticker should be 3-4 letters derived from the name
 
 Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
 {
-  "name": "Short catchy name (1-2 words, max 12 chars)",
+  "name": "Single word name only (max 10 chars, NO compound words)",
   "ticker": "3-4 letter ticker in CAPS",
   "description": "Trendy description with emoji (max 80 chars)"
 }`;
