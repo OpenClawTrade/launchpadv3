@@ -119,7 +119,16 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   const feeNumerator = new BN(TRADING_FEE_BPS * 100_000); // 200 bps => 20,000,000 (2%)
   
   // Prepare initial buy if specified
-  let firstBuyParam = null;
+  // NOTE: use `undefined` (not `null`) to match SDK typings.
+  let firstBuyParam:
+    | {
+        buyer: PublicKey;
+        buyAmount: unknown;
+        minimumAmountOut: BN;
+        referralTokenAccount: null;
+      }
+    | undefined;
+
   if (params.initialBuySol && params.initialBuySol > 0) {
     const amountIn = await prepareSwapAmountParam(
       params.initialBuySol,
@@ -409,6 +418,32 @@ export async function executeMeteoraSwap(params: {
     });
   }
   
+  // Ensure the returned tx is immediately serializable/signable.
+  // Some SDK helpers return a Transaction without a recentBlockhash, which later fails with:
+  // "Transaction recentBlockhash required".
+  const { blockhash } = await connection.getLatestBlockhash('confirmed');
+
+  if (transaction instanceof VersionedTransaction) {
+    // Versioned tx stores blockhash on the compiled message.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (transaction.message as any).recentBlockhash = blockhash;
+  } else {
+    // Add priority fees for better inclusion probability.
+    const PRIORITY_FEE_MICRO_LAMPORTS = 100_000; // 0.0001 SOL per compute unit
+    const COMPUTE_UNITS = 400_000;
+
+    const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: PRIORITY_FEE_MICRO_LAMPORTS,
+    });
+    const computeUnitsIx = ComputeBudgetProgram.setComputeUnitLimit({
+      units: COMPUTE_UNITS,
+    });
+
+    transaction.instructions = [computeUnitsIx, priorityFeeIx, ...transaction.instructions];
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = userPubkey;
+  }
+
   return {
     transaction,
     estimatedOutput,
