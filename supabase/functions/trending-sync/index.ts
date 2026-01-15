@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface DexScreenerToken {
+interface DexScreenerBoost {
   tokenAddress: string;
   chainId: string;
   icon?: string;
@@ -15,6 +15,21 @@ interface DexScreenerToken {
   url?: string;
   totalAmount?: number;
   amount?: number;
+}
+
+interface DexScreenerPair {
+  baseToken: {
+    address: string;
+    name: string;
+    symbol: string;
+  };
+  info?: {
+    imageUrl?: string;
+    description?: string;
+    websites?: { url: string }[];
+    socials?: { type: string; url: string }[];
+  };
+  url?: string;
 }
 
 Deno.serve(async (req) => {
@@ -29,35 +44,97 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch top 50 from DexScreener
-    console.log("Fetching top 50 tokens from DexScreener...");
+    // Fetch top 50 from DexScreener boosts
+    console.log("Fetching top 50 tokens from DexScreener boosts...");
     const dexResponse = await fetch("https://api.dexscreener.com/token-boosts/top/v1");
     
     if (!dexResponse.ok) {
       throw new Error(`DexScreener API error: ${dexResponse.status}`);
     }
 
-    const tokens: DexScreenerToken[] = await dexResponse.json();
-    const top50 = tokens.slice(0, 50);
+    const boosts: DexScreenerBoost[] = await dexResponse.json();
+    const top50 = boosts.slice(0, 50);
     
-    console.log(`Fetched ${top50.length} tokens from DexScreener`);
+    console.log(`Fetched ${top50.length} boosted tokens from DexScreener`);
+
+    // Fetch detailed token info for each token to get complete data
+    // Group by chain and batch requests
+    const tokensByChain = new Map<string, string[]>();
+    for (const token of top50) {
+      const chain = token.chainId || "solana";
+      if (!tokensByChain.has(chain)) {
+        tokensByChain.set(chain, []);
+      }
+      tokensByChain.get(chain)!.push(token.tokenAddress);
+    }
+
+    // Fetch detailed info from DexScreener tokens endpoint (supports multiple addresses)
+    const tokenDetails = new Map<string, { name: string; symbol: string; imageUrl: string | null; description: string | null; url: string | null }>();
+    
+    for (const [chain, addresses] of tokensByChain) {
+      // DexScreener allows up to 30 addresses per request
+      const chunks = [];
+      for (let i = 0; i < addresses.length; i += 30) {
+        chunks.push(addresses.slice(i, i + 30));
+      }
+      
+      for (const chunk of chunks) {
+        try {
+          const addressList = chunk.join(",");
+          console.log(`Fetching details for ${chunk.length} tokens on ${chain}...`);
+          
+          const detailsResponse = await fetch(`https://api.dexscreener.com/tokens/v1/${chain}/${addressList}`);
+          
+          if (detailsResponse.ok) {
+            const pairs: DexScreenerPair[] = await detailsResponse.json();
+            
+            // Extract unique token info (may have multiple pairs per token)
+            for (const pair of pairs) {
+              if (pair.baseToken && !tokenDetails.has(pair.baseToken.address.toLowerCase())) {
+                tokenDetails.set(pair.baseToken.address.toLowerCase(), {
+                  name: pair.baseToken.name,
+                  symbol: pair.baseToken.symbol,
+                  imageUrl: pair.info?.imageUrl || null,
+                  description: pair.info?.description || null,
+                  url: pair.url || null,
+                });
+              }
+            }
+          } else {
+            console.error(`Failed to fetch details for chunk: ${detailsResponse.status}`);
+          }
+          
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (err) {
+          console.error(`Error fetching token details:`, err);
+        }
+      }
+    }
+
+    console.log(`Got detailed info for ${tokenDetails.size} tokens`);
 
     // Clear old trending tokens and insert new ones
     await supabase.from("trending_tokens").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
-    const trendingTokens = top50.map((token, index) => ({
-      rank: index + 1,
-      token_address: token.tokenAddress,
-      chain_id: token.chainId || "solana",
-      name: token.name || null,
-      symbol: token.symbol || null,
-      description: token.description || null,
-      image_url: token.icon || null,
-      url: token.url || null,
-      total_amount: token.totalAmount || null,
-      amount: token.amount || null,
-      synced_at: new Date().toISOString(),
-    }));
+    const trendingTokens = top50.map((token, index) => {
+      const details = tokenDetails.get(token.tokenAddress.toLowerCase());
+      
+      return {
+        rank: index + 1,
+        token_address: token.tokenAddress,
+        chain_id: token.chainId || "solana",
+        // Prefer detailed info, fallback to boost data
+        name: details?.name || token.name || null,
+        symbol: details?.symbol || token.symbol || null,
+        description: details?.description || token.description || null,
+        image_url: details?.imageUrl || token.icon || null,
+        url: details?.url || token.url || `https://dexscreener.com/${token.chainId || 'solana'}/${token.tokenAddress}`,
+        total_amount: token.totalAmount || null,
+        amount: token.amount || null,
+        synced_at: new Date().toISOString(),
+      };
+    });
 
     const { error: insertError } = await supabase.from("trending_tokens").insert(trendingTokens);
     
@@ -66,13 +143,34 @@ Deno.serve(async (req) => {
       throw insertError;
     }
 
+    // Log what data we're missing for debugging
+    const missingData = trendingTokens.filter(t => !t.name || !t.image_url);
+    if (missingData.length > 0) {
+      console.log(`Warning: ${missingData.length} tokens still missing name or image`);
+    }
+
     console.log("Trending tokens synced successfully");
 
     // Analyze narratives using AI
     if (lovableApiKey) {
       console.log("Analyzing narratives with AI...");
       
-      const tokenList = top50.map(t => `${t.name || t.symbol || 'Unknown'}: ${t.description || 'No description'}`).join('\n');
+      const tokenList = trendingTokens
+        .filter(t => t.name)
+        .map(t => `${t.name}${t.symbol ? ` (${t.symbol})` : ''}: ${t.description || 'No description'}`)
+        .join('\n');
+      
+      if (!tokenList) {
+        console.log("No token names available for narrative analysis");
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            tokensCount: top50.length,
+            message: "Trending tokens synced, but no names for narrative analysis" 
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -159,6 +257,7 @@ Return ONLY valid JSON in this exact format:
       JSON.stringify({ 
         success: true, 
         tokensCount: top50.length,
+        detailedCount: tokenDetails.size,
         message: "Trending data synced successfully" 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
