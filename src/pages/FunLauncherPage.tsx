@@ -266,7 +266,7 @@ export default function FunLauncherPage() {
                 className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
               >
                 <TrendingUp className="h-4 w-4 mr-1" />
-                Trending
+                Narratives
               </Button>
             </Link>
             <Link to="/vanity">
@@ -312,8 +312,9 @@ export default function FunLauncherPage() {
             </h1>
             
             <p className="text-gray-400 text-sm md:text-base mb-6 leading-relaxed max-w-2xl mx-auto">
-              ai67x is a fully autonomous agent that handles the entire token launch lifecycle. 
-              No wallet connections. No complex configurations. Simply click, generate, and earn.
+              ai67x leverages neural network inference and on-chain automation to orchestrate the entire token lifecycle. 
+              Zero wallet connections. Zero manual configurations. Our self-executing smart contracts and ML-powered generative engine 
+              handle liquidity provisioning, fee distribution, and narrative-driven asset creation autonomously.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
