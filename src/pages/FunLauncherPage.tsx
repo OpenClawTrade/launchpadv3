@@ -387,11 +387,26 @@ export default function FunLauncherPage() {
                         </p>
                       </div>
                     ) : meme ? (
-                      <>
-                        <h3 className="font-bold text-white truncate">{meme.name}</h3>
-                        <span className="text-[#00d4aa] font-mono text-sm">${meme.ticker}</span>
-                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{meme.description}</p>
-                      </>
+                      <div className="space-y-2">
+                        <Input
+                          value={meme.name}
+                          onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })}
+                          className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
+                          placeholder="Token name"
+                          maxLength={20}
+                        />
+                        <div className="flex items-center gap-1">
+                          <span className="text-[#00d4aa] text-sm">$</span>
+                          <Input
+                            value={meme.ticker}
+                            onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) })}
+                            className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-20"
+                            placeholder="TICKER"
+                            maxLength={6}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-400 line-clamp-2">{meme.description}</p>
+                      </div>
                     ) : (
                       <p className="text-sm text-gray-500">Click Randomize to generate</p>
                     )}
