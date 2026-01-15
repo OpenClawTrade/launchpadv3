@@ -306,10 +306,7 @@ export default function FunLauncherPage() {
           <div className="max-w-3xl mx-auto text-center">
             
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3 leading-tight">
-              Launch Tokens with{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] to-[#00a8cc]">
-                Zero Friction
-              </span>
+              Autonomous Token Launchpad
             </h1>
             
             <p className="text-gray-400 text-sm md:text-base mb-6 leading-relaxed max-w-2xl mx-auto">
