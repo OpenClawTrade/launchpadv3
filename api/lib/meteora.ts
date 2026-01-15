@@ -270,13 +270,9 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     units: COMPUTE_UNITS,
   });
   
-  // Set blockhash, fee payer, add priority fees, and pre-sign ONLY when the key is actually a required signer
+  // Set blockhash, fee payer, add priority fees
+  // NOTE: We do NOT pre-sign here - the caller (create-fun.ts) will sign with all required keypairs
   const preparedTransactions: Transaction[] = [];
-
-  const signIfRequired = (tx: Transaction, kp: Keypair) => {
-    const required = tx.signatures.some(s => s.publicKey.equals(kp.publicKey));
-    if (required) tx.partialSign(kp);
-  };
   
   const addPriorityFees = (tx: Transaction) => {
     // Prepend priority fee instructions
@@ -287,8 +283,7 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     addPriorityFees(createConfigTx);
     createConfigTx.recentBlockhash = blockhash;
     createConfigTx.feePayer = creatorPubkey;
-    signIfRequired(createConfigTx, mintKeypair);
-    signIfRequired(createConfigTx, configKeypair);
+    // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(createConfigTx);
   }
 
@@ -296,8 +291,7 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     addPriorityFees(createPoolTx);
     createPoolTx.recentBlockhash = blockhash;
     createPoolTx.feePayer = creatorPubkey;
-    signIfRequired(createPoolTx, mintKeypair);
-    signIfRequired(createPoolTx, configKeypair);
+    // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(createPoolTx);
   }
   
@@ -305,19 +299,11 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
     addPriorityFees(swapBuyTx);
     swapBuyTx.recentBlockhash = blockhash;
     swapBuyTx.feePayer = creatorPubkey;
-    // Swap tx may not need mint/config signatures, but include if they're required
-    // Only sign if these keys are in the transaction's signers list
-    const swapSigners = swapBuyTx.signatures.map(s => s.publicKey.toBase58());
-    if (swapSigners.includes(mintKeypair.publicKey.toBase58())) {
-      swapBuyTx.partialSign(mintKeypair);
-    }
-    if (swapSigners.includes(configKeypair.publicKey.toBase58())) {
-      swapBuyTx.partialSign(configKeypair);
-    }
+    // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(swapBuyTx);
   }
 
-  console.log('[meteora] Added priority fees to', preparedTransactions.length, 'transactions');
+  console.log('[meteora] Prepared', preparedTransactions.length, 'transactions (unsigned - caller will sign)');
 
   return {
     transactions: preparedTransactions,

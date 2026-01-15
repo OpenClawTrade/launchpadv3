@@ -89,25 +89,42 @@ export default function FunLauncherPage() {
   };
 
   const handleRandomize = useCallback(async () => {
+    console.log("[FunLauncher] Randomize clicked");
     setIsGenerating(true);
     setMeme(null);
     
     try {
+      console.log("[FunLauncher] Calling fun-generate...");
       const { data, error } = await supabase.functions.invoke("fun-generate", {
         body: {}
       });
 
-      if (error) throw error;
+      console.log("[FunLauncher] fun-generate response:", { data, error });
+
+      if (error) {
+        console.error("[FunLauncher] fun-generate error:", error);
+        throw error;
+      }
+
+      // Handle backend returning success: false
+      if (data && !data.success) {
+        console.error("[FunLauncher] fun-generate returned failure:", data.error);
+        throw new Error(data.error || "Generation failed on server");
+      }
 
       if (data?.meme) {
+        console.log("[FunLauncher] Meme generated:", data.meme);
         setMeme(data.meme);
         toast({
           title: "Meme Generated! 🎲",
           description: `${data.meme.name} ($${data.meme.ticker}) is ready!`,
         });
+      } else {
+        console.error("[FunLauncher] No meme in response:", data);
+        throw new Error("No meme data returned from server");
       }
     } catch (error) {
-      console.error("Generate error:", error);
+      console.error("[FunLauncher] Generate error:", error);
       toast({
         title: "Generation failed",
         description: error instanceof Error ? error.message : "Failed to generate meme",
@@ -141,6 +158,7 @@ export default function FunLauncherPage() {
     console.log("[FunLauncher] Starting token launch:", { name: meme.name, ticker: meme.ticker, wallet: walletAddress });
 
     try {
+      console.log("[FunLauncher] Calling fun-create...");
       const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
           name: meme.name,
@@ -151,13 +169,23 @@ export default function FunLauncherPage() {
         }
       });
 
-      console.log("[FunLauncher] Launch response:", data);
+      console.log("[FunLauncher] fun-create response:", { data, error });
 
-      if (error) throw error;
-
-      if (!data?.success) {
-        throw new Error(data?.error || "Launch failed");
+      // Handle HTTP-level errors
+      if (error) {
+        console.error("[FunLauncher] fun-create HTTP error:", error);
+        // Try to extract more info from the error
+        const errorMsg = error.message || error.toString();
+        throw new Error(`Server error: ${errorMsg}`);
       }
+
+      // Handle application-level failures
+      if (!data?.success) {
+        console.error("[FunLauncher] fun-create returned failure:", data);
+        throw new Error(data?.error || "Launch failed - no details provided");
+      }
+
+      console.log("[FunLauncher] ✅ Token launched successfully:", data);
 
       // Set result and show modal
       setLaunchResult({
@@ -173,6 +201,11 @@ export default function FunLauncherPage() {
       });
       setShowResultModal(true);
 
+      toast({
+        title: "🚀 Token Launched!",
+        description: `${data.name || meme.name} is now live on Solana!`,
+      });
+
       // Clear form
       setMeme(null);
       setWalletAddress("");
@@ -182,11 +215,19 @@ export default function FunLauncherPage() {
 
     } catch (error) {
       console.error("[FunLauncher] Launch error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to launch token";
+      
       setLaunchResult({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to launch token",
+        error: errorMessage,
       });
       setShowResultModal(true);
+
+      toast({
+        title: "Launch Failed",
+        description: errorMessage.length > 100 ? errorMessage.slice(0, 100) + "..." : errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsLaunching(false);
     }

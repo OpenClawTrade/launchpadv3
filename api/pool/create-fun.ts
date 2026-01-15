@@ -120,12 +120,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Sign and send all transactions with treasury keypair (fully server-side)
     const signatures: string[] = [];
 
-    const getRequiredSigners = (tx: Transaction): string[] => {
-      const msg = tx.compileMessage();
-      return msg.accountKeys
-        .slice(0, msg.header.numRequiredSignatures)
-        .map((k) => k.toBase58());
-    };
+    // Build a map of available keypairs for signing
+    const availableKeypairs: Map<string, Keypair> = new Map([
+      [treasuryKeypair.publicKey.toBase58(), treasuryKeypair],
+      [mintKeypair.publicKey.toBase58(), mintKeypair],
+      [configKeypair.publicKey.toBase58(), configKeypair],
+    ]);
+
+    console.log('[create-fun] Available signers:', Array.from(availableKeypairs.keys()));
 
     for (let i = 0; i < transactions.length; i++) {
       const tx = transactions[i];
@@ -135,32 +137,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tx.recentBlockhash = latest.blockhash;
       tx.feePayer = treasuryKeypair.publicKey;
 
-      // IMPORTANT:
-      // Transactions returned by the SDK can contain pre-populated signature pubkeys.
-      // If we don't reset, web3.js may throw "unknown signer" for stale signer entries.
-      tx.signatures = [];
+      // Compile message to determine required signers
+      const message = tx.compileMessage();
+      const requiredSignerPubkeys = message.accountKeys
+        .slice(0, message.header.numRequiredSignatures)
+        .map((k) => k.toBase58());
 
-      const requiredSigners = getRequiredSigners(tx);
-      const providedSigners = new Set([
-        treasuryKeypair.publicKey.toBase58(),
-        mintKeypair.publicKey.toBase58(),
-        configKeypair.publicKey.toBase58(),
-      ]);
+      console.log(`[create-fun] Tx ${i + 1}/${transactions.length} requires signers:`, requiredSignerPubkeys);
 
-      console.log(`[create-fun] Tx ${i + 1}/${transactions.length} required signers:`, requiredSigners);
-
-      const missingSigners = requiredSigners.filter((s) => !providedSigners.has(s));
+      // Check for missing signers
+      const missingSigners = requiredSignerPubkeys.filter((pk) => !availableKeypairs.has(pk));
       if (missingSigners.length > 0) {
         throw new Error(
-          `Missing required signer(s): ${missingSigners.join(', ')} | provided: ${Array.from(providedSigners).join(', ')}`
+          `Tx ${i + 1} requires unknown signer(s): ${missingSigners.join(', ')} | we have: ${Array.from(availableKeypairs.keys()).join(', ')}`
         );
       }
 
-      console.log(`[create-fun] Sending transaction ${i + 1}/${transactions.length}...`);
+      // Collect ONLY the keypairs that this transaction actually needs
+      const signersForThisTx: Keypair[] = requiredSignerPubkeys
+        .map((pk) => availableKeypairs.get(pk))
+        .filter((kp): kp is Keypair => kp !== undefined);
+
+      console.log(`[create-fun] Tx ${i + 1} will be signed by:`, signersForThisTx.map(kp => kp.publicKey.toBase58()));
 
       try {
-        // tx.sign() compiles the message and signs only the required signers.
-        tx.sign(treasuryKeypair, mintKeypair, configKeypair);
+        // Sign with ONLY the required keypairs (prevents "unknown signer" error)
+        tx.sign(...signersForThisTx);
+
+        console.log(`[create-fun] Sending transaction ${i + 1}/${transactions.length}...`);
 
         const signature = await connection.sendRawTransaction(tx.serialize(), {
           skipPreflight: false,
@@ -181,9 +185,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         signatures.push(signature);
-        console.log(`[create-fun] Transaction ${i + 1} confirmed:`, signature);
+        console.log(`[create-fun] ✅ Transaction ${i + 1} confirmed:`, signature);
       } catch (txError) {
-        console.error(`[create-fun] Transaction ${i + 1} failed:`, txError);
+        console.error(`[create-fun] ❌ Transaction ${i + 1} failed:`, txError);
         const msg = txError instanceof Error ? txError.message : 'Unknown error';
         throw new Error(`On-chain transaction ${i + 1} failed: ${msg}`);
       }
