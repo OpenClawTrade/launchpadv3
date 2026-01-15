@@ -163,35 +163,38 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
       console.log("[fun-generate] Using trending style context:", styleContext);
     }
 
-    // Generate professional meme coin logo
-    const imagePrompt = `Create a premium quality circular meme coin logo for "${name}" ($${ticker}).
+    // Generate meme coin logo with authentic internet meme style
+    const imagePrompt = `Draw a meme coin mascot for "${name}" ($${ticker}).
 
-CRITICAL REQUIREMENTS:
-- Professional crypto token logo quality (NOT amateur AI art)
-- Clean vector-style design with smooth gradients
-- High contrast, vibrant color palette
-- Should instantly feel like a $100M+ market cap token
-- Ultra polished, ready for exchange listing
+STYLE - CRITICAL:
+- Raw internet meme energy like classic Pepe, Doge, Wojak
+- Hand-drawn MS Paint or crude sketch aesthetic 
+- Imperfect lines, rough edges, intentionally low-fi
+- Single expressive character face or creature
+- Solid flat colors, NO gradients, NO shine effects
+- Transparent or simple solid color background
 
-TECHNICAL SPECIFICATIONS:
-- Perfect circular composition
-- Centered iconic mascot or symbol
-- Bold, readable design at any size
-- Glossy/metallic finish effects
-- Subtle glow or shine effects
+COMPOSITION:
+- Just the mascot character, nothing else
+- Big expressive eyes and simple features
+- Funny or smug expression
+- Close-up face or full body simple pose
 
-STYLE REFERENCE:
-- Match the quality of top DexScreener trending tokens
-- Think Pepe, Doge, Shiba - iconic, memorable, professional
-${styleContext ? `- ${styleContext}` : ""}
+VIBE:
+- 4chan meme board culture
+- Absurdist internet humor
+- Deliberately crude but iconic
+- The kind of image that becomes a viral meme
 
-AVOID:
-- Cheap clipart look
-- Blurry or pixelated elements
-- Generic AI-generated aesthetic
-- Overly complex busy designs
+DO NOT:
+- Make it look polished or professional
+- Add any text, logos, or crypto symbols
+- Use 3D effects, metallic textures, or glossy finishes
+- Create clean vector art or corporate design
+- Add lens flares, glow effects, or gradients
+- Make it look like AI generated art
 
-Create a logo that screams "next Binance listing" - premium, viral, unforgettable.`;
+Think: original Pepe frog drawing, Doge shiba photo edits, Wojak simple sketches. Raw, iconic, memeable.`;
 
     console.log("[fun-generate] Generating professional image...");
 
