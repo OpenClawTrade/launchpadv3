@@ -254,8 +254,7 @@ export default function FunLauncherPage() {
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Zap className="h-6 w-6 text-[#00d4aa]" />
-            <span className="text-lg font-bold">FUN LAUNCHER</span>
-            <Badge className="bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30">BETA</Badge>
+            <span className="text-lg font-bold">ai69x</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Link to="/vanity">
