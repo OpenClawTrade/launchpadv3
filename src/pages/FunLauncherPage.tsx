@@ -389,11 +389,13 @@ export default function FunLauncherPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     {isGenerating ? (
-                      <>
-                        <Skeleton className="h-5 w-24 bg-[#1a1a1f] mb-2" />
-                        <Skeleton className="h-4 w-16 bg-[#1a1a1f] mb-2" />
-                        <Skeleton className="h-3 w-full bg-[#1a1a1f]" />
-                      </>
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-24 bg-[#1a1a1f]" />
+                        <Skeleton className="h-4 w-16 bg-[#1a1a1f]" />
+                        <p className="text-xs text-[#00d4aa] animate-pulse">
+                          Your next Binance listing meme coin is generating...
+                        </p>
+                      </div>
                     ) : meme ? (
                       <>
                         <h3 className="font-bold text-white truncate">{meme.name}</h3>
@@ -414,7 +416,7 @@ export default function FunLauncherPage() {
                 className="w-full bg-[#1a1a1f] hover:bg-[#252530] text-white border border-[#2a2a35] mb-3"
               >
                 {isGenerating ? (
-                  <><Shuffle className="h-4 w-4 mr-2 animate-spin" /> Generating...</>
+                  <><Shuffle className="h-4 w-4 mr-2 animate-spin" /> Generating your next gem...</>
                 ) : (
                   <><Shuffle className="h-4 w-4 mr-2" /> Randomize</>
                 )}
