@@ -40,6 +40,27 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Fetch existing token names to avoid duplicates
+    const { data: existingTokens } = await supabase
+      .from("fun_tokens")
+      .select("name")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    
+    const { data: existingMainTokens } = await supabase
+      .from("tokens")
+      .select("name")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    const existingNames = new Set([
+      ...(existingTokens || []).map(t => t.name?.toLowerCase()),
+      ...(existingMainTokens || []).map(t => t.name?.toLowerCase()),
+    ].filter(Boolean));
+
+    const forbiddenNames = Array.from(existingNames).slice(0, 50).join(", ");
+    console.log("[fun-generate] Forbidden names (already exist):", forbiddenNames);
+
     // Fetch the active narrative from trending analysis
     let themeContext = "";
     let narrativeInfo = "";
@@ -53,7 +74,7 @@ serve(async (req) => {
     if (activeNarrative) {
       themeContext = `Current trending narrative: "${activeNarrative.narrative}" - ${activeNarrative.description}. 
 Example tokens in this narrative: ${(activeNarrative.example_tokens || []).join(", ")}.
-Create something that fits this trending theme but with a unique twist!`;
+Create something INSPIRED BY this trending theme but with a COMPLETELY UNIQUE name!`;
       narrativeInfo = activeNarrative.narrative;
       console.log("[fun-generate] Using active narrative:", activeNarrative.narrative);
     } else {
@@ -68,16 +89,21 @@ Create something that fits this trending theme but with a unique twist!`;
 
 ${themeContext}
 
+CRITICAL - FORBIDDEN NAMES (NEVER USE THESE, THEY ALREADY EXIST):
+${forbiddenNames || "None yet"}
+
 CRITICAL NAME REQUIREMENTS:
 1. Name MUST be a SINGLE WORD ONLY - NO compound words, NO combining two words
-2. Examples of GOOD names: Pepe, Doge, Shiba, Wojak, Mochi, Neko, Luna, Kira
-3. Examples of BAD names: WaifuWars, MoonDoge, CatPunk, ShibaKing - NEVER do this
-4. Max 10 characters, simple and memorable
-5. Ticker should be 3-4 letters derived from the name
+2. NEVER repeat any name from the forbidden list above
+3. Examples of GOOD names: Pepe, Doge, Shiba, Wojak, Mochi, Neko, Luna, Kira, Fren, Bonk
+4. Examples of BAD names: WaifuWars, MoonDoge, CatPunk, ShibaKing - NEVER do this
+5. Max 10 characters, simple and memorable
+6. Ticker should be 3-4 letters derived from the name
+7. Be CREATIVE - use trending themes as inspiration but CREATE A NEW UNIQUE NAME
 
 Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
 {
-  "name": "Single word name only (max 10 chars, NO compound words)",
+  "name": "Single word name only (max 10 chars, NO compound words, MUST BE UNIQUE)",
   "ticker": "3-4 letter ticker in CAPS",
   "description": "Trendy description with emoji (max 80 chars)"
 }`;
@@ -133,10 +159,20 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
 
     // Validate and sanitize - enforce short names
     let name = (memeData.name || "NekoInu").replace(/\s+/g, "").slice(0, 12);
-    const ticker = (memeData.ticker || "NEKO").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    let ticker = (memeData.ticker || "NEKO").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
     const description = (memeData.description || "Kawaii meme coin! 🌸").slice(0, 100);
 
-    // If name is still too long, use fallback
+    // Check if AI still generated a duplicate name - if so, make it unique
+    if (existingNames.has(name.toLowerCase())) {
+      console.log("[fun-generate] AI generated duplicate name, creating unique variant:", name);
+      // Add random suffix to make unique
+      const suffixes = ["X", "2", "AI", "69", "420", "Pro", "Max", "Go"];
+      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+      name = (name.slice(0, 8) + suffix).slice(0, 12);
+      ticker = name.slice(0, 4).toUpperCase();
+    }
+
+    // If name is still too long or still duplicate, use random fallback
     if (name.length > 12) {
       const prefix = NAME_PREFIXES[Math.floor(Math.random() * NAME_PREFIXES.length)];
       const suffix = NAME_SUFFIXES[Math.floor(Math.random() * NAME_SUFFIXES.length)];
