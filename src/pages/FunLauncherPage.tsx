@@ -256,7 +256,7 @@ export default function FunLauncherPage() {
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
-            <span className="text-lg font-bold">ai69x</span>
+            <span className="text-lg font-bold">ai67x</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Link to="/vanity">
@@ -302,7 +302,7 @@ export default function FunLauncherPage() {
             </h1>
             
             <p className="text-gray-400 text-sm md:text-base mb-6 leading-relaxed max-w-2xl mx-auto">
-              ai69x is a fully autonomous agent that handles the entire token launch lifecycle. 
+              ai67x is a fully autonomous agent that handles the entire token launch lifecycle. 
               No wallet connections. No complex configurations. Simply click, generate, and earn.
             </p>
 
@@ -333,7 +333,7 @@ export default function FunLauncherPage() {
             </div>
 
             <p className="text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
-              Every token launched through ai69x operates with a unique mechanism designed to pioneer a new narrative in decentralized finance. 
+              Every token launched through ai67x operates with a unique mechanism designed to pioneer a new narrative in decentralized finance. 
               The system is fully automated with no developer interaction required. 
               Open-source code will be published upon achieving community milestones.
             </p>
