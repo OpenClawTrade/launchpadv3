@@ -141,13 +141,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tx.signatures = [];
 
       const requiredSigners = getRequiredSigners(tx);
+      const providedSigners = new Set([
+        treasuryKeypair.publicKey.toBase58(),
+        mintKeypair.publicKey.toBase58(),
+        configKeypair.publicKey.toBase58(),
+      ]);
+
       console.log(`[create-fun] Tx ${i + 1}/${transactions.length} required signers:`, requiredSigners);
+
+      const missingSigners = requiredSigners.filter((s) => !providedSigners.has(s));
+      if (missingSigners.length > 0) {
+        throw new Error(
+          `Missing required signer(s): ${missingSigners.join(', ')} | provided: ${Array.from(providedSigners).join(', ')}`
+        );
+      }
 
       console.log(`[create-fun] Sending transaction ${i + 1}/${transactions.length}...`);
 
       try {
         // tx.sign() compiles the message and signs only the required signers.
-        // If a required signer isn't provided, it throws "unknown signer".
         tx.sign(treasuryKeypair, mintKeypair, configKeypair);
 
         const signature = await connection.sendRawTransaction(tx.serialize(), {
