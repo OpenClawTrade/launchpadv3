@@ -13,6 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
 import { useFunFeeClaims, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
 import { 
   Shuffle, 
   Rocket, 
@@ -75,6 +77,9 @@ export default function FunLauncherPage() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
+  
+  // Admin check for sniper panel (uses walletAddress from input field)
+  const { isAdmin } = useIsAdmin(walletAddress || null);
 
   // Update timestamp
   useEffect(() => {
@@ -483,6 +488,9 @@ export default function FunLauncherPage() {
                 </div>
               </div>
             </Card>
+
+            {/* Admin-only Sniper Status Panel */}
+            {isAdmin && <SniperStatusPanel />}
           </div>
 
           {/* Right Panel - Tabbed Content */}
