@@ -24,23 +24,31 @@ const corsHeaders = {
 
 // Get treasury keypair from env
 function getTreasuryKeypair(): Keypair {
-  const privateKey = process.env.TREASURY_PRIVATE_KEY;
-  if (!privateKey) {
+  const raw = process.env.TREASURY_PRIVATE_KEY?.trim();
+  if (!raw) {
     throw new Error('TREASURY_PRIVATE_KEY not configured');
   }
 
   try {
-    if (privateKey.startsWith('[')) {
-      const keyArray = JSON.parse(privateKey);
-      return Keypair.fromSecretKey(new Uint8Array(keyArray));
-    } else {
-      // Base58 encoded
-      const bs58 = require('bs58');
-      const decoded = bs58.decode(privateKey);
-      return Keypair.fromSecretKey(decoded);
+    // JSON array format: "[1,2,3,...]"
+    if (raw.startsWith('[')) {
+      const keyArray = JSON.parse(raw);
+      const bytes = new Uint8Array(keyArray);
+      if (bytes.length === 64) return Keypair.fromSecretKey(bytes);
+      if (bytes.length === 32) return Keypair.fromSeed(bytes);
+      throw new Error(`Invalid key length: ${bytes.length}`);
     }
+
+    // Base58 encoded (either 64-byte secretKey or 32-byte seed)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const bs58 = require('bs58');
+    const decoded: Uint8Array = bs58.decode(raw);
+    if (decoded.length === 64) return Keypair.fromSecretKey(decoded);
+    if (decoded.length === 32) return Keypair.fromSeed(decoded);
+    throw new Error(`Invalid key length: ${decoded.length}`);
   } catch (e) {
-    throw new Error('Invalid TREASURY_PRIVATE_KEY format');
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    throw new Error(`Invalid TREASURY_PRIVATE_KEY format (${msg})`);
   }
 }
 
