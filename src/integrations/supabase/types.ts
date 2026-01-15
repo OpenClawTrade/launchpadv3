@@ -564,6 +564,8 @@ export type Database = {
           claimed_at: string | null
           claimed_sol: number
           created_at: string | null
+          creator_distributed: boolean | null
+          creator_distribution_id: string | null
           fun_token_id: string | null
           id: string
           pool_address: string
@@ -573,6 +575,8 @@ export type Database = {
           claimed_at?: string | null
           claimed_sol?: number
           created_at?: string | null
+          creator_distributed?: boolean | null
+          creator_distribution_id?: string | null
           fun_token_id?: string | null
           id?: string
           pool_address: string
@@ -582,12 +586,21 @@ export type Database = {
           claimed_at?: string | null
           claimed_sol?: number
           created_at?: string | null
+          creator_distributed?: boolean | null
+          creator_distribution_id?: string | null
           fun_token_id?: string | null
           id?: string
           pool_address?: string
           signature?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fun_fee_claims_creator_distribution_id_fkey"
+            columns: ["creator_distribution_id"]
+            isOneToOne: false
+            referencedRelation: "fun_distributions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fun_fee_claims_fun_token_id_fkey"
             columns: ["fun_token_id"]
