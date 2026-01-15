@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useMeteoraApi } from './useMeteoraApi';
 import { useSolanaWallet } from './useSolanaWallet';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 

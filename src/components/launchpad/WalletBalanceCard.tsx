@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { Wallet } from "lucide-react";
 

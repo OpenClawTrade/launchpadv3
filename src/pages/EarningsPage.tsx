@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { MainLayout } from "@/components/layout";
 import { useLaunchpad, formatSolAmount } from "@/hooks/useLaunchpad";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,12 +28,6 @@ export default function EarningsPage() {
     solanaAddress,
     profileId
   );
-
-  const currentUser = user ? {
-    name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
-    handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
-    avatar: user.avatarUrl,
-  } : null;
 
   const handleClaim = async (tokenId: string) => {
     if (!solanaAddress) return;
@@ -66,7 +59,7 @@ export default function EarningsPage() {
 
   if (!isAuthenticated) {
     return (
-      <MainLayout user={null}>
+      <div className="min-h-screen bg-background">
         <div className="flex flex-col items-center justify-center py-20 px-4">
           <Wallet className="h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-bold mb-2">Connect Wallet</h2>
@@ -75,16 +68,16 @@ export default function EarningsPage() {
           </p>
           <Button onClick={() => login()}>Connect Wallet</Button>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
   return (
-    <MainLayout user={currentUser}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-4 px-4 h-14">
-          <Link to="/launchpad">
+          <Link to="/">
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -93,7 +86,7 @@ export default function EarningsPage() {
         </div>
       </header>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 max-w-2xl mx-auto">
         {/* Summary Cards */}
         {isLoading ? (
           <div className="grid grid-cols-2 gap-3">
@@ -227,6 +220,6 @@ export default function EarningsPage() {
           </div>
         )}
       </div>
-    </MainLayout>
+    </div>
   );
 }

@@ -1,48 +1,30 @@
-import { MainLayout } from "@/components/layout";
 import { TokenCard, WalletBalanceCard } from "@/components/launchpad";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame } from "lucide-react";
+import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
 
 export default function LaunchpadPage() {
-  const { user } = useAuth();
   const { tokens, isLoadingTokens } = useLaunchpad();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("new");
 
-  const currentUser = user ? {
-    name: user.displayName ?? user.wallet?.address?.slice(0, 8) ?? "Anonymous",
-    handle: user.twitter?.username ?? user.wallet?.address?.slice(0, 12) ?? "user",
-    avatar: user.avatarUrl,
-  } : null;
-
   // Calculate "hotness" score for trending algorithm
-  // Factors: volume, price change, holder count, recency, bonding progress
   const calculateHotScore = (token: typeof tokens[0]) => {
     const now = Date.now();
     const createdAt = new Date(token.created_at).getTime();
     const ageHours = (now - createdAt) / (1000 * 60 * 60);
     
-    // Volume score (primary factor)
     const volumeScore = Math.log10(token.volume_24h_sol + 1) * 30;
-    
-    // Recency bonus (newer tokens get a boost, decays over 24h)
     const recencyScore = Math.max(0, 20 - ageHours * 0.8);
-    
-    // Price momentum (positive changes are good)
     const priceChangeRaw = (token as any).price_change_24h || 0;
     const momentumScore = Math.min(20, Math.max(-10, priceChangeRaw * 0.5));
-    
-    // Holder count (more holders = more interest)
     const holderScore = Math.log10(token.holder_count + 1) * 10;
-    
-    // Bonding progress bonus (tokens close to graduation are exciting)
     const bondingBonus = token.status === 'bonding' 
       ? (token.bonding_curve_progress || 0) * 0.2 
       : 0;
@@ -54,7 +36,6 @@ export default function LaunchpadPage() {
   const filteredTokens = useMemo(() => {
     let result = tokens;
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(t => 
@@ -64,26 +45,21 @@ export default function LaunchpadPage() {
       );
     }
 
-    // Tab filter with specific algorithms
     switch (activeTab) {
       case "hot":
-        // HOT: Sort by calculated hotness score (volume + momentum + recency)
         result = [...result].sort((a, b) => calculateHotScore(b) - calculateHotScore(a));
         break;
       case "bonding":
-        // BONDING: Only bonding tokens, sorted by bonding progress (closest to graduation first)
         result = result
           .filter(t => t.status === 'bonding')
           .sort((a, b) => (b.bonding_curve_progress || 0) - (a.bonding_curve_progress || 0));
         break;
       case "graduated":
-        // LIVE: Only graduated tokens, sorted by 24h volume
         result = result
           .filter(t => t.status === 'graduated')
           .sort((a, b) => b.volume_24h_sol - a.volume_24h_sol);
         break;
       default:
-        // NEW: Sort by creation date (newest first)
         result = [...result].sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
@@ -92,26 +68,28 @@ export default function LaunchpadPage() {
     return result;
   }, [tokens, searchQuery, activeTab]);
 
-  // Stats
   const totalTokens = tokens.length;
   const bondingTokens = tokens.filter(t => t.status === 'bonding').length;
   const graduatedTokens = tokens.filter(t => t.status === 'graduated').length;
   const totalVolume = tokens.reduce((acc, t) => acc + t.volume_24h_sol, 0);
 
   return (
-    <MainLayout user={currentUser}>
+    <div className="min-h-screen bg-background">
       {/* Hero Header */}
       <header className="relative overflow-hidden border-b border-border bg-gradient-to-br from-background via-background to-accent/10">
-        {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
           <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-primary/5 rounded-full blur-2xl" />
         </div>
 
         <div className="relative px-4 pt-6 pb-4">
-          {/* Title Row */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
+              <Link to="/">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
               <div className="p-2.5 bg-primary/10 rounded-xl">
                 <Rocket className="h-6 w-6 text-primary" />
               </div>
@@ -128,10 +106,8 @@ export default function LaunchpadPage() {
             </Link>
           </div>
 
-          {/* Wallet Balance Card */}
           <WalletBalanceCard className="mb-4" />
 
-          {/* Quick Stats */}
           <div className="grid grid-cols-4 gap-2 mb-4">
             <div className="bg-secondary/50 rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-foreground">{totalTokens}</p>
@@ -151,7 +127,6 @@ export default function LaunchpadPage() {
             </div>
           </div>
 
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -163,7 +138,6 @@ export default function LaunchpadPage() {
           </div>
         </div>
 
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full h-12 bg-transparent rounded-none p-0 border-0 grid grid-cols-4 gap-0">
             <TabsTrigger 
@@ -199,8 +173,7 @@ export default function LaunchpadPage() {
       </header>
 
       {/* Token List */}
-      <div className="p-4 space-y-3">
-        {/* Results count */}
+      <div className="p-4 space-y-3 max-w-4xl mx-auto">
         {!isLoadingTokens && filteredTokens.length > 0 && (
           <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
             <span>{filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''}</span>
@@ -216,7 +189,6 @@ export default function LaunchpadPage() {
         )}
 
         {isLoadingTokens ? (
-          // Loading skeletons
           Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="p-4 border border-border rounded-xl bg-card space-y-3 animate-pulse">
               <div className="flex gap-4">
@@ -260,6 +232,6 @@ export default function LaunchpadPage() {
           ))
         )}
       </div>
-    </MainLayout>
+    </div>
   );
 }
