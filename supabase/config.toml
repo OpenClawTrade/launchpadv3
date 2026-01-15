@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.fun-sniper-sell]
 verify_jwt = false
+
+[functions.fun-sniper-buy]
+verify_jwt = false
