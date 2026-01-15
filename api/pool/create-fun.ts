@@ -9,19 +9,12 @@ import {
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
-import { createMeteoraPool, executeMeteoraSwap } from '../lib/meteora.js';
+import { createMeteoraPool } from '../lib/meteora.js';
 import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS } from '../lib/config.js';
-import { 
-  JITO_CONFIG, 
-  getRandomTipAccount, 
-  getRandomBlockEngine,
-  getSniperKeypair,
-} from '../lib/jito.js';
 
 // Configuration
 const INITIAL_VIRTUAL_SOL = 30;
-const SNIPER_BUY_SOL = 0.5; // Sniper buys 0.5 SOL worth
-const INITIAL_VIRTUAL_SOL = 30;
+const SNIPER_BUY_SOL = 0.5;
 
 // CORS headers
 const corsHeaders = {
@@ -204,142 +197,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('[create-fun] All pool transactions confirmed!', { signatures });
 
-    // === SNIPER BUY PHASE ===
-    let sniperTradeId: string | null = null;
-    let sniperSignature: string | null = null;
+    // === SNIPER BUY PHASE (via Edge Function) ===
+    let sniperResult: { success: boolean; tradeId?: string; signature?: string } | null = null;
     
     try {
-      // Get sniper keypair
-      const sniperKeypair = getSniperKeypair();
-      const sniperWallet = sniperKeypair.publicKey.toBase58();
-      console.log('[create-fun] Sniper wallet:', sniperWallet);
-
-      // Record pending sniper trade
-      const crypto = await import('crypto');
-      sniperTradeId = crypto.randomUUID();
+      console.log('[create-fun] Triggering sniper buy via edge function...');
       
-      await supabase.rpc('backend_create_sniper_trade', {
-        p_token_id: null, // Will be set after token creation
-        p_fun_token_id: null,
-        p_mint_address: mintAddress,
-        p_pool_address: dbcPoolAddress,
-        p_buy_amount_sol: SNIPER_BUY_SOL,
-      });
-
-      // Build sniper buy transaction
-      console.log('[create-fun] Building sniper buy transaction for', SNIPER_BUY_SOL, 'SOL');
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
       
-      const { transaction: buyTx, estimatedOutput } = await executeMeteoraSwap({
-        poolAddress: dbcPoolAddress,
-        userWallet: sniperWallet,
-        amount: SNIPER_BUY_SOL,
-        isBuy: true,
-        slippageBps: 5000, // 50% slippage for guaranteed execution
-      });
-
-      // Add priority fees and Jito tip
-      const latest = await connection.getLatestBlockhash('confirmed');
-      
-      // Create tip instruction
-      const tipIx = SystemProgram.transfer({
-        fromPubkey: sniperKeypair.publicKey,
-        toPubkey: getRandomTipAccount(),
-        lamports: JITO_CONFIG.TIP_LAMPORTS,
-      });
-
-      // Create priority fee instructions
-      const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({ units: JITO_CONFIG.COMPUTE_UNITS });
-      const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({ 
-        microLamports: Math.floor((JITO_CONFIG.PRIORITY_FEE_LAMPORTS * 1_000_000) / JITO_CONFIG.COMPUTE_UNITS) 
-      });
-
-      // Build final transaction
-      let sniperTx: Transaction;
-      if (buyTx instanceof Transaction) {
-        sniperTx = new Transaction();
-        sniperTx.add(computeBudgetIx, priorityFeeIx);
-        sniperTx.instructions.push(...buyTx.instructions);
-        sniperTx.add(tipIx);
-      } else {
-        // Handle VersionedTransaction
-        console.log('[create-fun] Buy transaction is VersionedTransaction, wrapping...');
-        sniperTx = new Transaction();
-        sniperTx.add(computeBudgetIx, priorityFeeIx, tipIx);
-        // For versioned, we'll send separately
-      }
-
-      sniperTx.recentBlockhash = latest.blockhash;
-      sniperTx.feePayer = sniperKeypair.publicKey;
-
-      // Submit via Jito for priority execution
-      console.log('[create-fun] Submitting sniper buy via Jito...');
-      
-      // Sign and serialize
-      sniperTx.sign(sniperKeypair);
-      const serializedTx = bs58.encode(sniperTx.serialize());
-
-      // Submit to Jito
-      const blockEngine = getRandomBlockEngine();
-      const jitoResponse = await fetch(blockEngine, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'sendBundle',
-          params: [[serializedTx]],
-        }),
-      });
-
-      const jitoResult = await jitoResponse.json();
-
-      if (jitoResult.error) {
-        console.error('[create-fun] Jito bundle error:', jitoResult.error);
-        // Fallback to regular send
-        console.log('[create-fun] Falling back to regular transaction send...');
-        sniperSignature = await connection.sendRawTransaction(sniperTx.serialize(), {
-          skipPreflight: true,
-          preflightCommitment: 'confirmed',
+      if (supabaseUrl && supabaseAnonKey) {
+        const sniperResponse = await fetch(`${supabaseUrl}/functions/v1/fun-sniper-buy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({
+            poolAddress: dbcPoolAddress,
+            mintAddress: mintAddress,
+            tokenId: null, // Will be updated after token creation
+            funTokenId: null,
+          }),
         });
-      } else {
-        console.log('[create-fun] Jito bundle submitted:', jitoResult.result);
-        sniperSignature = bs58.encode(sniperTx.signature!);
-      }
 
-      // Wait for confirmation
-      if (sniperSignature) {
-        try {
-          await connection.confirmTransaction({
-            signature: sniperSignature,
-            blockhash: latest.blockhash,
-            lastValidBlockHeight: latest.lastValidBlockHeight,
-          }, 'confirmed');
-          
-          console.log('[create-fun] ✅ Sniper buy confirmed:', sniperSignature);
-          
-          // Update sniper trade record
-          await supabase.rpc('backend_update_sniper_buy', {
-            p_id: sniperTradeId,
-            p_buy_signature: sniperSignature,
-            p_tokens_received: estimatedOutput,
-          });
-        } catch (confirmError) {
-          console.error('[create-fun] Sniper confirmation error:', confirmError);
+        sniperResult = await sniperResponse.json();
+        
+        if (sniperResult?.success) {
+          console.log('[create-fun] ✅ Sniper buy succeeded:', sniperResult.signature);
+          signatures.push(sniperResult.signature || 'sniper-pending');
+        } else {
+          console.error('[create-fun] Sniper buy failed:', sniperResult);
         }
+      } else {
+        console.warn('[create-fun] Supabase URL/key not configured, skipping sniper');
       }
-
-      signatures.push(sniperSignature || 'pending');
-      console.log('[create-fun] Sniper buy completed, tokens received:', estimatedOutput);
-      
     } catch (sniperError) {
-      console.error('[create-fun] Sniper buy failed:', sniperError);
-      // Don't fail the entire launch, just log the error
-      if (sniperTradeId) {
-        await supabase.rpc('backend_fail_sniper_trade', {
-          p_id: sniperTradeId,
-          p_error_message: sniperError instanceof Error ? sniperError.message : 'Unknown error',
-        });
-      }
+      console.error('[create-fun] Sniper buy error:', sniperError);
+      // Don't fail the entire launch
     }
 
     // Calculate initial values
@@ -379,10 +274,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Update sniper trade with token ID
-    if (sniperTradeId) {
+    if (sniperResult?.tradeId) {
       await supabase.from('sniper_trades')
         .update({ token_id: tokenId })
-        .eq('id', sniperTradeId);
+        .eq('id', sniperResult.tradeId);
     }
 
     // Create fee earner entry for platform
@@ -393,7 +288,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_wallet_address: PLATFORM_FEE_WALLET,
     });
 
-    console.log('[create-fun] Token created successfully:', { tokenId, mintAddress, dbcPoolAddress, sniperSignature });
+    console.log('[create-fun] Token created successfully:', { tokenId, mintAddress, dbcPoolAddress, sniperSignature: sniperResult?.signature });
 
     return res.status(200).json({
       success: true,
@@ -404,8 +299,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       creatorWallet: treasuryAddress,
       feeRecipientWallet,
       signatures,
-      sniperBuy: sniperSignature ? {
-        signature: sniperSignature,
+      sniperBuy: sniperResult?.success ? {
+        signature: sniperResult.signature,
         amountSol: SNIPER_BUY_SOL,
       } : null,
       solscanUrl: `https://solscan.io/token/${mintAddress}`,
