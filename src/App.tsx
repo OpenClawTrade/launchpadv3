@@ -9,8 +9,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 
-// Critical: Load Index page eagerly for instant home page
-import Index from "./pages/Index";
+// Critical: Load FunLauncherPage eagerly for instant home page
+import FunLauncherPage from "./pages/FunLauncherPage";
 
 // Lazy load all other pages - they'll be loaded on demand
 const AuthPage = lazy(() => import("./pages/AuthPage"));
@@ -39,7 +39,7 @@ const EarningsPage = lazy(() => import("./pages/EarningsPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const RoadmapPage = lazy(() => import("./pages/RoadmapPage"));
 const PulsePage = lazy(() => import("./pages/PulsePage"));
-const FunLauncherPage = lazy(() => import("./pages/FunLauncherPage"));
+const Index = lazy(() => import("./pages/Index"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
@@ -74,7 +74,7 @@ const App = () => (
             <BrowserRouter>
               <Suspense fallback={<RouteLoader />}>
                 <Routes>
-                  <Route path="/" element={<Index />} />
+                  <Route path="/" element={<FunLauncherPage />} />
                   <Route path="/auth" element={<AuthPage />} />
                   <Route path="/explore" element={<ExplorePage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
@@ -97,7 +97,7 @@ const App = () => (
                   <Route path="/portfolio" element={<PortfolioPage />} />
                   <Route path="/roadmap" element={<RoadmapPage />} />
                   <Route path="/pulse" element={<PulsePage />} />
-                  <Route path="/fun" element={<FunLauncherPage />} />
+                  <Route path="/feed" element={<Index />} />
                   <Route path="/:username" element={<UserProfilePage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
