@@ -33,20 +33,57 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch token from database
-    const { data: token, error } = await supabase
+    // Token interface for both tables
+    interface TokenData {
+      name: string;
+      ticker: string;
+      description?: string;
+      image_url?: string;
+      website_url?: string;
+      twitter_url?: string;
+      telegram_url?: string;
+      discord_url?: string;
+      status?: string;
+      creator_wallet: string;
+    }
+
+    // Fetch token from database - check both tokens and fun_tokens tables
+    let token: TokenData | null = null;
+    let tokenSource = 'tokens';
+    
+    // First try the tokens table (launchpad tokens)
+    const { data: launchpadToken, error: launchpadError } = await supabase
       .from('tokens')
       .select('*')
       .eq('mint_address', mintAddress)
       .single();
 
-    if (error || !token) {
-      console.error('[token-metadata] Token not found:', mintAddress, error);
+    if (launchpadToken && !launchpadError) {
+      token = launchpadToken as TokenData;
+      tokenSource = 'tokens';
+    } else {
+      // If not found, check the fun_tokens table (FUN launcher tokens)
+      const { data: funToken, error: funError } = await supabase
+        .from('fun_tokens')
+        .select('*')
+        .eq('mint_address', mintAddress)
+        .single();
+      
+      if (funToken && !funError) {
+        token = funToken as TokenData;
+        tokenSource = 'fun_tokens';
+      }
+    }
+
+    if (!token) {
+      console.error('[token-metadata] Token not found in any table:', mintAddress);
       return new Response(
         JSON.stringify({ error: 'Token not found' }),
         { status: 404, headers: corsHeaders }
       );
     }
+
+    console.log(`[token-metadata] Found token in ${tokenSource}:`, token.name);
 
     // Build Metaplex-standard metadata JSON
     // See: https://docs.metaplex.com/programs/token-metadata/token-standard

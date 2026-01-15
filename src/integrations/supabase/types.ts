@@ -616,6 +616,7 @@ export type Database = {
           creator_wallet: string
           dbc_pool_address: string | null
           description: string | null
+          discord_url: string | null
           id: string
           image_url: string | null
           last_distribution_at: string | null
@@ -623,16 +624,20 @@ export type Database = {
           name: string
           price_sol: number | null
           status: string | null
+          telegram_url: string | null
           ticker: string
           total_fees_earned: number | null
+          twitter_url: string | null
           updated_at: string | null
           volume_24h_sol: number | null
+          website_url: string | null
         }
         Insert: {
           created_at?: string | null
           creator_wallet: string
           dbc_pool_address?: string | null
           description?: string | null
+          discord_url?: string | null
           id?: string
           image_url?: string | null
           last_distribution_at?: string | null
@@ -640,16 +645,20 @@ export type Database = {
           name: string
           price_sol?: number | null
           status?: string | null
+          telegram_url?: string | null
           ticker: string
           total_fees_earned?: number | null
+          twitter_url?: string | null
           updated_at?: string | null
           volume_24h_sol?: number | null
+          website_url?: string | null
         }
         Update: {
           created_at?: string | null
           creator_wallet?: string
           dbc_pool_address?: string | null
           description?: string | null
+          discord_url?: string | null
           id?: string
           image_url?: string | null
           last_distribution_at?: string | null
@@ -657,10 +666,13 @@ export type Database = {
           name?: string
           price_sol?: number | null
           status?: string | null
+          telegram_url?: string | null
           ticker?: string
           total_fees_earned?: number | null
+          twitter_url?: string | null
           updated_at?: string | null
           volume_24h_sol?: number | null
+          website_url?: string | null
         }
         Relationships: []
       }

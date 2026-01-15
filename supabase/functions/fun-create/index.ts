@@ -162,6 +162,7 @@ serve(async (req) => {
     }
 
     // Only insert into fun_tokens table if on-chain creation succeeded
+    // Include social URLs so token-metadata can serve them
     const { data: funToken, error: insertError } = await supabase
       .from("fun_tokens")
       .insert({
@@ -174,6 +175,8 @@ serve(async (req) => {
         dbc_pool_address: dbcPoolAddress,
         status: "active",
         price_sol: 0.00000003,
+        website_url: websiteUrl || DEFAULT_WEBSITE,
+        twitter_url: twitterUrl || DEFAULT_TWITTER,
       })
       .select()
       .single();
