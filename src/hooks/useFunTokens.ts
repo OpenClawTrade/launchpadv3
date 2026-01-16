@@ -34,7 +34,7 @@ interface UseFunTokensResult {
 
 const BASE_POLL_INTERVAL_MS = 15_000;
 const LIVE_POLL_INTERVAL_MS = 2_000;
-const MAX_LIVE_TOKENS = 25;
+const LIVE_BATCH_SIZE = 10;
 
 const DEFAULT_LIVE: LiveFields = {
   holder_count: 0,
@@ -85,25 +85,27 @@ export function useFunTokens(): UseFunTokensResult {
     })) as FunToken[];
   }, []);
 
-  const fetchLiveForPool = useCallback(async (pool: string): Promise<Partial<LiveFields> | null> => {
-    try {
-      const { data, error } = await supabase.functions.invoke("fun-pool-state", {
-        body: { pool },
-      });
+  const fetchLiveForPool = useCallback(
+    async (pool: string, tokenId?: string): Promise<Partial<LiveFields> | null> => {
+      try {
+        const { data, error } = await supabase.functions.invoke("fun-pool-state", {
+          body: { pool, tokenId },
+        });
 
-      if (error || !data || data.error) return null;
+        if (error || !data || data.error) return null;
 
-      return {
-        holder_count: data.holderCount ?? DEFAULT_LIVE.holder_count,
-        market_cap_sol: data.marketCapSol ?? DEFAULT_LIVE.market_cap_sol,
-        bonding_progress: data.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
-        price_sol: data.priceSol ?? DEFAULT_LIVE.price_sol,
-      };
-    } catch {
-      return null;
-    }
-  }, []);
-
+        return {
+          holder_count: data.holderCount ?? DEFAULT_LIVE.holder_count,
+          market_cap_sol: data.marketCapSol ?? DEFAULT_LIVE.market_cap_sol,
+          bonding_progress: data.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
+          price_sol: data.priceSol ?? DEFAULT_LIVE.price_sol,
+        };
+      } catch {
+        return null;
+      }
+    },
+    []
+  );
   const refreshLiveData = useCallback(
     async (opts?: { onlyTokenId?: string }) => {
       const currentSeq = ++liveRefreshSeq.current;
@@ -112,23 +114,33 @@ export function useFunTokens(): UseFunTokensResult {
 
       const subset = opts?.onlyTokenId
         ? base.filter((t) => t.id === opts.onlyTokenId)
-        : base.slice(0, MAX_LIVE_TOKENS);
+        : base.filter((t) => !!t.dbc_pool_address && t.dbc_pool_address.length > 30);
 
-      const results = await Promise.allSettled(
-        subset.map(async (token) => {
-          if (!token.dbc_pool_address || token.dbc_pool_address.length <= 30) {
-            return { id: token.id, live: null as Partial<LiveFields> | null };
-          }
-          const live = await fetchLiveForPool(token.dbc_pool_address);
-          return { id: token.id, live };
-        })
-      );
+      if (subset.length === 0) return;
+
+      const allResults: Array<PromiseSettledResult<{ id: string; live: Partial<LiveFields> | null }>> = [];
+
+      for (let i = 0; i < subset.length; i += LIVE_BATCH_SIZE) {
+        const batch = subset.slice(i, i + LIVE_BATCH_SIZE);
+        const batchResults = await Promise.allSettled(
+          batch.map(async (token) => {
+            const live = token.dbc_pool_address
+              ? await fetchLiveForPool(token.dbc_pool_address, token.id)
+              : null;
+            return { id: token.id, live };
+          })
+        );
+        allResults.push(...batchResults);
+
+        // Ignore stale refreshes mid-flight
+        if (currentSeq !== liveRefreshSeq.current) return;
+      }
 
       // Ignore stale refreshes
       if (currentSeq !== liveRefreshSeq.current) return;
 
       const liveMap = new Map<string, Partial<LiveFields>>();
-      for (const r of results) {
+      for (const r of allResults) {
         if (r.status !== "fulfilled") continue;
         if (r.value.live) liveMap.set(r.value.id, r.value.live);
       }
