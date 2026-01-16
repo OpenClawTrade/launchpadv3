@@ -38,7 +38,11 @@ import {
   Key,
   Bot,
   Repeat,
-  Infinity as InfinityIcon
+  Infinity as InfinityIcon,
+  Globe,
+  Twitter,
+  MessageCircle,
+  MessageSquare
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
@@ -581,6 +585,52 @@ export default function FunLauncherPage() {
                               placeholder="Description"
                               maxLength={280}
                             />
+                            
+                            {/* Social Links - Collapsible */}
+                            <details className="group">
+                              <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-400 flex items-center gap-1">
+                                <Globe className="h-3 w-3" />
+                                Edit Socials (optional)
+                              </summary>
+                              <div className="mt-2 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Globe className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                                  <Input
+                                    value={meme.websiteUrl || ""}
+                                    onChange={(e) => setMeme({ ...meme, websiteUrl: e.target.value })}
+                                    className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs h-7 px-2"
+                                    placeholder="Website URL"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Twitter className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                                  <Input
+                                    value={meme.twitterUrl || ""}
+                                    onChange={(e) => setMeme({ ...meme, twitterUrl: e.target.value })}
+                                    className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs h-7 px-2"
+                                    placeholder="Twitter URL"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <MessageCircle className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                                  <Input
+                                    value={meme.telegramUrl || ""}
+                                    onChange={(e) => setMeme({ ...meme, telegramUrl: e.target.value })}
+                                    className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs h-7 px-2"
+                                    placeholder="Telegram URL"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <MessageSquare className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                                  <Input
+                                    value={meme.discordUrl || ""}
+                                    onChange={(e) => setMeme({ ...meme, discordUrl: e.target.value })}
+                                    className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs h-7 px-2"
+                                    placeholder="Discord URL"
+                                  />
+                                </div>
+                              </div>
+                            </details>
                           </div>
                         ) : (
                           <p className="text-sm text-gray-500">Click Randomize to generate</p>
