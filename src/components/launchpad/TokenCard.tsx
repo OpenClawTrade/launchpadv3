@@ -11,6 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   const usdValue = marketCapSol * solPrice;
+  if (!Number.isFinite(usdValue) || usdValue <= 0) return "$0";
   if (usdValue >= 1_000_000) {
     return `$${(usdValue / 1_000_000).toFixed(2)}M`;
   } else if (usdValue >= 1_000) {

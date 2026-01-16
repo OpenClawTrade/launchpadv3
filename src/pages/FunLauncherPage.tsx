@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -69,11 +70,21 @@ interface LaunchResult {
 
 export default function FunLauncherPage() {
   const { toast } = useToast();
+  const { solPrice } = useSolPrice();
   const { tokens, isLoading: tokensLoading, lastUpdate, refetch } = useFunTokens();
-  const { data: feeClaims = [], isLoading: claimsLoading } = useFunFeeClaims();
+
+  const [claimsPage, setClaimsPage] = useState(1);
+  const claimsPageSize = 20;
+
+  const { data: claimsData, isLoading: claimsLoading } = useFunFeeClaims({
+    page: claimsPage,
+    pageSize: claimsPageSize,
+  });
+  const feeClaims = claimsData?.items ?? [];
+  const claimsCount = claimsData?.count ?? 0;
+
   const { data: distributions = [] } = useFunDistributions();
   const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
-  
   const [generatorMode, setGeneratorMode] = useState<"random" | "custom">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
@@ -349,6 +360,14 @@ export default function FunLauncherPage() {
     if (sol > 0 && sol < 0.000001) return sol.toExponential(2);
     if (sol > 0 && sol < 0.01) return sol.toFixed(8);
     return sol.toFixed(6);
+  };
+
+  const formatUsd = (marketCapSol: number) => {
+    const usdValue = Number(marketCapSol || 0) * Number(solPrice || 0);
+    if (!Number.isFinite(usdValue) || usdValue <= 0) return "$0";
+    if (usdValue >= 1_000_000) return `$${(usdValue / 1_000_000).toFixed(2)}M`;
+    if (usdValue >= 1_000) return `$${(usdValue / 1_000).toFixed(1)}K`;
+    return `$${usdValue.toFixed(0)}`;
   };
 
   // Calculate totals
@@ -770,7 +789,7 @@ export default function FunLauncherPage() {
                   className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
                 >
                   <Coins className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Claimed</span> ({feeClaims.length})
+                  <span className="hidden sm:inline">Claimed</span> ({claimsCount})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="buybacks" 
@@ -808,7 +827,6 @@ export default function FunLauncherPage() {
                         <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
                           <th className="text-left p-3 font-medium">#</th>
                           <th className="text-left p-3 font-medium">Token</th>
-                          <th className="text-right p-3 font-medium">Price</th>
                           <th className="text-right p-3 font-medium">Market Cap</th>
                           <th className="text-right p-3 font-medium">Holders</th>
                           <th className="text-center p-3 font-medium">Progress</th>
@@ -823,7 +841,6 @@ export default function FunLauncherPage() {
                               <td className="p-3"><Skeleton className="h-4 w-6 bg-[#1a1a1f]" /></td>
                               <td className="p-3"><Skeleton className="h-8 w-32 bg-[#1a1a1f]" /></td>
                               <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
                               <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
                               <td className="p-3"><Skeleton className="h-4 w-20 bg-[#1a1a1f]" /></td>
                               <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
@@ -832,7 +849,7 @@ export default function FunLauncherPage() {
                           ))
                         ) : tokens.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="p-8 text-center text-gray-500">
+                            <td colSpan={7} className="p-8 text-center text-gray-500">
                               No tokens launched yet. Be the first!
                             </td>
                           </tr>
@@ -861,13 +878,8 @@ export default function FunLauncherPage() {
                                 </div>
                               </td>
                               <td className="p-3 text-right">
-                                <span className="text-sm text-white font-mono">
-                                  {formatSOL(token.price_sol)} SOL
-                                </span>
-                              </td>
-                              <td className="p-3 text-right">
                                 <span className="text-sm text-white">
-                                  {formatSOL(token.market_cap_sol || 30)} SOL
+                                  {formatUsd(token.market_cap_sol || 0)}
                                 </span>
                               </td>
                               <td className="p-3 text-right">
@@ -1040,6 +1052,35 @@ export default function FunLauncherPage() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Pagination */}
+                  {claimsCount > claimsPageSize && (
+                    <div className="p-3 border-t border-[#1a1a1f] flex items-center justify-between">
+                      <div className="text-xs text-gray-500">
+                        Page {claimsPage} / {Math.max(1, Math.ceil(claimsCount / claimsPageSize))} • {claimsCount} total
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-gray-300 hover:text-white"
+                          disabled={claimsPage <= 1}
+                          onClick={() => setClaimsPage((p) => Math.max(1, p - 1))}
+                        >
+                          Prev
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-gray-300 hover:text-white"
+                          disabled={claimsPage >= Math.ceil(claimsCount / claimsPageSize)}
+                          onClick={() => setClaimsPage((p) => p + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
 
