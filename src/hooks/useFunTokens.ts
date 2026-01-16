@@ -4,37 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD_SOL = 85;
 
-const getApiUrl = (): string => {
+const getBackendBaseUrl = (): string => {
   const normalize = (url: string) => url.replace(/\/+$/, "");
-
-  // 1) localStorage (set by RuntimeConfigBootstrap)
-  if (typeof window !== "undefined") {
-    const fromStorage = localStorage.getItem("meteoraApiUrl");
-    if (fromStorage && fromStorage.startsWith("https://") && !fromStorage.includes("${")) {
-      return normalize(fromStorage);
-    }
-  }
-
-  // 2) window runtime config
-  if (typeof window !== "undefined") {
-    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
-    if (fromWindow && fromWindow.startsWith("https://") && !fromWindow.includes("${")) {
-      return normalize(fromWindow);
-    }
-  }
-
-  // 3) build-time env
-  const meteoraUrl = import.meta.env.VITE_METEORA_API_URL;
-  if (meteoraUrl && typeof meteoraUrl === "string" && meteoraUrl.startsWith("https://") && !meteoraUrl.includes("${")) {
-    return normalize(meteoraUrl.trim());
-  }
-
-  // 4) fallback to current origin
-  if (typeof window !== "undefined") return window.location.origin;
+  const backendUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (backendUrl && typeof backendUrl === "string") return normalize(backendUrl);
   return "";
 };
 
-// Cache for pool-state proxy responses
+// Cache for pool-state responses (keeps UI stable when upstream blips)
 const poolCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 1500; // 1.5 seconds cache
 
@@ -70,7 +47,9 @@ interface UseFunTokensResult {
 }
 
 const BASE_POLL_INTERVAL_MS = 15_000;
-const LIVE_POLL_INTERVAL_MS = 2_000;
+// 2s was overkill for a list view and causes upstream/rate-limit failures.
+// 5s still feels "instant" while being much more reliable.
+const LIVE_POLL_INTERVAL_MS = 5_000;
 const LIVE_BATCH_SIZE = 5;
 
 const DEFAULT_LIVE: LiveFields = {
@@ -80,8 +59,21 @@ const DEFAULT_LIVE: LiveFields = {
   price_sol: 0.00000003,
 };
 
-// Fetch pool state via our backend proxy (uses Meteora SDK for accurate data)
-async function fetchPoolStateDirect(poolAddress: string, signal?: AbortSignal): Promise<LiveFields | null> {
+function buildFunPoolStateUrl(poolAddress: string, mintAddress?: string | null): string {
+  const base = getBackendBaseUrl();
+  if (!base) return "";
+  const params = new URLSearchParams();
+  params.set("pool", poolAddress);
+  if (mintAddress) params.set("mint", mintAddress);
+  return `${base}/functions/v1/fun-pool-state?${params.toString()}`;
+}
+
+// Fetch pool state via backend function (Helius RPC decode)
+async function fetchPoolStateDirect(
+  poolAddress: string,
+  mintAddress?: string | null,
+  signal?: AbortSignal
+): Promise<LiveFields | null> {
   const cached = poolCache.get(poolAddress);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     const c = cached.data;
@@ -94,45 +86,57 @@ async function fetchPoolStateDirect(poolAddress: string, signal?: AbortSignal): 
   }
 
   try {
-    const apiUrl = getApiUrl();
-    const url = `${apiUrl}/api/pool/state?poolAddress=${encodeURIComponent(poolAddress)}`;
+    const url = buildFunPoolStateUrl(poolAddress, mintAddress);
+    if (!url) return null;
 
     console.log("[useFunTokens] Fetching pool state for", poolAddress.slice(0, 8) + "...");
 
     const response = await fetch(url, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: {
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
       signal,
     });
 
     if (!response.ok) {
-      console.warn("[useFunTokens] pool/state response not ok:", response.status);
+      console.warn("[useFunTokens] fun-pool-state response not ok:", response.status);
       return null;
     }
 
     const data = await response.json();
-    
-    // Log the actual data for debugging
-    console.log("[useFunTokens] pool/state response:", {
-      pool: poolAddress.slice(0, 8) + "...",
-      source: data.source,
+
+    // normalize response into the fields our UI expects
+    const normalized = {
       priceSol: data.priceSol,
       marketCapSol: data.marketCapSol,
       bondingProgress: data.bondingProgress,
       holderCount: data.holderCount,
+      source: data.source,
+    };
+
+    console.log("[useFunTokens] fun-pool-state response:", {
+      pool: poolAddress.slice(0, 8) + "...",
+      source: normalized.source,
+      priceSol: normalized.priceSol,
+      marketCapSol: normalized.marketCapSol,
+      bondingProgress: normalized.bondingProgress,
+      holderCount: normalized.holderCount,
     });
 
-    poolCache.set(poolAddress, { data, timestamp: Date.now() });
+    poolCache.set(poolAddress, { data: normalized, timestamp: Date.now() });
 
     return {
-      price_sol: data.priceSol ?? DEFAULT_LIVE.price_sol,
-      market_cap_sol: data.marketCapSol ?? DEFAULT_LIVE.market_cap_sol,
-      bonding_progress: data.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
-      holder_count: data.holderCount ?? DEFAULT_LIVE.holder_count,
+      price_sol: normalized.priceSol ?? DEFAULT_LIVE.price_sol,
+      market_cap_sol: normalized.marketCapSol ?? DEFAULT_LIVE.market_cap_sol,
+      bonding_progress: normalized.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
+      holder_count: normalized.holderCount ?? DEFAULT_LIVE.holder_count,
     };
   } catch (e) {
     if ((e as Error).name !== "AbortError") {
-      console.error("[useFunTokens] pool/state fetch failed for", poolAddress, e);
+      console.error("[useFunTokens] fun-pool-state fetch failed for", poolAddress, e);
     }
     return null;
   }
@@ -182,10 +186,15 @@ export function useFunTokens(): UseFunTokensResult {
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Fetch live data directly from Meteora (browser-side, bypasses backend DNS issues)
-  const fetchLiveForPool = useCallback(
-    async (pool: string): Promise<Partial<LiveFields> | null> => {
-      return fetchPoolStateDirect(pool, abortControllerRef.current?.signal);
+  // Fetch live data from backend function (Helius RPC decode)
+  const fetchLiveForToken = useCallback(
+    async (token: FunToken): Promise<Partial<LiveFields> | null> => {
+      if (!token.dbc_pool_address) return null;
+      return fetchPoolStateDirect(
+        token.dbc_pool_address,
+        token.mint_address,
+        abortControllerRef.current?.signal
+      );
     },
     []
   );
@@ -207,12 +216,11 @@ export function useFunTokens(): UseFunTokensResult {
         const batch = subset.slice(i, i + LIVE_BATCH_SIZE);
         const batchResults = await Promise.allSettled(
           batch.map(async (token) => {
-            const live = token.dbc_pool_address
-              ? await fetchLiveForPool(token.dbc_pool_address)
-              : null;
+            const live = await fetchLiveForToken(token);
             return { id: token.id, live };
           })
         );
+        allResults.push(...batchResults);
         allResults.push(...batchResults);
 
         // Ignore stale refreshes mid-flight
@@ -241,7 +249,7 @@ export function useFunTokens(): UseFunTokensResult {
 
       setLastUpdate(new Date());
     },
-    [fetchLiveForPool, mergeLive]
+    [fetchLiveForToken, mergeLive]
   );
 
   const fetchTokens = useCallback(async (isInitial = false) => {
