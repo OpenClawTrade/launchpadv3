@@ -5,28 +5,9 @@ const DBC_API_URL = "https://dbc-api.meteora.ag";
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD_SOL = 85;
 
-function safeNumber(v: unknown): number {
-  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
-  if (typeof v === "string") {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
-
-function getCachedString(key: string): string {
-  try {
-    return localStorage.getItem(key) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function getHeliusRpcUrl(): string {
-  // RuntimeConfigBootstrap stores this for cross-domain reliability.
-  const w = window as any;
-  return (w?.__PUBLIC_CONFIG__?.heliusRpcUrl as string | undefined)?.trim() || getCachedString("heliusRpcUrl");
-}
+// Cache for Meteora responses to avoid hammering the API
+const poolCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 1500; // 1.5 seconds cache
 
 interface FunToken {
   id: string;
@@ -61,7 +42,7 @@ interface UseFunTokensResult {
 
 const BASE_POLL_INTERVAL_MS = 15_000;
 const LIVE_POLL_INTERVAL_MS = 2_000;
-const LIVE_BATCH_SIZE = 10;
+const LIVE_BATCH_SIZE = 5;
 
 const DEFAULT_LIVE: LiveFields = {
   holder_count: 0,
@@ -69,6 +50,51 @@ const DEFAULT_LIVE: LiveFields = {
   bonding_progress: 0,
   price_sol: 0.00000003,
 };
+
+// Parse Meteora pool data into our format (browser-side)
+function parsePoolData(data: any): LiveFields {
+  const realSol = parseFloat(data.real_base_amount || data.real_sol_reserves || 0) / 1e9;
+  const virtualSol = parseFloat(data.virtual_base_amount || data.virtual_sol_reserves || 30e9) / 1e9;
+  const virtualTokens = parseFloat(data.virtual_quote_amount || data.virtual_token_reserves || 1e15) / 1e6;
+  
+  const priceSol = virtualTokens > 0 ? virtualSol / virtualTokens : 0.00000003;
+  const marketCapSol = priceSol * TOTAL_SUPPLY;
+  const bondingProgress = Math.min((realSol / GRADUATION_THRESHOLD_SOL) * 100, 100);
+  
+  return {
+    price_sol: priceSol,
+    market_cap_sol: marketCapSol,
+    holder_count: data.holder_count || 0,
+    bonding_progress: bondingProgress,
+  };
+}
+
+// Fetch pool state directly from Meteora DBC API (browser-side)
+async function fetchPoolStateDirect(poolAddress: string, signal?: AbortSignal): Promise<LiveFields | null> {
+  // Check cache first
+  const cached = poolCache.get(poolAddress);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return parsePoolData(cached.data);
+  }
+
+  try {
+    const response = await fetch(`${DBC_API_URL}/pools/${poolAddress}`, {
+      headers: { 'Accept': 'application/json' },
+      signal,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      poolCache.set(poolAddress, { data, timestamp: Date.now() });
+      return parsePoolData(data);
+    }
+  } catch (e) {
+    if ((e as Error).name !== 'AbortError') {
+      console.debug('[useFunTokens] Direct Meteora fetch failed for', poolAddress);
+    }
+  }
+  return null;
+}
 
 export function useFunTokens(): UseFunTokensResult {
   const [tokens, setTokens] = useState<FunToken[]>([]);
@@ -112,24 +138,12 @@ export function useFunTokens(): UseFunTokensResult {
     })) as FunToken[];
   }, []);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Fetch live data directly from Meteora (browser-side, bypasses backend DNS issues)
   const fetchLiveForPool = useCallback(
-    async (pool: string, tokenId?: string): Promise<Partial<LiveFields> | null> => {
-      try {
-        const { data, error } = await supabase.functions.invoke("fun-pool-state", {
-          body: { pool, tokenId },
-        });
-
-        if (error || !data || data.error) return null;
-
-        return {
-          holder_count: data.holderCount ?? DEFAULT_LIVE.holder_count,
-          market_cap_sol: data.marketCapSol ?? DEFAULT_LIVE.market_cap_sol,
-          bonding_progress: data.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
-          price_sol: data.priceSol ?? DEFAULT_LIVE.price_sol,
-        };
-      } catch {
-        return null;
-      }
+    async (pool: string): Promise<Partial<LiveFields> | null> => {
+      return fetchPoolStateDirect(pool, abortControllerRef.current?.signal);
     },
     []
   );
@@ -152,7 +166,7 @@ export function useFunTokens(): UseFunTokensResult {
         const batchResults = await Promise.allSettled(
           batch.map(async (token) => {
             const live = token.dbc_pool_address
-              ? await fetchLiveForPool(token.dbc_pool_address, token.id)
+              ? await fetchLiveForPool(token.dbc_pool_address)
               : null;
             return { id: token.id, live };
           })

@@ -99,6 +99,8 @@ Deno.serve(async (req) => {
       description: descriptionWithTag,
       image: token.image_url || '',
       external_url: token.website_url || `https://trenches.to/token/${mintAddress}`,
+      // Tags array for Solscan tag chips
+      tags: ['Meme', 'ai67x'],
       attributes: [
         {
           trait_type: 'Platform',
