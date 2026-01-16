@@ -451,20 +451,34 @@ export async function executeMeteoraSwap(params: {
   };
 }
 
-// Get pool state from Meteora
+// Get pool state from Meteora SDK (accurate on-chain data)
 export async function getPoolState(poolAddress: string) {
   const client = getMeteoraClient();
   const poolPubkey = new PublicKey(poolAddress);
   
+  console.log('[getPoolState] Fetching pool:', poolAddress);
+  
   const poolState = await client.state.getPool(poolPubkey);
   if (!poolState) {
+    console.warn('[getPoolState] Pool not found:', poolAddress);
     return null;
   }
   
-  // Calculate current price
+  // Calculate current price from virtual reserves
+  // quoteReserve = virtual SOL (in lamports, 9 decimals)
+  // baseReserve = virtual tokens (in smallest unit, TOKEN_DECIMALS decimals)
   const virtualSol = Number(poolState.quoteReserve.toString()) / 1e9;
   const virtualToken = Number(poolState.baseReserve.toString()) / Math.pow(10, TOKEN_DECIMALS);
-  const price = virtualSol / virtualToken;
+  const price = virtualToken > 0 ? virtualSol / virtualToken : 0;
+  
+  console.log('[getPoolState] Raw reserves:', {
+    quoteReserve: poolState.quoteReserve.toString(),
+    baseReserve: poolState.baseReserve.toString(),
+    virtualSol,
+    virtualToken,
+    price,
+    isMigrated: poolState.isMigrated,
+  });
   
   return {
     mintAddress: poolState.baseMint.toBase58(),

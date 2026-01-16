@@ -80,7 +80,7 @@ const DEFAULT_LIVE: LiveFields = {
   price_sol: 0.00000003,
 };
 
-// Fetch pool state via our backend proxy (avoids browser CORS/DNS issues)
+// Fetch pool state via our backend proxy (uses Meteora SDK for accurate data)
 async function fetchPoolStateDirect(poolAddress: string, signal?: AbortSignal): Promise<LiveFields | null> {
   const cached = poolCache.get(poolAddress);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -97,15 +97,31 @@ async function fetchPoolStateDirect(poolAddress: string, signal?: AbortSignal): 
     const apiUrl = getApiUrl();
     const url = `${apiUrl}/api/pool/state?poolAddress=${encodeURIComponent(poolAddress)}`;
 
+    console.log("[useFunTokens] Fetching pool state for", poolAddress.slice(0, 8) + "...");
+
     const response = await fetch(url, {
       method: "GET",
       headers: { Accept: "application/json" },
       signal,
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn("[useFunTokens] pool/state response not ok:", response.status);
+      return null;
+    }
 
     const data = await response.json();
+    
+    // Log the actual data for debugging
+    console.log("[useFunTokens] pool/state response:", {
+      pool: poolAddress.slice(0, 8) + "...",
+      source: data.source,
+      priceSol: data.priceSol,
+      marketCapSol: data.marketCapSol,
+      bondingProgress: data.bondingProgress,
+      holderCount: data.holderCount,
+    });
+
     poolCache.set(poolAddress, { data, timestamp: Date.now() });
 
     return {
@@ -116,7 +132,7 @@ async function fetchPoolStateDirect(poolAddress: string, signal?: AbortSignal): 
     };
   } catch (e) {
     if ((e as Error).name !== "AbortError") {
-      console.debug("[useFunTokens] pool/state fetch failed for", poolAddress);
+      console.error("[useFunTokens] pool/state fetch failed for", poolAddress, e);
     }
     return null;
   }
