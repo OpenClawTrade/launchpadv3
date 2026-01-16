@@ -39,13 +39,37 @@ interface UseFunLiveDataResult {
   refetch: () => Promise<void>;
 }
 
-// Meteora DBC API for direct pool data
-const DBC_API_URL = 'https://dbc-api.meteora.ag';
+// Use backend proxy for pool data (browser can't reliably call dbc-api directly)
+const getApiUrl = (): string => {
+  const normalize = (url: string) => url.replace(/\/+$/, "");
+
+  if (typeof window !== "undefined") {
+    const fromStorage = localStorage.getItem("meteoraApiUrl");
+    if (fromStorage && fromStorage.startsWith("https://") && !fromStorage.includes("${")) {
+      return normalize(fromStorage);
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
+    if (fromWindow && fromWindow.startsWith("https://") && !fromWindow.includes("${")) {
+      return normalize(fromWindow);
+    }
+  }
+
+  const meteoraUrl = import.meta.env.VITE_METEORA_API_URL;
+  if (meteoraUrl && typeof meteoraUrl === "string" && meteoraUrl.startsWith("https://") && !meteoraUrl.includes("${")) {
+    return normalize(meteoraUrl.trim());
+  }
+
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+};
 
 // Poll every 2 seconds for live data
 const POLL_INTERVAL = 2000;
 
-// Cache for Meteora responses to avoid hammering the API
+// Cache for proxy responses
 const poolCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 1500; // 1.5 seconds cache
 
@@ -57,30 +81,50 @@ export function useFunLiveData(): UseFunLiveDataResult {
   const abortControllerRef = useRef<AbortController | null>(null);
   const baseTokensRef = useRef<FunToken[]>([]);
 
-  // Fetch pool state directly from Meteora DBC API
+  // Fetch pool state via our backend proxy (browser can't reliably call dbc-api directly)
   const fetchPoolStateDirect = async (poolAddress: string): Promise<PoolStateResponse | null> => {
     // Check cache first
     const cached = poolCache.get(poolAddress);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return parsePoolData(cached.data);
+      const c = cached.data;
+      return {
+        priceSol: c.priceSol ?? 0.00000003,
+        marketCapSol: c.marketCapSol ?? 30,
+        holderCount: c.holderCount ?? 0,
+        bondingProgress: c.bondingProgress ?? 0,
+        realSolReserves: c.realSolReserves ?? 0,
+        isGraduated: !!c.isGraduated,
+      };
     }
 
     try {
-      const response = await fetch(`${DBC_API_URL}/pools/${poolAddress}`, {
-        headers: { 'Accept': 'application/json' },
+      const apiUrl = getApiUrl();
+      const url = `${apiUrl}/api/pool/state?poolAddress=${encodeURIComponent(poolAddress)}`;
+
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
         signal: abortControllerRef.current?.signal,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        poolCache.set(poolAddress, { data, timestamp: Date.now() });
-        return parsePoolData(data);
-      }
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      poolCache.set(poolAddress, { data, timestamp: Date.now() });
+
+      return {
+        priceSol: data.priceSol ?? 0.00000003,
+        marketCapSol: data.marketCapSol ?? 30,
+        holderCount: data.holderCount ?? 0,
+        bondingProgress: data.bondingProgress ?? 0,
+        realSolReserves: data.realSolReserves ?? 0,
+        isGraduated: !!data.isGraduated,
+      };
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') {
-        console.debug('[useFunLiveData] Direct Meteora fetch failed for', poolAddress);
+      if ((e as Error).name !== "AbortError") {
+        console.debug("[useFunLiveData] pool/state fetch failed for", poolAddress);
       }
     }
+
     return null;
   };
 
