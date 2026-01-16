@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import ai69xLogo from "@/assets/ai69x-logo.png";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +49,8 @@ interface MemeToken {
   imageUrl: string;
   websiteUrl?: string;
   twitterUrl?: string;
+  telegramUrl?: string;
+  discordUrl?: string;
   narrative?: string;
 }
 
@@ -71,7 +74,21 @@ export default function FunLauncherPage() {
   const { data: distributions = [] } = useFunDistributions();
   const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
   
+  const [generatorMode, setGeneratorMode] = useState<"random" | "custom">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
+  const [customToken, setCustomToken] = useState<MemeToken>({
+    name: "",
+    ticker: "",
+    description: "",
+    imageUrl: "",
+    websiteUrl: "",
+    twitterUrl: "",
+    telegramUrl: "",
+    discordUrl: "",
+  });
+  const [customImageFile, setCustomImageFile] = useState<File | null>(null);
+  const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
+
   const [walletAddress, setWalletAddress] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
@@ -143,6 +160,130 @@ export default function FunLauncherPage() {
     }
   }, [toast]);
 
+  const uploadCustomImageIfNeeded = useCallback(async (): Promise<string> => {
+    if (!customImageFile) return customToken.imageUrl;
+
+    const fileExt = customImageFile.name.split('.').pop() || 'png';
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `token-images/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage.from('post-images').upload(filePath, customImageFile);
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(filePath);
+    return urlData.publicUrl;
+  }, [customImageFile, customToken.imageUrl]);
+
+  const performLaunch = useCallback(
+    async (tokenToLaunch: MemeToken) => {
+      if (!walletAddress || !isValidSolanaAddress(walletAddress)) {
+        toast({
+          title: "Invalid wallet address",
+          description: "Please enter a valid Solana wallet address",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsLaunching(true);
+      console.log("[FunLauncher] Starting token launch:", {
+        name: tokenToLaunch.name,
+        ticker: tokenToLaunch.ticker,
+        wallet: walletAddress,
+      });
+
+      try {
+        console.log("[FunLauncher] Calling fun-create...");
+        const { data, error } = await supabase.functions.invoke("fun-create", {
+          body: {
+            name: tokenToLaunch.name,
+            ticker: tokenToLaunch.ticker,
+            description: tokenToLaunch.description,
+            imageUrl: tokenToLaunch.imageUrl,
+            websiteUrl: tokenToLaunch.websiteUrl,
+            twitterUrl: tokenToLaunch.twitterUrl,
+            telegramUrl: tokenToLaunch.telegramUrl,
+            discordUrl: tokenToLaunch.discordUrl,
+            creatorWallet: walletAddress,
+          },
+        });
+
+        console.log("[FunLauncher] fun-create response:", { data, error });
+
+        // Handle HTTP-level errors
+        if (error) {
+          console.error("[FunLauncher] fun-create HTTP error:", error);
+          const errorMsg = error.message || error.toString();
+          throw new Error(`Server error: ${errorMsg}`);
+        }
+
+        // Handle application-level failures
+        if (!data?.success) {
+          console.error("[FunLauncher] fun-create returned failure:", data);
+          throw new Error(data?.error || "Launch failed - no details provided");
+        }
+
+        console.log("[FunLauncher] ✅ Token launched successfully:", data);
+
+        // Set result and show modal
+        setLaunchResult({
+          success: true,
+          name: data.name || tokenToLaunch.name,
+          ticker: data.ticker || tokenToLaunch.ticker,
+          mintAddress: data.mintAddress,
+          imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
+          onChainSuccess: data.onChainSuccess,
+          solscanUrl: data.solscanUrl,
+          tradeUrl: data.tradeUrl,
+          message: data.message,
+        });
+        setShowResultModal(true);
+
+        toast({
+          title: "🚀 Token Launched!",
+          description: `${data.name || tokenToLaunch.name} is now live on Solana!`,
+        });
+
+        // Clear form
+        setMeme(null);
+        setCustomToken({
+          name: "",
+          ticker: "",
+          description: "",
+          imageUrl: "",
+          websiteUrl: "",
+          twitterUrl: "",
+          telegramUrl: "",
+          discordUrl: "",
+        });
+        setCustomImageFile(null);
+        setCustomImagePreview(null);
+        setWalletAddress("");
+
+        // Refresh token list
+        refetch();
+      } catch (error) {
+        console.error("[FunLauncher] Launch error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to launch token";
+
+        setLaunchResult({
+          success: false,
+          error: errorMessage,
+        });
+        setShowResultModal(true);
+
+        toast({
+          title: "Launch Failed",
+          description: errorMessage.length > 100 ? errorMessage.slice(0, 100) + "..." : errorMessage,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLaunching(false);
+      }
+    },
+    [isValidSolanaAddress, refetch, toast, walletAddress]
+  );
+
   const handleLaunch = useCallback(async () => {
     if (!meme) {
       toast({
@@ -153,95 +294,52 @@ export default function FunLauncherPage() {
       return;
     }
 
-    if (!walletAddress || !isValidSolanaAddress(walletAddress)) {
+    await performLaunch(meme);
+  }, [meme, performLaunch, toast]);
+
+  const handleCustomImageChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "Image too large", description: "Max 5MB allowed", variant: "destructive" });
+        return;
+      }
+
+      setCustomImageFile(file);
+      setCustomImagePreview(URL.createObjectURL(file));
+    },
+    [toast]
+  );
+
+  const handleCustomLaunch = useCallback(async () => {
+    if (!customToken.name.trim() || !customToken.ticker.trim()) {
       toast({
-        title: "Invalid wallet address",
-        description: "Please enter a valid Solana wallet address",
+        title: "Missing token info",
+        description: "Name and ticker are required",
         variant: "destructive",
       });
       return;
     }
 
-    setIsLaunching(true);
-    console.log("[FunLauncher] Starting token launch:", { name: meme.name, ticker: meme.ticker, wallet: walletAddress });
-
     try {
-      console.log("[FunLauncher] Calling fun-create...");
-      const { data, error } = await supabase.functions.invoke("fun-create", {
-        body: {
-          name: meme.name,
-          ticker: meme.ticker,
-          description: meme.description,
-          imageUrl: meme.imageUrl,
-          websiteUrl: meme.websiteUrl,
-          twitterUrl: meme.twitterUrl,
-          creatorWallet: walletAddress,
-        }
+      const imageUrl = await uploadCustomImageIfNeeded();
+      await performLaunch({
+        ...customToken,
+        name: customToken.name.slice(0, 20),
+        ticker: customToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6),
+        imageUrl,
       });
-
-      console.log("[FunLauncher] fun-create response:", { data, error });
-
-      // Handle HTTP-level errors
-      if (error) {
-        console.error("[FunLauncher] fun-create HTTP error:", error);
-        // Try to extract more info from the error
-        const errorMsg = error.message || error.toString();
-        throw new Error(`Server error: ${errorMsg}`);
-      }
-
-      // Handle application-level failures
-      if (!data?.success) {
-        console.error("[FunLauncher] fun-create returned failure:", data);
-        throw new Error(data?.error || "Launch failed - no details provided");
-      }
-
-      console.log("[FunLauncher] ✅ Token launched successfully:", data);
-
-      // Set result and show modal
-      setLaunchResult({
-        success: true,
-        name: data.name || meme.name,
-        ticker: data.ticker || meme.ticker,
-        mintAddress: data.mintAddress,
-        imageUrl: data.imageUrl || meme.imageUrl,
-        onChainSuccess: data.onChainSuccess,
-        solscanUrl: data.solscanUrl,
-        tradeUrl: data.tradeUrl,
-        message: data.message,
-      });
-      setShowResultModal(true);
-
+    } catch (e) {
+      console.error('[FunLauncher] Custom launch error:', e);
       toast({
-        title: "🚀 Token Launched!",
-        description: `${data.name || meme.name} is now live on Solana!`,
+        title: 'Custom launch failed',
+        description: e instanceof Error ? e.message : 'Failed to launch custom token',
+        variant: 'destructive',
       });
-
-      // Clear form
-      setMeme(null);
-      setWalletAddress("");
-      
-      // Refresh token list
-      refetch();
-
-    } catch (error) {
-      console.error("[FunLauncher] Launch error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to launch token";
-      
-      setLaunchResult({
-        success: false,
-        error: errorMessage,
-      });
-      setShowResultModal(true);
-
-      toast({
-        title: "Launch Failed",
-        description: errorMessage.length > 100 ? errorMessage.slice(0, 100) + "..." : errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLaunching(false);
     }
-  }, [meme, walletAddress, toast, refetch]);
+  }, [customToken, performLaunch, toast, uploadCustomImageIfNeeded]);
 
   const formatSOL = (sol: number) => {
     if (!Number.isFinite(sol)) return "0";
@@ -354,35 +452,163 @@ export default function FunLauncherPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-white flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-[#00d4aa]" />
-                  AI Meme Generator
+                  {generatorMode === "random" ? "AI Meme Generator" : "Custom Token"}
                 </h2>
-                <Badge variant="outline" className="border-[#00d4aa]/30 text-[#00d4aa] text-xs">
-                  FREE
-                </Badge>
+
+                {/* Mode Switcher */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setGeneratorMode("random")}
+                    className={
+                      generatorMode === "random"
+                        ? "h-7 px-2 border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
+                        : "h-7 px-2 border-[#2a2a35] text-gray-300 bg-transparent"
+                    }
+                  >
+                    Randomizer
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setGeneratorMode("custom")}
+                    className={
+                      generatorMode === "custom"
+                        ? "h-7 px-2 border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
+                        : "h-7 px-2 border-[#2a2a35] text-gray-300 bg-transparent"
+                    }
+                  >
+                    Custom
+                  </Button>
+                </div>
               </div>
 
-              {/* Preview */}
-              <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#1a1a1f]">
-                    {isGenerating ? (
-                      <MemeLoadingAnimation />
-                    ) : meme?.imageUrl ? (
-                      <img src={meme.imageUrl} alt={meme.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Shuffle className="h-8 w-8 text-gray-600" />
+              {generatorMode === "random" ? (
+                <>
+                  {/* Preview */}
+                  <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#1a1a1f]">
+                        {isGenerating ? (
+                          <MemeLoadingAnimation />
+                        ) : meme?.imageUrl ? (
+                          <img src={meme.imageUrl} alt={meme.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Shuffle className="h-8 w-8 text-gray-600" />
+                          </div>
+                        )}
                       </div>
-                    )}
+                      <div className="flex-1 min-w-0">
+                        {isGenerating ? (
+                          <MemeLoadingText />
+                        ) : meme ? (
+                          <div className="space-y-2">
+                            <Input
+                              value={meme.name}
+                              onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })}
+                              className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
+                              placeholder="Token name"
+                              maxLength={20}
+                            />
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#00d4aa] text-sm">$</span>
+                              <Input
+                                value={meme.ticker}
+                                onChange={(e) =>
+                                  setMeme({
+                                    ...meme,
+                                    ticker: e.target.value
+                                      .toUpperCase()
+                                      .replace(/[^A-Z0-9]/g, "")
+                                      .slice(0, 6),
+                                  })
+                                }
+                                className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-20"
+                                placeholder="TICKER"
+                                maxLength={6}
+                              />
+                            </div>
+                            <p className="text-xs text-gray-400 line-clamp-2">{meme.description}</p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">Click Randomize to generate</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
+
+                  {/* Randomize Button */}
+                  <Button
+                    onClick={handleRandomize}
+                    disabled={isGenerating || isLaunching}
+                    className="w-full bg-[#1a1a1f] hover:bg-[#252530] text-white border border-[#2a2a35] mb-3"
+                  >
                     {isGenerating ? (
-                      <MemeLoadingText />
-                    ) : meme ? (
-                      <div className="space-y-2">
+                      <>
+                        <Shuffle className="h-4 w-4 mr-2 animate-spin" /> Generating your next gem...
+                      </>
+                    ) : (
+                      <>
+                        <Shuffle className="h-4 w-4 mr-2" /> Randomize
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Wallet & Launch */}
+                  {meme && (
+                    <div className="space-y-3 pt-3 border-t border-[#1a1a1f]">
+                      <Input
+                        placeholder="Your SOL wallet address..."
+                        value={walletAddress}
+                        onChange={(e) => setWalletAddress(e.target.value)}
+                        className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
+                      />
+                      <p className="text-xs text-gray-500">Receive 50% of trading fees every few min</p>
+                      <Button
+                        onClick={handleLaunch}
+                        disabled={isLaunching || !walletAddress}
+                        className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
+                      >
+                        {isLaunching ? (
+                          <>
+                            <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...
+                          </>
+                        ) : (
+                          <>
+                            <Rocket className="h-4 w-4 mr-2" /> Launch Token
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Custom Form */}
+                  <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4 space-y-3">
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#1a1a1f]">
+                        {customImagePreview || customToken.imageUrl ? (
+                          <img
+                            src={customImagePreview || customToken.imageUrl}
+                            alt={customToken.name || "Custom token"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Bot className="h-8 w-8 text-gray-600" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 space-y-2">
                         <Input
-                          value={meme.name}
-                          onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })}
+                          value={customToken.name}
+                          onChange={(e) => setCustomToken({ ...customToken, name: e.target.value.slice(0, 20) })}
                           className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
                           placeholder="Token name"
                           maxLength={20}
@@ -390,59 +616,91 @@ export default function FunLauncherPage() {
                         <div className="flex items-center gap-1">
                           <span className="text-[#00d4aa] text-sm">$</span>
                           <Input
-                            value={meme.ticker}
-                            onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) })}
-                            className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-20"
+                            value={customToken.ticker}
+                            onChange={(e) =>
+                              setCustomToken({
+                                ...customToken,
+                                ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+                              })
+                            }
+                            className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-28"
                             placeholder="TICKER"
                             maxLength={6}
                           />
                         </div>
-                        <p className="text-xs text-gray-400 line-clamp-2">{meme.description}</p>
                       </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">Click Randomize to generate</p>
-                    )}
+                    </div>
+
+                    <Textarea
+                      value={customToken.description}
+                      onChange={(e) => setCustomToken({ ...customToken, description: e.target.value })}
+                      placeholder="Description"
+                      className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm min-h-[80px]"
+                    />
+
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCustomImageChange}
+                      className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        value={customToken.websiteUrl || ""}
+                        onChange={(e) => setCustomToken({ ...customToken, websiteUrl: e.target.value })}
+                        className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                        placeholder="Website URL"
+                      />
+                      <Input
+                        value={customToken.twitterUrl || ""}
+                        onChange={(e) => setCustomToken({ ...customToken, twitterUrl: e.target.value })}
+                        className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                        placeholder="X / Twitter URL"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        value={customToken.telegramUrl || ""}
+                        onChange={(e) => setCustomToken({ ...customToken, telegramUrl: e.target.value })}
+                        className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                        placeholder="Telegram URL"
+                      />
+                      <Input
+                        value={customToken.discordUrl || ""}
+                        onChange={(e) => setCustomToken({ ...customToken, discordUrl: e.target.value })}
+                        className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                        placeholder="Discord URL"
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Randomize Button */}
-              <Button
-                onClick={handleRandomize}
-                disabled={isGenerating || isLaunching}
-                className="w-full bg-[#1a1a1f] hover:bg-[#252530] text-white border border-[#2a2a35] mb-3"
-              >
-                {isGenerating ? (
-                  <><Shuffle className="h-4 w-4 mr-2 animate-spin" /> Generating your next gem...</>
-                ) : (
-                  <><Shuffle className="h-4 w-4 mr-2" /> Randomize</>
-                )}
-              </Button>
-
-              {/* Wallet & Launch */}
-              {meme && (
-                <div className="space-y-3 pt-3 border-t border-[#1a1a1f]">
-                  <Input
-                    placeholder="Your SOL wallet address..."
-                    value={walletAddress}
-                    onChange={(e) => setWalletAddress(e.target.value)}
-                    className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Receive 50% of trading fees every few min
-                  </p>
-                  <Button
-                    onClick={handleLaunch}
-                    disabled={isLaunching || !walletAddress}
-                    className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
-                  >
-                    {isLaunching ? (
-                      <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</>
-                    ) : (
-                      <><Rocket className="h-4 w-4 mr-2" /> Launch Token</>
-                    )}
-                  </Button>
-                </div>
+                  <div className="space-y-3 pt-3 border-t border-[#1a1a1f]">
+                    <Input
+                      placeholder="Your SOL wallet address..."
+                      value={walletAddress}
+                      onChange={(e) => setWalletAddress(e.target.value)}
+                      className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
+                    />
+                    <p className="text-xs text-gray-500">Receive 50% of trading fees every few min</p>
+                    <Button
+                      onClick={handleCustomLaunch}
+                      disabled={isLaunching || !walletAddress || !customToken.name.trim() || !customToken.ticker.trim()}
+                      className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
+                    >
+                      {isLaunching ? (
+                        <>
+                          <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="h-4 w-4 mr-2" /> Launch Token
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
               )}
             </Card>
 
