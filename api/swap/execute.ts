@@ -6,10 +6,10 @@ import {
   SYSTEM_FEE_SHARE,
   GRADUATION_THRESHOLD_SOL,
   TOTAL_SUPPLY,
-} from '../lib/config.js';
-import { getSupabaseClient, getTokenByMint } from '../lib/supabase.js';
-import { getConnection } from '../lib/solana.js';
-import { executeMeteoraSwap, getPoolState, migratePool, serializeTransaction } from '../lib/meteora.js';
+} from '../../lib/config.js';
+import { getSupabaseClient, getTokenByMint } from '../../lib/supabase.js';
+import { getConnection } from '../../lib/solana.js';
+import { executeMeteoraSwap, getPoolState, migratePool, serializeTransaction } from '../../lib/meteora.js';
 
 // CORS headers
 const corsHeaders = {

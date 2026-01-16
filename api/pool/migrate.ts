@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabaseClient, getTokenByMint } from '../lib/supabase.js';
-import { migratePool, getPoolState, claimPartnerFees } from '../lib/meteora.js';
+import { getSupabaseClient, getTokenByMint } from '../../lib/supabase.js';
+import { migratePool, getPoolState, claimPartnerFees } from '../../lib/meteora.js';
 
 // CORS headers
 const corsHeaders = {

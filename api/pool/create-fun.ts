@@ -9,8 +9,8 @@ import {
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
-import { createMeteoraPool } from '../lib/meteora.js';
-import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS } from '../lib/config.js';
+import { createMeteoraPool } from '../../lib/meteora.js';
+import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS } from '../../lib/config.js';
 
 // Configuration
 const INITIAL_VIRTUAL_SOL = 30;

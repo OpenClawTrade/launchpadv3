@@ -240,8 +240,8 @@ Since treasury holds 100% of locked LP via `partnerLockedLpPercentage: 100`, tre
 
 | File | Purpose |
 |------|---------|
-| `api/lib/config.ts` | Fee configuration constants |
-| `api/lib/meteora.ts` | Meteora SDK integration, pool creation, swaps |
+| `lib/config.ts` | Fee configuration constants |
+| `lib/meteora.ts` | Meteora SDK integration, pool creation, swaps |
 | `api/fees/claim-from-pool.ts` | DBC pool fee claiming (pre-graduation) |
 | `api/fees/claim-damm-fees.ts` | DAMM V2 position fee claiming (post-graduation) |
 | `api/pool/migrate.ts` | Pool graduation/migration with pre-claim safeguard |
