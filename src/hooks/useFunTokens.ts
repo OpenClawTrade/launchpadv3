@@ -1,6 +1,33 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+const DBC_API_URL = "https://dbc-api.meteora.ag";
+const TOTAL_SUPPLY = 1_000_000_000;
+const GRADUATION_THRESHOLD_SOL = 85;
+
+function safeNumber(v: unknown): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+function getCachedString(key: string): string {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function getHeliusRpcUrl(): string {
+  // RuntimeConfigBootstrap stores this for cross-domain reliability.
+  const w = window as any;
+  return (w?.__PUBLIC_CONFIG__?.heliusRpcUrl as string | undefined)?.trim() || getCachedString("heliusRpcUrl");
+}
+
 interface FunToken {
   id: string;
   name: string;
