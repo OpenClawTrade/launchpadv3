@@ -8,10 +8,10 @@ import {
   TOKEN_DECIMALS,
   TRADING_FEE_BPS,
   SUPABASE_URL,
-} from '../lib/config.js';
-import { getSupabaseClient } from '../lib/supabase.js';
-import { getConnection, serializeTransaction } from '../lib/solana.js';
-import { createMeteoraPool, serializeTransaction as serializeMeteoraTransaction } from '../lib/meteora.js';
+} from '../../lib/config.js';
+import { getSupabaseClient } from '../../lib/supabase.js';
+import { getConnection, serializeTransaction } from '../../lib/solana.js';
+import { createMeteoraPool, serializeTransaction as serializeMeteoraTransaction } from '../../lib/meteora.js';
 
 // SYSTEM account UUID for automated posts
 const SYSTEM_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001';

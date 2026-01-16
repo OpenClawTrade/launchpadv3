@@ -117,14 +117,13 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   // SDK uses FEE_DENOMINATOR = 1_000_000_000.
   // Numerator = fee_bps/10_000 * 1_000_000_000 = fee_bps * 100_000
   const feeNumerator = new BN(TRADING_FEE_BPS * 100_000); // 200 bps => 20,000,000 (2%)
-  
   // Prepare initial buy if specified
   // NOTE: use `undefined` (not `null`) to match SDK typings.
   let firstBuyParam:
     | {
         buyer: PublicKey;
-        buyAmount: unknown;
-        minimumAmountOut: BN;
+        buyAmount: InstanceType<typeof BN>;
+        minimumAmountOut: InstanceType<typeof BN>;
         referralTokenAccount: null;
       }
     | undefined;
@@ -135,9 +134,11 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
       new PublicKey(WSOL_MINT),
       connection
     );
+    // Ensure amountIn is a BN - prepareSwapAmountParam may return various types
+    const buyAmountBN = amountIn instanceof BN ? amountIn : new BN(String(amountIn));
     firstBuyParam = {
       buyer: creatorPubkey,
-      buyAmount: amountIn,
+      buyAmount: buyAmountBN,
       minimumAmountOut: new BN(1),
       referralTokenAccount: null,
     };

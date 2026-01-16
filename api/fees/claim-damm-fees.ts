@@ -2,9 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { PublicKey } from '@solana/web3.js';
 import { CpAmm, deriveTokenVaultAddress, derivePositionNftAccount } from '@meteora-ag/cp-amm-sdk';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { PLATFORM_FEE_WALLET } from '../lib/config.js';
-import { getSupabaseClient } from '../lib/supabase.js';
-import { getConnection, getTreasuryKeypair } from '../lib/solana.js';
+import { PLATFORM_FEE_WALLET } from '../../lib/config.js';
+import { getSupabaseClient } from '../../lib/supabase.js';
+import { getConnection, getTreasuryKeypair } from '../../lib/solana.js';
 
 // CORS headers
 const corsHeaders = {
