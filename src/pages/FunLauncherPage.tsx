@@ -655,12 +655,12 @@ export default function FunLauncherPage() {
                             onChange={(e) =>
                               setCustomToken({
                                 ...customToken,
-                                ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+                                ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
                               })
                             }
                             className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-28"
                             placeholder="TICKER"
-                            maxLength={6}
+                            maxLength={10}
                           />
                         </div>
                       </div>
