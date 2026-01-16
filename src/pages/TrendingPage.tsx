@@ -129,69 +129,70 @@ const TrendingPage = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Link to="/" className="flex items-center gap-2">
-              <img src={ai69xLogo} alt="ai67x" className="h-8 w-8 rounded-full" />
-              <span className="text-lg font-bold">ai67x</span>
+              <img src={ai69xLogo} alt="ai67x" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full" />
+              <span className="text-base sm:text-lg font-bold">ai67x</span>
             </Link>
-            <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="hidden xs:flex items-center gap-2 text-muted-foreground">
               <ArrowLeft className="h-4 w-4" />
-              <span>Trending Narratives</span>
+              <span className="text-sm">Narratives</span>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {nextRotation && (
-              <div className="flex items-center gap-1 text-xs text-orange-400">
+              <div className="hidden sm:flex items-center gap-1 text-xs text-orange-400">
                 <RefreshCw className="h-3 w-3" />
                 <span>Next rotation {formatDistanceToNow(nextRotation, { addSuffix: true })}</span>
               </div>
             )}
             {lastSynced && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                <span>Updated {formatDistanceToNow(lastSynced, { addSuffix: true })}</span>
+                <span className="hidden xs:inline">Updated </span>
+                <span>{formatDistanceToNow(lastSynced, { addSuffix: true })}</span>
               </div>
             )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Active Narrative Banner */}
         {activeNarrative && (
-          <Card className="mb-8 border-primary/50 bg-gradient-to-r from-primary/10 via-transparent to-primary/5">
-            <CardContent className="py-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-full bg-primary/20">
-                  <Sparkles className="h-6 w-6 text-primary" />
+          <Card className="mb-4 sm:mb-8 border-primary/50 bg-gradient-to-r from-primary/10 via-transparent to-primary/5">
+            <CardContent className="py-4 sm:py-6 px-3 sm:px-6">
+              <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
+                <div className="p-2 sm:p-3 rounded-full bg-primary/20">
+                  <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h2 className="text-xl font-bold">Current Narrative</h2>
-                    <Badge variant="default" className="bg-primary text-primary-foreground">
+                <div className="flex-1 w-full">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <h2 className="text-lg sm:text-xl font-bold">Current Narrative</h2>
+                    <Badge variant="default" className="bg-primary text-primary-foreground text-xs">
                       Active
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[10px] sm:text-xs text-muted-foreground">
                       • Rotates every 30 minutes
                     </span>
                   </div>
-                  <h3 className="text-2xl font-bold text-primary mb-2">{activeNarrative.narrative}</h3>
-                  <p className="text-muted-foreground mb-3">{activeNarrative.description}</p>
-                  <div className="flex items-center gap-4 text-sm">
+                  <h3 className="text-xl sm:text-2xl font-bold text-primary mb-2">{activeNarrative.narrative}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{activeNarrative.description}</p>
+                  <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-4 text-sm">
                     <span className="text-muted-foreground">
-                      <strong className="text-foreground">{activeNarrative.token_count}</strong> tokens in this narrative
+                      <strong className="text-foreground">{activeNarrative.token_count}</strong> tokens
                     </span>
                     {activeNarrative.example_tokens && (
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {activeNarrative.example_tokens.slice(0, 3).map((token, i) => (
-                          <Badge key={i} variant="secondary">{token}</Badge>
+                          <Badge key={i} variant="secondary" className="text-xs">{token}</Badge>
                         ))}
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    New tokens created by ai67x will be based on this narrative until the next rotation
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-3">
+                    New tokens will be based on this narrative until the next rotation
                   </p>
                 </div>
               </div>
@@ -200,14 +201,14 @@ const TrendingPage = () => {
         )}
 
         {/* Tabs for Current/History */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="current" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Current Narratives
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 sm:mb-8">
+          <TabsList className="grid w-full max-w-xs sm:max-w-md grid-cols-2">
+            <TabsTrigger value="current" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Current </span>Narratives
             </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center gap-2">
-              <History className="h-4 w-4" />
+            <TabsTrigger value="history" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <History className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               History ({narrativeHistory.length})
             </TabsTrigger>
           </TabsList>
@@ -346,11 +347,11 @@ const TrendingPage = () => {
 
         {/* Trending Tokens */}
         <div>
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-green-500" />
-            Top 50 Trending Tokens (DexScreener)
+          <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+            Top 50 Trending (DexScreener)
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
             {loading ? (
               Array.from({ length: 12 }).map((_, i) => (
                 <Card key={i}>

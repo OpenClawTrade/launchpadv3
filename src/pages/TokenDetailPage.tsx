@@ -241,21 +241,21 @@ export default function TokenDetailPage() {
 
       <div className="p-4 space-y-4">
         {/* Token Info Card */}
-        <Card className="p-4">
-          <div className="flex gap-4">
-            <Avatar className="h-20 w-20 rounded-xl border-2 border-border">
+        <Card className="p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <Avatar className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl border-2 border-border mx-auto sm:mx-0">
               <AvatarImage src={token.image_url || undefined} />
-              <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary rounded-xl">
+              <AvatarFallback className="text-xl sm:text-2xl font-bold bg-primary/10 text-primary rounded-xl">
                 {token.ticker.slice(0, 2)}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold">{token.name}</h2>
-                <Badge variant="secondary">${token.ticker}</Badge>
+            <div className="flex-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-bold">{token.name}</h2>
+                <Badge variant="secondary" className="text-xs">${token.ticker}</Badge>
                 {token.status === 'graduated' && (
-                  <Badge className="bg-primary/20 text-primary border-primary/30">
+                  <Badge className="bg-primary/20 text-primary border-primary/30 text-xs">
                     🎓 Graduated
                   </Badge>
                 )}
@@ -264,7 +264,7 @@ export default function TokenDetailPage() {
               {/* Creator */}
               <Link 
                 to={`/profile/${token.profiles?.username || token.creator_wallet}`}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 hover:text-foreground"
+                className="flex items-center justify-center sm:justify-start gap-1.5 text-xs sm:text-sm text-muted-foreground mt-1 hover:text-foreground"
               >
                 <span>Created by</span>
                 <span className="font-medium text-foreground">
@@ -277,32 +277,32 @@ export default function TokenDetailPage() {
 
               {/* Description */}
               {token.description && (
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-2 line-clamp-2">
                   {token.description}
                 </p>
               )}
 
               {/* Social Links */}
-              <div className="flex items-center gap-2 mt-3">
+              <div className="flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 mt-3 flex-wrap">
                 {token.website_url && (
                   <a href={token.website_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                      <Globe className="h-3.5 w-3.5" />
-                      Website
+                    <Button variant="outline" size="sm" className="h-7 sm:h-8 gap-1 px-2 sm:px-3 text-xs">
+                      <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span className="hidden sm:inline">Website</span>
                     </Button>
                   </a>
                 )}
                 {token.twitter_url && (
                   <a href={token.twitter_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                      <Twitter className="h-3.5 w-3.5" />
+                    <Button variant="outline" size="sm" className="h-7 sm:h-8 w-7 sm:w-auto px-0 sm:px-2">
+                      <Twitter className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                     </Button>
                   </a>
                 )}
                 {token.telegram_url && (
                   <a href={token.telegram_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                      <MessageCircle className="h-3.5 w-3.5" />
+                    <Button variant="outline" size="sm" className="h-7 sm:h-8 w-7 sm:w-auto px-0 sm:px-2">
+                      <MessageCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                     </Button>
                   </a>
                 )}
@@ -311,9 +311,9 @@ export default function TokenDetailPage() {
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Solscan
+                  <Button variant="outline" size="sm" className="h-7 sm:h-8 gap-1 px-2 sm:px-3 text-xs">
+                    <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <span className="hidden sm:inline">Solscan</span>
                   </Button>
                 </a>
                 <a 
@@ -321,11 +321,11 @@ export default function TokenDetailPage() {
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
-                  <Button size="sm" className="h-8 gap-1.5 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white border-0">
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <Button size="sm" className="h-7 sm:h-8 gap-1 px-2 sm:px-3 text-xs bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white border-0">
+                    <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    Trade on Axiom
+                    <span className="hidden xs:inline">Axiom</span>
                   </Button>
                 </a>
               </div>
@@ -336,28 +336,31 @@ export default function TokenDetailPage() {
         {/* Price Chart - temporarily disabled */}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Price</p>
-            <p className="text-lg font-bold text-primary">
-              {formatSolAmount(token.price_sol)} SOL
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          <Card className="p-2 sm:p-3 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Price</p>
+            <p className="text-sm sm:text-lg font-bold text-primary truncate">
+              {formatSolAmount(token.price_sol)}
             </p>
+            <p className="text-[10px] text-muted-foreground sm:hidden">SOL</p>
           </Card>
-          <Card className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Market Cap</p>
-            <p className="text-lg font-bold">
-              {formatSolAmount(token.market_cap_sol)} SOL
+          <Card className="p-2 sm:p-3 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Market Cap</p>
+            <p className="text-sm sm:text-lg font-bold truncate">
+              {formatSolAmount(token.market_cap_sol)}
             </p>
+            <p className="text-[10px] text-muted-foreground sm:hidden">SOL</p>
           </Card>
-          <Card className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">24h Volume</p>
-            <p className="text-lg font-bold">
-              {formatSolAmount(token.volume_24h_sol)} SOL
+          <Card className="p-2 sm:p-3 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground">24h Volume</p>
+            <p className="text-sm sm:text-lg font-bold truncate">
+              {formatSolAmount(token.volume_24h_sol)}
             </p>
+            <p className="text-[10px] text-muted-foreground sm:hidden">SOL</p>
           </Card>
-          <Card className="p-3 text-center">
-            <p className="text-xs text-muted-foreground">Holders</p>
-            <p className="text-lg font-bold">
+          <Card className="p-2 sm:p-3 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Holders</p>
+            <p className="text-sm sm:text-lg font-bold">
               {token.holder_count}
             </p>
           </Card>

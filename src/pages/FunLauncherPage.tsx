@@ -361,23 +361,23 @@ export default function FunLauncherPage() {
     <div className="min-h-screen bg-[#0d0d0f] text-white">
       {/* Header Bar */}
       <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
-            <span className="text-lg font-bold">ai67x</span>
+            <img src={ai69xLogo} alt="ai69x" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full" />
+            <span className="text-base sm:text-lg font-bold">ai67x</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Link to="/trending">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-400">
+            <Link to="/trending" className="hidden xs:block">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-8 px-2 sm:px-3"
               >
-                <TrendingUp className="h-4 w-4 mr-1" />
-                Narratives
+                <TrendingUp className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Narratives</span>
               </Button>
             </Link>
-            <span className="flex items-center gap-1">
+            <span className="hidden md:flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
               Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
             </span>
@@ -385,7 +385,7 @@ export default function FunLauncherPage() {
               variant="ghost" 
               size="sm" 
               onClick={() => refetch()}
-              className="text-gray-400 hover:text-white"
+              className="text-gray-400 hover:text-white h-8 w-8 p-0"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -395,58 +395,56 @@ export default function FunLauncherPage() {
 
       {/* Hero Intro Section */}
       <section className="border-b border-[#1a1a1f] bg-gradient-to-b from-[#0d0d0f] to-[#12121a]">
-        <div className="max-w-7xl mx-auto px-4 py-10 md:py-14">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-10 md:py-14">
           <div className="max-w-3xl mx-auto text-center">
             
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3 leading-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">
               Autonomous Token Launchpad
             </h1>
             
-            <p className="text-gray-400 text-sm md:text-base mb-6 leading-relaxed max-w-2xl mx-auto">
+            <p className="text-gray-400 text-xs sm:text-sm md:text-base mb-4 sm:mb-6 leading-relaxed max-w-2xl mx-auto px-2">
               ai67x leverages neural network inference and on-chain automation to orchestrate the entire token lifecycle. 
-              Zero wallet connections. Zero manual configurations. Our self-executing smart contracts and ML-powered generative engine 
-              handle liquidity provisioning, fee distribution, and narrative-driven asset creation autonomously.
+              Zero wallet connections. Zero manual configurations.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
-                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <Zap className="h-4 w-4 text-[#00d4aa]" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-3 sm:p-4">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#00d4aa]" />
                 </div>
-                <h3 className="font-semibold text-white text-sm mb-1">One-Click Launch</h3>
-                <p className="text-xs text-gray-500">Generate AI memes and deploy tokens instantly without wallet setup</p>
+                <h3 className="font-semibold text-white text-xs sm:text-sm mb-1">One-Click Launch</h3>
+                <p className="text-[10px] sm:text-xs text-gray-500">Generate AI memes and deploy tokens instantly</p>
               </div>
               
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
-                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <TrendingUp className="h-4 w-4 text-[#00d4aa]" />
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-3 sm:p-4">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#00d4aa]" />
                 </div>
-                <h3 className="font-semibold text-white text-sm mb-1">50% Lifetime Fees</h3>
-                <p className="text-xs text-gray-500">Creators receive half of all trading fees automatically to their wallet</p>
+                <h3 className="font-semibold text-white text-xs sm:text-sm mb-1">50% Lifetime Fees</h3>
+                <p className="text-[10px] sm:text-xs text-gray-500">Creators receive half of all trading fees</p>
               </div>
               
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
-                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <RefreshCw className="h-4 w-4 text-[#00d4aa]" />
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-3 sm:p-4">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#00d4aa]" />
                 </div>
-                <h3 className="font-semibold text-white text-sm mb-1">30% Buybacks</h3>
-                <p className="text-xs text-gray-500">Fees dedicated to native token buybacks, creating sustained value</p>
+                <h3 className="font-semibold text-white text-xs sm:text-sm mb-1">30% Buybacks</h3>
+                <p className="text-[10px] sm:text-xs text-gray-500">Fees dedicated to native token buybacks</p>
               </div>
             </div>
 
-            <p className="text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
+            <p className="hidden sm:block text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
               Every token launched through ai67x operates with a unique mechanism designed to pioneer a new narrative in decentralized finance. 
-              The system is fully automated with no developer interaction required. 
-              Open-source code will be published upon achieving community milestones.
+              The system is fully automated with no developer interaction required.
             </p>
           </div>
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Panel - Token Generator */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-3 sm:space-y-4">
             {/* Generator Card */}
             <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
               <div className="flex items-center justify-between mb-4">

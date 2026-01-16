@@ -108,22 +108,22 @@ export default function LaunchpadPage() {
 
           <WalletBalanceCard className="mb-4" />
 
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            <div className="bg-secondary/50 rounded-lg p-3 text-center">
-              <p className="text-lg font-bold text-foreground">{totalTokens}</p>
-              <p className="text-xs text-muted-foreground">Total Tokens</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            <div className="bg-secondary/50 rounded-lg p-2 sm:p-3 text-center">
+              <p className="text-base sm:text-lg font-bold text-foreground">{totalTokens}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
             </div>
-            <div className="bg-secondary/50 rounded-lg p-3 text-center">
-              <p className="text-lg font-bold text-primary">{bondingTokens}</p>
-              <p className="text-xs text-muted-foreground">Bonding</p>
+            <div className="bg-secondary/50 rounded-lg p-2 sm:p-3 text-center">
+              <p className="text-base sm:text-lg font-bold text-primary">{bondingTokens}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Bonding</p>
             </div>
-            <div className="bg-secondary/50 rounded-lg p-3 text-center">
-              <p className="text-lg font-bold text-green-500">{graduatedTokens}</p>
-              <p className="text-xs text-muted-foreground">Graduated</p>
+            <div className="bg-secondary/50 rounded-lg p-2 sm:p-3 text-center">
+              <p className="text-base sm:text-lg font-bold text-green-500">{graduatedTokens}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Graduated</p>
             </div>
-            <div className="bg-secondary/50 rounded-lg p-3 text-center">
-              <p className="text-lg font-bold text-foreground">{totalVolume.toFixed(1)}</p>
-              <p className="text-xs text-muted-foreground">24h Vol (SOL)</p>
+            <div className="bg-secondary/50 rounded-lg p-2 sm:p-3 text-center">
+              <p className="text-base sm:text-lg font-bold text-foreground">{totalVolume.toFixed(1)}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">24h Vol</p>
             </div>
           </div>
 
@@ -139,34 +139,34 @@ export default function LaunchpadPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full h-12 bg-transparent rounded-none p-0 border-0 grid grid-cols-4 gap-0">
+          <TabsList className="w-full h-11 sm:h-12 bg-transparent rounded-none p-0 border-0 grid grid-cols-4 gap-0">
             <TabsTrigger 
               value="new" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-sm transition-all"
+              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
             >
-              <Clock className="h-4 w-4 mr-1.5" />
-              New
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">New</span>
             </TabsTrigger>
             <TabsTrigger 
               value="hot" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-sm transition-all"
+              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
             >
-              <Flame className="h-4 w-4 mr-1.5" />
-              Hot
+              <Flame className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Hot</span>
             </TabsTrigger>
             <TabsTrigger 
               value="bonding" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-sm transition-all"
+              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
             >
-              <Zap className="h-4 w-4 mr-1.5" />
-              Bonding
+              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Bonding</span>
             </TabsTrigger>
             <TabsTrigger 
               value="graduated" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-sm transition-all"
+              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
             >
-              <GraduationCap className="h-4 w-4 mr-1.5" />
-              Live
+              <GraduationCap className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Live</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
