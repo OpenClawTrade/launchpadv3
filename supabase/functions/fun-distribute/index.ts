@@ -107,7 +107,7 @@ serve(async (req) => {
     }
 
     const results: Array<{
-      claimId: string;
+      claimIds: string[];
       tokenName: string;
       creatorWallet: string;
       claimedSol: number;
@@ -121,46 +121,83 @@ serve(async (req) => {
     let successCount = 0;
     let failureCount = 0;
 
-    // STEP 2: Process each undistributed claim
+    // STEP 2: Batch claims per token+creator and only pay once the accumulated
+    // creator share reaches MIN_DISTRIBUTION_SOL. This prevents "lost" payouts
+    // where small claims were previously marked distributed without paying.
+    const groups = new Map<
+      string,
+      {
+        token: any;
+        creatorWallet: string;
+        claims: any[];
+        claimedSol: number;
+      }
+    >();
+
     for (const claim of undistributedClaims) {
       const token = claim.fun_token;
-      
+
       if (!token || !token.creator_wallet) {
         console.warn(`[fun-distribute] Skipping claim ${claim.id}: no token or creator wallet`);
         continue;
       }
 
-      if (token.status !== 'active') {
+      if (token.status !== "active") {
         console.warn(`[fun-distribute] Skipping claim ${claim.id}: token ${token.ticker} is not active`);
         continue;
       }
 
       const claimedSol = Number(claim.claimed_sol) || 0;
+      if (claimedSol <= 0) continue;
+
+      const creatorWallet = String(token.creator_wallet);
+      const key = `${token.id}:${creatorWallet}`;
+
+      const existing = groups.get(key);
+      if (existing) {
+        existing.claims.push(claim);
+        existing.claimedSol += claimedSol;
+      } else {
+        groups.set(key, {
+          token,
+          creatorWallet,
+          claims: [claim],
+          claimedSol,
+        });
+      }
+    }
+
+    console.log(`[fun-distribute] Prepared ${groups.size} batch(es) for processing`);
+
+    for (const group of groups.values()) {
+      const token = group.token;
+      const claimedSol = group.claimedSol;
+
       const creatorAmount = claimedSol * CREATOR_FEE_SHARE;
       const buybackAmount = claimedSol * BUYBACK_FEE_SHARE;
       const systemAmount = claimedSol * SYSTEM_FEE_SHARE;
 
-      console.log(`[fun-distribute] Processing ${token.ticker}: ${claimedSol} SOL → Creator ${creatorAmount}, Buyback ${buybackAmount}, System ${systemAmount}`);
+      console.log(
+        `[fun-distribute] Processing batch ${token.ticker}: ${claimedSol} SOL (${group.claims.length} claims) → Creator ${creatorAmount}, Buyback ${buybackAmount}, System ${systemAmount}`
+      );
 
-      // Skip if creator amount is too small
+      // Skip if accumulated creator amount is too small; keep claims undistributed
+      // so they can accumulate and be paid later.
       if (creatorAmount < MIN_DISTRIBUTION_SOL) {
-        console.log(`[fun-distribute] Skipping ${token.ticker}: creator amount ${creatorAmount} too small`);
-        
-        // Still mark as distributed to avoid reprocessing
-        await supabase
-          .from("fun_fee_claims")
-          .update({ creator_distributed: true })
-          .eq("id", claim.id);
-        
+        console.log(
+          `[fun-distribute] Deferring ${token.ticker}: accumulated creator amount ${creatorAmount.toFixed(
+            6
+          )} < ${MIN_DISTRIBUTION_SOL} SOL (will accumulate)`
+        );
         continue;
       }
 
-      // STEP 3: Create distribution record FIRST (pending state) - this is our safety net
+      // STEP 3: Create distribution record FIRST (pending state) - safety net
       const { data: distribution, error: distError } = await supabase
         .from("fun_distributions")
         .insert({
           fun_token_id: token.id,
-          creator_wallet: token.creator_wallet,
+          creator_wallet: group.creatorWallet,
           amount_sol: creatorAmount,
           distribution_type: "creator",
           status: "pending",
@@ -171,9 +208,9 @@ serve(async (req) => {
       if (distError) {
         console.error(`[fun-distribute] Failed to create distribution record:`, distError);
         results.push({
-          claimId: claim.id,
+          claimIds: group.claims.map((c) => c.id),
           tokenName: token.name,
-          creatorWallet: token.creator_wallet,
+          creatorWallet: group.creatorWallet,
           claimedSol,
           creatorAmount,
           success: false,
@@ -190,9 +227,11 @@ serve(async (req) => {
 
       for (let attempt = 1; attempt <= MAX_TX_RETRIES; attempt++) {
         try {
-          console.log(`[fun-distribute] Sending ${creatorAmount.toFixed(6)} SOL to ${token.creator_wallet} (attempt ${attempt})`);
+          console.log(
+            `[fun-distribute] Sending ${creatorAmount.toFixed(6)} SOL to ${group.creatorWallet} (attempt ${attempt})`
+          );
 
-          const recipientPubkey = new PublicKey(token.creator_wallet);
+          const recipientPubkey = new PublicKey(group.creatorWallet);
           const lamports = Math.floor(creatorAmount * 1e9);
 
           const transaction = new Transaction().add(
@@ -203,32 +242,29 @@ serve(async (req) => {
             })
           );
 
-          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+          const { blockhash } = await connection.getLatestBlockhash();
           transaction.recentBlockhash = blockhash;
           transaction.feePayer = treasuryKeypair.publicKey;
 
-          txSignature = await sendAndConfirmTransaction(
-            connection, 
-            transaction, 
-            [treasuryKeypair],
-            { commitment: "confirmed", maxRetries: 3 }
-          );
+          txSignature = await sendAndConfirmTransaction(connection, transaction, [treasuryKeypair], {
+            commitment: "confirmed",
+            maxRetries: 3,
+          });
 
-          console.log(`[fun-distribute] ✅ Sent ${creatorAmount} SOL to ${token.creator_wallet}, sig: ${txSignature}`);
+          console.log(`[fun-distribute] ✅ Sent ${creatorAmount} SOL to ${group.creatorWallet}, sig: ${txSignature}`);
           txSuccess = true;
           break;
-
         } catch (e) {
           txError = e instanceof Error ? e.message : "Unknown error";
           console.error(`[fun-distribute] ❌ TX attempt ${attempt} failed:`, txError);
-          
+
           if (attempt < MAX_TX_RETRIES) {
-            await new Promise(r => setTimeout(r, 1000 * attempt)); // Exponential backoff
+            await new Promise((r) => setTimeout(r, 1000 * attempt)); // Exponential backoff
           }
         }
       }
 
-      // STEP 5: Update distribution record with result
+      // STEP 5: Update distribution record + mark ALL claims in the batch
       if (txSuccess && txSignature) {
         await supabase
           .from("fun_distributions")
@@ -238,23 +274,25 @@ serve(async (req) => {
           })
           .eq("id", distribution.id);
 
-        // Mark the claim as distributed
+        const claimIds = group.claims.map((c) => c.id);
         await supabase
           .from("fun_fee_claims")
           .update({
             creator_distributed: true,
             creator_distribution_id: distribution.id,
           })
-          .eq("id", claim.id);
+          .in("id", claimIds);
 
         // NOTE: Buyback and system fee recording is disabled until buyback execution is implemented
         // The 50% creator share is distributed, remaining 50% stays in treasury for future buybacks/expenses
-        console.log(`[fun-distribute] Reserved for buyback: ${buybackAmount.toFixed(6)} SOL, system: ${systemAmount.toFixed(6)} SOL`);
+        console.log(
+          `[fun-distribute] Reserved for buyback: ${buybackAmount.toFixed(6)} SOL, system: ${systemAmount.toFixed(6)} SOL`
+        );
 
         results.push({
-          claimId: claim.id,
+          claimIds,
           tokenName: token.name,
-          creatorWallet: token.creator_wallet,
+          creatorWallet: group.creatorWallet,
           claimedSol,
           creatorAmount,
           success: true,
@@ -263,19 +301,15 @@ serve(async (req) => {
 
         totalDistributed += creatorAmount;
         successCount++;
-
       } else {
-        // Transaction failed - mark distribution as failed but DON'T mark claim as distributed
+        // Transaction failed - mark distribution as failed but DON'T mark claims as distributed
         // This allows retry on next cron run
-        await supabase
-          .from("fun_distributions")
-          .update({ status: "failed" })
-          .eq("id", distribution.id);
+        await supabase.from("fun_distributions").update({ status: "failed" }).eq("id", distribution.id);
 
         results.push({
-          claimId: claim.id,
+          claimIds: group.claims.map((c) => c.id),
           tokenName: token.name,
-          creatorWallet: token.creator_wallet,
+          creatorWallet: group.creatorWallet,
           claimedSol,
           creatorAmount,
           success: false,
