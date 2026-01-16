@@ -1899,6 +1899,44 @@ export type Database = {
         }
         Relationships: []
       }
+      vanity_keypairs: {
+        Row: {
+          created_at: string
+          id: string
+          public_key: string
+          secret_key_encrypted: string
+          status: string
+          suffix: string
+          used_for_token_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          public_key: string
+          secret_key_encrypted: string
+          status?: string
+          suffix: string
+          used_for_token_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          public_key?: string
+          secret_key_encrypted?: string
+          status?: string
+          suffix?: string
+          used_for_token_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vanity_keypairs_used_for_token_id_fkey"
+            columns: ["used_for_token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wallet_trades: {
         Row: {
           copied_by_count: number | null
