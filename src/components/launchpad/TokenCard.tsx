@@ -4,15 +4,28 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { BondingCurveProgress } from "./BondingCurveProgress";
-import { Token, formatSolAmount } from "@/hooks/useLaunchpad";
+import { Token } from "@/hooks/useLaunchpad";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { TrendingUp, TrendingDown, Users, Clock, ChevronRight, Zap, Sparkles } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
+function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
+  const usdValue = marketCapSol * solPrice;
+  if (usdValue >= 1_000_000) {
+    return `$${(usdValue / 1_000_000).toFixed(2)}M`;
+  } else if (usdValue >= 1_000) {
+    return `$${(usdValue / 1_000).toFixed(1)}K`;
+  } else {
+    return `$${usdValue.toFixed(0)}`;
+  }
+}
 
 interface TokenCardProps {
   token: Token;
 }
 
 export function TokenCard({ token }: TokenCardProps) {
+  const { solPrice } = useSolPrice();
   const isGraduated = token.status === 'graduated';
   const priceChange = (token as any).price_change_24h || 0;
   const isPositive = priceChange >= 0;
@@ -100,10 +113,10 @@ export function TokenCard({ token }: TokenCardProps) {
 
             {/* Stats Row */}
             <div className="flex items-center gap-3 mt-2.5 text-xs flex-wrap">
-              {/* Price with change */}
+              {/* Market cap in USD with change */}
               <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
                 <span className="text-foreground font-semibold">
-                  {formatSolAmount(token.price_sol)} SOL
+                  {formatUsdMarketCap(token.market_cap_sol, solPrice)}
                 </span>
                 <div className={`flex items-center gap-0.5 ${isPositive ? "text-green-500" : "text-red-500"}`}>
                   {isPositive ? (
@@ -115,11 +128,6 @@ export function TokenCard({ token }: TokenCardProps) {
                 </div>
               </div>
               
-              {/* Market cap */}
-              <div className="text-muted-foreground">
-                <span className="text-foreground/70">MC:</span> {formatSolAmount(token.market_cap_sol)} SOL
-              </div>
-              
               {/* Holders */}
               <div className="flex items-center gap-1 text-muted-foreground">
                 <Users className="h-3 w-3" />
@@ -129,7 +137,7 @@ export function TokenCard({ token }: TokenCardProps) {
               {/* Volume if significant */}
               {token.volume_24h_sol > 0 && (
                 <div className="text-muted-foreground">
-                  <span className="text-foreground/70">Vol:</span> {formatSolAmount(token.volume_24h_sol)}
+                  <span className="text-foreground/70">Vol:</span> {token.volume_24h_sol.toFixed(1)} SOL
                 </div>
               )}
             </div>
