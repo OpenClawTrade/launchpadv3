@@ -334,6 +334,16 @@ export default function FunLauncherPage() {
       return;
     }
 
+    // Require image for custom launches
+    if (!customImageFile && !customToken.imageUrl.trim()) {
+      toast({
+        title: "Image required",
+        description: "Please upload an image for your token",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const imageUrl = await uploadCustomImageIfNeeded();
       await performLaunch({
