@@ -76,6 +76,9 @@ export default function FunLauncherPage() {
   const [claimsPage, setClaimsPage] = useState(1);
   const claimsPageSize = 20;
 
+  const [tokensPage, setTokensPage] = useState(1);
+  const tokensPageSize = 20;
+
   const { data: claimsData, isLoading: claimsLoading } = useFunFeeClaims({
     page: claimsPage,
     pageSize: claimsPageSize,
@@ -865,12 +868,14 @@ export default function FunLauncherPage() {
                             </td>
                           </tr>
                         ) : (
-                          tokens.map((token, index) => (
+                          tokens
+                            .slice((tokensPage - 1) * tokensPageSize, tokensPage * tokensPageSize)
+                            .map((token, index) => (
                             <tr 
                               key={token.id} 
                               className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
                             >
-                              <td className="p-3 text-sm text-gray-400">{index + 1}</td>
+                              <td className="p-3 text-sm text-gray-400">{(tokensPage - 1) * tokensPageSize + index + 1}</td>
                               <td className="p-3">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
@@ -954,6 +959,38 @@ export default function FunLauncherPage() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Tokens Pagination */}
+                  {tokens.length > tokensPageSize && (
+                    <div className="p-4 border-t border-[#1a1a1f] flex items-center justify-between">
+                      <span className="text-xs text-gray-400">
+                        Showing {(tokensPage - 1) * tokensPageSize + 1}-{Math.min(tokensPage * tokensPageSize, tokens.length)} of {tokens.length}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={tokensPage === 1}
+                          onClick={() => setTokensPage(p => p - 1)}
+                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-xs text-gray-400">
+                          Page {tokensPage} of {Math.ceil(tokens.length / tokensPageSize)}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={tokensPage >= Math.ceil(tokens.length / tokensPageSize)}
+                          onClick={() => setTokensPage(p => p + 1)}
+                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
 
