@@ -82,6 +82,25 @@ export function useFunFeeClaims(params?: { page?: number; pageSize?: number }) {
   });
 }
 
+// Fetch global totals (not affected by pagination)
+export function useFunFeeClaimsSummary() {
+  return useQuery({
+    queryKey: ["fun-fee-claims-summary"],
+    queryFn: async (): Promise<{ totalClaimedSol: number; claimCount: number }> => {
+      const { data, error } = await supabase.rpc("get_fun_fee_claims_summary");
+
+      if (error) throw error;
+
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        totalClaimedSol: Number(row?.total_claimed_sol ?? 0),
+        claimCount: Number(row?.claim_count ?? 0),
+      };
+    },
+    refetchInterval: 60000,
+  });
+}
+
 export function useFunDistributions() {
   return useQuery({
     queryKey: ["fun-distributions"],
