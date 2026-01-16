@@ -206,7 +206,7 @@ serve(async (req) => {
         imageUrl: storedImageUrl,
         onChainSuccess: true,
         solscanUrl: `https://solscan.io/token/${mintAddress}`,
-        tradeUrl: `https://axiom.trade/meme/${mintAddress}`,
+        tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}`,
         message: "🚀 Token launched successfully! You'll receive 50% of trading fees every few minutes.",
       }),
       {

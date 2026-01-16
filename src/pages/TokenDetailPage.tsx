@@ -316,9 +316,11 @@ export default function TokenDetailPage() {
                     <span className="hidden sm:inline">Solscan</span>
                   </Button>
                 </a>
-                <a 
-                  href={`https://axiom.trade/meme/${token.mint_address}`} 
-                  target="_blank" 
+                <a
+                  href={`https://axiom.trade/meme/${
+                    (token.status === "graduated" ? token.damm_pool_address : token.dbc_pool_address) || token.mint_address
+                  }`}
+                  target="_blank"
                   rel="noopener noreferrer"
                 >
                   <Button size="sm" className="h-7 sm:h-8 gap-1 px-2 sm:px-3 text-xs bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white border-0">
