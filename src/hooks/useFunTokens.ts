@@ -244,26 +244,61 @@ export function useFunTokens(): UseFunTokensResult {
     [fetchLiveForPool, mergeLive]
   );
 
-  const fetchTokens = useCallback(async () => {
-    setIsLoading(true);
+  const fetchTokens = useCallback(async (isInitial = false) => {
+    if (isInitial) setIsLoading(true);
     try {
       const base = await fetchBaseTokens();
-      setTokens(base);
-      tokensRef.current = base;
+      
+      // CRITICAL: Merge base data with existing live data to prevent overwriting
+      setTokens((prev) => {
+        if (prev.length === 0) {
+          // First load - use base with defaults
+          tokensRef.current = base;
+          return base;
+        }
+        
+        // Create a map of existing tokens with their live data
+        const existingMap = new Map(prev.map(t => [t.id, t]));
+        
+        // Merge: use base for DB fields, but preserve live fields from existing
+        const merged = base.map(baseToken => {
+          const existing = existingMap.get(baseToken.id);
+          if (existing) {
+            // Preserve live fields (holder_count, market_cap_sol, bonding_progress, price_sol)
+            return {
+              ...baseToken,
+              holder_count: existing.holder_count,
+              market_cap_sol: existing.market_cap_sol,
+              bonding_progress: existing.bonding_progress,
+              price_sol: existing.price_sol !== DEFAULT_LIVE.price_sol ? existing.price_sol : baseToken.price_sol,
+            };
+          }
+          return baseToken;
+        });
+        
+        tokensRef.current = merged;
+        return merged;
+      });
+      
       setError(null);
-      await refreshLiveData();
+      
+      // Only fetch live data on initial load or if we have new tokens
+      if (isInitial) {
+        await refreshLiveData();
+      }
+      
       setLastUpdate(new Date());
     } catch (err) {
       console.error("[useFunTokens] Error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch tokens");
     } finally {
-      setIsLoading(false);
+      if (isInitial) setIsLoading(false);
     }
   }, [fetchBaseTokens, refreshLiveData]);
 
   // Initial fetch
   useEffect(() => {
-    fetchTokens();
+    fetchTokens(true); // Pass true for initial load
   }, [fetchTokens]);
 
   // Realtime subscription for inserts/updates/deletes
@@ -315,10 +350,10 @@ export function useFunTokens(): UseFunTokensResult {
     };
   }, [mergeLive, refreshLiveData]);
 
-  // Base token list refresh (db) - less frequent
+  // Base token list refresh (db) - less frequent, preserves live data
   useEffect(() => {
     const interval = setInterval(() => {
-      void fetchTokens();
+      void fetchTokens(false); // Don't reset loading state
     }, BASE_POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
@@ -340,6 +375,6 @@ export function useFunTokens(): UseFunTokensResult {
     isLoading,
     error,
     lastUpdate,
-    refetch: fetchTokens,
+    refetch: () => fetchTokens(true),
   };
 }
