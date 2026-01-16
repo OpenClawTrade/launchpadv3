@@ -7,6 +7,7 @@ import { WalletSettingsModal } from "@/components/launchpad/WalletSettingsModal"
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { usePoolState } from "@/hooks/usePoolState";
 import { useAuth } from "@/hooks/useAuth";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function TokenDetailPage() {
   const { mintAddress } = useParams<{ mintAddress: string }>();
   const { user, solanaAddress } = useAuth();
+  const { solPrice } = useSolPrice();
   const { useToken, useTokenTransactions, useTokenHolders, useUserHoldings } = useLaunchpad();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -40,7 +42,14 @@ export default function TokenDetailPage() {
   const { data: transactions = [], isLoading: isLoadingTxs, refetch: refetchTxs } = useTokenTransactions(token?.id || '');
   const { data: holders = [], refetch: refetchHolders } = useTokenHolders(token?.id || '');
   const { data: userHoldings, refetch: refetchHoldings } = useUserHoldings(solanaAddress);
-  
+
+  const formatUsd = (marketCapSol: number) => {
+    const usdValue = Number(marketCapSol || 0) * Number(solPrice || 0);
+    if (!Number.isFinite(usdValue) || usdValue <= 0) return "$0";
+    if (usdValue >= 1_000_000) return `$${(usdValue / 1_000_000).toFixed(2)}M`;
+    if (usdValue >= 1_000) return `$${(usdValue / 1_000).toFixed(1)}K`;
+    return `$${usdValue.toFixed(0)}`;
+  };
   // Live pool state for accurate bonding progress
   const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
     mintAddress: mintAddress || '',
@@ -338,20 +347,13 @@ export default function TokenDetailPage() {
         {/* Price Chart - temporarily disabled */}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-          <Card className="p-2 sm:p-3 text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Price</p>
-            <p className="text-sm sm:text-lg font-bold text-primary truncate">
-              {formatSolAmount(token.price_sol)}
-            </p>
-            <p className="text-[10px] text-muted-foreground sm:hidden">SOL</p>
-          </Card>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
           <Card className="p-2 sm:p-3 text-center">
             <p className="text-[10px] sm:text-xs text-muted-foreground">Market Cap</p>
             <p className="text-sm sm:text-lg font-bold truncate">
-              {formatSolAmount(token.market_cap_sol)}
+              {formatUsd(token.market_cap_sol)}
             </p>
-            <p className="text-[10px] text-muted-foreground sm:hidden">SOL</p>
+            <p className="text-[10px] text-muted-foreground sm:hidden">USD</p>
           </Card>
           <Card className="p-2 sm:p-3 text-center">
             <p className="text-[10px] sm:text-xs text-muted-foreground">24h Volume</p>
