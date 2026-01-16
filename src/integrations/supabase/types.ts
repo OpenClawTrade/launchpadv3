@@ -2153,6 +2153,13 @@ export type Database = {
       calculate_trending_topics: { Args: never; Returns: undefined }
       can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
       generate_short_id: { Args: never; Returns: string }
+      get_fun_fee_claims_summary: {
+        Args: never
+        Returns: {
+          claim_count: number
+          total_claimed_sol: number
+        }[]
+      }
       get_suggested_users: {
         Args: { current_user_id: string; limit_count?: number }
         Returns: {

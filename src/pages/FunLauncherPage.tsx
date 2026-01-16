@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { useFunFeeClaims, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
+import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
@@ -370,8 +370,9 @@ export default function FunLauncherPage() {
     return `$${usdValue.toFixed(0)}`;
   };
 
-  // Calculate totals
-  const totalClaimed = feeClaims.reduce((sum, c) => sum + Number(c.claimed_sol || 0), 0);
+  // Calculate totals - use summary for global totals, not paginated data
+  const { data: claimsSummary } = useFunFeeClaimsSummary();
+  const totalClaimed = claimsSummary?.totalClaimedSol ?? 0;
   const totalBuybacks = buybacks.reduce((sum, b) => sum + Number(b.amount_sol || 0), 0);
   const creatorDistributions = distributions.filter(d => d.distribution_type === 'creator');
   const totalCreatorPaid = creatorDistributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0);
