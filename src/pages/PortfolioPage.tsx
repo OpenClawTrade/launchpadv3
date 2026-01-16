@@ -81,22 +81,24 @@ export default function PortfolioPage() {
 
       <div className="p-4 space-y-4 max-w-2xl mx-auto">
         {/* Stats Overview */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Total Value</p>
-            <p className="text-lg font-bold text-primary">
-              {formatSolAmount(portfolioStats.totalValue)} SOL
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <Card className="p-2 sm:p-4 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Total Value</p>
+            <p className="text-sm sm:text-lg font-bold text-primary truncate">
+              {formatSolAmount(portfolioStats.totalValue)}
             </p>
+            <p className="text-[10px] text-muted-foreground sm:hidden">SOL</p>
           </Card>
-          <Card className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Holdings</p>
-            <p className="text-lg font-bold">{portfolioStats.totalTokens}</p>
+          <Card className="p-2 sm:p-4 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Holdings</p>
+            <p className="text-sm sm:text-lg font-bold">{portfolioStats.totalTokens}</p>
           </Card>
-          <Card className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Unclaimed Fees</p>
-            <p className="text-lg font-bold text-green-500">
-              {formatSolAmount(portfolioStats.unclaimedEarnings)} SOL
+          <Card className="p-2 sm:p-4 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Unclaimed</p>
+            <p className="text-sm sm:text-lg font-bold text-green-500 truncate">
+              {formatSolAmount(portfolioStats.unclaimedEarnings)}
             </p>
+            <p className="text-[10px] text-muted-foreground sm:hidden">SOL</p>
           </Card>
         </div>
 
