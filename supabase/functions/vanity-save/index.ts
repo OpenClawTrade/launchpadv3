@@ -78,7 +78,6 @@ Deno.serve(async (req) => {
         public_key: publicKey,
         secret_key_encrypted: encryptedSecretKey,
         status: 'available',
-        generated_by: req.headers.get('x-forwarded-for') || 'unknown',
       })
       .select('id, suffix, public_key, status, created_at')
       .single();

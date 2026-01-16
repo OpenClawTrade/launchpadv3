@@ -42,22 +42,13 @@ interface UseVanityGeneratorResult {
   fetchSavedKeypairs: () => Promise<void>;
 }
 
-// Highly optimized worker code using @noble/ed25519 for maximum speed
+// Pure JavaScript Web Worker for vanity address generation
+// Uses native crypto API instead of external dependencies
 const workerCode = `
-importScripts('https://unpkg.com/@noble/ed25519@2.1.0/lib/index.min.js');
-
+// Base58 encoding alphabet
 const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-// Pre-compute lookup for fast suffix matching
-function createSuffixMatcher(suffix, caseSensitive) {
-  const target = caseSensitive ? suffix : suffix.toLowerCase();
-  const len = target.length;
-  return (address) => {
-    const end = caseSensitive ? address.slice(-len) : address.slice(-len).toLowerCase();
-    return end === target;
-  };
-}
-
+// Base58 encode bytes
 function base58Encode(bytes) {
   const digits = [0];
   for (let i = 0; i < bytes.length; i++) {
@@ -82,6 +73,7 @@ function base58Encode(bytes) {
   return result;
 }
 
+// Convert bytes to hex
 function toHex(bytes) {
   let hex = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -90,39 +82,61 @@ function toHex(bytes) {
   return hex;
 }
 
+// Create suffix matcher function
+function createSuffixMatcher(suffix, caseSensitive) {
+  const target = caseSensitive ? suffix : suffix.toLowerCase();
+  const len = target.length;
+  return (address) => {
+    const end = caseSensitive ? address.slice(-len) : address.slice(-len).toLowerCase();
+    return end === target;
+  };
+}
+
 let shouldStop = false;
 let totalAttempts = 0;
 
-// Ultra-fast batch generation using noble/ed25519
+// Main search loop using SubtleCrypto
 async function searchVanity(suffix, caseSensitive, workerId) {
   const matchSuffix = createSuffixMatcher(suffix, caseSensitive);
   const startTime = Date.now();
   shouldStop = false;
   totalAttempts = 0;
   
-  // Use larger batch sizes for speed
-  const BATCH_SIZE = 200;
-  const REPORT_INTERVAL = 1000; // Report every 1000 attempts
+  const BATCH_SIZE = 50;
+  const REPORT_INTERVAL = 500;
   
   while (!shouldStop) {
-    // Generate batch of random seeds
     for (let i = 0; i < BATCH_SIZE && !shouldStop; i++) {
       totalAttempts++;
       
-      // Generate random 32-byte seed
-      const seed = new Uint8Array(32);
-      crypto.getRandomValues(seed);
-      
       try {
-        // Use noble/ed25519 for fast key derivation
-        const publicKey = await nobleEd25519.getPublicKeyAsync(seed);
-        const address = base58Encode(publicKey);
+        // Generate Ed25519 keypair using SubtleCrypto
+        const keyPair = await crypto.subtle.generateKey(
+          { name: 'Ed25519' },
+          true,
+          ['sign', 'verify']
+        );
         
+        // Export public key as raw bytes
+        const publicKeyBuffer = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+        const publicKeyBytes = new Uint8Array(publicKeyBuffer);
+        
+        // Encode to base58
+        const address = base58Encode(publicKeyBytes);
+        
+        // Check if suffix matches
         if (matchSuffix(address)) {
-          // Found! Build full secret key (64 bytes: seed + public key)
+          // Export private key (PKCS8 format)
+          const privateKeyBuffer = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+          const privateKeyBytes = new Uint8Array(privateKeyBuffer);
+          
+          // Extract seed from PKCS8 (bytes 16-48 for Ed25519)
+          const seed = privateKeyBytes.slice(16, 48);
+          
+          // Build Solana-compatible secret key (seed + public key = 64 bytes)
           const fullSecretKey = new Uint8Array(64);
           fullSecretKey.set(seed, 0);
-          fullSecretKey.set(publicKey, 32);
+          fullSecretKey.set(publicKeyBytes, 32);
           
           return {
             address,
@@ -132,12 +146,20 @@ async function searchVanity(suffix, caseSensitive, workerId) {
           };
         }
       } catch (e) {
-        // Skip invalid seeds (rare)
+        // SubtleCrypto may not support Ed25519 in all browsers
+        if (e.name === 'NotSupportedError') {
+          self.postMessage({ 
+            type: 'error', 
+            message: 'Ed25519 not supported in this browser. Try Chrome 113+ or Edge 113+.',
+            workerId 
+          });
+          return null;
+        }
         continue;
       }
     }
     
-    // Report progress periodically
+    // Report progress
     if (totalAttempts % REPORT_INTERVAL === 0 && !shouldStop) {
       const elapsed = (Date.now() - startTime) / 1000;
       const rate = elapsed > 0 ? totalAttempts / elapsed : 0;
