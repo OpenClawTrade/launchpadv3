@@ -87,10 +87,16 @@ Deno.serve(async (req) => {
 
     // Build Metaplex-standard metadata JSON
     // See: https://docs.metaplex.com/programs/token-metadata/token-standard
+    // Append #ai67x hashtag for Solscan visibility
+    const baseDescription = token.description || `${token.name} token`;
+    const descriptionWithTag = baseDescription.includes('#ai67x') 
+      ? baseDescription 
+      : `${baseDescription} #ai67x`;
+
     const metadata: Record<string, unknown> = {
       name: token.name,
       symbol: token.ticker?.toUpperCase() || '',
-      description: token.description || `${token.name} token on TRENCHES`,
+      description: descriptionWithTag,
       image: token.image_url || '',
       external_url: token.website_url || `https://trenches.to/token/${mintAddress}`,
       attributes: [
