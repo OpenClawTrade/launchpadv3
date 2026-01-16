@@ -5,6 +5,6 @@ export const corsHeaders = {
   'Content-Type': 'application/json',
 } as const;
 
-export const DBC_API_URL = 'https://dbc-api.meteora.ag';
+export const DBC_API_URL = 'https://dbc-api.meteora.ag'; // deprecated (DNS issues) - do not use for live data
 export const TOTAL_SUPPLY = 1_000_000_000;
 export const GRADUATION_THRESHOLD_SOL = 85;

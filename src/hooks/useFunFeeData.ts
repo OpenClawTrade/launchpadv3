@@ -47,24 +47,36 @@ export interface FunBuyback {
   };
 }
 
-export function useFunFeeClaims() {
+export function useFunFeeClaims(params?: { page?: number; pageSize?: number }) {
+  const page = Math.max(1, params?.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, params?.pageSize ?? 20));
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   return useQuery({
-    queryKey: ["fun-fee-claims"],
-    queryFn: async (): Promise<FunFeeClaim[]> => {
-      const { data, error } = await supabase
+    queryKey: ["fun-fee-claims", page, pageSize],
+    queryFn: async (): Promise<{ items: FunFeeClaim[]; count: number }> => {
+      const { data, error, count } = await supabase
         .from("fun_fee_claims")
-        .select(`
+        .select(
+          `
           *,
           fun_token:fun_tokens(name, ticker, image_url, creator_wallet)
-        `)
+        `,
+          { count: "exact" }
+        )
         .order("claimed_at", { ascending: false })
-        .limit(100);
+        .range(from, to);
 
       if (error) throw error;
-      return (data || []).map((item: any) => ({
-        ...item,
-        fun_token: item.fun_token,
-      }));
+
+      return {
+        items: (data || []).map((item: any) => ({
+          ...item,
+          fun_token: item.fun_token,
+        })),
+        count: count ?? 0,
+      };
     },
     refetchInterval: 60000, // Refetch every minute
   });
