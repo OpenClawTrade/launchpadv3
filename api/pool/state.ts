@@ -53,21 +53,21 @@ function decodePoolReserves(base64Data: string): {
     const virtualSolReserves = Number(quoteReserve) / 1e9;
     const virtualTokenReserves = Number(baseReserve) / 1e6;
     
-    // For bonding progress, we need the "swapped" SOL amount
-    // This is approximately: initialVirtualSOL (30) - currentVirtualSOL + fees collected
-    // Simplified: use 30 - virtualSol as approximation (will be negative if more SOL added)
+    // Derive "real" SOL reserves for bonding progress.
+    // In our DBC config, virtual SOL starts at 30 SOL and increases as users buy.
+    // Real SOL swapped in is approximately (virtualSol - initialVirtualSol).
     const initialVirtualSol = 30;
-    const realSolReserves = Math.max(0, initialVirtualSol - virtualSolReserves + (virtualSolReserves - 30));
-    
+    const realSolReserves = Math.max(0, virtualSolReserves - initialVirtualSol);
+
     // Sanity check
     if (virtualSolReserves <= 0 || virtualTokenReserves <= 0) {
       console.warn("[pool/state] Invalid reserves:", { virtualSolReserves, virtualTokenReserves });
       return null;
     }
-    
-    console.log("[pool/state] Decoded:", { virtualSolReserves, virtualTokenReserves });
-    
-    return { realSolReserves: 0, virtualSolReserves, virtualTokenReserves };
+
+    console.log("[pool/state] Decoded:", { realSolReserves, virtualSolReserves, virtualTokenReserves });
+
+    return { realSolReserves, virtualSolReserves, virtualTokenReserves };
   } catch (e) {
     console.error("[pool/state] Decode error:", e);
     return null;
@@ -135,11 +135,11 @@ async function fetchFromHeliusRpc(poolAddress: string): Promise<{
     }
     
     const { realSolReserves, virtualSolReserves, virtualTokenReserves } = reserves;
-    
+
     const priceSol = virtualTokenReserves > 0 ? virtualSolReserves / virtualTokenReserves : 0.00000003;
     const marketCapSol = priceSol * TOTAL_SUPPLY;
     const bondingProgress = Math.min((realSolReserves / GRADUATION_THRESHOLD_SOL) * 100, 100);
-    
+
     return {
       priceSol,
       marketCapSol,
