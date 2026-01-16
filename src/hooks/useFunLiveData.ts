@@ -39,37 +39,28 @@ interface UseFunLiveDataResult {
   refetch: () => Promise<void>;
 }
 
-// Use backend proxy for pool data (browser can't reliably call dbc-api directly)
-const getApiUrl = (): string => {
+// Fetch live pool data from backend function (Helius RPC decode)
+const getBackendBaseUrl = (): string => {
   const normalize = (url: string) => url.replace(/\/+$/, "");
-
-  if (typeof window !== "undefined") {
-    const fromStorage = localStorage.getItem("meteoraApiUrl");
-    if (fromStorage && fromStorage.startsWith("https://") && !fromStorage.includes("${")) {
-      return normalize(fromStorage);
-    }
-  }
-
-  if (typeof window !== "undefined") {
-    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
-    if (fromWindow && fromWindow.startsWith("https://") && !fromWindow.includes("${")) {
-      return normalize(fromWindow);
-    }
-  }
-
-  const meteoraUrl = import.meta.env.VITE_METEORA_API_URL;
-  if (meteoraUrl && typeof meteoraUrl === "string" && meteoraUrl.startsWith("https://") && !meteoraUrl.includes("${")) {
-    return normalize(meteoraUrl.trim());
-  }
-
-  if (typeof window !== "undefined") return window.location.origin;
+  const backendUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (backendUrl && typeof backendUrl === "string") return normalize(backendUrl);
   return "";
 };
 
-// Poll every 2 seconds for live data
-const POLL_INTERVAL = 2000;
+function buildFunPoolStateUrl(poolAddress: string, mintAddress?: string | null): string {
+  const base = getBackendBaseUrl();
+  if (!base) return "";
+  const params = new URLSearchParams();
+  params.set("pool", poolAddress);
+  if (mintAddress) params.set("mint", mintAddress);
+  return `${base}/functions/v1/fun-pool-state?${params.toString()}`;
+}
 
-// Cache for proxy responses
+// Poll every 5 seconds for live data (reliable list refresh)
+const POLL_INTERVAL = 5000;
+const LIVE_BATCH_SIZE = 5;
+
+// Cache for responses
 const poolCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 1500; // 1.5 seconds cache
 
@@ -81,9 +72,10 @@ export function useFunLiveData(): UseFunLiveDataResult {
   const abortControllerRef = useRef<AbortController | null>(null);
   const baseTokensRef = useRef<FunToken[]>([]);
 
-  // Fetch pool state via our backend proxy (browser can't reliably call dbc-api directly)
-  const fetchPoolStateDirect = async (poolAddress: string): Promise<PoolStateResponse | null> => {
-    // Check cache first
+  const fetchPoolStateDirect = async (
+    poolAddress: string,
+    mintAddress?: string | null
+  ): Promise<PoolStateResponse | null> => {
     const cached = poolCache.get(poolAddress);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       const c = cached.data;
@@ -98,11 +90,16 @@ export function useFunLiveData(): UseFunLiveDataResult {
     }
 
     try {
-      const apiUrl = getApiUrl();
-      const url = `${apiUrl}/api/pool/state?poolAddress=${encodeURIComponent(poolAddress)}`;
+      const url = buildFunPoolStateUrl(poolAddress, mintAddress);
+      if (!url) return null;
 
       const response = await fetch(url, {
-        headers: { Accept: "application/json" },
+        method: "GET",
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         signal: abortControllerRef.current?.signal,
       });
 
@@ -121,11 +118,10 @@ export function useFunLiveData(): UseFunLiveDataResult {
       };
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
-        console.debug("[useFunLiveData] pool/state fetch failed for", poolAddress);
+        console.debug("[useFunLiveData] fun-pool-state fetch failed for", poolAddress);
       }
+      return null;
     }
-
-    return null;
   };
 
   // Parse Meteora pool data into our format
@@ -176,7 +172,7 @@ export function useFunLiveData(): UseFunLiveDataResult {
     }
   }, []);
 
-  // Refresh live data from Meteora for all tokens
+  // Refresh live data from backend function for all tokens
   const refreshLiveData = useCallback(async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -187,40 +183,46 @@ export function useFunLiveData(): UseFunLiveDataResult {
     if (baseTokens.length === 0) return;
 
     try {
-      // Fetch live data for all tokens in parallel
-      const enrichedTokens = await Promise.all(
-        baseTokens.map(async (token) => {
-          let liveData = {
-            holder_count: 0,
-            market_cap_sol: 30,
-            bonding_progress: 0,
-            price_sol: token.price_sol || 0.00000003,
-          };
+      const enriched: FunToken[] = [];
 
-          // Fetch directly from Meteora if pool exists
-          if (token.dbc_pool_address && token.dbc_pool_address.length > 30) {
-            const poolState = await fetchPoolStateDirect(token.dbc_pool_address);
-            if (poolState) {
-              liveData = {
-                holder_count: poolState.holderCount || 0,
-                market_cap_sol: poolState.marketCapSol || 30,
-                bonding_progress: poolState.bondingProgress || 0,
-                price_sol: poolState.priceSol || token.price_sol || 0.00000003,
-              };
+      for (let i = 0; i < baseTokens.length; i += LIVE_BATCH_SIZE) {
+        const batch = baseTokens.slice(i, i + LIVE_BATCH_SIZE);
+        const batchEnriched = await Promise.all(
+          batch.map(async (token) => {
+            const defaults = {
+              holder_count: 0,
+              market_cap_sol: 30,
+              bonding_progress: 0,
+              price_sol: token.price_sol || 0.00000003,
+            };
+
+            if (token.dbc_pool_address && token.dbc_pool_address.length > 30) {
+              const poolState = await fetchPoolStateDirect(token.dbc_pool_address, token.mint_address);
+              if (poolState) {
+                return {
+                  ...token,
+                  holder_count: poolState.holderCount || 0,
+                  market_cap_sol: poolState.marketCapSol || 30,
+                  bonding_progress: poolState.bondingProgress || 0,
+                  price_sol: poolState.priceSol || token.price_sol || 0.00000003,
+                };
+              }
             }
-          }
 
-          return {
-            ...token,
-            holder_count: liveData.holder_count,
-            market_cap_sol: liveData.market_cap_sol,
-            bonding_progress: liveData.bonding_progress,
-            price_sol: liveData.price_sol,
-          };
-        })
-      );
+            return {
+              ...token,
+              holder_count: defaults.holder_count,
+              market_cap_sol: defaults.market_cap_sol,
+              bonding_progress: defaults.bonding_progress,
+              price_sol: defaults.price_sol,
+            };
+          })
+        );
 
-      setTokens(enrichedTokens);
+        enriched.push(...batchEnriched);
+      }
+
+      setTokens(enriched);
       setError(null);
       setLastUpdate(new Date());
     } catch (err) {
