@@ -1,58 +1,45 @@
 import { corsHeaders, GRADUATION_THRESHOLD_SOL, TOTAL_SUPPLY } from './constants.ts';
 import { fetchHolderCount } from './helius.ts';
-import { safeNumber } from './utils.ts';
 
 const INITIAL_VIRTUAL_SOL = 30;
+const TOKEN_DECIMALS = 6;
+const REQUEST_TIMEOUT_MS = 8000;
 
 // Decode Meteora DBC virtualPool account data from on-chain
-// Using the exact layout from the SDK IDL
 function decodePoolReserves(base64Data: string): {
   realSolReserves: number;
   virtualSolReserves: number;
   virtualTokenReserves: number;
 } | null {
   try {
-    // Decode base64 to bytes
     const binaryString = atob(base64Data);
     const buffer = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       buffer[i] = binaryString.charCodeAt(i);
     }
 
-    // VirtualPool struct layout (from Meteora SDK IDL):
+    // VirtualPool struct layout:
     // 8 bytes: Anchor discriminator
-    // VolatilityTracker: 64 bytes (u64 + u8[8] + u128*3)
-    // config: 32 bytes (pubkey)
-    // creator: 32 bytes (pubkey)
-    // baseMint: 32 bytes (pubkey)
-    // baseVault: 32 bytes (pubkey)
-    // quoteVault: 32 bytes (pubkey)
-    // baseReserve: 8 bytes (u64) - virtual token reserves
-    // quoteReserve: 8 bytes (u64) - virtual SOL reserves
-
-    // Offset = 8 + 64 + 32*5 = 232
-    const BASE_RESERVE_OFFSET = 232; // baseReserve (virtual tokens)
-    const QUOTE_RESERVE_OFFSET = 240; // quoteReserve (virtual SOL)
+    // 64 bytes: VolatilityTracker
+    // 32*5 bytes: config, creator, baseMint, baseVault, quoteVault
+    // baseReserve: 8 bytes (u64) at offset 232
+    // quoteReserve: 8 bytes (u64) at offset 240
+    const BASE_RESERVE_OFFSET = 232;
+    const QUOTE_RESERVE_OFFSET = 240;
 
     if (buffer.length < QUOTE_RESERVE_OFFSET + 8) {
       console.warn('[fun-pool-state] Buffer too small:', buffer.length);
       return null;
     }
 
-    // Read u64 values (little-endian)
     const dataView = new DataView(buffer.buffer);
     const baseReserve = dataView.getBigUint64(BASE_RESERVE_OFFSET, true);
     const quoteReserve = dataView.getBigUint64(QUOTE_RESERVE_OFFSET, true);
 
-    // Convert to human-readable values
-    // SOL has 9 decimals, tokens have 6 decimals
     const virtualSolReserves = Number(quoteReserve) / 1e9;
-    const virtualTokenReserves = Number(baseReserve) / 1e6;
-
-    // Calculate real SOL reserves (SOL deposited by traders)
+    const virtualTokenReserves = Number(baseReserve) / Math.pow(10, TOKEN_DECIMALS);
     const realSolReserves = Math.max(0, virtualSolReserves - INITIAL_VIRTUAL_SOL);
 
-    // Sanity check
     if (virtualSolReserves <= 0 || virtualTokenReserves <= 0) {
       console.warn('[fun-pool-state] Invalid reserves:', { virtualSolReserves, virtualTokenReserves });
       return null;
@@ -71,8 +58,11 @@ function decodePoolReserves(base64Data: string): {
   }
 }
 
-// Fetch pool state directly from Helius RPC (on-chain data)
-async function fetchFromHeliusRpc(poolAddress: string, heliusRpcUrl: string): Promise<{
+// Fetch pool state directly from Helius RPC
+async function fetchFromHeliusRpc(
+  poolAddress: string,
+  heliusRpcUrl: string
+): Promise<{
   priceSol: number;
   marketCapSol: number;
   bondingProgress: number;
@@ -85,7 +75,7 @@ async function fetchFromHeliusRpc(poolAddress: string, heliusRpcUrl: string): Pr
     console.log('[fun-pool-state] Fetching from Helius RPC for pool:', poolAddress);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     const response = await fetch(heliusRpcUrl, {
       method: 'POST',
@@ -117,9 +107,7 @@ async function fetchFromHeliusRpc(poolAddress: string, heliusRpcUrl: string): Pr
       return null;
     }
 
-    const base64Data = accountData[0];
-    const reserves = decodePoolReserves(base64Data);
-
+    const reserves = decodePoolReserves(accountData[0]);
     if (!reserves) {
       return null;
     }
@@ -163,16 +151,24 @@ Deno.serve(async (req) => {
 
     // Accept both GET query params and POST body
     let poolAddress = url.searchParams.get('pool');
-    let tokenId = url.searchParams.get('tokenId');
+    let mintAddress = url.searchParams.get('mint');
 
     if (req.method === 'POST') {
       const body = await req.json().catch(() => ({}));
       poolAddress = poolAddress || body.pool || body.poolAddress || null;
-      tokenId = tokenId || body.tokenId || null;
+      mintAddress = mintAddress || body.mint || body.mintAddress || null;
     }
 
-    if (!poolAddress && !tokenId) {
-      return new Response(JSON.stringify({ error: 'pool or tokenId required' }), {
+    if (!poolAddress) {
+      return new Response(JSON.stringify({ error: 'pool address required' }), {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    // Validate pool address format
+    if (poolAddress.length < 32 || poolAddress.length > 44) {
+      return new Response(JSON.stringify({ error: 'Invalid pool address format' }), {
         status: 400,
         headers: corsHeaders,
       });
@@ -188,20 +184,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If we only have tokenId, we need to look up the pool address from DB
-    // For now, require poolAddress directly
-    if (!poolAddress) {
-      return new Response(JSON.stringify({ error: 'pool address required' }), {
-        status: 400,
-        headers: corsHeaders,
-      });
-    }
-
     // Fetch live data from Helius RPC
     const rpcData = await fetchFromHeliusRpc(poolAddress, heliusRpcUrl);
 
     if (!rpcData) {
       // Return defaults if RPC fails
+      console.warn('[fun-pool-state] RPC failed, returning defaults');
       return new Response(
         JSON.stringify({
           priceSol: 0.00000003,
@@ -209,7 +197,7 @@ Deno.serve(async (req) => {
           holderCount: 0,
           bondingProgress: 0,
           realSolReserves: 0,
-          virtualSolReserves: 30,
+          virtualSolReserves: INITIAL_VIRTUAL_SOL,
           virtualTokenReserves: TOTAL_SUPPLY,
           isGraduated: false,
           volume24h: 0,
@@ -225,8 +213,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Holder count would require the mint address - skip for now
-    const holderCount = 0;
+    // Fetch holder count if mint address provided
+    let holderCount = 0;
+    if (mintAddress) {
+      holderCount = await fetchHolderCount(mintAddress, heliusRpcUrl);
+    }
 
     const poolState = {
       priceSol: rpcData.priceSol,
@@ -245,6 +236,7 @@ Deno.serve(async (req) => {
       price: poolState.priceSol,
       progress: poolState.bondingProgress,
       marketCap: poolState.marketCapSol,
+      holderCount: poolState.holderCount,
     });
 
     return new Response(JSON.stringify(poolState), {
@@ -256,9 +248,12 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error('[fun-pool-state] Error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }), {
-      status: 500,
-      headers: corsHeaders,
-    });
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+      {
+        status: 500,
+        headers: corsHeaders,
+      }
+    );
   }
 });
