@@ -7,6 +7,12 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
+const TOTAL_SUPPLY = 1_000_000_000;
+const GRADUATION_THRESHOLD_SOL = 85;
+const INITIAL_VIRTUAL_SOL = 30;
+const TOKEN_DECIMALS = 6;
+const REQUEST_TIMEOUT_MS = 8000;
+
 interface PoolState {
   realSolReserves: number;
   realTokenReserves: number;
@@ -18,12 +24,198 @@ interface PoolState {
   marketCapSol: number;
   isGraduated: boolean;
   poolAddress: string;
-  tokenBAmount?: number;
-  tvl?: number;
+  holderCount: number;
+  source: string;
+  mintAddress?: string;
+}
+
+function safeNumber(v: unknown): number {
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : 0;
+  return Number.isFinite(n) ? n : 0;
+}
+
+// Decode Meteora DBC virtualPool account data from on-chain
+function decodePoolReserves(base64Data: string): {
+  realSolReserves: number;
+  virtualSolReserves: number;
+  virtualTokenReserves: number;
+  mintAddress?: string;
+} | null {
+  try {
+    const binaryString = atob(base64Data);
+    const buffer = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      buffer[i] = binaryString.charCodeAt(i);
+    }
+
+    // Offset = 8 + 64 + 32*5 = 232 for baseReserve, 240 for quoteReserve
+    const BASE_RESERVE_OFFSET = 232;
+    const QUOTE_RESERVE_OFFSET = 240;
+    const BASE_MINT_OFFSET = 136;
+
+    if (buffer.length < QUOTE_RESERVE_OFFSET + 8) {
+      console.warn('[pool-state] Buffer too small:', buffer.length);
+      return null;
+    }
+
+    const dataView = new DataView(buffer.buffer);
+    const baseReserve = dataView.getBigUint64(BASE_RESERVE_OFFSET, true);
+    const quoteReserve = dataView.getBigUint64(QUOTE_RESERVE_OFFSET, true);
+
+    // Read mint address
+    let mintAddress: string | undefined;
+    if (buffer.length >= BASE_MINT_OFFSET + 32) {
+      const mintBytes = buffer.slice(BASE_MINT_OFFSET, BASE_MINT_OFFSET + 32);
+      // Convert to base58 (simplified - just check if not all zeros)
+      const isValid = mintBytes.some((b) => b !== 0);
+      if (isValid) {
+        // We'll get the mint from DB instead for accuracy
+      }
+    }
+
+    const virtualSolReserves = Number(quoteReserve) / 1e9;
+    const virtualTokenReserves = Number(baseReserve) / Math.pow(10, TOKEN_DECIMALS);
+    const realSolReserves = Math.max(0, virtualSolReserves - INITIAL_VIRTUAL_SOL);
+
+    if (virtualSolReserves <= 0 || virtualTokenReserves <= 0) {
+      console.warn('[pool-state] Invalid reserves:', { virtualSolReserves, virtualTokenReserves });
+      return null;
+    }
+
+    console.log('[pool-state] Decoded on-chain:', {
+      virtualSolReserves: virtualSolReserves.toFixed(4),
+      virtualTokenReserves: virtualTokenReserves.toFixed(0),
+      realSolReserves: realSolReserves.toFixed(4),
+    });
+
+    return { realSolReserves, virtualSolReserves, virtualTokenReserves, mintAddress };
+  } catch (e) {
+    console.error('[pool-state] Decode error:', e);
+    return null;
+  }
+}
+
+// Fetch holder count from Helius DAS API
+async function fetchHolderCount(mintAddress: string, heliusRpcUrl: string): Promise<number> {
+  if (!mintAddress || !heliusRpcUrl) return 0;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const resp = await fetch(heliusRpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'holder-count',
+        method: 'getTokenAccounts',
+        params: {
+          mint: mintAddress,
+          limit: 1,
+          page: 1,
+        },
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    if (!resp.ok) return 0;
+
+    const json = await resp.json();
+    const total = safeNumber(json?.result?.total ?? 0);
+    return total > 0 ? Math.floor(total) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Fetch pool state from Helius RPC
+async function fetchFromHeliusRpc(
+  poolAddress: string,
+  heliusRpcUrl: string,
+  mintAddress?: string
+): Promise<PoolState | null> {
+  try {
+    console.log('[pool-state] Fetching from Helius RPC for pool:', poolAddress);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    const response = await fetch(heliusRpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'pool-state',
+        method: 'getAccountInfo',
+        params: [poolAddress, { encoding: 'base64' }],
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    if (!response.ok) {
+      console.warn('[pool-state] Helius RPC response not ok:', response.status);
+      return null;
+    }
+
+    const json = await response.json();
+
+    if (json.error) {
+      console.warn('[pool-state] Helius RPC error:', json.error);
+      return null;
+    }
+
+    const accountData = json.result?.value?.data;
+    if (!accountData || !Array.isArray(accountData) || accountData.length < 1) {
+      console.warn('[pool-state] No account data for pool:', poolAddress);
+      return null;
+    }
+
+    const reserves = decodePoolReserves(accountData[0]);
+    if (!reserves) {
+      return null;
+    }
+
+    const { realSolReserves, virtualSolReserves, virtualTokenReserves } = reserves;
+
+    const priceSol = virtualTokenReserves > 0 ? virtualSolReserves / virtualTokenReserves : 0;
+    const marketCapSol = priceSol * TOTAL_SUPPLY;
+    const bondingProgress = Math.min((realSolReserves / GRADUATION_THRESHOLD_SOL) * 100, 100);
+
+    // Fetch holder count if mint provided
+    const holderCount = mintAddress ? await fetchHolderCount(mintAddress, heliusRpcUrl) : 0;
+
+    console.log('[pool-state] Calculated:', {
+      priceSol: priceSol.toExponential(4),
+      marketCapSol: marketCapSol.toFixed(2),
+      bondingProgress: bondingProgress.toFixed(2),
+      holderCount,
+    });
+
+    return {
+      realSolReserves,
+      realTokenReserves: TOTAL_SUPPLY - virtualTokenReserves,
+      virtualSolReserves,
+      virtualTokenReserves,
+      bondingProgress,
+      graduationThreshold: GRADUATION_THRESHOLD_SOL,
+      priceSol,
+      marketCapSol,
+      isGraduated: bondingProgress >= 100,
+      poolAddress,
+      holderCount,
+      source: 'helius-rpc',
+      mintAddress,
+    };
+  } catch (e) {
+    if ((e as Error).name !== 'AbortError') {
+      console.error('[pool-state] Helius RPC error:', e);
+    }
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -42,56 +234,61 @@ Deno.serve(async (req) => {
 
     console.log('[pool-state] Fetching state for:', mintAddress || poolAddress);
 
-    // Get Supabase client to fetch token info
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const heliusRpcUrl = Deno.env.get('HELIUS_RPC_URL') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get token from database first
     let token: any = null;
     if (mintAddress) {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('tokens')
         .select('*')
         .eq('mint_address', mintAddress)
-        .single();
-      
-      if (error || !data) {
-        console.error('[pool-state] Token not found:', error);
-        return new Response(
-          JSON.stringify({ error: 'Token not found' }),
-          { status: 404, headers: corsHeaders }
-        );
-      }
+        .maybeSingle();
+      token = data;
+    }
+
+    if (!token && poolAddress) {
+      const { data } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('dbc_pool_address', poolAddress)
+        .maybeSingle();
       token = data;
     }
 
     const dbcPool = poolAddress || token?.dbc_pool_address;
     const dammPool = token?.damm_pool_address;
-    const graduationThreshold = token?.graduation_threshold_sol || 85;
-
-    // Check if graduated - use DAMM pool if available
+    const graduationThreshold = token?.graduation_threshold_sol || GRADUATION_THRESHOLD_SOL;
+    const tokenMint = token?.mint_address || mintAddress;
     const isGraduated = token?.status === 'graduated' || !!dammPool;
 
-    let poolState: PoolState;
-
+    // For graduated tokens with DAMM pool
     if (isGraduated && dammPool) {
-      // Fetch from DAMM V2 API for graduated tokens
       console.log('[pool-state] Fetching DAMM pool:', dammPool);
-      
+
       try {
-        const dammResponse = await fetch(`https://dammv2-api.meteora.ag/pools/${dammPool}`);
-        
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+
+        const dammResponse = await fetch(`https://dammv2-api.meteora.ag/pools/${dammPool}`, {
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
+
         if (dammResponse.ok) {
           const dammData = await dammResponse.json();
           const pool = dammData.data;
-          
-          // DAMM pool returns token amounts directly
-          const tokenBAmount = parseFloat(pool.token_b_amount || 0) / 1e9; // SOL decimals
+
+          const tokenBAmount = parseFloat(pool.token_b_amount || 0) / 1e9;
           const tvl = parseFloat(pool.tvl || 0);
-          
-          poolState = {
-            realSolReserves: graduationThreshold, // Already graduated
+          const holderCount = tokenMint && heliusRpcUrl
+            ? await fetchHolderCount(tokenMint, heliusRpcUrl)
+            : token?.holder_count || 0;
+
+          const poolState: PoolState = {
+            realSolReserves: graduationThreshold,
             realTokenReserves: 0,
             virtualSolReserves: 0,
             virtualTokenReserves: 0,
@@ -101,216 +298,84 @@ Deno.serve(async (req) => {
             marketCapSol: tvl,
             isGraduated: true,
             poolAddress: dammPool,
-            tokenBAmount,
-            tvl,
+            holderCount,
+            source: 'damm-api',
+            mintAddress: tokenMint,
           };
-        } else {
-          // Fallback to database values
-          poolState = {
-            realSolReserves: token?.real_sol_reserves || 0,
-            realTokenReserves: token?.real_token_reserves || 0,
-            virtualSolReserves: token?.virtual_sol_reserves || 0,
-            virtualTokenReserves: token?.virtual_token_reserves || 0,
-            bondingProgress: 100,
-            graduationThreshold,
-            priceSol: token?.price_sol || 0,
-            marketCapSol: token?.market_cap_sol || 0,
-            isGraduated: true,
-            poolAddress: dammPool,
-          };
+
+          return new Response(JSON.stringify(poolState), {
+            status: 200,
+            headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=10' },
+          });
         }
       } catch (e) {
-        console.error('[pool-state] DAMM API error:', e);
-        // Fallback to database
-        poolState = {
-          realSolReserves: graduationThreshold,
-          realTokenReserves: 0,
-          virtualSolReserves: 0,
-          virtualTokenReserves: 0,
-          bondingProgress: 100,
-          graduationThreshold,
-          priceSol: token?.price_sol || 0,
-          marketCapSol: token?.market_cap_sol || 0,
-          isGraduated: true,
-          poolAddress: dammPool,
-        };
+        console.warn('[pool-state] DAMM API error:', e);
       }
-    } else if (dbcPool) {
-      // Fetch DBC pool state from Meteora DBC API
-      console.log('[pool-state] Fetching DBC pool:', dbcPool);
-      
-      try {
-        // Try to get pool data from Meteora's DBC API
-        // The DBC SDK uses on-chain data, but we can approximate via Meteora's indexer
-        const dbcResponse = await fetch(`https://dbc-api.meteora.ag/pools/${dbcPool}`);
-        
-        if (dbcResponse.ok) {
-          const dbcData = await dbcResponse.json();
-          
-          const realSol = parseFloat(dbcData.real_sol_reserves || 0) / 1e9;
-          const realTokens = parseFloat(dbcData.real_token_reserves || 0) / 1e6;
-          const virtualSol = parseFloat(dbcData.virtual_sol_reserves || 0) / 1e9;
-          const virtualTokens = parseFloat(dbcData.virtual_token_reserves || 0) / 1e6;
-          
-          const progress = graduationThreshold > 0 
-            ? (realSol / graduationThreshold) * 100 
-            : 0;
-          
-          const priceSol = virtualTokens > 0 ? virtualSol / virtualTokens : 0;
-          const totalSupply = token?.total_supply || 1_000_000_000;
-          const marketCapSol = priceSol * totalSupply;
-          
-          poolState = {
-            realSolReserves: realSol,
-            realTokenReserves: realTokens,
-            virtualSolReserves: virtualSol,
-            virtualTokenReserves: virtualTokens,
-            bondingProgress: Math.min(progress, 100),
-            graduationThreshold,
-            priceSol,
-            marketCapSol,
-            isGraduated: progress >= 100,
-            poolAddress: dbcPool,
-          };
-        } else {
-          // DBC API didn't respond - fall back to database with Helius RPC check
-          console.log('[pool-state] DBC API unavailable, using database values');
-          
-          // Try direct RPC call if Helius is configured
-          const heliusRpcUrl = Deno.env.get('HELIUS_RPC_URL');
-          if (heliusRpcUrl && dbcPool) {
-            try {
-              // Fetch account info directly from Solana
-              const rpcResponse = await fetch(heliusRpcUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  jsonrpc: '2.0',
-                  id: 1,
-                  method: 'getAccountInfo',
-                  params: [
-                    dbcPool,
-                    { encoding: 'base64' }
-                  ]
-                })
-              });
-              
-              if (rpcResponse.ok) {
-                const rpcData = await rpcResponse.json();
-                if (rpcData.result?.value?.data) {
-                  // The pool account data contains reserves in a specific layout
-                  // For now, log it - decoding would require the exact layout
-                  console.log('[pool-state] Got RPC account data for pool');
-                }
-              }
-            } catch (rpcError) {
-              console.warn('[pool-state] RPC fetch failed:', rpcError);
-            }
+    }
+
+    // For bonding curve tokens - fetch from Helius RPC
+    if (dbcPool && heliusRpcUrl) {
+      const rpcState = await fetchFromHeliusRpc(dbcPool, heliusRpcUrl, tokenMint);
+
+      if (rpcState) {
+        // Update database in background
+        if (token?.id) {
+          const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+          if (serviceKey) {
+            const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+            supabaseAdmin
+              .from('tokens')
+              .update({
+                real_sol_reserves: rpcState.realSolReserves,
+                virtual_sol_reserves: rpcState.virtualSolReserves,
+                virtual_token_reserves: rpcState.virtualTokenReserves,
+                bonding_curve_progress: rpcState.bondingProgress / 100,
+                price_sol: rpcState.priceSol,
+                market_cap_sol: rpcState.marketCapSol,
+                holder_count: rpcState.holderCount,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', token.id)
+              .then(() => console.log('[pool-state] Updated DB'));
           }
-          
-          // Use database values as fallback
-          const realSol = token?.real_sol_reserves || 0;
-          const progress = graduationThreshold > 0 
-            ? (realSol / graduationThreshold) * 100 
-            : 0;
-          
-          poolState = {
-            realSolReserves: realSol,
-            realTokenReserves: token?.real_token_reserves || 0,
-            virtualSolReserves: token?.virtual_sol_reserves || 0,
-            virtualTokenReserves: token?.virtual_token_reserves || 0,
-            bondingProgress: Math.min(progress, 100),
-            graduationThreshold,
-            priceSol: token?.price_sol || 0,
-            marketCapSol: token?.market_cap_sol || 0,
-            isGraduated: progress >= 100,
-            poolAddress: dbcPool,
-          };
         }
-      } catch (e) {
-        console.error('[pool-state] DBC fetch error:', e);
-        // Fallback to database
-        const realSol = token?.real_sol_reserves || 0;
-        const progress = graduationThreshold > 0 
-          ? (realSol / graduationThreshold) * 100 
-          : 0;
-        
-        poolState = {
-          realSolReserves: realSol,
-          realTokenReserves: token?.real_token_reserves || 0,
-          virtualSolReserves: token?.virtual_sol_reserves || 0,
-          virtualTokenReserves: token?.virtual_token_reserves || 0,
-          bondingProgress: Math.min(progress, 100),
-          graduationThreshold,
-          priceSol: token?.price_sol || 0,
-          marketCapSol: token?.market_cap_sol || 0,
-          isGraduated: progress >= 100,
-          poolAddress: dbcPool || '',
-        };
-      }
-    } else {
-      // No pool address - use database values
-      const realSol = token?.real_sol_reserves || 0;
-      const progress = graduationThreshold > 0 
-        ? (realSol / graduationThreshold) * 100 
-        : 0;
-      
-      poolState = {
-        realSolReserves: realSol,
-        realTokenReserves: token?.real_token_reserves || 0,
-        virtualSolReserves: token?.virtual_sol_reserves || 0,
-        virtualTokenReserves: token?.virtual_token_reserves || 0,
-        bondingProgress: Math.min(progress, 100),
-        graduationThreshold,
-        priceSol: token?.price_sol || 0,
-        marketCapSol: token?.market_cap_sol || 0,
-        isGraduated: false,
-        poolAddress: '',
-      };
-    }
 
-    // Update database if values differ significantly (optional sync)
-    const dbProgress = token?.bonding_curve_progress || 0;
-    const liveProgress = poolState.bondingProgress;
-    
-    if (Math.abs(dbProgress * 100 - liveProgress) > 1) {
-      console.log('[pool-state] Updating database with live values');
-      // Use service key for updates
-      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (serviceKey && token?.id) {
-        const supabaseAdmin = createClient(supabaseUrl, serviceKey);
-        await supabaseAdmin
-          .from('tokens')
-          .update({
-            real_sol_reserves: poolState.realSolReserves,
-            real_token_reserves: poolState.realTokenReserves,
-            virtual_sol_reserves: poolState.virtualSolReserves,
-            virtual_token_reserves: poolState.virtualTokenReserves,
-            bonding_curve_progress: poolState.bondingProgress / 100,
-            price_sol: poolState.priceSol,
-            market_cap_sol: poolState.marketCapSol,
-          })
-          .eq('id', token.id);
+        return new Response(JSON.stringify(rpcState), {
+          status: 200,
+          headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=5' },
+        });
       }
     }
 
-    console.log('[pool-state] Returning state:', {
-      bondingProgress: poolState.bondingProgress.toFixed(2),
-      realSol: poolState.realSolReserves.toFixed(4),
-      isGraduated: poolState.isGraduated,
+    // Fallback to database values
+    console.log('[pool-state] Using database fallback');
+
+    const realSol = token?.real_sol_reserves || 0;
+    const virtualSol = token?.virtual_sol_reserves || INITIAL_VIRTUAL_SOL;
+    const virtualTokens = token?.virtual_token_reserves || TOTAL_SUPPLY;
+    const priceSol = virtualTokens > 0 ? virtualSol / virtualTokens : 0;
+    const progress = graduationThreshold > 0 ? (realSol / graduationThreshold) * 100 : 0;
+
+    const poolState: PoolState = {
+      realSolReserves: realSol,
+      realTokenReserves: token?.real_token_reserves || 0,
+      virtualSolReserves: virtualSol,
+      virtualTokenReserves: virtualTokens,
+      bondingProgress: Math.min(progress, 100),
+      graduationThreshold,
+      priceSol: token?.price_sol || priceSol,
+      marketCapSol: token?.market_cap_sol || priceSol * TOTAL_SUPPLY,
+      isGraduated: token?.status === 'graduated' || progress >= 100,
+      poolAddress: dbcPool || '',
+      holderCount: token?.holder_count || 0,
+      source: 'database',
+      mintAddress: tokenMint,
+    };
+
+    return new Response(JSON.stringify(poolState), {
+      status: 200,
+      headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=10' },
     });
-
-    return new Response(
-      JSON.stringify(poolState),
-      { 
-        status: 200, 
-        headers: {
-          ...corsHeaders,
-          'Cache-Control': 'public, max-age=10', // Cache for 10 seconds
-        }
-      }
-    );
-
   } catch (error) {
     console.error('[pool-state] Error:', error);
     return new Response(
