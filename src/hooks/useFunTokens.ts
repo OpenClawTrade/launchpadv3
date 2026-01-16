@@ -1,11 +1,40 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const DBC_API_URL = "https://dbc-api.meteora.ag";
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD_SOL = 85;
 
-// Cache for Meteora responses to avoid hammering the API
+const getApiUrl = (): string => {
+  const normalize = (url: string) => url.replace(/\/+$/, "");
+
+  // 1) localStorage (set by RuntimeConfigBootstrap)
+  if (typeof window !== "undefined") {
+    const fromStorage = localStorage.getItem("meteoraApiUrl");
+    if (fromStorage && fromStorage.startsWith("https://") && !fromStorage.includes("${")) {
+      return normalize(fromStorage);
+    }
+  }
+
+  // 2) window runtime config
+  if (typeof window !== "undefined") {
+    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
+    if (fromWindow && fromWindow.startsWith("https://") && !fromWindow.includes("${")) {
+      return normalize(fromWindow);
+    }
+  }
+
+  // 3) build-time env
+  const meteoraUrl = import.meta.env.VITE_METEORA_API_URL;
+  if (meteoraUrl && typeof meteoraUrl === "string" && meteoraUrl.startsWith("https://") && !meteoraUrl.includes("${")) {
+    return normalize(meteoraUrl.trim());
+  }
+
+  // 4) fallback to current origin
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+};
+
+// Cache for pool-state proxy responses
 const poolCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 1500; // 1.5 seconds cache
 
@@ -51,49 +80,46 @@ const DEFAULT_LIVE: LiveFields = {
   price_sol: 0.00000003,
 };
 
-// Parse Meteora pool data into our format (browser-side)
-function parsePoolData(data: any): LiveFields {
-  const realSol = parseFloat(data.real_base_amount || data.real_sol_reserves || 0) / 1e9;
-  const virtualSol = parseFloat(data.virtual_base_amount || data.virtual_sol_reserves || 30e9) / 1e9;
-  const virtualTokens = parseFloat(data.virtual_quote_amount || data.virtual_token_reserves || 1e15) / 1e6;
-  
-  const priceSol = virtualTokens > 0 ? virtualSol / virtualTokens : 0.00000003;
-  const marketCapSol = priceSol * TOTAL_SUPPLY;
-  const bondingProgress = Math.min((realSol / GRADUATION_THRESHOLD_SOL) * 100, 100);
-  
-  return {
-    price_sol: priceSol,
-    market_cap_sol: marketCapSol,
-    holder_count: data.holder_count || 0,
-    bonding_progress: bondingProgress,
-  };
-}
-
-// Fetch pool state directly from Meteora DBC API (browser-side)
+// Fetch pool state via our backend proxy (avoids browser CORS/DNS issues)
 async function fetchPoolStateDirect(poolAddress: string, signal?: AbortSignal): Promise<LiveFields | null> {
-  // Check cache first
   const cached = poolCache.get(poolAddress);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return parsePoolData(cached.data);
+    const c = cached.data;
+    return {
+      price_sol: c.priceSol ?? DEFAULT_LIVE.price_sol,
+      market_cap_sol: c.marketCapSol ?? DEFAULT_LIVE.market_cap_sol,
+      bonding_progress: c.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
+      holder_count: c.holderCount ?? DEFAULT_LIVE.holder_count,
+    };
   }
 
   try {
-    const response = await fetch(`${DBC_API_URL}/pools/${poolAddress}`, {
-      headers: { 'Accept': 'application/json' },
+    const apiUrl = getApiUrl();
+    const url = `${apiUrl}/api/pool/state?poolAddress=${encodeURIComponent(poolAddress)}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
       signal,
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      poolCache.set(poolAddress, { data, timestamp: Date.now() });
-      return parsePoolData(data);
-    }
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    poolCache.set(poolAddress, { data, timestamp: Date.now() });
+
+    return {
+      price_sol: data.priceSol ?? DEFAULT_LIVE.price_sol,
+      market_cap_sol: data.marketCapSol ?? DEFAULT_LIVE.market_cap_sol,
+      bonding_progress: data.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
+      holder_count: data.holderCount ?? DEFAULT_LIVE.holder_count,
+    };
   } catch (e) {
-    if ((e as Error).name !== 'AbortError') {
-      console.debug('[useFunTokens] Direct Meteora fetch failed for', poolAddress);
+    if ((e as Error).name !== "AbortError") {
+      console.debug("[useFunTokens] pool/state fetch failed for", poolAddress);
     }
+    return null;
   }
-  return null;
 }
 
 export function useFunTokens(): UseFunTokensResult {
