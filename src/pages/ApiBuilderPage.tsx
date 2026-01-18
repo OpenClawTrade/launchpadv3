@@ -382,32 +382,53 @@ export default function ApiBuilderPage() {
         {/* Left Panel - Controls */}
         <div className="lg:col-span-1 space-y-6">
           {/* AI Generator */}
-          <Card className="bg-[#12121a] border-[#1a1a1f]">
-            <CardHeader className="pb-3">
+          <Card className="bg-[#12121a] border-[#1a1a1f] overflow-hidden">
+            <CardHeader className="pb-3 bg-gradient-to-r from-purple-500/10 to-cyan-500/10">
               <CardTitle className="text-base flex items-center gap-2 text-white">
                 <Wand2 className="w-4 h-4 text-purple-400" />
                 AI Design Generator
               </CardTitle>
+              <CardDescription className="text-gray-400 text-xs">
+                Describe the style, colors, and vibe you want. Reference existing sites for inspiration.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Textarea
-                placeholder="Describe your launchpad style... e.g., 'Cyberpunk neon theme with purple and cyan, futuristic vibes'"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                rows={3}
-                className="bg-[#1a1a1f] border-[#2a2a3f] text-white"
-              />
-              <Button 
-                className="w-full bg-purple-600 hover:bg-purple-700" 
-                onClick={generateDesign}
-                disabled={generating}
-              >
-                {generating ? (
-                  <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Generating...</>
-                ) : (
-                  <><Sparkles className="w-4 h-4 mr-2" /> Generate Design</>
-                )}
-              </Button>
+            <CardContent className="space-y-3 pt-4">
+              <div className="relative">
+                <Textarea
+                  placeholder={`Describe your launchpad design in detail...
+
+Examples:
+• "Dark cyberpunk theme with neon purple and cyan, glowing effects, futuristic fonts"
+• "Clean minimal design like pump.fun with black background and green accents"
+• "Retro 80s arcade style with pixel fonts and bright colors"
+• "Professional trading platform look with dark gray and orange highlights"`}
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  rows={6}
+                  className="bg-[#1a1a1f] border-[#2a2a3f] text-white placeholder:text-gray-600 resize-none"
+                />
+                <div className="absolute bottom-2 right-2 text-xs text-gray-600">
+                  {aiPrompt.length}/500
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800" 
+                  onClick={generateDesign}
+                  disabled={generating || !aiPrompt.trim()}
+                >
+                  {generating ? (
+                    <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Generating...</>
+                  ) : (
+                    <><Sparkles className="w-4 h-4 mr-2" /> Generate Design</>
+                  )}
+                </Button>
+              </div>
+              {generating && (
+                <div className="text-center text-xs text-purple-400 animate-pulse">
+                  ✨ AI is crafting your custom design based on your description...
+                </div>
+              )}
             </CardContent>
           </Card>
 
