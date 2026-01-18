@@ -21,6 +21,7 @@ const TrendingPage = lazy(() => import("./pages/TrendingPage"));
 const VanityGeneratorPage = lazy(() => import("./pages/VanityGeneratorPage"));
 const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
 const ApiBuilderPage = lazy(() => import("./pages/ApiBuilderPage"));
+const GovernancePage = lazy(() => import("./pages/GovernancePage"));
 const LaunchpadTemplatePage = lazy(() => import("./pages/LaunchpadTemplatePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -66,6 +67,7 @@ const App = () => (
                 <Route path="/vanity" element={<VanityGeneratorPage />} />
                 <Route path="/api" element={<ApiDashboardPage />} />
                 <Route path="/api/builder" element={<ApiBuilderPage />} />
+                <Route path="/governance" element={<GovernancePage />} />
                 <Route path="/site" element={<LaunchpadTemplatePage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

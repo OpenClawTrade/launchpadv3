@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import ai69xLogo from "@/assets/ai69x-logo.png";
-import { TrendingUp, Key, Wallet, LogOut } from "lucide-react";
+import { TrendingUp, Key, Wallet, LogOut, Vote } from "lucide-react";
+import { SolPriceDisplay } from "./SolPriceDisplay";
 
 interface AppHeaderProps {
   showBack?: boolean;
@@ -35,6 +36,8 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         </div>
         
         <div className="flex items-center gap-1 sm:gap-2">
+          <SolPriceDisplay />
+          
           <a 
             href="https://x.com/ai67x_fun" 
             target="_blank" 
@@ -66,6 +69,17 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
             >
               <Key className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">API</span>
+            </Button>
+          </Link>
+          
+          <Link to="/governance">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 px-2 sm:px-3"
+            >
+              <Vote className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Governance</span>
             </Button>
           </Link>
 
