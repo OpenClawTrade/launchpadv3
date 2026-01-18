@@ -1093,21 +1093,40 @@ export default function FunLauncherPage() {
                               </div>
                             </div>
                             
-                            {/* Trade button */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              asChild
-                              className="h-8 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10 flex-shrink-0"
-                            >
-                              <a 
-                                href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                            {/* Copy CA & Trade buttons */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {token.mint_address && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    copyToClipboard(token.mint_address!);
+                                  }}
+                                  className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                                >
+                                  {copiedAddress === token.mint_address ? (
+                                    <CheckCircle className="h-3.5 w-3.5 text-[#00d4aa]" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                asChild
+                                className="h-8 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10"
                               >
-                                Trade
-                              </a>
-                            </Button>
+                                <a 
+                                  href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Trade
+                                </a>
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))
