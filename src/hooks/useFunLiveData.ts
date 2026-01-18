@@ -22,14 +22,6 @@ interface FunToken {
   updated_at: string;
 }
 
-interface PoolStateCache {
-  priceSol: number;
-  marketCapSol: number;
-  holderCount: number;
-  bondingProgress: number;
-  isGraduated: boolean;
-}
-
 interface UseFunLiveDataResult {
   tokens: FunToken[];
   isLoading: boolean;
@@ -37,11 +29,6 @@ interface UseFunLiveDataResult {
   lastUpdate: Date;
   refetch: () => Promise<void>;
 }
-
-// Global cache for pool states (shared across components)
-let globalPoolCache: Record<string, PoolStateCache> = {};
-let lastCacheFetch = 0;
-const CACHE_REFRESH_INTERVAL = 30000; // 30 seconds
 
 // Poll database every 10 seconds (cached data updates every minute via cron)
 const POLL_INTERVAL = 10000;
@@ -52,30 +39,6 @@ export function useFunLiveData(): UseFunLiveDataResult {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Fetch cached pool states from edge function
-  const fetchPoolCache = useCallback(async () => {
-    // Only refresh cache every 30 seconds
-    if (Date.now() - lastCacheFetch < CACHE_REFRESH_INTERVAL && Object.keys(globalPoolCache).length > 0) {
-      return globalPoolCache;
-    }
-
-    try {
-      const { data, error } = await supabase.functions.invoke('fun-pool-cache', {
-        body: {},
-        method: 'GET',
-      });
-
-      if (!error && data?.cache) {
-        globalPoolCache = data.cache;
-        lastCacheFetch = Date.now();
-      }
-    } catch (e) {
-      console.debug('[useFunLiveData] Cache fetch failed, using existing cache');
-    }
-
-    return globalPoolCache;
-  }, []);
 
   // Fetch tokens from database (already has cached pool data)
   const fetchTokens = useCallback(async () => {
@@ -89,13 +52,17 @@ export function useFunLiveData(): UseFunLiveDataResult {
 
       // Map database tokens to our FunToken type
       // Pool state data is already cached in the database by the cron job
-      const typedTokens: FunToken[] = (funTokens || []).map(t => ({
-        ...t,
-        holder_count: t.holder_count || 0,
-        market_cap_sol: t.market_cap_sol || 30,
-        bonding_progress: t.bonding_progress || 0,
-        price_sol: t.price_sol || 0.00000003,
-      }));
+      const typedTokens: FunToken[] = (funTokens || []).map(t => {
+        // Cast to any since columns may not be in types yet
+        const tokenAny = t as any;
+        return {
+          ...t,
+          holder_count: tokenAny.holder_count || 0,
+          market_cap_sol: tokenAny.market_cap_sol || 30,
+          bonding_progress: tokenAny.bonding_progress || 0,
+          price_sol: t.price_sol || 0.00000003,
+        };
+      });
 
       setTokens(typedTokens);
       setError(null);

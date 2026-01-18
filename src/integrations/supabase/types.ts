@@ -854,14 +854,17 @@ export type Database = {
       }
       fun_tokens: {
         Row: {
+          bonding_progress: number | null
           created_at: string | null
           creator_wallet: string
           dbc_pool_address: string | null
           description: string | null
           discord_url: string | null
+          holder_count: number | null
           id: string
           image_url: string | null
           last_distribution_at: string | null
+          market_cap_sol: number | null
           mint_address: string | null
           name: string
           price_sol: number | null
@@ -875,14 +878,17 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          bonding_progress?: number | null
           created_at?: string | null
           creator_wallet: string
           dbc_pool_address?: string | null
           description?: string | null
           discord_url?: string | null
+          holder_count?: number | null
           id?: string
           image_url?: string | null
           last_distribution_at?: string | null
+          market_cap_sol?: number | null
           mint_address?: string | null
           name: string
           price_sol?: number | null
@@ -896,14 +902,17 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          bonding_progress?: number | null
           created_at?: string | null
           creator_wallet?: string
           dbc_pool_address?: string | null
           description?: string | null
           discord_url?: string | null
+          holder_count?: number | null
           id?: string
           image_url?: string | null
           last_distribution_at?: string | null
+          market_cap_sol?: number | null
           mint_address?: string | null
           name?: string
           price_sol?: number | null
