@@ -419,7 +419,7 @@ export default function FunLauncherPage() {
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
             </a>
-            <Link to="/trending" className="hidden xs:block">
+            <Link to="/trending">
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -429,7 +429,17 @@ export default function FunLauncherPage() {
                 <span className="hidden sm:inline">Narratives</span>
               </Button>
             </Link>
-            <span className="hidden md:flex items-center gap-1">
+            <Link to="/api">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 px-2 sm:px-3"
+              >
+                <Key className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">API</span>
+              </Button>
+            </Link>
+            <span className="hidden lg:flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
               Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
             </span>
