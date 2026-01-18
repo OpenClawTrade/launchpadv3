@@ -46,18 +46,31 @@ const getRpcUrl = () => getBaseRpcUrl().url;
 // API request helper
 async function apiRequest<T>(
   endpoint: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  extraHeaders?: Record<string, string>
 ): Promise<T> {
   const apiUrl = getApiUrl();
   const url = `${apiUrl}/api${endpoint}`;
 
   console.log('[useMeteoraApi] Request:', { url, body });
 
+  // Build headers - include x-launchpad-id if set in localStorage
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...extraHeaders,
+  };
+  
+  // Check for launchpad context (set by launchpad template page)
+  if (typeof window !== 'undefined') {
+    const launchpadId = localStorage.getItem('x-launchpad-id');
+    if (launchpadId) {
+      headers['x-launchpad-id'] = launchpadId;
+    }
+  }
+
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
