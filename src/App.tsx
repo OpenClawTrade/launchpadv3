@@ -19,6 +19,8 @@ const EarningsPage = lazy(() => import("./pages/EarningsPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const TrendingPage = lazy(() => import("./pages/TrendingPage"));
 const VanityGeneratorPage = lazy(() => import("./pages/VanityGeneratorPage"));
+const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
+const ApiBuilderPage = lazy(() => import("./pages/ApiBuilderPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -61,6 +63,8 @@ const App = () => (
                 <Route path="/portfolio" element={<PortfolioPage />} />
                 <Route path="/trending" element={<TrendingPage />} />
                 <Route path="/vanity" element={<VanityGeneratorPage />} />
+                <Route path="/api" element={<ApiDashboardPage />} />
+                <Route path="/api/builder" element={<ApiBuilderPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
