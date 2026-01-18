@@ -24,46 +24,69 @@ serve(async (req) => {
     }
 
     // Generate design configuration using AI
-    const systemPrompt = `You are a design expert for crypto token launchpad websites. Generate a complete design configuration based on the user's description.
+    const systemPrompt = `You are an expert UI/UX designer specializing in crypto trading platforms and token launchpads. Your job is to create unique, visually striking design configurations based on user descriptions.
 
-Output a JSON object with the following structure:
+CRITICAL INSTRUCTIONS:
+1. CAREFULLY READ the user's prompt and follow their specific requests
+2. If they reference a specific site (like "bags.fm", "pump.fun", etc.), create a design inspired by that aesthetic
+3. Match the EXACT vibe, color scheme, and style they describe
+4. Be creative and bold - avoid generic designs
+5. Extract or generate an appropriate launchpad name from their prompt
+
+STYLE REFERENCES (use these if user mentions them):
+- "pump.fun" style: Dark black (#0a0a0a), bright green accents (#00ff00), minimal, clean
+- "bags.fm" style: Pure white (#ffffff) background, black text, minimal, modern, clean professional
+- "axiom.trade" style: Dark (#0d0d0f), cyan/purple gradients, futuristic
+- "cyberpunk" style: Dark backgrounds, neon pink/cyan/purple, glowing effects
+- "retro/arcade" style: Bright colors, pixel-style fonts, nostalgic feel
+- "minimal" style: Clean whites or blacks, subtle accents, lots of whitespace
+- "neon" style: Dark background with vibrant glowing colors
+
+Output a JSON object with this EXACT structure (no markdown, just JSON):
 {
   "colors": {
-    "primary": "#hex color for main buttons and accents",
-    "secondary": "#hex color for secondary elements",
-    "background": "#hex color for page background",
-    "surface": "#hex color for cards and panels",
-    "text": "#hex color for main text",
-    "textMuted": "#hex color for secondary text",
-    "accent": "#hex color for highlights and borders",
-    "success": "#hex for positive values",
-    "danger": "#hex for negative values"
+    "primary": "#hex - main action color (buttons, links)",
+    "secondary": "#hex - secondary accent color",
+    "background": "#hex - page background (dark or light based on prompt)",
+    "surface": "#hex - cards/panels background",
+    "text": "#hex - main text color (ensure contrast with background)",
+    "textMuted": "#hex - secondary text color",
+    "accent": "#hex - highlights and borders",
+    "success": "#hex - positive values (usually green)",
+    "danger": "#hex - negative values (usually red)"
   },
   "typography": {
-    "headingFont": "font family for headings (use Google Fonts)",
-    "bodyFont": "font family for body text",
-    "logoSize": "text size like 2xl, 3xl, 4xl"
+    "headingFont": "Google Font name for headings (match the vibe - e.g., 'Orbitron' for futuristic, 'Space Grotesk' for modern)",
+    "bodyFont": "Google Font name for body text",
+    "logoSize": "2xl, 3xl, or 4xl"
   },
   "layout": {
-    "style": "modern | minimal | cyberpunk | retro | neon",
-    "borderRadius": "none | sm | md | lg | xl | full",
+    "style": "modern | minimal | cyberpunk | retro | neon | professional | clean",
+    "borderRadius": "none | sm | md | lg | xl",
     "spacing": "compact | normal | spacious",
-    "headerPosition": "top | side"
+    "headerPosition": "top"
   },
   "branding": {
-    "name": "launchpad name from prompt or generic",
-    "tagline": "catchy tagline",
-    "logoStyle": "text | icon | both"
+    "name": "Extract launchpad name from prompt or create a fitting one",
+    "tagline": "Create a catchy tagline matching the vibe",
+    "logoStyle": "text"
   },
   "effects": {
-    "gradients": true/false,
+    "gradients": true/false based on style,
     "animations": true/false,
-    "glowEffects": true/false,
-    "particles": true/false
+    "glowEffects": true/false (true for neon/cyberpunk),
+    "particles": false
   }
-}
+}`;
 
-Be creative but ensure colors have good contrast and readability. Match the vibe described in the prompt.`;
+    const userMessage = `Create a complete design configuration for: ${prompt}
+    
+${currentDesign ? `The user wants to UPDATE/REFINE the current design. Here's what they have now:
+${JSON.stringify(currentDesign, null, 2)}
+
+Apply their new instructions to modify this design.` : 'Create a fresh design from scratch based on their description.'}
+
+Remember: Follow their specific requests closely. If they mention a specific site or style, match that aesthetic. Generate the JSON only, no explanations.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -75,14 +98,9 @@ Be creative but ensure colors have good contrast and readability. Match the vibe
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { 
-            role: "user", 
-            content: currentDesign 
-              ? `Current design: ${JSON.stringify(currentDesign)}\n\nUpdate based on: ${prompt}`
-              : `Generate a design for: ${prompt}`
-          },
+          { role: "user", content: userMessage },
         ],
-        response_format: { type: "json_object" },
+        temperature: 0.7,
       }),
     });
 
