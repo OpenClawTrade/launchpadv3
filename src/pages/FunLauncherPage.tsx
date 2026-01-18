@@ -94,6 +94,9 @@ export default function FunLauncherPage() {
   const [tokensPage, setTokensPage] = useState(1);
   const tokensPageSize = 20;
 
+  const [creatorFeesPage, setCreatorFeesPage] = useState(1);
+  const creatorFeesPageSize = 20;
+
   const { data: claimsData, isLoading: claimsLoading } = useFunFeeClaims({
     page: claimsPage,
     pageSize: claimsPageSize,
@@ -1709,7 +1712,119 @@ export default function FunLauncherPage() {
                     </p>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  {/* Mobile: Card Layout */}
+                  <div className="sm:hidden divide-y divide-[#1a1a1f]">
+                    {creatorDistributions.length === 0 ? (
+                      <div className="p-6 text-center text-gray-500 text-sm">
+                        No creator fees distributed yet. Distributions run every 5 minutes after fee claims.
+                      </div>
+                    ) : (
+                      creatorDistributions
+                        .slice((creatorFeesPage - 1) * 10, creatorFeesPage * 10)
+                        .map((dist) => (
+                        <div key={dist.id} className="p-3">
+                          <div className="flex items-center gap-3">
+                            {/* Token image & info */}
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
+                              {dist.fun_token?.image_url ? (
+                                <img src={dist.fun_token.image_url} alt={dist.fun_token.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">
+                                  {dist.fun_token?.ticker?.slice(0, 2)}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-white text-sm truncate">{dist.fun_token?.name || "Unknown"}</span>
+                                <span className="text-xs text-gray-500 font-mono">${dist.fun_token?.ticker}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Wallet className="h-3 w-3 text-gray-400" />
+                                <span className="text-xs text-gray-400 font-mono">{shortenAddress(dist.creator_wallet)}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => copyToClipboard(dist.creator_wallet)}
+                                  className="h-5 w-5 p-0 text-gray-500 hover:text-white"
+                                >
+                                  {copiedAddress === dist.creator_wallet ? (
+                                    <CheckCircle className="h-3 w-3 text-[#00d4aa]" />
+                                  ) : (
+                                    <Copy className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                                <Badge 
+                                  className={`text-[10px] px-1.5 py-0 ${
+                                    dist.status === 'completed' 
+                                      ? "bg-green-500/10 text-green-400 border-green-500/30" 
+                                      : dist.status === 'pending'
+                                      ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+                                      : "bg-red-500/10 text-red-400 border-red-500/30"
+                                  }`}
+                                >
+                                  {dist.status}
+                                </Badge>
+                                <span>{formatDistanceToNow(new Date(dist.created_at), { addSuffix: true })}</span>
+                              </div>
+                            </div>
+                            
+                            {/* Amount & TX */}
+                            <div className="text-right flex-shrink-0">
+                              <span className="text-sm text-[#00d4aa] font-semibold">
+                                +{formatSOL(Number(dist.amount_sol))} SOL
+                              </span>
+                              {dist.signature && (
+                                <a
+                                  href={`https://solscan.io/tx/${dist.signature}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block text-[10px] text-gray-400 hover:text-[#00d4aa] mt-0.5"
+                                >
+                                  View TX →
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Mobile Pagination */}
+                  {creatorDistributions.length > 10 && (
+                    <div className="sm:hidden p-3 border-t border-[#1a1a1f] flex items-center justify-between">
+                      <span className="text-xs text-gray-400">
+                        {(creatorFeesPage - 1) * 10 + 1}-{Math.min(creatorFeesPage * 10, creatorDistributions.length)} of {creatorDistributions.length}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={creatorFeesPage === 1}
+                          onClick={() => setCreatorFeesPage(p => p - 1)}
+                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
+                        >
+                          Prev
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={creatorFeesPage >= Math.ceil(creatorDistributions.length / 10)}
+                          onClick={() => setCreatorFeesPage(p => p + 1)}
+                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Desktop: Table Layout */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
@@ -1729,7 +1844,9 @@ export default function FunLauncherPage() {
                             </td>
                           </tr>
                         ) : (
-                          creatorDistributions.map((dist) => (
+                          creatorDistributions
+                            .slice((creatorFeesPage - 1) * creatorFeesPageSize, creatorFeesPage * creatorFeesPageSize)
+                            .map((dist) => (
                             <tr 
                               key={dist.id} 
                               className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
@@ -1810,6 +1927,35 @@ export default function FunLauncherPage() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Desktop Pagination */}
+                  {creatorDistributions.length > creatorFeesPageSize && (
+                    <div className="hidden sm:flex p-3 border-t border-[#1a1a1f] items-center justify-between">
+                      <span className="text-xs text-gray-400">
+                        {(creatorFeesPage - 1) * creatorFeesPageSize + 1}-{Math.min(creatorFeesPage * creatorFeesPageSize, creatorDistributions.length)} of {creatorDistributions.length}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={creatorFeesPage === 1}
+                          onClick={() => setCreatorFeesPage(p => p - 1)}
+                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
+                        >
+                          Prev
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={creatorFeesPage >= Math.ceil(creatorDistributions.length / creatorFeesPageSize)}
+                          onClick={() => setCreatorFeesPage(p => p + 1)}
+                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
             </Tabs>
