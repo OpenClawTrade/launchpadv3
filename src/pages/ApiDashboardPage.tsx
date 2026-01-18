@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { 
   Key, 
   Plus, 
@@ -19,7 +19,8 @@ import {
   Activity,
   ExternalLink,
   RefreshCw,
-  Trash2
+  Trash2,
+  Wallet
 } from "lucide-react";
 import {
   Dialog,
@@ -27,7 +28,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -64,7 +64,7 @@ interface Launchpad {
 
 export default function ApiDashboardPage() {
   const navigate = useNavigate();
-  const { solanaAddress, isAuthenticated } = useAuth();
+  const { solanaAddress, isAuthenticated, login } = useAuth();
   const walletAddress = solanaAddress;
   const [account, setAccount] = useState<ApiAccount | null>(null);
   const [launchpads, setLaunchpads] = useState<Launchpad[]>([]);
@@ -86,14 +86,6 @@ export default function ApiDashboardPage() {
     if (!walletAddress) return;
     
     try {
-      // Get account
-      const { data } = await supabase.functions.invoke("api-account", {
-        method: "GET",
-        body: null,
-        headers: { "Content-Type": "application/json" },
-      });
-
-      // Parse from query params approach - use fetch directly
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-account?wallet=${walletAddress}`,
         {
@@ -231,29 +223,45 @@ export default function ApiDashboardPage() {
     }
   };
 
+  // Not authenticated - show connect prompt
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <Key className="w-12 h-12 mx-auto mb-4 text-primary" />
-            <CardTitle>API Developer Dashboard</CardTitle>
-            <CardDescription>
-              Connect your wallet to access the API platform
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center text-muted-foreground">
-            Please connect your wallet to continue.
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-[#0a0a0c]">
+        <AppHeader showBack backLabel="API Platform" />
+        <div className="flex items-center justify-center p-4 pt-20">
+          <Card className="max-w-md w-full bg-[#12121a] border-[#1a1a1f]">
+            <CardHeader className="text-center">
+              <Key className="w-12 h-12 mx-auto mb-4 text-purple-400" />
+              <CardTitle className="text-white">API Developer Dashboard</CardTitle>
+              <CardDescription>
+                Connect your wallet to access the API platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-center text-gray-400 text-sm">
+                Build custom launchpads and earn 1.5% on every trade
+              </p>
+              <Button 
+                className="w-full bg-purple-600 hover:bg-purple-700"
+                onClick={() => login()}
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Connect Wallet
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-transparent border-t-primary rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0a0a0c]">
+        <AppHeader showBack backLabel="API Platform" />
+        <div className="flex items-center justify-center pt-20">
+          <div className="w-8 h-8 border-2 border-transparent border-t-purple-500 rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
@@ -261,26 +269,27 @@ export default function ApiDashboardPage() {
   // No account yet - show signup
   if (!account) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
-        <div className="max-w-2xl mx-auto">
-          <Card>
+      <div className="min-h-screen bg-[#0a0a0c]">
+        <AppHeader showBack backLabel="API Platform" />
+        <div className="max-w-2xl mx-auto p-4 pt-8">
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardHeader className="text-center">
-              <Rocket className="w-16 h-16 mx-auto mb-4 text-primary" />
-              <CardTitle className="text-2xl">Create Your API Account</CardTitle>
+              <Rocket className="w-16 h-16 mx-auto mb-4 text-purple-400" />
+              <CardTitle className="text-2xl text-white">Create Your API Account</CardTitle>
               <CardDescription className="text-base">
                 Build custom launchpads and earn 1.5% on every trade
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <h3 className="font-semibold">What you get:</h3>
-                <ul className="space-y-2 text-sm">
+              <div className="bg-[#1a1a1f] rounded-lg p-4 space-y-3">
+                <h3 className="font-semibold text-white">What you get:</h3>
+                <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-green-500" />
                     1.5% of all trading fees on your launchpads
                   </li>
                   <li className="flex items-center gap-2">
-                    <Rocket className="w-4 h-4 text-primary" />
+                    <Rocket className="w-4 h-4 text-purple-400" />
                     Custom branded launchpad domains (*.ai67x.fun)
                   </li>
                   <li className="flex items-center gap-2">
@@ -291,20 +300,21 @@ export default function ApiDashboardPage() {
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="feeWallet">Fee Wallet Address (optional)</Label>
+                <Label htmlFor="feeWallet" className="text-gray-300">Fee Wallet Address (optional)</Label>
                 <Input
                   id="feeWallet"
                   placeholder={walletAddress || "Leave empty to use connected wallet"}
                   value={feeWallet}
                   onChange={(e) => setFeeWallet(e.target.value)}
+                  className="bg-[#1a1a1f] border-[#2a2a3f] text-white"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-500">
                   Where your 1.5% fees will be sent. Defaults to your connected wallet.
                 </p>
               </div>
 
               <Button 
-                className="w-full" 
+                className="w-full bg-purple-600 hover:bg-purple-700" 
                 size="lg"
                 onClick={createAccount}
                 disabled={creating}
@@ -317,9 +327,9 @@ export default function ApiDashboardPage() {
 
         {/* API Key Modal */}
         <Dialog open={!!newApiKey} onOpenChange={() => setNewApiKey(null)}>
-          <DialogContent>
+          <DialogContent className="bg-[#12121a] border-[#1a1a1f]">
             <DialogHeader>
-              <DialogTitle>🎉 Your API Key</DialogTitle>
+              <DialogTitle className="text-white">🎉 Your API Key</DialogTitle>
               <DialogDescription>
                 Store this key securely. It won't be shown again!
               </DialogDescription>
@@ -330,7 +340,7 @@ export default function ApiDashboardPage() {
                   type={showApiKey ? "text" : "password"}
                   value={newApiKey || ""}
                   readOnly
-                  className="pr-20 font-mono text-sm"
+                  className="pr-20 font-mono text-sm bg-[#1a1a1f] border-[#2a2a3f] text-white"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
                   <Button
@@ -351,7 +361,7 @@ export default function ApiDashboardPage() {
                   </Button>
                 </div>
               </div>
-              <p className="text-sm text-destructive">
+              <p className="text-sm text-red-400">
                 ⚠️ This is the only time you'll see this key. Copy it now!
               </p>
             </div>
@@ -363,15 +373,20 @@ export default function ApiDashboardPage() {
 
   // Has account - show dashboard
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#0a0a0c]">
+      <AppHeader showBack backLabel="API Platform" />
+      
+      <div className="max-w-6xl mx-auto p-4 space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pt-4">
           <div>
-            <h1 className="text-2xl font-bold">API Dashboard</h1>
-            <p className="text-muted-foreground">Manage your launchpads and track earnings</p>
+            <h1 className="text-2xl font-bold text-white">API Dashboard</h1>
+            <p className="text-gray-400">Manage your launchpads and track earnings</p>
           </div>
-          <Button onClick={() => navigate("/api/builder")}>
+          <Button 
+            onClick={() => navigate("/api/builder")}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Create Launchpad
           </Button>
@@ -379,27 +394,27 @@ export default function ApiDashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">API Key</div>
+              <div className="text-sm text-gray-400">API Key</div>
               <div className="flex items-center gap-2 mt-1">
-                <code className="text-sm font-mono">{account.api_key_prefix}...</code>
+                <code className="text-sm font-mono text-gray-300">{account.api_key_prefix}...</code>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button size="icon" variant="ghost" className="h-6 w-6">
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400">
                       <RefreshCw className="w-3 h-3" />
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent className="bg-[#12121a] border-[#1a1a1f]">
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Regenerate API Key?</AlertDialogTitle>
+                      <AlertDialogTitle className="text-white">Regenerate API Key?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This will invalidate your current API key. Any integrations using it will stop working.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={regenerateApiKey}>
+                      <AlertDialogCancel className="bg-[#1a1a1f] border-[#2a2a3f] text-white">Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={regenerateApiKey} className="bg-purple-600">
                         Regenerate
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -409,46 +424,46 @@ export default function ApiDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Total Earned</div>
+              <div className="text-sm text-gray-400">Total Earned</div>
               <div className="text-2xl font-bold text-green-500">
                 {(account.total_fees_earned || 0).toFixed(4)} SOL
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Paid Out</div>
-              <div className="text-2xl font-bold">
+              <div className="text-sm text-gray-400">Paid Out</div>
+              <div className="text-2xl font-bold text-white">
                 {(account.total_fees_paid_out || 0).toFixed(4)} SOL
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Launchpads</div>
-              <div className="text-2xl font-bold">{launchpads.length}</div>
+              <div className="text-sm text-gray-400">Launchpads</div>
+              <div className="text-2xl font-bold text-white">{launchpads.length}</div>
             </CardContent>
           </Card>
         </div>
 
         {/* Launchpads */}
-        <Card>
+        <Card className="bg-[#12121a] border-[#1a1a1f]">
           <CardHeader>
-            <CardTitle>Your Launchpads</CardTitle>
+            <CardTitle className="text-white">Your Launchpads</CardTitle>
             <CardDescription>Manage your custom token launchpads</CardDescription>
           </CardHeader>
           <CardContent>
             {launchpads.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
+              <div className="text-center py-12 text-gray-400">
                 <Rocket className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No launchpads yet</p>
                 <Button 
                   variant="outline" 
-                  className="mt-4"
+                  className="mt-4 border-[#2a2a3f] text-gray-300 hover:bg-[#1a1a1f]"
                   onClick={() => navigate("/api/builder")}
                 >
                   Create your first launchpad
@@ -459,12 +474,15 @@ export default function ApiDashboardPage() {
                 {launchpads.map((lp) => (
                   <div 
                     key={lp.id} 
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between p-4 border border-[#1a1a1f] rounded-lg hover:bg-[#1a1a1f]/50 transition-colors"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">{lp.name}</span>
-                        <Badge variant={lp.status === "live" ? "default" : "secondary"}>
+                        <span className="font-semibold text-white">{lp.name}</span>
+                        <Badge 
+                          variant={lp.status === "live" ? "default" : "secondary"}
+                          className={lp.status === "live" ? "bg-green-600" : "bg-gray-600"}
+                        >
                           {lp.status}
                         </Badge>
                       </div>
@@ -473,7 +491,7 @@ export default function ApiDashboardPage() {
                           href={`https://${lp.subdomain}.ai67x.fun`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline flex items-center gap-1"
+                          className="text-sm text-purple-400 hover:underline flex items-center gap-1"
                         >
                           {lp.subdomain}.ai67x.fun
                           <ExternalLink className="w-3 h-3" />
@@ -481,12 +499,12 @@ export default function ApiDashboardPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="text-right text-sm">
-                        <div className="text-muted-foreground">Volume</div>
-                        <div>{(lp.total_volume_sol || 0).toFixed(2)} SOL</div>
+                      <div className="text-right text-sm hidden sm:block">
+                        <div className="text-gray-500">Volume</div>
+                        <div className="text-gray-300">{(lp.total_volume_sol || 0).toFixed(2)} SOL</div>
                       </div>
-                      <div className="text-right text-sm">
-                        <div className="text-muted-foreground">Fees</div>
+                      <div className="text-right text-sm hidden sm:block">
+                        <div className="text-gray-500">Fees</div>
                         <div className="text-green-500">{(lp.total_fees_sol || 0).toFixed(4)} SOL</div>
                       </div>
                       <div className="flex gap-2">
@@ -494,27 +512,28 @@ export default function ApiDashboardPage() {
                           variant="outline" 
                           size="sm"
                           onClick={() => navigate(`/api/builder?id=${lp.id}`)}
+                          className="border-[#2a2a3f] text-gray-300 hover:bg-[#1a1a1f]"
                         >
                           Edit
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive">
+                            <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent className="bg-[#12121a] border-[#1a1a1f]">
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Launchpad?</AlertDialogTitle>
+                              <AlertDialogTitle className="text-white">Delete Launchpad?</AlertDialogTitle>
                               <AlertDialogDescription>
                                 This will permanently delete "{lp.name}" and remove its subdomain.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogCancel className="bg-[#1a1a1f] border-[#2a2a3f] text-white">Cancel</AlertDialogCancel>
                               <AlertDialogAction 
                                 onClick={() => deleteLaunchpad(lp.id)}
-                                className="bg-destructive text-destructive-foreground"
+                                className="bg-red-600 hover:bg-red-700"
                               >
                                 Delete
                               </AlertDialogAction>
@@ -532,9 +551,9 @@ export default function ApiDashboardPage() {
 
         {/* New API Key Modal */}
         <Dialog open={!!newApiKey} onOpenChange={() => setNewApiKey(null)}>
-          <DialogContent>
+          <DialogContent className="bg-[#12121a] border-[#1a1a1f]">
             <DialogHeader>
-              <DialogTitle>🔑 New API Key</DialogTitle>
+              <DialogTitle className="text-white">🔑 New API Key</DialogTitle>
               <DialogDescription>
                 Store this key securely. It won't be shown again!
               </DialogDescription>
@@ -545,7 +564,7 @@ export default function ApiDashboardPage() {
                   type={showApiKey ? "text" : "password"}
                   value={newApiKey || ""}
                   readOnly
-                  className="pr-20 font-mono text-sm"
+                  className="pr-20 font-mono text-sm bg-[#1a1a1f] border-[#2a2a3f] text-white"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
                   <Button
@@ -566,7 +585,7 @@ export default function ApiDashboardPage() {
                   </Button>
                 </div>
               </div>
-              <p className="text-sm text-destructive">
+              <p className="text-sm text-red-400">
                 ⚠️ This is the only time you'll see this key. Copy it now!
               </p>
             </div>

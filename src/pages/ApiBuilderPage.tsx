@@ -8,20 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { 
   ArrowLeft, 
   Wand2, 
   Save, 
   Rocket, 
   Palette,
-  Type,
   Layout,
   Sparkles,
   Globe,
-  Loader2
+  Loader2,
+  Wallet
 } from "lucide-react";
 
 interface DesignConfig {
@@ -100,7 +100,7 @@ export default function ApiBuilderPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const launchpadId = searchParams.get("id");
-  const { solanaAddress, isAuthenticated } = useAuth();
+  const { solanaAddress, isAuthenticated, login } = useAuth();
   const walletAddress = solanaAddress;
   
   const [loading, setLoading] = useState(false);
@@ -245,8 +245,30 @@ export default function ApiBuilderPage() {
     
     setDeploying(true);
     try {
-      // TODO: Implement Vercel deployment
-      toast.success("Deployment started! Your site will be live shortly.");
+      // TODO: Implement Vercel deployment via api-deploy edge function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-deploy`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            launchpadId: existingLaunchpad.id,
+            wallet: walletAddress,
+          }),
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success("Deployment started! Your site will be live shortly.");
+        setExistingLaunchpad({ ...existingLaunchpad, status: "deploying" });
+      } else {
+        toast.error(data.error || "Deployment failed");
+      }
     } catch (error: any) {
       toast.error(error?.message || "Failed to deploy");
     } finally {
@@ -270,62 +292,88 @@ export default function ApiBuilderPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center">
-          <CardHeader>
-            <CardTitle>Connect Wallet</CardTitle>
-            <CardDescription>Connect your wallet to build a launchpad</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="min-h-screen bg-[#0a0a0c]">
+        <AppHeader showBack backLabel="Launchpad Builder" />
+        <div className="flex items-center justify-center p-4 pt-20">
+          <Card className="max-w-md w-full bg-[#12121a] border-[#1a1a1f] text-center">
+            <CardHeader>
+              <CardTitle className="text-white">Connect Wallet</CardTitle>
+              <CardDescription>Connect your wallet to build a launchpad</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700"
+                onClick={() => login()}
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Connect Wallet
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-[#0a0a0c]">
+        <AppHeader showBack backLabel="Launchpad Builder" />
+        <div className="flex items-center justify-center pt-20">
+          <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-10">
+    <div className="min-h-screen bg-[#0a0a0c]">
+      <AppHeader showBack backLabel="Launchpad Builder" />
+      
+      {/* Secondary Header */}
+      <div className="border-b border-[#1a1a1f] bg-[#0d0d0f]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/api")}>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/api")} className="text-gray-400">
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="font-semibold">{existingLaunchpad ? "Edit Launchpad" : "New Launchpad"}</h1>
+              <h1 className="font-semibold text-white">{existingLaunchpad ? "Edit Launchpad" : "New Launchpad"}</h1>
               {subdomain && (
-                <span className="text-xs text-muted-foreground">{subdomain}.ai67x.fun</span>
+                <span className="text-xs text-gray-500">{subdomain}.ai67x.fun</span>
               )}
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={saveLaunchpad} disabled={saving}>
+            <Button 
+              variant="outline" 
+              onClick={saveLaunchpad} 
+              disabled={saving}
+              className="border-[#2a2a3f] text-gray-300 hover:bg-[#1a1a1f]"
+            >
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
               Save
             </Button>
-            <Button onClick={deployLaunchpad} disabled={deploying || !existingLaunchpad}>
+            <Button 
+              onClick={deployLaunchpad} 
+              disabled={deploying || !existingLaunchpad}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
               {deploying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Rocket className="w-4 h-4 mr-2" />}
               Deploy
             </Button>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Panel - Controls */}
         <div className="lg:col-span-1 space-y-6">
           {/* AI Generator */}
-          <Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Wand2 className="w-4 h-4" />
+              <CardTitle className="text-base flex items-center gap-2 text-white">
+                <Wand2 className="w-4 h-4 text-purple-400" />
                 AI Design Generator
               </CardTitle>
             </CardHeader>
@@ -335,9 +383,10 @@ export default function ApiBuilderPage() {
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 rows={3}
+                className="bg-[#1a1a1f] border-[#2a2a3f] text-white"
               />
               <Button 
-                className="w-full" 
+                className="w-full bg-purple-600 hover:bg-purple-700" 
                 onClick={generateDesign}
                 disabled={generating}
               >
@@ -351,38 +400,39 @@ export default function ApiBuilderPage() {
           </Card>
 
           {/* Basic Info */}
-          <Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Globe className="w-4 h-4" />
+              <CardTitle className="text-base flex items-center gap-2 text-white">
+                <Globe className="w-4 h-4 text-blue-400" />
                 Basic Info
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Launchpad Name</Label>
+                <Label className="text-gray-300">Launchpad Name</Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="My Awesome Launchpad"
+                  className="bg-[#1a1a1f] border-[#2a2a3f] text-white"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Subdomain</Label>
+                <Label className="text-gray-300">Subdomain</Label>
                 <div className="flex">
                   <Input
                     value={subdomain}
                     onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
                     placeholder="mylaunchpad"
-                    className="rounded-r-none"
+                    className="rounded-r-none bg-[#1a1a1f] border-[#2a2a3f] text-white"
                   />
-                  <div className="flex items-center px-3 bg-muted border border-l-0 rounded-r-md text-sm text-muted-foreground">
+                  <div className="flex items-center px-3 bg-[#1a1a1f] border border-l-0 border-[#2a2a3f] rounded-r-md text-sm text-gray-500">
                     .ai67x.fun
                   </div>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Tagline</Label>
+                <Label className="text-gray-300">Tagline</Label>
                 <Input
                   value={design.branding.tagline}
                   onChange={(e) => setDesign(prev => ({
@@ -390,23 +440,24 @@ export default function ApiBuilderPage() {
                     branding: { ...prev.branding, tagline: e.target.value }
                   }))}
                   placeholder="Launch your tokens to the moon"
+                  className="bg-[#1a1a1f] border-[#2a2a3f] text-white"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Tabs for detailed settings */}
-          <Card>
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
             <Tabs defaultValue="colors">
               <CardHeader className="pb-0">
-                <TabsList className="w-full">
-                  <TabsTrigger value="colors" className="flex-1">
+                <TabsList className="w-full bg-[#1a1a1f]">
+                  <TabsTrigger value="colors" className="flex-1 data-[state=active]:bg-[#2a2a3f]">
                     <Palette className="w-3 h-3 mr-1" /> Colors
                   </TabsTrigger>
-                  <TabsTrigger value="layout" className="flex-1">
+                  <TabsTrigger value="layout" className="flex-1 data-[state=active]:bg-[#2a2a3f]">
                     <Layout className="w-3 h-3 mr-1" /> Layout
                   </TabsTrigger>
-                  <TabsTrigger value="effects" className="flex-1">
+                  <TabsTrigger value="effects" className="flex-1 data-[state=active]:bg-[#2a2a3f]">
                     <Sparkles className="w-3 h-3 mr-1" /> Effects
                   </TabsTrigger>
                 </TabsList>
@@ -415,18 +466,18 @@ export default function ApiBuilderPage() {
                 <TabsContent value="colors" className="space-y-3 mt-0">
                   {Object.entries(design.colors).map(([key, value]) => (
                     <div key={key} className="flex items-center justify-between">
-                      <Label className="capitalize text-sm">{key.replace(/([A-Z])/g, " $1")}</Label>
+                      <Label className="capitalize text-sm text-gray-400">{key.replace(/([A-Z])/g, " $1")}</Label>
                       <div className="flex items-center gap-2">
                         <Input
                           type="color"
                           value={value}
                           onChange={(e) => updateDesignColor(key as keyof DesignConfig["colors"], e.target.value)}
-                          className="w-10 h-8 p-0.5 cursor-pointer"
+                          className="w-10 h-8 p-0.5 cursor-pointer bg-transparent border-[#2a2a3f]"
                         />
                         <Input
                           value={value}
                           onChange={(e) => updateDesignColor(key as keyof DesignConfig["colors"], e.target.value)}
-                          className="w-24 h-8 font-mono text-xs"
+                          className="w-24 h-8 font-mono text-xs bg-[#1a1a1f] border-[#2a2a3f] text-white"
                         />
                       </div>
                     </div>
@@ -435,14 +486,14 @@ export default function ApiBuilderPage() {
                 
                 <TabsContent value="layout" className="space-y-4 mt-0">
                   <div className="space-y-2">
-                    <Label>Style</Label>
+                    <Label className="text-gray-300">Style</Label>
                     <select
                       value={design.layout.style}
                       onChange={(e) => setDesign(prev => ({
                         ...prev,
                         layout: { ...prev.layout, style: e.target.value }
                       }))}
-                      className="w-full p-2 rounded-md border bg-background"
+                      className="w-full p-2 rounded-md border bg-[#1a1a1f] border-[#2a2a3f] text-white"
                     >
                       <option value="modern">Modern</option>
                       <option value="minimal">Minimal</option>
@@ -452,14 +503,14 @@ export default function ApiBuilderPage() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Border Radius</Label>
+                    <Label className="text-gray-300">Border Radius</Label>
                     <select
                       value={design.layout.borderRadius}
                       onChange={(e) => setDesign(prev => ({
                         ...prev,
                         layout: { ...prev.layout, borderRadius: e.target.value }
                       }))}
-                      className="w-full p-2 rounded-md border bg-background"
+                      className="w-full p-2 rounded-md border bg-[#1a1a1f] border-[#2a2a3f] text-white"
                     >
                       <option value="none">None</option>
                       <option value="sm">Small</option>
@@ -474,7 +525,7 @@ export default function ApiBuilderPage() {
                 <TabsContent value="effects" className="space-y-4 mt-0">
                   {Object.entries(design.effects).map(([key, value]) => (
                     <div key={key} className="flex items-center justify-between">
-                      <Label className="capitalize">{key.replace(/([A-Z])/g, " $1")}</Label>
+                      <Label className="capitalize text-gray-300">{key.replace(/([A-Z])/g, " $1")}</Label>
                       <Switch
                         checked={value}
                         onCheckedChange={(checked) => updateDesignEffect(key as keyof DesignConfig["effects"], checked)}
@@ -489,9 +540,9 @@ export default function ApiBuilderPage() {
 
         {/* Right Panel - Preview */}
         <div className="lg:col-span-2">
-          <Card className="h-full overflow-hidden">
-            <CardHeader className="pb-2 border-b">
-              <CardTitle className="text-sm">Live Preview</CardTitle>
+          <Card className="h-full overflow-hidden bg-[#12121a] border-[#1a1a1f]">
+            <CardHeader className="pb-2 border-b border-[#1a1a1f]">
+              <CardTitle className="text-sm text-gray-400">Live Preview</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div 
