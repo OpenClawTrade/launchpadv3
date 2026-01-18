@@ -5,7 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const DUNE_API_URL = 'https://api.dune.com/api/v1/table';
+// New Dune Upload API endpoints (v1/uploads)
+const DUNE_API_BASE = 'https://api.dune.com/api/v1/uploads';
 const DUNE_NAMESPACE = 'ai67xlaunch';
 
 interface PlatformStats {
@@ -19,7 +20,6 @@ interface PlatformStats {
   total_users: number;
   total_fees_earned_sol: number;
   total_market_cap_sol: number;
-  [key: string]: string | number; // Index signature for Record compatibility
 }
 
 interface TokenSnapshot {
@@ -39,7 +39,6 @@ interface TokenSnapshot {
   status: string;
   created_at: string;
   graduated_at: string | null;
-  [key: string]: string | number | null; // Index signature for Record compatibility
 }
 
 interface TransactionRecord {
@@ -54,29 +53,117 @@ interface TransactionRecord {
   system_fee_sol: number;
   signature: string;
   created_at: string;
-  [key: string]: string | number; // Index signature for Record compatibility
 }
 
-async function pushToDune(
+// Table schemas for Dune
+const TABLE_SCHEMAS = {
+  platform_stats: [
+    { name: 'timestamp', type: 'timestamp' },
+    { name: 'total_tokens', type: 'integer' },
+    { name: 'graduated_tokens', type: 'integer' },
+    { name: 'active_tokens', type: 'integer' },
+    { name: 'total_transactions', type: 'integer' },
+    { name: 'total_volume_sol', type: 'double' },
+    { name: 'unique_traders', type: 'integer' },
+    { name: 'total_users', type: 'integer' },
+    { name: 'total_fees_earned_sol', type: 'double' },
+    { name: 'total_market_cap_sol', type: 'double' },
+  ],
+  token_snapshots: [
+    { name: 'timestamp', type: 'timestamp' },
+    { name: 'token_id', type: 'varchar' },
+    { name: 'mint_address', type: 'varchar' },
+    { name: 'name', type: 'varchar' },
+    { name: 'ticker', type: 'varchar' },
+    { name: 'creator_wallet', type: 'varchar' },
+    { name: 'dbc_pool_address', type: 'varchar', nullable: true },
+    { name: 'damm_pool_address', type: 'varchar', nullable: true },
+    { name: 'price_sol', type: 'double' },
+    { name: 'market_cap_sol', type: 'double' },
+    { name: 'volume_24h_sol', type: 'double' },
+    { name: 'holder_count', type: 'integer' },
+    { name: 'bonding_curve_progress', type: 'double' },
+    { name: 'status', type: 'varchar' },
+    { name: 'created_at', type: 'timestamp' },
+    { name: 'graduated_at', type: 'timestamp', nullable: true },
+  ],
+  transactions: [
+    { name: 'id', type: 'varchar' },
+    { name: 'token_id', type: 'varchar' },
+    { name: 'user_wallet', type: 'varchar' },
+    { name: 'transaction_type', type: 'varchar' },
+    { name: 'sol_amount', type: 'double' },
+    { name: 'token_amount', type: 'double' },
+    { name: 'price_per_token', type: 'double' },
+    { name: 'creator_fee_sol', type: 'double' },
+    { name: 'system_fee_sol', type: 'double' },
+    { name: 'signature', type: 'varchar' },
+    { name: 'created_at', type: 'timestamp' },
+  ],
+};
+
+// Create a table on Dune
+async function createDuneTable(
   apiKey: string,
   tableName: string,
-  data: Record<string, unknown>[],
-  isCreate = false
+  schema: { name: string; type: string; nullable?: boolean }[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (data.length === 0) {
-      console.log(`No data to push for ${tableName}`);
-      return { success: true };
+    console.log(`Creating Dune table: ${DUNE_NAMESPACE}.${tableName}`);
+    
+    const response = await fetch(DUNE_API_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dune-Api-Key': apiKey,
+      },
+      body: JSON.stringify({
+        namespace: DUNE_NAMESPACE,
+        table_name: tableName,
+        schema: schema,
+        is_private: false,
+        description: `AI67X Launchpad - ${tableName}`,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      // Table already exists is not an error
+      if (errorText.includes('already exists')) {
+        console.log(`Table ${tableName} already exists`);
+        return { success: true };
+      }
+      console.error(`Failed to create table ${tableName}:`, errorText);
+      return { success: false, error: errorText };
     }
 
-    const endpoint = isCreate
-      ? `${DUNE_API_URL}/${DUNE_NAMESPACE}/${tableName}/create`
-      : `${DUNE_API_URL}/${DUNE_NAMESPACE}/${tableName}/insert`;
+    const result = await response.json();
+    console.log(`Created table ${tableName}:`, result);
+    return { success: true };
+  } catch (error) {
+    console.error(`Error creating table ${tableName}:`, error);
+    return { success: false, error: String(error) };
+  }
+}
+
+// Insert data into a Dune table
+async function insertToDune(
+  apiKey: string,
+  tableName: string,
+  data: Record<string, unknown>[]
+): Promise<{ success: boolean; error?: string; rows_written?: number }> {
+  try {
+    if (data.length === 0) {
+      console.log(`No data to insert for ${tableName}`);
+      return { success: true, rows_written: 0 };
+    }
+
+    console.log(`Inserting ${data.length} rows to ${DUNE_NAMESPACE}.${tableName}`);
 
     // Convert to NDJSON format
     const ndjson = data.map(row => JSON.stringify(row)).join('\n');
 
-    const response = await fetch(endpoint, {
+    const response = await fetch(`${DUNE_API_BASE}/${DUNE_NAMESPACE}/${tableName}/insert`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-ndjson',
@@ -87,30 +174,46 @@ async function pushToDune(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Dune API error for ${tableName}:`, errorText);
+      console.error(`Failed to insert to ${tableName}:`, errorText);
       
-      // If table doesn't exist, try creating it
-      if (response.status === 404 && !isCreate) {
-        console.log(`Table ${tableName} not found, attempting to create...`);
-        return pushToDune(apiKey, tableName, data, true);
+      // If table doesn't exist, create it first
+      if (errorText.includes('not found') || errorText.includes('does not exist')) {
+        console.log(`Table ${tableName} not found, creating it...`);
+        const schema = TABLE_SCHEMAS[tableName as keyof typeof TABLE_SCHEMAS];
+        if (schema) {
+          const createResult = await createDuneTable(apiKey, tableName, schema);
+          if (createResult.success) {
+            // Retry insert after table creation
+            return insertToDune(apiKey, tableName, data);
+          }
+          return createResult;
+        }
       }
       
       return { success: false, error: errorText };
     }
 
     const result = await response.json();
-    console.log(`Successfully pushed ${data.length} rows to ${tableName}:`, result);
-    return { success: true };
+    console.log(`Inserted ${data.length} rows to ${tableName}:`, result);
+    return { success: true, rows_written: data.length };
   } catch (error) {
-    console.error(`Error pushing to Dune ${tableName}:`, error);
+    console.error(`Error inserting to ${tableName}:`, error);
     return { success: false, error: String(error) };
+  }
+}
+
+// Ensure all tables exist
+async function ensureTablesExist(apiKey: string): Promise<void> {
+  console.log('Ensuring Dune tables exist...');
+  
+  for (const [tableName, schema] of Object.entries(TABLE_SCHEMAS)) {
+    await createDuneTable(apiKey, tableName, schema);
   }
 }
 
 async function fetchPlatformStats(supabase: SupabaseClient): Promise<PlatformStats> {
   const timestamp = new Date().toISOString();
 
-  // Aggregate platform stats
   const [tokensResult, transactionsResult, usersResult, feesResult] = await Promise.all([
     supabase.from('tokens').select('status, market_cap_sol', { count: 'exact' }),
     supabase.from('launchpad_transactions').select('sol_amount, user_wallet'),
@@ -199,7 +302,6 @@ async function fetchTokenSnapshots(supabase: SupabaseClient): Promise<TokenSnaps
 }
 
 async function fetchRecentTransactions(supabase: SupabaseClient): Promise<TransactionRecord[]> {
-  // Fetch transactions from last 15 minutes
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
   const { data: transactions, error } = await supabase
@@ -262,6 +364,9 @@ Deno.serve(async (req) => {
 
     console.log('Starting Dune sync...');
 
+    // First ensure all tables exist
+    await ensureTablesExist(duneApiKey);
+
     // Fetch all data in parallel
     const [platformStats, tokenSnapshots, recentTransactions] = await Promise.all([
       fetchPlatformStats(supabase),
@@ -270,12 +375,13 @@ Deno.serve(async (req) => {
     ]);
 
     console.log(`Fetched: ${tokenSnapshots.length} tokens, ${recentTransactions.length} recent transactions`);
+    console.log('Platform stats:', platformStats);
 
-    // Push data to Dune in parallel
+    // Insert data to Dune tables
     const [statsResult, tokensResult, txResult] = await Promise.all([
-      pushToDune(duneApiKey, 'platform_stats', [platformStats] as Record<string, unknown>[]),
-      pushToDune(duneApiKey, 'token_snapshots', tokenSnapshots as unknown as Record<string, unknown>[]),
-      pushToDune(duneApiKey, 'transactions', recentTransactions as unknown as Record<string, unknown>[]),
+      insertToDune(duneApiKey, 'platform_stats', [platformStats] as unknown as Record<string, unknown>[]),
+      insertToDune(duneApiKey, 'token_snapshots', tokenSnapshots as unknown as Record<string, unknown>[]),
+      insertToDune(duneApiKey, 'transactions', recentTransactions as unknown as Record<string, unknown>[]),
     ]);
 
     const results = {
@@ -285,10 +391,12 @@ Deno.serve(async (req) => {
       transactions: { ...txResult, count: recentTransactions.length },
     };
 
+    const allSuccess = statsResult.success && tokensResult.success && txResult.success;
+
     console.log('Dune sync completed:', results);
 
     return new Response(
-      JSON.stringify({ success: true, results }),
+      JSON.stringify({ success: allSuccess, results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
