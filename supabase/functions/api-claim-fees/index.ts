@@ -1,10 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { Keypair, Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } from "https://esm.sh/@solana/web3.js@1.98.0";
+import bs58 from "https://esm.sh/bs58@5.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
+
+// Minimum SOL to distribute (avoid micro-transactions)
+const MIN_CLAIM_SOL = 0.01;
 
 async function hashApiKey(apiKey: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -101,7 +106,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Handle POST - claim fees
+    // Handle POST - claim fees (with on-chain payout)
     if (req.method === "POST") {
       const apiKey = req.headers.get("x-api-key");
       const body = await req.json();
@@ -160,19 +165,110 @@ Deno.serve(async (req) => {
       const totalToClaim = pendingFees.reduce((sum, f) => sum + (f.api_user_share || 0), 0);
       const feeIds = pendingFees.map(f => f.id);
 
-      // For now, mark as distributed (actual on-chain transfer would happen here)
-      // In production, this would trigger a SOL transfer from treasury to feeWallet
+      if (totalToClaim < MIN_CLAIM_SOL) {
+        return new Response(
+          JSON.stringify({ 
+            error: `Minimum claim amount is ${MIN_CLAIM_SOL} SOL. Current pending: ${totalToClaim.toFixed(4)} SOL` 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get treasury keypair for on-chain transfer
+      const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+      const heliusRpcUrl = Deno.env.get("HELIUS_RPC_URL") || Deno.env.get("VITE_HELIUS_RPC_URL");
+
+      if (!treasuryPrivateKey || !heliusRpcUrl) {
+        console.error("[api-claim-fees] Missing TREASURY_PRIVATE_KEY or HELIUS_RPC_URL");
+        return new Response(
+          JSON.stringify({ error: "Server configuration error" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Parse treasury keypair
+      let treasuryKeypair: Keypair;
+      try {
+        if (treasuryPrivateKey.startsWith("[")) {
+          const keyArray = JSON.parse(treasuryPrivateKey);
+          treasuryKeypair = Keypair.fromSecretKey(new Uint8Array(keyArray));
+        } else {
+          const decoded = bs58.decode(treasuryPrivateKey);
+          treasuryKeypair = Keypair.fromSecretKey(decoded);
+        }
+      } catch (e) {
+        console.error("[api-claim-fees] Invalid TREASURY_PRIVATE_KEY format");
+        return new Response(
+          JSON.stringify({ error: "Server configuration error" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const connection = new Connection(heliusRpcUrl, "confirmed");
+
+      // Check treasury balance
+      const treasuryBalance = await connection.getBalance(treasuryKeypair.publicKey);
+      const treasuryBalanceSol = treasuryBalance / 1e9;
+
+      if (treasuryBalanceSol < totalToClaim + 0.001) {
+        console.error("[api-claim-fees] Insufficient treasury balance:", treasuryBalanceSol);
+        return new Response(
+          JSON.stringify({ error: "Treasury balance insufficient. Please try again later." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Send SOL to fee wallet
+      let txSignature: string;
+      try {
+        if (!feeWallet) {
+          throw new Error("Fee wallet not configured");
+        }
+        console.log(`[api-claim-fees] Sending ${totalToClaim.toFixed(6)} SOL to ${feeWallet}`);
+
+        const recipientPubkey = new PublicKey(feeWallet);
+        const lamports = Math.floor(totalToClaim * 1e9);
+
+        const transaction = new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey: treasuryKeypair.publicKey,
+            toPubkey: recipientPubkey,
+            lamports,
+          })
+        );
+
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = treasuryKeypair.publicKey;
+
+        txSignature = await sendAndConfirmTransaction(connection, transaction, [treasuryKeypair], {
+          commitment: "confirmed",
+          maxRetries: 3,
+        });
+
+        console.log(`[api-claim-fees] ✅ Sent ${totalToClaim} SOL to ${feeWallet}, sig: ${txSignature}`);
+      } catch (txError: unknown) {
+        const errMsg = txError instanceof Error ? txError.message : "Transaction failed";
+        console.error("[api-claim-fees] ❌ Transaction error:", errMsg);
+        return new Response(
+          JSON.stringify({ error: `Transaction failed: ${errMsg}` }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Mark fees as distributed
       const { error: updateError } = await supabaseAdmin
         .from("api_fee_distributions")
         .update({
           status: "distributed",
           distributed_at: new Date().toISOString(),
-          signature: `claim_${Date.now()}`, // Would be actual tx signature
+          signature: txSignature,
         })
         .in("id", feeIds);
 
       if (updateError) {
-        throw updateError;
+        console.error("[api-claim-fees] DB update error:", updateError);
+        // Transaction succeeded but DB failed - log for manual reconciliation
       }
 
       // Update account totals
@@ -190,7 +286,7 @@ Deno.serve(async (req) => {
         })
         .eq("id", accountId);
 
-      console.log("[api-claim-fees] Claimed:", { accountId, totalToClaim, feeIds: feeIds.length });
+      console.log("[api-claim-fees] ✅ Claimed:", { accountId, totalToClaim, feeIds: feeIds.length, signature: txSignature });
 
       return new Response(
         JSON.stringify({
@@ -198,6 +294,7 @@ Deno.serve(async (req) => {
           claimedAmount: totalToClaim,
           claimedCount: feeIds.length,
           feeWallet,
+          signature: txSignature,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
