@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { TokenAssociationManager } from "@/components/launchpad/TokenAssociationManager";
 import { 
   ArrowLeft, 
   Wand2, 
@@ -536,6 +537,14 @@ export default function ApiBuilderPage() {
               </CardContent>
             </Tabs>
           </Card>
+
+          {/* Token Association - only show for existing launchpads */}
+          {existingLaunchpad && walletAddress && (
+            <TokenAssociationManager
+              launchpadId={existingLaunchpad.id}
+              walletAddress={walletAddress}
+            />
+          )}
         </div>
 
         {/* Right Panel - Preview */}

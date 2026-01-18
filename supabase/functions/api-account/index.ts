@@ -9,7 +9,30 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const API_ENCRYPTION_KEY = Deno.env.get("API_ENCRYPTION_KEY")!;
+
+// Log API usage
+async function logApiUsage(
+  supabase: any,
+  accountId: string,
+  endpoint: string,
+  method: string,
+  statusCode: number,
+  responseTimeMs: number
+) {
+  try {
+    await supabase.from("api_usage_logs").insert({
+      api_account_id: accountId,
+      endpoint,
+      method,
+      status_code: statusCode,
+      response_time_ms: responseTimeMs,
+    });
+  } catch (e) {
+    console.error("Failed to log API usage:", e);
+  }
+}
 
 // Generate a secure API key
 async function generateApiKey(): Promise<{ key: string; hash: string; prefix: string }> {

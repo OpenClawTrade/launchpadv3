@@ -91,6 +91,28 @@ function isValidSubdomain(subdomain: string): boolean {
   return regex.test(subdomain) && subdomain.length >= 3 && subdomain.length <= 63;
 }
 
+// Log API usage
+async function logApiUsage(
+  supabase: any,
+  accountId: string,
+  endpoint: string,
+  method: string,
+  statusCode: number,
+  responseTimeMs: number
+) {
+  try {
+    await supabase.from("api_usage_logs").insert({
+      api_account_id: accountId,
+      endpoint,
+      method,
+      status_code: statusCode,
+      response_time_ms: responseTimeMs,
+    });
+  } catch (e) {
+    console.error("Failed to log API usage:", e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
