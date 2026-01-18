@@ -1,11 +1,11 @@
 import { TokenCard, WalletBalanceCard } from "@/components/launchpad";
+import { TopPerformersToday } from "@/components/launchpad/TopPerformersToday";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
-import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame, ArrowLeft } from "lucide-react";
+import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame, ArrowLeft, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
 
@@ -139,7 +139,7 @@ export default function LaunchpadPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full h-11 sm:h-12 bg-transparent rounded-none p-0 border-0 grid grid-cols-4 gap-0">
+          <TabsList className="w-full h-11 sm:h-12 bg-transparent rounded-none p-0 border-0 grid grid-cols-5 gap-0">
             <TabsTrigger 
               value="new" 
               className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
@@ -153,6 +153,13 @@ export default function LaunchpadPage() {
             >
               <Flame className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
               <span className="hidden sm:inline">Hot</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="top" 
+              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
+            >
+              <Trophy className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Top</span>
             </TabsTrigger>
             <TabsTrigger 
               value="bonding" 
@@ -172,66 +179,70 @@ export default function LaunchpadPage() {
         </Tabs>
       </header>
 
-      {/* Token List */}
-      <div className="p-4 space-y-3 max-w-4xl mx-auto">
-        {!isLoadingTokens && filteredTokens.length > 0 && (
-          <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
-            <span>{filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''}</span>
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery("")}
-                className="text-primary hover:underline"
-              >
-                Clear search
-              </button>
-            )}
-          </div>
-        )}
+      {/* Content */}
+      {activeTab === "top" ? (
+        <TopPerformersToday />
+      ) : (
+        <div className="p-4 space-y-3 max-w-4xl mx-auto">
+          {!isLoadingTokens && filteredTokens.length > 0 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+              <span>{filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''}</span>
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery("")}
+                  className="text-primary hover:underline"
+                >
+                  Clear search
+                </button>
+              )}
+            </div>
+          )}
 
-        {isLoadingTokens ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="p-4 border border-border rounded-xl bg-card space-y-3 animate-pulse">
-              <div className="flex gap-4">
-                <Skeleton className="h-14 w-14 rounded-xl" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-5 w-32" />
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-full max-w-xs" />
+          {isLoadingTokens ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="p-4 border border-border rounded-xl bg-card space-y-3 animate-pulse">
+                <div className="flex gap-4">
+                  <Skeleton className="h-14 w-14 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-full max-w-xs" />
+                  </div>
                 </div>
+                <Skeleton className="h-2 w-full rounded-full" />
               </div>
-              <Skeleton className="h-2 w-full rounded-full" />
+            ))
+          ) : filteredTokens.length === 0 ? (
+            <div className="text-center py-16 space-y-4">
+              <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+                <Rocket className="h-10 w-10 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold">No tokens found</h3>
+              <p className="text-muted-foreground max-w-sm mx-auto">
+                {searchQuery 
+                  ? "Try adjusting your search query or filters" 
+                  : "Be the first to launch a token on TRENCHES!"}
+              </p>
+              <Link to="/launch">
+                <Button className="gap-2 mt-2">
+                  <Sparkles className="h-4 w-4" />
+                  Launch Token
+                </Button>
+              </Link>
             </div>
-          ))
-        ) : filteredTokens.length === 0 ? (
-          <div className="text-center py-16 space-y-4">
-            <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
-              <Rocket className="h-10 w-10 text-primary" />
-            </div>
-            <h3 className="text-xl font-bold">No tokens found</h3>
-            <p className="text-muted-foreground max-w-sm mx-auto">
-              {searchQuery 
-                ? "Try adjusting your search query or filters" 
-                : "Be the first to launch a token on TRENCHES!"}
-            </p>
-            <Link to="/launch">
-              <Button className="gap-2 mt-2">
-                <Sparkles className="h-4 w-4" />
-                Launch Token
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          filteredTokens.map((token, index) => (
-            <div 
-              key={token.id} 
-              className="animate-fadeIn" 
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <TokenCard token={token} />
-            </div>
-          ))
-        )}
-      </div>
+          ) : (
+            filteredTokens.map((token, index) => (
+              <div 
+                key={token.id} 
+                className="animate-fadeIn" 
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <TokenCard token={token} />
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
