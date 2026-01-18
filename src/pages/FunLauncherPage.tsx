@@ -413,15 +413,108 @@ export default function FunLauncherPage() {
       
       {/* Header Bar */}
       <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50 w-full">
-        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
-          {/* Logo - always visible */}
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <img src={ai69xLogo} alt="ai69x" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full" />
-            <span className="text-base sm:text-lg font-bold">ai67x</span>
+        {/* Mobile: Two-line header */}
+        <div className="sm:hidden">
+          {/* Line 1: Logo + Burger */}
+          <div className="flex items-center justify-between px-3 h-12 border-b border-[#1a1a1f]">
+            <Link to="/" className="flex items-center gap-2">
+              <img src={ai69xLogo} alt="ai69x" className="h-7 w-7 rounded-full" />
+              <span className="text-base font-bold">ai67x</span>
+            </Link>
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => refetch()}
+                className="text-gray-400 hover:text-white h-8 w-8 p-0"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-72 bg-[#0d0d0f] border-[#1a1a1f] p-0">
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-3 p-4 border-b border-[#1a1a1f]">
+                      <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
+                      <span className="text-lg font-bold text-white">ai67x</span>
+                    </div>
+                    
+                    <nav className="flex-1 p-4 space-y-2">
+                      <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
+                        <TrendingUp className="h-5 w-5 text-green-400" />
+                        <span className="text-white font-medium">Narratives</span>
+                      </Link>
+                      
+                      <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
+                        <Key className="h-5 w-5 text-purple-400" />
+                        <span className="text-white font-medium">API</span>
+                      </Link>
+                      
+                      <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
+                        <Scale className="h-5 w-5 text-cyan-400" />
+                        <span className="text-white font-medium">Governance</span>
+                      </Link>
+                      
+                      <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
+                        <a 
+                          href="https://dune.com/ai67xlaunch/stats" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
+                        >
+                          <BarChart2 className="h-5 w-5 text-orange-400" />
+                          <span className="text-gray-300">Analytics (Dune)</span>
+                          <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
+                        </a>
+                        
+                        <a 
+                          href="https://x.com/ai67x_fun" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
+                        >
+                          <svg viewBox="0 0 24 24" className="h-5 w-5 text-gray-400 fill-current">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                          </svg>
+                          <span className="text-gray-300">Follow on X</span>
+                          <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
+                        </a>
+                      </div>
+                    </nav>
+                    
+                    <div className="p-4 border-t border-[#1a1a1f]">
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Clock className="h-3.5 w-3.5" />
+                        Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
+                      </div>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+          </div>
+          
+          {/* Line 2: Prices */}
+          <div className="flex items-center justify-center gap-3 px-3 h-10 bg-[#0a0a0c]">
+            <Ai67xPriceDisplay />
+            <SolPriceDisplay />
+          </div>
+        </div>
+        
+        {/* Desktop: Single-line header */}
+        <div className="hidden sm:flex w-full max-w-7xl mx-auto px-4 h-14 items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
+            <span className="text-lg font-bold">ai67x</span>
           </Link>
           
-          {/* Desktop navigation */}
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
               <Ai67xPriceDisplay />
               <SolPriceDisplay />
@@ -495,92 +588,6 @@ export default function FunLauncherPage() {
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
-          </div>
-          
-          {/* Mobile navigation */}
-          <div className="flex sm:hidden items-center gap-2">
-            <div className="flex items-center gap-0.5">
-              <Ai67xPriceDisplay />
-              <SolPriceDisplay />
-            </div>
-            
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => refetch()}
-              className="text-gray-400 hover:text-white h-8 w-8 p-0"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-72 bg-[#0d0d0f] border-[#1a1a1f] p-0">
-                <div className="flex flex-col h-full">
-                  {/* Menu header */}
-                  <div className="flex items-center gap-3 p-4 border-b border-[#1a1a1f]">
-                    <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
-                    <span className="text-lg font-bold text-white">ai67x</span>
-                  </div>
-                  
-                  {/* Menu items */}
-                  <nav className="flex-1 p-4 space-y-2">
-                    <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                      <TrendingUp className="h-5 w-5 text-green-400" />
-                      <span className="text-white font-medium">Narratives</span>
-                    </Link>
-                    
-                    <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                      <Key className="h-5 w-5 text-purple-400" />
-                      <span className="text-white font-medium">API</span>
-                    </Link>
-                    
-                    <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                      <Scale className="h-5 w-5 text-cyan-400" />
-                      <span className="text-white font-medium">Governance</span>
-                    </Link>
-                    
-                    <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
-                      <a 
-                        href="https://dune.com/ai67xlaunch/stats" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
-                      >
-                        <BarChart2 className="h-5 w-5 text-orange-400" />
-                        <span className="text-gray-300">Analytics (Dune)</span>
-                        <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
-                      </a>
-                      
-                      <a 
-                        href="https://x.com/ai67x_fun" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
-                      >
-                        <svg viewBox="0 0 24 24" className="h-5 w-5 text-gray-400 fill-current">
-                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                        </svg>
-                        <span className="text-gray-300">Follow on X</span>
-                        <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
-                      </a>
-                    </div>
-                  </nav>
-                  
-                  {/* Footer */}
-                  <div className="p-4 border-t border-[#1a1a1f]">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Clock className="h-3.5 w-3.5" />
-                      Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
-                    </div>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
           </div>
         </div>
       </header>
@@ -1025,8 +1032,8 @@ export default function FunLauncherPage() {
               {/* Tokens Tab */}
               <TabsContent value="tokens">
                 <Card className="bg-[#12121a] border-[#1a1a1f]">
-                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
-                    <h2 className="font-semibold text-white flex items-center gap-2">
+                  <div className="p-3 sm:p-4 border-b border-[#1a1a1f] flex items-center justify-between">
+                    <h2 className="font-semibold text-white flex items-center gap-2 text-sm sm:text-base">
                       <BarChart3 className="h-4 w-4 text-[#00d4aa]" />
                       Live Tokens
                     </h2>
@@ -1036,7 +1043,79 @@ export default function FunLauncherPage() {
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  {/* Mobile: Card Layout */}
+                  <div className="sm:hidden divide-y divide-[#1a1a1f]">
+                    {tokensLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="p-3 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="h-10 w-10 rounded-full bg-[#1a1a1f]" />
+                            <div className="flex-1">
+                              <Skeleton className="h-4 w-24 bg-[#1a1a1f] mb-1" />
+                              <Skeleton className="h-3 w-16 bg-[#1a1a1f]" />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : tokens.length === 0 ? (
+                      <div className="p-6 text-center text-gray-500 text-sm">
+                        No tokens launched yet. Be the first!
+                      </div>
+                    ) : (
+                      tokens
+                        .slice((tokensPage - 1) * 10, tokensPage * 10)
+                        .map((token, index) => (
+                        <div key={token.id} className="p-3">
+                          <div className="flex items-center gap-3">
+                            {/* Token image & info */}
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
+                              {token.image_url ? (
+                                <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">
+                                  {token.ticker?.slice(0, 2)}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-white text-sm truncate">{token.name}</span>
+                                <span className="text-xs text-gray-500 font-mono">${token.ticker}</span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                                <span className="text-white font-medium">{formatUsd(token.market_cap_sol || 0)}</span>
+                                <span className="flex items-center gap-1">
+                                  <Users className="h-3 w-3" />
+                                  {token.holder_count || 0}
+                                </span>
+                                <span>{(token.bonding_progress || 0).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                            
+                            {/* Trade button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              asChild
+                              className="h-8 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10 flex-shrink-0"
+                            >
+                              <a 
+                                href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Trade
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Desktop: Table Layout */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
