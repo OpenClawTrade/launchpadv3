@@ -45,9 +45,13 @@ import {
   MessageCircle,
   MessageSquare,
   Trophy,
-  Flame
+  Flame,
+  Scale,
+  BarChart2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
+import { Ai67xPriceDisplay } from "@/components/layout/Ai67xPriceDisplay";
 import { Link } from "react-router-dom";
 
 interface MemeToken {
@@ -408,6 +412,21 @@ export default function FunLauncherPage() {
             <span className="text-base sm:text-lg font-bold">ai67x</span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-400">
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              <Ai67xPriceDisplay />
+              <SolPriceDisplay />
+            </div>
+            
+            <a 
+              href="https://dune.com/ai67xlaunch/stats" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors"
+              title="View Analytics on Dune"
+            >
+              <BarChart2 className="h-4 w-4 text-orange-400 hover:text-orange-300" />
+            </a>
+            
             <a 
               href="https://x.com/ai67x_fun" 
               target="_blank" 
@@ -419,6 +438,7 @@ export default function FunLauncherPage() {
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
             </a>
+            
             <Link to="/trending">
               <Button 
                 variant="ghost" 
@@ -429,6 +449,7 @@ export default function FunLauncherPage() {
                 <span className="hidden sm:inline">Narratives</span>
               </Button>
             </Link>
+            
             <Link to="/api">
               <Button 
                 variant="ghost" 
@@ -439,6 +460,18 @@ export default function FunLauncherPage() {
                 <span className="hidden sm:inline">API</span>
               </Button>
             </Link>
+            
+            <Link to="/governance">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 px-2 sm:px-3"
+              >
+                <Scale className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Governance</span>
+              </Button>
+            </Link>
+            
             <span className="hidden lg:flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
               Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
