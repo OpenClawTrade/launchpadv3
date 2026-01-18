@@ -45,7 +45,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         </div>
         
         <div className="flex items-center gap-1 sm:gap-2">
-          <div className="hidden sm:flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             <Ai67xPriceDisplay />
             <SolPriceDisplay />
           </div>
