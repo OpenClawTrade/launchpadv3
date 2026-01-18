@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ai69xLogo from "@/assets/ai69x-logo.png";
 import { TrendingUp, Key, Wallet, LogOut, Vote } from "lucide-react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
+import { Ai67xPriceDisplay } from "./Ai67xPriceDisplay";
 
 interface AppHeaderProps {
   showBack?: boolean;
@@ -36,6 +37,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         </div>
         
         <div className="flex items-center gap-1 sm:gap-2">
+          <Ai67xPriceDisplay />
           <SolPriceDisplay />
           
           <a 
