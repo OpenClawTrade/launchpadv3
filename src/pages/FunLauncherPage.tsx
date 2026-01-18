@@ -52,6 +52,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { Ai67xPriceDisplay } from "@/components/layout/Ai67xPriceDisplay";
+import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { Link } from "react-router-dom";
 
 interface MemeToken {
@@ -404,6 +405,9 @@ export default function FunLauncherPage() {
 
   return (
     <div className="min-h-screen bg-[#0d0d0f] text-white">
+      {/* Token Ticker Bar - bags.fm style */}
+      <TokenTickerBar />
+      
       {/* Header Bar */}
       <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 h-14 flex items-center justify-between">
