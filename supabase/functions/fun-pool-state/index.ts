@@ -18,37 +18,30 @@ function decodePoolReserves(base64Data: string): {
       buffer[i] = binaryString.charCodeAt(i);
     }
 
-    // VirtualPool struct layout:
-    // 8 bytes: Anchor discriminator
-    // 64 bytes: VolatilityTracker
-    // 32*5 bytes: config, creator, baseMint, baseVault, quoteVault
-    // baseReserve: 8 bytes (u64) at offset 232
-    // quoteReserve: 8 bytes (u64) at offset 240
-    const BASE_RESERVE_OFFSET = 232;
-    const QUOTE_RESERVE_OFFSET = 240;
-
-    if (buffer.length < QUOTE_RESERVE_OFFSET + 8) {
+    if (buffer.length < 248) {
       console.warn('[fun-pool-state] Buffer too small:', buffer.length);
       return null;
     }
 
     const dataView = new DataView(buffer.buffer);
-    const baseReserve = dataView.getBigUint64(BASE_RESERVE_OFFSET, true);
-    const quoteReserve = dataView.getBigUint64(QUOTE_RESERVE_OFFSET, true);
+    
+    // Meteora DBC VirtualPool: base_reserve at 232, quote_reserve at 240
+    const baseReserve = dataView.getBigUint64(232, true);
+    const quoteReserve = dataView.getBigUint64(240, true);
+    
+    // Token reserves (with 6 decimals)
+    const virtualTokenReserves = Number(baseReserve) / 1e6;
+    
+    // Quote reserve tracks SOL from trades (lamports)
+    // Virtual SOL = initial 30 SOL + accumulated from trades
+    const accumulatedSol = Number(quoteReserve) / 1e9;
+    const virtualSolReserves = INITIAL_VIRTUAL_SOL + accumulatedSol;
+    const realSolReserves = accumulatedSol;
 
-    const virtualSolReserves = Number(quoteReserve) / 1e9;
-    const virtualTokenReserves = Number(baseReserve) / Math.pow(10, TOKEN_DECIMALS);
-    const realSolReserves = Math.max(0, virtualSolReserves - INITIAL_VIRTUAL_SOL);
-
-    if (virtualSolReserves <= 0 || virtualTokenReserves <= 0) {
-      console.warn('[fun-pool-state] Invalid reserves:', { virtualSolReserves, virtualTokenReserves });
-      return null;
-    }
-
-    console.log('[fun-pool-state] Decoded on-chain:', {
-      virtualSolReserves: virtualSolReserves.toFixed(4),
-      virtualTokenReserves: virtualTokenReserves.toFixed(0),
-      realSolReserves: realSolReserves.toFixed(4),
+    console.log('[fun-pool-state] Decoded:', {
+      tokens: virtualTokenReserves.toFixed(0),
+      virtualSol: virtualSolReserves.toFixed(4),
+      realSol: realSolReserves.toFixed(4),
     });
 
     return { realSolReserves, virtualSolReserves, virtualTokenReserves };
