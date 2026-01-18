@@ -100,7 +100,8 @@ export default function ApiBuilderPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const launchpadId = searchParams.get("id");
-  const { walletAddress, isAuthenticated } = useAuth();
+  const { solanaAddress, isAuthenticated } = useAuth();
+  const walletAddress = solanaAddress;
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);

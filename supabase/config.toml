@@ -59,3 +59,15 @@ verify_jwt = false
 
 [functions.fun-sniper-buy]
 verify_jwt = false
+
+[functions.api-account]
+verify_jwt = false
+
+[functions.api-launchpad]
+verify_jwt = false
+
+[functions.api-design-generate]
+verify_jwt = false
+
+[functions.fun-buyback]
+verify_jwt = false

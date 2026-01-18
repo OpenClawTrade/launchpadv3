@@ -64,7 +64,8 @@ interface Launchpad {
 
 export default function ApiDashboardPage() {
   const navigate = useNavigate();
-  const { walletAddress, isAuthenticated } = useAuth();
+  const { solanaAddress, isAuthenticated } = useAuth();
+  const walletAddress = solanaAddress;
   const [account, setAccount] = useState<ApiAccount | null>(null);
   const [launchpads, setLaunchpads] = useState<Launchpad[]>([]);
   const [loading, setLoading] = useState(true);
