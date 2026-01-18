@@ -22,7 +22,8 @@ import {
   Sparkles,
   Globe,
   Loader2,
-  Wallet
+  Wallet,
+  Eye
 } from "lucide-react";
 
 interface DesignConfig {
@@ -346,6 +347,16 @@ export default function ApiBuilderPage() {
             </div>
           </div>
           <div className="flex gap-2">
+            {existingLaunchpad && (
+              <Button 
+                variant="outline" 
+                onClick={() => window.open(`/site?id=${existingLaunchpad.id}`, '_blank')}
+                className="border-[#2a2a3f] text-gray-300 hover:bg-[#1a1a1f]"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Preview
+              </Button>
+            )}
             <Button 
               variant="outline" 
               onClick={saveLaunchpad} 
