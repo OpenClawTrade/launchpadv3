@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
+import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
@@ -42,7 +43,9 @@ import {
   Globe,
   Twitter,
   MessageCircle,
-  MessageSquare
+  MessageSquare,
+  Trophy,
+  Flame
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
@@ -92,6 +95,7 @@ export default function FunLauncherPage() {
 
   const { data: distributions = [] } = useFunDistributions();
   const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
+  const { data: topPerformers = [], isLoading: topPerformersLoading } = useFunTopPerformers(10);
   const [generatorMode, setGeneratorMode] = useState<"random" | "custom">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
@@ -840,13 +844,20 @@ export default function FunLauncherPage() {
           {/* Right Panel - Tabbed Content */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="w-full bg-[#12121a] border border-[#1a1a1f] p-1 mb-4 grid grid-cols-4">
+              <TabsList className="w-full bg-[#12121a] border border-[#1a1a1f] p-1 mb-4 grid grid-cols-5">
                 <TabsTrigger 
                   value="tokens" 
                   className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
                 >
                   <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Tokens</span> ({tokens.length})
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="top" 
+                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-[#00d4aa] text-gray-400 text-xs sm:text-sm"
+                >
+                  <Trophy className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Top</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="claims" 
@@ -1041,6 +1052,122 @@ export default function FunLauncherPage() {
                       </div>
                     </div>
                   )}
+                </Card>
+              </TabsContent>
+
+              {/* Top Performers Tab */}
+              <TabsContent value="top">
+                <Card className="bg-[#12121a] border-[#1a1a1f]">
+                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
+                    <h2 className="font-semibold text-white flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-[#00d4aa]" />
+                      Top Earners (24h)
+                    </h2>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#00d4aa] animate-pulse" />
+                      <span>Updates every 5min</span>
+                    </div>
+                  </div>
+
+                  <div className="divide-y divide-[#1a1a1f]">
+                    {topPerformersLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 p-4">
+                          <Skeleton className="w-8 h-8 rounded-full bg-[#1a1a1f]" />
+                          <Skeleton className="w-10 h-10 rounded-lg bg-[#1a1a1f]" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-24 bg-[#1a1a1f]" />
+                            <Skeleton className="h-3 w-16 bg-[#1a1a1f]" />
+                          </div>
+                          <Skeleton className="h-5 w-20 bg-[#1a1a1f]" />
+                        </div>
+                      ))
+                    ) : topPerformers.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <Trophy className="h-12 w-12 mx-auto mb-3 text-gray-600" />
+                        <p className="font-medium">No fees claimed today</p>
+                        <p className="text-sm mt-1">Tokens that generate trading fees will appear here</p>
+                      </div>
+                    ) : (
+                      topPerformers.map((token, index) => {
+                        const rank = index + 1;
+                        const isTopThree = rank <= 3;
+                        return (
+                          <a
+                            key={token.id}
+                            href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-3 p-4 hover:bg-[#1a1a1f]/50 transition-colors ${isTopThree ? 'bg-[#00d4aa]/5' : ''}`}
+                          >
+                            {/* Rank Badge */}
+                            {rank === 1 ? (
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-black font-bold text-sm shadow-lg shadow-yellow-500/30">
+                                🥇
+                              </div>
+                            ) : rank === 2 ? (
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 text-black font-bold text-sm">
+                                🥈
+                              </div>
+                            ) : rank === 3 ? (
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-amber-600 to-amber-700 text-white font-bold text-sm">
+                                🥉
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#1a1a1f] text-gray-400 font-bold text-sm">
+                                #{rank}
+                              </div>
+                            )}
+
+                            {/* Token Image */}
+                            <div className="relative">
+                              {token.image_url ? (
+                                <img
+                                  src={token.image_url}
+                                  alt={token.name}
+                                  className="w-10 h-10 rounded-lg object-cover border border-[#2a2a35]"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = "/placeholder.svg";
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-[#1a1a1f] flex items-center justify-center">
+                                  <Coins className="w-5 h-5 text-gray-600" />
+                                </div>
+                              )}
+                              {isTopThree && (
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#00d4aa] rounded-full flex items-center justify-center">
+                                  <Flame className="w-2.5 h-2.5 text-black" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Token Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-white truncate">{token.name}</span>
+                                <span className="text-xs text-gray-500">${token.ticker}</span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {token.claim_count} claim{token.claim_count !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+
+                            {/* Fees */}
+                            <div className="text-right">
+                              <div className={`font-bold text-sm ${isTopThree ? 'text-[#00d4aa]' : 'text-green-500'}`}>
+                                +{token.total_fees_24h.toFixed(4)} SOL
+                              </div>
+                              <div className="flex items-center justify-end gap-1 text-xs text-gray-500">
+                                <TrendingUp className="w-3 h-3" />
+                                <span>24h fees</span>
+                              </div>
+                            </div>
+                          </a>
+                        );
+                      })
+                    )}
+                  </div>
                 </Card>
               </TabsContent>
 
