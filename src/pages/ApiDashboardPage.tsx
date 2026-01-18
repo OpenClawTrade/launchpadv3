@@ -92,7 +92,7 @@ export default function ApiDashboardPage() {
   const [creating, setCreating] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
-  const [feeWallet, setFeeWallet] = useState("");
+  const [feeWallet, setFeeWallet] = useState(solanaAddress || "");
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [pendingFees, setPendingFees] = useState<PendingFees | null>(null);
   const [claiming, setClaiming] = useState(false);
@@ -101,6 +101,10 @@ export default function ApiDashboardPage() {
   useEffect(() => {
     if (walletAddress) {
       fetchAccount();
+      // Pre-fill fee wallet with embedded wallet address if not already set
+      if (!feeWallet) {
+        setFeeWallet(walletAddress);
+      }
     } else {
       setLoading(false);
     }
@@ -401,16 +405,16 @@ export default function ApiDashboardPage() {
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="feeWallet" className="text-gray-300">Fee Wallet Address (optional)</Label>
+                <Label htmlFor="feeWallet" className="text-gray-300">Fee Wallet Address</Label>
                 <Input
                   id="feeWallet"
-                  placeholder={walletAddress || "Leave empty to use connected wallet"}
+                  placeholder="Enter wallet address for fee payouts"
                   value={feeWallet}
                   onChange={(e) => setFeeWallet(e.target.value)}
-                  className="bg-[#1a1a1f] border-[#2a2a3f] text-white"
+                  className="bg-[#1a1a1f] border-[#2a2a3f] text-white font-mono text-sm"
                 />
                 <p className="text-xs text-gray-500">
-                  Where your 1.5% fees will be sent. Defaults to your connected wallet.
+                  Pre-filled with your embedded wallet. Change if you want fees sent elsewhere.
                 </p>
               </div>
 
