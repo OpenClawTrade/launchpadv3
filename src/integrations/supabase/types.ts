@@ -867,6 +867,8 @@ export type Database = {
           market_cap_sol: number | null
           mint_address: string | null
           name: string
+          price_24h_ago: number | null
+          price_change_24h: number | null
           price_sol: number | null
           status: string | null
           telegram_url: string | null
@@ -891,6 +893,8 @@ export type Database = {
           market_cap_sol?: number | null
           mint_address?: string | null
           name: string
+          price_24h_ago?: number | null
+          price_change_24h?: number | null
           price_sol?: number | null
           status?: string | null
           telegram_url?: string | null
@@ -915,6 +919,8 @@ export type Database = {
           market_cap_sol?: number | null
           mint_address?: string | null
           name?: string
+          price_24h_ago?: number | null
+          price_change_24h?: number | null
           price_sol?: number | null
           status?: string | null
           telegram_url?: string | null
@@ -2458,6 +2464,7 @@ export type Database = {
       is_ip_banned: { Args: { _ip_address: string }; Returns: boolean }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
       release_claim_lock: { Args: { p_token_id: string }; Returns: undefined }
+      snapshot_fun_token_prices: { Args: never; Returns: undefined }
       update_token_24h_stats: { Args: never; Returns: undefined }
       verify_api_key: {
         Args: { p_api_key_hash: string }
