@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
 
       const { data: tokens, error } = await supabase
         .from('fun_tokens')
-        .select('id, mint_address, dbc_pool_address, status')
+        .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(50); // Process first 50 tokens
@@ -217,16 +217,34 @@ Deno.serve(async (req) => {
             );
 
             if (poolState) {
+              // Calculate price change based on stored price_24h_ago
+              // If no price_24h_ago exists, initialize it with current price
+              const priceNow = poolState.priceSol;
+              const price24hAgo = token.price_24h_ago || priceNow;
+              
+              let priceChange24h = 0;
+              if (price24hAgo > 0 && priceNow !== price24hAgo) {
+                priceChange24h = ((priceNow - price24hAgo) / price24hAgo) * 100;
+              }
+              
+              const updateData: Record<string, any> = {
+                price_sol: priceNow,
+                market_cap_sol: poolState.marketCapSol,
+                holder_count: poolState.holderCount,
+                bonding_progress: poolState.bondingProgress,
+                status: poolState.isGraduated ? 'graduated' : 'active',
+                price_change_24h: priceChange24h,
+                updated_at: new Date().toISOString(),
+              };
+              
+              // If price_24h_ago is null, initialize it
+              if (!token.price_24h_ago) {
+                updateData.price_24h_ago = priceNow;
+              }
+              
               const { error: updateError } = await supabase
                 .from('fun_tokens')
-                .update({
-                  price_sol: poolState.priceSol,
-                  market_cap_sol: poolState.marketCapSol,
-                  holder_count: poolState.holderCount,
-                  bonding_progress: poolState.bondingProgress,
-                  status: poolState.isGraduated ? 'graduated' : 'active',
-                  updated_at: new Date().toISOString(),
-                })
+                .update(updateData)
                 .eq('id', token.id);
 
               if (!updateError) updated++;
