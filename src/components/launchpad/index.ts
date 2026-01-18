@@ -14,3 +14,4 @@ export { PriceChart } from './PriceChart';
 export { TokenComments } from './TokenComments';
 export { LightweightChart } from './LightweightChart';
 export { WalletSettingsModal } from './WalletSettingsModal';
+export { TokenAssociationManager } from './TokenAssociationManager';

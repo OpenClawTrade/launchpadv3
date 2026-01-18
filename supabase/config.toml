@@ -71,3 +71,15 @@ verify_jwt = false
 
 [functions.fun-buyback]
 verify_jwt = false
+
+[functions.api-deploy]
+verify_jwt = false
+
+[functions.api-claim-fees]
+verify_jwt = false
+
+[functions.api-analytics]
+verify_jwt = false
+
+[functions.api-tokens]
+verify_jwt = false
