@@ -1,5 +1,5 @@
 import ai67xLogo from "@/assets/ai69x-logo.png";
-import { Minus } from "lucide-react";
+import { Minus } from "@phosphor-icons/react";
 
 export function Ai67xPriceDisplay() {
   // Mockup for now - token not launched yet
@@ -19,7 +19,7 @@ export function Ai67xPriceDisplay() {
       </span>
       
       <div className="flex items-center gap-0.5 text-xs font-medium text-gray-500">
-        <Minus className="h-3 w-3" />
+        <Minus className="h-3 w-3" weight="bold" />
         <span>{change24h.toFixed(2)}%</span>
       </div>
     </div>

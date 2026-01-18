@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendUp, TrendDown } from "@phosphor-icons/react";
 
 interface PriceData {
   price: number;
   change24h: number;
 }
 
-const JUPITER_PRICE_API = 'https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112';
 const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true';
+const JUPITER_PRICE_API = 'https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112';
 
 export function SolPriceDisplay() {
   const [priceData, setPriceData] = useState<PriceData | null>(null);
@@ -58,8 +58,10 @@ export function SolPriceDisplay() {
   if (isLoading || !priceData) {
     return (
       <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1a1a1f] rounded-md animate-pulse">
-        <svg viewBox="0 0 24 24" className="h-4 w-4 text-gray-500" fill="currentColor">
-          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 22.5C6.201 22.5 1.5 17.799 1.5 12S6.201 1.5 12 1.5 22.5 6.201 22.5 12 17.799 22.5 12 22.5z"/>
+        <svg viewBox="0 0 397.7 311.7" className="h-4 w-4 opacity-50" fill="none">
+          <path fill="#9945FF" d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/>
+          <path fill="#9945FF" d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/>
+          <path fill="#9945FF" d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/>
         </svg>
         <span className="text-xs text-gray-500">---</span>
       </div>
@@ -97,9 +99,9 @@ export function SolPriceDisplay() {
         isPositive ? 'text-green-400' : 'text-red-400'
       }`}>
         {isPositive ? (
-          <TrendingUp className="h-3 w-3" />
+          <TrendUp className="h-3 w-3" weight="bold" />
         ) : (
-          <TrendingDown className="h-3 w-3" />
+          <TrendDown className="h-3 w-3" weight="bold" />
         )}
         <span>{isPositive ? '+' : ''}{priceData.change24h.toFixed(2)}%</span>
       </div>
