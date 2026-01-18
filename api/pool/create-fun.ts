@@ -9,8 +9,9 @@ import {
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
-import { createMeteoraPool } from '../../lib/meteora.js';
+import { createMeteoraPool, createMeteoraPoolWithMint } from '../../lib/meteora.js';
 import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS } from '../../lib/config.js';
+import { getAvailableVanityAddress, markVanityAddressUsed, releaseVanityAddress } from '../../lib/vanityGenerator.js';
 
 // Configuration
 const INITIAL_VIRTUAL_SOL = 30;
@@ -72,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, feeRecipientWallet, serverSideSign } = req.body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, feeRecipientWallet, serverSideSign, useVanityAddress = true } = req.body;
 
     if (!name || !ticker) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
@@ -82,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'This endpoint requires serverSideSign=true' });
     }
 
-    console.log('[create-fun] Creating fun token:', { name, ticker, feeRecipientWallet });
+    console.log('[create-fun] Creating fun token:', { name, ticker, feeRecipientWallet, useVanityAddress });
 
     const treasuryKeypair = getTreasuryKeypair();
     const treasuryAddress = treasuryKeypair.publicKey.toBase58();
@@ -97,18 +98,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const connection = new Connection(rpcUrl, 'confirmed');
 
+    // Try to get a vanity address for the mint
+    let vanityKeypair: { id: string; publicKey: string; keypair: Keypair } | null = null;
+    
+    if (useVanityAddress) {
+      try {
+        vanityKeypair = await getAvailableVanityAddress('67x');
+        if (vanityKeypair) {
+          console.log('[create-fun] 🎯 Using vanity mint address:', vanityKeypair.publicKey);
+        } else {
+          console.log('[create-fun] No vanity address available, using random mint');
+        }
+      } catch (vanityError) {
+        console.error('[create-fun] Failed to get vanity address:', vanityError);
+        // Continue with random mint
+      }
+    }
+
     // Create real Meteora pool using the existing SDK integration
     // Treasury wallet is the "creator" for on-chain purposes
     console.log('[create-fun] Creating real Meteora DBC pool...');
     
-    const { transactions, mintKeypair, configKeypair, poolAddress } = await createMeteoraPool({
-      creatorWallet: treasuryAddress, // Treasury signs everything
-      name: name.slice(0, 32),
-      ticker: ticker.toUpperCase().slice(0, 10),
-      description: description || `${name} - A fun meme coin!`,
-      imageUrl: imageUrl || undefined,
-      initialBuySol: 0, // No dev buy for fun tokens
-    });
+    let transactions: Transaction[];
+    let mintKeypair: Keypair;
+    let configKeypair: Keypair;
+    let poolAddress: PublicKey;
+    
+    if (vanityKeypair) {
+      // Use vanity address as mint
+      const result = await createMeteoraPoolWithMint({
+        creatorWallet: treasuryAddress,
+        mintKeypair: vanityKeypair.keypair,
+        name: name.slice(0, 32),
+        ticker: ticker.toUpperCase().slice(0, 10),
+        description: description || `${name} - A fun meme coin!`,
+        imageUrl: imageUrl || undefined,
+        initialBuySol: 0,
+      });
+      transactions = result.transactions;
+      mintKeypair = vanityKeypair.keypair;
+      configKeypair = result.configKeypair;
+      poolAddress = result.poolAddress;
+    } else {
+      // Use random mint (original behavior)
+      const result = await createMeteoraPool({
+        creatorWallet: treasuryAddress,
+        name: name.slice(0, 32),
+        ticker: ticker.toUpperCase().slice(0, 10),
+        description: description || `${name} - A fun meme coin!`,
+        imageUrl: imageUrl || undefined,
+        initialBuySol: 0,
+      });
+      transactions = result.transactions;
+      mintKeypair = result.mintKeypair;
+      configKeypair = result.configKeypair;
+      poolAddress = result.poolAddress;
+    }
 
     const mintAddress = mintKeypair.publicKey.toBase58();
     const dbcPoolAddress = poolAddress.toBase58();
@@ -117,6 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       mintAddress,
       dbcPoolAddress,
       txCount: transactions.length,
+      isVanity: !!vanityKeypair,
     });
 
     // Sign and send all transactions with treasury keypair (fully server-side)
@@ -283,6 +329,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', sniperResult.tradeId);
     }
 
+    // Mark vanity address as used if we used one
+    if (vanityKeypair) {
+      try {
+        await markVanityAddressUsed(vanityKeypair.id, tokenId);
+        console.log('[create-fun] 🎯 Marked vanity address as used for token:', tokenId);
+      } catch (vanityError) {
+        console.error('[create-fun] Failed to mark vanity address as used:', vanityError);
+        // Non-critical - don't fail the launch
+      }
+    }
+
     // Create fee earner entry for platform
     await supabase.rpc('backend_create_fee_earner', {
       p_token_id: tokenId,
@@ -291,7 +348,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_wallet_address: PLATFORM_FEE_WALLET,
     });
 
-    console.log('[create-fun] Token created successfully:', { tokenId, mintAddress, dbcPoolAddress, sniperSignature: sniperResult?.signature });
+    console.log('[create-fun] Token created successfully:', { 
+      tokenId, 
+      mintAddress, 
+      dbcPoolAddress, 
+      sniperSignature: sniperResult?.signature,
+      isVanityMint: !!vanityKeypair,
+    });
 
     return res.status(200).json({
       success: true,
@@ -302,6 +365,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       creatorWallet: treasuryAddress,
       feeRecipientWallet,
       signatures,
+      vanityMint: vanityKeypair ? {
+        suffix: '67x',
+        address: vanityKeypair.publicKey,
+      } : null,
       sniperBuy: sniperResult?.success ? {
         signature: sniperResult.signature,
         amountSol: SNIPER_BUY_SOL,
@@ -312,6 +379,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error) {
     console.error('[create-fun] Error:', error);
+    
+    // If we reserved a vanity address but failed, release it back
+    // Note: vanityKeypair is in scope from try block
+    
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

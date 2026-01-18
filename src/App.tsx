@@ -19,6 +19,7 @@ const EarningsPage = lazy(() => import("./pages/EarningsPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const TrendingPage = lazy(() => import("./pages/TrendingPage"));
 const VanityGeneratorPage = lazy(() => import("./pages/VanityGeneratorPage"));
+const VanityAdminPage = lazy(() => import("./pages/VanityAdminPage"));
 const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
 const ApiBuilderPage = lazy(() => import("./pages/ApiBuilderPage"));
 const GovernancePage = lazy(() => import("./pages/GovernancePage"));
@@ -65,6 +66,7 @@ const App = () => (
                 <Route path="/portfolio" element={<PortfolioPage />} />
                 <Route path="/trending" element={<TrendingPage />} />
                 <Route path="/vanity" element={<VanityGeneratorPage />} />
+                <Route path="/vanity-admin" element={<VanityAdminPage />} />
                 <Route path="/api" element={<ApiDashboardPage />} />
                 <Route path="/api/builder" element={<ApiBuilderPage />} />
                 <Route path="/governance" element={<GovernancePage />} />
