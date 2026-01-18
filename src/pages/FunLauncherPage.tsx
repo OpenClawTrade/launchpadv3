@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -86,6 +87,7 @@ interface LaunchResult {
 export default function FunLauncherPage() {
   const { toast } = useToast();
   const { solPrice } = useSolPrice();
+  const isMobile = useIsMobile();
   const { tokens, isLoading: tokensLoading, lastUpdate, refetch } = useFunTokens();
 
   const [claimsPage, setClaimsPage] = useState(1);
@@ -1425,7 +1427,122 @@ export default function FunLauncherPage() {
                     </Badge>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  {/* Mobile Card Layout */}
+                  <div className="md:hidden">
+                    {claimsLoading ? (
+                      <div className="p-4 space-y-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="bg-[#1a1a1f] rounded-lg p-4">
+                            <Skeleton className="h-4 w-32 bg-[#252530] mb-2" />
+                            <Skeleton className="h-3 w-24 bg-[#252530]" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : feeClaims.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        No fees claimed yet. Cron runs every few minutes.
+                      </div>
+                    ) : (
+                      <div className="p-3 space-y-3">
+                        {feeClaims.slice(0, isMobile ? 10 : claimsPageSize).map((claim) => (
+                          <div 
+                            key={claim.id} 
+                            className="bg-[#1a1a1f] rounded-lg p-4 space-y-3"
+                          >
+                            {/* Token Info */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {claim.fun_token?.image_url && (
+                                  <img 
+                                    src={claim.fun_token.image_url} 
+                                    alt={claim.fun_token.name} 
+                                    className="w-8 h-8 rounded-full"
+                                  />
+                                )}
+                                <div>
+                                  <div className="text-sm text-white font-medium">{claim.fun_token?.name || "Unknown"}</div>
+                                  <div className="text-xs text-gray-400">${claim.fun_token?.ticker}</div>
+                                </div>
+                              </div>
+                              <span className="text-sm text-[#00d4aa] font-bold">
+                                +{formatSOL(Number(claim.claimed_sol))} SOL
+                              </span>
+                            </div>
+
+                            {/* Creator Wallet */}
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-gray-500">Creator Wallet</span>
+                              <div className="flex items-center gap-2">
+                                <Wallet className="h-3 w-3 text-gray-400" />
+                                <span className="text-gray-300 font-mono">
+                                  {shortenAddress(claim.fun_token?.creator_wallet || "")}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => copyToClipboard(claim.fun_token?.creator_wallet || "")}
+                                  className="h-5 w-5 p-0 text-gray-500 hover:text-white"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Time and TX */}
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-gray-400">
+                                {formatDistanceToNow(new Date(claim.claimed_at), { addSuffix: true })}
+                              </span>
+                              {claim.signature ? (
+                                <a
+                                  href={`https://solscan.io/tx/${claim.signature}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[#00d4aa] hover:underline flex items-center gap-1"
+                                >
+                                  View TX <ExternalLink className="h-3 w-3" />
+                                </a>
+                              ) : (
+                                <span className="text-gray-500">-</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Mobile Pagination - 10 per page */}
+                    {claimsCount > 10 && (
+                      <div className="p-3 border-t border-[#1a1a1f] flex items-center justify-between">
+                        <div className="text-xs text-gray-500">
+                          Page {claimsPage} / {Math.max(1, Math.ceil(claimsCount / 10))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 text-gray-300 hover:text-white"
+                            disabled={claimsPage <= 1}
+                            onClick={() => setClaimsPage((p) => Math.max(1, p - 1))}
+                          >
+                            Prev
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 text-gray-300 hover:text-white"
+                            disabled={claimsPage >= Math.ceil(claimsCount / 10)}
+                            onClick={() => setClaimsPage((p) => p + 1)}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Desktop Table Layout */}
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
@@ -1519,9 +1636,9 @@ export default function FunLauncherPage() {
                     </table>
                   </div>
 
-                  {/* Pagination */}
+                  {/* Desktop Pagination */}
                   {claimsCount > claimsPageSize && (
-                    <div className="p-3 border-t border-[#1a1a1f] flex items-center justify-between">
+                    <div className="hidden md:flex p-3 border-t border-[#1a1a1f] items-center justify-between">
                       <div className="text-xs text-gray-500">
                         Page {claimsPage} / {Math.max(1, Math.ceil(claimsCount / claimsPageSize))} • {claimsCount} total
                       </div>
