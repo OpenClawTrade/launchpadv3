@@ -165,11 +165,13 @@
 }
 
 @layer components {
-  /* Custom scrollbar */
-  .scrollbar-hide::-webkit-scrollbar {
+  /* Custom scrollbar - hide completely */
+  .scrollbar-hide::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
-  .scrollbar-hide {
+  .scrollbar-hide,
+  .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
