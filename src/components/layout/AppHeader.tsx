@@ -2,7 +2,14 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import ai69xLogo from "@/assets/ai69x-logo.png";
-import { TrendingUp, Key, Wallet, LogOut, Vote } from "lucide-react";
+import { 
+  TrendUp, 
+  Key, 
+  Wallet, 
+  SignOut, 
+  Scales,
+  XLogo 
+} from "@phosphor-icons/react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { Ai67xPriceDisplay } from "./Ai67xPriceDisplay";
 
@@ -47,9 +54,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
             title="Follow us on X"
           >
-            <svg viewBox="0 0 24 24" className="h-4 w-4 text-gray-400 hover:text-white fill-current">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
+            <XLogo className="h-4 w-4 text-gray-400 hover:text-white" weight="fill" />
           </a>
           
           <Link to="/trending">
@@ -58,7 +63,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
               size="sm" 
               className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-8 px-2 sm:px-3"
             >
-              <TrendingUp className="h-4 w-4 sm:mr-1" />
+              <TrendUp className="h-4 w-4 sm:mr-1" weight="bold" />
               <span className="hidden sm:inline">Narratives</span>
             </Button>
           </Link>
@@ -69,7 +74,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
               size="sm" 
               className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 px-2 sm:px-3"
             >
-              <Key className="h-4 w-4 sm:mr-1" />
+              <Key className="h-4 w-4 sm:mr-1" weight="bold" />
               <span className="hidden sm:inline">API</span>
             </Button>
           </Link>
@@ -80,7 +85,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
               size="sm" 
               className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 px-2 sm:px-3"
             >
-              <Vote className="h-4 w-4 sm:mr-1" />
+              <Scales className="h-4 w-4 sm:mr-1" weight="bold" />
               <span className="hidden sm:inline">Governance</span>
             </Button>
           </Link>
@@ -88,7 +93,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           {isAuthenticated && solanaAddress ? (
             <div className="flex items-center gap-1">
               <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-[#1a1a1f] rounded-md text-xs text-gray-300">
-                <Wallet className="h-3 w-3" />
+                <Wallet className="h-3 w-3" weight="bold" />
                 {truncateAddress(solanaAddress)}
               </div>
               <Button
@@ -98,7 +103,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                 className="text-gray-400 hover:text-white h-8 w-8 p-0"
                 title="Disconnect"
               >
-                <LogOut className="h-4 w-4" />
+                <SignOut className="h-4 w-4" weight="bold" />
               </Button>
             </div>
           ) : (
@@ -107,7 +112,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
               onClick={() => login()}
               className="bg-purple-600 hover:bg-purple-700 text-white h-8 px-3"
             >
-              <Wallet className="h-4 w-4 mr-1" />
+              <Wallet className="h-4 w-4 mr-1" weight="bold" />
               <span className="hidden xs:inline">Connect</span>
             </Button>
           )}
