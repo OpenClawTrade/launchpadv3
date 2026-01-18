@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 const DUNE_API_URL = 'https://api.dune.com/api/v1/table';
-const DUNE_NAMESPACE = 'ai67x_team'; // Your Dune namespace - update this after creating your Dune account
+const DUNE_NAMESPACE = 'ai67xlaunch';
 
 interface PlatformStats {
   timestamp: string;
