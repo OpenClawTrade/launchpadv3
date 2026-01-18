@@ -103,11 +103,28 @@ export async function createMeteoraPool(params: CreatePoolParams): Promise<{
   poolAddress: PublicKey;
   lastValidBlockHeight: number;
 }> {
+  // Generate a random mint keypair
+  const mintKeypair = Keypair.generate();
+  return createMeteoraPoolWithMint({ ...params, mintKeypair });
+}
+
+// Create pool with a specific mint keypair (for vanity addresses)
+export interface CreatePoolWithMintParams extends CreatePoolParams {
+  mintKeypair: Keypair;
+}
+
+export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams): Promise<{
+  transactions: Transaction[];
+  mintKeypair: Keypair;
+  configKeypair: Keypair;
+  poolAddress: PublicKey;
+  lastValidBlockHeight: number;
+}> {
   const client = getMeteoraClient();
   const connection = getConnection();
   
-  // Generate keypairs for the new token
-  const mintKeypair = Keypair.generate();
+  // Use provided mint keypair (could be vanity or random)
+  const mintKeypair = params.mintKeypair;
   const configKeypair = Keypair.generate();
   
   const creatorPubkey = new PublicKey(params.creatorWallet);
