@@ -20,7 +20,10 @@ import {
   ExternalLink,
   RefreshCw,
   Trash2,
-  Wallet
+  Wallet,
+  TrendingUp,
+  BarChart3,
+  ArrowUpRight
 } from "lucide-react";
 import {
   Dialog,
@@ -40,6 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ApiAccount {
   id: string;
@@ -62,6 +66,22 @@ interface Launchpad {
   created_at: string;
 }
 
+interface Analytics {
+  period: { label: string };
+  summary: {
+    totalFees: number;
+    totalTrades: number;
+    totalVolume: number;
+    apiCalls: number;
+  };
+  dailyBreakdown: Array<{ date: string; fees: number; volume: number; trades: number }>;
+}
+
+interface PendingFees {
+  pendingAmount: number;
+  pendingCount: number;
+}
+
 export default function ApiDashboardPage() {
   const navigate = useNavigate();
   const { solanaAddress, isAuthenticated, login } = useAuth();
@@ -73,6 +93,10 @@ export default function ApiDashboardPage() {
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [feeWallet, setFeeWallet] = useState("");
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [pendingFees, setPendingFees] = useState<PendingFees | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     if (walletAddress) {
@@ -111,11 +135,88 @@ export default function ApiDashboardPage() {
         );
         const lpData = await lpResponse.json();
         setLaunchpads(lpData.launchpads || []);
+
+        // Fetch analytics
+        fetchAnalytics();
+        fetchPendingFees();
       }
     } catch (error) {
       console.error("Error fetching account:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    if (!walletAddress) return;
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-analytics?wallet=${walletAddress}&period=7d`,
+        {
+          headers: {
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        }
+      );
+      const data = await response.json();
+      if (!data.error) {
+        setAnalytics(data);
+      }
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+    }
+  };
+
+  const fetchPendingFees = async () => {
+    if (!walletAddress) return;
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-claim-fees?wallet=${walletAddress}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        }
+      );
+      const data = await response.json();
+      if (!data.error) {
+        setPendingFees(data);
+      }
+    } catch (error) {
+      console.error("Error fetching pending fees:", error);
+    }
+  };
+
+  const claimFees = async () => {
+    if (!walletAddress || !pendingFees || pendingFees.pendingAmount <= 0) return;
+    
+    setClaiming(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-claim-fees`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ walletAddress }),
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success(`Claimed ${data.claimedAmount.toFixed(4)} SOL!`);
+        fetchAccount();
+        fetchPendingFees();
+      } else {
+        toast.error(data.error || "Failed to claim fees");
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to claim fees");
+    } finally {
+      setClaiming(false);
     }
   };
 
@@ -393,7 +494,7 @@ export default function ApiDashboardPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardContent className="pt-6">
               <div className="text-sm text-gray-400">API Key</div>
@@ -435,6 +536,27 @@ export default function ApiDashboardPage() {
 
           <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardContent className="pt-6">
+              <div className="text-sm text-gray-400">Pending</div>
+              <div className="flex items-center gap-2">
+                <div className="text-2xl font-bold text-yellow-500">
+                  {(pendingFees?.pendingAmount || 0).toFixed(4)} SOL
+                </div>
+                {(pendingFees?.pendingAmount || 0) > 0 && (
+                  <Button
+                    size="sm"
+                    onClick={claimFees}
+                    disabled={claiming}
+                    className="bg-green-600 hover:bg-green-700 h-7 text-xs"
+                  >
+                    {claiming ? "..." : "Claim"}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
+            <CardContent className="pt-6">
               <div className="text-sm text-gray-400">Paid Out</div>
               <div className="text-2xl font-bold text-white">
                 {(account.total_fees_paid_out || 0).toFixed(4)} SOL
@@ -449,6 +571,77 @@ export default function ApiDashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Analytics Section */}
+        {analytics && (
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-purple-400" />
+                    7-Day Analytics
+                  </CardTitle>
+                  <CardDescription>Performance overview for your launchpads</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-[#1a1a1f] rounded-lg p-4">
+                  <div className="text-sm text-gray-400">Volume</div>
+                  <div className="text-xl font-bold text-white flex items-center gap-1">
+                    {analytics.summary.totalVolume.toFixed(2)} SOL
+                    <TrendingUp className="w-4 h-4 text-green-500" />
+                  </div>
+                </div>
+                <div className="bg-[#1a1a1f] rounded-lg p-4">
+                  <div className="text-sm text-gray-400">Fees Earned</div>
+                  <div className="text-xl font-bold text-green-500">
+                    {analytics.summary.totalFees.toFixed(4)} SOL
+                  </div>
+                </div>
+                <div className="bg-[#1a1a1f] rounded-lg p-4">
+                  <div className="text-sm text-gray-400">Trades</div>
+                  <div className="text-xl font-bold text-white">
+                    {analytics.summary.totalTrades}
+                  </div>
+                </div>
+                <div className="bg-[#1a1a1f] rounded-lg p-4">
+                  <div className="text-sm text-gray-400">API Calls</div>
+                  <div className="text-xl font-bold text-white">
+                    {analytics.summary.apiCalls}
+                  </div>
+                </div>
+              </div>
+
+              {/* Daily breakdown chart (simplified bars) */}
+              {analytics.dailyBreakdown.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-sm text-gray-400 mb-2">Daily Fees</div>
+                  <div className="flex items-end gap-1 h-20">
+                    {analytics.dailyBreakdown.slice(-7).map((day, i) => {
+                      const maxFees = Math.max(...analytics.dailyBreakdown.map(d => d.fees), 0.0001);
+                      const height = (day.fees / maxFees) * 100;
+                      return (
+                        <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                          <div 
+                            className="w-full bg-purple-500/50 rounded-t transition-all hover:bg-purple-500"
+                            style={{ height: `${Math.max(height, 4)}%` }}
+                            title={`${day.date}: ${day.fees.toFixed(4)} SOL`}
+                          />
+                          <span className="text-[10px] text-gray-500">
+                            {new Date(day.date).getDate()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Launchpads */}
         <Card className="bg-[#12121a] border-[#1a1a1f]">
