@@ -144,29 +144,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify API key
-    const apiKey = req.headers.get("x-api-key");
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "API key required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const authResult = await verifyApiKey(supabaseAdmin, apiKey);
-    if (!authResult.valid) {
-      return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { launchpadId, action } = await req.json();
+    const { launchpadId, action, wallet } = await req.json();
 
     if (!launchpadId) {
       return new Response(
@@ -175,18 +158,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get launchpad details
+    // Verify wallet owns the launchpad (instead of requiring API key)
     const { data: launchpad, error: fetchError } = await supabaseAdmin
       .from("api_launchpads")
-      .select("*")
+      .select("*, api_accounts(wallet_address)")
       .eq("id", launchpadId)
-      .eq("api_account_id", authResult.accountId)
       .single();
 
     if (fetchError || !launchpad) {
       return new Response(
         JSON.stringify({ error: "Launchpad not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check wallet ownership
+    const ownerWallet = (launchpad.api_accounts as any)?.wallet_address;
+    if (wallet && ownerWallet !== wallet) {
+      return new Response(
+        JSON.stringify({ error: "Not authorized to manage this launchpad" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
