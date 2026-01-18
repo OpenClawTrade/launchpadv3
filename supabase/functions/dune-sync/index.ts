@@ -101,12 +101,50 @@ const TABLE_SCHEMAS = {
   ],
 };
 
+async function deleteDuneTable(
+  apiKey: string,
+  tableName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`Deleting Dune table: ${DUNE_NAMESPACE}.${tableName}`);
+    
+    const response = await fetch(`${DUNE_API_BASE}/${DUNE_NAMESPACE}/${tableName}`, {
+      method: 'DELETE',
+      headers: {
+        'X-Dune-Api-Key': apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (errorText.includes('not found') || errorText.includes('does not exist')) {
+        console.log(`Table ${tableName} doesn't exist, nothing to delete`);
+        return { success: true };
+      }
+      console.error(`Failed to delete table ${tableName}:`, errorText);
+      return { success: false, error: errorText };
+    }
+
+    console.log(`Deleted table ${tableName}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`Error deleting table ${tableName}:`, error);
+    return { success: false, error: String(error) };
+  }
+}
+
 async function createDuneTable(
   apiKey: string,
   tableName: string,
-  schema: { name: string; type: string; nullable?: boolean }[]
+  schema: { name: string; type: string; nullable?: boolean }[],
+  forceRecreate = false
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // If force recreate, delete first
+    if (forceRecreate) {
+      await deleteDuneTable(apiKey, tableName);
+    }
+
     console.log(`Creating Dune table: ${DUNE_NAMESPACE}.${tableName}`);
     
     const response = await fetch(DUNE_API_BASE, {
@@ -169,6 +207,19 @@ async function insertToDune(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Failed to insert to ${tableName}:`, errorText);
+      
+      // Handle schema mismatch - delete and recreate table
+      if (errorText.includes('missing from schema') || errorText.includes('column')) {
+        console.log(`Schema mismatch for ${tableName}, recreating table...`);
+        const schema = TABLE_SCHEMAS[tableName as keyof typeof TABLE_SCHEMAS];
+        if (schema) {
+          const createResult = await createDuneTable(apiKey, tableName, schema, true);
+          if (createResult.success) {
+            return insertToDune(apiKey, tableName, data);
+          }
+          return createResult;
+        }
+      }
       
       if (errorText.includes('not found') || errorText.includes('does not exist')) {
         console.log(`Table ${tableName} not found, creating it...`);
