@@ -14,6 +14,248 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_accounts: {
+        Row: {
+          api_key_hash: string
+          api_key_prefix: string
+          created_at: string | null
+          fee_wallet_address: string
+          id: string
+          status: string
+          terms_accepted_at: string | null
+          total_fees_earned: number | null
+          total_fees_paid_out: number | null
+          updated_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          api_key_hash: string
+          api_key_prefix: string
+          created_at?: string | null
+          fee_wallet_address: string
+          id?: string
+          status?: string
+          terms_accepted_at?: string | null
+          total_fees_earned?: number | null
+          total_fees_paid_out?: number | null
+          updated_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          api_key_hash?: string
+          api_key_prefix?: string
+          created_at?: string | null
+          fee_wallet_address?: string
+          id?: string
+          status?: string
+          terms_accepted_at?: string | null
+          total_fees_earned?: number | null
+          total_fees_paid_out?: number | null
+          updated_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      api_fee_distributions: {
+        Row: {
+          api_account_id: string
+          api_user_share: number
+          created_at: string | null
+          distributed_at: string | null
+          id: string
+          launchpad_id: string | null
+          platform_share: number
+          signature: string | null
+          status: string
+          token_id: string | null
+          total_fee_sol: number
+        }
+        Insert: {
+          api_account_id: string
+          api_user_share?: number
+          created_at?: string | null
+          distributed_at?: string | null
+          id?: string
+          launchpad_id?: string | null
+          platform_share?: number
+          signature?: string | null
+          status?: string
+          token_id?: string | null
+          total_fee_sol?: number
+        }
+        Update: {
+          api_account_id?: string
+          api_user_share?: number
+          created_at?: string | null
+          distributed_at?: string | null
+          id?: string
+          launchpad_id?: string | null
+          platform_share?: number
+          signature?: string | null
+          status?: string
+          token_id?: string | null
+          total_fee_sol?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_fee_distributions_api_account_id_fkey"
+            columns: ["api_account_id"]
+            isOneToOne: false
+            referencedRelation: "api_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_fee_distributions_launchpad_id_fkey"
+            columns: ["launchpad_id"]
+            isOneToOne: false
+            referencedRelation: "api_launchpads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_fee_distributions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_launchpad_tokens: {
+        Row: {
+          created_at: string | null
+          id: string
+          launchpad_id: string
+          token_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          launchpad_id: string
+          token_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          launchpad_id?: string
+          token_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_launchpad_tokens_launchpad_id_fkey"
+            columns: ["launchpad_id"]
+            isOneToOne: false
+            referencedRelation: "api_launchpads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_launchpad_tokens_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_launchpads: {
+        Row: {
+          api_account_id: string
+          cloudflare_record_id: string | null
+          created_at: string | null
+          custom_domain: string | null
+          deployed_at: string | null
+          design_config: Json | null
+          id: string
+          name: string
+          status: string
+          subdomain: string | null
+          total_fees_sol: number | null
+          total_volume_sol: number | null
+          updated_at: string | null
+          vercel_deployment_url: string | null
+          vercel_project_id: string | null
+        }
+        Insert: {
+          api_account_id: string
+          cloudflare_record_id?: string | null
+          created_at?: string | null
+          custom_domain?: string | null
+          deployed_at?: string | null
+          design_config?: Json | null
+          id?: string
+          name: string
+          status?: string
+          subdomain?: string | null
+          total_fees_sol?: number | null
+          total_volume_sol?: number | null
+          updated_at?: string | null
+          vercel_deployment_url?: string | null
+          vercel_project_id?: string | null
+        }
+        Update: {
+          api_account_id?: string
+          cloudflare_record_id?: string | null
+          created_at?: string | null
+          custom_domain?: string | null
+          deployed_at?: string | null
+          design_config?: Json | null
+          id?: string
+          name?: string
+          status?: string
+          subdomain?: string | null
+          total_fees_sol?: number | null
+          total_volume_sol?: number | null
+          updated_at?: string | null
+          vercel_deployment_url?: string | null
+          vercel_project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_launchpads_api_account_id_fkey"
+            columns: ["api_account_id"]
+            isOneToOne: false
+            referencedRelation: "api_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_usage_logs: {
+        Row: {
+          api_account_id: string
+          created_at: string | null
+          endpoint: string
+          id: string
+          method: string
+          response_time_ms: number | null
+          status_code: number | null
+        }
+        Insert: {
+          api_account_id: string
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          method?: string
+          response_time_ms?: number | null
+          status_code?: number | null
+        }
+        Update: {
+          api_account_id?: string
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          method?: string
+          response_time_ms?: number | null
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_usage_logs_api_account_id_fkey"
+            columns: ["api_account_id"]
+            isOneToOne: false
+            referencedRelation: "api_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookmarks: {
         Row: {
           created_at: string
@@ -2024,6 +2266,15 @@ export type Database = {
         Args: { p_lock_duration_seconds?: number; p_token_id: string }
         Returns: boolean
       }
+      backend_create_api_account: {
+        Args: {
+          p_api_key_hash: string
+          p_api_key_prefix: string
+          p_fee_wallet_address?: string
+          p_wallet_address: string
+        }
+        Returns: string
+      }
       backend_create_fee_earner: {
         Args: {
           p_earner_type: string
@@ -2153,6 +2404,19 @@ export type Database = {
       calculate_trending_topics: { Args: never; Returns: undefined }
       can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
       generate_short_id: { Args: never; Returns: string }
+      get_api_account_by_wallet: {
+        Args: { p_wallet_address: string }
+        Returns: {
+          api_key_prefix: string
+          created_at: string
+          fee_wallet_address: string
+          id: string
+          status: string
+          total_fees_earned: number
+          total_fees_paid_out: number
+          wallet_address: string
+        }[]
+      }
       get_fun_fee_claims_summary: {
         Args: never
         Returns: {
@@ -2186,6 +2450,14 @@ export type Database = {
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
       release_claim_lock: { Args: { p_token_id: string }; Returns: undefined }
       update_token_24h_stats: { Args: never; Returns: undefined }
+      verify_api_key: {
+        Args: { p_api_key_hash: string }
+        Returns: {
+          id: string
+          status: string
+          wallet_address: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
