@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.api-tokens]
 verify_jwt = false
+
+[functions.dune-sync]
+verify_jwt = false
