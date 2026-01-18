@@ -1916,6 +1916,13 @@ export default function FunLauncherPage() {
                 </div>
               )}
 
+              {/* Kickstart Note */}
+              <div className="p-3 bg-[#00d4aa]/10 border border-[#00d4aa]/30 rounded-lg">
+                <p className="text-sm text-[#00d4aa] font-bold">
+                  💡 In order to kickstart the token, make a small purchase, cause there is no dev buy and your initial holdings are 0% supply, you receive just fees from swaps. This will help to generate more fees on your launches if you do initial buy.
+                </p>
+              </div>
+
               {/* Links */}
               <div className="flex gap-2">
                 {launchResult.solscanUrl && (
