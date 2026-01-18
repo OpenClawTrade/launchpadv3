@@ -9,7 +9,7 @@ import {
   lazy,
   Suspense,
 } from "react";
-import ai67xLogo from "@/assets/ai67x-logo.png";
+import ai69xLogo from "@/assets/ai69x-logo.png";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 
@@ -220,7 +220,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             appearance: {
               theme: "dark",
               accentColor: "#9945FF", // Solana purple
-              logo: ai67xLogo,
+              logo: ai69xLogo,
               showWalletLoginFirst: true,
               walletChainType: "solana-only",
               walletList: ["phantom", "solflare", "backpack", "detected_wallets"],
