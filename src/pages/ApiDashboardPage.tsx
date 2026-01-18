@@ -395,7 +395,11 @@ export default function ApiDashboardPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Rocket className="w-4 h-4 text-purple-400" />
-                    Custom branded launchpad domains (*.ai67x.fun)
+                    AI-generated launchpad ready in minutes
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4 text-cyan-400" />
+                    Free subdomain (*.ai67x.fun) or your own custom domain
                   </li>
                   <li className="flex items-center gap-2">
                     <Activity className="w-4 h-4 text-blue-500" />
