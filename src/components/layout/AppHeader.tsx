@@ -8,7 +8,8 @@ import {
   Wallet, 
   SignOut, 
   Scales,
-  XLogo 
+  XLogo,
+  ChartLine
 } from "@phosphor-icons/react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { Ai67xPriceDisplay } from "./Ai67xPriceDisplay";
@@ -44,8 +45,20 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         </div>
         
         <div className="flex items-center gap-1 sm:gap-2">
-          <Ai67xPriceDisplay />
-          <SolPriceDisplay />
+          <div className="hidden sm:flex items-center gap-1">
+            <Ai67xPriceDisplay />
+            <SolPriceDisplay />
+          </div>
+          
+          <a 
+            href="https://dune.com/ai67xlaunch/stats" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors"
+            title="View Analytics on Dune"
+          >
+            <ChartLine className="h-4 w-4 text-orange-400 hover:text-orange-300" weight="bold" />
+          </a>
           
           <a 
             href="https://x.com/ai67x_fun" 

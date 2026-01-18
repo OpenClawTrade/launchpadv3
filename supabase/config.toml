@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.dune-sync]
 verify_jwt = false
+
+[functions.fun-pool-cache]
+verify_jwt = false
