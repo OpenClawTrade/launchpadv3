@@ -86,10 +86,10 @@ export function TokenTickerBar() {
   const displayTokens = [...tokens, ...tokens];
 
   return (
-    <div className="bg-[#0a0a0c] border-b border-[#1a1a1f] overflow-hidden">
+    <div className="w-full bg-[#0a0a0c] border-b border-[#1a1a1f] overflow-hidden">
       <div
         ref={scrollRef}
-        className="flex items-center gap-6 py-2 px-4 overflow-hidden whitespace-nowrap"
+        className="flex items-center gap-4 sm:gap-6 py-2 px-3 sm:px-4 overflow-hidden whitespace-nowrap no-scrollbar"
         style={{ scrollBehavior: "auto" }}
       >
         {displayTokens.map((token, index) => {

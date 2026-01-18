@@ -404,28 +404,33 @@ export default function FunLauncherPage() {
   const totalCreatorPaid = creatorDistributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0);
 
   return (
-    <div className="min-h-screen bg-[#0d0d0f] text-white">
+    <div className="min-h-screen bg-[#0d0d0f] text-white overflow-x-hidden">
       {/* Token Ticker Bar - bags.fm style */}
       <TokenTickerBar />
       
       {/* Header Bar */}
-      <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50 w-full">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
+          {/* Logo - always visible */}
+          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
             <img src={ai69xLogo} alt="ai69x" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full" />
             <span className="text-base sm:text-lg font-bold">ai67x</span>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-400">
-            <div className="flex items-center gap-0.5 sm:gap-1">
+          </Link>
+          
+          {/* Right side navigation */}
+          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
+            {/* Price displays - always visible but compact on mobile */}
+            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
               <Ai67xPriceDisplay />
               <SolPriceDisplay />
             </div>
             
+            {/* Icon links - always visible */}
             <a 
               href="https://dune.com/ai67xlaunch/stats" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors flex-shrink-0"
               title="View Analytics on Dune"
             >
               <BarChart2 className="h-4 w-4 text-orange-400 hover:text-orange-300" />
@@ -435,7 +440,7 @@ export default function FunLauncherPage() {
               href="https://x.com/ai67x_fun" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors flex-shrink-0"
               title="Follow us on X"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4 text-gray-400 hover:text-white fill-current">
@@ -443,48 +448,52 @@ export default function FunLauncherPage() {
               </svg>
             </a>
             
-            <Link to="/trending">
+            {/* Nav buttons - icons only on mobile */}
+            <Link to="/trending" className="flex-shrink-0">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-8 px-2 sm:px-3"
+                className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-8 w-8 sm:w-auto px-0 sm:px-3"
               >
                 <TrendingUp className="h-4 w-4 sm:mr-1" />
                 <span className="hidden sm:inline">Narratives</span>
               </Button>
             </Link>
             
-            <Link to="/api">
+            <Link to="/api" className="flex-shrink-0">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 px-2 sm:px-3"
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 w-8 sm:w-auto px-0 sm:px-3"
               >
                 <Key className="h-4 w-4 sm:mr-1" />
                 <span className="hidden sm:inline">API</span>
               </Button>
             </Link>
             
-            <Link to="/governance">
+            <Link to="/governance" className="flex-shrink-0">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 px-2 sm:px-3"
+                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 w-8 sm:w-auto px-0 sm:px-3"
               >
                 <Scale className="h-4 w-4 sm:mr-1" />
                 <span className="hidden sm:inline">Governance</span>
               </Button>
             </Link>
             
-            <span className="hidden lg:flex items-center gap-1">
+            {/* Timestamp - desktop only */}
+            <span className="hidden lg:flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
               <Clock className="h-3.5 w-3.5" />
               Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
             </span>
+            
+            {/* Refresh button */}
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => refetch()}
-              className="text-gray-400 hover:text-white h-8 w-8 p-0"
+              className="text-gray-400 hover:text-white h-8 w-8 p-0 flex-shrink-0"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -493,42 +502,42 @@ export default function FunLauncherPage() {
       </header>
 
       {/* Hero Intro Section */}
-      <section className="border-b border-[#1a1a1f] bg-gradient-to-b from-[#0d0d0f] to-[#12121a]">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-10 md:py-14">
+      <section className="border-b border-[#1a1a1f] bg-gradient-to-b from-[#0d0d0f] to-[#12121a] w-full">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10 md:py-14">
           <div className="max-w-3xl mx-auto text-center">
             
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight px-2">
               Autonomous Token Launchpad
             </h1>
             
-            <p className="text-gray-400 text-xs sm:text-sm md:text-base mb-4 sm:mb-6 leading-relaxed max-w-2xl mx-auto px-2">
+            <p className="text-gray-400 text-xs sm:text-sm md:text-base mb-4 sm:mb-6 leading-relaxed max-w-2xl mx-auto px-4">
               ai67x leverages neural network inference and on-chain automation to orchestrate the entire token lifecycle. 
               Zero wallet connections. Zero manual configurations.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-3 sm:p-4">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#00d4aa]" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 sm:mb-6 px-2">
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
+                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <Zap className="h-4 w-4 text-[#00d4aa]" />
                 </div>
-                <h3 className="font-semibold text-white text-xs sm:text-sm mb-1">One-Click Launch</h3>
-                <p className="text-[10px] sm:text-xs text-gray-500">Generate AI memes and deploy tokens instantly</p>
+                <h3 className="font-semibold text-white text-sm mb-1">One-Click Launch</h3>
+                <p className="text-xs text-gray-500">Generate AI memes and deploy tokens instantly</p>
               </div>
               
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-3 sm:p-4">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#00d4aa]" />
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
+                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <TrendingUp className="h-4 w-4 text-[#00d4aa]" />
                 </div>
-                <h3 className="font-semibold text-white text-xs sm:text-sm mb-1">50% Lifetime Fees</h3>
-                <p className="text-[10px] sm:text-xs text-gray-500">Creators receive half of all trading fees</p>
+                <h3 className="font-semibold text-white text-sm mb-1">50% Lifetime Fees</h3>
+                <p className="text-xs text-gray-500">Creators receive half of all trading fees</p>
               </div>
               
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-3 sm:p-4">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#00d4aa]" />
+              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
+                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
+                  <RefreshCw className="h-4 w-4 text-[#00d4aa]" />
                 </div>
-                <h3 className="font-semibold text-white text-xs sm:text-sm mb-1">30% Buybacks</h3>
-                <p className="text-[10px] sm:text-xs text-gray-500">Fees dedicated to native token buybacks</p>
+                <h3 className="font-semibold text-white text-sm mb-1">30% Buybacks</h3>
+                <p className="text-xs text-gray-500">Fees dedicated to native token buybacks</p>
               </div>
             </div>
 
@@ -540,7 +549,7 @@ export default function FunLauncherPage() {
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Panel - Token Generator */}
           <div className="lg:col-span-1 space-y-3 sm:space-y-4">
