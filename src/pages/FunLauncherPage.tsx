@@ -47,8 +47,11 @@ import {
   Trophy,
   Flame,
   Scale,
-  BarChart2
+  BarChart2,
+  Menu,
+  X
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { formatDistanceToNow } from "date-fns";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { Ai67xPriceDisplay } from "@/components/layout/Ai67xPriceDisplay";
@@ -417,20 +420,18 @@ export default function FunLauncherPage() {
             <span className="text-base sm:text-lg font-bold">ai67x</span>
           </Link>
           
-          {/* Right side navigation */}
-          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
-            {/* Price displays - always visible but compact on mobile */}
-            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+          {/* Desktop navigation */}
+          <div className="hidden sm:flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Ai67xPriceDisplay />
               <SolPriceDisplay />
             </div>
             
-            {/* Icon links - always visible */}
             <a 
               href="https://dune.com/ai67xlaunch/stats" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors flex-shrink-0"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors"
               title="View Analytics on Dune"
             >
               <BarChart2 className="h-4 w-4 text-orange-400 hover:text-orange-300" />
@@ -440,7 +441,7 @@ export default function FunLauncherPage() {
               href="https://x.com/ai67x_fun" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors flex-shrink-0"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
               title="Follow us on X"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4 text-gray-400 hover:text-white fill-current">
@@ -448,55 +449,138 @@ export default function FunLauncherPage() {
               </svg>
             </a>
             
-            {/* Nav buttons - icons only on mobile */}
-            <Link to="/trending" className="flex-shrink-0">
+            <Link to="/trending">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-8 w-8 sm:w-auto px-0 sm:px-3"
+                className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-8 px-3"
               >
-                <TrendingUp className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">Narratives</span>
+                <TrendingUp className="h-4 w-4 mr-1" />
+                Narratives
               </Button>
             </Link>
             
-            <Link to="/api" className="flex-shrink-0">
+            <Link to="/api">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 w-8 sm:w-auto px-0 sm:px-3"
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 px-3"
               >
-                <Key className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">API</span>
+                <Key className="h-4 w-4 mr-1" />
+                API
               </Button>
             </Link>
             
-            <Link to="/governance" className="flex-shrink-0">
+            <Link to="/governance">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 w-8 sm:w-auto px-0 sm:px-3"
+                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 px-3"
               >
-                <Scale className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">Governance</span>
+                <Scale className="h-4 w-4 mr-1" />
+                Governance
               </Button>
             </Link>
             
-            {/* Timestamp - desktop only */}
-            <span className="hidden lg:flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+            <span className="hidden lg:flex items-center gap-1 text-xs text-gray-400">
               <Clock className="h-3.5 w-3.5" />
               Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
             </span>
             
-            {/* Refresh button */}
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => refetch()}
-              className="text-gray-400 hover:text-white h-8 w-8 p-0 flex-shrink-0"
+              className="text-gray-400 hover:text-white h-8 w-8 p-0"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
+          </div>
+          
+          {/* Mobile navigation */}
+          <div className="flex sm:hidden items-center gap-2">
+            <div className="flex items-center gap-0.5">
+              <Ai67xPriceDisplay />
+              <SolPriceDisplay />
+            </div>
+            
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => refetch()}
+              className="text-gray-400 hover:text-white h-8 w-8 p-0"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-72 bg-[#0d0d0f] border-[#1a1a1f] p-0">
+                <div className="flex flex-col h-full">
+                  {/* Menu header */}
+                  <div className="flex items-center gap-3 p-4 border-b border-[#1a1a1f]">
+                    <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
+                    <span className="text-lg font-bold text-white">ai67x</span>
+                  </div>
+                  
+                  {/* Menu items */}
+                  <nav className="flex-1 p-4 space-y-2">
+                    <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
+                      <TrendingUp className="h-5 w-5 text-green-400" />
+                      <span className="text-white font-medium">Narratives</span>
+                    </Link>
+                    
+                    <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
+                      <Key className="h-5 w-5 text-purple-400" />
+                      <span className="text-white font-medium">API</span>
+                    </Link>
+                    
+                    <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
+                      <Scale className="h-5 w-5 text-cyan-400" />
+                      <span className="text-white font-medium">Governance</span>
+                    </Link>
+                    
+                    <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
+                      <a 
+                        href="https://dune.com/ai67xlaunch/stats" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
+                      >
+                        <BarChart2 className="h-5 w-5 text-orange-400" />
+                        <span className="text-gray-300">Analytics (Dune)</span>
+                        <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
+                      </a>
+                      
+                      <a 
+                        href="https://x.com/ai67x_fun" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-5 w-5 text-gray-400 fill-current">
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                        </svg>
+                        <span className="text-gray-300">Follow on X</span>
+                        <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
+                      </a>
+                    </div>
+                  </nav>
+                  
+                  {/* Footer */}
+                  <div className="p-4 border-t border-[#1a1a1f]">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Clock className="h-3.5 w-3.5" />
+                      Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
