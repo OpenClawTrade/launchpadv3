@@ -53,11 +53,13 @@ const VanityAdminPage = () => {
     setAuthSecret(secret);
   };
 
+  const VERCEL_API_BASE = 'https://trenchespost.vercel.app';
+
   const fetchStatus = useCallback(async () => {
     if (!authSecret) return;
 
     try {
-      const response = await fetch('/api/vanity/status?suffix=67x', {
+      const response = await fetch(`${VERCEL_API_BASE}/api/vanity/status?suffix=67x`, {
         headers: {
           'x-vanity-secret': authSecret,
         },
@@ -96,7 +98,7 @@ const VanityAdminPage = () => {
 
     setIsGenerating(true);
     try {
-      const response = await fetch('/api/vanity/batch', {
+      const response = await fetch(`${VERCEL_API_BASE}/api/vanity/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
