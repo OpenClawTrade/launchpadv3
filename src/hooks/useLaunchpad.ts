@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 import { useMeteoraApi } from "./useMeteoraApi";
+import { filterHiddenTokens } from "@/lib/hiddenTokens";
 
 export interface Token {
   id: string;
@@ -119,7 +120,8 @@ export function useLaunchpad() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Token[];
+      // Filter out hidden/spam tokens
+      return filterHiddenTokens(data as Token[]);
     },
     retry: 2,
   });

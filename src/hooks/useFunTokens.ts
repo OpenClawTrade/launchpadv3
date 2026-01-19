@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { filterHiddenTokens } from "@/lib/hiddenTokens";
 
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD_SOL = 85;
@@ -220,13 +221,16 @@ export function useFunTokens(): UseFunTokensResult {
     console.log(`[useFunTokens] Fetched ${funTokens?.length || 0} tokens from DB`);
 
     // Map DB rows to FunToken - use cached DB values if available, else defaults
-    return (funTokens || []).map((t) => ({
+    const mapped = (funTokens || []).map((t) => ({
       ...t,
       holder_count: t.holder_count ?? DEFAULT_LIVE.holder_count,
       market_cap_sol: t.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
       bonding_progress: t.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
       price_sol: t.price_sol ?? DEFAULT_LIVE.price_sol,
     })) as FunToken[];
+    
+    // Filter out hidden/spam tokens
+    return filterHiddenTokens(mapped);
   }, []);
 
   const abortControllerRef = useRef<AbortController | null>(null);
