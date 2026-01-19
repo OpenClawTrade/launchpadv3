@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
-const JUPITER_PRICE_API = 'https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112';
+// Multiple price sources for resilience
+const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd';
 const CACHE_KEY = 'sol_price_cache';
 const CACHE_TTL = 60000; // 1 minute
 
@@ -31,14 +32,16 @@ export function useSolPrice() {
     const fetchPrice = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(JUPITER_PRICE_API);
+        
+        // Use CoinGecko (free, no auth required)
+        const response = await fetch(COINGECKO_API);
         
         if (!response.ok) {
           throw new Error('Failed to fetch SOL price');
         }
         
         const data = await response.json();
-        const price = data?.data?.['So11111111111111111111111111111111111111112']?.price;
+        const price = data?.solana?.usd;
         
         if (price && typeof price === 'number') {
           setSolPrice(price);
@@ -51,7 +54,7 @@ export function useSolPrice() {
           localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
         }
       } catch (error) {
-        console.debug('[useSolPrice] Error fetching price:', error);
+        console.debug('[useSolPrice] Error fetching price, using cached value');
         // Keep using cached/default value
       } finally {
         setIsLoading(false);
