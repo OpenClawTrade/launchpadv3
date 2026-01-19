@@ -76,13 +76,33 @@ const VanityAdminPage = () => {
     setAuthSecret(secret);
   };
 
-  const VERCEL_API_BASE = 'https://ai67x.vercel.app';
+  const getBackendBaseUrl = () => {
+    const normalize = (url: string) => url.replace(/\/+$/, '');
+
+    const fromStorage = localStorage.getItem('meteoraApiUrl');
+    if (fromStorage && fromStorage.startsWith('https://') && !fromStorage.includes('${')) {
+      return normalize(fromStorage);
+    }
+
+    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
+    if (fromWindow && fromWindow.startsWith('https://') && !fromWindow.includes('${')) {
+      return normalize(fromWindow);
+    }
+
+    return null;
+  };
 
   const fetchStatus = useCallback(async () => {
     if (!authSecret) return;
 
+    const backendBaseUrl = getBackendBaseUrl();
+    if (!backendBaseUrl) {
+      toast.error('Backend URL not configured yet — refresh the page');
+      return;
+    }
+
     try {
-      const response = await fetch(`${VERCEL_API_BASE}/api/vanity/status?suffix=67x`, {
+      const response = await fetch(`${backendBaseUrl}/api/vanity/status?suffix=67x`, {
         headers: {
           'x-vanity-secret': authSecret,
         },
@@ -131,6 +151,13 @@ const VanityAdminPage = () => {
     const startTime = Date.now();
     const ESTIMATED_RATE = 3300;
     const MAX_DURATION = 55000;
+
+    const backendBaseUrl = getBackendBaseUrl();
+    if (!backendBaseUrl) {
+      toast.error('Backend URL not configured yet — refresh the page');
+      setIsGenerating(false);
+      return null;
+    }
     
     // Poll for real-time progress (found addresses are saved to DB immediately)
     const progressInterval = setInterval(async () => {
@@ -141,7 +168,7 @@ const VanityAdminPage = () => {
       
       // Fetch real count from database
       try {
-        const progressRes = await fetch(`${VERCEL_API_BASE}/api/vanity/progress?suffix=67x`, {
+        const progressRes = await fetch(`${backendBaseUrl}/api/vanity/progress?suffix=67x`, {
           headers: { 'x-vanity-secret': authSecret },
         });
         const progressData = await progressRes.json();
@@ -173,7 +200,7 @@ const VanityAdminPage = () => {
     }, 2000); // Poll every 2 seconds
 
     try {
-      const response = await fetch(`${VERCEL_API_BASE}/api/vanity/batch`, {
+      const response = await fetch(`${backendBaseUrl}/api/vanity/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
