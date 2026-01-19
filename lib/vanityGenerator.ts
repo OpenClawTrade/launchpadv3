@@ -157,30 +157,39 @@ export async function getAvailableVanityAddress(suffix: string): Promise<{
   const encryptionKey = process.env.TREASURY_PRIVATE_KEY?.slice(0, 32) || 'default-encryption-key-12345678';
   
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase credentials not configured');
+    console.log(`[vanity] Supabase credentials not configured, skipping vanity lookup`);
+    return null;
   }
   
   const supabase = createClient(supabaseUrl, supabaseKey);
   
   // Get first available keypair with matching suffix
+  // IMPORTANT: Use .limit(1) instead of .single() to avoid throwing when no rows exist
   const { data, error } = await supabase
     .from('vanity_keypairs')
     .select('id, public_key, secret_key_encrypted')
     .eq('suffix', suffix.toLowerCase())
     .eq('status', 'available')
-    .limit(1)
-    .single();
+    .limit(1);
   
-  if (error || !data) {
-    console.log(`[vanity] No available vanity address for suffix "${suffix}"`);
+  // Handle error or empty result gracefully
+  if (error) {
+    console.log(`[vanity] Query error for suffix "${suffix}":`, error.message);
     return null;
   }
+  
+  if (!data || data.length === 0) {
+    console.log(`[vanity] No available vanity address for suffix "${suffix}" (table may be empty)`);
+    return null;
+  }
+  
+  const row = data[0];
   
   // Reserve it immediately
   const { error: updateError } = await supabase
     .from('vanity_keypairs')
     .update({ status: 'reserved' })
-    .eq('id', data.id);
+    .eq('id', row.id);
   
   if (updateError) {
     console.error(`[vanity] Failed to reserve keypair:`, updateError);
@@ -188,14 +197,14 @@ export async function getAvailableVanityAddress(suffix: string): Promise<{
   }
   
   // Decrypt the secret key
-  const secretKeyBytes = decryptSecretKey(data.secret_key_encrypted, encryptionKey);
+  const secretKeyBytes = decryptSecretKey(row.secret_key_encrypted, encryptionKey);
   const keypair = Keypair.fromSecretKey(secretKeyBytes);
   
-  console.log(`[vanity] Reserved vanity address: ${data.public_key}`);
+  console.log(`[vanity] Reserved vanity address: ${row.public_key}`);
   
   return {
-    id: data.id,
-    publicKey: data.public_key,
+    id: row.id,
+    publicKey: row.public_key,
     keypair,
   };
 }
