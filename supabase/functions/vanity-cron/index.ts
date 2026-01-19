@@ -11,8 +11,9 @@ const corsHeaders = {
 // Configuration
 const TARGET_SUFFIX = '67x';
 const TARGET_AVAILABLE = 500; // Keep at least 500 available
-const MAX_DURATION_MS = 50000; // 50 seconds max (edge function timeout is 60s)
-const BATCH_SIZE = 1000; // Check suffix every N attempts
+const MAX_DURATION_MS = 8000; // 8 seconds max (stay under CPU limit)
+const BATCH_SIZE = 50; // Smaller batches to avoid CPU timeout
+const YIELD_EVERY = 10; // Yield CPU every N attempts
 
 // XOR encryption for secret key storage
 function encryptSecretKey(secretKeyHex: string, encryptionKey: string): string {
@@ -131,6 +132,11 @@ Deno.serve(async (req) => {
       for (let i = 0; i < BATCH_SIZE; i++) {
         attempts++;
         
+        // Yield CPU periodically to avoid timeout
+        if (attempts % YIELD_EVERY === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        
         const keypair = await generateKeypair();
         if (!keypair) continue;
         
@@ -158,19 +164,8 @@ Deno.serve(async (req) => {
             found++;
             newAddresses.push(keypair.address);
             console.log(`[vanity-cron] Found #${found}: ${keypair.address.slice(0, 8)}...${keypair.address.slice(-8)}`);
-            
-            // Check if we've reached target
-            if ((availableCount || 0) + found >= TARGET_AVAILABLE) {
-              console.log('[vanity-cron] Target reached, stopping early');
-              break;
-            }
           }
         }
-      }
-      
-      // Check if target reached
-      if ((availableCount || 0) + found >= TARGET_AVAILABLE) {
-        break;
       }
     }
     
