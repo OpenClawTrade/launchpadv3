@@ -30,8 +30,8 @@ interface UseFunLiveDataResult {
   refetch: () => Promise<void>;
 }
 
-// Poll database every 10 seconds (cached data updates every minute via cron)
-const POLL_INTERVAL = 10000;
+// Poll database every 60 seconds (cached data updates every minute via cron)
+const POLL_INTERVAL = 60000; // 60 seconds (was 10s)
 
 export function useFunLiveData(): UseFunLiveDataResult {
   const [tokens, setTokens] = useState<FunToken[]>([]);

@@ -11,9 +11,9 @@ const getBackendBaseUrl = (): string => {
   return "";
 };
 
-// Cache for pool-state responses (keeps UI stable when upstream blips)
+// Cache for pool-state responses - 60 second TTL to match server cache
 const poolCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 10000; // 10 seconds cache - rely more on cached data
+const CACHE_TTL = 60000; // 60 seconds cache - matches server-side cache
 
 interface FunToken {
   id: string;
@@ -46,8 +46,8 @@ interface UseFunTokensResult {
   refetch: () => Promise<void>;
 }
 
-const BASE_POLL_INTERVAL_MS = 30_000; // 30 seconds for DB refresh
-const LIVE_POLL_INTERVAL_MS = 15_000; // 15 seconds for live data - reduced from 5s
+const BASE_POLL_INTERVAL_MS = 60_000; // 60 seconds for DB refresh (was 30s)
+const LIVE_POLL_INTERVAL_MS = 60_000; // 60 seconds for live data (was 15s) - matches server cache
 const LIVE_BATCH_SIZE = 10; // Larger batches = fewer iterations
 
 const DEFAULT_LIVE: LiveFields = {

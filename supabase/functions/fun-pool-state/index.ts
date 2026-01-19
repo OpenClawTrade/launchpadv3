@@ -5,6 +5,10 @@ const INITIAL_VIRTUAL_SOL = 30;
 const TOKEN_DECIMALS = 6;
 const REQUEST_TIMEOUT_MS = 8000;
 
+// Server-side cache to reduce RPC calls - 60 second TTL
+const poolStateCache = new Map<string, { data: any; timestamp: number }>();
+const POOL_CACHE_TTL = 60000; // 60 seconds cache
+
 // Decode Meteora DBC virtualPool account data from on-chain
 function decodePoolReserves(base64Data: string): {
   realSolReserves: number;
@@ -167,6 +171,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Check server-side cache first (60s TTL)
+    const cacheKey = `${poolAddress}:${mintAddress || ''}`;
+    const cached = poolStateCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < POOL_CACHE_TTL) {
+      console.log('[fun-pool-state] Returning cached data for pool:', poolAddress);
+      return new Response(JSON.stringify({ ...cached.data, source: 'cache' }), {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'public, max-age=60',
+        },
+      });
+    }
+
     const heliusRpcUrl = Deno.env.get('HELIUS_RPC_URL') || '';
 
     if (!heliusRpcUrl) {
@@ -225,7 +243,10 @@ Deno.serve(async (req) => {
       source: 'helius-rpc',
     };
 
-    console.log('[fun-pool-state] Returning:', {
+    // Cache the result for 60 seconds
+    poolStateCache.set(cacheKey, { data: poolState, timestamp: Date.now() });
+
+    console.log('[fun-pool-state] Returning fresh data:', {
       price: poolState.priceSol,
       progress: poolState.bondingProgress,
       marketCap: poolState.marketCapSol,
@@ -236,7 +257,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: {
         ...corsHeaders,
-        'Cache-Control': 'public, max-age=2',
+        'Cache-Control': 'public, max-age=60',
       },
     });
   } catch (error) {
