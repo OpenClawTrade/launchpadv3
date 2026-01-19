@@ -299,6 +299,8 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   
   // Set blockhash, fee payer, add priority fees
   // NOTE: We do NOT pre-sign here - the caller (create-fun.ts) will sign with all required keypairs
+  // CRITICAL: Transactions MUST be sent sequentially: config first, then pool, then swap
+  // The config account must be initialized on-chain before pool creation references it
   const preparedTransactions: Transaction[] = [];
   
   const addPriorityFees = (tx: Transaction) => {
@@ -306,31 +308,38 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     tx.instructions = [computeUnitsIx, priorityFeeIx, ...tx.instructions];
   };
 
+  // Transaction 1: Create config account (MUST complete before pool tx)
   if (createConfigTx) {
     addPriorityFees(createConfigTx);
     createConfigTx.recentBlockhash = blockhash;
     createConfigTx.feePayer = creatorPubkey;
     // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(createConfigTx);
+    console.log('[meteora] TX1 (createConfig): Ready for signing');
   }
 
+  // Transaction 2: Create pool (requires config account to exist on-chain)
   if (createPoolTx) {
     addPriorityFees(createPoolTx);
     createPoolTx.recentBlockhash = blockhash;
     createPoolTx.feePayer = creatorPubkey;
     // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(createPoolTx);
+    console.log('[meteora] TX2 (createPool): Ready for signing');
   }
   
+  // Transaction 3: Initial buy swap (optional)
   if (swapBuyTx) {
     addPriorityFees(swapBuyTx);
     swapBuyTx.recentBlockhash = blockhash;
     swapBuyTx.feePayer = creatorPubkey;
     // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(swapBuyTx);
+    console.log('[meteora] TX3 (swapBuy): Ready for signing');
   }
 
-  console.log('[meteora] Prepared', preparedTransactions.length, 'transactions (unsigned - caller will sign)');
+  console.log('[meteora] Prepared', preparedTransactions.length, 'transactions (unsigned - MUST be sent sequentially)');
+  console.log('[meteora] IMPORTANT: TX1 (config) must complete before TX2 (pool) is sent!');
 
   return {
     transactions: preparedTransactions,
