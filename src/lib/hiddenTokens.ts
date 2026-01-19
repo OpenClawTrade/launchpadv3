@@ -12,7 +12,34 @@ export const HIDDEN_TOKEN_IDS = new Set([
   "0dc14468-49ae-4a4b-9825-d956089dae1e",
 ]);
 
-// Filter function to remove hidden tokens from any array
-export function filterHiddenTokens<T extends { id: string }>(tokens: T[]): T[] {
-  return tokens.filter(token => !HIDDEN_TOKEN_IDS.has(token.id));
+// Blocked words/phrases in token names and tickers (case-insensitive)
+export const BLOCKED_PATTERNS = [
+  /exploit/i,
+  /hack/i,
+  /0xh1ve/i,
+  /fix\s*(ur|your)\s*site/i,
+  /dm\s*@/i,
+  /found\s*(an?|the)?\s*exploit/i,
+  /vulnerability/i,
+  /security\s*issue/i,
+  /into\s*(ur|your)\s*db/i,
+];
+
+// Check if a name or ticker contains blocked content
+export function isBlockedName(name: string): boolean {
+  if (!name) return false;
+  return BLOCKED_PATTERNS.some(pattern => pattern.test(name));
+}
+
+// Filter function to remove hidden tokens from any array (by ID or by name/ticker)
+export function filterHiddenTokens<T extends { id: string; name?: string; ticker?: string }>(tokens: T[]): T[] {
+  return tokens.filter(token => {
+    // Filter by ID
+    if (HIDDEN_TOKEN_IDS.has(token.id)) return false;
+    // Filter by name pattern
+    if (token.name && isBlockedName(token.name)) return false;
+    // Filter by ticker pattern
+    if (token.ticker && isBlockedName(token.ticker)) return false;
+    return true;
+  });
 }
