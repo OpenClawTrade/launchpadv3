@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Lightbulb, Vote, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Message {
   role: "user" | "assistant";
@@ -16,13 +17,55 @@ export default function GovernancePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { solanaAddress } = useAuth();
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Create or get conversation on mount
+  useEffect(() => {
+    const initConversation = async () => {
+      // Create a new conversation
+      const { data, error } = await supabase
+        .from('governance_conversations')
+        .insert({
+          wallet_address: solanaAddress || null,
+        })
+        .select('id')
+        .single();
+
+      if (!error && data) {
+        setConversationId(data.id);
+      }
+    };
+
+    initConversation();
+  }, [solanaAddress]);
+
+  // Save message to database
+  const saveMessage = async (role: "user" | "assistant", content: string) => {
+    if (!conversationId) return;
+
+    await supabase.from('governance_messages').insert({
+      conversation_id: conversationId,
+      role,
+      content,
+    });
+
+    // Update conversation stats
+    await supabase
+      .from('governance_conversations')
+      .update({
+        last_message_at: new Date().toISOString(),
+        message_count: messages.length + 1,
+      })
+      .eq('id', conversationId);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +76,9 @@ export default function GovernancePage() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+
+    // Save user message
+    await saveMessage("user", userMessage.content);
 
     try {
       const response = await fetch(
@@ -100,6 +146,11 @@ export default function GovernancePage() {
           }
         }
       }
+
+      // Save assistant response
+      if (assistantContent) {
+        await saveMessage("assistant", assistantContent);
+      }
     } catch (error) {
       console.error("Chat error:", error);
       setMessages((prev) => [
@@ -122,24 +173,69 @@ export default function GovernancePage() {
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-white mb-2">Governance</h1>
           <p className="text-gray-400">
-            Chat with AI to discuss governance proposals and ideas
+            Shape the future of ai67x with your suggestions
           </p>
+        </div>
+
+        {/* Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card className="bg-gradient-to-br from-purple-900/30 to-purple-800/10 border-purple-500/20">
+            <CardContent className="p-4 flex items-start gap-3">
+              <Lightbulb className="h-5 w-5 text-purple-400 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-white text-sm">Share Ideas</h3>
+                <p className="text-xs text-gray-400">Suggest features and improvements</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-cyan-900/30 to-cyan-800/10 border-cyan-500/20">
+            <CardContent className="p-4 flex items-start gap-3">
+              <Vote className="h-5 w-5 text-cyan-400 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-white text-sm">Voting Soon</h3>
+                <p className="text-xs text-gray-400">Holders will vote on proposals</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-amber-900/30 to-amber-800/10 border-amber-500/20">
+            <CardContent className="p-4 flex items-start gap-3">
+              <Lock className="h-5 w-5 text-amber-400 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-white text-sm">Holder Access</h3>
+                <p className="text-xs text-gray-400">Full governance for token holders</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Card className="bg-[#0d0d0f] border-[#1a1a1f]">
           <CardHeader className="border-b border-[#1a1a1f]">
             <CardTitle className="text-white flex items-center gap-2">
               <Bot className="h-5 w-5 text-purple-400" />
-              AI Assistant
+              ai67x Governance AI
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[400px] p-4" ref={scrollRef}>
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500">
-                  <div className="text-center">
-                    <Bot className="h-12 w-12 mx-auto mb-4 text-gray-600" />
-                    <p>Start a conversation about governance</p>
+                  <div className="text-center space-y-4">
+                    <Bot className="h-12 w-12 mx-auto text-purple-500/50" />
+                    <div>
+                      <p className="font-medium text-gray-300">Welcome to Governance</p>
+                      <p className="text-sm text-gray-500 mt-1">Share your ideas to improve ai67x</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {["What features are coming?", "How can I suggest improvements?", "Tell me about voting"].map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => setInput(q)}
+                          className="px-3 py-1.5 text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-full transition-colors"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -193,7 +289,7 @@ export default function GovernancePage() {
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about governance..."
+                placeholder="Share your ideas for ai67x..."
                 className="bg-[#1a1a1f] border-[#2a2a2f] text-white resize-none min-h-[44px] max-h-[120px]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {

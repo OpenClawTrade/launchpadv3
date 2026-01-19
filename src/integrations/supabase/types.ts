@@ -933,6 +933,146 @@ export type Database = {
         }
         Relationships: []
       }
+      governance_conversations: {
+        Row: {
+          id: string
+          is_holder: boolean | null
+          last_message_at: string
+          message_count: number
+          started_at: string
+          user_id: string | null
+          wallet_address: string | null
+        }
+        Insert: {
+          id?: string
+          is_holder?: boolean | null
+          last_message_at?: string
+          message_count?: number
+          started_at?: string
+          user_id?: string | null
+          wallet_address?: string | null
+        }
+        Update: {
+          id?: string
+          is_holder?: boolean | null
+          last_message_at?: string
+          message_count?: number
+          started_at?: string
+          user_id?: string | null
+          wallet_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governance_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "governance_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governance_suggestions: {
+        Row: {
+          category: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          message_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          suggestion_text: string
+          user_id: string | null
+          votes_against: number
+          votes_for: number
+          wallet_address: string | null
+        }
+        Insert: {
+          category?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          suggestion_text: string
+          user_id?: string | null
+          votes_against?: number
+          votes_for?: number
+          wallet_address?: string | null
+        }
+        Update: {
+          category?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          suggestion_text?: string
+          user_id?: string | null
+          votes_against?: number
+          votes_for?: number
+          wallet_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_suggestions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "governance_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governance_suggestions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "governance_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governance_suggestions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hashtags: {
         Row: {
           created_at: string | null
