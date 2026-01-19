@@ -11,9 +11,9 @@ const corsHeaders = {
 // Configuration
 const TARGET_SUFFIX = '67x';
 const TARGET_AVAILABLE = 500; // Keep at least 500 available
-const MAX_DURATION_MS = 8000; // 8 seconds max (stay under CPU limit)
-const BATCH_SIZE = 50; // Smaller batches to avoid CPU timeout
-const YIELD_EVERY = 10; // Yield CPU every N attempts
+const MAX_DURATION_MS = 3000; // 3 seconds max (very conservative)
+const BATCH_SIZE = 20; // Very small batches
+const YIELD_EVERY = 5; // Yield CPU every 5 attempts
 
 // XOR encryption for secret key storage
 function encryptSecretKey(secretKeyHex: string, encryptionKey: string): string {
