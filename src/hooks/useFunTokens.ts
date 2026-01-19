@@ -15,6 +15,10 @@ const getBackendBaseUrl = (): string => {
 const poolCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 60000; // 60 seconds cache - matches server-side cache
 
+// LocalStorage hydration so tokens render instantly even if the DB request is slow/cold
+const FUN_TOKENS_CACHE_KEY = "funTokensCache:v1";
+const FUN_TOKENS_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
+
 interface FunToken {
   id: string;
   name: string;
@@ -56,6 +60,43 @@ const DEFAULT_LIVE: LiveFields = {
   bonding_progress: 0,
   price_sol: 0.00000003,
 };
+
+type FunTokensCachePayload = {
+  ts: number;
+  tokens: FunToken[];
+};
+
+function readFunTokensCache(): { tokens: FunToken[]; timestamp: number } | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = localStorage.getItem(FUN_TOKENS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as FunTokensCachePayload;
+    if (!parsed?.ts || !Array.isArray(parsed.tokens)) return null;
+    if (Date.now() - parsed.ts > FUN_TOKENS_CACHE_TTL) return null;
+    return { tokens: parsed.tokens, timestamp: parsed.ts };
+  } catch {
+    return null;
+  }
+}
+
+function writeFunTokensCache(tokens: FunToken[]) {
+  try {
+    if (typeof window === "undefined") return;
+    const payload: FunTokensCachePayload = { ts: Date.now(), tokens };
+    localStorage.setItem(FUN_TOKENS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof DOMException && err.name === "AbortError") ||
+    (err instanceof Error && err.name === "AbortError") ||
+    (err instanceof Error && /aborted|abort/i.test(err.message))
+  );
+}
 
 function buildFunPoolStateUrl(poolAddress: string, mintAddress?: string | null): string {
   const base = getBackendBaseUrl();
@@ -126,10 +167,17 @@ async function fetchPoolStateDirect(
 }
 
 export function useFunTokens(): UseFunTokensResult {
-  const [tokens, setTokens] = useState<FunToken[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialCacheRef = useRef(readFunTokensCache());
+  const initialCache = initialCacheRef.current;
+
+  const [tokens, setTokens] = useState<FunToken[]>(() => initialCache?.tokens ?? []);
+  const [isLoading, setIsLoading] = useState(() => !(initialCache?.tokens?.length));
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [lastUpdate, setLastUpdate] = useState(() =>
+    initialCache?.timestamp ? new Date(initialCache.timestamp) : new Date()
+  );
+
+  const hadCacheOnInitRef = useRef(!!initialCache?.tokens?.length);
 
   const tokensRef = useRef<FunToken[]>([]);
   const liveRefreshSeq = useRef(0);
@@ -149,10 +197,17 @@ export function useFunTokens(): UseFunTokensResult {
   }, []);
 
   const fetchBaseTokens = useCallback(async (): Promise<FunToken[]> => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+
     const { data: funTokens, error: fetchError } = await supabase
       .from("fun_tokens")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      // abortSignal is supported by supabase-js v2 and prevents long hangs
+      .abortSignal(controller.signal);
+
+    window.clearTimeout(timeoutId);
 
     if (fetchError) throw fetchError;
 
@@ -272,15 +327,20 @@ export function useFunTokens(): UseFunTokensResult {
       setError(null);
       setLastUpdate(new Date());
     } catch (err) {
+      // If we timed out but already have cached tokens, keep UI instant and silent.
+      if (isAbortError(err) && tokensRef.current.length > 0) {
+        return;
+      }
       setError(err instanceof Error ? err.message : "Failed to fetch tokens");
     } finally {
       if (isInitial) setIsLoading(false);
     }
   }, [fetchBaseTokens]);
 
-  // Initial DB fetch - shows data instantly from database
+  // Initial DB fetch
   useEffect(() => {
-    fetchTokens(true);
+    // If we have localStorage cache, don't flip into a global loading state.
+    fetchTokens(!hadCacheOnInitRef.current);
   }, [fetchTokens]);
 
   // Trigger live data refresh AFTER initial DB load completes (background)
