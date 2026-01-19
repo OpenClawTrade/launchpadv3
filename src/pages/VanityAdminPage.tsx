@@ -400,7 +400,7 @@ const VanityAdminPage = () => {
                     <span className="ml-2 font-mono">{Math.round(lastResult.duration / 1000)}s</span>
                   </div>
                 </div>
-                {lastResult.addresses.length > 0 && (
+                {lastResult.addresses && lastResult.addresses.length > 0 && (
                   <div className="mt-2">
                     <span className="text-muted-foreground text-sm">New addresses:</span>
                     <div className="flex flex-wrap gap-2 mt-1">
