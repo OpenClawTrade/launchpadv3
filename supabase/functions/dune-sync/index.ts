@@ -11,7 +11,14 @@ const DUNE_NAMESPACE = 'ai67xlaunch';
 
 // Dashboard query IDs that need refreshing after data sync
 // Get these from your Dune dashboard URLs (e.g., dune.com/queries/QUERY_ID)
-const DASHBOARD_QUERY_IDS: string[] = [];
+const DASHBOARD_QUERY_IDS: string[] = [
+  '6554781', // Platform stats
+  '6554677', // Token snapshots
+  '6554792', // Creator stats
+  '6554793', // Volume by token
+  '6554791', // Holder distribution
+  '6554788', // Transactions
+];
 
 // Enhanced table schemas for pump.fun-style analytics
 const TABLE_SCHEMAS = {
