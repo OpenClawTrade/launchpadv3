@@ -162,7 +162,7 @@ export default function TokenDetailPage() {
     if (navigator.share && token) {
       navigator.share({
         title: `${token.name} ($${token.ticker})`,
-        text: `Check out ${token.name} on TRENCHES!`,
+        text: `Check out ${token.name} on ai67x!`,
         url: window.location.href,
       });
     } else {

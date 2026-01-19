@@ -1,4 +1,4 @@
-# TRENCHES Launchpad - Meteora Fee System Documentation
+# ai67x Launchpad - Meteora Fee System Documentation
 
 ## Overview
 

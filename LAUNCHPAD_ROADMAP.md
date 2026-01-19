@@ -1,6 +1,6 @@
-# TRENCHES Launchpad - Technical Roadmap
+# ai67x Launchpad - Technical Roadmap
 
-> Comprehensive roadmap integrating TRENCHES social platform with advanced trading features inspired by axiom.trade
+> Comprehensive roadmap integrating ai67x autonomous trading platform with advanced features inspired by axiom.trade
 
 ---
 
@@ -23,7 +23,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        TRENCHES Platform                            │
+│                        ai67x Platform                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Frontend (React/Vite)                                              │
 │  ├── LaunchpadPage.tsx      → Token discovery & filtering          │
