@@ -156,13 +156,12 @@ export function useFunTokens(): UseFunTokensResult {
 
     if (fetchError) throw fetchError;
 
-    // Map DB rows to FunToken with live fields set to defaults
-    // (holder_count, market_cap_sol, bonding_progress don't exist in DB)
+    // Map DB rows to FunToken - use cached DB values if available, else defaults
     return (funTokens || []).map((t) => ({
       ...t,
-      holder_count: DEFAULT_LIVE.holder_count,
-      market_cap_sol: DEFAULT_LIVE.market_cap_sol,
-      bonding_progress: DEFAULT_LIVE.bonding_progress,
+      holder_count: t.holder_count ?? DEFAULT_LIVE.holder_count,
+      market_cap_sol: t.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
+      bonding_progress: t.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
       price_sol: t.price_sol ?? DEFAULT_LIVE.price_sol,
     })) as FunToken[];
   }, []);
@@ -271,24 +270,28 @@ export function useFunTokens(): UseFunTokensResult {
       });
       
       setError(null);
-      
-      // Fetch live data on initial load
-      if (isInitial && base.length > 0) {
-        await refreshLiveData();
-      }
-      
       setLastUpdate(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch tokens");
     } finally {
       if (isInitial) setIsLoading(false);
     }
-  }, [fetchBaseTokens, refreshLiveData]);
+  }, [fetchBaseTokens]);
 
-  // Initial fetch
+  // Initial DB fetch - shows data instantly from database
   useEffect(() => {
-    fetchTokens(true); // Pass true for initial load
+    fetchTokens(true);
   }, [fetchTokens]);
+
+  // Trigger live data refresh AFTER initial DB load completes (background)
+  const hasInitialLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoading && tokens.length > 0 && !hasInitialLoadedRef.current) {
+      hasInitialLoadedRef.current = true;
+      // Background refresh - don't block UI
+      refreshLiveData();
+    }
+  }, [isLoading, tokens.length, refreshLiveData]);
 
   // Realtime subscription for inserts/updates/deletes
   useEffect(() => {
