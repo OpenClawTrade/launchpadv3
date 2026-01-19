@@ -301,24 +301,83 @@ const VanityAdminPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
-              onClick={triggerGeneration}
-              disabled={isGenerating}
-              className="w-full"
-              size="lg"
-            >
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Generating... (this takes ~55 seconds)
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 mr-2" />
-                  Start Generation Batch
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={triggerGenerationOnce}
+                disabled={isGenerating || isAutoRunning}
+                className="flex-1"
+                size="lg"
+              >
+                {isGenerating && !isAutoRunning ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    Run One Batch
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={isAutoRunning ? stopAutoRun : startAutoRun}
+                disabled={isGenerating && !isAutoRunning}
+                variant={isAutoRunning ? "destructive" : "default"}
+                className="flex-1"
+                size="lg"
+              >
+                {isAutoRunning ? (
+                  <>
+                    <Square className="w-4 h-4 mr-2" />
+                    Stop Auto-Run
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Auto-Run to {TARGET_AVAILABLE}
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Session Stats */}
+            {(sessionBatches > 0 || isAutoRunning) && (
+              <div className="p-4 bg-primary/10 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-primary">Session Progress</h4>
+                  {isAutoRunning && (
+                    <Badge variant="outline" className="animate-pulse">
+                      <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                      Running
+                    </Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="text-center p-2 bg-background rounded">
+                    <div className="text-2xl font-bold font-mono">{sessionBatches}</div>
+                    <div className="text-muted-foreground text-xs">Batches</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded">
+                    <div className="text-2xl font-bold font-mono">{sessionAttempts.toLocaleString()}</div>
+                    <div className="text-muted-foreground text-xs">Attempts</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded">
+                    <div className="text-2xl font-bold font-mono text-green-500">{sessionFound}</div>
+                    <div className="text-muted-foreground text-xs">Found</div>
+                  </div>
+                </div>
+                {stats && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Pool Progress</span>
+                      <span className="font-mono">{stats.available} / {TARGET_AVAILABLE}</span>
+                    </div>
+                    <Progress value={(stats.available / TARGET_AVAILABLE) * 100} className="h-2" />
+                  </div>
+                )}
+              </div>
+            )}
 
             {lastResult && (
               <div className="p-4 bg-muted rounded-lg space-y-2">
