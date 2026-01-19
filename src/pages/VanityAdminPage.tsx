@@ -51,6 +51,7 @@ const VanityAdminPage = () => {
   const [authSecret, setAuthSecret] = useState('');
 
   const abortRef = useRef<AbortController | null>(null);
+  const autoRunRef = useRef(false);
   const [isAutoRunning, setIsAutoRunning] = useState(false);
   const [sessionBatches, setSessionBatches] = useState(0);
   const [sessionAttempts, setSessionAttempts] = useState(0);
@@ -227,6 +228,7 @@ const VanityAdminPage = () => {
   }, [authSecret, stats?.available]);
 
   const stopAutoRun = useCallback(() => {
+    autoRunRef.current = false;
     setIsAutoRunning(false);
     abortRef.current?.abort();
   }, []);
@@ -234,9 +236,12 @@ const VanityAdminPage = () => {
   const startAutoRun = useCallback(async () => {
     if (!authSecret) return;
 
+    autoRunRef.current = true;
     setIsAutoRunning(true);
+    
     for (let i = 0; i < MAX_AUTO_RUNS; i++) {
-      if (!isAutoRunning) break;
+      // Use ref to check if we should stop (avoids stale closure)
+      if (!autoRunRef.current) break;
 
       const data = await triggerGenerationOnce();
       if (!data) break;
@@ -250,8 +255,9 @@ const VanityAdminPage = () => {
       }
     }
 
+    autoRunRef.current = false;
     setIsAutoRunning(false);
-  }, [authSecret, fetchStatus, isAutoRunning, triggerGenerationOnce]);
+  }, [authSecret, fetchStatus, triggerGenerationOnce]);
 
   if (!authSecret) {
     return (
