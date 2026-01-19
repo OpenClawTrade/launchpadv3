@@ -135,9 +135,9 @@ const VanityAdminPage = () => {
                 <Sparkles className="w-5 h-5 text-primary" />
                 Vanity Generator Admin
               </CardTitle>
-              <CardDescription>
-                Enter the first 16 characters of TREASURY_PRIVATE_KEY to authenticate
-              </CardDescription>
+            <CardDescription>
+                Enter admin password to authenticate
+            </CardDescription>
             </CardHeader>
             <CardContent>
               <input
