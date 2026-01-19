@@ -13,7 +13,7 @@ const getBackendBaseUrl = (): string => {
 
 // Cache for pool-state responses (keeps UI stable when upstream blips)
 const poolCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 1500; // 1.5 seconds cache
+const CACHE_TTL = 10000; // 10 seconds cache - rely more on cached data
 
 interface FunToken {
   id: string;
@@ -46,11 +46,9 @@ interface UseFunTokensResult {
   refetch: () => Promise<void>;
 }
 
-const BASE_POLL_INTERVAL_MS = 15_000;
-// 2s was overkill for a list view and causes upstream/rate-limit failures.
-// 5s still feels "instant" while being much more reliable.
-const LIVE_POLL_INTERVAL_MS = 5_000;
-const LIVE_BATCH_SIZE = 5;
+const BASE_POLL_INTERVAL_MS = 30_000; // 30 seconds for DB refresh
+const LIVE_POLL_INTERVAL_MS = 15_000; // 15 seconds for live data - reduced from 5s
+const LIVE_BATCH_SIZE = 10; // Larger batches = fewer iterations
 
 const DEFAULT_LIVE: LiveFields = {
   holder_count: 0,
@@ -89,8 +87,6 @@ async function fetchPoolStateDirect(
     const url = buildFunPoolStateUrl(poolAddress, mintAddress);
     if (!url) return null;
 
-    console.log("[useFunTokens] Fetching pool state for", poolAddress.slice(0, 8) + "...");
-
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -102,13 +98,11 @@ async function fetchPoolStateDirect(
     });
 
     if (!response.ok) {
-      console.warn("[useFunTokens] fun-pool-state response not ok:", response.status);
-      return null;
+      return null; // Silent fail - use cached/default data
     }
 
     const data = await response.json();
 
-    // normalize response into the fields our UI expects
     const normalized = {
       priceSol: data.priceSol,
       marketCapSol: data.marketCapSol,
@@ -116,15 +110,6 @@ async function fetchPoolStateDirect(
       holderCount: data.holderCount,
       source: data.source,
     };
-
-    console.log("[useFunTokens] fun-pool-state response:", {
-      pool: poolAddress.slice(0, 8) + "...",
-      source: normalized.source,
-      priceSol: normalized.priceSol,
-      marketCapSol: normalized.marketCapSol,
-      bondingProgress: normalized.bondingProgress,
-      holderCount: normalized.holderCount,
-    });
 
     poolCache.set(poolAddress, { data: normalized, timestamp: Date.now() });
 
@@ -135,9 +120,7 @@ async function fetchPoolStateDirect(
       holder_count: normalized.holderCount ?? DEFAULT_LIVE.holder_count,
     };
   } catch (e) {
-    if ((e as Error).name !== "AbortError") {
-      console.error("[useFunTokens] fun-pool-state fetch failed for", poolAddress, e);
-    }
+    // Silent fail - use cached/default data
     return null;
   }
 }
@@ -221,7 +204,6 @@ export function useFunTokens(): UseFunTokensResult {
           })
         );
         allResults.push(...batchResults);
-        allResults.push(...batchResults);
 
         // Ignore stale refreshes mid-flight
         if (currentSeq !== liveRefreshSeq.current) return;
@@ -290,14 +272,13 @@ export function useFunTokens(): UseFunTokensResult {
       
       setError(null);
       
-      // Only fetch live data on initial load or if we have new tokens
-      if (isInitial) {
+      // Fetch live data on initial load
+      if (isInitial && base.length > 0) {
         await refreshLiveData();
       }
       
       setLastUpdate(new Date());
     } catch (err) {
-      console.error("[useFunTokens] Error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch tokens");
     } finally {
       if (isInitial) setIsLoading(false);
