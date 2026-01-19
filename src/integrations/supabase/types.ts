@@ -2347,6 +2347,58 @@ export type Database = {
         Args: { p_error_message: string; p_id: string }
         Returns: undefined
       }
+      backend_get_recent_vanity_keypairs: {
+        Args: { p_limit?: number; p_suffix?: string }
+        Returns: {
+          created_at: string
+          id: string
+          public_key: string
+          status: string
+          suffix: string
+          used_for_token_id: string
+        }[]
+      }
+      backend_get_used_vanity_keypairs: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          id: string
+          mint_address: string
+          public_key: string
+          suffix: string
+          token_id: string
+          token_name: string
+          token_ticker: string
+        }[]
+      }
+      backend_get_vanity_stats: {
+        Args: { p_suffix?: string }
+        Returns: {
+          available: number
+          reserved: number
+          total: number
+          used: number
+        }[]
+      }
+      backend_get_vanity_suffixes: {
+        Args: never
+        Returns: {
+          count: number
+          suffix: string
+        }[]
+      }
+      backend_insert_vanity_keypair: {
+        Args: {
+          p_public_key: string
+          p_secret_key_encrypted: string
+          p_suffix: string
+        }
+        Returns: string
+      }
+      backend_mark_vanity_used: {
+        Args: { p_keypair_id: string; p_token_id: string }
+        Returns: undefined
+      }
       backend_record_transaction: {
         Args: {
           p_creator_fee_sol?: number
@@ -2362,6 +2414,18 @@ export type Database = {
           p_user_wallet: string
         }
         Returns: string
+      }
+      backend_release_vanity_address: {
+        Args: { p_keypair_id: string }
+        Returns: undefined
+      }
+      backend_reserve_vanity_address: {
+        Args: { p_suffix: string }
+        Returns: {
+          id: string
+          public_key: string
+          secret_key_encrypted: string
+        }[]
       }
       backend_update_fee_earner: {
         Args: {
