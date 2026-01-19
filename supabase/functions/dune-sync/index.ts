@@ -6,7 +6,12 @@ const corsHeaders = {
 };
 
 const DUNE_API_BASE = 'https://api.dune.com/api/v1/uploads';
+const DUNE_QUERY_API = 'https://api.dune.com/api/v1/query';
 const DUNE_NAMESPACE = 'ai67xlaunch';
+
+// Dashboard query IDs that need refreshing after data sync
+// Get these from your Dune dashboard URLs (e.g., dune.com/queries/QUERY_ID)
+const DASHBOARD_QUERY_IDS: string[] = [];
 
 // Enhanced table schemas for pump.fun-style analytics
 const TABLE_SCHEMAS = {
@@ -250,6 +255,46 @@ async function ensureTablesExist(apiKey: string): Promise<void> {
   for (const [tableName, schema] of Object.entries(TABLE_SCHEMAS)) {
     await createDuneTable(apiKey, tableName, schema);
   }
+}
+
+// Refresh Dune dashboard queries after data sync
+async function refreshDashboardQueries(apiKey: string): Promise<{ refreshed: number; errors: string[] }> {
+  if (DASHBOARD_QUERY_IDS.length === 0) {
+    console.log('No dashboard query IDs configured - skipping query refresh');
+    return { refreshed: 0, errors: [] };
+  }
+
+  console.log(`Refreshing ${DASHBOARD_QUERY_IDS.length} dashboard queries...`);
+  const errors: string[] = [];
+  let refreshed = 0;
+
+  for (const queryId of DASHBOARD_QUERY_IDS) {
+    try {
+      const response = await fetch(`${DUNE_QUERY_API}/${queryId}/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dune-Api-Key': apiKey,
+        },
+        body: JSON.stringify({ performance: 'medium' }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Failed to refresh query ${queryId}:`, errorText);
+        errors.push(`Query ${queryId}: ${errorText}`);
+      } else {
+        const result = await response.json();
+        console.log(`Refreshed query ${queryId}:`, result.execution_id);
+        refreshed++;
+      }
+    } catch (error) {
+      console.error(`Error refreshing query ${queryId}:`, error);
+      errors.push(`Query ${queryId}: ${String(error)}`);
+    }
+  }
+
+  return { refreshed, errors };
 }
 
 async function fetchPlatformStats(supabase: SupabaseClient) {
@@ -617,8 +662,16 @@ Deno.serve(async (req) => {
 
     console.log('Dune sync completed:', results);
 
+    // Refresh dashboard queries after successful data upload
+    const queryRefreshResult = await refreshDashboardQueries(duneApiKey);
+    console.log('Dashboard query refresh:', queryRefreshResult);
+
     return new Response(
-      JSON.stringify({ success: allSuccess, results }),
+      JSON.stringify({ 
+        success: allSuccess, 
+        results,
+        queryRefresh: queryRefreshResult,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
