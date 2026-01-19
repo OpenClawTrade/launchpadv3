@@ -205,19 +205,19 @@ export function useFunTokens(): UseFunTokensResult {
   }, []);
 
   const fetchBaseTokens = useCallback(async (): Promise<FunToken[]> => {
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
-
+    // No timeout - let the request complete naturally
+    // Supabase has its own internal timeout handling
     const { data: funTokens, error: fetchError } = await supabase
       .from("fun_tokens")
       .select("*")
-      .order("created_at", { ascending: false })
-      // abortSignal is supported by supabase-js v2 and prevents long hangs
-      .abortSignal(controller.signal);
+      .order("created_at", { ascending: false });
 
-    window.clearTimeout(timeoutId);
+    if (fetchError) {
+      console.error("[useFunTokens] Supabase error:", fetchError);
+      throw fetchError;
+    }
 
-    if (fetchError) throw fetchError;
+    console.log(`[useFunTokens] Fetched ${funTokens?.length || 0} tokens from DB`);
 
     // Map DB rows to FunToken - use cached DB values if available, else defaults
     return (funTokens || []).map((t) => ({
