@@ -75,6 +75,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, feeRecipientWallet, serverSideSign, useVanityAddress = true } = req.body;
 
+    // Track vanity keypair for potential release on error
+    let vanityKeypairId: string | null = null;
+
     if (!name || !ticker) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
     }
@@ -105,6 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         vanityKeypair = await getAvailableVanityAddress('67x');
         if (vanityKeypair) {
+          vanityKeypairId = vanityKeypair.id; // Store for error release
           console.log('[create-fun] 🎯 Using vanity mint address:', vanityKeypair.publicKey);
         } else {
           console.log('[create-fun] No vanity address available, using random mint');
@@ -381,7 +385,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('[create-fun] Error:', error);
     
     // If we reserved a vanity address but failed, release it back
-    // Note: vanityKeypair is in scope from try block
+    if (vanityKeypairId) {
+      try {
+        await releaseVanityAddress(vanityKeypairId);
+        console.log('[create-fun] Released vanity address back to pool due to error:', vanityKeypairId);
+      } catch (releaseError) {
+        console.error('[create-fun] Failed to release vanity address:', releaseError);
+      }
+    }
     
     return res.status(500).json({
       success: false,
