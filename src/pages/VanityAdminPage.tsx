@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Cpu, Database, Play, RefreshCw, Sparkles, Zap } from 'lucide-react';
+import { ArrowLeft, Cpu, Database, Play, RefreshCw, Sparkles, Zap, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +39,15 @@ const VanityAdminPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastResult, setLastResult] = useState<GenerationResult | null>(null);
   const [authSecret, setAuthSecret] = useState('');
+
+  const abortRef = useRef<AbortController | null>(null);
+  const [isAutoRunning, setIsAutoRunning] = useState(false);
+  const [sessionBatches, setSessionBatches] = useState(0);
+  const [sessionAttempts, setSessionAttempts] = useState(0);
+  const [sessionFound, setSessionFound] = useState(0);
+
+  const TARGET_AVAILABLE = 100;
+  const MAX_AUTO_RUNS = 30;
 
   // Get auth secret from localStorage or prompt
   useEffect(() => {
@@ -93,8 +102,12 @@ const VanityAdminPage = () => {
     }
   }, [authSecret, fetchStatus]);
 
-  const triggerGeneration = async () => {
-    if (!authSecret) return;
+  const triggerGenerationOnce = useCallback(async () => {
+    if (!authSecret) return null;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setIsGenerating(true);
     try {
@@ -106,26 +119,61 @@ const VanityAdminPage = () => {
         },
         body: JSON.stringify({
           suffix: '67x',
-          targetCount: 100,
+          targetCount: TARGET_AVAILABLE,
         }),
+        signal: controller.signal,
       });
 
       const data = await response.json();
-      if (data.success) {
-        setLastResult(data.batch);
-        setStats(data.stats);
-        toast.success(`Generated ${data.batch.found} addresses in ${Math.round(data.batch.duration / 1000)}s`);
-        fetchStatus();
-      } else {
+      if (!data.success) {
         toast.error(data.error || 'Generation failed');
+        return null;
       }
+
+      setLastResult(data.batch);
+      setStats(data.stats);
+      setSessionBatches((v) => v + 1);
+      setSessionAttempts((v) => v + (data.batch?.attempts || 0));
+      setSessionFound((v) => v + (data.batch?.found || 0));
+
+      return data;
     } catch (error) {
-      console.error('Generation error:', error);
-      toast.error('Generation failed');
+      if ((error as any)?.name !== 'AbortError') {
+        console.error('Generation error:', error);
+        toast.error('Generation failed');
+      }
+      return null;
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [authSecret]);
+
+  const stopAutoRun = useCallback(() => {
+    setIsAutoRunning(false);
+    abortRef.current?.abort();
+  }, []);
+
+  const startAutoRun = useCallback(async () => {
+    if (!authSecret) return;
+
+    setIsAutoRunning(true);
+    for (let i = 0; i < MAX_AUTO_RUNS; i++) {
+      if (!isAutoRunning) break;
+
+      const data = await triggerGenerationOnce();
+      if (!data) break;
+
+      await fetchStatus();
+
+      const available = data?.stats?.available ?? 0;
+      if (available >= TARGET_AVAILABLE) {
+        toast.success(`Target reached: ${available}/${TARGET_AVAILABLE} available`);
+        break;
+      }
+    }
+
+    setIsAutoRunning(false);
+  }, [authSecret, fetchStatus, isAutoRunning, triggerGenerationOnce]);
 
   if (!authSecret) {
     return (

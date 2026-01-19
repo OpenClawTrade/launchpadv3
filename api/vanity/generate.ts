@@ -5,8 +5,14 @@ import { generateVanityAddresses, getVanityStats } from '../../lib/vanityGenerat
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-vanity-secret',
 };
+
+function applyCors(res: VercelResponse) {
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    res.setHeader(key, value);
+  }
+}
 
 // Default suffix to generate
 const DEFAULT_SUFFIX = '67x';
@@ -18,9 +24,11 @@ const MAX_DURATION_MS = 55000;
 const BATCH_SIZE = 2000;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  applyCors(res);
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200).setHeader('Access-Control-Allow-Origin', '*').end();
+    return res.status(200).end();
   }
 
   // Simple auth check - require a secret header to prevent abuse
