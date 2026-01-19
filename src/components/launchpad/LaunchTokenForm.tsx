@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import { isBlockedName } from "@/lib/hiddenTokens";
+import { MathCaptcha } from "./MathCaptcha";
 
 interface LaunchTokenFormProps {
   onSuccess?: (mintAddress: string) => void;
@@ -63,6 +64,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSocialLinks, setShowSocialLinks] = useState(false);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -374,18 +376,25 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         </div>
       </div>
 
+      {/* CAPTCHA Verification */}
+      {isAuthenticated && formData.name && formData.ticker && (
+        <MathCaptcha onVerified={setCaptchaVerified} />
+      )}
+
       {/* Launch Button */}
       {isAuthenticated ? (
         <Button
           type="submit"
           className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
-          disabled={isLoading || isApiLoading || !formData.name || !formData.ticker}
+          disabled={isLoading || isApiLoading || !formData.name || !formData.ticker || !captchaVerified}
         >
           {isLoading || isApiLoading ? (
             <>
               <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               Creating Token...
             </>
+          ) : !captchaVerified ? (
+            "Complete verification above"
           ) : (
             "Launch Token"
           )}
