@@ -45,18 +45,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { 
+    const {
       suffix = DEFAULT_SUFFIX,
       targetCount = 100, // Keep running until we have this many available
+      ignoreTarget = false,
     } = req.body || {};
-    
+
     console.log(`[vanity/batch] Starting batch generation for suffix "${suffix}"`);
-    console.log(`[vanity/batch] Target: ${targetCount} available addresses`);
-    
+    if (!ignoreTarget) {
+      console.log(`[vanity/batch] Target: ${targetCount} available addresses`);
+    } else {
+      console.log('[vanity/batch] ignoreTarget=true (always run one batch)');
+    }
+
     // Check current count
     const statsBefore = await getVanityStats(suffix);
-    
-    if (statsBefore.available >= targetCount) {
+
+    if (!ignoreTarget && statsBefore.available >= targetCount) {
       console.log(`[vanity/batch] Already have ${statsBefore.available} available, target met!`);
       return res.status(200).json({
         success: true,
@@ -66,16 +71,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         generated: 0,
       });
     }
-    
-    const needed = targetCount - statsBefore.available;
-    console.log(`[vanity/batch] Need ${needed} more addresses to reach target`);
-    
+
+    if (!ignoreTarget) {
+      const needed = targetCount - statsBefore.available;
+      console.log(`[vanity/batch] Need ${needed} more addresses to reach target`);
+    }
+
     // Run generation at maximum speed
     const result = await generateVanityAddresses(suffix, MAX_DURATION_MS, BATCH_SIZE);
-    
+
     // Get updated stats
     const statsAfter = await getVanityStats(suffix);
-    
+
     const response = {
       success: true,
       suffix,
@@ -85,27 +92,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         duration: result.duration,
         rate: Math.round(result.attempts / (result.duration / 1000)),
       },
-      progress: {
-        before: statsBefore.available,
-        after: statsAfter.available,
-        target: targetCount,
-        remaining: Math.max(0, targetCount - statsAfter.available),
-        percentComplete: Math.min(100, Math.round((statsAfter.available / targetCount) * 100)),
-      },
+      progress: ignoreTarget
+        ? null
+        : {
+            before: statsBefore.available,
+            after: statsAfter.available,
+            target: targetCount,
+            remaining: Math.max(0, targetCount - statsAfter.available),
+            percentComplete: Math.min(100, Math.round((statsAfter.available / targetCount) * 100)),
+          },
       stats: statsAfter,
       // Include addresses for logging
       newAddresses: result.addresses,
     };
-    
-    console.log(`[vanity/batch] Complete! Progress: ${response.progress.percentComplete}%`);
-    
+
+    if (!ignoreTarget) {
+      console.log(`[vanity/batch] Complete! Progress: ${response.progress?.percentComplete}%`);
+    } else {
+      console.log(`[vanity/batch] Complete! Batch found: ${result.found}`);
+    }
+
     return res.status(200).json(response);
 
-  } catch (error) {
-    console.error('[vanity/batch] Error:', error);
-    return res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-}
