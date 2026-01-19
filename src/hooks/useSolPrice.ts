@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-// Multiple price sources for resilience
-const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd';
 const CACHE_KEY = 'sol_price_cache';
-const CACHE_TTL = 60000; // 1 minute
+const CACHE_TTL = 30000; // 30 seconds
 
 interface CachedPrice {
   price: number;
@@ -17,7 +16,7 @@ export function useSolPrice() {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsed: CachedPrice = JSON.parse(cached);
-        if (Date.now() - parsed.timestamp < CACHE_TTL) {
+        if (Date.now() - parsed.timestamp < CACHE_TTL * 2) {
           return parsed.price;
         }
       }
@@ -33,15 +32,12 @@ export function useSolPrice() {
       try {
         setIsLoading(true);
         
-        // Use CoinGecko (free, no auth required)
-        const response = await fetch(COINGECKO_API);
+        // Use edge function to avoid CORS/rate limiting
+        const { data, error } = await supabase.functions.invoke('sol-price');
         
-        if (!response.ok) {
-          throw new Error('Failed to fetch SOL price');
-        }
+        if (error) throw error;
         
-        const data = await response.json();
-        const price = data?.solana?.usd;
+        const price = data?.price;
         
         if (price && typeof price === 'number') {
           setSolPrice(price);
@@ -64,7 +60,7 @@ export function useSolPrice() {
     // Fetch immediately
     fetchPrice();
 
-    // Refresh every minute
+    // Refresh every 30 seconds
     const interval = setInterval(fetchPrice, CACHE_TTL);
 
     return () => clearInterval(interval);
