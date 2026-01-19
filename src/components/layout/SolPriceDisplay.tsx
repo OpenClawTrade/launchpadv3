@@ -1,56 +1,60 @@
 import { useState, useEffect } from "react";
 import { TrendUp, TrendDown } from "@phosphor-icons/react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PriceData {
   price: number;
   change24h: number;
 }
 
-const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true';
-const JUPITER_PRICE_API = 'https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112';
+const CACHE_KEY = 'sol_price_display_cache';
+const CACHE_TTL = 30000; // 30 seconds
 
 export function SolPriceDisplay() {
-  const [priceData, setPriceData] = useState<PriceData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [priceData, setPriceData] = useState<PriceData | null>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.timestamp < CACHE_TTL * 2) {
+          return { price: parsed.price, change24h: parsed.change24h };
+        }
+      }
+    } catch {}
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState(!priceData);
 
   useEffect(() => {
     const fetchPrice = async () => {
       try {
-        // Try CoinGecko first for 24h change
-        const cgResponse = await fetch(COINGECKO_API);
-        if (cgResponse.ok) {
-          const data = await cgResponse.json();
-          if (data.solana) {
-            setPriceData({
-              price: data.solana.usd,
-              change24h: data.solana.usd_24h_change || 0,
-            });
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        // Fallback to Jupiter (no 24h change)
-        const jupResponse = await fetch(JUPITER_PRICE_API);
-        if (jupResponse.ok) {
-          const data = await jupResponse.json();
-          const price = data?.data?.['So11111111111111111111111111111111111111112']?.price;
-          if (price) {
-            setPriceData({
-              price,
-              change24h: 0,
-            });
-          }
+        // Use edge function to avoid CORS/rate limiting
+        const { data, error } = await supabase.functions.invoke('sol-price');
+        
+        if (error) throw error;
+        
+        if (data?.price) {
+          const newData = {
+            price: data.price,
+            change24h: data.change24h || 0,
+          };
+          setPriceData(newData);
+          setIsLoading(false);
+          
+          // Cache
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            ...newData,
+            timestamp: Date.now(),
+          }));
         }
       } catch (error) {
         console.debug('[SolPriceDisplay] Error:', error);
-      } finally {
         setIsLoading(false);
       }
     };
 
     fetchPrice();
-    const interval = setInterval(fetchPrice, 10000); // Update every 10 seconds
+    const interval = setInterval(fetchPrice, CACHE_TTL);
 
     return () => clearInterval(interval);
   }, []);
