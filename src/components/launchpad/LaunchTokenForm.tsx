@@ -8,7 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useMeteoraApi } from "@/hooks/useMeteoraApi";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Loader2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { useLaunchRateLimit } from "@/hooks/useLaunchRateLimit";
+import { Loader2, ImageIcon, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
@@ -28,6 +29,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const { createPool, isLoading: isApiLoading } = useMeteoraApi();
   const privyAvailable = usePrivyAvailable();
   const navigate = useNavigate();
+  const { allowed: rateLimitAllowed, formattedCountdown, countdown, message: rateLimitMessage, refresh: refreshRateLimit } = useLaunchRateLimit();
   
   // Wallet state from Privy (will be set by PrivyWalletProvider)
   const [wallets, setWallets] = useState<any[]>([]);
@@ -376,8 +378,25 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         </div>
       </div>
 
+      {/* Rate Limit Warning */}
+      {!rateLimitAllowed && countdown > 0 && (
+        <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-center space-y-2">
+          <div className="flex items-center justify-center gap-2 text-destructive">
+            <Clock className="h-5 w-5" />
+            <span className="font-medium">Rate Limited</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Sorry, you've already launched 2 coins in the last 60 minutes.
+          </p>
+          <div className="text-2xl font-mono font-bold text-destructive">
+            {formattedCountdown}
+          </div>
+          <p className="text-xs text-muted-foreground">Please wait before launching another token</p>
+        </div>
+      )}
+
       {/* CAPTCHA Verification */}
-      {isAuthenticated && formData.name && formData.ticker && (
+      {isAuthenticated && formData.name && formData.ticker && rateLimitAllowed && (
         <MathCaptcha onVerified={setCaptchaVerified} />
       )}
 
@@ -386,13 +405,15 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
         <Button
           type="submit"
           className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
-          disabled={isLoading || isApiLoading || !formData.name || !formData.ticker || !captchaVerified}
+          disabled={isLoading || isApiLoading || !formData.name || !formData.ticker || !captchaVerified || !rateLimitAllowed}
         >
           {isLoading || isApiLoading ? (
             <>
               <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               Creating Token...
             </>
+          ) : !rateLimitAllowed ? (
+            `Wait ${formattedCountdown}`
           ) : !captchaVerified ? (
             "Complete verification above"
           ) : (

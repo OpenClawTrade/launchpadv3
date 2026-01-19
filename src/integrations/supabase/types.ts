@@ -1121,6 +1121,35 @@ export type Database = {
         }
         Relationships: []
       }
+      launch_rate_limits: {
+        Row: {
+          id: string
+          ip_address: string
+          launched_at: string
+          token_id: string | null
+        }
+        Insert: {
+          id?: string
+          ip_address: string
+          launched_at?: string
+          token_id?: string | null
+        }
+        Update: {
+          id?: string
+          ip_address?: string
+          launched_at?: string
+          token_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launch_rate_limits_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       launchpad_transactions: {
         Row: {
           created_at: string | null
@@ -2622,6 +2651,7 @@ export type Database = {
       }
       calculate_trending_topics: { Args: never; Returns: undefined }
       can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
+      cleanup_old_rate_limits: { Args: never; Returns: undefined }
       generate_short_id: { Args: never; Returns: string }
       get_api_account_by_wallet: {
         Args: { p_wallet_address: string }
