@@ -123,10 +123,31 @@ const VanityAdminPage = () => {
     abortRef.current = controller;
 
     setIsGenerating(true);
-    setLiveProgress({ attempts: 0, found: 0, elapsed: 0, rate: 0, remaining: 55000, percentComplete: 0, recentAddresses: [] });
+    
+    // Simulated progress - ~55 seconds, ~3000 attempts/sec
+    const startTime = Date.now();
+    const ESTIMATED_RATE = 3300;
+    const MAX_DURATION = 55000;
+    
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const estimatedAttempts = Math.round((elapsed / 1000) * ESTIMATED_RATE);
+      const percentComplete = Math.min(99, Math.round((elapsed / MAX_DURATION) * 100));
+      const remaining = Math.max(0, MAX_DURATION - elapsed);
+      
+      setLiveProgress(prev => ({
+        attempts: estimatedAttempts,
+        found: prev?.found || 0,
+        elapsed,
+        rate: ESTIMATED_RATE,
+        remaining,
+        percentComplete,
+        recentAddresses: prev?.recentAddresses || [],
+      }));
+    }, 500);
 
     try {
-      const response = await fetch(`${VERCEL_API_BASE}/api/vanity/batch-stream`, {
+      const response = await fetch(`${VERCEL_API_BASE}/api/vanity/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -139,83 +160,36 @@ const VanityAdminPage = () => {
         signal: controller.signal,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      clearInterval(progressInterval);
+
+      const data = await response.json();
+      if (!data.success) {
+        toast.error(data.error || 'Generation failed');
+        return null;
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body');
+      const result: GenerationResult = {
+        found: data.batch?.found || 0,
+        attempts: data.batch?.attempts || 0,
+        duration: data.batch?.duration || 0,
+        rate: data.batch?.rate || 0,
+        addresses: data.newAddresses || [],
+      };
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-      const foundAddresses: string[] = [];
-      let finalResult: GenerationResult | null = null;
+      setLastResult(result);
+      setStats(data.stats);
+      setSessionBatches((v) => v + 1);
+      setSessionAttempts((v) => v + result.attempts);
+      setSessionFound((v) => v + result.found);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        let eventType = '';
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7).trim();
-          } else if (line.startsWith('data: ') && eventType) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              if (eventType === 'progress') {
-                setLiveProgress(prev => ({
-                  ...data,
-                  recentAddresses: prev?.recentAddresses || [],
-                }));
-              } else if (eventType === 'found') {
-                foundAddresses.push(data.address);
-                setLiveProgress(prev => prev ? {
-                  ...prev,
-                  attempts: data.attempts,
-                  found: data.totalFound,
-                  elapsed: data.elapsed,
-                  rate: data.rate,
-                  recentAddresses: [...foundAddresses.slice(-5)],
-                } : prev);
-                toast.success(`Found: ...${data.address.slice(-6)}`);
-              } else if (eventType === 'complete') {
-                finalResult = {
-                  found: data.found,
-                  attempts: data.attempts,
-                  duration: data.duration,
-                  rate: data.rate,
-                  addresses: data.addresses || [],
-                };
-                if (data.stats) {
-                  setStats(data.stats);
-                }
-              } else if (eventType === 'error') {
-                toast.error(data.message || 'Generation failed');
-              }
-            } catch (e) {
-              console.error('Parse error:', e);
-            }
-            eventType = '';
-          }
-        }
-      }
-
-      if (finalResult) {
-        setLastResult(finalResult);
-        setSessionBatches((v) => v + 1);
-        setSessionAttempts((v) => v + finalResult!.attempts);
-        setSessionFound((v) => v + finalResult!.found);
+      if (result.found > 0) {
+        toast.success(`Found ${result.found} new addresses!`);
       }
 
       setLiveProgress(null);
-      await fetchStatus();
-      return finalResult ? { batch: finalResult, stats } : null;
+      return { batch: result, stats: data.stats };
     } catch (error) {
+      clearInterval(progressInterval);
       if ((error as any)?.name !== 'AbortError') {
         console.error('Generation error:', error);
         toast.error('Generation failed');
@@ -225,7 +199,7 @@ const VanityAdminPage = () => {
       setIsGenerating(false);
       setLiveProgress(null);
     }
-  }, [authSecret, fetchStatus, stats]);
+  }, [authSecret]);
 
   const stopAutoRun = useCallback(() => {
     setIsAutoRunning(false);
