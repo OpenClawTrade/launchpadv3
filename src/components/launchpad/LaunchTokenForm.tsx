@@ -12,6 +12,7 @@ import { Loader2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { isBlockedName } from "@/lib/hiddenTokens";
 
 interface LaunchTokenFormProps {
   onSuccess?: (mintAddress: string) => void;
@@ -102,6 +103,34 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
 
     if (formData.ticker.length > 10) {
       toast({ title: "Ticker must be 10 characters or less", variant: "destructive" });
+      return;
+    }
+
+    // Block spam/exploit names and tickers
+    if (isBlockedName(formData.name)) {
+      toast({ 
+        title: "Invalid token name", 
+        description: "This name contains blocked content and cannot be used.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (isBlockedName(formData.ticker)) {
+      toast({ 
+        title: "Invalid ticker", 
+        description: "This ticker contains blocked content and cannot be used.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (isBlockedName(formData.description)) {
+      toast({ 
+        title: "Invalid description", 
+        description: "The description contains blocked content and cannot be used.", 
+        variant: "destructive" 
+      });
       return;
     }
 

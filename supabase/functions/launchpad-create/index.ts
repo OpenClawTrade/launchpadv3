@@ -13,6 +13,24 @@ const PLATFORM_FEE_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
 const DEFAULT_WEBSITE = "https://ai67x.fun";
 const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
 
+// Blocked patterns for spam/exploit names
+const BLOCKED_PATTERNS = [
+  /exploit/i,
+  /hack/i,
+  /0xh1ve/i,
+  /fix\s*(ur|your)\s*site/i,
+  /dm\s*@/i,
+  /found\s*(an?|the)?\s*exploit/i,
+  /vulnerability/i,
+  /security\s*issue/i,
+  /into\s*(ur|your)\s*db/i,
+];
+
+function isBlockedName(name: string): boolean {
+  if (!name) return false;
+  return BLOCKED_PATTERNS.some(pattern => pattern.test(name));
+}
+
 // UUID v5 implementation for Privy ID to UUID mapping
 const UUID_V5_NAMESPACE_DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
@@ -90,6 +108,15 @@ serve(async (req) => {
     if (!creatorWallet || !name || !ticker) {
       return new Response(
         JSON.stringify({ error: "creatorWallet, name, and ticker are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Block spam/exploit names and tickers
+    if (isBlockedName(name) || isBlockedName(ticker) || isBlockedName(description || "")) {
+      console.log("launchpad-create ❌ Blocked spam token attempt:", { name, ticker });
+      return new Response(
+        JSON.stringify({ error: "Token name or ticker contains blocked content" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

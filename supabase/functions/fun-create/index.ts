@@ -10,6 +10,24 @@ const corsHeaders = {
 const DEFAULT_WEBSITE = "https://ai67x.fun";
 const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
 
+// Blocked patterns for spam/exploit names
+const BLOCKED_PATTERNS = [
+  /exploit/i,
+  /hack/i,
+  /0xh1ve/i,
+  /fix\s*(ur|your)\s*site/i,
+  /dm\s*@/i,
+  /found\s*(an?|the)?\s*exploit/i,
+  /vulnerability/i,
+  /security\s*issue/i,
+  /into\s*(ur|your)\s*db/i,
+];
+
+function isBlockedName(name: string): boolean {
+  if (!name) return false;
+  return BLOCKED_PATTERNS.some(pattern => pattern.test(name));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -22,6 +40,15 @@ serve(async (req) => {
     if (!name || !ticker || !creatorWallet) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields: name, ticker, creatorWallet" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Block spam/exploit names and tickers
+    if (isBlockedName(name) || isBlockedName(ticker) || isBlockedName(description || "")) {
+      console.log("[fun-create] ❌ Blocked spam token attempt:", { name, ticker });
+      return new Response(
+        JSON.stringify({ success: false, error: "Token name or ticker contains blocked content" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
