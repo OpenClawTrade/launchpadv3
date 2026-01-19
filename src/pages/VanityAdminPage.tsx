@@ -124,27 +124,52 @@ const VanityAdminPage = () => {
 
     setIsGenerating(true);
     
-    // Simulated progress - ~55 seconds, ~3000 attempts/sec
+    // Track starting count to calculate found during this batch
+    const startingAvailable = stats?.available || 0;
+    
     const startTime = Date.now();
     const ESTIMATED_RATE = 3300;
     const MAX_DURATION = 55000;
     
-    const progressInterval = setInterval(() => {
+    // Poll for real-time progress (found addresses are saved to DB immediately)
+    const progressInterval = setInterval(async () => {
       const elapsed = Date.now() - startTime;
       const estimatedAttempts = Math.round((elapsed / 1000) * ESTIMATED_RATE);
       const percentComplete = Math.min(99, Math.round((elapsed / MAX_DURATION) * 100));
       const remaining = Math.max(0, MAX_DURATION - elapsed);
       
-      setLiveProgress(prev => ({
-        attempts: estimatedAttempts,
-        found: prev?.found || 0,
-        elapsed,
-        rate: ESTIMATED_RATE,
-        remaining,
-        percentComplete,
-        recentAddresses: prev?.recentAddresses || [],
-      }));
-    }, 500);
+      // Fetch real count from database
+      try {
+        const progressRes = await fetch(`${VERCEL_API_BASE}/api/vanity/progress?suffix=67x`, {
+          headers: { 'x-vanity-secret': authSecret },
+        });
+        const progressData = await progressRes.json();
+        
+        if (progressData.success) {
+          const realFound = Math.max(0, progressData.available - startingAvailable);
+          setLiveProgress(prev => ({
+            attempts: estimatedAttempts,
+            found: realFound,
+            elapsed,
+            rate: ESTIMATED_RATE,
+            remaining,
+            percentComplete,
+            recentAddresses: prev?.recentAddresses || [],
+          }));
+        }
+      } catch {
+        // If poll fails, just update estimates
+        setLiveProgress(prev => ({
+          attempts: estimatedAttempts,
+          found: prev?.found || 0,
+          elapsed,
+          rate: ESTIMATED_RATE,
+          remaining,
+          percentComplete,
+          recentAddresses: prev?.recentAddresses || [],
+        }));
+      }
+    }, 2000); // Poll every 2 seconds
 
     try {
       const response = await fetch(`${VERCEL_API_BASE}/api/vanity/batch`, {
@@ -199,7 +224,7 @@ const VanityAdminPage = () => {
       setIsGenerating(false);
       setLiveProgress(null);
     }
-  }, [authSecret]);
+  }, [authSecret, stats?.available]);
 
   const stopAutoRun = useCallback(() => {
     setIsAutoRunning(false);
