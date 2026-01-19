@@ -60,8 +60,17 @@ const VanityAdminPage = () => {
   // Live progress during generation
   const [liveProgress, setLiveProgress] = useState<LiveProgress | null>(null);
 
-  const TARGET_AVAILABLE = 100;
+  const [targetAvailable, setTargetAvailable] = useState<number>(() => {
+    const raw = localStorage.getItem('vanity_target_available');
+    const parsed = raw ? Number(raw) : 500;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 500;
+  });
+
   const MAX_AUTO_RUNS = 30;
+
+  useEffect(() => {
+    localStorage.setItem('vanity_target_available', String(targetAvailable));
+  }, [targetAvailable]);
 
   // Get auth secret from localStorage or prompt
   useEffect(() => {
@@ -136,8 +145,10 @@ const VanityAdminPage = () => {
     }
   }, [authSecret, fetchStatus]);
 
-  const triggerGenerationOnce = useCallback(async () => {
+  const triggerGenerationOnce = useCallback(async (opts?: { targetCount?: number; ignoreTarget?: boolean }) => {
     if (!authSecret) return null;
+
+    const { targetCount, ignoreTarget } = opts ?? {};
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -208,7 +219,8 @@ const VanityAdminPage = () => {
         },
         body: JSON.stringify({
           suffix: '67x',
-          targetCount: TARGET_AVAILABLE,
+          ...(typeof targetCount === 'number' && targetCount > 0 ? { targetCount } : {}),
+          ...(ignoreTarget ? { ignoreTarget: true } : {}),
         }),
         signal: controller.signal,
       });
@@ -265,26 +277,33 @@ const VanityAdminPage = () => {
 
     autoRunRef.current = true;
     setIsAutoRunning(true);
-    
+
+    const shouldStopOnTarget = targetAvailable > 0;
+
     for (let i = 0; i < MAX_AUTO_RUNS; i++) {
       // Use ref to check if we should stop (avoids stale closure)
       if (!autoRunRef.current) break;
 
-      const data = await triggerGenerationOnce();
+      const data = await triggerGenerationOnce(
+        shouldStopOnTarget
+          ? { targetCount: targetAvailable }
+          : { ignoreTarget: true }
+      );
       if (!data) break;
 
       await fetchStatus();
 
       const available = data?.stats?.available ?? 0;
-      if (available >= TARGET_AVAILABLE) {
-        toast.success(`Target reached: ${available}/${TARGET_AVAILABLE} available`);
+      if (shouldStopOnTarget && available >= targetAvailable) {
+        toast.success(`Auto-run target reached: ${available}/${targetAvailable} available`);
         break;
       }
     }
 
     autoRunRef.current = false;
     setIsAutoRunning(false);
-  }, [authSecret, fetchStatus, triggerGenerationOnce]);
+  }, [authSecret, fetchStatus, triggerGenerationOnce, targetAvailable]);
+
 
   if (!authSecret) {
     return (
@@ -412,9 +431,23 @@ const VanityAdminPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <label className="text-xs text-muted-foreground">Auto-Run target (available)</label>
+              <input
+                type="number"
+                min={0}
+                value={targetAvailable}
+                onChange={(e) => setTargetAvailable(Math.max(0, Number(e.target.value || 0)))}
+                className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground"
+              />
+              <p className="text-xs text-muted-foreground">
+                Set to 0 for no target (runs until you stop).
+              </p>
+            </div>
+
             <div className="flex gap-2">
               <Button
-                onClick={triggerGenerationOnce}
+                onClick={() => triggerGenerationOnce({ ignoreTarget: true })}
                 disabled={isGenerating || isAutoRunning}
                 className="flex-1"
                 size="lg"
@@ -446,7 +479,7 @@ const VanityAdminPage = () => {
                 ) : (
                   <>
                     <Play className="w-4 h-4 mr-2" />
-                    Auto-Run to {TARGET_AVAILABLE}
+                    {targetAvailable > 0 ? `Auto-Run to ${targetAvailable}` : 'Auto-Run (no target)'}
                   </>
                 )}
               </Button>
@@ -531,9 +564,13 @@ const VanityAdminPage = () => {
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span>Pool Progress</span>
-                      <span className="font-mono">{stats.available} / {TARGET_AVAILABLE}</span>
+                      <span className="font-mono">
+                        {targetAvailable > 0 ? `${stats.available} / ${targetAvailable}` : `${stats.available} / ∞`}
+                      </span>
                     </div>
-                    <Progress value={(stats.available / TARGET_AVAILABLE) * 100} className="h-2" />
+                    {targetAvailable > 0 && (
+                      <Progress value={(stats.available / targetAvailable) * 100} className="h-2" />
+                    )}
                   </div>
                 )}
               </div>
