@@ -31,6 +31,16 @@ interface GenerationResult {
   addresses: string[];
 }
 
+interface LiveProgress {
+  attempts: number;
+  found: number;
+  elapsed: number;
+  rate: number;
+  remaining: number;
+  percentComplete: number;
+  recentAddresses: string[];
+}
+
 const VanityAdminPage = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<VanityStats | null>(null);
@@ -45,6 +55,9 @@ const VanityAdminPage = () => {
   const [sessionBatches, setSessionBatches] = useState(0);
   const [sessionAttempts, setSessionAttempts] = useState(0);
   const [sessionFound, setSessionFound] = useState(0);
+
+  // Live progress during generation
+  const [liveProgress, setLiveProgress] = useState<LiveProgress | null>(null);
 
   const TARGET_AVAILABLE = 100;
   const MAX_AUTO_RUNS = 30;
@@ -110,8 +123,10 @@ const VanityAdminPage = () => {
     abortRef.current = controller;
 
     setIsGenerating(true);
+    setLiveProgress({ attempts: 0, found: 0, elapsed: 0, rate: 0, remaining: 55000, percentComplete: 0, recentAddresses: [] });
+
     try {
-      const response = await fetch(`${VERCEL_API_BASE}/api/vanity/batch`, {
+      const response = await fetch(`${VERCEL_API_BASE}/api/vanity/batch-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,19 +139,82 @@ const VanityAdminPage = () => {
         signal: controller.signal,
       });
 
-      const data = await response.json();
-      if (!data.success) {
-        toast.error(data.error || 'Generation failed');
-        return null;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
 
-      setLastResult(data.batch);
-      setStats(data.stats);
-      setSessionBatches((v) => v + 1);
-      setSessionAttempts((v) => v + (data.batch?.attempts || 0));
-      setSessionFound((v) => v + (data.batch?.found || 0));
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
 
-      return data;
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const foundAddresses: string[] = [];
+      let finalResult: GenerationResult | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let eventType = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ') && eventType) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (eventType === 'progress') {
+                setLiveProgress(prev => ({
+                  ...data,
+                  recentAddresses: prev?.recentAddresses || [],
+                }));
+              } else if (eventType === 'found') {
+                foundAddresses.push(data.address);
+                setLiveProgress(prev => prev ? {
+                  ...prev,
+                  attempts: data.attempts,
+                  found: data.totalFound,
+                  elapsed: data.elapsed,
+                  rate: data.rate,
+                  recentAddresses: [...foundAddresses.slice(-5)],
+                } : prev);
+                toast.success(`Found: ...${data.address.slice(-6)}`);
+              } else if (eventType === 'complete') {
+                finalResult = {
+                  found: data.found,
+                  attempts: data.attempts,
+                  duration: data.duration,
+                  rate: data.rate,
+                  addresses: data.addresses || [],
+                };
+                if (data.stats) {
+                  setStats(data.stats);
+                }
+              } else if (eventType === 'error') {
+                toast.error(data.message || 'Generation failed');
+              }
+            } catch (e) {
+              console.error('Parse error:', e);
+            }
+            eventType = '';
+          }
+        }
+      }
+
+      if (finalResult) {
+        setLastResult(finalResult);
+        setSessionBatches((v) => v + 1);
+        setSessionAttempts((v) => v + finalResult!.attempts);
+        setSessionFound((v) => v + finalResult!.found);
+      }
+
+      setLiveProgress(null);
+      await fetchStatus();
+      return finalResult ? { batch: finalResult, stats } : null;
     } catch (error) {
       if ((error as any)?.name !== 'AbortError') {
         console.error('Generation error:', error);
@@ -145,8 +223,9 @@ const VanityAdminPage = () => {
       return null;
     } finally {
       setIsGenerating(false);
+      setLiveProgress(null);
     }
-  }, [authSecret]);
+  }, [authSecret, fetchStatus, stats]);
 
   const stopAutoRun = useCallback(() => {
     setIsAutoRunning(false);
@@ -341,8 +420,57 @@ const VanityAdminPage = () => {
               </Button>
             </div>
 
+            {/* Live Progress During Generation */}
+            {liveProgress && (
+              <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg space-y-3 animate-pulse">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-green-500 flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Generating Live...
+                  </h4>
+                  <Badge variant="outline" className="text-green-500 border-green-500/50">
+                    {liveProgress.percentComplete}%
+                  </Badge>
+                </div>
+                
+                <Progress value={liveProgress.percentComplete} className="h-3" />
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="text-center p-2 bg-background rounded">
+                    <div className="text-xl font-bold font-mono text-green-500">{liveProgress.found}</div>
+                    <div className="text-muted-foreground text-xs">Found</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded">
+                    <div className="text-xl font-bold font-mono">{liveProgress.attempts.toLocaleString()}</div>
+                    <div className="text-muted-foreground text-xs">Attempts</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded">
+                    <div className="text-xl font-bold font-mono">{liveProgress.rate.toLocaleString()}/s</div>
+                    <div className="text-muted-foreground text-xs">Rate</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded">
+                    <div className="text-xl font-bold font-mono">{Math.round(liveProgress.remaining / 1000)}s</div>
+                    <div className="text-muted-foreground text-xs">Remaining</div>
+                  </div>
+                </div>
+                
+                {liveProgress.recentAddresses.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-muted-foreground text-xs">Recently found:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {liveProgress.recentAddresses.map((addr) => (
+                        <Badge key={addr} className="bg-green-500/20 text-green-500 font-mono text-xs">
+                          ...{addr.slice(-6)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Session Stats */}
-            {(sessionBatches > 0 || isAutoRunning) && (
+            {(sessionBatches > 0 || isAutoRunning) && !liveProgress && (
               <div className="p-4 bg-primary/10 rounded-lg space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="font-semibold text-primary">Session Progress</h4>
