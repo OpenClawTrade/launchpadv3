@@ -47,6 +47,19 @@ function generateAndCheck(suffix: string): { keypair: Keypair; address: string }
   return null;
 }
 
+// Get Supabase client using anon key (works with SECURITY DEFINER functions)
+function getSupabaseClient() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  // Prefer service role key but fall back to anon key for SECURITY DEFINER functions
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase credentials not configured');
+  }
+  
+  return createClient(supabaseUrl, supabaseKey);
+}
+
 export interface VanityGenerationResult {
   found: number;
   attempts: number;
@@ -74,16 +87,8 @@ export async function generateVanityAddresses(
   
   console.log(`[vanity] Starting generation for suffix "${suffix}" (max ${maxDuration}ms)`);
   
-  // Get Supabase client for saving
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = getSupabaseClient();
   const encryptionKey = process.env.TREASURY_PRIVATE_KEY?.slice(0, 32) || 'default-encryption-key-12345678';
-  
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase credentials not configured');
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseKey);
   
   // Generation loop
   while (Date.now() - startTime < maxDuration) {
@@ -96,26 +101,21 @@ export async function generateVanityAddresses(
         foundKeypairs.push(result);
         console.log(`[vanity] ✅ Found match #${foundKeypairs.length}: ${result.address} (${attempts} attempts)`);
         
-        // Save immediately to database
+        // Save immediately to database using SECURITY DEFINER function
         const secretKeyHex = Buffer.from(result.keypair.secretKey).toString('hex');
         const encryptedSecretKey = encryptSecretKey(secretKeyHex, encryptionKey);
         
         try {
-          const { error } = await supabase
-            .from('vanity_keypairs')
-            .insert({
-              suffix: suffix.toLowerCase(),
-              public_key: result.address,
-              secret_key_encrypted: encryptedSecretKey,
-              status: 'available',
-            });
+          const { data, error } = await supabase.rpc('backend_insert_vanity_keypair', {
+            p_suffix: suffix.toLowerCase(),
+            p_public_key: result.address,
+            p_secret_key_encrypted: encryptedSecretKey,
+          });
           
           if (error) {
-            if (error.code === '23505') {
-              console.log(`[vanity] Address already exists, skipping: ${result.address}`);
-            } else {
-              console.error(`[vanity] Failed to save keypair:`, error);
-            }
+            console.error(`[vanity] Failed to save keypair:`, error);
+          } else if (data === null) {
+            console.log(`[vanity] Address already exists, skipping: ${result.address}`);
           } else {
             console.log(`[vanity] 💾 Saved to database: ${result.address}`);
           }
@@ -152,27 +152,21 @@ export async function getAvailableVanityAddress(suffix: string): Promise<{
   publicKey: string;
   keypair: Keypair;
 } | null> {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const encryptionKey = process.env.TREASURY_PRIVATE_KEY?.slice(0, 32) || 'default-encryption-key-12345678';
   
-  if (!supabaseUrl || !supabaseKey) {
+  let supabase;
+  try {
+    supabase = getSupabaseClient();
+  } catch (e) {
     console.log(`[vanity] Supabase credentials not configured, skipping vanity lookup`);
     return null;
   }
   
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  // Use SECURITY DEFINER function to reserve address
+  const { data, error } = await supabase.rpc('backend_reserve_vanity_address', {
+    p_suffix: suffix.toLowerCase(),
+  });
   
-  // Get first available keypair with matching suffix
-  // IMPORTANT: Use .limit(1) instead of .single() to avoid throwing when no rows exist
-  const { data, error } = await supabase
-    .from('vanity_keypairs')
-    .select('id, public_key, secret_key_encrypted')
-    .eq('suffix', suffix.toLowerCase())
-    .eq('status', 'available')
-    .limit(1);
-  
-  // Handle error or empty result gracefully
   if (error) {
     console.log(`[vanity] Query error for suffix "${suffix}":`, error.message);
     return null;
@@ -184,17 +178,6 @@ export async function getAvailableVanityAddress(suffix: string): Promise<{
   }
   
   const row = data[0];
-  
-  // Reserve it immediately
-  const { error: updateError } = await supabase
-    .from('vanity_keypairs')
-    .update({ status: 'reserved' })
-    .eq('id', row.id);
-  
-  if (updateError) {
-    console.error(`[vanity] Failed to reserve keypair:`, updateError);
-    return null;
-  }
   
   // Decrypt the secret key
   const secretKeyBytes = decryptSecretKey(row.secret_key_encrypted, encryptionKey);
@@ -211,42 +194,33 @@ export async function getAvailableVanityAddress(suffix: string): Promise<{
 
 // Mark vanity address as used for a token
 export async function markVanityAddressUsed(keypairId: string, tokenId: string): Promise<void> {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = getSupabaseClient();
   
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase credentials not configured');
+  const { error } = await supabase.rpc('backend_mark_vanity_used', {
+    p_keypair_id: keypairId,
+    p_token_id: tokenId,
+  });
+  
+  if (error) {
+    console.error(`[vanity] Failed to mark keypair as used:`, error);
+    throw error;
   }
-  
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  
-  await supabase
-    .from('vanity_keypairs')
-    .update({ 
-      status: 'used',
-      used_for_token_id: tokenId,
-    })
-    .eq('id', keypairId);
   
   console.log(`[vanity] Marked keypair ${keypairId} as used for token ${tokenId}`);
 }
 
 // Release a reserved address back to available
 export async function releaseVanityAddress(keypairId: string): Promise<void> {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = getSupabaseClient();
   
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase credentials not configured');
+  const { error } = await supabase.rpc('backend_release_vanity_address', {
+    p_keypair_id: keypairId,
+  });
+  
+  if (error) {
+    console.error(`[vanity] Failed to release keypair:`, error);
+    throw error;
   }
-  
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  
-  await supabase
-    .from('vanity_keypairs')
-    .update({ status: 'available' })
-    .eq('id', keypairId)
-    .eq('status', 'reserved');
   
   console.log(`[vanity] Released keypair ${keypairId} back to available`);
 }
@@ -259,44 +233,34 @@ export async function getVanityStats(suffix?: string): Promise<{
   used: number;
   suffixes: { suffix: string; count: number }[];
 }> {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = getSupabaseClient();
   
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase credentials not configured');
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  
-  let query = supabase.from('vanity_keypairs').select('suffix, status');
-  
-  if (suffix) {
-    query = query.eq('suffix', suffix.toLowerCase());
-  }
-  
-  const { data, error } = await query;
-  
-  if (error) {
-    throw new Error(`Failed to get vanity stats: ${error.message}`);
-  }
-  
-  const stats = {
-    total: data?.length || 0,
-    available: data?.filter(d => d.status === 'available').length || 0,
-    reserved: data?.filter(d => d.status === 'reserved').length || 0,
-    used: data?.filter(d => d.status === 'used').length || 0,
-    suffixes: [] as { suffix: string; count: number }[],
-  };
-  
-  // Group by suffix
-  const suffixCounts = new Map<string, number>();
-  data?.forEach(d => {
-    suffixCounts.set(d.suffix, (suffixCounts.get(d.suffix) || 0) + 1);
+  // Get stats using SECURITY DEFINER function
+  const { data: statsData, error: statsError } = await supabase.rpc('backend_get_vanity_stats', {
+    p_suffix: suffix?.toLowerCase() || null,
   });
   
-  stats.suffixes = Array.from(suffixCounts.entries())
-    .map(([suffix, count]) => ({ suffix, count }))
-    .sort((a, b) => b.count - a.count);
+  if (statsError) {
+    throw new Error(`Failed to get vanity stats: ${statsError.message}`);
+  }
   
-  return stats;
+  // Get suffix breakdown
+  const { data: suffixData, error: suffixError } = await supabase.rpc('backend_get_vanity_suffixes');
+  
+  if (suffixError) {
+    console.error(`[vanity] Failed to get suffix breakdown:`, suffixError);
+  }
+  
+  const stats = statsData?.[0] || { total: 0, available: 0, reserved: 0, used: 0 };
+  
+  return {
+    total: Number(stats.total) || 0,
+    available: Number(stats.available) || 0,
+    reserved: Number(stats.reserved) || 0,
+    used: Number(stats.used) || 0,
+    suffixes: (suffixData || []).map((s: { suffix: string; count: number }) => ({
+      suffix: s.suffix,
+      count: Number(s.count),
+    })),
+  };
 }

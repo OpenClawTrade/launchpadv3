@@ -6,8 +6,20 @@ import { createClient } from '@supabase/supabase-js';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-vanity-secret',
 };
+
+// Get Supabase client using anon key (works with SECURITY DEFINER functions)
+function getSupabaseClient() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase credentials not configured');
+  }
+  
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Handle CORS preflight
@@ -30,54 +42,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const suffix = req.query.suffix as string | undefined;
     
-    // Get overall stats
+    // Get overall stats using SECURITY DEFINER function
     const stats = await getVanityStats(suffix);
     
-    // Get recent addresses
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = getSupabaseClient();
     
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase credentials not configured');
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    
-    let recentQuery = supabase
-      .from('vanity_keypairs')
-      .select('id, suffix, public_key, status, created_at, used_for_token_id')
-      .order('created_at', { ascending: false })
-      .limit(20);
-    
-    if (suffix) {
-      recentQuery = recentQuery.eq('suffix', suffix.toLowerCase());
-    }
-    
-    const { data: recentAddresses, error: recentError } = await recentQuery;
+    // Get recent addresses using SECURITY DEFINER function
+    const { data: recentData, error: recentError } = await supabase.rpc('backend_get_recent_vanity_keypairs', {
+      p_suffix: suffix?.toLowerCase() || null,
+      p_limit: 20,
+    });
     
     if (recentError) {
       console.error('[vanity/status] Error fetching recent:', recentError);
     }
     
-    // Get used addresses with token info
-    const { data: usedAddresses, error: usedError } = await supabase
-      .from('vanity_keypairs')
-      .select(`
-        id, 
-        suffix, 
-        public_key, 
-        created_at,
-        used_for_token_id,
-        tokens:used_for_token_id (
-          id,
-          name,
-          ticker,
-          mint_address
-        )
-      `)
-      .eq('status', 'used')
-      .order('created_at', { ascending: false })
-      .limit(10);
+    // Get used addresses with token info using SECURITY DEFINER function
+    const { data: usedData, error: usedError } = await supabase.rpc('backend_get_used_vanity_keypairs', {
+      p_limit: 10,
+    });
     
     if (usedError) {
       console.error('[vanity/status] Error fetching used:', usedError);
@@ -86,21 +69,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       success: true,
       stats,
-      recentAddresses: recentAddresses?.map(a => ({
+      recentAddresses: (recentData || []).map((a: any) => ({
         id: a.id,
         suffix: a.suffix,
         publicKey: a.public_key,
         status: a.status,
         createdAt: a.created_at,
         usedForTokenId: a.used_for_token_id,
-      })) || [],
-      usedAddresses: usedAddresses?.map(a => ({
+      })),
+      usedAddresses: (usedData || []).map((a: any) => ({
         id: a.id,
         suffix: a.suffix,
         publicKey: a.public_key,
         createdAt: a.created_at,
-        token: a.tokens,
-      })) || [],
+        token: a.token_id ? {
+          id: a.token_id,
+          name: a.token_name,
+          ticker: a.token_ticker,
+          mint_address: a.mint_address,
+        } : null,
+      })),
       summary: {
         message: `${stats.available} vanity addresses available for token launches`,
         suffixBreakdown: stats.suffixes,
