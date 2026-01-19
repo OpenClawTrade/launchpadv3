@@ -96,6 +96,39 @@ serve(async (req) => {
     "unknown";
 
   try {
+    // Create Supabase client with service role FIRST for rate limiting
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ===== SERVER-SIDE RATE LIMIT ENFORCEMENT =====
+    const MAX_LAUNCHES_PER_HOUR = 2;
+    const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+    const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+
+    const { data: recentLaunches, error: rlError } = await supabase
+      .from("launch_rate_limits")
+      .select("launched_at")
+      .eq("ip_address", clientIP)
+      .gte("launched_at", oneHourAgo);
+
+    if (!rlError && recentLaunches && recentLaunches.length >= MAX_LAUNCHES_PER_HOUR) {
+      const oldestLaunch = new Date(recentLaunches[0].launched_at);
+      const expiresAt = new Date(oldestLaunch.getTime() + RATE_LIMIT_WINDOW_MS);
+      const waitSeconds = Math.ceil((expiresAt.getTime() - Date.now()) / 1000);
+      
+      console.log(`launchpad-create ❌ Rate limit exceeded for IP: ${clientIP} (${recentLaunches.length} launches)`);
+      return new Response(
+        JSON.stringify({ 
+          error: `You've already launched ${recentLaunches.length} coins in the last 60 minutes. Please wait ${Math.ceil(waitSeconds / 60)} minutes.`,
+          rateLimited: true,
+          waitSeconds: Math.max(0, waitSeconds)
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // ===== END RATE LIMIT ENFORCEMENT =====
+
     const {
       creatorWallet,
       privyUserId,
@@ -110,7 +143,7 @@ serve(async (req) => {
       initialBuySol,
     } = await req.json();
 
-    console.log("launchpad-create received:", { creatorWallet, name, ticker });
+    console.log("launchpad-create received:", { creatorWallet, name, ticker, clientIP });
 
     if (!creatorWallet || !name || !ticker) {
       return new Response(
@@ -127,11 +160,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Create Supabase client with service role
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get creator profile ID if privyUserId provided
     let creatorId: string | null = null;
