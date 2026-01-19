@@ -73,9 +73,15 @@ function readFunTokensCache(): { tokens: FunToken[]; timestamp: number } | null 
     if (!raw) return null;
     const parsed = JSON.parse(raw) as FunTokensCachePayload;
     if (!parsed?.ts || !Array.isArray(parsed.tokens)) return null;
-    if (Date.now() - parsed.ts > FUN_TOKENS_CACHE_TTL) return null;
+    // Don't return expired cache, but also don't return empty arrays
+    if (Date.now() - parsed.ts > FUN_TOKENS_CACHE_TTL) {
+      localStorage.removeItem(FUN_TOKENS_CACHE_KEY); // Clean up expired cache
+      return null;
+    }
+    if (parsed.tokens.length === 0) return null; // Don't use empty cache
     return { tokens: parsed.tokens, timestamp: parsed.ts };
   } catch {
+    localStorage.removeItem(FUN_TOKENS_CACHE_KEY); // Clean up corrupt cache
     return null;
   }
 }
@@ -83,6 +89,8 @@ function readFunTokensCache(): { tokens: FunToken[]; timestamp: number } | null 
 function writeFunTokensCache(tokens: FunToken[]) {
   try {
     if (typeof window === "undefined") return;
+    // Only cache non-empty arrays
+    if (tokens.length === 0) return;
     const payload: FunTokensCachePayload = { ts: Date.now(), tokens };
     localStorage.setItem(FUN_TOKENS_CACHE_KEY, JSON.stringify(payload));
   } catch {
@@ -293,6 +301,9 @@ export function useFunTokens(): UseFunTokensResult {
     try {
       const base = await fetchBaseTokens();
       
+      // Write to cache immediately after successful fetch
+      writeFunTokensCache(base);
+      
       // CRITICAL: Merge base data with existing live data to prevent overwriting
       setTokens((prev) => {
         if (prev.length === 0) {
@@ -331,6 +342,7 @@ export function useFunTokens(): UseFunTokensResult {
       if (isAbortError(err) && tokensRef.current.length > 0) {
         return;
       }
+      console.error("[useFunTokens] Fetch error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch tokens");
     } finally {
       if (isInitial) setIsLoading(false);
