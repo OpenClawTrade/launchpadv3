@@ -13,6 +13,14 @@ const INITIAL_VIRTUAL_SOL = 30;
 const TOKEN_DECIMALS = 6;
 const REQUEST_TIMEOUT_MS = 8000;
 
+// Server-side cache to reduce RPC calls - 60 second TTL
+const poolStateCache = new Map<string, { data: any; timestamp: number }>();
+const POOL_CACHE_TTL = 60000; // 60 seconds cache
+const HOLDER_CACHE_TTL = 60000; // 60 seconds for holder counts
+
+// Holder count cache
+const holderCache = new Map<string, { count: number; timestamp: number }>();
+
 interface PoolState {
   realSolReserves: number;
   realTokenReserves: number;
@@ -95,9 +103,15 @@ function decodePoolReserves(base64Data: string): {
   }
 }
 
-// Fetch holder count from Helius DAS API
+// Fetch holder count from Helius DAS API with caching
 async function fetchHolderCount(mintAddress: string, heliusRpcUrl: string): Promise<number> {
   if (!mintAddress || !heliusRpcUrl) return 0;
+
+  // Check holder cache first
+  const cached = holderCache.get(mintAddress);
+  if (cached && Date.now() - cached.timestamp < HOLDER_CACHE_TTL) {
+    return cached.count;
+  }
 
   try {
     const controller = new AbortController();
@@ -119,13 +133,19 @@ async function fetchHolderCount(mintAddress: string, heliusRpcUrl: string): Prom
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
 
-    if (!resp.ok) return 0;
+    if (!resp.ok) {
+      return cached?.count ?? 0;
+    }
 
     const json = await resp.json();
     const total = safeNumber(json?.result?.total ?? 0);
-    return total > 0 ? Math.floor(total) : 0;
+    const count = total > 0 ? Math.floor(total) : 0;
+    
+    // Cache the result
+    holderCache.set(mintAddress, { count, timestamp: Date.now() });
+    return count;
   } catch {
-    return 0;
+    return cached?.count ?? 0;
   }
 }
 
@@ -232,6 +252,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check server-side cache first (60s TTL)
+    const cacheKey = `${poolAddress || ''}:${mintAddress || ''}`;
+    const cached = poolStateCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < POOL_CACHE_TTL) {
+      console.log('[pool-state] Returning cached data');
+      return new Response(JSON.stringify({ ...cached.data, source: 'cache' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=60' },
+      });
+    }
+
     console.log('[pool-state] Fetching state for:', mintAddress || poolAddress);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -303,9 +334,12 @@ Deno.serve(async (req) => {
             mintAddress: tokenMint,
           };
 
+          // Cache DAMM result for 60 seconds
+          poolStateCache.set(cacheKey, { data: poolState, timestamp: Date.now() });
+
           return new Response(JSON.stringify(poolState), {
             status: 200,
-            headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=10' },
+            headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=60' },
           });
         }
       } catch (e) {
@@ -318,6 +352,9 @@ Deno.serve(async (req) => {
       const rpcState = await fetchFromHeliusRpc(dbcPool, heliusRpcUrl, tokenMint);
 
       if (rpcState) {
+        // Cache the result for 60 seconds
+        poolStateCache.set(cacheKey, { data: rpcState, timestamp: Date.now() });
+
         // Update database in background
         if (token?.id) {
           const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -342,7 +379,7 @@ Deno.serve(async (req) => {
 
         return new Response(JSON.stringify(rpcState), {
           status: 200,
-          headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=5' },
+          headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=60' },
         });
       }
     }
@@ -372,9 +409,12 @@ Deno.serve(async (req) => {
       mintAddress: tokenMint,
     };
 
+    // Cache the fallback result too
+    poolStateCache.set(cacheKey, { data: poolState, timestamp: Date.now() });
+
     return new Response(JSON.stringify(poolState), {
       status: 200,
-      headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=10' },
+      headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=60' },
     });
   } catch (error) {
     console.error('[pool-state] Error:', error);

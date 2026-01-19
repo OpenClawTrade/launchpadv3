@@ -1,8 +1,8 @@
 import { safeNumber } from './utils.ts';
 
-// Cache holder counts to reduce API calls (holders don't change as frequently)
+// Cache holder counts to reduce API calls - 60 seconds for significant credit savings
 const holderCache = new Map<string, { count: number; timestamp: number }>();
-const HOLDER_CACHE_TTL = 30000; // 30 seconds cache for holder counts
+const HOLDER_CACHE_TTL = 60000; // 60 seconds cache for holder counts (was 30s)
 
 export async function fetchHolderCount(mintAddress: string, heliusRpcUrl: string): Promise<number> {
   if (!mintAddress || !heliusRpcUrl) return 0;

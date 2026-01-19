@@ -50,11 +50,11 @@ export default function TokenDetailPage() {
     if (usdValue >= 1_000) return `$${(usdValue / 1_000).toFixed(1)}K`;
     return `$${usdValue.toFixed(0)}`;
   };
-  // Live pool state for accurate bonding progress
+  // Live pool state for accurate bonding progress - 60s refresh matches server cache
   const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
     mintAddress: mintAddress || '',
     enabled: !!mintAddress && token?.status === 'bonding',
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 60000, // 60 seconds (was 10s) - matches server cache
   });
 
   // Real-time subscriptions for live data

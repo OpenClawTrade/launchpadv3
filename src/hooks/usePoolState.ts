@@ -26,7 +26,7 @@ export function usePoolState({
   mintAddress,
   poolAddress,
   enabled = true,
-  refetchInterval = 15000, // Default 15 second refresh
+  refetchInterval = 60000, // 60 second refresh (was 15s) - matches server cache
 }: UsePoolStateOptions) {
   return useQuery<PoolState>({
     queryKey: ['pool-state', mintAddress || poolAddress],
@@ -53,8 +53,8 @@ export function usePoolState({
     },
     enabled: enabled && !!(mintAddress || poolAddress),
     refetchInterval,
-    staleTime: 10000, // Consider stale after 10 seconds
-    gcTime: 60000, // Keep in cache for 1 minute
+    staleTime: 60000, // Consider stale after 60 seconds (was 10s)
+    gcTime: 120000, // Keep in cache for 2 minutes (was 1 min)
   });
 }
 
@@ -96,7 +96,7 @@ export function useMultiPoolStates(mintAddresses: string[], enabled = true) {
       return record;
     },
     enabled: enabled && mintAddresses.length > 0,
-    refetchInterval: 30000, // Batch refresh every 30 seconds
-    staleTime: 15000,
+    refetchInterval: 60000, // Batch refresh every 60 seconds (was 30s)
+    staleTime: 60000, // 60 second stale time (was 15s)
   });
 }
