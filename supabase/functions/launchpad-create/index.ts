@@ -88,6 +88,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Get client IP from headers
+  const clientIP = 
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("x-real-ip") ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
+
   try {
     const {
       creatorWallet,
@@ -223,6 +230,17 @@ serve(async (req) => {
         bonding_curve_progress: (initialBuySol / 85) * 100,
         holder_count: 1,
       }).eq("id", token.id);
+    }
+
+    // Record this launch for rate limiting (ignore errors)
+    try {
+      await supabase.from("launch_rate_limits").insert({
+        ip_address: clientIP,
+        token_id: token.id,
+      });
+      console.log("launchpad-create 📊 Rate limit recorded for IP:", clientIP);
+    } catch (rlErr) {
+      console.warn("launchpad-create ⚠️ Failed to record rate limit:", rlErr);
     }
 
     return new Response(

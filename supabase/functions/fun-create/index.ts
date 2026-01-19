@@ -33,6 +33,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Get client IP from headers
+  const clientIP = 
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("x-real-ip") ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
+
   try {
     const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet } = await req.json();
 
@@ -221,6 +228,17 @@ serve(async (req) => {
       dbcPoolAddress,
       status: funToken.status,
     });
+
+    // Record this launch for rate limiting (ignore errors)
+    try {
+      await supabase.from("launch_rate_limits").insert({
+        ip_address: clientIP,
+        token_id: null, // fun_tokens don't have tokens.id reference
+      });
+      console.log("[fun-create] 📊 Rate limit recorded for IP:", clientIP);
+    } catch (rlErr) {
+      console.warn("[fun-create] ⚠️ Failed to record rate limit:", rlErr);
+    }
 
     return new Response(
       JSON.stringify({
