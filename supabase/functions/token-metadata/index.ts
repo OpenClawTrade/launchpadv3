@@ -98,13 +98,13 @@ Deno.serve(async (req) => {
       symbol: token.ticker?.toUpperCase() || '',
       description: descriptionWithTag,
       image: token.image_url || '',
-      external_url: token.website_url || `https://trenches.to/token/${mintAddress}`,
+      external_url: token.website_url || `https://ai67x.io/token/${mintAddress}`,
       // Tags array for Solscan tag chips
       tags: ['Meme', 'ai67x'],
       attributes: [
         {
           trait_type: 'Platform',
-          value: 'TRENCHES',
+          value: 'ai67x',
         },
         {
           trait_type: 'Status',

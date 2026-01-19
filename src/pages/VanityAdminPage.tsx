@@ -76,7 +76,7 @@ const VanityAdminPage = () => {
     setAuthSecret(secret);
   };
 
-  const VERCEL_API_BASE = 'https://trenchespost.vercel.app';
+  const VERCEL_API_BASE = 'https://ai67x.vercel.app';
 
   const fetchStatus = useCallback(async () => {
     if (!authSecret) return;

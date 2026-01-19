@@ -254,7 +254,7 @@ ${socialLinks.length > 0 ? `🔗 **Links:**\n${socialLinks.join('\n')}` : ''}
 
 👉 Trade now: ${tokenPageUrl}
 
-#TRENCHESlaunch #${ticker.toUpperCase()} $${ticker.toUpperCase()}`;
+#ai67x #${ticker.toUpperCase()} $${ticker.toUpperCase()}`;
 
       const { error: postError } = await supabase
         .rpc('backend_create_system_post', {
