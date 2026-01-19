@@ -10,7 +10,7 @@ const corsHeaders = {
 
 // Configuration
 const TARGET_SUFFIX = '67x';
-const TARGET_AVAILABLE = 100; // Keep at least 100 available
+const TARGET_AVAILABLE = 500; // Keep at least 500 available
 const MAX_DURATION_MS = 50000; // 50 seconds max (edge function timeout is 60s)
 const BATCH_SIZE = 1000; // Check suffix every N attempts
 
