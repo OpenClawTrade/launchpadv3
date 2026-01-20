@@ -268,11 +268,12 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     },
     
     // Post-migration pool fee configuration
-    // Using values compatible with MigrationFeeOption.FixedBps200
+    // When using FixedBps* migrationFeeOption, migratedPoolFee should be zeroed
+    // as the SDK uses the predefined config from the migration fee option
     migratedPoolFee: {
-      collectFeeMode: CollectFeeMode.QuoteToken, // Collect fees in quote token (SOL)
-      dynamicFee: DammV2DynamicFeeMode.Disabled, // No dynamic fees
-      poolFeeBps: 200, // 2% fee (matches FixedBps200)
+      collectFeeMode: 0, // QuoteToken
+      dynamicFee: 0, // Disabled
+      poolFeeBps: 0, // Use migrationFeeOption's predefined value
     },
     
     // Padding for future use (7 u64 values)
