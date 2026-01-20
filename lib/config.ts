@@ -3,7 +3,8 @@
 // All operations are real on-chain Solana transactions
 
 // Meteora Program IDs (Mainnet)
-export const DBC_PROGRAM_ID = 'dbcpH6iFEdtCcCHjVxMo2LPoWENUjBxHqPhn8wF8izT';
+// Note: SDK uses its internal hardcoded address, this is for reference/documentation
+export const DBC_PROGRAM_ID = 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'; // Official Meteora DBC
 export const DAMM_V2_PROGRAM_ID = 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG';
 
 // Token Mints

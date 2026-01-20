@@ -25,7 +25,6 @@ import {
   CREATOR_LP_PERCENTAGE,
   PARTNER_LOCKED_LP_PERCENTAGE,
   CREATOR_LOCKED_LP_PERCENTAGE,
-  MIGRATED_POOL_FEE_BPS,
   WSOL_MINT,
 } from './config.js';
 import { getConnection, getTreasuryKeypair } from './solana.js';
@@ -202,8 +201,8 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
       },
     },
     
-    // Activation - immediate
-    activationType: 0,
+    // Activation - timestamp-based (standard for terminal compatibility)
+    activationType: 1, // 1 = Timestamp (preferred by Axiom/DEXTools), 0 = Slot
     collectFeeMode: 0,
     
     // Migration settings - to DAMM V2 on graduation
@@ -235,10 +234,10 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
       cliffUnlockAmount: new BN('0'),
     },
     
-    // Migration fee option
-    // IMPORTANT: if you set a non-empty `migratedPoolFee`, the SDK requires `migrationFeeOption` to be Customizable (6)
-    // when `migrationOption` is MET_DAMM_V2.
-    migrationFeeOption: 6,
+    // Migration fee option - use FixedBps200 (3) for terminal compatibility
+    // FixedBps200 = 200 bps = 2% post-graduation fee (standard for Axiom/DEXTools/Birdeye)
+    // Using Customizable (6) breaks terminal decoding of graduation progress
+    migrationFeeOption: 3, // FixedBps200 - Meteora pre-defined 2% config
     
     // Token supply
     tokenSupply: {
@@ -252,18 +251,14 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     // Immutable metadata
     tokenUpdateAuthority: 1,
     
-    // Migration fees
+    // Migration fees (charged during graduation)
     migrationFee: {
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
     
-    // Post-migration pool fees - 2% continues after graduation
-    migratedPoolFee: {
-      collectFeeMode: 0, // Collect in quote token (SOL)
-      dynamicFee: 0,     // Disabled
-      poolFeeBps: MIGRATED_POOL_FEE_BPS, // 200 bps = 2%
-    },
+    // Note: migratedPoolFee removed - using FixedBps200 pre-defined config instead
+    // This ensures terminals can correctly decode graduation progress
     
     padding: [],
     
