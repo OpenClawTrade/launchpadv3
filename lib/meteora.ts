@@ -186,7 +186,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     payer: creatorPubkey,
     config: configKeypair.publicKey,
     feeClaimer: platformPubkey, // Platform receives fees, distributes via our system
-    leftoverReceiver: platformPubkey, // Leftover tokens go to platform
+    leftoverReceiver: creatorPubkey, // Use creator as leftover receiver (terminal compatibility)
     quoteMint: new PublicKey(WSOL_MINT),
     
     // Fee configuration - 2% total
