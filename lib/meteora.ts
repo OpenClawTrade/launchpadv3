@@ -7,6 +7,10 @@ import {
   BaseFeeMode,
   CollectFeeMode,
   DammV2DynamicFeeMode,
+  ActivationType,
+  MigrationOption,
+  MigrationFeeOption,
+  TokenType,
   deriveDammV1MigrationMetadataAddress,
   deriveBaseKeyForLocker,
   deriveEscrow,
@@ -202,14 +206,16 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     },
     
     // Activation - timestamp-based (standard for terminal compatibility)
-    activationType: 1, // 1 = Timestamp (preferred by Axiom/DEXTools), 0 = Slot
-    collectFeeMode: 0,
+    // CRITICAL: Must use SDK enums, not raw numbers, for proper on-chain encoding
+    activationType: ActivationType.Timestamp, // Timestamp-based (preferred by Axiom/DEXTools)
+    collectFeeMode: CollectFeeMode.QuoteToken,
     
     // Migration settings - to DAMM V2 on graduation
-    migrationOption: 1, // Migrate to DAMM V2
+    // CRITICAL: MET_DAMM_V2 enables proper graduation display on terminals
+    migrationOption: MigrationOption.MET_DAMM_V2, // Migrate to DAMM V2
     
     // Token settings
-    tokenType: 0, // SPL Token (not Token-2022)
+    tokenType: TokenType.SPL, // SPL Token (not Token-2022)
     tokenDecimal: TOKEN_DECIMALS,
     
     // Graduation threshold - 85 SOL in lamports
@@ -237,7 +243,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     // Migration fee option - use FixedBps200 (3) for terminal compatibility
     // FixedBps200 = 200 bps = 2% post-graduation fee (standard for Axiom/DEXTools/Birdeye)
     // Using Customizable (6) breaks terminal decoding of graduation progress
-    migrationFeeOption: 3, // FixedBps200 - Meteora pre-defined 2% config
+    migrationFeeOption: MigrationFeeOption.FixedBps200, // Meteora pre-defined 2% config
     
     // Token supply
     tokenSupply: {
