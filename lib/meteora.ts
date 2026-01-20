@@ -313,7 +313,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     quoteMint: new PublicKey(WSOL_MINT),
 
     // Critical: pass config parameters in the shape the SDK actually encodes on-chain
-    configParameters,
+    config_parameters: configParameters,
     
     // Fee configuration - 2% total
     poolFees: {
