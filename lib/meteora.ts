@@ -268,12 +268,12 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     },
     
     // Post-migration pool fee configuration
-    // When using FixedBps* migrationFeeOption, migratedPoolFee should be zeroed
-    // as the SDK uses the predefined config from the migration fee option
+    // SDK requires poolFeeBps to be 10-1000 range, must match migrationFeeOption
+    // FixedBps200 = 200 bps, so poolFeeBps MUST be 200 for validation to pass
     migratedPoolFee: {
       collectFeeMode: 0, // QuoteToken
       dynamicFee: 0, // Disabled
-      poolFeeBps: 0, // Use migrationFeeOption's predefined value
+      poolFeeBps: 200, // MUST match FixedBps200 (200 bps = 2%) - SDK validates this range (10-1000)
     },
     
     // Padding for future use (7 u64 values)
