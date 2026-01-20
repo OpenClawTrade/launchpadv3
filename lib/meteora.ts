@@ -178,12 +178,142 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   );
 
   // Create pool with config
+  // IMPORTANT: Meteora SDK expects config fields under `configParameters` (Anchor args).
+  // If passed at the top-level, the SDK falls back to defaults (activationType=0, migrationOption=0),
+  // which breaks external terminals (Axiom) from showing migration/graduation.
+  //
+  // We include BOTH camelCase and snake_case keys to be robust against SDK/Anchor casing conversions.
+  // This is intentionally redundant to avoid another costly mis-encode.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const configParameters: any = {
+    // Fees
+    poolFees: {
+      baseFee: {
+        cliffFeeNumerator: feeNumerator,
+        firstFactor: 0,
+        secondFactor: new BN('0'),
+        thirdFactor: new BN('0'),
+        baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+      },
+      dynamicFee: {
+        binStep: 1,
+        binStepU128: new BN('1844674407370955'),
+        filterPeriod: 10,
+        decayPeriod: 120,
+        reductionFactor: 1000,
+        variableFeeControl: 100000,
+        maxVolatilityAccumulator: 100000,
+      },
+    },
+    pool_fees: {
+      baseFee: {
+        cliffFeeNumerator: feeNumerator,
+        firstFactor: 0,
+        secondFactor: new BN('0'),
+        thirdFactor: new BN('0'),
+        baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+      },
+      dynamicFee: {
+        binStep: 1,
+        binStepU128: new BN('1844674407370955'),
+        filterPeriod: 10,
+        decayPeriod: 120,
+        reductionFactor: 1000,
+        variableFeeControl: 100000,
+        maxVolatilityAccumulator: 100000,
+      },
+    },
+
+    // Activation + fee collection
+    activationType: ActivationType.Timestamp,
+    activation_type: ActivationType.Timestamp,
+    collectFeeMode: CollectFeeMode.QuoteToken,
+    collect_fee_mode: CollectFeeMode.QuoteToken,
+
+    // Migration
+    migrationOption: MigrationOption.MET_DAMM_V2,
+    migration_option: MigrationOption.MET_DAMM_V2,
+    migrationFeeOption: MigrationFeeOption.FixedBps200,
+    migration_fee_option: MigrationFeeOption.FixedBps200,
+
+    // Token settings
+    tokenType: TokenType.SPL,
+    token_type: TokenType.SPL,
+    tokenDecimal: TOKEN_DECIMALS,
+    token_decimal: TOKEN_DECIMALS,
+
+    // LP distribution
+    partnerLpPercentage: PARTNER_LP_PERCENTAGE,
+    partner_lp_percentage: PARTNER_LP_PERCENTAGE,
+    creatorLpPercentage: CREATOR_LP_PERCENTAGE,
+    creator_lp_percentage: CREATOR_LP_PERCENTAGE,
+    partnerLockedLpPercentage: PARTNER_LOCKED_LP_PERCENTAGE,
+    partner_locked_lp_percentage: PARTNER_LOCKED_LP_PERCENTAGE,
+    creatorLockedLpPercentage: CREATOR_LOCKED_LP_PERCENTAGE,
+    creator_locked_lp_percentage: CREATOR_LOCKED_LP_PERCENTAGE,
+
+    // Graduation threshold + curve start
+    migrationQuoteThreshold: new BN(GRADUATION_THRESHOLD_SOL * 1e9),
+    migration_quote_threshold: new BN(GRADUATION_THRESHOLD_SOL * 1e9),
+    sqrtStartPrice: getSqrtStartPrice(),
+    sqrt_start_price: getSqrtStartPrice(),
+
+    // No vesting
+    lockedVesting: {
+      amountPerPeriod: new BN('0'),
+      cliffDurationFromMigrationTime: new BN('0'),
+      frequency: new BN('0'),
+      numberOfPeriod: new BN('0'),
+      cliffUnlockAmount: new BN('0'),
+    },
+    locked_vesting: {
+      amountPerPeriod: new BN('0'),
+      cliffDurationFromMigrationTime: new BN('0'),
+      frequency: new BN('0'),
+      numberOfPeriod: new BN('0'),
+      cliffUnlockAmount: new BN('0'),
+    },
+
+    // Token supply
+    tokenSupply: {
+      preMigrationTokenSupply: new BN(TOTAL_SUPPLY).mul(new BN(10).pow(new BN(TOKEN_DECIMALS))),
+      postMigrationTokenSupply: new BN(TOTAL_SUPPLY).mul(new BN(10).pow(new BN(TOKEN_DECIMALS))),
+    },
+    token_supply: {
+      preMigrationTokenSupply: new BN(TOTAL_SUPPLY).mul(new BN(10).pow(new BN(TOKEN_DECIMALS))),
+      postMigrationTokenSupply: new BN(TOTAL_SUPPLY).mul(new BN(10).pow(new BN(TOKEN_DECIMALS))),
+    },
+
+    // Ensure all fees route to treasury for distribution
+    creatorTradingFeePercentage: 0,
+    creator_trading_fee_percentage: 0,
+
+    // Immutable metadata
+    tokenUpdateAuthority: 1,
+    token_update_authority: 1,
+
+    migrationFee: {
+      feePercentage: 0,
+      creatorFeePercentage: 0,
+    },
+    migration_fee: {
+      feePercentage: 0,
+      creatorFeePercentage: 0,
+    },
+
+    // Keep empty padding for SDK compatibility (SDK fills/serializes as needed)
+    padding: [],
+  };
+
   const { createConfigTx, createPoolTx, swapBuyTx } = await client.pool.createConfigAndPoolWithFirstBuy({
     payer: creatorPubkey,
     config: configKeypair.publicKey,
     feeClaimer: platformPubkey, // Platform receives fees, distributes via our system
     leftoverReceiver: platformPubkey, // Leftover tokens go to platform
     quoteMint: new PublicKey(WSOL_MINT),
+
+    // Critical: pass config parameters in the shape the SDK actually encodes on-chain
+    configParameters,
     
     // Fee configuration - 2% total
     poolFees: {
@@ -283,6 +413,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     // Initial buy (if any)
     firstBuyParam,
   });
+
 
   // Get recent blockhash for all transactions
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
