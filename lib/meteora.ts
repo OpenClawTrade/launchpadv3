@@ -182,6 +182,9 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   // See type: CreateConfigAndPoolWithFirstBuyParams = CreateConfigParams & { preCreatePoolParam, firstBuyParam? }
   // Where: CreateConfigParams = Omit<CreateConfigAccounts, ...> & ConfigParameters
 
+  // NOTE: We use `as any` to omit `migratedPoolFee` which is required by TypeScript types
+  // but causes "Invalid migrated pool fee parameters" at runtime when used with FixedBps* options.
+  // The SDK internally derives the correct pool fee config from migrationFeeOption.
   const { createConfigTx, createPoolTx, swapBuyTx } = await client.pool.createConfigAndPoolWithFirstBuy({
     payer: creatorPubkey,
     config: configKeypair.publicKey,
@@ -247,7 +250,8 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     // Migration fee option - use FixedBps200 (3) for terminal compatibility
     // FixedBps200 = 200 bps = 2% post-graduation fee (standard for Axiom/DEXTools/Birdeye)
     // Using Customizable (6) breaks terminal decoding of graduation progress
-    migrationFeeOption: MigrationFeeOption.FixedBps200, // Meteora pre-defined 2% config
+    // CRITICAL: migratedPoolFee is OMITTED - SDK derives it from migrationFeeOption
+    migrationFeeOption: MigrationFeeOption.FixedBps200,
     
     // Token supply
     tokenSupply: {
@@ -267,15 +271,6 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
       creatorFeePercentage: 0,
     },
     
-    // Post-migration pool fee configuration
-    // When using FixedBps200, SDK still requires migratedPoolFee with matching values
-    // Using SDK enums ensures proper type compatibility
-    migratedPoolFee: {
-      collectFeeMode: CollectFeeMode.QuoteToken, // 0 - collect fees in quote token (SOL)
-      dynamicFee: DammV2DynamicFeeMode.Disabled, // 0 - no dynamic fees post-migration
-      poolFeeBps: 200, // Must be 10-1000 range, matches FixedBps200 (2%)
-    },
-    
     // Padding for future use (7 u64 values)
     padding: [new BN(0), new BN(0), new BN(0), new BN(0), new BN(0), new BN(0), new BN(0)],
     
@@ -293,7 +288,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     
     // Initial buy (if any)
     firstBuyParam,
-  });
+  } as any);
 
 
   // Get recent blockhash for all transactions
