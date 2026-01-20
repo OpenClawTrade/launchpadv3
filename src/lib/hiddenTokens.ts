@@ -26,6 +26,7 @@ export const BLOCKED_PATTERNS = [
   /vulnerability/i,
   /security\s*issue/i,
   /into\s*(ur|your)\s*db/i,
+  /rug/i,
 ];
 
 // Check if a name or ticker contains blocked content
