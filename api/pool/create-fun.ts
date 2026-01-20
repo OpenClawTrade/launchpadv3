@@ -72,11 +72,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Track vanity keypair for potential release on error - declared outside try for catch access
+  let vanityKeypairId: string | null = null;
+
   try {
     const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, feeRecipientWallet, serverSideSign, useVanityAddress = true } = req.body;
-
-    // Track vanity keypair for potential release on error
-    let vanityKeypairId: string | null = null;
 
     if (!name || !ticker) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
