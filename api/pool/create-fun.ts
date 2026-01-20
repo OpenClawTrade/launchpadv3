@@ -121,7 +121,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Create real Meteora pool using the existing SDK integration
     // Treasury wallet is the "creator" for on-chain purposes
-    console.log('[create-fun] Creating real Meteora DBC pool...');
+    console.log('[create-fun] Creating real Meteora DBC pool...', {
+      name: name.slice(0, 32),
+      ticker: ticker.toUpperCase().slice(0, 10),
+      treasuryAddress,
+      useVanityAddress,
+      hasVanityKeypair: !!vanityKeypair,
+    });
     
     let transactions: Transaction[];
     let mintKeypair: Keypair;
