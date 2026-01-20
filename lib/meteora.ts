@@ -267,10 +267,16 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
       creatorFeePercentage: 0,
     },
     
-    // Note: migratedPoolFee removed - using FixedBps200 pre-defined config instead
-    // This ensures terminals can correctly decode graduation progress
+    // Post-migration pool fee configuration
+    // Using values compatible with MigrationFeeOption.FixedBps200
+    migratedPoolFee: {
+      collectFeeMode: CollectFeeMode.QuoteToken, // Collect fees in quote token (SOL)
+      dynamicFee: DammV2DynamicFeeMode.Disabled, // No dynamic fees
+      poolFeeBps: 200, // 2% fee (matches FixedBps200)
+    },
     
-    padding: [],
+    // Padding for future use (7 u64 values)
+    padding: [new BN(0), new BN(0), new BN(0), new BN(0), new BN(0), new BN(0), new BN(0)],
     
     // Bonding curve shape
     curve: calculateBondingCurve(),
