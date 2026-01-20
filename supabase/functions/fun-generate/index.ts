@@ -230,23 +230,38 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
       description = `The next ${suffix} to moon! 🚀`;
     }
 
-    // Ensure name is single word and properly formatted
-    name = name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
-    ticker = ticker.replace(/[^A-Z0-9]/g, "").slice(0, 5).toUpperCase();
+    // Ensure name is single word and properly formatted - NO NUMBERS
+    name = name.replace(/[^a-zA-Z]/g, "").slice(0, 10);
+    ticker = ticker.replace(/[^A-Z]/g, "").slice(0, 5).toUpperCase();
 
-    // Check if name still exists (in case AI ignored our instructions)
-    if (existingNames.has(name.toLowerCase())) {
-      console.log("[fun-generate] Generated name already exists, creating unique variant");
-      const randomSuffix = Math.floor(Math.random() * 999);
-      name = `${name}${randomSuffix}`.slice(0, 12);
-      ticker = name.slice(0, 4).toUpperCase();
+    // If name already exists, use a completely fresh fallback (NO numbers ever)
+    if (existingNames.has(name.toLowerCase()) || name.length < 3) {
+      console.log("[fun-generate] Generated name already exists or too short, using fresh name");
+      // Shuffle prefixes and suffixes and pick unique combo
+      const shuffledPrefixes = [...NAME_PREFIXES].sort(() => Math.random() - 0.5);
+      const shuffledSuffixes = [...NAME_SUFFIXES].sort(() => Math.random() - 0.5);
+      
+      // Try combinations until we find a unique one
+      for (const prefix of shuffledPrefixes) {
+        for (const suffix of shuffledSuffixes) {
+          const candidate = `${prefix}${suffix.charAt(0).toUpperCase() + suffix.slice(1)}`.slice(0, 10);
+          if (!existingNames.has(candidate.toLowerCase())) {
+            name = candidate;
+            ticker = name.slice(0, 4).toUpperCase();
+            break;
+          }
+        }
+        if (!existingNames.has(name.toLowerCase())) break;
+      }
     }
 
-    // If name is still too long or still duplicate, use random fallback
-    if (name.length > 12) {
+    // Final fallback: use prefix + random letter suffix (still no numbers)
+    if (existingNames.has(name.toLowerCase()) || name.length < 3) {
       const prefix = NAME_PREFIXES[Math.floor(Math.random() * NAME_PREFIXES.length)];
-      const suffix = NAME_SUFFIXES[Math.floor(Math.random() * NAME_SUFFIXES.length)];
-      name = `${prefix}${suffix.charAt(0).toUpperCase() + suffix.slice(1)}`.slice(0, 12);
+      const letters = "XYZQWKJV";
+      const randomLetter = letters[Math.floor(Math.random() * letters.length)];
+      name = `${prefix}${randomLetter}`.slice(0, 10);
+      ticker = name.slice(0, 4).toUpperCase();
     }
 
     console.log("[fun-generate] Parsed concept:", { name, ticker, description });
