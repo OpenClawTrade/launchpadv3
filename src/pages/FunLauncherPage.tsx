@@ -1124,7 +1124,7 @@ export default function FunLauncherPage() {
                                 className="h-8 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10"
                               >
                                 <a 
-                                  href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}`}
+                                  href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >

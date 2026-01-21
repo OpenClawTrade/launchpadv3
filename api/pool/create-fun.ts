@@ -384,7 +384,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         amountSol: SNIPER_BUY_SOL,
       } : null,
       solscanUrl: `https://solscan.io/token/${mintAddress}`,
-      tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}`,
+      tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}?chain=sol`,
     });
 
   } catch (error) {
