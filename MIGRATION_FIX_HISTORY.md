@@ -123,7 +123,13 @@ The SDK calculates these values internally using:
 - **File**: `lib/meteora.ts`
 - **Issue**: TypeScript error TS2353 - `periodFrequency` does not exist in type `FeeSchedulerParams`
 - **Solution**: Removed `periodFrequency: 0` from `feeSchedulerParam` object
-- **Root Cause**: SDK's `FeeSchedulerParams` interface only accepts `startingFeeBps`, `endingFeeBps`, and `numberOfPeriod`
+- **Root Cause**: SDK's `FeeSchedulerParams` interface only accepts specific properties
+
+### Fix 2: Added required `totalDuration` property (2025-01-21)
+- **File**: `lib/meteora.ts`
+- **Issue**: TypeScript error TS2741 - `totalDuration` missing in `FeeSchedulerParams`
+- **Solution**: Added `totalDuration: 0` to `feeSchedulerParam` object
+- **Root Cause**: SDK requires `totalDuration` even when `numberOfPeriod` is 0
 
 ---
 
