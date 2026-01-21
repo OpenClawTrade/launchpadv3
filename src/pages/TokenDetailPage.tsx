@@ -328,7 +328,7 @@ export default function TokenDetailPage() {
                 <a
                   href={`https://axiom.trade/meme/${
                     (token.status === "graduated" ? token.damm_pool_address : token.dbc_pool_address) || token.mint_address
-                  }`}
+                  }?chain=sol`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
