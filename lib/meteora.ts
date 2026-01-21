@@ -87,6 +87,11 @@ export function getSqrtStartPrice(): InstanceType<typeof BN> {
 // Pool creation parameters
 export interface CreatePoolParams {
   creatorWallet: string;
+  // Optional override for the on-chain `leftoverReceiver`.
+  // For FUN launches, the on-chain creator is the treasury (server-side signing),
+  // but terminals (Axiom/DEXTools) often infer “project/owner” from leftoverReceiver.
+  // Setting this to the user’s wallet helps migration/graduation UI display correctly.
+  leftoverReceiverWallet?: string;
   name: string;
   ticker: string;
   description?: string;
@@ -131,6 +136,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   const configKeypair = Keypair.generate();
   
   const creatorPubkey = new PublicKey(params.creatorWallet);
+  const leftoverReceiverPubkey = new PublicKey(params.leftoverReceiverWallet ?? params.creatorWallet);
   const platformPubkey = new PublicKey(PLATFORM_FEE_WALLET);
   
   // Calculate fee numerator.
@@ -189,7 +195,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     payer: creatorPubkey,
     config: configKeypair.publicKey,
     feeClaimer: platformPubkey, // Platform receives fees, distributes via our system
-    leftoverReceiver: creatorPubkey, // Use creator as leftover receiver (terminal compatibility)
+    leftoverReceiver: leftoverReceiverPubkey, // Terminal compatibility (see comment on CreatePoolParams)
     quoteMint: new PublicKey(WSOL_MINT),
     
     // Fee configuration - 2% total
