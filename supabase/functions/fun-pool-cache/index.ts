@@ -10,10 +10,12 @@ const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD_SOL = 85;
 
 // Decode Meteora DBC virtualPool account data
+// Supports both 6-decimal (legacy) and 9-decimal (new) tokens
 function decodePoolReserves(base64Data: string): {
   realSolReserves: number;
   virtualSolReserves: number;
   virtualTokenReserves: number;
+  tokenDecimals: number;
 } | null {
   try {
     const binaryString = atob(base64Data);
@@ -28,12 +30,18 @@ function decodePoolReserves(base64Data: string): {
     const baseReserve = dataView.getBigUint64(232, true);
     const quoteReserve = dataView.getBigUint64(240, true);
     
-    const virtualTokenReserves = Number(baseReserve) / 1e6;
+    // Detect token decimals from reserve magnitude
+    // 9-decimal tokens: baseReserve is ~1e18 for 1B supply
+    // 6-decimal tokens: baseReserve is ~1e15 for 1B supply
+    const baseReserveNum = Number(baseReserve);
+    const tokenDecimals = baseReserveNum > 1e17 ? 9 : 6;
+    
+    const virtualTokenReserves = baseReserveNum / Math.pow(10, tokenDecimals);
     const accumulatedSol = Number(quoteReserve) / 1e9;
     const virtualSolReserves = INITIAL_VIRTUAL_SOL + accumulatedSol;
     const realSolReserves = accumulatedSol;
 
-    return { realSolReserves, virtualSolReserves, virtualTokenReserves };
+    return { realSolReserves, virtualSolReserves, virtualTokenReserves, tokenDecimals };
   } catch {
     return null;
   }

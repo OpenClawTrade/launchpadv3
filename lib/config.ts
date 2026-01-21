@@ -15,7 +15,9 @@ export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 export const PLATFORM_FEE_WALLET = 'CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ';
 
 // Token settings
-export const TOKEN_DECIMALS = 6;
+// CRITICAL: Use 9 decimals to match Axiom/DEXTools expectations for migration display
+// This ensures migrationQuoteThreshold encodes to exactly 85 SOL on-chain
+export const TOKEN_DECIMALS = 9;
 export const TOTAL_SUPPLY = 1_000_000_000;
 
 // Bonding curve parameters

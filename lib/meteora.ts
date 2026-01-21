@@ -62,19 +62,27 @@ export function getMeteoraClient(): DynamicBondingCurveClient {
  * that are compatible with external terminals for migration display
  */
 export function buildCurveConfig() {
+  // ============================================================================
+  // CRITICAL FIX: Use activationType: Slot (0) and tokenDecimal: 9
+  // This ensures migrationQuoteThreshold = 85 SOL exactly on-chain
+  // See MIGRATION_FIX_HISTORY.md for why these values are required
+  // ============================================================================
   const curveConfig = buildCurveWithMarketCap({
     // Market cap values (in SOL)
     initialMarketCap: INITIAL_VIRTUAL_SOL, // 30 SOL initial market cap
     migrationMarketCap: GRADUATION_THRESHOLD_SOL, // 85 SOL graduation threshold
     
     // Token configuration
+    // CRITICAL: Use 9 decimals to match Axiom/DEXTools expectations
     totalTokenSupply: TOTAL_SUPPLY, // 1 billion tokens
-    tokenBaseDecimal: TOKEN_DECIMALS, // 6 decimals
+    tokenBaseDecimal: TOKEN_DECIMALS, // 9 decimals (NOT 6!)
     tokenQuoteDecimal: 9, // SOL has 9 decimals
     
     // Migration configuration
+    // CRITICAL: Use ActivationType.Slot (0), NOT Timestamp (1)
+    // Axiom/DEXTools expect slot-based activation for migration display
     migrationOption: MigrationOption.MET_DAMM_V2,
-    activationType: ActivationType.Timestamp,
+    activationType: ActivationType.Slot, // FIXED: Slot (0), not Timestamp (1)
     collectFeeMode: CollectFeeMode.QuoteToken,
     migrationFeeOption: MigrationFeeOption.FixedBps200,
     tokenType: TokenType.SPL,
@@ -120,9 +128,26 @@ export function buildCurveConfig() {
     dynamicFeeEnabled: false,
   });
   
+  // ============================================================================
+  // SAFETY CHECK: Abort if migrationQuoteThreshold is not ~85 SOL
+  // This prevents creating pools that won't display correctly on Axiom
+  // ============================================================================
+  const thresholdLamports = curveConfig.migrationQuoteThreshold;
+  const thresholdSol = thresholdLamports ? Number(thresholdLamports.toString()) / 1e9 : 0;
+  
+  // Allow small floating point tolerance (84.5 - 85.5 SOL)
+  if (thresholdSol < 84.5 || thresholdSol > 85.5) {
+    console.error('[meteora] FATAL: migrationQuoteThreshold is', thresholdSol, 'SOL, expected ~85 SOL');
+    console.error('[meteora] This will cause Axiom/DEXTools to not display migration progress');
+    console.error('[meteora] Check TOKEN_DECIMALS (should be 9) and activationType (should be Slot)');
+    throw new Error(`Invalid migrationQuoteThreshold: ${thresholdSol} SOL (expected ~85 SOL). Pool creation aborted.`);
+  }
+  
   console.log('[meteora] Built curve config via SDK buildCurveWithMarketCap');
   console.log('[meteora] sqrtStartPrice:', curveConfig.sqrtStartPrice?.toString());
-  console.log('[meteora] migrationQuoteThreshold:', curveConfig.migrationQuoteThreshold?.toString());
+  console.log('[meteora] migrationQuoteThreshold:', thresholdSol.toFixed(4), 'SOL ✓');
+  console.log('[meteora] tokenDecimal:', TOKEN_DECIMALS, '(expected 9)');
+  console.log('[meteora] activationType: Slot (0) ✓');
   console.log('[meteora] curve points:', curveConfig.curve?.length);
   
   return curveConfig;
