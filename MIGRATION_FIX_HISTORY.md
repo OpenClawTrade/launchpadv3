@@ -117,6 +117,16 @@ The SDK calculates these values internally using:
 
 ---
 
+## Diagnostic Tooling Updates
+
+### Update: Switched `config-inspect` to SDK decoding (2026-01-21)
+- **File**: `api/pool/config-inspect.ts`
+- **Problem**: Our earlier byte-offset decoder was **not reliable** (fields like `quoteMint`/`tokenDecimal` were being mis-read), leading to false conclusions.
+- **Solution**: Use the Meteora SDK state getters (`DynamicBondingCurveClient.state.getPool` + `getPoolConfig`) and only compare SDK-decoded fields.
+- **Why this matters**: Now when Axiom doesn’t show migration, we can prove exactly which on-chain field differs versus a known-good pool.
+
+---
+
 ## Bug Fix Log
 
 ### Fix 1: Removed invalid `periodFrequency` property (2025-01-21)

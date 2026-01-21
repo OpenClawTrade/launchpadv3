@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Connection, PublicKey } from "@solana/web3.js";
+import { DynamicBondingCurveClient } from "@meteora-ag/dynamic-bonding-curve-sdk";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,152 +8,75 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// Helper to read little-endian integers from buffer
-function readU64LE(data: Uint8Array, offset: number): bigint {
-  let val = 0n;
-  for (let i = 0; i < 8; i++) {
-    val |= BigInt(data[offset + i]) << BigInt(i * 8);
+function bnToString(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyV = v as any;
+  if (typeof anyV === "bigint") return anyV.toString();
+  if (typeof anyV?.toString === "function") return anyV.toString();
+  return String(anyV);
+}
+
+function bnToSol(v: unknown): number | null {
+  const s = bnToString(v);
+  if (!s) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return n / 1e9;
+}
+
+function asBase58(v: unknown): string | null {
+  try {
+    if (!v) return null;
+    if (v instanceof PublicKey) return v.toBase58();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyV = v as any;
+    if (typeof anyV?.toBase58 === "function") return anyV.toBase58();
+    if (typeof anyV === "string") return anyV;
+    return String(anyV);
+  } catch {
+    return null;
   }
-  return val;
 }
 
-function readU16LE(data: Uint8Array, offset: number): number {
-  return data[offset] | (data[offset + 1] << 8);
-}
+function pickConfigFields(config: unknown) {
+  // We intentionally keep this resilient to SDK struct changes.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c = (config ?? {}) as any;
 
-function readU8(data: Uint8Array, offset: number): number {
-  return data[offset];
-}
-
-// Decode pool account to get config address
-function decodePoolAccount(data: Uint8Array): {
-  configAddress: string;
-  creatorAddress: string;
-  baseMintAddress: string;
-  quoteMintAddress: string;
-  baseReserve: string;
-  quoteReserve: string;
-} {
-  // Pool account layout (approximate offsets based on Meteora DBC):
-  // 8 bytes: discriminator
-  // 32 bytes: config
-  // 32 bytes: creator
-  // 32 bytes: baseMint
-  // 32 bytes: quoteMint
-  // ... vaults, reserves, etc.
-  
-  const configAddress = new PublicKey(data.slice(8, 40)).toBase58();
-  const creatorAddress = new PublicKey(data.slice(40, 72)).toBase58();
-  const baseMintAddress = new PublicKey(data.slice(72, 104)).toBase58();
-  const quoteMintAddress = new PublicKey(data.slice(104, 136)).toBase58();
-  
-  // Base and quote vaults (32 bytes each)
-  // offset 136-168: baseVault
-  // offset 168-200: quoteVault
-  
-  // Reserves are u64 values
-  // offset 200-208: baseReserve
-  // offset 208-216: quoteReserve
-  const baseReserve = readU64LE(data, 200).toString();
-  const quoteReserve = readU64LE(data, 208).toString();
-  
   return {
-    configAddress,
-    creatorAddress,
-    baseMintAddress,
-    quoteMintAddress,
-    baseReserve,
-    quoteReserve,
+    activationType: c.activationType ?? null,
+    collectFeeMode: c.collectFeeMode ?? null,
+    migrationOption: c.migrationOption ?? null,
+    migrationFeeOption: c.migrationFeeOption ?? null,
+    tokenType: c.tokenType ?? null,
+    tokenDecimal: c.tokenDecimal ?? c.tokenBaseDecimal ?? null,
+
+    feeClaimer: asBase58(c.feeClaimer),
+    leftoverReceiver: asBase58(c.leftoverReceiver),
+    quoteMint: asBase58(c.quoteMint),
+
+    migrationQuoteThreshold: bnToString(c.migrationQuoteThreshold),
+    migrationQuoteThresholdSOL: bnToSol(c.migrationQuoteThreshold),
   };
 }
 
-// Decode config account
-function decodeConfigAccount(data: Uint8Array): Record<string, unknown> {
-  // Config account layout (approximate):
-  // 8 bytes: discriminator
-  // 32 bytes: poolCreatorAuthority
-  // 1 byte: activationType (0=Slot, 1=Timestamp)
-  // 1 byte: collectFeeMode
-  // ... various fee fields
-  // 32 bytes: feeClaimer
-  // 32 bytes: leftoverReceiver
-  // 32 bytes: quoteMint
-  // 1 byte: tokenDecimal
-  // ... migration config fields
-  
-  const poolCreatorAuthority = new PublicKey(data.slice(8, 40)).toBase58();
-  const activationType = readU8(data, 40);
-  const collectFeeMode = readU8(data, 41);
-  
-  // Fee fields (various u16/u64 values)
-  const tradeFeeNumerator = readU64LE(data, 42);
-  const tradeFeeDenominator = readU64LE(data, 50);
-  const protocolFeePercent = readU8(data, 58);
-  const creatorFeePercent = readU8(data, 59);
-  const partnerFeePercent = readU8(data, 60);
-  
-  // Padding and more fields
-  // offset 61-64: padding
-  // offset 64-72: activationPoint (u64)
-  const activationPoint = readU64LE(data, 64);
-  
-  // Key addresses
-  // offset 72-104: feeClaimer
-  // offset 104-136: leftoverReceiver  
-  // offset 136-168: quoteMint
-  const feeClaimer = new PublicKey(data.slice(72, 104)).toBase58();
-  const leftoverReceiver = new PublicKey(data.slice(104, 136)).toBase58();
-  const quoteMint = new PublicKey(data.slice(136, 168)).toBase58();
-  
-  const tokenDecimal = readU8(data, 168);
-  
-  // Migration config starts around offset 169
-  // migrationOption: 1 byte
-  // migrationFeeOption: 1 byte
-  // tokenType: 1 byte
-  // tokenFlag: 1 byte
-  // creatorPostMigrationFeePercentage: 1 byte
-  const migrationOption = readU8(data, 169);
-  const migrationFeeOption = readU8(data, 170);
-  const tokenType = readU8(data, 171);
-  const tokenFlag = readU8(data, 172);
-  const creatorPostMigrationFeePercentage = readU8(data, 173);
-  
-  // Padding then migration thresholds
-  // offset 174-176: padding
-  // offset 176-184: migrationQuoteThreshold (u64)
-  // offset 184-192: migrationBaseThreshold (u64)
-  const migrationQuoteThreshold = readU64LE(data, 176);
-  const migrationBaseThreshold = readU64LE(data, 184);
-  
-  // Curve points start after basic config
-  // Look for sqrtPrice and liquidity pairs
-  
+function pickPoolFields(pool: unknown) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = (pool ?? {}) as any;
   return {
-    poolCreatorAuthority,
-    activationType: activationType === 0 ? "Slot" : activationType === 1 ? "Timestamp" : `Unknown(${activationType})`,
-    activationTypeRaw: activationType,
-    collectFeeMode,
-    tradeFeeNumerator: tradeFeeNumerator.toString(),
-    tradeFeeDenominator: tradeFeeDenominator.toString(),
-    protocolFeePercent,
-    creatorFeePercent,
-    partnerFeePercent,
-    activationPoint: activationPoint.toString(),
-    feeClaimer,
-    leftoverReceiver,
-    quoteMint,
-    tokenDecimal,
-    migrationOption: migrationOption === 0 ? "None" : migrationOption === 1 ? "MET_DAMM" : migrationOption === 2 ? "MET_DAMM_V2" : `Unknown(${migrationOption})`,
-    migrationOptionRaw: migrationOption,
-    migrationFeeOption: migrationFeeOption === 0 ? "FixedBps25" : migrationFeeOption === 1 ? "FixedBps30" : migrationFeeOption === 2 ? "FixedBps100" : migrationFeeOption === 3 ? "FixedBps200" : migrationFeeOption === 4 ? "FixedBps400" : `Unknown(${migrationFeeOption})`,
-    migrationFeeOptionRaw: migrationFeeOption,
-    tokenType,
-    tokenFlag,
-    creatorPostMigrationFeePercentage,
-    migrationQuoteThreshold: migrationQuoteThreshold.toString(),
-    migrationQuoteThresholdSOL: Number(migrationQuoteThreshold) / 1e9,
-    migrationBaseThreshold: migrationBaseThreshold.toString(),
+    config: asBase58(p.config),
+    creator: asBase58(p.creator),
+    baseMint: asBase58(p.baseMint),
+    quoteMint: asBase58(p.quoteMint),
+
+    baseReserve: bnToString(p.baseReserve),
+    quoteReserve: bnToString(p.quoteReserve),
+    quoteReserveSOL: bnToSol(p.quoteReserve),
+
+    activationPoint: bnToString(p.activationPoint),
+    isMigrated: Boolean(p.isMigrated),
+    migrationProgress: p.migrationProgress ?? null,
   };
 }
 
@@ -169,71 +93,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const heliusRpcUrl = process.env.HELIUS_RPC_URL;
-    if (!heliusRpcUrl) {
-      return res.status(500).json({ error: "HELIUS_RPC_URL not configured" });
-    }
+    if (!heliusRpcUrl) return res.status(500).json({ error: "HELIUS_RPC_URL not configured" });
 
     const connection = new Connection(heliusRpcUrl, "confirmed");
-    
+    const client = new DynamicBondingCurveClient(connection, "confirmed");
+
     const results: Record<string, unknown> = {};
     const pools = [pool1 as string];
     if (pool2) pools.push(pool2 as string);
-    
+
     for (const poolAddress of pools) {
       try {
         const poolPubkey = new PublicKey(poolAddress);
-        const poolAccountInfo = await connection.getAccountInfo(poolPubkey);
-        
-        if (!poolAccountInfo) {
-          results[poolAddress] = { error: "Pool account not found" };
+        const poolState = await client.state.getPool(poolPubkey);
+
+        if (!poolState) {
+          results[poolAddress] = { error: "Pool not found via SDK" };
           continue;
         }
-        
-        const poolData = decodePoolAccount(poolAccountInfo.data);
-        
-        // Fetch config account
-        const configPubkey = new PublicKey(poolData.configAddress);
-        const configAccountInfo = await connection.getAccountInfo(configPubkey);
-        
-        if (!configAccountInfo) {
-          results[poolAddress] = { 
-            pool: poolData,
-            config: { error: "Config account not found" }
+
+        const configState = await client.state.getPoolConfig(poolState.config);
+        if (!configState) {
+          results[poolAddress] = {
+            pool: pickPoolFields(poolState),
+            config: { error: "Config not found via SDK" },
           };
           continue;
         }
-        
-        const configData = decodeConfigAccount(configAccountInfo.data);
-        
+
         results[poolAddress] = {
-          pool: poolData,
-          config: configData,
-          rawConfigSize: configAccountInfo.data.length,
-          rawPoolSize: poolAccountInfo.data.length,
+          pool: pickPoolFields(poolState),
+          config: pickConfigFields(configState),
         };
       } catch (err) {
         results[poolAddress] = { error: err instanceof Error ? err.message : "Unknown error" };
       }
     }
     
-    // If comparing two pools, calculate differences
+    // If comparing two pools, calculate differences (SDK-decoded fields only)
     let differences: string[] = [];
     if (pool2 && results[pool1 as string] && results[pool2 as string]) {
-      const c1 = (results[pool1 as string] as any)?.config;
-      const c2 = (results[pool2 as string] as any)?.config;
-      
+      const r1 = results[pool1 as string] as any;
+      const r2 = results[pool2 as string] as any;
+      const c1 = r1?.config;
+      const c2 = r2?.config;
+      const p1 = r1?.pool;
+      const p2 = r2?.pool;
+
       if (c1 && c2 && !c1.error && !c2.error) {
         const keysToCompare = [
-          "activationType", "activationTypeRaw", "collectFeeMode",
-          "migrationOption", "migrationOptionRaw", "migrationFeeOption", "migrationFeeOptionRaw",
-          "tokenType", "tokenFlag", "creatorPostMigrationFeePercentage",
-          "migrationQuoteThresholdSOL", "protocolFeePercent", "creatorFeePercent", "partnerFeePercent"
+          "activationType",
+          "collectFeeMode",
+          "migrationOption",
+          "migrationFeeOption",
+          "tokenType",
+          "tokenDecimal",
+          "migrationQuoteThresholdSOL",
+          "feeClaimer",
+          "leftoverReceiver",
+          "quoteMint",
         ];
-        
         for (const key of keysToCompare) {
-          if (c1[key] !== c2[key]) {
-            differences.push(`${key}: "${c1[key]}" vs "${c2[key]}"`);
-          }
+          if (c1[key] !== c2[key]) differences.push(`config.${key}: "${c1[key]}" vs "${c2[key]}"`);
+        }
+      }
+
+      if (p1 && p2 && !p1.error && !p2.error) {
+        const poolKeys = ["quoteReserveSOL", "activationPoint", "isMigrated", "migrationProgress", "creator", "baseMint"];
+        for (const key of poolKeys) {
+          if (p1[key] !== p2[key]) differences.push(`pool.${key}: "${p1[key]}" vs "${p2[key]}"`);
         }
       }
     }
@@ -242,7 +170,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       pools: results,
       differences: differences.length > 0 ? differences : undefined,
-      note: "Compare config values between working and non-working pools"
+      note: "SDK-decoded pool/config values (trusted). Compare differences to diagnose terminal display issues.",
+      usage: {
+        exampleCompare: "/api/pool/config-inspect?pool1=<workingPool>&pool2=<yourPool>",
+      },
     });
     
   } catch (error) {
