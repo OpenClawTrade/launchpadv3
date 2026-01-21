@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.pool-config-debug]
 verify_jwt = false
+
+[functions.pool-config-inspect]
+verify_jwt = false
