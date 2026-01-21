@@ -36,6 +36,7 @@ function decodePoolReserves(base64Data: string): {
   virtualSolReserves: number;
   virtualTokenReserves: number;
   mintAddress?: string;
+  tokenDecimals: number;
 } | null {
   try {
     const buffer = Buffer.from(base64Data, "base64");
@@ -65,10 +66,16 @@ function decodePoolReserves(base64Data: string): {
       }
     }
 
+    // Detect token decimals from reserve magnitude
+    // 9-decimal tokens: baseReserve is ~1e18 for 1B supply
+    // 6-decimal tokens: baseReserve is ~1e15 for 1B supply
+    const baseReserveNum = Number(baseReserve);
+    const tokenDecimals = baseReserveNum > 1e17 ? 9 : 6;
+
     // Convert to human-readable values
-    // SOL has 9 decimals, tokens have 6 decimals
+    // SOL has 9 decimals, tokens have dynamic decimals (6 or 9)
     const virtualSolReserves = Number(quoteReserve) / 1e9;
-    const virtualTokenReserves = Number(baseReserve) / Math.pow(10, TOKEN_DECIMALS);
+    const virtualTokenReserves = baseReserveNum / Math.pow(10, tokenDecimals);
 
     // Calculate real SOL reserves (SOL deposited by traders)
     const realSolReserves = Math.max(0, virtualSolReserves - INITIAL_VIRTUAL_SOL);
@@ -84,9 +91,10 @@ function decodePoolReserves(base64Data: string): {
       virtualTokenReserves: virtualTokenReserves.toFixed(0),
       realSolReserves: realSolReserves.toFixed(4),
       mintAddress: mintAddress?.slice(0, 8) + "...",
+      tokenDecimals,
     });
 
-    return { realSolReserves, virtualSolReserves, virtualTokenReserves, mintAddress };
+    return { realSolReserves, virtualSolReserves, virtualTokenReserves, mintAddress, tokenDecimals };
   } catch (e) {
     console.error("[pool/state] Decode error:", e);
     return null;

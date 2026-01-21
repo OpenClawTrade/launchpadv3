@@ -2,7 +2,6 @@ import { corsHeaders, GRADUATION_THRESHOLD_SOL, TOTAL_SUPPLY } from './constants
 import { fetchHolderCount } from './helius.ts';
 
 const INITIAL_VIRTUAL_SOL = 30;
-const TOKEN_DECIMALS = 6;
 const REQUEST_TIMEOUT_MS = 8000;
 
 // Server-side cache to reduce RPC calls - 60 second TTL
@@ -10,10 +9,12 @@ const poolStateCache = new Map<string, { data: any; timestamp: number }>();
 const POOL_CACHE_TTL = 60000; // 60 seconds cache
 
 // Decode Meteora DBC virtualPool account data from on-chain
+// Supports both 6-decimal (legacy) and 9-decimal (new) tokens
 function decodePoolReserves(base64Data: string): {
   realSolReserves: number;
   virtualSolReserves: number;
   virtualTokenReserves: number;
+  tokenDecimals: number;
 } | null {
   try {
     const binaryString = atob(base64Data);
@@ -33,8 +34,15 @@ function decodePoolReserves(base64Data: string): {
     const baseReserve = dataView.getBigUint64(232, true);
     const quoteReserve = dataView.getBigUint64(240, true);
     
-    // Token reserves (with 6 decimals)
-    const virtualTokenReserves = Number(baseReserve) / 1e6;
+    // Try to detect token decimals from reserve magnitude
+    // 9-decimal tokens: baseReserve is ~1e18 for 1B supply
+    // 6-decimal tokens: baseReserve is ~1e15 for 1B supply
+    // We use a heuristic: if baseReserve > 1e17, assume 9 decimals
+    const baseReserveNum = Number(baseReserve);
+    const tokenDecimals = baseReserveNum > 1e17 ? 9 : 6;
+    
+    // Token reserves (dynamic decimals)
+    const virtualTokenReserves = baseReserveNum / Math.pow(10, tokenDecimals);
     
     // Quote reserve tracks SOL from trades (lamports)
     // Virtual SOL = initial 30 SOL + accumulated from trades
@@ -46,9 +54,10 @@ function decodePoolReserves(base64Data: string): {
       tokens: virtualTokenReserves.toFixed(0),
       virtualSol: virtualSolReserves.toFixed(4),
       realSol: realSolReserves.toFixed(4),
+      tokenDecimals,
     });
 
-    return { realSolReserves, virtualSolReserves, virtualTokenReserves };
+    return { realSolReserves, virtualSolReserves, virtualTokenReserves, tokenDecimals };
   } catch (e) {
     console.error('[fun-pool-state] Decode error:', e);
     return null;
