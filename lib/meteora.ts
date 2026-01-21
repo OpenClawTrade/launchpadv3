@@ -63,94 +63,142 @@ export function getMeteoraClient(): DynamicBondingCurveClient {
  */
 export function buildCurveConfig() {
   // ============================================================================
-  // CRITICAL FIX: Use activationType: Slot (0) and tokenDecimal: 9
-  // This ensures migrationQuoteThreshold = 85 SOL exactly on-chain
-  // See MIGRATION_FIX_HISTORY.md for why these values are required
+  // CRITICAL FIX: migrationQuoteThreshold must match GRADUATION_THRESHOLD_SOL.
+  //
+  // IMPORTANT: Meteora's SDK takes `migrationMarketCap` as an input, but the
+  // on-chain field external terminals key off is `migrationQuoteThreshold`.
+  // In practice, `buildCurveWithMarketCap({ migrationMarketCap: 85 })` yields a
+  // migrationQuoteThreshold around ~31.68 SOL (because price changes along the
+  // curve). To reliably encode the expected on-chain threshold, we solve for the
+  // migrationMarketCap that produces the desired migrationQuoteThreshold.
   // ============================================================================
-  const curveConfig = buildCurveWithMarketCap({
-    // Market cap values (in SOL)
-    initialMarketCap: INITIAL_VIRTUAL_SOL, // 30 SOL initial market cap
-    migrationMarketCap: GRADUATION_THRESHOLD_SOL, // 85 SOL graduation threshold
-    
-    // Token configuration
-    // CRITICAL: Use 9 decimals to match Axiom/DEXTools expectations
-    totalTokenSupply: TOTAL_SUPPLY, // 1 billion tokens
-    tokenBaseDecimal: TOKEN_DECIMALS, // 9 decimals (NOT 6!)
-    tokenQuoteDecimal: 9, // SOL has 9 decimals
-    
-    // Migration configuration
-    // CRITICAL: Use ActivationType.Slot (0), NOT Timestamp (1)
-    // Axiom/DEXTools expect slot-based activation for migration display
-    migrationOption: MigrationOption.MET_DAMM_V2,
-    activationType: ActivationType.Slot, // FIXED: Slot (0), not Timestamp (1)
-    collectFeeMode: CollectFeeMode.QuoteToken,
-    migrationFeeOption: MigrationFeeOption.FixedBps200,
-    tokenType: TokenType.SPL,
-    
-    // LP distribution
-    partnerLpPercentage: PARTNER_LP_PERCENTAGE,
-    creatorLpPercentage: CREATOR_LP_PERCENTAGE,
-    partnerLockedLpPercentage: PARTNER_LOCKED_LP_PERCENTAGE,
-    creatorLockedLpPercentage: CREATOR_LOCKED_LP_PERCENTAGE,
-    
-    // Fee configuration
-    creatorTradingFeePercentage: 0, // 100% to platform treasury
-    tokenUpdateAuthority: 1, // Immutable metadata
-    leftover: 0, // No leftover tokens
-    
-    // Migration fees
-    migrationFee: {
-      feePercentage: 0,
-      creatorFeePercentage: 0,
-    },
-    
-    // No vesting
-    lockedVestingParam: {
-      totalLockedVestingAmount: 0,
-      numberOfVestingPeriod: 0,
-      cliffUnlockAmount: 0,
-      totalVestingDuration: 0,
-      cliffDurationFromMigrationTime: 0,
-    },
-    
-    // Base fee configuration
-    baseFeeParams: {
-      baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-      feeSchedulerParam: {
-        startingFeeBps: TRADING_FEE_BPS, // 200 bps = 2%
-        endingFeeBps: TRADING_FEE_BPS,   // 200 bps = 2%
-        numberOfPeriod: 0,
-        totalDuration: 0, // No duration since fee is constant
+
+  const targetThresholdSol = GRADUATION_THRESHOLD_SOL;
+  const thresholdFromConfig = (cfg: any): number => {
+    const lamports = cfg?.migrationQuoteThreshold;
+    return lamports ? Number(lamports.toString()) / 1e9 : 0;
+  };
+
+  const build = (migrationMarketCap: number) =>
+    buildCurveWithMarketCap({
+      // Market cap values (in SOL)
+      initialMarketCap: INITIAL_VIRTUAL_SOL,
+      migrationMarketCap,
+
+      // Token configuration
+      totalTokenSupply: TOTAL_SUPPLY,
+      tokenBaseDecimal: TOKEN_DECIMALS, // 9 decimals
+      tokenQuoteDecimal: 9, // SOL has 9 decimals
+
+      // Migration configuration
+      migrationOption: MigrationOption.MET_DAMM_V2,
+      activationType: ActivationType.Slot,
+      collectFeeMode: CollectFeeMode.QuoteToken,
+      migrationFeeOption: MigrationFeeOption.FixedBps200,
+      tokenType: TokenType.SPL,
+
+      // LP distribution
+      partnerLpPercentage: PARTNER_LP_PERCENTAGE,
+      creatorLpPercentage: CREATOR_LP_PERCENTAGE,
+      partnerLockedLpPercentage: PARTNER_LOCKED_LP_PERCENTAGE,
+      creatorLockedLpPercentage: CREATOR_LOCKED_LP_PERCENTAGE,
+
+      // Fee configuration
+      creatorTradingFeePercentage: 0,
+      tokenUpdateAuthority: 1,
+      leftover: 0,
+
+      // Migration fees
+      migrationFee: {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
       },
-    },
-    
-    // Dynamic fee disabled for simplicity
-    dynamicFeeEnabled: false,
-  });
-  
-  // ============================================================================
-  // SAFETY CHECK: Abort if migrationQuoteThreshold is not ~85 SOL
-  // This prevents creating pools that won't display correctly on Axiom
-  // ============================================================================
-  const thresholdLamports = curveConfig.migrationQuoteThreshold;
-  const thresholdSol = thresholdLamports ? Number(thresholdLamports.toString()) / 1e9 : 0;
-  
-  // Allow small floating point tolerance (84.5 - 85.5 SOL)
-  if (thresholdSol < 84.5 || thresholdSol > 85.5) {
-    console.error('[meteora] FATAL: migrationQuoteThreshold is', thresholdSol, 'SOL, expected ~85 SOL');
-    console.error('[meteora] This will cause Axiom/DEXTools to not display migration progress');
-    console.error('[meteora] Check TOKEN_DECIMALS (should be 9) and activationType (should be Slot)');
-    throw new Error(`Invalid migrationQuoteThreshold: ${thresholdSol} SOL (expected ~85 SOL). Pool creation aborted.`);
+
+      // No vesting
+      lockedVestingParam: {
+        totalLockedVestingAmount: 0,
+        numberOfVestingPeriod: 0,
+        cliffUnlockAmount: 0,
+        totalVestingDuration: 0,
+        cliffDurationFromMigrationTime: 0,
+      },
+
+      // Base fee configuration
+      baseFeeParams: {
+        baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+        feeSchedulerParam: {
+          startingFeeBps: TRADING_FEE_BPS,
+          endingFeeBps: TRADING_FEE_BPS,
+          numberOfPeriod: 0,
+          totalDuration: 0,
+        },
+      },
+
+      dynamicFeeEnabled: false,
+    });
+
+  // 1) Find an upper bound where threshold >= target
+  let lowMc = Math.max(INITIAL_VIRTUAL_SOL + 0.001, targetThresholdSol);
+  let highMc = Math.max(targetThresholdSol * 5, 250);
+  let highCfg = build(highMc);
+  let highThreshold = thresholdFromConfig(highCfg);
+
+  // Increase until we cross target (cap to avoid runaway)
+  let expandSteps = 0;
+  while (highThreshold < targetThresholdSol && highMc < 100_000 && expandSteps < 10) {
+    highMc *= 2;
+    highCfg = build(highMc);
+    highThreshold = thresholdFromConfig(highCfg);
+    expandSteps++;
   }
-  
+
+  // 2) Binary search migrationMarketCap for desired migrationQuoteThreshold
+  let bestCfg = highCfg;
+  let bestMc = highMc;
+  let bestThreshold = highThreshold;
+
+  for (let i = 0; i < 28; i++) {
+    const midMc = (lowMc + highMc) / 2;
+    const midCfg = build(midMc);
+    const midThreshold = thresholdFromConfig(midCfg);
+
+    // Track best by absolute error
+    if (Math.abs(midThreshold - targetThresholdSol) < Math.abs(bestThreshold - targetThresholdSol)) {
+      bestCfg = midCfg;
+      bestMc = midMc;
+      bestThreshold = midThreshold;
+    }
+
+    // Assume monotonic: higher market cap => higher quote threshold
+    if (midThreshold < targetThresholdSol) {
+      lowMc = midMc;
+    } else {
+      highMc = midMc;
+    }
+  }
+
+  // 3) Safety check: ensure threshold matches target
+  // Keep tolerance reasonably tight; if this fails, we prefer to abort rather than
+  // create another pool that external terminals won’t display correctly.
+  const tolerance = 0.5; // SOL
+  if (Math.abs(bestThreshold - targetThresholdSol) > tolerance) {
+    console.error('[meteora] FATAL: Could not solve migrationMarketCap for target migrationQuoteThreshold');
+    console.error('[meteora] targetThresholdSol:', targetThresholdSol);
+    console.error('[meteora] bestThreshold:', bestThreshold);
+    console.error('[meteora] bestMigrationMarketCap:', bestMc);
+    throw new Error(
+      `Invalid migrationQuoteThreshold: ${bestThreshold} SOL (expected ~${targetThresholdSol} SOL). Pool creation aborted.`
+    );
+  }
+
   console.log('[meteora] Built curve config via SDK buildCurveWithMarketCap');
-  console.log('[meteora] sqrtStartPrice:', curveConfig.sqrtStartPrice?.toString());
-  console.log('[meteora] migrationQuoteThreshold:', thresholdSol.toFixed(4), 'SOL ✓');
+  console.log('[meteora] migrationMarketCap (solved):', bestMc.toFixed(6));
+  console.log('[meteora] migrationQuoteThreshold:', bestThreshold.toFixed(6), `SOL (target ${targetThresholdSol}) ✓`);
   console.log('[meteora] tokenDecimal:', TOKEN_DECIMALS, '(expected 9)');
   console.log('[meteora] activationType: Slot (0) ✓');
-  console.log('[meteora] curve points:', curveConfig.curve?.length);
-  
-  return curveConfig;
+  console.log('[meteora] curve points:', bestCfg.curve?.length);
+
+  return bestCfg;
 }
 
 // ============================================================================
