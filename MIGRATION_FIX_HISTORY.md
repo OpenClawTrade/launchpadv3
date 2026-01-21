@@ -114,3 +114,21 @@ The SDK calculates these values internally using:
 2. Use `/api/pool/config-inspect` to compare with working pool
 3. Check Axiom for migration display
 4. Verify graduation progress percentage updates with trades
+
+---
+
+## Bug Fix Log
+
+### Fix 1: Removed invalid `periodFrequency` property (2025-01-21)
+- **File**: `lib/meteora.ts`
+- **Issue**: TypeScript error TS2353 - `periodFrequency` does not exist in type `FeeSchedulerParams`
+- **Solution**: Removed `periodFrequency: 0` from `feeSchedulerParam` object
+- **Root Cause**: SDK's `FeeSchedulerParams` interface only accepts `startingFeeBps`, `endingFeeBps`, and `numberOfPeriod`
+
+---
+
+## Key Learnings
+1. **Always use SDK helpers** - Manual curve calculations don't match terminal decoder expectations
+2. **Check SDK types before adding properties** - `FeeSchedulerParams` ≠ `FeeScheduler` class constructor
+3. **Document each attempt** - Prevents repeating failed strategies
+4. **Reference working pools** - Side-by-side comparison is crucial for debugging terminal display issues
