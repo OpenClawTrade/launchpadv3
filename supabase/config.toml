@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.fun-pool-cache]
 verify_jwt = false
+
+[functions.pool-config-debug]
+verify_jwt = false
