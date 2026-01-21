@@ -1,5 +1,8 @@
 // TRENCHES Launchpad - Meteora SDK Integration
 // Full on-chain integration with Meteora Dynamic Bonding Curve
+// 
+// MIGRATION FIX HISTORY - See MIGRATION_FIX_HISTORY.md
+// Using buildCurveWithMarketCap from SDK for terminal compatibility (Axiom/DEXTools/Birdeye)
 
 import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction, ComputeBudgetProgram } from '@solana/web3.js';
 import {
@@ -16,6 +19,7 @@ import {
   deriveEscrow,
   DAMM_V1_MIGRATION_FEE_ADDRESS,
   prepareSwapAmountParam,
+  buildCurveWithMarketCap, // SDK curve builder for terminal compatibility
 } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { BN } from 'bn.js';
 import {
@@ -30,6 +34,7 @@ import {
   PARTNER_LOCKED_LP_PERCENTAGE,
   CREATOR_LOCKED_LP_PERCENTAGE,
   WSOL_MINT,
+  INITIAL_VIRTUAL_SOL,
 } from './config.js';
 import { getConnection, getTreasuryKeypair } from './solana.js';
 
@@ -44,43 +49,116 @@ export function getMeteoraClient(): DynamicBondingCurveClient {
   return meteoraClient;
 }
 
-// Calculate sqrt price from virtual reserves
-// Formula: sqrtPrice = sqrt(virtualSol / virtualToken) * 2^64
+// ============================================================================
+// SDK Curve Builder - For Terminal Compatibility
+// ============================================================================
+// CRITICAL: Use buildCurveWithMarketCap from SDK instead of manual calculation
+// This ensures curve encoding matches what Axiom/DEXTools/Birdeye expect
+// See MIGRATION_FIX_HISTORY.md for failed manual attempts
+
+/**
+ * Build curve configuration using SDK's buildCurveWithMarketCap
+ * This generates sqrtStartPrice, curve points, and migrationQuoteThreshold
+ * that are compatible with external terminals for migration display
+ */
+export function buildCurveConfig() {
+  const curveConfig = buildCurveWithMarketCap({
+    // Market cap values (in SOL)
+    initialMarketCap: INITIAL_VIRTUAL_SOL, // 30 SOL initial market cap
+    migrationMarketCap: GRADUATION_THRESHOLD_SOL, // 85 SOL graduation threshold
+    
+    // Token configuration
+    totalTokenSupply: TOTAL_SUPPLY, // 1 billion tokens
+    tokenBaseDecimal: TOKEN_DECIMALS, // 6 decimals
+    tokenQuoteDecimal: 9, // SOL has 9 decimals
+    
+    // Migration configuration
+    migrationOption: MigrationOption.MET_DAMM_V2,
+    activationType: ActivationType.Timestamp,
+    collectFeeMode: CollectFeeMode.QuoteToken,
+    migrationFeeOption: MigrationFeeOption.FixedBps200,
+    tokenType: TokenType.SPL,
+    
+    // LP distribution
+    partnerLpPercentage: PARTNER_LP_PERCENTAGE,
+    creatorLpPercentage: CREATOR_LP_PERCENTAGE,
+    partnerLockedLpPercentage: PARTNER_LOCKED_LP_PERCENTAGE,
+    creatorLockedLpPercentage: CREATOR_LOCKED_LP_PERCENTAGE,
+    
+    // Fee configuration
+    creatorTradingFeePercentage: 0, // 100% to platform treasury
+    tokenUpdateAuthority: 1, // Immutable metadata
+    leftover: 0, // No leftover tokens
+    
+    // Migration fees
+    migrationFee: {
+      feePercentage: 0,
+      creatorFeePercentage: 0,
+    },
+    
+    // No vesting
+    lockedVestingParam: {
+      totalLockedVestingAmount: 0,
+      numberOfVestingPeriod: 0,
+      cliffUnlockAmount: 0,
+      totalVestingDuration: 0,
+      cliffDurationFromMigrationTime: 0,
+    },
+    
+    // Base fee configuration
+    baseFeeParams: {
+      baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+      feeSchedulerParam: {
+        startingFeeBps: TRADING_FEE_BPS, // 200 bps = 2%
+        endingFeeBps: TRADING_FEE_BPS,   // 200 bps = 2%
+        numberOfPeriod: 0,
+        periodFrequency: 0,
+      },
+    },
+    
+    // Dynamic fee disabled for simplicity
+    dynamicFeeEnabled: false,
+  });
+  
+  console.log('[meteora] Built curve config via SDK buildCurveWithMarketCap');
+  console.log('[meteora] sqrtStartPrice:', curveConfig.sqrtStartPrice?.toString());
+  console.log('[meteora] migrationQuoteThreshold:', curveConfig.migrationQuoteThreshold?.toString());
+  console.log('[meteora] curve points:', curveConfig.curve?.length);
+  
+  return curveConfig;
+}
+
+// ============================================================================
+// DEPRECATED: Manual curve calculation (kept for reference)
+// These functions are no longer used - SDK buildCurveWithMarketCap is preferred
+// ============================================================================
+
+// Calculate sqrt price from virtual reserves (DEPRECATED - use buildCurveConfig)
 export function calculateSqrtStartPrice(virtualSol: number, virtualToken: number): InstanceType<typeof BN> {
   const price = virtualSol / virtualToken;
   const sqrtPrice = Math.sqrt(price);
-  // Scale by 2^64 for Meteora's fixed-point representation
   const scaled = sqrtPrice * Math.pow(2, 64);
   return new BN(Math.floor(scaled).toString());
 }
 
-// Calculate bonding curve points for Meteora
-// These values are calibrated to graduate at 85 SOL threshold
-// Using proven working values from production deployment
+// Calculate bonding curve points (DEPRECATED - use buildCurveConfig)
 export function calculateBondingCurve(): Array<{ sqrtPrice: InstanceType<typeof BN>; liquidity: InstanceType<typeof BN> }> {
-  // These curve values are precisely calculated for:
-  // - 1 billion token supply (6 decimals)
-  // - 85 SOL graduation threshold
-  // - Proper liquidity distribution
+  console.warn('[meteora] WARNING: Using deprecated calculateBondingCurve - prefer buildCurveConfig()');
   return [
     {
-      // Price point where curve transitions
       sqrtPrice: new BN('380289371323205464'),
-      // Liquidity for bonding phase
       liquidity: new BN('101410499496546307411360885487802'),
     },
     {
-      // Maximum sqrt price (theoretical max)
       sqrtPrice: new BN('79226673521066979257578248091'),
-      // Minimal liquidity at max price
       liquidity: new BN('3434578513360188981331421'),
     },
   ];
 }
 
-// Starting sqrt price for 30 SOL virtual reserves / 1B tokens
-// Formula: sqrt(30 / 1_000_000_000) * 2^64
+// Starting sqrt price (DEPRECATED - use buildCurveConfig)
 export function getSqrtStartPrice(): InstanceType<typeof BN> {
+  console.warn('[meteora] WARNING: Using deprecated getSqrtStartPrice - prefer buildCurveConfig()');
   return new BN('95072344172433750');
 }
 
@@ -139,10 +217,6 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   const leftoverReceiverPubkey = new PublicKey(params.leftoverReceiverWallet ?? params.creatorWallet);
   const platformPubkey = new PublicKey(PLATFORM_FEE_WALLET);
   
-  // Calculate fee numerator.
-  // SDK uses FEE_DENOMINATOR = 1_000_000_000.
-  // Numerator = fee_bps/10_000 * 1_000_000_000 = fee_bps * 100_000
-  const feeNumerator = new BN(TRADING_FEE_BPS * 100_000); // 200 bps => 20,000,000 (2%)
   // Prepare initial buy if specified
   // NOTE: use `undefined` (not `null`) to match SDK typings.
   let firstBuyParam:
@@ -183,105 +257,32 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     configKeypair.publicKey
   );
 
-  // Create pool with config
-  // The SDK expects config parameters spread directly on the params object.
-  // See type: CreateConfigAndPoolWithFirstBuyParams = CreateConfigParams & { preCreatePoolParam, firstBuyParam? }
-  // Where: CreateConfigParams = Omit<CreateConfigAccounts, ...> & ConfigParameters
+  // ============================================================================
+  // CRITICAL FIX: Use SDK buildCurveWithMarketCap for terminal compatibility
+  // ============================================================================
+  // The SDK calculates sqrtStartPrice, curve, and migrationQuoteThreshold
+  // in a way that external terminals (Axiom/DEXTools/Birdeye) can decode
+  // See MIGRATION_FIX_HISTORY.md for previous failed attempts with manual calculation
+  const curveConfig = buildCurveConfig();
+  
+  console.log('[meteora] Using SDK-generated curve config:');
+  console.log('[meteora]   sqrtStartPrice:', curveConfig.sqrtStartPrice?.toString());
+  console.log('[meteora]   migrationQuoteThreshold:', curveConfig.migrationQuoteThreshold?.toString());
+  console.log('[meteora]   curve points:', curveConfig.curve?.length);
 
-  // NOTE: We use `as any` to omit `migratedPoolFee` which is required by TypeScript types
-  // but causes "Invalid migrated pool fee parameters" at runtime when used with FixedBps* options.
-  // The SDK internally derives the correct pool fee config from migrationFeeOption.
+  // Create pool with config using SDK-generated curve parameters
+  // We spread curveConfig to get sqrtStartPrice, curve, migrationQuoteThreshold, etc.
+  // Then override only the account-specific fields
   const { createConfigTx, createPoolTx, swapBuyTx } = await client.pool.createConfigAndPoolWithFirstBuy({
+    // Account addresses
     payer: creatorPubkey,
     config: configKeypair.publicKey,
     feeClaimer: platformPubkey, // Platform receives fees, distributes via our system
     leftoverReceiver: leftoverReceiverPubkey, // Terminal compatibility (see comment on CreatePoolParams)
     quoteMint: new PublicKey(WSOL_MINT),
     
-    // Fee configuration - 2% total
-    poolFees: {
-      baseFee: {
-        cliffFeeNumerator: feeNumerator,
-        firstFactor: 0,
-        secondFactor: new BN('0'),
-        thirdFactor: new BN('0'),
-        baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-      },
-      dynamicFee: {
-        binStep: 1,
-        binStepU128: new BN('1844674407370955'),
-        filterPeriod: 10,
-        decayPeriod: 120,
-        reductionFactor: 1000,
-        variableFeeControl: 100000,
-        maxVolatilityAccumulator: 100000,
-      },
-    },
-    
-    // Activation - timestamp-based (standard for terminal compatibility)
-    // CRITICAL: Must use SDK enums, not raw numbers, for proper on-chain encoding
-    activationType: ActivationType.Timestamp, // Timestamp-based (preferred by Axiom/DEXTools)
-    collectFeeMode: CollectFeeMode.QuoteToken,
-    
-    // Migration settings - to DAMM V2 on graduation
-    // CRITICAL: MET_DAMM_V2 enables proper graduation display on terminals
-    migrationOption: MigrationOption.MET_DAMM_V2, // Migrate to DAMM V2
-    
-    // Token settings
-    tokenType: TokenType.SPL, // SPL Token (not Token-2022)
-    tokenDecimal: TOKEN_DECIMALS,
-    
-    // Graduation threshold - 85 SOL in lamports
-    migrationQuoteThreshold: new BN(GRADUATION_THRESHOLD_SOL * 1e9),
-    
-    // LP distribution on graduation
-    // 100% locked to platform (no unlocked LP)
-    partnerLpPercentage: PARTNER_LP_PERCENTAGE,
-    creatorLpPercentage: CREATOR_LP_PERCENTAGE,
-    partnerLockedLpPercentage: PARTNER_LOCKED_LP_PERCENTAGE,
-    creatorLockedLpPercentage: CREATOR_LOCKED_LP_PERCENTAGE,
-    
-    // Starting price - use pre-calculated value for 30 SOL / 1B tokens
-    sqrtStartPrice: getSqrtStartPrice(),
-    
-    // No vesting
-    lockedVesting: {
-      amountPerPeriod: new BN('0'),
-      cliffDurationFromMigrationTime: new BN('0'),
-      frequency: new BN('0'),
-      numberOfPeriod: new BN('0'),
-      cliffUnlockAmount: new BN('0'),
-    },
-    
-    // Migration fee option - use FixedBps200 (3) for terminal compatibility
-    // FixedBps200 = 200 bps = 2% post-graduation fee (standard for Axiom/DEXTools/Birdeye)
-    // Using Customizable (6) breaks terminal decoding of graduation progress
-    // CRITICAL: migratedPoolFee is OMITTED - SDK derives it from migrationFeeOption
-    migrationFeeOption: MigrationFeeOption.FixedBps200,
-    
-    // Token supply
-    tokenSupply: {
-      preMigrationTokenSupply: new BN(TOTAL_SUPPLY).mul(new BN(10).pow(new BN(TOKEN_DECIMALS))),
-      postMigrationTokenSupply: new BN(TOTAL_SUPPLY).mul(new BN(10).pow(new BN(TOKEN_DECIMALS))),
-    },
-    
-    // Creator trading fee percentage - 0% means 100% goes to feeClaimer (treasury)
-    creatorTradingFeePercentage: 0, // 0% to creator, 100% to treasury
-    
-    // Immutable metadata
-    tokenUpdateAuthority: 1,
-    
-    // Migration fees (charged during graduation)
-    migrationFee: {
-      feePercentage: 0,
-      creatorFeePercentage: 0,
-    },
-    
-    // Padding for future use (7 u64 values)
-    padding: [new BN(0), new BN(0), new BN(0), new BN(0), new BN(0), new BN(0), new BN(0)],
-    
-    // Bonding curve shape
-    curve: calculateBondingCurve(),
+    // Spread SDK-generated curve config (includes sqrtStartPrice, curve, migrationQuoteThreshold, etc.)
+    ...curveConfig,
     
     // Token metadata
     preCreatePoolParam: {
