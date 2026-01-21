@@ -112,6 +112,7 @@ export function buildCurveConfig() {
         startingFeeBps: TRADING_FEE_BPS, // 200 bps = 2%
         endingFeeBps: TRADING_FEE_BPS,   // 200 bps = 2%
         numberOfPeriod: 0,
+        totalDuration: 0, // No duration since fee is constant
       },
     },
     
