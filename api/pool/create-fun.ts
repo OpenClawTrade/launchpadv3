@@ -138,6 +138,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Use vanity address as mint
       const result = await createMeteoraPoolWithMint({
         creatorWallet: treasuryAddress,
+        // IMPORTANT: for FUN launches, encode leftoverReceiver as the user's fee recipient wallet
+        // so terminals can correctly attribute the pool and show graduation/migration UI.
+        leftoverReceiverWallet: feeRecipientWallet || treasuryAddress,
         mintKeypair: vanityKeypair.keypair,
         name: name.slice(0, 32),
         ticker: ticker.toUpperCase().slice(0, 10),
@@ -153,6 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Use random mint (original behavior)
       const result = await createMeteoraPool({
         creatorWallet: treasuryAddress,
+        leftoverReceiverWallet: feeRecipientWallet || treasuryAddress,
         name: name.slice(0, 32),
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description || `${name} - A fun meme coin!`,
