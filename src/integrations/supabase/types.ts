@@ -2202,6 +2202,36 @@ export type Database = {
           },
         ]
       }
+      twitter_bot_replies: {
+        Row: {
+          created_at: string
+          id: string
+          reply_id: string | null
+          reply_text: string
+          tweet_author: string | null
+          tweet_id: string
+          tweet_text: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reply_id?: string | null
+          reply_text: string
+          tweet_author?: string | null
+          tweet_id: string
+          tweet_text?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reply_id?: string | null
+          reply_text?: string
+          tweet_author?: string | null
+          tweet_id?: string
+          tweet_text?: string | null
+        }
+        Relationships: []
+      }
       user_bans: {
         Row: {
           associated_ips: string[] | null
@@ -2651,6 +2681,7 @@ export type Database = {
       }
       calculate_trending_topics: { Args: never; Returns: undefined }
       can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
+      cleanup_old_bot_replies: { Args: never; Returns: undefined }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       generate_short_id: { Args: never; Returns: string }
       get_api_account_by_wallet: {
