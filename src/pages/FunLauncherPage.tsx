@@ -825,6 +825,41 @@ export default function FunLauncherPage() {
                     )}
                   </Button>
 
+                  {/* Download Avatar Button - Only show when meme is generated */}
+                  {meme && meme.imageUrl && (
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(meme.imageUrl);
+                          const blob = await response.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${meme.name.replace(/[^a-zA-Z0-9]/g, "_")}_avatar.png`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          toast({
+                            title: "Avatar Downloaded!",
+                            description: "Token avatar image saved.",
+                          });
+                        } catch (error) {
+                          console.error("Error downloading avatar:", error);
+                          toast({
+                            title: "Download Failed",
+                            description: "Could not download the avatar image.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      variant="outline"
+                      className="w-full border-[#2a2a35] text-gray-300 hover:text-white hover:bg-[#1a1a1f] mb-2"
+                    >
+                      <Download className="h-4 w-4 mr-2" /> Download Avatar
+                    </Button>
+                  )}
+
                   {/* Generate Banner Button - Only show when meme is generated */}
                   {meme && (
                     <div className="space-y-2 mb-3">
