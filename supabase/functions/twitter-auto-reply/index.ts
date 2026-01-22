@@ -207,23 +207,23 @@ IMPORTANT: Just output the reply text, nothing else. No quotes.`
 
         console.log(`[twitter-auto-reply] 🤖 Generated reply: "${replyText}"`);
 
-        // Post the reply via twitterapi.io v2 endpoint
-        // Wait 5+ seconds between requests for free tier
+        // Post the reply via twitterapi.io v1 endpoint (no proxy required)
+        // Wait 5+ seconds between requests
         await new Promise(resolve => setTimeout(resolve, 6000));
         
         // Format cookies as expected by twitterapi.io
         const loginCookies = `auth_token=${xAuthToken}; ct0=${xCt0Token}`;
         
-        const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+        const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
           method: "POST",
           headers: {
             "X-API-Key": twitterApiKey,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            login_cookies: loginCookies,
+            auth_session: loginCookies,
             tweet_text: replyText,
-            reply_to_tweet_id: tweet.id,
+            in_reply_to_tweet_id: tweet.id,
           }),
         });
 
