@@ -50,8 +50,11 @@ import {
   Scale,
   BarChart2,
   Menu,
-  X
+  X,
+  Image,
+  Download
 } from "lucide-react";
+import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { formatDistanceToNow } from "date-fns";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
@@ -133,6 +136,15 @@ export default function FunLauncherPage() {
   
   // Admin check for sniper panel (uses walletAddress from input field)
   const { isAdmin } = useIsAdmin(walletAddress || null);
+  
+  // Banner generation
+  const { 
+    generateBanner, 
+    downloadBanner, 
+    clearBanner, 
+    isGenerating: isBannerGenerating, 
+    bannerUrl 
+  } = useBannerGenerator();
 
   const isValidSolanaAddress = (address: string) => {
     return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
@@ -281,6 +293,7 @@ export default function FunLauncherPage() {
 
         // Clear form
         setMeme(null);
+        clearBanner();
         setCustomToken({
           name: "",
           ticker: "",
@@ -316,7 +329,7 @@ export default function FunLauncherPage() {
         setIsLaunching(false);
       }
     },
-    [isValidSolanaAddress, refetch, toast, walletAddress]
+    [isValidSolanaAddress, refetch, toast, walletAddress, clearBanner]
   );
 
   const handleLaunch = useCallback(async () => {
@@ -799,7 +812,7 @@ export default function FunLauncherPage() {
                   <Button
                     onClick={handleRandomize}
                     disabled={isGenerating || isLaunching}
-                    className="w-full bg-[#1a1a1f] hover:bg-[#252530] text-white border border-[#2a2a35] mb-3"
+                    className="w-full bg-[#1a1a1f] hover:bg-[#252530] text-white border border-[#2a2a35] mb-2"
                   >
                     {isGenerating ? (
                       <>
@@ -811,6 +824,50 @@ export default function FunLauncherPage() {
                       </>
                     )}
                   </Button>
+
+                  {/* Generate Banner Button - Only show when meme is generated */}
+                  {meme && (
+                    <div className="space-y-2 mb-3">
+                      <Button
+                        onClick={() => generateBanner({
+                          imageUrl: meme.imageUrl,
+                          tokenName: meme.name,
+                          ticker: meme.ticker,
+                        })}
+                        disabled={isBannerGenerating || !meme.imageUrl}
+                        variant="outline"
+                        className="w-full border-[#2a2a35] text-gray-300 hover:text-white hover:bg-[#1a1a1f]"
+                      >
+                        {isBannerGenerating ? (
+                          <>
+                            <Image className="h-4 w-4 mr-2 animate-pulse" /> Generating Banner...
+                          </>
+                        ) : (
+                          <>
+                            <Image className="h-4 w-4 mr-2" /> Generate X Banner (1500×500)
+                          </>
+                        )}
+                      </Button>
+                      
+                      {/* Banner Preview & Download */}
+                      {bannerUrl && (
+                        <div className="space-y-2 p-3 bg-[#0d0d0f] rounded-lg border border-[#2a2a35]">
+                          <p className="text-xs text-gray-400 mb-2">Preview (1500×500):</p>
+                          <img 
+                            src={bannerUrl} 
+                            alt="Generated X Banner" 
+                            className="w-full rounded border border-[#2a2a35]"
+                          />
+                          <Button
+                            onClick={() => downloadBanner(bannerUrl, meme.name)}
+                            className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
+                          >
+                            <Download className="h-4 w-4 mr-2" /> Download Banner
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Wallet & Launch */}
                   {meme && (
