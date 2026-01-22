@@ -1838,16 +1838,22 @@ export default function FunLauncherPage() {
                             >
                               <td className="p-3">
                                 <div className="flex items-center gap-2">
-                                  {buyback.fun_token?.image_url && (
+                                  {buyback.fun_token?.image_url ? (
                                     <img 
                                       src={buyback.fun_token.image_url} 
                                       alt={buyback.fun_token.name} 
                                       className="w-6 h-6 rounded-full"
                                     />
+                                  ) : (
+                                    <img 
+                                      src={ai69xLogo} 
+                                      alt="AI67X" 
+                                      className="w-6 h-6 rounded-full"
+                                    />
                                   )}
                                   <div>
-                                    <div className="font-medium text-white text-sm">{buyback.fun_token?.name || "Unknown"}</div>
-                                    <div className="text-xs text-gray-500">${buyback.fun_token?.ticker || "???"}</div>
+                                    <div className="font-medium text-white text-sm">{buyback.fun_token?.name || "AI67X"}</div>
+                                    <div className="text-xs text-gray-500">${buyback.fun_token?.ticker || "AI67X"}</div>
                                   </div>
                                 </div>
                               </td>
