@@ -6,9 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const TWITTERAPI_BASE = "https://api.twitterapi.io/twitter";
-const MAX_REPLIES_PER_RUN = 3; // Limit to avoid rate limits and look human-like
-const REPLY_COOLDOWN_MINUTES = 5; // Minimum time between replies
+const TWITTERAPI_BASE = "https://api.twitterapi.io";
+const MAX_REPLIES_PER_RUN = 2; // Limit to avoid rate limits
+const REPLY_COOLDOWN_MINUTES = 15; // Minimum time between runs
+
+// Crypto-related search terms to find relevant tweets
+const SEARCH_QUERIES = [
+  "crypto meme coin",
+  "solana degen",
+  "memecoin launch",
+  "$SOL pump",
+  "web3 meme",
+];
 
 interface Tweet {
   id: string;
@@ -18,10 +27,6 @@ interface Tweet {
     name: string;
   };
   createdAt: string;
-}
-
-interface ExploreResponse {
-  tweets: Tweet[];
 }
 
 serve(async (req) => {
@@ -74,31 +79,44 @@ serve(async (req) => {
       throw new Error("X_AUTH_TOKEN or X_CT0_TOKEN not configured");
     }
 
-    // Fetch trending/explore tweets
-    console.log("[twitter-auto-reply] 📡 Fetching explore tweets...");
-    const exploreResponse = await fetch(`${TWITTERAPI_BASE}/trends/explore`, {
+    // Pick a random search query
+    const searchQuery = SEARCH_QUERIES[Math.floor(Math.random() * SEARCH_QUERIES.length)];
+    console.log(`[twitter-auto-reply] 🔍 Searching for: "${searchQuery}"`);
+
+    // Fetch tweets via search endpoint
+    const searchUrl = `${TWITTERAPI_BASE}/twitter/tweet/advanced_search?query=${encodeURIComponent(searchQuery)}&queryType=Latest`;
+    console.log("[twitter-auto-reply] 📡 Fetching tweets...");
+    
+    const searchResponse = await fetch(searchUrl, {
       method: "GET",
       headers: {
         "X-API-Key": twitterApiKey,
         "Content-Type": "application/json",
-        "x-auth-token": xAuthToken,
-        "x-ct0": xCt0Token,
       },
     });
 
-    if (!exploreResponse.ok) {
-      const errorText = await exploreResponse.text();
-      console.error("[twitter-auto-reply] ❌ Explore API error:", exploreResponse.status, errorText);
-      throw new Error(`Failed to fetch explore tweets: ${exploreResponse.status}`);
+    if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      console.error("[twitter-auto-reply] ❌ Search API error:", searchResponse.status, errorText);
+      
+      // If rate limited, just exit gracefully
+      if (searchResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ success: true, message: "Rate limited, will retry later", repliesSent: 0 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      throw new Error(`Failed to search tweets: ${searchResponse.status} - ${errorText}`);
     }
 
-    const exploreData = await exploreResponse.json();
-    const tweets: Tweet[] = exploreData.tweets || exploreData.data || [];
-    console.log(`[twitter-auto-reply] 📥 Found ${tweets.length} tweets from explore`);
+    const searchData = await searchResponse.json();
+    const tweets: Tweet[] = searchData.tweets || searchData.data || [];
+    console.log(`[twitter-auto-reply] 📥 Found ${tweets.length} tweets`);
 
     if (tweets.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: "No tweets found in explore", repliesSent: 0 }),
+        JSON.stringify({ success: true, message: "No tweets found", repliesSent: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -115,7 +133,9 @@ serve(async (req) => {
     // Filter out already replied tweets and our own tweets
     const eligibleTweets = tweets.filter(t => 
       !repliedIds.has(t.id) && 
-      t.author?.userName?.toLowerCase() !== "ai67x_fun"
+      t.author?.userName?.toLowerCase() !== "ai67x_fun" &&
+      t.text && 
+      t.text.length > 20 // Skip very short tweets
     );
 
     console.log(`[twitter-auto-reply] ✅ ${eligibleTweets.length} eligible tweets after filtering`);
@@ -133,86 +153,100 @@ serve(async (req) => {
 
     for (const tweet of tweetsToReply) {
       try {
-        console.log(`[twitter-auto-reply] 💬 Generating reply for tweet ${tweet.id}...`);
+        console.log(`[twitter-auto-reply] 💬 Generating reply for tweet ${tweet.id} by @${tweet.author?.userName}...`);
+        console.log(`[twitter-auto-reply] 📝 Tweet: "${tweet.text.substring(0, 100)}..."`);
         
-        // Generate AI reply
-        const aiResponse = await fetch("https://ai.lovable.dev/api/chat/completions", {
+        // Generate AI reply using Lovable AI gateway
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${lovableApiKey}`,
           },
           body: JSON.stringify({
-            model: "openai/gpt-5-mini",
+            model: "google/gemini-2.5-flash",
             messages: [
               {
                 role: "system",
                 content: `You are @ai67x_fun, a witty crypto/meme coin enthusiast on X (Twitter). 
-Generate a SHORT, engaging reply (max 200 chars) to the tweet below. 
+Generate a SHORT, engaging reply (max 180 chars) to the tweet below. 
 
 Rules:
 - Be friendly, helpful, and slightly humorous
-- Reference meme coins or crypto culture naturally when relevant
+- Reference meme coins or crypto culture naturally
 - Never be spammy, promotional, or robotic
-- Don't use hashtags excessively (max 1 if any)
+- Don't use hashtags
 - Sound like a real person, not a bot
 - Keep it concise and punchy
-- If the tweet is about crypto/trading, add relevant insight
-- If it's general content, make a clever observation
+- Add relevant crypto insight or make a clever observation
+- Don't mention ai67x directly unless super relevant
 
-IMPORTANT: Just output the reply text, nothing else.`
+IMPORTANT: Just output the reply text, nothing else. No quotes.`
               },
               {
                 role: "user",
                 content: `Tweet from @${tweet.author?.userName || "unknown"}: "${tweet.text}"`
               }
             ],
-            max_tokens: 100,
-            temperature: 0.8,
+            max_tokens: 80,
+            temperature: 0.85,
           }),
         });
 
         if (!aiResponse.ok) {
-          throw new Error(`AI generation failed: ${aiResponse.status}`);
+          const aiError = await aiResponse.text();
+          throw new Error(`AI generation failed: ${aiResponse.status} - ${aiError}`);
         }
 
         const aiData = await aiResponse.json();
-        const replyText = aiData.choices?.[0]?.message?.content?.trim();
+        const replyText = aiData.choices?.[0]?.message?.content?.trim()?.replace(/^["']|["']$/g, '');
 
         if (!replyText) {
           throw new Error("Empty AI response");
         }
 
-        console.log(`[twitter-auto-reply] 🤖 Generated reply: "${replyText.substring(0, 50)}..."`);
+        console.log(`[twitter-auto-reply] 🤖 Generated reply: "${replyText}"`);
 
-        // Post the reply via twitterapi.io with cookie auth
-        const postResponse = await fetch(`${TWITTERAPI_BASE}/tweet/reply`, {
+        // Post the reply via twitterapi.io v2 endpoint
+        // Wait 5+ seconds between requests for free tier
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        
+        // Format cookies as expected by twitterapi.io
+        const loginCookies = `auth_token=${xAuthToken}; ct0=${xCt0Token}`;
+        
+        const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
           method: "POST",
           headers: {
             "X-API-Key": twitterApiKey,
             "Content-Type": "application/json",
-            "x-auth-token": xAuthToken,
-            "x-ct0": xCt0Token,
           },
           body: JSON.stringify({
-            tweet_id: tweet.id,
-            text: replyText,
+            login_cookies: loginCookies,
+            tweet_text: replyText,
+            reply_to_tweet_id: tweet.id,
           }),
         });
 
+        const postText = await postResponse.text();
+        
         if (!postResponse.ok) {
-          const errorText = await postResponse.text();
-          
-          // Handle rate limits with exponential backoff
+          // Handle rate limits
           if (postResponse.status === 429) {
-            console.warn("[twitter-auto-reply] ⚠️ Rate limited, stopping this run");
+            console.warn("[twitter-auto-reply] ⚠️ Rate limited on post, stopping this run");
+            results.push({ tweetId: tweet.id, success: false, error: "Rate limited" });
             break;
           }
           
-          throw new Error(`Reply post failed: ${postResponse.status} - ${errorText}`);
+          throw new Error(`Reply post failed: ${postResponse.status} - ${postText}`);
         }
 
-        const postData = await postResponse.json();
+        let postData: any = {};
+        try {
+          postData = JSON.parse(postText);
+        } catch {
+          postData = { raw: postText };
+        }
+        
         console.log(`[twitter-auto-reply] ✅ Reply posted successfully to tweet ${tweet.id}`);
 
         // Record the reply in database
@@ -226,9 +260,10 @@ IMPORTANT: Just output the reply text, nothing else.`
 
         results.push({ tweetId: tweet.id, success: true });
 
-        // Add random delay between replies (2-5 seconds) to look more human
+        // Add longer delay between replies to respect rate limits
         if (tweetsToReply.indexOf(tweet) < tweetsToReply.length - 1) {
-          const delay = 2000 + Math.random() * 3000;
+          const delay = 8000 + Math.random() * 4000; // 8-12 seconds
+          console.log(`[twitter-auto-reply] ⏳ Waiting ${Math.round(delay/1000)}s before next reply...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
@@ -249,6 +284,7 @@ IMPORTANT: Just output the reply text, nothing else.`
       JSON.stringify({
         success: true,
         repliesSent: successCount,
+        searchQuery,
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
