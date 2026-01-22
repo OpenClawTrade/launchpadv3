@@ -66,6 +66,14 @@ serve(async (req) => {
       }
     }
 
+    // Get X account cookies for authentication
+    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
+    const xCt0Token = Deno.env.get("X_CT0_TOKEN");
+
+    if (!xAuthToken || !xCt0Token) {
+      throw new Error("X_AUTH_TOKEN or X_CT0_TOKEN not configured");
+    }
+
     // Fetch trending/explore tweets
     console.log("[twitter-auto-reply] 📡 Fetching explore tweets...");
     const exploreResponse = await fetch(`${TWITTERAPI_BASE}/trends/explore`, {
@@ -73,6 +81,8 @@ serve(async (req) => {
       headers: {
         "X-API-Key": twitterApiKey,
         "Content-Type": "application/json",
+        "x-auth-token": xAuthToken,
+        "x-ct0": xCt0Token,
       },
     });
 
@@ -175,12 +185,14 @@ IMPORTANT: Just output the reply text, nothing else.`
 
         console.log(`[twitter-auto-reply] 🤖 Generated reply: "${replyText.substring(0, 50)}..."`);
 
-        // Post the reply via twitterapi.io
+        // Post the reply via twitterapi.io with cookie auth
         const postResponse = await fetch(`${TWITTERAPI_BASE}/tweet/reply`, {
           method: "POST",
           headers: {
             "X-API-Key": twitterApiKey,
             "Content-Type": "application/json",
+            "x-auth-token": xAuthToken,
+            "x-ct0": xCt0Token,
           },
           body: JSON.stringify({
             tweet_id: tweet.id,
