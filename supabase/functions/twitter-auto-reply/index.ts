@@ -40,7 +40,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Parse request body for action-based calls
-    let body: { action?: string; secret?: string } = {};
+    let body: { action?: string; secret?: string; force?: boolean } = {};
     try {
       body = await req.json();
     } catch {
@@ -83,6 +83,9 @@ serve(async (req) => {
       );
     }
 
+    // Check if this is a force run (bypasses cooldown)
+    const forceRun = body.force === true;
+
     // Continue with bot run logic
     const twitterApiKey = Deno.env.get("TWITTERAPI_IO_KEY");
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -104,7 +107,7 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    if (lastReply) {
+    if (lastReply && !forceRun) {
       const lastReplyTime = new Date(lastReply.created_at);
       const cooldownEnd = new Date(lastReplyTime.getTime() + REPLY_COOLDOWN_MINUTES * 60 * 1000);
       if (new Date() < cooldownEnd) {
@@ -115,6 +118,10 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    }
+    
+    if (forceRun) {
+      console.log("[twitter-auto-reply] 🔓 Force run - bypassing cooldown");
     }
 
     // Get X account cookies for authentication
