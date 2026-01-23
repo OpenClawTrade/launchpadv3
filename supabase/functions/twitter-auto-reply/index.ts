@@ -207,12 +207,15 @@ IMPORTANT: Just output the reply text, nothing else. No quotes.`
 
         console.log(`[twitter-auto-reply] 🤖 Generated reply: "${replyText}"`);
 
-        // Post the reply via twitterapi.io v1 endpoint (no proxy required)
+        // Post the reply via twitterapi.io with proxy
         // Wait 5+ seconds between requests
         await new Promise(resolve => setTimeout(resolve, 6000));
         
         // Format cookies as expected by twitterapi.io
         const loginCookies = `auth_token=${xAuthToken}; ct0=${xCt0Token}`;
+        
+        // Get proxy URL from secrets
+        const proxyUrl = Deno.env.get("TWITTER_PROXY");
         
         const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
           method: "POST",
@@ -224,6 +227,7 @@ IMPORTANT: Just output the reply text, nothing else. No quotes.`
             auth_session: loginCookies,
             tweet_text: replyText,
             in_reply_to_tweet_id: tweet.id,
+            proxy: proxyUrl || undefined,
           }),
         });
 
