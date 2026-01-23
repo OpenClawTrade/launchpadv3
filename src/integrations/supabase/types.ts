@@ -487,6 +487,24 @@ export type Database = {
           },
         ]
       }
+      cron_locks: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          lock_name: string
+        }
+        Insert: {
+          acquired_at?: string
+          expires_at: string
+          lock_name: string
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          lock_name?: string
+        }
+        Relationships: []
+      }
       dca_orders: {
         Row: {
           amount_per_order: number

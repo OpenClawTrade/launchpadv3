@@ -9,6 +9,8 @@ const corsHeaders = {
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const MAX_REPLIES_PER_RUN = 3; // Three replies per run (one every ~20 seconds)
 const DELAY_BETWEEN_REPLIES_MS = 20000; // 20 seconds between replies
+const CRON_LOCK_NAME = "twitter-auto-reply";
+const LOCK_DURATION_SECONDS = 90; // Lock duration to prevent overlap
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -121,8 +123,49 @@ serve(async (req) => {
       );
     }
 
-    // Check if this is a force run (bypasses cooldown)
+    // Check if this is a force run (bypasses cooldown & lock)
     const forceRun = body.force === true;
+
+    // ========== DB LOCK: Prevent overlapping cron executions ==========
+    if (!forceRun) {
+      // Try to acquire lock (delete expired + insert new)
+      await supabase
+        .from("cron_locks")
+        .delete()
+        .lt("expires_at", new Date().toISOString());
+
+      const lockExpiresAt = new Date(Date.now() + LOCK_DURATION_SECONDS * 1000).toISOString();
+      const { error: lockError } = await supabase
+        .from("cron_locks")
+        .upsert(
+          { lock_name: CRON_LOCK_NAME, acquired_at: new Date().toISOString(), expires_at: lockExpiresAt },
+          { onConflict: "lock_name", ignoreDuplicates: false }
+        );
+
+      // If lock row already exists and wasn't expired, upsert still succeeds (replaces),
+      // but we need to verify it wasn't held recently (check acquired_at).
+      // Simpler: just check if we were the one who acquired it by checking row count difference.
+      // For simplicity, use SELECT then INSERT to detect race:
+      const { data: existingLock } = await supabase
+        .from("cron_locks")
+        .select("acquired_at")
+        .eq("lock_name", CRON_LOCK_NAME)
+        .single();
+
+      if (existingLock) {
+        const acquiredAt = new Date(existingLock.acquired_at);
+        const now = new Date();
+        // If acquired within last 2 seconds we own it; otherwise another run owns it
+        if (now.getTime() - acquiredAt.getTime() > 2000) {
+          console.log("[twitter-auto-reply] ⏳ Another run is in progress, skipping.");
+          return new Response(
+            JSON.stringify({ success: true, message: "Skipped - another run in progress", repliesSent: 0 }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+    // ===================================================================
 
     // Continue with bot run logic
     const twitterApiKey = Deno.env.get("TWITTERAPI_IO_KEY");
@@ -142,7 +185,7 @@ serve(async (req) => {
     console.log(`[twitter-auto-reply] 🚀 Will post up to ${MAX_REPLIES_PER_RUN} replies with ${DELAY_BETWEEN_REPLIES_MS/1000}s delays`);
     
     if (forceRun) {
-      console.log("[twitter-auto-reply] 🔓 Force run - bypassing cooldown");
+      console.log("[twitter-auto-reply] 🔓 Force run - bypassing lock");
     }
 
     // Get X account credentials for login_v2 flow
@@ -258,7 +301,7 @@ serve(async (req) => {
     const loginData: any = loginAttempt.data;
 
     // Extract login_cookies from response
-    const loginCookies =
+    let loginCookies =
       loginData.login_cookies ||
       loginData.cookies ||
       loginData.cookie ||
@@ -269,6 +312,25 @@ serve(async (req) => {
     }
 
     console.log("[twitter-auto-reply] ✅ Login successful, got cookies");
+
+    // Helper: re-login and update loginCookies (used on 403 retry)
+    const refreshLoginCookies = async (): Promise<boolean> => {
+      console.log("[twitter-auto-reply] 🔁 Re-logging in after 403...");
+      await sleep(3000);
+      let attempt = await doLoginV2();
+      if (!attempt.res.ok || (attempt.data?.status === "error" && loginIsAuthError(attempt.data))) {
+        attempt = await doLoginV3();
+      }
+      if (!attempt.res.ok) return false;
+      const newData = attempt.data;
+      const newCookies =
+        newData.login_cookies || newData.cookies || newData.cookie ||
+        newData?.data?.login_cookies || newData?.data?.cookies;
+      if (!newCookies) return false;
+      loginCookies = newCookies;
+      console.log("[twitter-auto-reply] ✅ Re-login successful, got fresh cookies");
+      return true;
+    };
 
     // Get already replied tweet IDs to avoid duplicates
     const { data: repliedTweets } = await supabase
@@ -491,51 +553,39 @@ Output ONLY the reply text. No quotes, no explanation.`
           return false;
         };
 
-        // twitterapi.io docs: /twitter/create_tweet_v2 expects login_cookies (from user_login_v2)
-        const postAttempts: Array<{ name: string; url: string; body: any }> = [
-          {
-            name: "create_tweet_v2",
-            url: `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
-            body: {
-              login_cookies: loginCookies,
-              tweet_text: replyText,
-              reply_to_tweet_id: tweet.id,
-              proxy: proxyUrl,
-            },
-          },
-        ];
+        // Helper to attempt posting once
+        const tryPost = async (cookies: string): Promise<{ replyId: string | null; error: string | null; is403: boolean }> => {
+          const postBody = {
+            login_cookies: cookies,
+            tweet_text: replyText,
+            reply_to_tweet_id: tweet.id,
+            proxy: proxyUrl,
+          };
 
-        let replyId: string | null = null;
-        let lastPostError: string | null = null;
-
-        console.log(`[twitter-auto-reply] 📤 Posting reply to tweet ${tweet.id}...`);
-
-        for (const attempt of postAttempts) {
-          console.log(`[twitter-auto-reply] ↪️  Trying twitterapi endpoint: ${attempt.name}`);
-
-          const postResponse = await fetch(attempt.url, {
+          const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
             method: "POST",
             headers: {
               "X-API-Key": twitterApiKey,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(attempt.body),
+            body: JSON.stringify(postBody),
           });
 
           const postText = await postResponse.text();
           console.log(
-            `[twitter-auto-reply] 📥 Twitter API response (${attempt.name}): ${postResponse.status} - ${postText.slice(0, 300)}`
+            `[twitter-auto-reply] 📥 Twitter API response (create_tweet_v2): ${postResponse.status} - ${postText.slice(0, 300)}`
           );
 
-          // Handle rate limits immediately
+          // Rate limit
           if (postResponse.status === 429) {
-            lastPostError = "Rate limited";
-            break;
+            return { replyId: null, error: "Rate limited", is403: false };
           }
 
+          // Check for 403 (session expired / banned)
+          const is403 = postResponse.status === 403 || postText.includes('"status":"error"') && postText.includes('403');
+
           if (!postResponse.ok) {
-            lastPostError = `HTTP ${postResponse.status}: ${postText}`;
-            continue;
+            return { replyId: null, error: `HTTP ${postResponse.status}: ${postText}`, is403 };
           }
 
           let postData: any = null;
@@ -546,19 +596,44 @@ Output ONLY the reply text. No quotes, no explanation.`
           }
 
           if (isTwitterApiErrorPayload(postData)) {
-            lastPostError =
-              postData?.error || postData?.msg || (typeof postText === "string" ? postText : "Unknown API error");
-            continue;
+            const errMsg = postData?.error || postData?.msg || postData?.message || "Unknown API error";
+            const errIs403 = String(errMsg).includes("403");
+            return { replyId: null, error: errMsg, is403: errIs403 || is403 };
           }
 
-          replyId = extractReplyId(postData);
-          if (!replyId) {
-            lastPostError = `No reply id returned (response: ${postText.slice(0, 300)})`;
-            continue;
+          const rid = extractReplyId(postData);
+          if (!rid) {
+            return { replyId: null, error: `No reply id returned (response: ${postText.slice(0, 300)})`, is403: false };
           }
 
+          return { replyId: rid, error: null, is403: false };
+        };
+
+        let replyId: string | null = null;
+        let lastPostError: string | null = null;
+
+        console.log(`[twitter-auto-reply] 📤 Posting reply to tweet ${tweet.id}...`);
+
+        // First attempt
+        let postResult = await tryPost(loginCookies);
+        replyId = postResult.replyId;
+        lastPostError = postResult.error;
+
+        // If 403, try to re-login and retry once
+        if (!replyId && postResult.is403) {
+          console.log("[twitter-auto-reply] ⚠️ Got 403, attempting re-login and retry...");
+          const refreshed = await refreshLoginCookies();
+          if (refreshed) {
+            postResult = await tryPost(loginCookies);
+            replyId = postResult.replyId;
+            lastPostError = postResult.error;
+          } else {
+            lastPostError = "Re-login failed after 403";
+          }
+        }
+
+        if (replyId) {
           console.log(`[twitter-auto-reply] ✅ Reply posted successfully to tweet ${tweet.id}, reply_id: ${replyId}`);
-          break;
         }
 
         if (!replyId) {
