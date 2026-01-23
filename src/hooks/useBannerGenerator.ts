@@ -127,34 +127,7 @@ const generateXBanner = async (params: BannerParams): Promise<Blob> => {
   ctx.stroke();
   ctx.restore();
 
-  // 6. Add Text on the Left Side
-  const textX = 80;
-  const centerY = BANNER_HEIGHT / 2;
-  
-  // Token name - large
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 72px Arial, sans-serif";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "bottom";
-  ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
-  ctx.fillText(tokenName.toUpperCase(), textX, centerY - 10);
-  
-  // Ticker - medium with accent color
-  ctx.font = "bold 48px Arial, sans-serif";
-  ctx.textBaseline = "top";
-  ctx.fillStyle = "#00d4aa";
-  ctx.shadowColor = "rgba(0, 212, 170, 0.3)";
-  ctx.shadowBlur = 15;
-  ctx.fillText(`$${ticker.toUpperCase()}`, textX, centerY + 10);
-  
-  // Tagline - small
-  ctx.font = "24px Arial, sans-serif";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-  ctx.shadowBlur = 0;
-  ctx.fillText("Launched on ai67x", textX, centerY + 70);
+  // Text removed - banner is now image-only
 
   // 7. Export as Blob
   return new Promise((resolve, reject) => {
