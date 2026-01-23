@@ -7,8 +7,8 @@ const corsHeaders = {
 };
 
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
-const MAX_REPLIES_PER_RUN = 2; // Limit to avoid rate limits
-const REPLY_COOLDOWN_MINUTES = 15; // Minimum time between runs
+const MAX_REPLIES_PER_RUN = 1; // One reply per run
+const REPLY_COOLDOWN_MINUTES = 3; // Run every 3 minutes
 
 // Crypto-related search terms to find relevant tweets
 const SEARCH_QUERIES = [
