@@ -28,15 +28,18 @@ export default function TwitterBotAdminPage() {
   );
   const [showSecret, setShowSecret] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const saveAuthSecret = (secret: string) => {
     localStorage.setItem("twitter_bot_secret", secret);
     setAuthSecret(secret);
   };
 
-  const fetchReplies = async () => {
-    if (!authSecret) {
+  const fetchReplies = async (secret?: string) => {
+    const secretToUse = secret || authSecret;
+    if (!secretToUse) {
       toast.error("Enter access secret first");
+      setIsCheckingAuth(false);
       return;
     }
     
@@ -44,7 +47,7 @@ export default function TwitterBotAdminPage() {
     try {
       // Use edge function to fetch replies (bypasses RLS)
       const { data, error } = await supabase.functions.invoke("twitter-auto-reply", {
-        body: { action: "list", secret: authSecret },
+        body: { action: "list", secret: secretToUse },
       });
       
       if (error) throw error;
@@ -52,6 +55,7 @@ export default function TwitterBotAdminPage() {
       if (data?.error === "unauthorized") {
         toast.error("Invalid secret");
         setIsAuthed(false);
+        setIsCheckingAuth(false);
         return;
       }
       
@@ -62,6 +66,7 @@ export default function TwitterBotAdminPage() {
       toast.error("Failed to fetch replies");
     } finally {
       setIsLoading(false);
+      setIsCheckingAuth(false);
     }
   };
 
@@ -99,8 +104,11 @@ export default function TwitterBotAdminPage() {
   };
 
   useEffect(() => {
-    if (authSecret) {
-      fetchReplies();
+    const savedSecret = localStorage.getItem("twitter_bot_secret");
+    if (savedSecret) {
+      fetchReplies(savedSecret);
+    } else {
+      setIsCheckingAuth(false);
     }
   }, []);
 
@@ -115,6 +123,18 @@ export default function TwitterBotAdminPage() {
     ).length,
     successful: replies.filter(r => r.reply_id).length,
   };
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0d0d0f]">
+        <AppHeader />
+        <main className="max-w-md mx-auto px-4 py-16">
+          <div className="text-center text-gray-400">Loading...</div>
+        </main>
+      </div>
+    );
+  }
 
   // Auth gate - show login form if not authenticated
   if (!isAuthed) {
@@ -150,7 +170,7 @@ export default function TwitterBotAdminPage() {
                 </button>
               </div>
               <Button
-                onClick={fetchReplies}
+                onClick={() => fetchReplies()}
                 disabled={!authSecret || isLoading}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
@@ -183,7 +203,7 @@ export default function TwitterBotAdminPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchReplies}
+              onClick={() => fetchReplies()}
               disabled={isLoading}
               className="border-gray-700"
             >
