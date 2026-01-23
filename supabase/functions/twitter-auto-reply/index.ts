@@ -124,13 +124,61 @@ serve(async (req) => {
       console.log("[twitter-auto-reply] 🔓 Force run - bypassing cooldown");
     }
 
-    // Get X account cookies for authentication
-    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
-    const xCt0Token = Deno.env.get("X_CT0_TOKEN");
+    // Get X account credentials for login_v2 flow
+    const xAccountEmail = Deno.env.get("X_ACCOUNT_EMAIL");
+    const xAccountPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
+    const xTotpSecret = Deno.env.get("X_TOTP_SECRET"); // Optional for 2FA
+    const proxyUrl = Deno.env.get("TWITTER_PROXY");
 
-    if (!xAuthToken || !xCt0Token) {
-      throw new Error("X_AUTH_TOKEN or X_CT0_TOKEN not configured");
+    if (!xAccountEmail || !xAccountPassword) {
+      throw new Error("X_ACCOUNT_EMAIL or X_ACCOUNT_PASSWORD not configured");
     }
+    if (!proxyUrl) {
+      throw new Error("TWITTER_PROXY not configured");
+    }
+
+    // Step 1: Login via user_login_v2 to get fresh cookies
+    console.log("[twitter-auto-reply] 🔐 Logging in via user_login_v2...");
+    
+    const loginBody: Record<string, string> = {
+      email: xAccountEmail,
+      password: xAccountPassword,
+      proxy: proxyUrl,
+    };
+    if (xTotpSecret) {
+      loginBody.totp_secret = xTotpSecret;
+    }
+
+    const loginResponse = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
+      method: "POST",
+      headers: {
+        "X-API-Key": twitterApiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(loginBody),
+    });
+
+    const loginText = await loginResponse.text();
+    console.log(`[twitter-auto-reply] 🔐 Login response: ${loginResponse.status} - ${loginText.slice(0, 500)}`);
+
+    if (!loginResponse.ok) {
+      throw new Error(`Login failed: ${loginResponse.status} - ${loginText}`);
+    }
+
+    let loginData: any;
+    try {
+      loginData = JSON.parse(loginText);
+    } catch {
+      throw new Error(`Failed to parse login response: ${loginText}`);
+    }
+
+    // Extract login_cookies from response
+    const loginCookies = loginData.login_cookies || loginData.cookies || loginData.cookie;
+    if (!loginCookies) {
+      throw new Error(`No login_cookies in response: ${JSON.stringify(loginData)}`);
+    }
+
+    console.log("[twitter-auto-reply] ✅ Login successful, got cookies");
 
     // Pick a random search query
     const searchQuery = SEARCH_QUERIES[Math.floor(Math.random() * SEARCH_QUERIES.length)];
@@ -278,14 +326,6 @@ Output ONLY the reply text. No quotes, no explanation.`
         // Wait 5+ seconds between requests
         await new Promise((resolve) => setTimeout(resolve, 6000));
 
-        const proxyUrl = Deno.env.get("TWITTER_PROXY");
-
-        // Per twitterapi.io docs (Create tweet v2), proxy is required.
-        // If this isn't set, posting will be unreliable and may fail.
-        if (!proxyUrl) {
-          throw new Error("TWITTER_PROXY not configured");
-        }
-
         const extractReplyId = (postData: any): string | null => {
           return (
             postData?.data?.id ||
@@ -308,13 +348,12 @@ Output ONLY the reply text. No quotes, no explanation.`
         };
 
         // twitterapi.io docs: /twitter/create_tweet_v2 expects login_cookies (from user_login_v2)
-        // In practice this is commonly a cookie string that includes auth_token + ct0.
         const postAttempts: Array<{ name: string; url: string; body: any }> = [
           {
             name: "create_tweet_v2",
             url: `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
             body: {
-              login_cookies: `auth_token=${xAuthToken}; ct0=${xCt0Token}`,
+              login_cookies: loginCookies,
               tweet_text: replyText,
               reply_to_tweet_id: tweet.id,
               proxy: proxyUrl,
