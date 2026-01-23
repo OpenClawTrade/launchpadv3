@@ -271,27 +271,36 @@ Output ONLY the reply text. No quotes, no explanation.`
         // Wait 5+ seconds between requests
         await new Promise(resolve => setTimeout(resolve, 6000));
         
-        // Format cookies as expected by twitterapi.io
-        const loginCookies = `auth_token=${xAuthToken}; ct0=${xCt0Token}`;
-        
         // Get proxy URL from secrets
         const proxyUrl = Deno.env.get("TWITTER_PROXY");
         
-        const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
+        // Build request body - auth_session should be an object, not a cookie string
+        const postBody: any = {
+          text: replyText,
+          reply: { in_reply_to_tweet_id: tweet.id },
+          auth_session: {
+            auth_token: xAuthToken,
+            ct0: xCt0Token,
+          },
+        };
+        
+        if (proxyUrl) {
+          postBody.proxy = proxyUrl;
+        }
+        
+        console.log(`[twitter-auto-reply] 📤 Posting reply to tweet ${tweet.id}...`);
+        
+        const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/tweet/create`, {
           method: "POST",
           headers: {
             "X-API-Key": twitterApiKey,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            auth_session: loginCookies,
-            tweet_text: replyText,
-            in_reply_to_tweet_id: tweet.id,
-            proxy: proxyUrl || undefined,
-          }),
+          body: JSON.stringify(postBody),
         });
 
         const postText = await postResponse.text();
+        console.log(`[twitter-auto-reply] 📥 Twitter API response: ${postResponse.status} - ${postText.slice(0, 300)}`);
         
         if (!postResponse.ok) {
           // Handle rate limits
@@ -311,8 +320,13 @@ Output ONLY the reply text. No quotes, no explanation.`
           postData = { raw: postText };
         }
         
-        // twitterapi.io returns { data: { id: "...", text: "..." } }
-        const replyId = postData.data?.id || postData.data?.rest_id || postData.id || postData.tweet_id || null;
+        // twitterapi.io returns { data: { id: "...", text: "..." } } or { data: { create_tweet: { tweet_results: { result: { rest_id } } } } }
+        const replyId = postData.data?.id || 
+                        postData.data?.rest_id || 
+                        postData.data?.create_tweet?.tweet_results?.result?.rest_id ||
+                        postData.id || 
+                        postData.tweet_id || 
+                        null;
         console.log(`[twitter-auto-reply] ✅ Reply posted successfully to tweet ${tweet.id}, reply_id: ${replyId}`);
 
         // Record the reply in database
