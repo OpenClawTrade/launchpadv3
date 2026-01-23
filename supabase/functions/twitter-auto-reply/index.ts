@@ -281,14 +281,14 @@ Output ONLY the reply text. No quotes, no explanation.`
         // Get proxy URL from secrets
         const proxyUrl = Deno.env.get("TWITTER_PROXY");
         
-        // Build request body - auth_session should be an object, not a cookie string
+        // Format cookies as expected by twitterapi.io v1 endpoint
+        const loginCookies = `auth_token=${xAuthToken}; ct0=${xCt0Token}`;
+        
+        // Build request body per twitterapi.io docs
         const postBody: any = {
-          text: replyText,
-          reply: { in_reply_to_tweet_id: tweet.id },
-          auth_session: {
-            auth_token: xAuthToken,
-            ct0: xCt0Token,
-          },
+          auth_session: loginCookies,
+          tweet_text: replyText,
+          in_reply_to_tweet_id: tweet.id,
         };
         
         if (proxyUrl) {
@@ -297,7 +297,7 @@ Output ONLY the reply text. No quotes, no explanation.`
         
         console.log(`[twitter-auto-reply] 📤 Posting reply to tweet ${tweet.id}...`);
         
-        const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/tweet/create`, {
+        const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
           method: "POST",
           headers: {
             "X-API-Key": twitterApiKey,
