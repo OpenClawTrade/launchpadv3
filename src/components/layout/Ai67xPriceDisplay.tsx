@@ -6,11 +6,16 @@ export function Ai67xPriceDisplay() {
   const { price, change24h, isLoading } = useAi67xPrice();
 
   const formatPrice = (p: number) => {
-    if (p === 0) return "$0.0000";
-    if (p < 0.0001) return `$${p.toExponential(2)}`;
-    if (p < 0.01) return `$${p.toFixed(6)}`;
-    if (p < 1) return `$${p.toFixed(4)}`;
-    return `$${p.toFixed(2)}`;
+    if (p === 0) return "$0.00";
+    if (p >= 1) return `$${p.toFixed(2)}`;
+    if (p >= 0.01) return `$${p.toFixed(4)}`;
+    // For very small numbers, show as $0.0000XXX format
+    const str = p.toFixed(10);
+    const match = str.match(/^0\.(0*)(\d{2,4})/);
+    if (match) {
+      return `$0.${match[1]}${match[2]}`;
+    }
+    return `$${p.toFixed(8)}`;
   };
 
   const isPositive = change24h > 0;
