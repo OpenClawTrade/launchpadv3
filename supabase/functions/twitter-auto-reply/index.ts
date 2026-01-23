@@ -311,7 +311,9 @@ Output ONLY the reply text. No quotes, no explanation.`
           postData = { raw: postText };
         }
         
-        console.log(`[twitter-auto-reply] ✅ Reply posted successfully to tweet ${tweet.id}`);
+        // twitterapi.io returns { data: { id: "...", text: "..." } }
+        const replyId = postData.data?.id || postData.data?.rest_id || postData.id || postData.tweet_id || null;
+        console.log(`[twitter-auto-reply] ✅ Reply posted successfully to tweet ${tweet.id}, reply_id: ${replyId}`);
 
         // Record the reply in database
         await supabase.from("twitter_bot_replies").insert({
@@ -319,7 +321,7 @@ Output ONLY the reply text. No quotes, no explanation.`
           tweet_author: tweet.author?.userName,
           tweet_text: tweet.text?.substring(0, 500),
           reply_text: replyText,
-          reply_id: postData.id || postData.tweet_id || null,
+          reply_id: replyId,
         });
 
         results.push({ tweetId: tweet.id, success: true });
