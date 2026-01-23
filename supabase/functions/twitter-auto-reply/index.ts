@@ -287,48 +287,6 @@ serve(async (req) => {
 
     console.log("[twitter-auto-reply] ✅ Login successful, got cookies");
 
-    // Pick a random search query
-    const searchQuery = SEARCH_QUERIES[Math.floor(Math.random() * SEARCH_QUERIES.length)];
-    console.log(`[twitter-auto-reply] 🔍 Searching for: "${searchQuery}"`);
-
-    // Fetch tweets via search endpoint
-    const searchUrl = `${TWITTERAPI_BASE}/twitter/tweet/advanced_search?query=${encodeURIComponent(searchQuery)}&queryType=Latest`;
-    console.log("[twitter-auto-reply] 📡 Fetching tweets...");
-    
-    const searchResponse = await fetch(searchUrl, {
-      method: "GET",
-      headers: {
-        "X-API-Key": twitterApiKey,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!searchResponse.ok) {
-      const errorText = await searchResponse.text();
-      console.error("[twitter-auto-reply] ❌ Search API error:", searchResponse.status, errorText);
-      
-      // If rate limited, just exit gracefully
-      if (searchResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ success: true, message: "Rate limited, will retry later", repliesSent: 0 }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`Failed to search tweets: ${searchResponse.status} - ${errorText}`);
-    }
-
-    const searchData = await searchResponse.json();
-    const tweets: Tweet[] = searchData.tweets || searchData.data || [];
-    console.log(`[twitter-auto-reply] 📥 Found ${tweets.length} tweets`);
-
-    if (tweets.length === 0) {
-      return new Response(
-        JSON.stringify({ success: true, message: "No tweets found", repliesSent: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Get already replied tweet IDs to avoid duplicates
     const { data: repliedTweets } = await supabase
       .from("twitter_bot_replies")
@@ -337,16 +295,88 @@ serve(async (req) => {
       .limit(500);
 
     const repliedIds = new Set((repliedTweets || []).map(r => r.tweet_id));
-    
-    // Filter out already replied tweets and our own tweets
-    const eligibleTweets = tweets.filter(t => 
-      !repliedIds.has(t.id) && 
-      t.author?.userName?.toLowerCase() !== "ai67x_fun" &&
-      t.text && 
-      t.text.length > 20 // Skip very short tweets
-    );
 
-    console.log(`[twitter-auto-reply] ✅ ${eligibleTweets.length} eligible tweets after filtering`);
+    let eligibleTweets: Tweet[] = [];
+    let searchQuery = "";
+
+    // PRIORITY 1: Check for replies to our own tweets first
+    console.log("[twitter-auto-reply] 🔍 Checking for replies to @ai67x_fun tweets...");
+    
+    const mentionSearchUrl = `${TWITTERAPI_BASE}/twitter/tweet/advanced_search?query=${encodeURIComponent("to:ai67x_fun")}&queryType=Latest`;
+    const mentionResponse = await fetch(mentionSearchUrl, {
+      method: "GET",
+      headers: {
+        "X-API-Key": twitterApiKey,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (mentionResponse.ok) {
+      const mentionData = await mentionResponse.json();
+      const mentionTweets: Tweet[] = mentionData.tweets || mentionData.data || [];
+      console.log(`[twitter-auto-reply] 📥 Found ${mentionTweets.length} replies/mentions to @ai67x_fun`);
+
+      // Filter for genuine questions/replies we haven't answered
+      const eligibleMentions = mentionTweets.filter(t => 
+        !repliedIds.has(t.id) && 
+        t.author?.userName?.toLowerCase() !== "ai67x_fun" &&
+        t.text && 
+        t.text.length > 10
+      );
+
+      if (eligibleMentions.length > 0) {
+        eligibleTweets = eligibleMentions;
+        searchQuery = "to:ai67x_fun (replies)";
+        console.log(`[twitter-auto-reply] ✅ ${eligibleMentions.length} unanswered replies/mentions found`);
+      }
+    } else {
+      console.log(`[twitter-auto-reply] ⚠️ Mention search failed: ${mentionResponse.status}`);
+    }
+
+    // PRIORITY 2: If no mentions to reply to, search for general crypto tweets
+    if (eligibleTweets.length === 0) {
+      searchQuery = SEARCH_QUERIES[Math.floor(Math.random() * SEARCH_QUERIES.length)];
+      console.log(`[twitter-auto-reply] 🔍 No mentions, searching for: "${searchQuery}"`);
+
+      const searchUrl = `${TWITTERAPI_BASE}/twitter/tweet/advanced_search?query=${encodeURIComponent(searchQuery)}&queryType=Latest`;
+      console.log("[twitter-auto-reply] 📡 Fetching tweets...");
+      
+      const searchResponse = await fetch(searchUrl, {
+        method: "GET",
+        headers: {
+          "X-API-Key": twitterApiKey,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!searchResponse.ok) {
+        const errorText = await searchResponse.text();
+        console.error("[twitter-auto-reply] ❌ Search API error:", searchResponse.status, errorText);
+        
+        if (searchResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ success: true, message: "Rate limited, will retry later", repliesSent: 0 }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        throw new Error(`Failed to search tweets: ${searchResponse.status} - ${errorText}`);
+      }
+
+      const searchData = await searchResponse.json();
+      const tweets: Tweet[] = searchData.tweets || searchData.data || [];
+      console.log(`[twitter-auto-reply] 📥 Found ${tweets.length} tweets`);
+
+      // Filter out already replied tweets and our own tweets
+      eligibleTweets = tweets.filter(t => 
+        !repliedIds.has(t.id) && 
+        t.author?.userName?.toLowerCase() !== "ai67x_fun" &&
+        t.text && 
+        t.text.length > 20
+      );
+
+      console.log(`[twitter-auto-reply] ✅ ${eligibleTweets.length} eligible tweets after filtering`);
+    }
 
     if (eligibleTweets.length === 0) {
       return new Response(
