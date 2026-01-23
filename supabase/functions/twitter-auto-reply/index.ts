@@ -7,8 +7,8 @@ const corsHeaders = {
 };
 
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
-const MAX_REPLIES_PER_RUN = 1; // One reply per run
-const REPLY_COOLDOWN_MINUTES = 1; // Run every 1 minute
+const MAX_REPLIES_PER_RUN = 3; // Three replies per run (one every ~20 seconds)
+const DELAY_BETWEEN_REPLIES_MS = 20000; // 20 seconds between replies
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -137,26 +137,9 @@ serve(async (req) => {
 
     console.log("[twitter-auto-reply] 🚀 Starting auto-reply bot...");
 
-    // Check cooldown - don't run if we replied recently
-    const { data: lastReply } = await supabase
-      .from("twitter_bot_replies")
-      .select("created_at")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (lastReply && !forceRun) {
-      const lastReplyTime = new Date(lastReply.created_at);
-      const cooldownEnd = new Date(lastReplyTime.getTime() + REPLY_COOLDOWN_MINUTES * 60 * 1000);
-      if (new Date() < cooldownEnd) {
-        const waitSeconds = Math.ceil((cooldownEnd.getTime() - Date.now()) / 1000);
-        console.log(`[twitter-auto-reply] ⏳ Cooldown active, waiting ${waitSeconds}s`);
-        return new Response(
-          JSON.stringify({ success: true, message: `Cooldown active, ${waitSeconds}s remaining`, repliesSent: 0 }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
+    // No cooldown check needed - we run every minute and post 3 times with 20s delays
+    // This gives us ~3 posts per minute (one every 20 seconds)
+    console.log(`[twitter-auto-reply] 🚀 Will post up to ${MAX_REPLIES_PER_RUN} replies with ${DELAY_BETWEEN_REPLIES_MS/1000}s delays`);
     
     if (forceRun) {
       console.log("[twitter-auto-reply] 🔓 Force run - bypassing cooldown");
@@ -593,11 +576,10 @@ Output ONLY the reply text. No quotes, no explanation.`
 
         results.push({ tweetId: tweet.id, success: true });
 
-        // Add longer delay between replies to respect rate limits
+        // Wait 20 seconds between replies for ~3 posts per minute
         if (tweetsToReply.indexOf(tweet) < tweetsToReply.length - 1) {
-          const delay = 8000 + Math.random() * 4000; // 8-12 seconds
-          console.log(`[twitter-auto-reply] ⏳ Waiting ${Math.round(delay/1000)}s before next reply...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          console.log(`[twitter-auto-reply] ⏳ Waiting ${DELAY_BETWEEN_REPLIES_MS/1000}s before next reply...`);
+          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REPLIES_MS));
         }
 
       } catch (error) {
