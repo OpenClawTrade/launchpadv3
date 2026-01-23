@@ -24,6 +24,7 @@ const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
 const ApiBuilderPage = lazy(() => import("./pages/ApiBuilderPage"));
 const GovernancePage = lazy(() => import("./pages/GovernancePage"));
 const LaunchpadTemplatePage = lazy(() => import("./pages/LaunchpadTemplatePage"));
+const TwitterBotAdminPage = lazy(() => import("./pages/TwitterBotAdminPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -71,6 +72,7 @@ const App = () => (
                 <Route path="/api/builder" element={<ApiBuilderPage />} />
                 <Route path="/governance" element={<GovernancePage />} />
                 <Route path="/site" element={<LaunchpadTemplatePage />} />
+                <Route path="/admin/twitter" element={<TwitterBotAdminPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
