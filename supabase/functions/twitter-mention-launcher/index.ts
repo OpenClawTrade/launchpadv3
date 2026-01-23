@@ -125,28 +125,61 @@ serve(async (req) => {
     const seenIds = new Set<string>();
 
     for (const query of searchQueries) {
-      const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
-      searchUrl.searchParams.set("query", query);
-      searchUrl.searchParams.set("queryType", "Latest");
+      try {
+        const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
+        searchUrl.searchParams.set("query", query);
+        searchUrl.searchParams.set("queryType", "Latest");
 
-      const searchResponse = await fetch(searchUrl.toString(), {
+        const searchResponse = await fetch(searchUrl.toString(), {
+          headers: { "X-API-Key": TWITTERAPI_IO_KEY },
+        });
+
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          const tweets: Tweet[] = searchData.tweets || [];
+          console.log(`[mention-launcher] 📊 Query "${query}" returned ${tweets.length} tweets`);
+          
+          for (const t of tweets) {
+            if (!seenIds.has(t.id)) {
+              seenIds.add(t.id);
+              allTweets.push(t);
+            }
+          }
+        } else {
+          console.log(`[mention-launcher] ⚠️ Query "${query}" failed: ${searchResponse.status}`);
+        }
+      } catch (err) {
+        console.log(`[mention-launcher] ⚠️ Query "${query}" error: ${err}`);
+      }
+    }
+
+    // Also try to get mentions via user mentions endpoint (more reliable than search)
+    try {
+      const mentionsUrl = new URL(`${TWITTERAPI_BASE}/twitter/user/mentions`);
+      mentionsUrl.searchParams.set("userName", "ai67x_fun");
+      mentionsUrl.searchParams.set("count", "50");
+      
+      const mentionsResponse = await fetch(mentionsUrl.toString(), {
         headers: { "X-API-Key": TWITTERAPI_IO_KEY },
       });
-
-      if (searchResponse.ok) {
-        const searchData = await searchResponse.json();
-        const tweets: Tweet[] = searchData.tweets || [];
-        console.log(`[mention-launcher] 📊 Query "${query}" returned ${tweets.length} tweets`);
+      
+      if (mentionsResponse.ok) {
+        const mentionsData = await mentionsResponse.json();
+        const mentionTweets: Tweet[] = mentionsData.tweets || mentionsData.data || [];
+        console.log(`[mention-launcher] 📊 Mentions endpoint returned ${mentionTweets.length} tweets`);
         
-        for (const t of tweets) {
-          if (!seenIds.has(t.id)) {
+        for (const t of mentionTweets) {
+          if (t.id && !seenIds.has(t.id)) {
             seenIds.add(t.id);
             allTweets.push(t);
           }
         }
       } else {
-        console.log(`[mention-launcher] ⚠️ Query "${query}" failed: ${searchResponse.status}`);
+        const errText = await mentionsResponse.text();
+        console.log(`[mention-launcher] ⚠️ Mentions endpoint failed: ${mentionsResponse.status} - ${errText.slice(0, 200)}`);
       }
+    } catch (err) {
+      console.log(`[mention-launcher] ⚠️ Mentions endpoint error: ${err}`);
     }
 
     const tweets = allTweets;
