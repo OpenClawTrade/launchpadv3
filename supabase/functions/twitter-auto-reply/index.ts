@@ -125,13 +125,14 @@ serve(async (req) => {
     }
 
     // Get X account credentials for login_v2 flow
+    const xAccountUsername = Deno.env.get("X_ACCOUNT_USERNAME");
     const xAccountEmail = Deno.env.get("X_ACCOUNT_EMAIL");
     const xAccountPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
     const xTotpSecret = Deno.env.get("X_TOTP_SECRET"); // Optional for 2FA
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
 
-    if (!xAccountEmail || !xAccountPassword) {
-      throw new Error("X_ACCOUNT_EMAIL or X_ACCOUNT_PASSWORD not configured");
+    if (!xAccountUsername || !xAccountEmail || !xAccountPassword) {
+      throw new Error("X_ACCOUNT_USERNAME, X_ACCOUNT_EMAIL, or X_ACCOUNT_PASSWORD not configured");
     }
     if (!proxyUrl) {
       throw new Error("TWITTER_PROXY not configured");
@@ -141,7 +142,8 @@ serve(async (req) => {
     console.log("[twitter-auto-reply] 🔐 Logging in via user_login_v2...");
     
     const loginBody: Record<string, string> = {
-      user_name: xAccountEmail, // Can be email or username
+      user_name: xAccountUsername,
+      email: xAccountEmail,
       password: xAccountPassword,
       proxy: proxyUrl,
     };
