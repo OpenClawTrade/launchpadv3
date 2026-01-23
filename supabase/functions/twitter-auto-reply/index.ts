@@ -10,6 +10,44 @@ const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const MAX_REPLIES_PER_RUN = 1; // One reply per run
 const REPLY_COOLDOWN_MINUTES = 3; // Run every 3 minutes
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * twitterapi.io expects `totp_secret` (base32 secret), not a 6-digit code.
+ * Users often paste an `otpauth://...` URL or include spaces/hyphens.
+ */
+const normalizeTotpSecret = (raw?: string | null): string | undefined => {
+  if (!raw) return undefined;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return undefined;
+
+  // Handle otpauth://totp/...?...&secret=BASE32...
+  if (trimmed.toLowerCase().startsWith("otpauth://")) {
+    try {
+      const url = new URL(trimmed);
+      const secretParam = url.searchParams.get("secret");
+      if (secretParam) {
+        return secretParam.replace(/\s|-/g, "").toUpperCase();
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  // Common copy-paste: "secret=BASE32" or just BASE32
+  const secretMatch = trimmed.match(/secret\s*=\s*([A-Za-z2-7\s-]+)/i);
+  const candidate = (secretMatch?.[1] ?? trimmed).replace(/\s|-/g, "").toUpperCase();
+  return candidate || undefined;
+};
+
+const safeJsonParse = (text: string): any => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
 // Crypto-related search terms to find relevant tweets
 const SEARCH_QUERIES = [
   "crypto meme coin",
@@ -128,7 +166,8 @@ serve(async (req) => {
     const xAccountUsername = Deno.env.get("X_ACCOUNT_USERNAME");
     const xAccountEmail = Deno.env.get("X_ACCOUNT_EMAIL");
     const xAccountPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
-    const xTotpSecret = Deno.env.get("X_TOTP_SECRET"); // Optional for 2FA
+    const xTotpSecretRaw = Deno.env.get("X_TOTP_SECRET"); // Optional for 2FA
+    const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
 
     if (!xAccountUsername || !xAccountEmail || !xAccountPassword) {
@@ -149,33 +188,99 @@ serve(async (req) => {
     };
     if (xTotpSecret) {
       loginBody.totp_secret = xTotpSecret;
+      console.log(
+        `[twitter-auto-reply] 🔑 Using TOTP secret (normalized length: ${xTotpSecret.length})`
+      );
+    } else if (xTotpSecretRaw) {
+      console.log("[twitter-auto-reply] ⚠️ X_TOTP_SECRET provided but normalized to empty");
     }
 
-    const loginResponse = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
-      method: "POST",
-      headers: {
-        "X-API-Key": twitterApiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(loginBody),
-    });
+    const doLoginV2 = async () => {
+      const res = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": twitterApiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginBody),
+      });
+      const text = await res.text();
+      const data = safeJsonParse(text) ?? { raw: text };
+      return { res, text, data };
+    };
 
-    const loginText = await loginResponse.text();
-    console.log(`[twitter-auto-reply] 🔐 Login response: ${loginResponse.status} - ${loginText.slice(0, 500)}`);
+    // Some accounts/proxies succeed only on v3; docs call the field `totp_code` but it is still the secret key.
+    const doLoginV3 = async () => {
+      const v3Body: Record<string, string> = {
+        user_name: xAccountUsername,
+        email: xAccountEmail,
+        password: xAccountPassword,
+        proxy: proxyUrl,
+      };
+      if (xTotpSecret) v3Body.totp_code = xTotpSecret;
 
-    if (!loginResponse.ok) {
-      throw new Error(`Login failed: ${loginResponse.status} - ${loginText}`);
+      const res = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v3`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": twitterApiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(v3Body),
+      });
+      const text = await res.text();
+      const data = safeJsonParse(text) ?? { raw: text };
+      return { res, text, data };
+    };
+
+    // Login can be flaky with proxies; retry once on auth error
+    let loginAttempt = await doLoginV2();
+    console.log(
+      `[twitter-auto-reply] 🔐 Login response: ${loginAttempt.res.status} - ${String(loginAttempt.text).slice(0, 500)}`
+    );
+
+    const loginIsAuthError = (payload: any): boolean => {
+      const msg = String(payload?.message ?? payload?.msg ?? payload?.error ?? "").toLowerCase();
+      return msg.includes("authentication error") || msg.includes("login failed") || msg.includes("challenge");
+    };
+
+    if (!loginAttempt.res.ok) {
+      throw new Error(`Login failed: ${loginAttempt.res.status} - ${loginAttempt.text}`);
     }
 
-    let loginData: any;
-    try {
-      loginData = JSON.parse(loginText);
-    } catch {
-      throw new Error(`Failed to parse login response: ${loginText}`);
+    if (loginAttempt.data?.status === "error" && loginIsAuthError(loginAttempt.data)) {
+      console.log("[twitter-auto-reply] 🔁 Login v2 auth error; retrying once after 2s...");
+      await sleep(2000);
+      loginAttempt = await doLoginV2();
+      console.log(
+        `[twitter-auto-reply] 🔐 Login v2 retry response: ${loginAttempt.res.status} - ${String(loginAttempt.text).slice(0, 500)}`
+      );
+      if (!loginAttempt.res.ok) {
+        throw new Error(`Login v2 retry failed: ${loginAttempt.res.status} - ${loginAttempt.text}`);
+      }
     }
+
+    // Fallback to v3 when v2 returns an auth error payload (commonly happens with 2FA/proxy combos)
+    if (loginAttempt.data?.status === "error" && loginIsAuthError(loginAttempt.data)) {
+      console.log("[twitter-auto-reply] 🛟 Falling back to user_login_v3...");
+      const loginV3 = await doLoginV3();
+      console.log(
+        `[twitter-auto-reply] 🔐 Login v3 response: ${loginV3.res.status} - ${String(loginV3.text).slice(0, 500)}`
+      );
+      if (!loginV3.res.ok) {
+        throw new Error(`Login v3 failed: ${loginV3.res.status} - ${loginV3.text}`);
+      }
+      loginAttempt = loginV3;
+    }
+
+    const loginData: any = loginAttempt.data;
 
     // Extract login_cookies from response
-    const loginCookies = loginData.login_cookies || loginData.cookies || loginData.cookie;
+    const loginCookies =
+      loginData.login_cookies ||
+      loginData.cookies ||
+      loginData.cookie ||
+      loginData?.data?.login_cookies ||
+      loginData?.data?.cookies;
     if (!loginCookies) {
       throw new Error(`No login_cookies in response: ${JSON.stringify(loginData)}`);
     }
@@ -471,7 +576,8 @@ Output ONLY the reply text. No quotes, no explanation.`
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      // Return 200 so the admin UI can display the error body (otherwise it becomes a FunctionsHttpError)
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
