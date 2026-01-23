@@ -280,13 +280,19 @@ Output ONLY the reply text. No quotes, no explanation.`
 
         const proxyUrl = Deno.env.get("TWITTER_PROXY");
 
+        // Per twitterapi.io docs (Create tweet v2), proxy is required.
+        // If this isn't set, posting will be unreliable and may fail.
+        if (!proxyUrl) {
+          throw new Error("TWITTER_PROXY not configured");
+        }
+
         const extractReplyId = (postData: any): string | null => {
           return (
             postData?.data?.id ||
             postData?.data?.rest_id ||
             postData?.data?.create_tweet?.tweet_results?.result?.rest_id ||
-            postData?.id ||
             postData?.tweet_id ||
+            postData?.id ||
             null
           );
         };
@@ -301,28 +307,17 @@ Output ONLY the reply text. No quotes, no explanation.`
           return false;
         };
 
+        // twitterapi.io docs: /twitter/create_tweet_v2 expects login_cookies (from user_login_v2)
+        // In practice this is commonly a cookie string that includes auth_token + ct0.
         const postAttempts: Array<{ name: string; url: string; body: any }> = [
           {
-            name: "tweet/create",
-            url: `${TWITTERAPI_BASE}/twitter/tweet/create`,
+            name: "create_tweet_v2",
+            url: `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
             body: {
-              text: replyText,
-              reply: { in_reply_to_tweet_id: tweet.id },
-              auth_session: {
-                auth_token: xAuthToken,
-                ct0: xCt0Token,
-              },
-              ...(proxyUrl ? { proxy: proxyUrl } : {}),
-            },
-          },
-          {
-            name: "create_tweet",
-            url: `${TWITTERAPI_BASE}/twitter/create_tweet`,
-            body: {
-              auth_session: `auth_token=${xAuthToken}; ct0=${xCt0Token}`,
+              login_cookies: `auth_token=${xAuthToken}; ct0=${xCt0Token}`,
               tweet_text: replyText,
-              in_reply_to_tweet_id: tweet.id,
-              ...(proxyUrl ? { proxy: proxyUrl } : {}),
+              reply_to_tweet_id: tweet.id,
+              proxy: proxyUrl,
             },
           },
         ];
