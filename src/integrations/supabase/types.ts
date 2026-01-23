@@ -2452,6 +2452,66 @@ export type Database = {
           },
         ]
       }
+      x_bot_rate_limits: {
+        Row: {
+          id: string
+          launched_at: string
+          x_user_id: string
+          x_username: string | null
+        }
+        Insert: {
+          id?: string
+          launched_at?: string
+          x_user_id: string
+          x_username?: string | null
+        }
+        Update: {
+          id?: string
+          launched_at?: string
+          x_user_id?: string
+          x_username?: string | null
+        }
+        Relationships: []
+      }
+      x_pending_requests: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          original_tweet_image_url: string | null
+          original_tweet_text: string | null
+          our_reply_tweet_id: string | null
+          status: string
+          tweet_id: string
+          x_user_id: string
+          x_username: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          original_tweet_image_url?: string | null
+          original_tweet_text?: string | null
+          our_reply_tweet_id?: string | null
+          status?: string
+          tweet_id: string
+          x_user_id: string
+          x_username?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          original_tweet_image_url?: string | null
+          original_tweet_text?: string | null
+          our_reply_tweet_id?: string | null
+          status?: string
+          tweet_id?: string
+          x_user_id?: string
+          x_username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       admin_reports_view: {

@@ -95,3 +95,9 @@ verify_jwt = false
 
 [functions.pool-config-inspect]
 verify_jwt = false
+
+[functions.twitter-auto-reply]
+verify_jwt = false
+
+[functions.twitter-mention-launcher]
+verify_jwt = false
