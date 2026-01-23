@@ -9,7 +9,7 @@ const corsHeaders = {
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const MAX_LAUNCHES_PER_HOUR = 2; // Per X user
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const MENTION_COOLDOWN_MINUTES = 2; // Between processing mentions
+const MENTION_COOLDOWN_MINUTES = 1; // Between processing mentions - 1 minute
 
 // Solana address regex (base58, 32-44 chars)
 const SOLANA_ADDRESS_REGEX = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;

@@ -279,7 +279,7 @@ export default function TwitterBotAdminPage() {
           
           <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-orange-400">3min</div>
+              <div className="text-2xl font-bold text-orange-400">1min</div>
               <div className="text-sm text-gray-400">Post Interval</div>
             </CardContent>
           </Card>
@@ -337,11 +337,11 @@ export default function TwitterBotAdminPage() {
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-300">Runs every 3 minutes via cron (1 reply per run)</span>
+              <span className="text-gray-300">Runs every 1 minute via cron (1 reply per run)</span>
             </div>
             <div className="flex items-center gap-2">
               <Warning className="h-4 w-4 text-yellow-400" />
-              <span className="text-gray-300">~20 replies per hour avg frequency</span>
+              <span className="text-gray-300">~60 replies per hour avg frequency</span>
             </div>
             <div className="text-sm text-gray-500 mt-2">
               Search queries: "crypto meme coin", "solana degen", "memecoin launch", "$SOL pump", "web3 meme"
