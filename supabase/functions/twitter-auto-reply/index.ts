@@ -141,7 +141,7 @@ serve(async (req) => {
     console.log("[twitter-auto-reply] 🔐 Logging in via user_login_v2...");
     
     const loginBody: Record<string, string> = {
-      email: xAccountEmail,
+      user_name: xAccountEmail, // Can be email or username
       password: xAccountPassword,
       proxy: proxyUrl,
     };
