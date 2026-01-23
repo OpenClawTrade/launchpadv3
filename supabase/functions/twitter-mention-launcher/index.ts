@@ -158,15 +158,43 @@ serve(async (req) => {
     
     const repliedIds = new Set((repliedTweets || []).map(t => t.tweet_id));
 
+    // Only consider mentions from the last 15 minutes
+    const MENTION_MAX_AGE_MINUTES = 15;
+    const isRecentTweet = (tweet: Tweet): boolean => {
+      if (!tweet.createdAt) return true;
+      try {
+        const tweetTime = new Date(tweet.createdAt);
+        const cutoff = new Date(Date.now() - MENTION_MAX_AGE_MINUTES * 60 * 1000);
+        return tweetTime >= cutoff;
+      } catch {
+        return true;
+      }
+    };
+
     // Filter to unprocessed mentions with launch intent
     const eligibleMentions = tweets.filter(t => {
-      if (processedIds.has(t.id) || repliedIds.has(t.id)) return false;
+      if (processedIds.has(t.id) || repliedIds.has(t.id)) {
+        console.log(`[mention-launcher] ⏭️ Skipping ${t.id} - already processed/replied`);
+        return false;
+      }
       if (t.author?.userName?.toLowerCase() === "ai67x_fun") return false;
       if (!t.text || t.text.length < 10) return false;
       
+      // Check if tweet is recent enough
+      if (!isRecentTweet(t)) {
+        console.log(`[mention-launcher] ⏰ Skipping ${t.id} - too old (>${MENTION_MAX_AGE_MINUTES} min)`);
+        return false;
+      }
+      
       // Check for launch intent keywords
       const textLower = t.text.toLowerCase();
-      return LAUNCH_KEYWORDS.some(keyword => textLower.includes(keyword));
+      const hasLaunchIntent = LAUNCH_KEYWORDS.some(keyword => textLower.includes(keyword));
+      
+      if (!hasLaunchIntent) {
+        console.log(`[mention-launcher] 📝 Tweet ${t.id} by @${t.author?.userName}: "${t.text.slice(0, 80)}..." - NO launch keywords`);
+      }
+      
+      return hasLaunchIntent;
     });
 
     console.log(`[mention-launcher] ✅ ${eligibleMentions.length} eligible mentions with launch intent`);
