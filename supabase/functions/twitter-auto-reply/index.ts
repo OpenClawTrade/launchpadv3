@@ -35,10 +35,57 @@ serve(async (req) => {
   }
 
   try {
-    const twitterApiKey = Deno.env.get("TWITTERAPI_IO_KEY");
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Parse request body for action-based calls
+    let body: { action?: string; secret?: string } = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body or not JSON - continue with default "run" action
+    }
+
+    const { action, secret } = body;
+
+    // Admin actions require secret validation
+    const adminSecret = Deno.env.get("TWITTER_BOT_ADMIN_SECRET") || Deno.env.get("API_ENCRYPTION_KEY");
+    
+    if (action === "list") {
+      // List recent replies - requires valid secret
+      if (!secret || secret !== adminSecret) {
+        return new Response(
+          JSON.stringify({ error: "unauthorized" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: replies, error } = await supabase
+        .from("twitter_bot_replies")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ replies: replies || [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // For "run" action, validate secret if provided (allows cron to run without secret)
+    if (action === "run" && secret && secret !== adminSecret) {
+      return new Response(
+        JSON.stringify({ error: "unauthorized" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Continue with bot run logic
+    const twitterApiKey = Deno.env.get("TWITTERAPI_IO_KEY");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!twitterApiKey) {
       throw new Error("TWITTERAPI_IO_KEY not configured");
@@ -47,7 +94,6 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
     console.log("[twitter-auto-reply] 🚀 Starting auto-reply bot...");
 
     // Check cooldown - don't run if we replied recently

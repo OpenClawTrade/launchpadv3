@@ -4,11 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowClockwise, TwitterLogo, CheckCircle, XCircle, Clock, Warning } from "@phosphor-icons/react";
+import { ArrowClockwise, TwitterLogo, CheckCircle, XCircle, Clock, Warning, Eye, EyeSlash } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
 
 interface TwitterReply {
   id: string;
@@ -21,32 +19,44 @@ interface TwitterReply {
 }
 
 export default function TwitterBotAdminPage() {
-  const { solanaAddress } = useAuth();
-  const { isAdmin, isLoading: adminLoading } = useIsAdmin(solanaAddress);
   const [replies, setReplies] = useState<TwitterReply[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
   const [lastRunResult, setLastRunResult] = useState<any>(null);
+  const [authSecret, setAuthSecret] = useState(() => 
+    localStorage.getItem("twitter_bot_secret") || ""
+  );
+  const [showSecret, setShowSecret] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
+
+  const saveAuthSecret = (secret: string) => {
+    localStorage.setItem("twitter_bot_secret", secret);
+    setAuthSecret(secret);
+  };
 
   const fetchReplies = async () => {
+    if (!authSecret) {
+      toast.error("Enter access secret first");
+      return;
+    }
+    
+    setIsLoading(true);
     try {
-      // Use raw fetch since twitter_bot_replies isn't in generated types
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/twitter_bot_replies?select=*&order=created_at.desc&limit=100`,
-        {
-          headers: {
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        }
-      );
+      // Use edge function to fetch replies (bypasses RLS)
+      const { data, error } = await supabase.functions.invoke("twitter-auto-reply", {
+        body: { action: "list", secret: authSecret },
+      });
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.status}`);
+      if (error) throw error;
+      
+      if (data?.error === "unauthorized") {
+        toast.error("Invalid secret");
+        setIsAuthed(false);
+        return;
       }
       
-      const data = await response.json();
-      setReplies(data || []);
+      setReplies(data?.replies || []);
+      setIsAuthed(true);
     } catch (err) {
       console.error("Error fetching replies:", err);
       toast.error("Failed to fetch replies");
@@ -56,11 +66,23 @@ export default function TwitterBotAdminPage() {
   };
 
   const triggerBot = async () => {
+    if (!authSecret) {
+      toast.error("Enter access secret first");
+      return;
+    }
+    
     setIsTriggering(true);
     try {
-      const { data, error } = await supabase.functions.invoke("twitter-auto-reply");
+      const { data, error } = await supabase.functions.invoke("twitter-auto-reply", {
+        body: { action: "run", secret: authSecret },
+      });
       
       if (error) throw error;
+      
+      if (data?.error === "unauthorized") {
+        toast.error("Invalid secret");
+        return;
+      }
       
       setLastRunResult(data);
       toast.success(`Bot run complete: ${data?.repliesSent || 0} replies sent`);
@@ -77,13 +99,10 @@ export default function TwitterBotAdminPage() {
   };
 
   useEffect(() => {
-    fetchReplies();
+    if (authSecret) {
+      fetchReplies();
+    }
   }, []);
-
-  // Redirect non-admins
-  if (!adminLoading && !isAdmin) {
-    return <Navigate to="/" replace />;
-  }
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString();
@@ -96,6 +115,53 @@ export default function TwitterBotAdminPage() {
     ).length,
     successful: replies.filter(r => r.reply_id).length,
   };
+
+  // Auth gate - show login form if not authenticated
+  if (!isAuthed) {
+    return (
+      <div className="min-h-screen bg-[#0d0d0f]">
+        <AppHeader />
+        <main className="max-w-md mx-auto px-4 py-16">
+          <Card className="bg-[#12121a] border-[#1a1a1f]">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <TwitterLogo className="h-5 w-5 text-blue-400" weight="fill" />
+                Twitter Bot Admin
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-400 text-sm">
+                Enter the admin secret to access the Twitter bot dashboard.
+              </p>
+              <div className="relative">
+                <Input
+                  type={showSecret ? "text" : "password"}
+                  placeholder="Admin secret..."
+                  value={authSecret}
+                  onChange={(e) => saveAuthSecret(e.target.value)}
+                  className="bg-[#0d0d0f] border-[#1a1a1f] pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSecret(!showSecret)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                >
+                  {showSecret ? <EyeSlash className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Button
+                onClick={fetchReplies}
+                disabled={!authSecret || isLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                {isLoading ? "Checking..." : "Access Dashboard"}
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0d0d0f]">
