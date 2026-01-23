@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const MAX_REPLIES_PER_RUN = 1; // One reply per run
-const REPLY_COOLDOWN_MINUTES = 3; // Run every 3 minutes
+const REPLY_COOLDOWN_MINUTES = 1; // Run every 1 minute
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
