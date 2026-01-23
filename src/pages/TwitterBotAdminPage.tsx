@@ -30,13 +30,22 @@ export default function TwitterBotAdminPage() {
 
   const fetchReplies = async () => {
     try {
-      const { data, error } = await supabase
-        .from("twitter_bot_replies")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
+      // Use raw fetch since twitter_bot_replies isn't in generated types
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/twitter_bot_replies?select=*&order=created_at.desc&limit=100`,
+        {
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status}`);
+      }
+      
+      const data = await response.json();
       setReplies(data || []);
     } catch (err) {
       console.error("Error fetching replies:", err);
