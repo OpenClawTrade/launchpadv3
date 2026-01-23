@@ -9,7 +9,7 @@ const corsHeaders = {
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const MAX_LAUNCHES_PER_HOUR = 2; // Per X user
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const MENTION_COOLDOWN_MINUTES = 5; // Between processing mentions
+const MENTION_COOLDOWN_MINUTES = 2; // Between processing mentions
 
 // Solana address regex (base58, 32-44 chars)
 const SOLANA_ADDRESS_REGEX = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;
@@ -112,27 +112,50 @@ serve(async (req) => {
 
     console.log("[mention-launcher] 🔍 Searching for @ai67x_fun mentions...");
 
-    // Search for mentions of @ai67x_fun
-    const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
-    searchUrl.searchParams.set("query", "@ai67x_fun");
-    searchUrl.searchParams.set("queryType", "Latest");
+    // Search for mentions of @ai67x_fun using multiple queries to catch more
+    // Include quote tweets and various mention formats
+    const searchQueries = [
+      "@ai67x_fun",
+      "to:ai67x_fun", 
+      "\"ai67x_fun\"",
+      "ai67x_fun -from:ai67x_fun",
+    ];
+    
+    let allTweets: Tweet[] = [];
+    const seenIds = new Set<string>();
 
-    const searchResponse = await fetch(searchUrl.toString(), {
-      headers: { "X-API-Key": TWITTERAPI_IO_KEY },
-    });
+    for (const query of searchQueries) {
+      const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
+      searchUrl.searchParams.set("query", query);
+      searchUrl.searchParams.set("queryType", "Latest");
 
-    if (!searchResponse.ok) {
-      const errorText = await searchResponse.text();
-      console.error("[mention-launcher] ❌ Search failed:", searchResponse.status, errorText);
-      return new Response(
-        JSON.stringify({ success: false, error: "Twitter search failed" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const searchResponse = await fetch(searchUrl.toString(), {
+        headers: { "X-API-Key": TWITTERAPI_IO_KEY },
+      });
+
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        const tweets: Tweet[] = searchData.tweets || [];
+        console.log(`[mention-launcher] 📊 Query "${query}" returned ${tweets.length} tweets`);
+        
+        for (const t of tweets) {
+          if (!seenIds.has(t.id)) {
+            seenIds.add(t.id);
+            allTweets.push(t);
+          }
+        }
+      } else {
+        console.log(`[mention-launcher] ⚠️ Query "${query}" failed: ${searchResponse.status}`);
+      }
     }
 
-    const searchData = await searchResponse.json();
-    const tweets: Tweet[] = searchData.tweets || [];
-    console.log(`[mention-launcher] 📊 Found ${tweets.length} mention tweets`);
+    const tweets = allTweets;
+    console.log(`[mention-launcher] 📊 Total unique mention tweets: ${tweets.length}`);
+    
+    // Log all tweet IDs for debugging
+    if (tweets.length > 0) {
+      console.log(`[mention-launcher] 📋 Tweet IDs: ${tweets.map(t => t.id).join(', ')}`);
+    }
 
     if (tweets.length === 0) {
       return new Response(
@@ -158,8 +181,8 @@ serve(async (req) => {
     
     const repliedIds = new Set((repliedTweets || []).map(t => t.tweet_id));
 
-    // Only consider mentions from the last 15 minutes
-    const MENTION_MAX_AGE_MINUTES = 15;
+    // Only consider mentions from the last 30 minutes
+    const MENTION_MAX_AGE_MINUTES = 30;
     const isRecentTweet = (tweet: Tweet): boolean => {
       if (!tweet.createdAt) return true;
       try {
@@ -259,7 +282,7 @@ serve(async (req) => {
       console.log(`[mention-launcher] ⚠️ No Solana address in mention from @${mention.author.userName}`);
       
       // Reply asking for Solana address
-      const noWalletReply = `@${mention.author.userName} I'd love to create a token for you! 🚀 Please reply with your Solana wallet address and I'll launch it instantly. Your address will receive 50% of all trading fees!`;
+      const noWalletReply = `@${mention.author.userName} In order to launch coin I need your solana address where to send fees for each swap`;
       
       const replyResult = await postReply(mention.id, noWalletReply, {
         TWITTERAPI_IO_KEY,
