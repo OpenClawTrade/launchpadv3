@@ -299,6 +299,21 @@ serve(async (req) => {
     let eligibleTweets: Tweet[] = [];
     let searchQuery = "";
 
+    // Only consider tweets from the last 10 minutes for mentions
+    const MENTION_MAX_AGE_MINUTES = 10;
+    const mentionCutoffTime = new Date(Date.now() - MENTION_MAX_AGE_MINUTES * 60 * 1000);
+
+    const isRecentTweet = (tweet: Tweet, maxAgeMinutes: number): boolean => {
+      if (!tweet.createdAt) return true; // If no date, assume it's recent
+      try {
+        const tweetTime = new Date(tweet.createdAt);
+        const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
+        return tweetTime >= cutoff;
+      } catch {
+        return true; // If parsing fails, assume it's recent
+      }
+    };
+
     // PRIORITY 1: Check for replies to our own tweets first
     console.log("[twitter-auto-reply] 🔍 Checking for replies to @ai67x_fun tweets...");
     
@@ -316,18 +331,27 @@ serve(async (req) => {
       const mentionTweets: Tweet[] = mentionData.tweets || mentionData.data || [];
       console.log(`[twitter-auto-reply] 📥 Found ${mentionTweets.length} replies/mentions to @ai67x_fun`);
 
-      // Filter for genuine questions/replies we haven't answered
+      // Filter for genuine questions/replies we haven't answered AND are recent (last 10 mins)
       const eligibleMentions = mentionTweets.filter(t => 
         !repliedIds.has(t.id) && 
         t.author?.userName?.toLowerCase() !== "ai67x_fun" &&
         t.text && 
-        t.text.length > 10
+        t.text.length > 10 &&
+        isRecentTweet(t, MENTION_MAX_AGE_MINUTES)
       );
+
+      const skippedOld = mentionTweets.filter(t => 
+        !repliedIds.has(t.id) && !isRecentTweet(t, MENTION_MAX_AGE_MINUTES)
+      ).length;
+      
+      if (skippedOld > 0) {
+        console.log(`[twitter-auto-reply] ⏰ Skipped ${skippedOld} old mentions (>10 min old)`);
+      }
 
       if (eligibleMentions.length > 0) {
         eligibleTweets = eligibleMentions;
         searchQuery = "to:ai67x_fun (replies)";
-        console.log(`[twitter-auto-reply] ✅ ${eligibleMentions.length} unanswered replies/mentions found`);
+        console.log(`[twitter-auto-reply] ✅ ${eligibleMentions.length} recent unanswered replies/mentions found`);
       }
     } else {
       console.log(`[twitter-auto-reply] ⚠️ Mention search failed: ${mentionResponse.status}`);
