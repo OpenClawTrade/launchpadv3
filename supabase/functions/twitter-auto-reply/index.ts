@@ -276,65 +276,116 @@ Output ONLY the reply text. No quotes, no explanation.`
 
         // Post the reply via twitterapi.io with proxy
         // Wait 5+ seconds between requests
-        await new Promise(resolve => setTimeout(resolve, 6000));
-        
-        // Get proxy URL from secrets
-        const proxyUrl = Deno.env.get("TWITTER_PROXY");
-        
-        // Format cookies as expected by twitterapi.io v1 endpoint
-        const loginCookies = `auth_token=${xAuthToken}; ct0=${xCt0Token}`;
-        
-        // Build request body per twitterapi.io docs
-        const postBody: any = {
-          auth_session: loginCookies,
-          tweet_text: replyText,
-          in_reply_to_tweet_id: tweet.id,
-        };
-        
-        if (proxyUrl) {
-          postBody.proxy = proxyUrl;
-        }
-        
-        console.log(`[twitter-auto-reply] 📤 Posting reply to tweet ${tweet.id}...`);
-        
-        const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
-          method: "POST",
-          headers: {
-            "X-API-Key": twitterApiKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(postBody),
-        });
+        await new Promise((resolve) => setTimeout(resolve, 6000));
 
-        const postText = await postResponse.text();
-        console.log(`[twitter-auto-reply] 📥 Twitter API response: ${postResponse.status} - ${postText.slice(0, 300)}`);
-        
-        if (!postResponse.ok) {
-          // Handle rate limits
+        const proxyUrl = Deno.env.get("TWITTER_PROXY");
+
+        const extractReplyId = (postData: any): string | null => {
+          return (
+            postData?.data?.id ||
+            postData?.data?.rest_id ||
+            postData?.data?.create_tweet?.tweet_results?.result?.rest_id ||
+            postData?.id ||
+            postData?.tweet_id ||
+            null
+          );
+        };
+
+        const isTwitterApiErrorPayload = (postData: any): boolean => {
+          // twitterapi.io sometimes returns HTTP 200 with { success:false, status:'error', ... }
+          if (!postData || typeof postData !== "object") return true;
+          if (postData.success === false) return true;
+          if (postData.status === "error") return true;
+          if (typeof postData.error === "string" && postData.error.length > 0) return true;
+          if (typeof postData.msg === "string" && postData.msg.toLowerCase().includes("failed")) return true;
+          return false;
+        };
+
+        const postAttempts: Array<{ name: string; url: string; body: any }> = [
+          {
+            name: "tweet/create",
+            url: `${TWITTERAPI_BASE}/twitter/tweet/create`,
+            body: {
+              text: replyText,
+              reply: { in_reply_to_tweet_id: tweet.id },
+              auth_session: {
+                auth_token: xAuthToken,
+                ct0: xCt0Token,
+              },
+              ...(proxyUrl ? { proxy: proxyUrl } : {}),
+            },
+          },
+          {
+            name: "create_tweet",
+            url: `${TWITTERAPI_BASE}/twitter/create_tweet`,
+            body: {
+              auth_session: `auth_token=${xAuthToken}; ct0=${xCt0Token}`,
+              tweet_text: replyText,
+              in_reply_to_tweet_id: tweet.id,
+              ...(proxyUrl ? { proxy: proxyUrl } : {}),
+            },
+          },
+        ];
+
+        let replyId: string | null = null;
+        let lastPostError: string | null = null;
+
+        console.log(`[twitter-auto-reply] 📤 Posting reply to tweet ${tweet.id}...`);
+
+        for (const attempt of postAttempts) {
+          console.log(`[twitter-auto-reply] ↪️  Trying twitterapi endpoint: ${attempt.name}`);
+
+          const postResponse = await fetch(attempt.url, {
+            method: "POST",
+            headers: {
+              "X-API-Key": twitterApiKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(attempt.body),
+          });
+
+          const postText = await postResponse.text();
+          console.log(
+            `[twitter-auto-reply] 📥 Twitter API response (${attempt.name}): ${postResponse.status} - ${postText.slice(0, 300)}`
+          );
+
+          // Handle rate limits immediately
           if (postResponse.status === 429) {
-            console.warn("[twitter-auto-reply] ⚠️ Rate limited on post, stopping this run");
-            results.push({ tweetId: tweet.id, success: false, error: "Rate limited" });
+            lastPostError = "Rate limited";
             break;
           }
-          
-          throw new Error(`Reply post failed: ${postResponse.status} - ${postText}`);
+
+          if (!postResponse.ok) {
+            lastPostError = `HTTP ${postResponse.status}: ${postText}`;
+            continue;
+          }
+
+          let postData: any = null;
+          try {
+            postData = JSON.parse(postText);
+          } catch {
+            postData = { raw: postText };
+          }
+
+          if (isTwitterApiErrorPayload(postData)) {
+            lastPostError =
+              postData?.error || postData?.msg || (typeof postText === "string" ? postText : "Unknown API error");
+            continue;
+          }
+
+          replyId = extractReplyId(postData);
+          if (!replyId) {
+            lastPostError = `No reply id returned (response: ${postText.slice(0, 300)})`;
+            continue;
+          }
+
+          console.log(`[twitter-auto-reply] ✅ Reply posted successfully to tweet ${tweet.id}, reply_id: ${replyId}`);
+          break;
         }
 
-        let postData: any = {};
-        try {
-          postData = JSON.parse(postText);
-        } catch {
-          postData = { raw: postText };
+        if (!replyId) {
+          throw new Error(`Reply post failed: ${lastPostError || "Unknown error"}`);
         }
-        
-        // twitterapi.io returns { data: { id: "...", text: "..." } } or { data: { create_tweet: { tweet_results: { result: { rest_id } } } } }
-        const replyId = postData.data?.id || 
-                        postData.data?.rest_id || 
-                        postData.data?.create_tweet?.tweet_results?.result?.rest_id ||
-                        postData.id || 
-                        postData.tweet_id || 
-                        null;
-        console.log(`[twitter-auto-reply] ✅ Reply posted successfully to tweet ${tweet.id}, reply_id: ${replyId}`);
 
         // Record the reply in database
         await supabase.from("twitter_bot_replies").insert({

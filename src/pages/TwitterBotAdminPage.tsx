@@ -94,7 +94,15 @@ export default function TwitterBotAdminPage() {
       if (data?.message?.includes("Cooldown")) {
         toast.info(data.message);
       } else {
-        toast.success(`Bot run complete: ${data?.repliesSent || 0} replies sent`);
+        const repliesSent = data?.repliesSent || 0;
+        const firstError = data?.results?.find((r: any) => r && r.success === false)?.error;
+        if (repliesSent > 0) {
+          toast.success(`Bot run complete: ${repliesSent} replies sent`);
+        } else if (firstError) {
+          toast.error(`Bot run failed: ${firstError}`);
+        } else {
+          toast.info("Bot run complete: 0 replies sent");
+        }
       }
       
       // Refresh the list
