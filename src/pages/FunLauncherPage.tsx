@@ -164,6 +164,7 @@ export default function FunLauncherPage() {
     console.log("[FunLauncher] Randomize clicked");
     setIsGenerating(true);
     setMeme(null);
+    clearBanner(); // Clear any previous banner when generating new token
     
     try {
       console.log("[FunLauncher] Calling fun-generate...");
@@ -205,7 +206,7 @@ export default function FunLauncherPage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [toast]);
+  }, [toast, clearBanner]);
 
   const uploadCustomImageIfNeeded = useCallback(async (): Promise<string> => {
     if (!customImageFile) return customToken.imageUrl;

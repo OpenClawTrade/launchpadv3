@@ -7,18 +7,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Fallback themes if no narrative is active
+// Fallback themes if no narrative is active - diverse and unique
 const FALLBACK_THEMES = [
-  "Kawaii anime mascot",
-  "Cute chibi character",
-  "Manga-style hero",
-  "Japanese pop culture icon",
-  "Cyber anime girl",
+  "Internet frog meme character",
+  "Pixelated retro game mascot",
+  "Smug cartoon cat",
+  "Derpy dog character",
+  "Funny alien creature",
+  "Goofy robot mascot",
+  "Weird bird character",
+  "Chunky hamster",
+  "Silly penguin",
+  "Grumpy fish",
 ];
 
-// Name generation fallbacks
-const NAME_PREFIXES = ["Neko", "Kira", "Luna", "Miku", "Yuki", "Hana", "Sora", "Riku", "Momo", "Inu"];
-const NAME_SUFFIXES = ["chan", "coin", "inu", "moon", "doge", "pepe", "cat", "punk", "ai"];
+// Name generation fallbacks - diverse names
+const NAME_PREFIXES = ["Pepe", "Doge", "Wojak", "Bonk", "Fren", "Mog", "Brett", "Pnut", "Goat", "Popcat"];
+const NAME_SUFFIXES = ["inu", "moon", "coin", "fi", "ai", "punk", "chad", "frog", "cat", "dog"];
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -286,19 +291,33 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
     }
 
     // Generate meme coin logo with authentic internet meme style
-    const imagePrompt = `Create a simple meme mascot character for a crypto token called "${name}".
+    // Randomly pick a style to ensure variety
+    const styleOptions = [
+      "Pepe the frog style - smug expression, green frog",
+      "Doge shiba inu style - derpy dog face",
+      "Wojak/feels guy style - simple line art face",
+      "Pixel art retro game character",
+      "Cute chibi anime mascot",
+      "Grumpy cat meme style",
+      "Surreal abstract creature",
+    ];
+    const randomStyle = styleOptions[Math.floor(Math.random() * styleOptions.length)];
+    
+    const imagePrompt = `Create a unique meme mascot character for a crypto token called "${name}".
 
-Style: Classic internet meme aesthetic like Pepe frog or Doge. Simple, expressive, memorable.
+Style inspiration: ${randomStyle}
 
-Requirements:
-- Single character on transparent or solid color background
-- Cartoon/hand-drawn style with bold outlines
+CRITICAL REQUIREMENTS:
+- DO NOT create a capybara or any rodent unless the name specifically requires it
+- Create something UNIQUE and DIFFERENT from common meme animals
+- Single character on solid color background
+- Cartoon style with bold outlines
 - Big expressive face with funny or smug expression
 - Flat colors, no gradients or 3D effects
 - No text, no logos, no crypto symbols
 - Square format, centered composition
 
-Make it look like a viral meme that could represent a meme coin. Think iconic internet culture mascots.`;
+Make it look like a viral internet meme mascot. Be creative and unique!`;
 
     console.log("[fun-generate] Generating image with retry logic...");
 
