@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowClockwise, TwitterLogo, CheckCircle, XCircle, Clock, Warning, Eye, EyeSlash } from "@phosphor-icons/react";
+import { ArrowClockwise, TwitterLogo, CheckCircle, XCircle, Clock, Warning, Eye, EyeSlash, Lightning } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
@@ -70,7 +70,7 @@ export default function TwitterBotAdminPage() {
     }
   };
 
-  const triggerBot = async () => {
+  const triggerBot = async (force = false) => {
     if (!authSecret) {
       toast.error("Enter access secret first");
       return;
@@ -79,7 +79,7 @@ export default function TwitterBotAdminPage() {
     setIsTriggering(true);
     try {
       const { data, error } = await supabase.functions.invoke("twitter-auto-reply", {
-        body: { action: "run", secret: authSecret },
+        body: { action: "run", secret: authSecret, force },
       });
       
       if (error) throw error;
@@ -90,7 +90,12 @@ export default function TwitterBotAdminPage() {
       }
       
       setLastRunResult(data);
-      toast.success(`Bot run complete: ${data?.repliesSent || 0} replies sent`);
+      
+      if (data?.message?.includes("Cooldown")) {
+        toast.info(data.message);
+      } else {
+        toast.success(`Bot run complete: ${data?.repliesSent || 0} replies sent`);
+      }
       
       // Refresh the list
       await fetchReplies();
@@ -212,7 +217,7 @@ export default function TwitterBotAdminPage() {
             </Button>
             <Button
               size="sm"
-              onClick={triggerBot}
+              onClick={() => triggerBot(false)}
               disabled={isTriggering}
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -224,9 +229,19 @@ export default function TwitterBotAdminPage() {
               ) : (
                 <>
                   <TwitterLogo className="h-4 w-4 mr-1" weight="fill" />
-                  Trigger Bot Now
+                  Run
                 </>
               )}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => triggerBot(true)}
+              disabled={isTriggering}
+              variant="outline"
+              className="border-orange-500 text-orange-400 hover:bg-orange-500/10"
+            >
+              <Lightning className="h-4 w-4 mr-1" weight="fill" />
+              Force Run
             </Button>
           </div>
         </div>
