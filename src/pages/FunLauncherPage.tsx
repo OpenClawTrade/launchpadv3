@@ -112,7 +112,7 @@ export default function FunLauncherPage() {
   const { data: distributions = [] } = useFunDistributions();
   const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
   const { data: topPerformers = [], isLoading: topPerformersLoading } = useFunTopPerformers(10);
-  const [generatorMode, setGeneratorMode] = useState<"random" | "custom">("random");
+  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
     name: "",
@@ -124,6 +124,8 @@ export default function FunLauncherPage() {
     telegramUrl: "",
     discordUrl: "",
   });
+  const [describePrompt, setDescribePrompt] = useState("");
+  const [describedToken, setDescribedToken] = useState<MemeToken | null>(null);
   const [customImageFile, setCustomImageFile] = useState<File | null>(null);
   const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
 
@@ -400,6 +402,85 @@ export default function FunLauncherPage() {
     }
   }, [customToken, performLaunch, toast, uploadCustomImageIfNeeded]);
 
+  // Generate meme from description
+  const handleDescribeGenerate = useCallback(async () => {
+    if (!describePrompt.trim()) {
+      toast({
+        title: "Enter a description",
+        description: "Describe the meme character you want to create",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log("[FunLauncher] Describe generate clicked:", describePrompt);
+    setIsGenerating(true);
+    setDescribedToken(null);
+    clearBanner();
+    
+    try {
+      console.log("[FunLauncher] Calling fun-generate with description...");
+      const { data, error } = await supabase.functions.invoke("fun-generate", {
+        body: { description: describePrompt }
+      });
+
+      console.log("[FunLauncher] fun-generate response:", { data, error });
+
+      if (error) {
+        console.error("[FunLauncher] fun-generate error:", error);
+        throw error;
+      }
+
+      if (data && !data.success) {
+        console.error("[FunLauncher] fun-generate returned failure:", data.error);
+        throw new Error(data.error || "Generation failed on server");
+      }
+
+      if (data?.meme) {
+        console.log("[FunLauncher] Described meme generated:", data.meme);
+        setDescribedToken(data.meme);
+        
+        // Auto-generate banner
+        if (data.meme.imageUrl) {
+          await generateBanner({
+            imageUrl: data.meme.imageUrl,
+            tokenName: data.meme.name,
+            ticker: data.meme.ticker,
+          });
+        }
+        
+        toast({
+          title: "Meme Generated! 🎨",
+          description: `${data.meme.name} ($${data.meme.ticker}) created from your description!`,
+        });
+      } else {
+        throw new Error("No meme data returned from server");
+      }
+    } catch (error) {
+      console.error("[FunLauncher] Describe generate error:", error);
+      toast({
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Failed to generate meme",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [describePrompt, toast, clearBanner, generateBanner]);
+
+  const handleDescribeLaunch = useCallback(async () => {
+    if (!describedToken) {
+      toast({
+        title: "No meme to launch",
+        description: "Generate a meme from your description first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await performLaunch(describedToken);
+  }, [describedToken, performLaunch, toast]);
+
   const formatSOL = (sol: number) => {
     if (!Number.isFinite(sol)) return "0";
     if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K`;
@@ -668,7 +749,7 @@ export default function FunLauncherPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-white flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-[#00d4aa]" />
-                  {generatorMode === "random" ? "AI Meme Generator" : "Custom Token"}
+                  {generatorMode === "random" ? "AI Meme Generator" : generatorMode === "describe" ? "Describe & Generate" : "Custom Token"}
                 </h2>
 
                 {/* Mode Switcher */}
@@ -685,6 +766,19 @@ export default function FunLauncherPage() {
                     }
                   >
                     Randomizer
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setGeneratorMode("describe")}
+                    className={
+                      generatorMode === "describe"
+                        ? "h-7 px-2 border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
+                        : "h-7 px-2 border-[#2a2a35] text-gray-300 bg-transparent"
+                    }
+                  >
+                    Describe
                   </Button>
                   <Button
                     type="button"
@@ -931,6 +1025,152 @@ export default function FunLauncherPage() {
                         )}
                       </Button>
                     </div>
+                  )}
+                </>
+              ) : generatorMode === "describe" ? (
+                <>
+                  {/* Describe Mode */}
+                  <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4 space-y-3">
+                    <div className="text-sm text-gray-400 mb-2">
+                      Describe the meme character you want. AI will generate the image, name, ticker, and banner.
+                    </div>
+                    <Textarea
+                      value={describePrompt}
+                      onChange={(e) => setDescribePrompt(e.target.value)}
+                      placeholder="e.g., A smug frog wearing sunglasses and a gold chain, looking like a crypto millionaire..."
+                      className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm min-h-[100px]"
+                      maxLength={500}
+                    />
+                    <Button
+                      onClick={handleDescribeGenerate}
+                      disabled={isGenerating || !describePrompt.trim()}
+                      className="w-full bg-gradient-to-r from-[#00d4aa] to-[#00b894] hover:from-[#00b894] hover:to-[#009975] text-black font-semibold"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2 animate-spin" /> Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" /> Generate Meme & Banner
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Generated Result Preview */}
+                  {describedToken && (
+                    <>
+                      <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#00d4aa]/30">
+                            {describedToken.imageUrl ? (
+                              <img src={describedToken.imageUrl} alt={describedToken.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Bot className="h-8 w-8 text-gray-600" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <Input
+                              value={describedToken.name}
+                              onChange={(e) => setDescribedToken({ ...describedToken, name: e.target.value.slice(0, 20) })}
+                              className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
+                              placeholder="Token name"
+                              maxLength={20}
+                            />
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#00d4aa] text-sm">$</span>
+                              <Input
+                                value={describedToken.ticker}
+                                onChange={(e) =>
+                                  setDescribedToken({
+                                    ...describedToken,
+                                    ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+                                  })
+                                }
+                                className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-20"
+                                placeholder="TICKER"
+                                maxLength={6}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <Textarea
+                          value={describedToken.description}
+                          onChange={(e) => setDescribedToken({ ...describedToken, description: e.target.value.slice(0, 280) })}
+                          className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs min-h-[60px] resize-none mb-3"
+                          placeholder="Description"
+                          maxLength={280}
+                        />
+
+                        {/* Download buttons */}
+                        <div className="flex gap-2 mb-3">
+                          {describedToken.imageUrl && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement("a");
+                                link.href = describedToken.imageUrl;
+                                link.download = `${describedToken.name.toLowerCase().replace(/\s+/g, "-")}-avatar.png`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                              className="flex-1 h-8 text-xs border-[#2a2a35] text-gray-300 hover:text-white hover:border-[#00d4aa]/40"
+                            >
+                              <Download className="h-3 w-3 mr-1" /> Avatar
+                            </Button>
+                          )}
+                          {bannerUrl && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => downloadBanner(bannerUrl, describedToken.name)}
+                              className="flex-1 h-8 text-xs border-[#2a2a35] text-gray-300 hover:text-white hover:border-[#00d4aa]/40"
+                            >
+                              <Image className="h-3 w-3 mr-1" /> Banner
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Banner Preview */}
+                        {bannerUrl && (
+                          <div className="rounded-lg overflow-hidden border border-[#2a2a35]">
+                            <img src={bannerUrl} alt="Generated banner" className="w-full h-auto" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Wallet & Launch */}
+                      <div className="space-y-3 pt-3 border-t border-[#1a1a1f]">
+                        <Input
+                          placeholder="Your SOL wallet address..."
+                          value={walletAddress}
+                          onChange={(e) => setWalletAddress(e.target.value)}
+                          className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
+                        />
+                        <p className="text-xs text-gray-500">Receive 50% of trading fees every few min</p>
+                        <Button
+                          onClick={handleDescribeLaunch}
+                          disabled={isLaunching || !walletAddress}
+                          className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
+                        >
+                          {isLaunching ? (
+                            <>
+                              <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...
+                            </>
+                          ) : (
+                            <>
+                              <Rocket className="h-4 w-4 mr-2" /> Launch Token
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </>
                   )}
                 </>
               ) : (

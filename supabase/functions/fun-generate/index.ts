@@ -110,6 +110,18 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    // Parse request body for optional description
+    let userDescription = "";
+    try {
+      const body = await req.json();
+      userDescription = body?.description || "";
+    } catch {
+      // No body or invalid JSON, proceed with random generation
+    }
+    
+    const isDescribeMode = userDescription.trim().length > 0;
+    console.log("[fun-generate] Mode:", isDescribeMode ? "describe" : "random", "Description:", userDescription);
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -135,28 +147,37 @@ serve(async (req) => {
     const forbiddenNames = Array.from(existingNames).slice(0, 50).join(", ");
     console.log("[fun-generate] Forbidden names (already exist):", forbiddenNames);
 
-    // Fetch the active narrative from trending analysis
+    // Build theme context based on mode
     let themeContext = "";
     let narrativeInfo = "";
     
-    const { data: activeNarrative } = await supabase
-      .from("trending_narratives")
-      .select("*")
-      .eq("is_active", true)
-      .single();
+    if (isDescribeMode) {
+      // Use user's description as the primary context
+      themeContext = `User's description of the meme character: "${userDescription}"
+Create a token concept that EXACTLY matches this description!`;
+      narrativeInfo = "Custom Description";
+      console.log("[fun-generate] Using user description for generation");
+    } else {
+      // Fetch the active narrative from trending analysis
+      const { data: activeNarrative } = await supabase
+        .from("trending_narratives")
+        .select("*")
+        .eq("is_active", true)
+        .single();
 
-    if (activeNarrative) {
-      themeContext = `Current trending narrative: "${activeNarrative.narrative}" - ${activeNarrative.description}. 
+      if (activeNarrative) {
+        themeContext = `Current trending narrative: "${activeNarrative.narrative}" - ${activeNarrative.description}. 
 Example tokens in this narrative: ${(activeNarrative.example_tokens || []).join(", ")}.
 Create something INSPIRED BY this trending theme but with a COMPLETELY UNIQUE name!`;
-      narrativeInfo = activeNarrative.narrative;
-      console.log("[fun-generate] Using active narrative:", activeNarrative.narrative);
-    } else {
-      // Fallback to random anime theme
-      const randomTheme = FALLBACK_THEMES[Math.floor(Math.random() * FALLBACK_THEMES.length)];
-      themeContext = `Theme: ${randomTheme}`;
-      narrativeInfo = randomTheme;
-      console.log("[fun-generate] No active narrative, using fallback theme:", randomTheme);
+        narrativeInfo = activeNarrative.narrative;
+        console.log("[fun-generate] Using active narrative:", activeNarrative.narrative);
+      } else {
+        // Fallback to random theme
+        const randomTheme = FALLBACK_THEMES[Math.floor(Math.random() * FALLBACK_THEMES.length)];
+        themeContext = `Theme: ${randomTheme}`;
+        narrativeInfo = randomTheme;
+        console.log("[fun-generate] No active narrative, using fallback theme:", randomTheme);
+      }
     }
 
     const conceptPrompt = `Create a TRENDING meme coin concept based on current market narratives.
@@ -291,19 +312,36 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
     }
 
     // Generate meme coin logo with authentic internet meme style
-    // Randomly pick a style to ensure variety
-    const styleOptions = [
-      "Pepe the frog style - smug expression, green frog",
-      "Doge shiba inu style - derpy dog face",
-      "Wojak/feels guy style - simple line art face",
-      "Pixel art retro game character",
-      "Cute chibi anime mascot",
-      "Grumpy cat meme style",
-      "Surreal abstract creature",
-    ];
-    const randomStyle = styleOptions[Math.floor(Math.random() * styleOptions.length)];
+    let imagePrompt = "";
     
-    const imagePrompt = `Create a unique meme mascot character for a crypto token called "${name}".
+    if (isDescribeMode) {
+      // Use user's description directly for image generation
+      imagePrompt = `Create a meme mascot character based on this EXACT description: "${userDescription}"
+
+CRITICAL REQUIREMENTS:
+- Follow the user's description as closely as possible
+- Single character on solid color background
+- Cartoon style with bold outlines
+- Big expressive face with funny or smug expression
+- Flat colors, no gradients or 3D effects
+- No text, no logos, no crypto symbols
+- Square format, centered composition
+
+The character is for a crypto meme token called "${name}". Make it look like a viral internet meme mascot!`;
+    } else {
+      // Randomly pick a style to ensure variety
+      const styleOptions = [
+        "Pepe the frog style - smug expression, green frog",
+        "Doge shiba inu style - derpy dog face",
+        "Wojak/feels guy style - simple line art face",
+        "Pixel art retro game character",
+        "Cute chibi anime mascot",
+        "Grumpy cat meme style",
+        "Surreal abstract creature",
+      ];
+      const randomStyle = styleOptions[Math.floor(Math.random() * styleOptions.length)];
+      
+      imagePrompt = `Create a unique meme mascot character for a crypto token called "${name}".
 
 Style inspiration: ${randomStyle}
 
@@ -318,6 +356,7 @@ CRITICAL REQUIREMENTS:
 - Square format, centered composition
 
 Make it look like a viral internet meme mascot. Be creative and unique!`;
+    }
 
     console.log("[fun-generate] Generating image with retry logic...");
 
