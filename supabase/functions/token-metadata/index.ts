@@ -75,11 +75,40 @@ Deno.serve(async (req) => {
       }
     }
 
+    // If token not found in DB yet (e.g., Phantom launch in progress), return fallback metadata
+    // This is normal for Phantom launches where on-chain tx happens before DB insert
     if (!token) {
-      console.error('[token-metadata] Token not found in any table:', mintAddress);
+      console.log('[token-metadata] Token not in DB yet, returning fallback:', mintAddress);
+      
+      // Return minimal valid Metaplex metadata so the on-chain tx succeeds
+      // The metadata will be updated when token is recorded in DB
+      const fallbackMetadata = {
+        name: 'New Token',
+        symbol: 'TOKEN',
+        description: 'Token launching on ai67x #ai67x',
+        image: '',
+        external_url: `https://ai67x.io/token/${mintAddress}`,
+        tags: ['Meme', 'ai67x'],
+        attributes: [
+          { trait_type: 'Platform', value: 'ai67x' },
+          { trait_type: 'Status', value: 'launching' },
+        ],
+        properties: {
+          files: [],
+          category: 'image',
+          creators: [],
+        },
+      };
+      
       return new Response(
-        JSON.stringify({ error: 'Token not found' }),
-        { status: 404, headers: corsHeaders }
+        JSON.stringify(fallbackMetadata),
+        { 
+          status: 200, 
+          headers: {
+            ...corsHeaders,
+            'Cache-Control': 'no-cache, no-store', // Don't cache fallback
+          }
+        }
       );
     }
 
