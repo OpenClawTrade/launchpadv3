@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -145,6 +146,7 @@ export default function FunLauncherPage() {
   // Phantom wallet integration for "Phantom" launch mode
   const phantomWallet = usePhantomWallet();
   const [isPhantomLaunching, setIsPhantomLaunching] = useState(false);
+  const [phantomTradingFee, setPhantomTradingFee] = useState(200); // bps (10-1000)
   const [phantomToken, setPhantomToken] = useState<MemeToken>({
     name: "",
     ticker: "",
@@ -637,122 +639,145 @@ export default function FunLauncherPage() {
     setIsPhantomLaunching(true);
 
     try {
-      // Upload image if provided
+      // Ensure we have an image URL for on-chain metadata
       const imageUrl = await uploadPhantomImageIfNeeded();
+      if (!imageUrl) {
+        toast({
+          title: "Image required",
+          description: "Please upload an image (or generate a token that includes one) before launching.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const tokenData: MemeToken = {
+        ...phantomToken,
+        name: phantomToken.name.slice(0, 32),
+        ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+        description: (phantomToken.description || `${phantomToken.name} - A fun meme coin!`).slice(0, 500),
+        imageUrl,
+      };
 
       console.log("[FunLauncher] Starting Phantom launch:", {
-        name: phantomToken.name,
-        ticker: phantomToken.ticker,
+        name: tokenData.name,
+        ticker: tokenData.ticker,
         phantomWallet: phantomWallet.address,
+        tradingFeeBps: phantomTradingFee,
       });
 
-      // Call the Phantom-specific edge function
+      // Phase 1: prepare unsigned txs (NO DB insert)
       const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
         body: {
-          name: phantomToken.name.slice(0, 32),
-          ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
-          description: phantomToken.description?.slice(0, 500) || `${phantomToken.name} - A fun meme coin!`,
-          imageUrl,
-          websiteUrl: phantomToken.websiteUrl,
-          twitterUrl: phantomToken.twitterUrl,
+          name: tokenData.name,
+          ticker: tokenData.ticker,
+          description: tokenData.description,
+          imageUrl: tokenData.imageUrl,
+          websiteUrl: tokenData.websiteUrl,
+          twitterUrl: tokenData.twitterUrl,
+          telegramUrl: tokenData.telegramUrl,
+          discordUrl: tokenData.discordUrl,
+          phantomWallet: phantomWallet.address,
+          tradingFeeBps: phantomTradingFee,
+        },
+      });
+
+      if (error) throw new Error(error.message || "Failed to prepare token");
+      if (!data?.success) throw new Error(data?.error || "Token preparation failed");
+
+      const mintAddress: string | undefined = data.mintAddress;
+      const dbcPoolAddress: string | undefined = data.dbcPoolAddress;
+      const unsignedTransactions: string[] = data.unsignedTransactions || [];
+      const storedImageUrl: string | undefined = data.imageUrl;
+
+      if (!mintAddress || !dbcPoolAddress || unsignedTransactions.length < 2) {
+        throw new Error("Invalid transaction data received");
+      }
+
+      // Sign + send each tx sequentially
+      const rpcUrl =
+        (window as unknown as { __RUNTIME_CONFIG__?: { heliusRpcUrl?: string } }).__RUNTIME_CONFIG__?.heliusRpcUrl ||
+        localStorage.getItem("heliusRpcUrl") ||
+        import.meta.env.VITE_HELIUS_RPC_URL ||
+        "https://mainnet.helius-rpc.com/?api-key=f5b6ebeb-c3d0-422b-8785-12dfa7af0585";
+
+      const connection = new Connection(rpcUrl, "confirmed");
+
+      for (let i = 0; i < unsignedTransactions.length; i++) {
+        const txName = i === 0 ? "Config" : "Pool";
+        const txBuffer = Buffer.from(unsignedTransactions[i], "base64");
+        const tx = Transaction.from(txBuffer);
+
+        toast({
+          title: `Sign ${txName} Transaction (${i + 1}/${unsignedTransactions.length})`,
+          description: "Approve in Phantom wallet...",
+        });
+
+        const signedTx = await phantomWallet.signTransaction(tx);
+        if (!signedTx) throw new Error(`${txName} signing cancelled`);
+
+        const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        });
+
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+
+        if (i < unsignedTransactions.length - 1) {
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+
+      // Phase 2: record token in DB AFTER confirmation (so it appears in the list)
+      const { data: recordData, error: recordError } = await supabase.functions.invoke("fun-phantom-create", {
+        body: {
+          confirmed: true,
+          mintAddress,
+          dbcPoolAddress,
+          name: tokenData.name,
+          ticker: tokenData.ticker,
+          description: tokenData.description,
+          imageUrl: storedImageUrl || tokenData.imageUrl,
+          websiteUrl: tokenData.websiteUrl,
+          twitterUrl: tokenData.twitterUrl,
+          telegramUrl: tokenData.telegramUrl,
+          discordUrl: tokenData.discordUrl,
           phantomWallet: phantomWallet.address,
         },
       });
 
-      if (error) {
-        throw new Error(error.message || "Failed to create token");
+      if (recordError || !recordData?.success) {
+        console.error("[FunLauncher] Phase 2 recording failed:", recordError || recordData);
+        toast({
+          title: "Warning",
+          description: "Token launched, but database recording failed (it may not show in the list yet).",
+          variant: "destructive",
+        });
       }
 
-      if (!data?.success) {
-        throw new Error(data?.error || "Token creation failed");
-      }
-
-      console.log("[FunLauncher] Phantom token created:", data);
-
-      // If there are unsigned transactions, sign them with Phantom
-      if (data.unsignedTransactions && data.unsignedTransactions.length > 0) {
-        console.log("[FunLauncher] Signing transactions with Phantom...");
-        
-        // Get Helius RPC from runtime config or localStorage cache (never fallback to public RPC)
-        const rpcUrl = (window as unknown as { __RUNTIME_CONFIG__?: { heliusRpcUrl?: string } }).__RUNTIME_CONFIG__?.heliusRpcUrl 
-          || localStorage.getItem('heliusRpcUrl')
-          || import.meta.env.VITE_HELIUS_RPC_URL
-          || 'https://mainnet.helius-rpc.com/?api-key=f5b6ebeb-c3d0-422b-8785-12dfa7af0585';
-        console.log("[FunLauncher] Using RPC URL:", rpcUrl.slice(0, 50) + "...");
-        const connection = new Connection(rpcUrl, 'confirmed');
-
-        for (let i = 0; i < data.unsignedTransactions.length; i++) {
-          const txBase64 = data.unsignedTransactions[i];
-          const txBuffer = Buffer.from(txBase64, 'base64');
-          const tx = Transaction.from(txBuffer);
-
-          toast({
-            title: `Sign Transaction ${i + 1}/${data.unsignedTransactions.length}`,
-            description: "Please confirm in Phantom wallet",
-          });
-
-          const signedTx = await phantomWallet.signTransaction(tx);
-          if (!signedTx) {
-            throw new Error(`User rejected transaction ${i + 1}`);
-          }
-
-          // Send the signed transaction
-          const signature = await connection.sendRawTransaction(signedTx.serialize(), {
-            skipPreflight: false,
-            preflightCommitment: 'confirmed',
-          });
-
-          console.log(`[FunLauncher] Transaction ${i + 1} sent:`, signature);
-
-          // Wait for confirmation
-          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-          await connection.confirmTransaction({
-            signature,
-            blockhash,
-            lastValidBlockHeight,
-          }, 'confirmed');
-
-          console.log(`[FunLauncher] Transaction ${i + 1} confirmed:`, signature);
-        }
-      }
-
-      // Show success
       setLaunchResult({
         success: true,
-        name: data.name || phantomToken.name,
-        ticker: data.ticker || phantomToken.ticker,
-        mintAddress: data.mintAddress,
-        imageUrl: data.imageUrl || imageUrl,
+        name: tokenData.name,
+        ticker: tokenData.ticker,
+        mintAddress,
+        imageUrl: storedImageUrl || tokenData.imageUrl,
         onChainSuccess: true,
-        solscanUrl: data.solscanUrl,
-        tradeUrl: data.tradeUrl,
-        message: data.message || "Token launched with Phantom! 100% of fees go to your wallet.",
+        solscanUrl: `https://solscan.io/token/${mintAddress}`,
+        tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress}?chain=sol`,
+        message: `Token launched! Trading fee set to ${(phantomTradingFee / 100).toFixed(1)}%.`,
       });
       setShowResultModal(true);
 
       toast({
-        title: "🎉 Token Launched!",
-        description: "Your token is live! 100% of trading fees go to your Phantom wallet.",
+        title: "🚀 Token Launched!",
+        description: `${tokenData.name} is live.`,
       });
 
-      // Refresh balance
       phantomWallet.refreshBalance();
-
-      // Clear form
-      setPhantomToken({
-        name: "",
-        ticker: "",
-        description: "",
-        imageUrl: "",
-        websiteUrl: "",
-        twitterUrl: "",
-        telegramUrl: "",
-        discordUrl: "",
-      });
+      setPhantomToken({ name: "", ticker: "", description: "", imageUrl: "", websiteUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "" });
       setPhantomImageFile(null);
       setPhantomImagePreview(null);
-
-      // Refresh tokens list
+      setPhantomMeme(null);
       refetch();
 
     } catch (error) {
@@ -765,7 +790,7 @@ export default function FunLauncherPage() {
     } finally {
       setIsPhantomLaunching(false);
     }
-  }, [phantomWallet, phantomToken, uploadPhantomImageIfNeeded, toast, refetch]);
+  }, [phantomWallet, phantomToken, phantomTradingFee, uploadPhantomImageIfNeeded, toast, refetch]);
 
   const formatSOL = (sol: number) => {
     if (!Number.isFinite(sol)) return "0";
@@ -1721,7 +1746,7 @@ export default function FunLauncherPage() {
                         <span className="text-sm font-semibold text-white">Phantom Wallet Launch</span>
                       </div>
                       <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                        100% Fees to You
+                        Custom Fee
                       </Badge>
                     </div>
 
@@ -1731,6 +1756,7 @@ export default function FunLauncherPage() {
                         <AlertTriangle className="h-4 w-4 text-purple-400 flex-shrink-0 mt-0.5" />
                         <span>
                           <strong className="text-purple-400">Phantom Mode:</strong> You pay the launch fee (~0.02 SOL) from your wallet and receive 100% of all trading fees directly to your Phantom wallet.
+                          <strong className="text-purple-400">Phantom Mode:</strong> Pay ~0.02 SOL and earn {(phantomTradingFee / 100).toFixed(1)}% on every trade (distributed 50% to you, 50% to platform).
                         </span>
                       </p>
                     </div>
@@ -1787,6 +1813,26 @@ export default function FunLauncherPage() {
                           >
                             Disconnect
                           </Button>
+                        </div>
+
+                        {/* Trading Fee Slider */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-gray-400">
+                            <span>Trading Fee</span>
+                            <span className="font-semibold text-purple-400">{(phantomTradingFee / 100).toFixed(1)}%</span>
+                          </div>
+                          <Slider
+                            value={[phantomTradingFee]}
+                            onValueChange={(v) => setPhantomTradingFee(v[0])}
+                            min={10}
+                            max={1000}
+                            step={10}
+                            className="w-full"
+                          />
+                          <div className="flex justify-between text-[10px] text-gray-500">
+                            <span>0.1%</span>
+                            <span>10%</span>
+                          </div>
                         </div>
 
                         {/* AI Randomize Button */}
@@ -1935,7 +1981,7 @@ export default function FunLauncherPage() {
                             )}
 
                             <p className="text-xs text-gray-500 text-center">
-                              You pay launch fee • 100% trading fees to your wallet
+                              You pay launch fee • trading fee set to {(phantomTradingFee / 100).toFixed(1)}%
                             </p>
                           </>
                         )}
@@ -1956,7 +2002,11 @@ export default function FunLauncherPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Your Trading Fee Share</span>
-                        <span className="text-[#00d4aa] font-bold">100%</span>
+                        <span className="text-[#00d4aa] font-bold">50%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Trading Fee (total)</span>
+                        <span className="text-purple-400 font-semibold">{(phantomTradingFee / 100).toFixed(1)}%</span>
                       </div>
                     </div>
                   </div>
