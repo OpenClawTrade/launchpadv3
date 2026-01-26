@@ -478,54 +478,47 @@ export default function ClaudeLauncherPage() {
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || "Failed to prepare");
 
-      const { configTxBase64, poolTxBase64, mintAddress, dbcPoolAddress } = data;
-
-      const configTx = VersionedTransaction.deserialize(Buffer.from(configTxBase64, 'base64'));
-      const poolTx = VersionedTransaction.deserialize(Buffer.from(poolTxBase64, 'base64'));
-
-      toast({ title: "Sign Config Transaction", description: "Approve in Phantom..." });
-      const signedConfig = await phantomWallet.signTransaction(configTx);
-      if (!signedConfig) throw new Error("Config signing cancelled");
+      const { unsignedTransactions, mintAddress, dbcPoolAddress, imageUrl: storedImageUrl } = data;
       
+      if (!unsignedTransactions || unsignedTransactions.length < 2) {
+        throw new Error("Invalid transaction data received");
+      }
+
       const rpcUrl = import.meta.env.VITE_HELIUS_RPC_URL || 'https://api.mainnet-beta.solana.com';
-      const configSig = await fetch(rpcUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'sendTransaction',
-          params: [
-            Buffer.from(signedConfig.serialize()).toString('base64'), 
-            { skipPreflight: false, preflightCommitment: 'confirmed' }
-          ]
-        })
-      }).then(r => r.json());
 
-      if (configSig.error) throw new Error(configSig.error.message || 'Config TX failed');
-      
-      toast({ title: "Sign Pool Transaction", description: "Approve in Phantom..." });
-      const signedPool = await phantomWallet.signTransaction(poolTx);
-      if (!signedPool) throw new Error("Pool signing cancelled");
-      
-      const poolSig = await fetch(rpcUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'sendTransaction',
-          params: [
-            Buffer.from(signedPool.serialize()).toString('base64'), 
-            { skipPreflight: false, preflightCommitment: 'confirmed' }
-          ]
-        })
-      }).then(r => r.json());
+      // Sign and send each transaction sequentially
+      for (let i = 0; i < unsignedTransactions.length; i++) {
+        const txName = i === 0 ? "Config" : "Pool";
+        toast({ title: `Sign ${txName} Transaction (${i + 1}/${unsignedTransactions.length})`, description: "Approve in Phantom..." });
+        
+        const tx = VersionedTransaction.deserialize(Buffer.from(unsignedTransactions[i], 'base64'));
+        const signedTx = await phantomWallet.signTransaction(tx);
+        if (!signedTx) throw new Error(`${txName} signing cancelled`);
+        
+        const result = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'sendTransaction',
+            params: [
+              Buffer.from(signedTx.serialize()).toString('base64'), 
+              { skipPreflight: false, preflightCommitment: 'confirmed' }
+            ]
+          })
+        }).then(r => r.json());
 
-      if (poolSig.error) throw new Error(poolSig.error.message || 'Pool TX failed');
+        if (result.error) throw new Error(result.error.message || `${txName} TX failed`);
+        
+        // Wait a bit between transactions for confirmation
+        if (i < unsignedTransactions.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
 
-      // Phase 2: Record in DB
-      await supabase.functions.invoke("fun-phantom-create", {
+      // Phase 2: Record in DB AFTER successful on-chain transactions
+      const { data: recordData, error: recordError } = await supabase.functions.invoke("fun-phantom-create", {
         body: {
           confirmed: true,
           mintAddress,
@@ -533,14 +526,22 @@ export default function ClaudeLauncherPage() {
           name: tokenData.name,
           ticker: tokenData.ticker,
           description: tokenData.description,
-          imageUrl: tokenData.imageUrl,
+          imageUrl: storedImageUrl || tokenData.imageUrl,
           websiteUrl: tokenData.websiteUrl,
           twitterUrl: tokenData.twitterUrl,
           telegramUrl: tokenData.telegramUrl,
           discordUrl: tokenData.discordUrl,
-          creatorWallet: phantomWallet.address,
+          phantomWallet: phantomWallet.address,
         },
       });
+      
+      if (recordError) {
+        console.error("Phase 2 recording failed:", recordError);
+        toast({ title: "Warning", description: "Token launched but database recording failed. Contact support.", variant: "destructive" });
+      } else if (!recordData?.success) {
+        console.error("Phase 2 recording failed:", recordData?.error);
+        toast({ title: "Warning", description: "Token launched but database recording failed. Contact support.", variant: "destructive" });
+      }
 
       setLaunchResult({
         success: true,
