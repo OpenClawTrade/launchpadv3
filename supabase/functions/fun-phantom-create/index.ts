@@ -31,7 +31,16 @@ function isBlockedName(name: string): boolean {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    // Some browsers/extensions can be picky about 204 preflight responses.
+    // Return 200 with explicit CORS headers to maximize compatibility.
+    return new Response("ok", {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/plain",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
   }
 
   // Get client IP from headers
