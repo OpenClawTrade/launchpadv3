@@ -19,10 +19,12 @@ serve(async (req) => {
     const url = new URL(req.url);
     const tokenAddress = url.searchParams.get("token");
 
+    // Return safe fallback if no token provided (instead of error)
     if (!tokenAddress) {
+      console.log("[dexscreener-proxy] No token provided, returning fallback");
       return new Response(
-        JSON.stringify({ error: "Token address is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ price: 0, change24h: 0, timestamp: Date.now() }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
