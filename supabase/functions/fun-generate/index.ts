@@ -101,8 +101,9 @@ async function generateImageWithRetry(prompt: string, maxRetries = 3): Promise<s
 }
 
 serve(async (req) => {
+  // Handle CORS preflight with explicit 204 status
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
