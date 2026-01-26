@@ -1092,7 +1092,7 @@ export default function ClaudeLauncherPage() {
                         <img src={bannerUrl} alt="Generated banner" className="w-full h-auto" />
                       </div>
                       <Button
-                        onClick={() => downloadBanner(`${meme?.ticker || 'token'}_banner.png`)}
+                        onClick={() => bannerUrl && downloadBanner(bannerUrl, meme?.ticker || meme?.name || 'token')}
                         className="w-full mt-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-[#0d0b0a] font-semibold rounded-xl"
                       >
                         <Download className="h-4 w-4 mr-2" /> Download Banner
@@ -1470,7 +1470,7 @@ export default function ClaudeLauncherPage() {
 
             {/* Admin Panel */}
             {isAdmin && walletAddress && (
-              <SniperStatusPanel creatorWallet={walletAddress} />
+              <SniperStatusPanel />
             )}
           </div>
 
