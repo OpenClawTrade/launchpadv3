@@ -104,8 +104,8 @@ serve(async (req) => {
           dbc_pool_address: confirmedPoolAddress,
           status: "active",
           price_sol: 0.00000003,
-          website_url: websiteUrl || DEFAULT_WEBSITE,
-          twitter_url: twitterUrl || DEFAULT_TWITTER,
+          website_url: websiteUrl || null,
+          twitter_url: twitterUrl || null,
         })
         .select()
         .single();
@@ -235,8 +235,8 @@ serve(async (req) => {
           ticker: ticker.toUpperCase().slice(0, 10),
           description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
           imageUrl: storedImageUrl,
-          websiteUrl: websiteUrl || DEFAULT_WEBSITE,
-          twitterUrl: twitterUrl || DEFAULT_TWITTER,
+          websiteUrl: websiteUrl || null,
+          twitterUrl: twitterUrl || null,
           phantomWallet, // User's Phantom wallet as fee payer
           feeRecipientWallet: phantomWallet, // All fees go to Phantom wallet
           tradingFeeBps: tradingFeeBps || 200, // Default 2%, allow 0.1%-10%
@@ -290,8 +290,8 @@ serve(async (req) => {
             ticker: ticker.toUpperCase().slice(0, 5),
             description: description?.slice(0, 500) || null,
             image_url: storedImageUrl || null,
-            website_url: websiteUrl || DEFAULT_WEBSITE,
-            twitter_url: twitterUrl || DEFAULT_TWITTER,
+            website_url: websiteUrl || null,
+            twitter_url: twitterUrl || null,
             telegram_url: body.telegramUrl || null,
             discord_url: body.discordUrl || null,
             creator_wallet: phantomWallet,
