@@ -86,12 +86,8 @@ const generateXBanner = async (params: BannerParams): Promise<Blob> => {
   bannerCanvas.height = BANNER_HEIGHT;
   const ctx = bannerCanvas.getContext("2d")!;
 
-  // 4. Draw Background with gradient
-  const gradient = ctx.createLinearGradient(0, 0, BANNER_WIDTH, 0);
-  gradient.addColorStop(0, backgroundColor);
-  gradient.addColorStop(0.6, backgroundColor);
-  gradient.addColorStop(1, "rgba(0, 0, 0, 0.3)");
-  ctx.fillStyle = gradient;
+  // 4. Draw solid background (no gradient)
+  ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, BANNER_WIDTH, BANNER_HEIGHT);
 
   // 5. Draw Token Image on the Right Side (circular mask)
@@ -127,7 +123,33 @@ const generateXBanner = async (params: BannerParams): Promise<Blob> => {
   ctx.stroke();
   ctx.restore();
 
-  // Text removed - banner is now image-only
+  // 6. Draw text on the left side
+  const textX = 80;
+  const centerY = BANNER_HEIGHT / 2;
+  
+  // Token name - large bold text
+  ctx.save();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 72px sans-serif";
+  ctx.textBaseline = "bottom";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText(tokenName, textX, centerY - 10);
+  ctx.restore();
+  
+  // Ticker - smaller text with accent color
+  ctx.save();
+  ctx.fillStyle = "#00d4aa";
+  ctx.font = "bold 48px sans-serif";
+  ctx.textBaseline = "top";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText(`$${ticker}`, textX, centerY + 10);
+  ctx.restore();
 
   // 7. Export as Blob
   return new Promise((resolve, reject) => {
