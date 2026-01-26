@@ -62,6 +62,7 @@ const App = () => (
             <Suspense fallback={<RouteLoader />}>
               <Routes>
                 <Route path="/" element={<ClaudeLauncherPage />} />
+                <Route path="/claude" element={<ClaudeLauncherPage />} />
                 <Route path="/classic" element={<FunLauncherPage />} />
                 <Route path="/launchpad" element={<LaunchpadPage />} />
                 <Route path="/launch" element={<LaunchTokenPage />} />

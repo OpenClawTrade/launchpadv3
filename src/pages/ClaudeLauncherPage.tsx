@@ -1016,31 +1016,237 @@ export default function ClaudeLauncherPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="claude-stat-card">
-            <div className="flex items-center gap-2 mb-1 text-sm text-[hsl(220,10%,45%)]"><BarChart3 className="h-4 w-4 text-[hsl(160,70%,50%)]" /> Tokens</div>
-            <div className="claude-stat-value">{tokens.length}</div>
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {/* Two-Column Layout: Generator Left, Stats Right */}
+        <div className="grid lg:grid-cols-[380px_1fr] gap-6 mb-6">
+          {/* Token Generator - Compact */}
+          <div className="claude-card p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Rocket className="h-5 w-5 text-[hsl(160,70%,50%)]" />
+              <h2 className="font-semibold text-sm">Launch Token</h2>
+            </div>
+            
+            {/* Mode Selector - Compact */}
+            <div className="grid grid-cols-4 gap-1 mb-4">
+              {[
+                { id: "random", label: "AI", icon: Shuffle },
+                { id: "describe", label: "Desc", icon: Sparkles },
+                { id: "custom", label: "Custom", icon: Image },
+                { id: "phantom", label: "Wallet", icon: Wallet },
+              ].map((mode) => (
+                <button key={mode.id} onClick={() => setGeneratorMode(mode.id as any)} className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg text-[10px] font-medium border transition-colors ${generatorMode === mode.id ? (mode.id === "phantom" ? "border-purple-500/50 bg-purple-500/20 text-purple-400" : "border-[hsl(160,70%,50%)]/50 bg-[hsl(160,70%,50%)]/10 text-[hsl(160,70%,50%)]") : "border-[hsl(220,12%,20%)] bg-[hsl(220,12%,14%)] text-[hsl(220,10%,45%)] hover:text-white hover:border-[hsl(220,12%,25%)]"}`}>
+                  <mode.icon className="h-4 w-4" />
+                  <span>{mode.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Random Mode - Compact */}
+            {generatorMode === "random" && (
+              <div className="space-y-3">
+                <div className="flex gap-3 p-3 bg-[hsl(220,12%,14%)] rounded-xl border border-[hsl(220,12%,20%)]">
+                  <div className="w-14 h-14 rounded-lg bg-[hsl(220,12%,18%)] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {isGenerating ? <RefreshCw className="h-5 w-5 text-[hsl(160,70%,50%)] animate-spin" /> : meme?.imageUrl ? <img src={meme.imageUrl} alt={meme.name} className="w-full h-full object-cover" /> : <Bot className="h-6 w-6 text-[hsl(220,10%,35%)]" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {isGenerating ? (
+                      <div className="space-y-1.5"><Skeleton className="h-4 w-24 bg-[hsl(220,12%,20%)]" /><Skeleton className="h-3 w-16 bg-[hsl(220,12%,20%)]" /></div>
+                    ) : meme ? (
+                      <>
+                        <Input value={meme.name} onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })} className="claude-input h-7 text-sm font-semibold mb-1" maxLength={20} />
+                        <div className="flex items-center gap-1">
+                          <span className="text-[hsl(160,70%,50%)] text-xs">$</span>
+                          <Input value={meme.ticker} onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })} className="claude-input h-6 w-20 text-xs font-mono" maxLength={6} />
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-[hsl(220,10%,45%)] py-2">Click Generate</p>
+                    )}
+                  </div>
+                </div>
+                <Button onClick={handleRandomize} disabled={isGenerating || isLaunching} size="sm" className="claude-btn-secondary w-full h-9 text-xs">
+                  {isGenerating ? <><Shuffle className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</> : <><Shuffle className="h-3.5 w-3.5 mr-1.5" /> Generate</>}
+                </Button>
+                {meme && (
+                  <>
+                    <Textarea value={meme.description} onChange={(e) => setMeme({ ...meme, description: e.target.value.slice(0, 280) })} className="claude-input text-xs min-h-[50px] resize-none" placeholder="Description" maxLength={280} />
+                    <Input placeholder="Your SOL wallet" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} className="claude-input font-mono text-xs h-8" />
+                    <Button onClick={handleLaunch} disabled={isLaunching || !walletAddress || !meme} size="sm" className="claude-btn-primary w-full h-9 text-xs">
+                      {isLaunching ? <><Rocket className="h-3.5 w-3.5 mr-1.5 animate-bounce" /> Launching...</> : <><Rocket className="h-3.5 w-3.5 mr-1.5" /> Launch (50% fees to you)</>}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Describe Mode - Compact */}
+            {generatorMode === "describe" && (
+              <div className="space-y-3">
+                <Textarea value={describePrompt} onChange={(e) => setDescribePrompt(e.target.value)} placeholder="Describe your meme concept..." className="claude-input min-h-[60px] text-xs resize-none" />
+                <Button onClick={handleDescribeGenerate} disabled={isGenerating || !describePrompt.trim()} size="sm" className="claude-btn-secondary w-full h-9 text-xs">
+                  {isGenerating ? <><Sparkles className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Creating...</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate</>}
+                </Button>
+                {isGenerating && <div className="flex items-center justify-center py-4"><MemeLoadingAnimation /></div>}
+                {describedToken && !isGenerating && (
+                  <>
+                    <div className="flex gap-3 p-3 bg-[hsl(220,12%,14%)] rounded-xl border border-[hsl(160,70%,50%)]/30">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">{describedToken.imageUrl && <img src={describedToken.imageUrl} alt={describedToken.name} className="w-full h-full object-cover" />}</div>
+                      <div><h3 className="text-sm font-semibold">{describedToken.name}</h3><span className="text-xs text-[hsl(160,70%,50%)] font-mono">${describedToken.ticker}</span></div>
+                    </div>
+                    <Input placeholder="Your SOL wallet" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} className="claude-input font-mono text-xs h-8" />
+                    <Button onClick={handleDescribeLaunch} disabled={isLaunching || !walletAddress} size="sm" className="claude-btn-primary w-full h-9 text-xs">
+                      {isLaunching ? <><Rocket className="h-3.5 w-3.5 mr-1.5 animate-bounce" /> Launching...</> : <><Rocket className="h-3.5 w-3.5 mr-1.5" /> Launch</>}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Custom Mode - Compact */}
+            {generatorMode === "custom" && (
+              <div className="space-y-3">
+                <div className="flex gap-3 p-3 bg-[hsl(220,12%,14%)] rounded-xl border border-[hsl(220,12%,20%)]">
+                  <div className="w-14 h-14 rounded-lg bg-[hsl(220,12%,18%)] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {customImagePreview || customToken.imageUrl ? <img src={customImagePreview || customToken.imageUrl} alt="Token" className="w-full h-full object-cover" /> : <Image className="h-6 w-6 text-[hsl(220,10%,35%)]" />}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Input value={customToken.name} onChange={(e) => setCustomToken({ ...customToken, name: e.target.value.slice(0, 20) })} className="claude-input h-7 text-sm font-semibold" placeholder="Token Name" maxLength={20} />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[hsl(160,70%,50%)] text-xs">$</span>
+                      <Input value={customToken.ticker} onChange={(e) => setCustomToken({ ...customToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })} className="claude-input h-6 w-20 text-xs font-mono" placeholder="TICKER" maxLength={6} />
+                    </div>
+                  </div>
+                </div>
+                <Textarea value={customToken.description} onChange={(e) => setCustomToken({ ...customToken, description: e.target.value })} className="claude-input min-h-[50px] text-xs" placeholder="Description" />
+                <Input type="file" accept="image/*" onChange={handleCustomImageChange} className="claude-input text-xs h-8" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={customToken.websiteUrl || ""} onChange={(e) => setCustomToken({ ...customToken, websiteUrl: e.target.value })} className="claude-input text-xs h-7" placeholder="Website" />
+                  <Input value={customToken.twitterUrl || ""} onChange={(e) => setCustomToken({ ...customToken, twitterUrl: e.target.value })} className="claude-input text-xs h-7" placeholder="Twitter" />
+                </div>
+                <Input placeholder="Your SOL wallet" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} className="claude-input font-mono text-xs h-8" />
+                <Button onClick={handleCustomLaunch} disabled={isLaunching || !walletAddress || !customToken.name.trim() || !customToken.ticker.trim()} size="sm" className="claude-btn-primary w-full h-9 text-xs">
+                  {isLaunching ? <><Rocket className="h-3.5 w-3.5 mr-1.5 animate-bounce" /> Launching...</> : <><Rocket className="h-3.5 w-3.5 mr-1.5" /> Launch</>}
+                </Button>
+              </div>
+            )}
+
+            {/* Phantom Mode - Compact */}
+            {generatorMode === "phantom" && (
+              <div className="space-y-3">
+                <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-purple-400">Phantom Wallet</span>
+                    <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] h-5">You Pay Fee</Badge>
+                  </div>
+                  
+                  {!phantomWallet.isConnected ? (
+                    <Button onClick={phantomWallet.connect} disabled={phantomWallet.isConnecting} size="sm" className="w-full bg-purple-600 hover:bg-purple-700 text-white h-9 text-xs">
+                      {phantomWallet.isConnecting ? <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Connecting...</> : <><Wallet className="h-3.5 w-3.5 mr-1.5" /> Connect Phantom</>}
+                    </Button>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between bg-[hsl(220,12%,14%)] rounded-lg p-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center"><Wallet className="h-3 w-3 text-purple-400" /></div>
+                          <div>
+                            <div className="text-xs font-mono text-white">{phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}</div>
+                            <div className="text-[10px] text-[hsl(220,10%,45%)]">{phantomWallet.balance?.toFixed(3) || "0"} SOL</div>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={phantomWallet.disconnect} className="text-[hsl(220,10%,45%)] hover:text-white h-6 px-2 text-[10px]">×</Button>
+                      </div>
+
+                      {/* Sub-mode selector */}
+                      <div className="flex gap-1 mb-3">
+                        {[{ id: "random" as const, label: "AI", icon: Shuffle }, { id: "describe" as const, label: "Desc", icon: Sparkles }, { id: "custom" as const, label: "Custom", icon: Image }].map((m) => (
+                          <button key={m.id} onClick={() => setPhantomInputMode(m.id)} className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium border ${phantomInputMode === m.id ? "border-purple-500/50 bg-purple-500/20 text-purple-400" : "border-[hsl(220,12%,20%)] bg-[hsl(220,12%,14%)] text-[hsl(220,10%,45%)]"}`}>
+                            <m.icon className="h-3 w-3" />{m.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Trading Fee */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between text-[10px] text-[hsl(220,10%,45%)] mb-1">
+                          <span>Fee: <span className="text-purple-400 font-semibold">{(phantomTradingFee / 100).toFixed(1)}%</span></span>
+                          <span className="text-[9px]">0.1-10%</span>
+                        </div>
+                        <Slider value={[phantomTradingFee]} onValueChange={(v) => setPhantomTradingFee(v[0])} min={10} max={1000} step={10} className="w-full" />
+                      </div>
+
+                      {phantomInputMode === "random" && (
+                        <Button onClick={handlePhantomRandomize} disabled={isPhantomGenerating} size="sm" className="w-full bg-purple-600/80 hover:bg-purple-600 text-white h-8 text-xs mb-3">
+                          {isPhantomGenerating ? <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</> : <><Shuffle className="h-3.5 w-3.5 mr-1.5" /> AI Randomize</>}
+                        </Button>
+                      )}
+                      {phantomInputMode === "describe" && (
+                        <div className="space-y-2 mb-3">
+                          <Textarea value={phantomDescribePrompt} onChange={(e) => setPhantomDescribePrompt(e.target.value)} placeholder="Describe meme..." className="claude-input min-h-[50px] text-xs resize-none" />
+                          <Button onClick={handlePhantomDescribeGenerate} disabled={isPhantomGenerating || !phantomDescribePrompt.trim()} size="sm" className="w-full bg-purple-600/80 hover:bg-purple-600 text-white h-8 text-xs">
+                            {isPhantomGenerating ? <><Sparkles className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Creating...</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate</>}
+                          </Button>
+                        </div>
+                      )}
+
+                      {isPhantomGenerating && <div className="flex items-center justify-center py-3"><MemeLoadingAnimation /></div>}
+
+                      {!isPhantomGenerating && (
+                        <div className="space-y-2">
+                          <div className="flex gap-2 p-2 bg-[hsl(220,12%,14%)] rounded-lg border border-purple-500/20">
+                            <div className="w-10 h-10 rounded-lg bg-[hsl(220,12%,18%)] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                              {phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl ? <img src={phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl} alt="Token" className="w-full h-full object-cover" /> : <Bot className="h-5 w-5 text-[hsl(220,10%,35%)]" />}
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <Input value={phantomToken.name} onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 32) })} className="claude-input h-6 text-xs font-semibold" placeholder="Name" maxLength={32} />
+                              <div className="flex items-center gap-1">
+                                <span className="text-purple-400 text-[10px]">$</span>
+                                <Input value={phantomToken.ticker} onChange={(e) => setPhantomToken({ ...phantomToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) })} className="claude-input h-5 w-16 text-[10px] font-mono" placeholder="TICKER" maxLength={10} />
+                              </div>
+                            </div>
+                          </div>
+                          {phantomInputMode === "custom" && <Input type="file" accept="image/*" onChange={handlePhantomImageChange} className="claude-input text-[10px] h-7" />}
+                          <Button onClick={handlePhantomLaunch} disabled={isPhantomLaunching || !phantomToken.name.trim() || !phantomToken.ticker.trim() || (!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl)} size="sm" className="w-full bg-purple-600 hover:bg-purple-700 text-white h-9 text-xs">
+                            {isPhantomLaunching ? <><Rocket className="h-3.5 w-3.5 mr-1.5 animate-bounce" /> Launching...</> : <><Rocket className="h-3.5 w-3.5 mr-1.5" /> Launch (~0.02 SOL)</>}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-          <div className="claude-stat-card">
-            <div className="flex items-center gap-2 mb-1 text-sm text-[hsl(220,10%,45%)]"><Coins className="h-4 w-4 text-[hsl(160,70%,50%)]" /> Creator Paid</div>
-            <div className="claude-stat-value">{formatSOL(totalCreatorPaid)}</div>
-            <div className="claude-stat-label">{formatUsd(totalCreatorPaid)}</div>
-          </div>
-          <div className="claude-stat-card">
-            <div className="flex items-center gap-2 mb-1 text-sm text-[hsl(220,10%,45%)]"><ArrowDownCircle className="h-4 w-4 text-[hsl(200,80%,55%)]" /> Buybacks</div>
-            <div className="claude-stat-value">{formatSOL(totalBuybacks)}</div>
-            <div className="claude-stat-label">{formatUsd(totalBuybacks)}</div>
-          </div>
-          <div className="claude-stat-card">
-            <div className="flex items-center gap-2 mb-1 text-sm text-[hsl(220,10%,45%)]"><Users className="h-4 w-4 text-[hsl(45,90%,55%)]" /> Creators</div>
-            <div className="claude-stat-value">{creatorsData.length}</div>
+
+          {/* Stats Grid - Right Column */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="claude-stat-card py-3 px-4">
+                <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><BarChart3 className="h-3.5 w-3.5 text-[hsl(160,70%,50%)]" /> Tokens</div>
+                <div className="text-xl font-bold">{tokens.length}</div>
+              </div>
+              <div className="claude-stat-card py-3 px-4">
+                <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><Coins className="h-3.5 w-3.5 text-[hsl(160,70%,50%)]" /> Creator Paid</div>
+                <div className="text-xl font-bold">{formatSOL(totalCreatorPaid)}</div>
+                <div className="text-[10px] text-[hsl(220,10%,45%)]">{formatUsd(totalCreatorPaid)}</div>
+              </div>
+              <div className="claude-stat-card py-3 px-4">
+                <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><ArrowDownCircle className="h-3.5 w-3.5 text-[hsl(200,80%,55%)]" /> Buybacks</div>
+                <div className="text-xl font-bold">{formatSOL(totalBuybacks)}</div>
+                <div className="text-[10px] text-[hsl(220,10%,45%)]">{formatUsd(totalBuybacks)}</div>
+              </div>
+              <div className="claude-stat-card py-3 px-4">
+                <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><Users className="h-3.5 w-3.5 text-[hsl(45,90%,55%)]" /> Creators</div>
+                <div className="text-xl font-bold">{creatorsData.length}</div>
+              </div>
+            </div>
+
+            {/* Admin Sniper Panel */}
+            {isAdmin && walletAddress && <SniperStatusPanel />}
           </div>
         </div>
 
         {/* Main Tabs */}
-        <div className="mb-6 overflow-x-auto pb-2">
+        <div className="mb-4 overflow-x-auto pb-2">
           <div className="claude-tabs-container">
             {[
               { id: "tokens" as MainTab, icon: BarChart3, label: "Tokens", count: tokens.length },
@@ -1059,288 +1265,12 @@ export default function ClaudeLauncherPage() {
         </div>
 
         {/* Tab Content */}
-        <div className="mb-12 claude-animate-in">
+        <div className="claude-animate-in">
           {activeTab === "tokens" && renderTokensTab()}
           {activeTab === "top" && renderTopTab()}
           {activeTab === "claimed" && renderClaimedTab()}
           {activeTab === "buybacks" && renderBuybacksTab()}
           {activeTab === "creators" && renderCreatorsTab()}
-        </div>
-
-        {/* Admin Sniper Panel */}
-        {isAdmin && walletAddress && (
-          <div className="mb-8">
-            <SniperStatusPanel />
-          </div>
-        )}
-
-        {/* Generator Section */}
-        <div className="border-t border-[hsl(220,12%,20%)] pt-12">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-2">Launch Your Token</h2>
-            <p className="text-[hsl(220,10%,45%)]">AI-generated or custom tokens with instant trading</p>
-          </div>
-
-          <div className="max-w-2xl mx-auto">
-            <Card className="claude-card-elevated p-6">
-              {/* Mode Selector */}
-              <div className="claude-mode-selector mb-6">
-                {[
-                  { id: "random", label: "Random", icon: Shuffle },
-                  { id: "describe", label: "Describe", icon: Sparkles },
-                  { id: "custom", label: "Custom", icon: Image },
-                  { id: "phantom", label: "Phantom", icon: Wallet },
-                ].map((mode) => (
-                  <button key={mode.id} onClick={() => setGeneratorMode(mode.id as any)} className={`claude-mode-btn ${generatorMode === mode.id ? "active" : ""} ${mode.id === "phantom" ? "!border-purple-500/50 data-[active=true]:!bg-purple-500/20" : ""}`} data-active={generatorMode === mode.id}>
-                    <mode.icon className="h-4 w-4" />
-                    <span className="hidden sm:inline">{mode.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Random Mode */}
-              {generatorMode === "random" && (
-                <div className="space-y-6">
-                  <div className="claude-preview-box">
-                    <div className="claude-preview-avatar">
-                      {isGenerating ? <MemeLoadingAnimation /> : meme?.imageUrl ? <img src={meme.imageUrl} alt={meme.name} /> : <Bot className="h-8 w-8 text-[hsl(220,10%,45%)]" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {isGenerating ? (
-                        <MemeLoadingText />
-                      ) : meme ? (
-                        <>
-                          <Input value={meme.name} onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })} className="claude-input mb-2 font-semibold" maxLength={20} />
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-[hsl(160,70%,50%)] font-semibold">$</span>
-                            <Input value={meme.ticker} onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })} className="claude-input w-24 font-mono" maxLength={6} />
-                          </div>
-                          <Textarea value={meme.description} onChange={(e) => setMeme({ ...meme, description: e.target.value.slice(0, 280) })} className="claude-input text-sm min-h-[60px] resize-none" placeholder="Description" maxLength={280} />
-                          <details className="mt-2 group">
-                            <summary className="text-xs text-[hsl(220,10%,45%)] cursor-pointer hover:text-white flex items-center gap-1"><Globe className="h-3 w-3" /> Edit Socials</summary>
-                            <div className="mt-2 space-y-2">
-                              <div className="flex items-center gap-2"><Globe className="h-3 w-3 text-[hsl(220,10%,45%)]" /><Input value={meme.websiteUrl || ""} onChange={(e) => setMeme({ ...meme, websiteUrl: e.target.value })} className="claude-input text-xs h-7" placeholder="Website" /></div>
-                              <div className="flex items-center gap-2"><Twitter className="h-3 w-3 text-[hsl(220,10%,45%)]" /><Input value={meme.twitterUrl || ""} onChange={(e) => setMeme({ ...meme, twitterUrl: e.target.value })} className="claude-input text-xs h-7" placeholder="Twitter" /></div>
-                              <div className="flex items-center gap-2"><MessageCircle className="h-3 w-3 text-[hsl(220,10%,45%)]" /><Input value={meme.telegramUrl || ""} onChange={(e) => setMeme({ ...meme, telegramUrl: e.target.value })} className="claude-input text-xs h-7" placeholder="Telegram" /></div>
-                              <div className="flex items-center gap-2"><MessageSquare className="h-3 w-3 text-[hsl(220,10%,45%)]" /><Input value={meme.discordUrl || ""} onChange={(e) => setMeme({ ...meme, discordUrl: e.target.value })} className="claude-input text-xs h-7" placeholder="Discord" /></div>
-                            </div>
-                          </details>
-                        </>
-                      ) : (
-                        <p className="text-[hsl(220,10%,45%)] py-4">Click Generate to create a token</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <Button onClick={handleRandomize} disabled={isGenerating || isLaunching} className="claude-btn-secondary w-full h-12">
-                    {isGenerating ? <><Shuffle className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4 mr-2" /> Generate Token</>}
-                  </Button>
-
-                  {meme && (
-                    <>
-                      <div className="flex gap-3">
-                        <Button onClick={async () => { try { const response = await fetch(meme.imageUrl); const blob = await response.blob(); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${meme.name.replace(/[^a-zA-Z0-9]/g, "_")}_avatar.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); toast({ title: "Avatar Downloaded!" }); } catch { toast({ title: "Download Failed", variant: "destructive" }); } }} className="flex-1 claude-btn-ghost border border-[hsl(220,12%,20%)]"><Download className="h-4 w-4 mr-2" /> Avatar</Button>
-                        <Button onClick={() => { setBannerTextName(meme.name); setBannerTextTicker(meme.ticker); setBannerImageUrl(meme.imageUrl); generateBanner({ imageUrl: meme.imageUrl, tokenName: meme.name, ticker: meme.ticker }); }} disabled={isBannerGenerating} className="flex-1 claude-btn-ghost border border-[hsl(220,12%,20%)]"><Image className="h-4 w-4 mr-2" /> Banner</Button>
-                      </div>
-
-                      {bannerUrl && (
-                        <div className="p-4 bg-[hsl(220,12%,14%)] rounded-xl border border-[hsl(220,12%,20%)]">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs text-[hsl(220,10%,45%)]">Banner Preview:</p>
-                            <Button size="sm" variant="ghost" onClick={() => setIsEditingBannerText(!isEditingBannerText)} className="h-6 px-2 text-xs text-[hsl(220,10%,45%)] hover:text-white"><Pencil className="h-3 w-3 mr-1" /> Edit Text</Button>
-                          </div>
-                          {isEditingBannerText && (
-                            <div className="space-y-2 p-2 mb-2 bg-[hsl(220,12%,12%)] rounded border border-[hsl(220,12%,20%)]">
-                              <Input value={bannerTextName} onChange={(e) => setBannerTextName(e.target.value)} placeholder="Token name" className="claude-input h-8" maxLength={20} />
-                              <Input value={bannerTextTicker} onChange={(e) => setBannerTextTicker(e.target.value.toUpperCase())} placeholder="TICKER" className="claude-input h-8 font-mono" maxLength={10} />
-                              <Button onClick={() => generateBanner({ imageUrl: bannerImageUrl, tokenName: bannerTextName, ticker: bannerTextTicker })} disabled={isBannerGenerating} size="sm" className="w-full claude-btn-secondary">{isBannerGenerating ? "Regenerating..." : "Regenerate Banner"}</Button>
-                            </div>
-                          )}
-                          <img src={bannerUrl} alt="Banner" className="w-full rounded-lg border border-[hsl(220,12%,20%)]" />
-                          <Button onClick={() => downloadBanner(bannerUrl, meme.ticker)} className="claude-btn-primary w-full mt-3"><Download className="h-4 w-4 mr-2" /> Download Banner</Button>
-                        </div>
-                      )}
-
-                      <div className="pt-6 border-t border-[hsl(220,12%,20%)]">
-                        <label className="text-sm font-medium mb-2 block">Your Solana wallet</label>
-                        <Input placeholder="Enter your SOL wallet address..." value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} className="claude-input font-mono text-sm mb-2" />
-                        <p className="text-xs text-[hsl(220,10%,45%)] mb-4">You'll receive 50% of all trading fees</p>
-                        <Button onClick={handleLaunch} disabled={isLaunching || !walletAddress || !meme} className="claude-btn-primary w-full h-12 text-base">
-                          {isLaunching ? <><Rocket className="h-5 w-5 mr-2 animate-bounce" /> Launching...</> : <><Rocket className="h-5 w-5 mr-2" /> Launch Token</>}
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Describe Mode */}
-              {generatorMode === "describe" && (
-                <div className="space-y-6">
-                  <div className="p-5 bg-[hsl(220,12%,14%)] rounded-2xl border border-[hsl(220,12%,20%)] space-y-4">
-                    <Textarea value={describePrompt} onChange={(e) => setDescribePrompt(e.target.value)} placeholder="Describe your meme concept... (e.g., 'A friendly robot cat')" className="claude-input min-h-[120px] resize-none" />
-                    <Button onClick={handleDescribeGenerate} disabled={isGenerating || !describePrompt.trim()} className="claude-btn-secondary w-full h-11">
-                      {isGenerating ? <><Sparkles className="h-4 w-4 mr-2 animate-spin" /> Creating...</> : <><Sparkles className="h-4 w-4 mr-2" /> Generate from Description</>}
-                    </Button>
-                  </div>
-
-                  {isGenerating && (
-                    <div className="flex flex-col items-center justify-center py-6">
-                      <MemeLoadingAnimation />
-                      <MemeLoadingText />
-                    </div>
-                  )}
-
-                  {describedToken && !isGenerating && (
-                    <div className="space-y-4">
-                      <div className="claude-preview-box">
-                        <div className="claude-preview-avatar border-2 border-[hsl(160,70%,50%)]">{describedToken.imageUrl && <img src={describedToken.imageUrl} alt={describedToken.name} />}</div>
-                        <div><h3 className="font-semibold">{describedToken.name}</h3><span className="text-[hsl(160,70%,50%)] font-mono">${describedToken.ticker}</span></div>
-                      </div>
-                      {bannerUrl && <div className="p-3 bg-[hsl(220,12%,14%)] rounded-xl"><img src={bannerUrl} alt="Banner" className="w-full rounded-lg" /><Button onClick={() => downloadBanner(bannerUrl, describedToken.ticker)} className="claude-btn-primary w-full mt-2"><Download className="h-4 w-4 mr-2" /> Download Banner</Button></div>}
-                      <div className="pt-6 border-t border-[hsl(220,12%,20%)]">
-                        <Input placeholder="Enter your SOL wallet address..." value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} className="claude-input font-mono text-sm mb-4" />
-                        <Button onClick={handleDescribeLaunch} disabled={isLaunching || !walletAddress} className="claude-btn-primary w-full h-12">{isLaunching ? <><Rocket className="h-5 w-5 mr-2 animate-bounce" /> Launching...</> : <><Rocket className="h-5 w-5 mr-2" /> Launch Token</>}</Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Custom Mode */}
-              {generatorMode === "custom" && (
-                <div className="space-y-6">
-                  <div className="p-5 bg-[hsl(220,12%,14%)] rounded-2xl border border-[hsl(220,12%,20%)] space-y-4">
-                    <div className="claude-preview-box">
-                      <div className="claude-preview-avatar">{customImagePreview || customToken.imageUrl ? <img src={customImagePreview || customToken.imageUrl} alt="Token" /> : <Image className="h-8 w-8 text-[hsl(220,10%,45%)]" />}</div>
-                      <div className="flex-1 space-y-2">
-                        <Input value={customToken.name} onChange={(e) => setCustomToken({ ...customToken, name: e.target.value.slice(0, 20) })} className="claude-input font-semibold" placeholder="Token Name" maxLength={20} />
-                        <div className="flex items-center gap-2"><span className="text-[hsl(160,70%,50%)]">$</span><Input value={customToken.ticker} onChange={(e) => setCustomToken({ ...customToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })} className="claude-input w-24 font-mono" placeholder="TICKER" maxLength={6} /></div>
-                      </div>
-                    </div>
-                    <Textarea value={customToken.description} onChange={(e) => setCustomToken({ ...customToken, description: e.target.value })} className="claude-input min-h-[80px]" placeholder="Description" />
-                    <Input type="file" accept="image/*" onChange={handleCustomImageChange} className="claude-input" />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input value={customToken.websiteUrl || ""} onChange={(e) => setCustomToken({ ...customToken, websiteUrl: e.target.value })} className="claude-input text-sm" placeholder="Website" />
-                      <Input value={customToken.twitterUrl || ""} onChange={(e) => setCustomToken({ ...customToken, twitterUrl: e.target.value })} className="claude-input text-sm" placeholder="Twitter" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input value={customToken.telegramUrl || ""} onChange={(e) => setCustomToken({ ...customToken, telegramUrl: e.target.value })} className="claude-input text-sm" placeholder="Telegram" />
-                      <Input value={customToken.discordUrl || ""} onChange={(e) => setCustomToken({ ...customToken, discordUrl: e.target.value })} className="claude-input text-sm" placeholder="Discord" />
-                    </div>
-                  </div>
-                  <div className="pt-4 border-t border-[hsl(220,12%,20%)]">
-                    <Input placeholder="Your SOL wallet address..." value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} className="claude-input font-mono text-sm mb-2" />
-                    <p className="text-xs text-[hsl(220,10%,45%)] mb-4">Receive 50% of trading fees</p>
-                    <Button onClick={handleCustomLaunch} disabled={isLaunching || !walletAddress || !customToken.name.trim() || !customToken.ticker.trim()} className="claude-btn-primary w-full h-12">{isLaunching ? <><Rocket className="h-5 w-5 mr-2 animate-bounce" /> Launching...</> : <><Rocket className="h-5 w-5 mr-2" /> Launch Token</>}</Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Phantom Mode */}
-              {generatorMode === "phantom" && (
-                <div className="space-y-6">
-                  <div className="p-5 bg-purple-500/10 rounded-2xl border border-purple-500/30 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2"><Wallet className="h-5 w-5 text-purple-400" /><span className="font-semibold text-white">Phantom Wallet Launch</span></div>
-                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">You Pay Fee</Badge>
-                    </div>
-                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs text-[hsl(220,10%,65%)]">
-                      <p className="flex items-start gap-2"><AlertTriangle className="h-4 w-4 text-purple-400 flex-shrink-0 mt-0.5" /><span><strong className="text-purple-400">Phantom Mode:</strong> Pay ~0.02 SOL launch fee and earn {(phantomTradingFee / 100).toFixed(1)}% on every trade (50% to you, 50% to platform).</span></p>
-                    </div>
-
-                    {!phantomWallet.isConnected ? (
-                      <Button onClick={phantomWallet.connect} disabled={phantomWallet.isConnecting} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold h-12">
-                        {phantomWallet.isConnecting ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Connecting...</> : !phantomWallet.isPhantomInstalled ? <><ExternalLink className="h-4 w-4 mr-2" /> Install Phantom</> : <><Wallet className="h-4 w-4 mr-2" /> Connect Phantom</>}
-                      </Button>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between bg-[hsl(220,12%,14%)] rounded-lg p-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center"><Wallet className="h-4 w-4 text-purple-400" /></div>
-                            <div>
-                              <div className="text-sm font-mono text-white">{phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}</div>
-                              <div className="text-xs text-[hsl(220,10%,45%)]">{phantomWallet.isLoadingBalance ? "Loading..." : phantomWallet.balance !== null ? `${phantomWallet.balance.toFixed(4)} SOL` : "Balance unavailable"}</div>
-                            </div>
-                          </div>
-                          <Button variant="ghost" size="sm" onClick={phantomWallet.disconnect} className="text-[hsl(220,10%,45%)] hover:text-white">Disconnect</Button>
-                        </div>
-
-                        {/* Sub-mode selector */}
-                        <div className="flex gap-2">
-                          {[{ id: "random" as const, label: "AI Random", icon: Shuffle }, { id: "describe" as const, label: "Describe", icon: Sparkles }, { id: "custom" as const, label: "Custom", icon: Image }].map((m) => (
-                            <button key={m.id} onClick={() => setPhantomInputMode(m.id)} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${phantomInputMode === m.id ? "border-purple-500/50 bg-purple-500/20 text-purple-400" : "border-[hsl(220,12%,20%)] bg-[hsl(220,12%,14%)] text-[hsl(220,10%,45%)] hover:text-white"}`}>
-                              <m.icon className="h-3.5 w-3.5" />{m.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Trading Fee Slider */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs text-[hsl(220,10%,45%)]">
-                            <span>Trading Fee</span>
-                            <span className="font-semibold text-purple-400">{(phantomTradingFee / 100).toFixed(1)}%</span>
-                          </div>
-                          <Slider value={[phantomTradingFee]} onValueChange={(v) => setPhantomTradingFee(v[0])} min={10} max={1000} step={10} className="w-full" />
-                          <div className="flex justify-between text-[10px] text-[hsl(220,10%,35%)]"><span>0.1%</span><span>10%</span></div>
-                        </div>
-
-                        {/* Phantom Random sub-mode */}
-                        {phantomInputMode === "random" && (
-                          <div className="space-y-4">
-                            <Button onClick={handlePhantomRandomize} disabled={isPhantomGenerating} className="w-full bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-white border border-purple-500/30">
-                              {isPhantomGenerating ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4 mr-2" /> AI Randomize Token</>}
-                            </Button>
-                            {isPhantomGenerating && <div className="flex flex-col items-center justify-center py-6"><MemeLoadingAnimation /><MemeLoadingText /></div>}
-                          </div>
-                        )}
-
-                        {/* Phantom Describe sub-mode */}
-                        {phantomInputMode === "describe" && (
-                          <div className="space-y-3">
-                            <Textarea value={phantomDescribePrompt} onChange={(e) => setPhantomDescribePrompt(e.target.value)} placeholder="Describe your meme concept..." className="claude-input min-h-[80px] resize-none" />
-                            <Button onClick={handlePhantomDescribeGenerate} disabled={isPhantomGenerating || !phantomDescribePrompt.trim()} className="w-full bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-white border border-purple-500/30">
-                              {isPhantomGenerating ? <><Sparkles className="h-4 w-4 mr-2 animate-spin" /> Creating...</> : <><Sparkles className="h-4 w-4 mr-2" /> Generate from Description</>}
-                            </Button>
-                            {isPhantomGenerating && <div className="flex flex-col items-center justify-center py-6"><MemeLoadingAnimation /><MemeLoadingText /></div>}
-                          </div>
-                        )}
-
-                        {/* Token form (shows for all sub-modes after generation or for custom) */}
-                        {!isPhantomGenerating && (
-                          <div className="space-y-3">
-                            <div className="claude-preview-box">
-                              <div className="claude-preview-avatar border-2 border-purple-500/30">{phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl ? <img src={phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl} alt="Token" /> : <Bot className="h-8 w-8 text-[hsl(220,10%,45%)]" />}</div>
-                              <div className="flex-1 space-y-2">
-                                <Input value={phantomToken.name} onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 32) })} className="claude-input font-semibold" placeholder="Token Name" maxLength={32} />
-                                <div className="flex items-center gap-2"><span className="text-purple-400">$</span><Input value={phantomToken.ticker} onChange={(e) => setPhantomToken({ ...phantomToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) })} className="claude-input w-28 font-mono" placeholder="TICKER" maxLength={10} /></div>
-                              </div>
-                            </div>
-                            <Textarea value={phantomToken.description} onChange={(e) => setPhantomToken({ ...phantomToken, description: e.target.value })} className="claude-input min-h-[60px]" placeholder="Description (optional)" maxLength={500} />
-                            <div className="text-xs text-[hsl(220,10%,45%)] flex items-center gap-2">
-                              <span>Or upload image:</span>
-                              <Input type="file" accept="image/*" onChange={handlePhantomImageChange} className="claude-input text-xs h-8 flex-1" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <Input value={phantomToken.websiteUrl || ""} onChange={(e) => setPhantomToken({ ...phantomToken, websiteUrl: e.target.value })} className="claude-input text-sm" placeholder="Website" />
-                              <Input value={phantomToken.twitterUrl || ""} onChange={(e) => setPhantomToken({ ...phantomToken, twitterUrl: e.target.value })} className="claude-input text-sm" placeholder="Twitter" />
-                            </div>
-
-                            <Button onClick={handlePhantomLaunch} disabled={isPhantomLaunching || !phantomToken.name.trim() || !phantomToken.ticker.trim() || (!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl) || (phantomWallet.balance !== null && phantomWallet.balance < 0.02)} className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold h-12">
-                              {isPhantomLaunching ? <><Rocket className="h-5 w-5 mr-2 animate-bounce" /> Launching with Phantom...</> : <><Rocket className="h-5 w-5 mr-2" /> Launch Token (~0.02 SOL)</>}
-                            </Button>
-
-                            {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && <p className="text-xs text-red-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Insufficient balance. Need at least 0.02 SOL.</p>}
-                            {!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl && phantomToken.name && <p className="text-xs text-amber-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Image required. Generate or upload one.</p>}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </Card>
-          </div>
         </div>
       </main>
 
