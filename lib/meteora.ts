@@ -61,7 +61,13 @@ export function getMeteoraClient(): DynamicBondingCurveClient {
  * This generates sqrtStartPrice, curve points, and migrationQuoteThreshold
  * that are compatible with external terminals for migration display
  */
-export function buildCurveConfig() {
+export function buildCurveConfig(tradingFeeBps: number = TRADING_FEE_BPS) {
+  // Validate fee range: 10 bps (0.1%) to 1000 bps (10%)
+  const MIN_FEE_BPS = 10;
+  const MAX_FEE_BPS = 1000;
+  const effectiveFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(tradingFeeBps)));
+  console.log(`[meteora] Using trading fee: ${effectiveFeeBps} bps (${(effectiveFeeBps / 100).toFixed(1)}%)`);
+
   // ============================================================================
   // CRITICAL FIX: migrationQuoteThreshold must match GRADUATION_THRESHOLD_SOL.
   //
@@ -123,12 +129,12 @@ export function buildCurveConfig() {
         cliffDurationFromMigrationTime: 0,
       },
 
-      // Base fee configuration
+      // Base fee configuration - use dynamic fee from parameter
       baseFeeParams: {
         baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
         feeSchedulerParam: {
-          startingFeeBps: TRADING_FEE_BPS,
-          endingFeeBps: TRADING_FEE_BPS,
+          startingFeeBps: effectiveFeeBps,
+          endingFeeBps: effectiveFeeBps,
           numberOfPeriod: 0,
           totalDuration: 0,
         },
@@ -252,6 +258,8 @@ export interface CreatePoolParams {
   telegramUrl?: string;
   discordUrl?: string;
   initialBuySol?: number;
+  // Custom trading fee in basis points (10-1000, i.e., 0.1%-10%). Defaults to 200 (2%)
+  tradingFeeBps?: number;
 }
 
 // Create a new token pool on Meteora
@@ -336,7 +344,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   // The SDK calculates sqrtStartPrice, curve, and migrationQuoteThreshold
   // in a way that external terminals (Axiom/DEXTools/Birdeye) can decode
   // See MIGRATION_FIX_HISTORY.md for previous failed attempts with manual calculation
-  const curveConfig = buildCurveConfig();
+  const curveConfig = buildCurveConfig(params.tradingFeeBps);
   
   console.log('[meteora] Using SDK-generated curve config:');
   console.log('[meteora]   sqrtStartPrice:', curveConfig.sqrtStartPrice?.toString());
