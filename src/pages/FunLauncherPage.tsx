@@ -157,6 +157,8 @@ export default function FunLauncherPage() {
   });
   const [phantomImageFile, setPhantomImageFile] = useState<File | null>(null);
   const [phantomImagePreview, setPhantomImagePreview] = useState<string | null>(null);
+  const [phantomMeme, setPhantomMeme] = useState<MemeToken | null>(null);
+  const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
   
   // Banner generation
   const { 
@@ -511,11 +513,71 @@ export default function FunLauncherPage() {
     await performLaunch(describedToken);
   }, [describedToken, performLaunch, toast]);
 
+  // Handle Phantom AI randomization
+  const handlePhantomRandomize = useCallback(async () => {
+    console.log("[FunLauncher] Phantom Randomize clicked");
+    setIsPhantomGenerating(true);
+    setPhantomMeme(null);
+    setPhantomImageFile(null);
+    setPhantomImagePreview(null);
+    
+    try {
+      console.log("[FunLauncher] Calling fun-generate for Phantom mode...");
+      const { data, error } = await supabase.functions.invoke("fun-generate", {
+        body: {}
+      });
+
+      console.log("[FunLauncher] fun-generate response for Phantom:", { data, error });
+
+      if (error) {
+        console.error("[FunLauncher] fun-generate error:", error);
+        throw error;
+      }
+
+      if (data && !data.success) {
+        console.error("[FunLauncher] fun-generate returned failure:", data.error);
+        throw new Error(data.error || "Generation failed on server");
+      }
+
+      if (data?.meme) {
+        console.log("[FunLauncher] Phantom Meme generated:", data.meme);
+        setPhantomMeme(data.meme);
+        // Also update phantomToken for the launch
+        setPhantomToken({
+          name: data.meme.name || "",
+          ticker: data.meme.ticker || "",
+          description: data.meme.description || "",
+          imageUrl: data.meme.imageUrl || "",
+          websiteUrl: data.meme.websiteUrl || "",
+          twitterUrl: data.meme.twitterUrl || "",
+          telegramUrl: data.meme.telegramUrl || "",
+          discordUrl: data.meme.discordUrl || "",
+        });
+        toast({
+          title: "Token Generated! 🎲",
+          description: `${data.meme.name} ($${data.meme.ticker}) is ready for Phantom launch!`,
+        });
+      } else {
+        throw new Error("No meme data returned");
+      }
+    } catch (error) {
+      console.error("[FunLauncher] Phantom generation error:", error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate token concept",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPhantomGenerating(false);
+    }
+  }, [toast]);
+
   // Handle Phantom image upload
   const handlePhantomImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setPhantomImageFile(file);
+      setPhantomMeme(null); // Clear AI meme when user uploads custom image
       const reader = new FileReader();
       reader.onload = (event) => {
         setPhantomImagePreview(event.target?.result as string);
@@ -526,6 +588,7 @@ export default function FunLauncherPage() {
 
   // Upload Phantom image to storage if needed
   const uploadPhantomImageIfNeeded = useCallback(async (): Promise<string> => {
+    // If user uploaded a custom image, use that
     if (phantomImageFile) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -534,8 +597,12 @@ export default function FunLauncherPage() {
         reader.readAsDataURL(phantomImageFile);
       });
     }
+    // If AI generated meme has an image, use that
+    if (phantomMeme?.imageUrl) {
+      return phantomMeme.imageUrl;
+    }
     return phantomToken.imageUrl || "";
-  }, [phantomImageFile, phantomToken.imageUrl]);
+  }, [phantomImageFile, phantomToken.imageUrl, phantomMeme?.imageUrl]);
 
   // Handle Phantom wallet launch
   const handlePhantomLaunch = useCallback(async () => {
@@ -1718,111 +1785,156 @@ export default function FunLauncherPage() {
                           </Button>
                         </div>
 
-                        {/* Token Form */}
-                        <div className="flex items-center gap-4">
-                          <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-purple-500/30">
-                            {phantomImagePreview || phantomToken.imageUrl ? (
-                              <img
-                                src={phantomImagePreview || phantomToken.imageUrl}
-                                alt={phantomToken.name || "Token"}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Bot className="h-8 w-8 text-gray-600" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              value={phantomToken.name}
-                              onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 32) })}
-                              className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
-                              placeholder="Token name"
-                              maxLength={32}
-                            />
-                            <div className="flex items-center gap-1">
-                              <span className="text-purple-400 text-sm">$</span>
-                              <Input
-                                value={phantomToken.ticker}
-                                onChange={(e) =>
-                                  setPhantomToken({
-                                    ...phantomToken,
-                                    ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
-                                  })
-                                }
-                                className="bg-[#1a1a1f] border-[#2a2a35] text-purple-400 font-mono text-sm h-7 px-2 w-28"
-                                placeholder="TICKER"
-                                maxLength={10}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <Textarea
-                          value={phantomToken.description}
-                          onChange={(e) => setPhantomToken({ ...phantomToken, description: e.target.value })}
-                          placeholder="Description (optional)"
-                          className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm min-h-[80px]"
-                          maxLength={500}
-                        />
-
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhantomImageChange}
-                          className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                        />
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <Input
-                            value={phantomToken.websiteUrl || ""}
-                            onChange={(e) => setPhantomToken({ ...phantomToken, websiteUrl: e.target.value })}
-                            className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                            placeholder="Website URL"
-                          />
-                          <Input
-                            value={phantomToken.twitterUrl || ""}
-                            onChange={(e) => setPhantomToken({ ...phantomToken, twitterUrl: e.target.value })}
-                            className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                            placeholder="X / Twitter URL"
-                          />
-                        </div>
-
-                        {/* Launch Button */}
+                        {/* AI Randomize Button */}
                         <Button
-                          onClick={handlePhantomLaunch}
-                          disabled={
-                            isPhantomLaunching || 
-                            !phantomToken.name.trim() || 
-                            !phantomToken.ticker.trim() ||
-                            (phantomWallet.balance !== null && phantomWallet.balance < 0.02)
-                          }
-                          className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold"
+                          onClick={handlePhantomRandomize}
+                          disabled={isPhantomGenerating}
+                          className="w-full bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-white border border-purple-500/30"
+                          variant="outline"
                         >
-                          {isPhantomLaunching ? (
+                          {isPhantomGenerating ? (
                             <>
-                              <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching with Phantom...
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Generating AI Token...
                             </>
                           ) : (
                             <>
-                              <Rocket className="h-4 w-4 mr-2" /> Launch Token (~0.02 SOL)
+                              <Shuffle className="h-4 w-4 mr-2" />
+                              AI Randomize Token
                             </>
                           )}
                         </Button>
 
-                        {/* Balance warning */}
-                        {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && (
-                          <p className="text-xs text-red-400 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Insufficient balance. Need at least 0.02 SOL.
-                          </p>
+                        {/* Loading Animation */}
+                        {isPhantomGenerating && (
+                          <div className="flex flex-col items-center justify-center py-6">
+                            <MemeLoadingAnimation />
+                            <MemeLoadingText />
+                          </div>
                         )}
 
-                        <p className="text-xs text-gray-500 text-center">
-                          You pay launch fee • 100% trading fees to your wallet
-                        </p>
+                        {/* Token Preview/Form */}
+                        {!isPhantomGenerating && (
+                          <>
+                            <div className="flex items-center gap-4">
+                              <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-purple-500/30">
+                                {phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl ? (
+                                  <img
+                                    src={phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl}
+                                    alt={phantomToken.name || "Token"}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Bot className="h-8 w-8 text-gray-600" />
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex-1 space-y-2">
+                                <Input
+                                  value={phantomToken.name}
+                                  onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 32) })}
+                                  className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
+                                  placeholder="Token name"
+                                  maxLength={32}
+                                />
+                                <div className="flex items-center gap-1">
+                                  <span className="text-purple-400 text-sm">$</span>
+                                  <Input
+                                    value={phantomToken.ticker}
+                                    onChange={(e) =>
+                                      setPhantomToken({
+                                        ...phantomToken,
+                                        ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+                                      })
+                                    }
+                                    className="bg-[#1a1a1f] border-[#2a2a35] text-purple-400 font-mono text-sm h-7 px-2 w-28"
+                                    placeholder="TICKER"
+                                    maxLength={10}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <Textarea
+                              value={phantomToken.description}
+                              onChange={(e) => setPhantomToken({ ...phantomToken, description: e.target.value })}
+                              placeholder="Description (optional)"
+                              className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm min-h-[60px]"
+                              maxLength={500}
+                            />
+
+                            {/* Custom Image Upload (optional) */}
+                            <div className="text-xs text-gray-400 flex items-center gap-2">
+                              <span>Or upload custom image:</span>
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePhantomImageChange}
+                                className="bg-[#1a1a1f] border-[#2a2a35] text-white text-xs h-8 flex-1"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                value={phantomToken.websiteUrl || ""}
+                                onChange={(e) => setPhantomToken({ ...phantomToken, websiteUrl: e.target.value })}
+                                className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                                placeholder="Website URL"
+                              />
+                              <Input
+                                value={phantomToken.twitterUrl || ""}
+                                onChange={(e) => setPhantomToken({ ...phantomToken, twitterUrl: e.target.value })}
+                                className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                                placeholder="X / Twitter URL"
+                              />
+                            </div>
+
+                            {/* Launch Button */}
+                            <Button
+                              onClick={handlePhantomLaunch}
+                              disabled={
+                                isPhantomLaunching || 
+                                !phantomToken.name.trim() || 
+                                !phantomToken.ticker.trim() ||
+                                (!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl) ||
+                                (phantomWallet.balance !== null && phantomWallet.balance < 0.02)
+                              }
+                              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold"
+                            >
+                              {isPhantomLaunching ? (
+                                <>
+                                  <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching with Phantom...
+                                </>
+                              ) : (
+                                <>
+                                  <Rocket className="h-4 w-4 mr-2" /> Launch Token (~0.02 SOL)
+                                </>
+                              )}
+                            </Button>
+
+                            {/* Balance warning */}
+                            {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && (
+                              <p className="text-xs text-red-400 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Insufficient balance. Need at least 0.02 SOL.
+                              </p>
+                            )}
+
+                            {/* Missing image warning */}
+                            {!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl && phantomToken.name && (
+                              <p className="text-xs text-yellow-400 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Click "AI Randomize" or upload an image to continue.
+                              </p>
+                            )}
+
+                            <p className="text-xs text-gray-500 text-center">
+                              You pay launch fee • 100% trading fees to your wallet
+                            </p>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
