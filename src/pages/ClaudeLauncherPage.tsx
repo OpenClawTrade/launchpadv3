@@ -1016,15 +1016,38 @@ export default function ClaudeLauncherPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        {/* Two-Column Layout: Generator Left, Stats Right */}
-        <div className="grid lg:grid-cols-[380px_1fr] gap-6 mb-6">
-          {/* Token Generator - Compact */}
-          <div className="claude-card p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Rocket className="h-5 w-5 text-[hsl(160,70%,50%)]" />
-              <h2 className="font-semibold text-sm">Launch Token</h2>
-            </div>
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* Stats Grid - Full Width at Top */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="claude-stat-card py-3 px-4">
+            <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><BarChart3 className="h-3.5 w-3.5 text-[hsl(160,70%,50%)]" /> Tokens</div>
+            <div className="text-xl font-bold">{tokens.length}</div>
+          </div>
+          <div className="claude-stat-card py-3 px-4">
+            <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><Coins className="h-3.5 w-3.5 text-[hsl(160,70%,50%)]" /> Creator Paid</div>
+            <div className="text-xl font-bold">{formatSOL(totalCreatorPaid)}</div>
+            <div className="text-[10px] text-[hsl(220,10%,45%)]">{formatUsd(totalCreatorPaid)}</div>
+          </div>
+          <div className="claude-stat-card py-3 px-4">
+            <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><ArrowDownCircle className="h-3.5 w-3.5 text-[hsl(200,80%,55%)]" /> Buybacks</div>
+            <div className="text-xl font-bold">{formatSOL(totalBuybacks)}</div>
+            <div className="text-[10px] text-[hsl(220,10%,45%)]">{formatUsd(totalBuybacks)}</div>
+          </div>
+          <div className="claude-stat-card py-3 px-4">
+            <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><Users className="h-3.5 w-3.5 text-[hsl(45,90%,55%)]" /> Creators</div>
+            <div className="text-xl font-bold">{creatorsData.length}</div>
+          </div>
+        </div>
+
+        {/* Admin Sniper Panel */}
+        {isAdmin && walletAddress && <div className="mb-6"><SniperStatusPanel /></div>}
+
+        {/* Token Generator - Compact, Full Width */}
+        <div className="claude-card p-4 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Rocket className="h-5 w-5 text-[hsl(160,70%,50%)]" />
+            <h2 className="font-semibold text-sm">Launch Token</h2>
+          </div>
             
             {/* Mode Selector - Compact */}
             <div className="grid grid-cols-4 gap-1 mb-4">
@@ -1215,34 +1238,6 @@ export default function ClaudeLauncherPage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Stats Grid - Right Column */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="claude-stat-card py-3 px-4">
-                <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><BarChart3 className="h-3.5 w-3.5 text-[hsl(160,70%,50%)]" /> Tokens</div>
-                <div className="text-xl font-bold">{tokens.length}</div>
-              </div>
-              <div className="claude-stat-card py-3 px-4">
-                <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><Coins className="h-3.5 w-3.5 text-[hsl(160,70%,50%)]" /> Creator Paid</div>
-                <div className="text-xl font-bold">{formatSOL(totalCreatorPaid)}</div>
-                <div className="text-[10px] text-[hsl(220,10%,45%)]">{formatUsd(totalCreatorPaid)}</div>
-              </div>
-              <div className="claude-stat-card py-3 px-4">
-                <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><ArrowDownCircle className="h-3.5 w-3.5 text-[hsl(200,80%,55%)]" /> Buybacks</div>
-                <div className="text-xl font-bold">{formatSOL(totalBuybacks)}</div>
-                <div className="text-[10px] text-[hsl(220,10%,45%)]">{formatUsd(totalBuybacks)}</div>
-              </div>
-              <div className="claude-stat-card py-3 px-4">
-                <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><Users className="h-3.5 w-3.5 text-[hsl(45,90%,55%)]" /> Creators</div>
-                <div className="text-xl font-bold">{creatorsData.length}</div>
-              </div>
-            </div>
-
-            {/* Admin Sniper Panel */}
-            {isAdmin && walletAddress && <SniperStatusPanel />}
-          </div>
         </div>
 
         {/* Main Tabs */}
