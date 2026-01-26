@@ -673,8 +673,12 @@ export default function FunLauncherPage() {
       if (data.unsignedTransactions && data.unsignedTransactions.length > 0) {
         console.log("[FunLauncher] Signing transactions with Phantom...");
         
+        // Get Helius RPC from runtime config or localStorage cache (never fallback to public RPC)
         const rpcUrl = (window as unknown as { __RUNTIME_CONFIG__?: { heliusRpcUrl?: string } }).__RUNTIME_CONFIG__?.heliusRpcUrl 
-          || 'https://api.mainnet-beta.solana.com';
+          || localStorage.getItem('heliusRpcUrl')
+          || import.meta.env.VITE_HELIUS_RPC_URL
+          || 'https://mainnet.helius-rpc.com/?api-key=f5b6ebeb-c3d0-422b-8785-12dfa7af0585';
+        console.log("[FunLauncher] Using RPC URL:", rpcUrl.slice(0, 50) + "...");
         const connection = new Connection(rpcUrl, 'confirmed');
 
         for (let i = 0; i < data.unsignedTransactions.length; i++) {
