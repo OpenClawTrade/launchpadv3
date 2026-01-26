@@ -1472,6 +1472,54 @@ export type Database = {
           },
         ]
       }
+      pending_token_metadata: {
+        Row: {
+          created_at: string
+          creator_wallet: string | null
+          description: string | null
+          discord_url: string | null
+          expires_at: string | null
+          image_url: string | null
+          mint_address: string
+          name: string
+          telegram_url: string | null
+          ticker: string
+          twitter_url: string | null
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          creator_wallet?: string | null
+          description?: string | null
+          discord_url?: string | null
+          expires_at?: string | null
+          image_url?: string | null
+          mint_address: string
+          name: string
+          telegram_url?: string | null
+          ticker: string
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          creator_wallet?: string | null
+          description?: string | null
+          discord_url?: string | null
+          expires_at?: string | null
+          image_url?: string | null
+          mint_address?: string
+          name?: string
+          telegram_url?: string | null
+          ticker?: string
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       post_hashtags: {
         Row: {
           created_at: string | null

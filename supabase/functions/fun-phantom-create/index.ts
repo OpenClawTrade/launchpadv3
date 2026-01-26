@@ -214,6 +214,11 @@ serve(async (req) => {
       }
     }
 
+    // ===== EARLY METADATA STORE =====
+    // Store pending metadata with the image/socials BEFORE on-chain tx so that
+    // the token-metadata endpoint can serve it as soon as explorers fetch it.
+    // Key will be set after we have the mintAddress from pool creation.
+
     // Call pool creation API (Vercel /api route).
     // IMPORTANT: If METEORA_API_URL points to an older deployment, Phantom launches can fail with
     // "URI too long" due to older metadata URI construction.
@@ -300,6 +305,34 @@ serve(async (req) => {
         txCount: unsignedTransactions.length 
       });
 
+      // ===== STORE PENDING METADATA =====
+      // Insert into pending_token_metadata so the token-metadata endpoint
+      // can serve image/socials as soon as explorers fetch the metadata URI.
+      try {
+        const { error: pendingErr } = await supabase
+          .from("pending_token_metadata")
+          .upsert({
+            mint_address: mintAddress,
+            name: name.slice(0, 50),
+            ticker: ticker.toUpperCase().slice(0, 5),
+            description: description?.slice(0, 500) || null,
+            image_url: storedImageUrl || null,
+            website_url: websiteUrl || DEFAULT_WEBSITE,
+            twitter_url: twitterUrl || DEFAULT_TWITTER,
+            telegram_url: body.telegramUrl || null,
+            discord_url: body.discordUrl || null,
+            creator_wallet: phantomWallet,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min TTL
+          }, { onConflict: "mint_address" });
+        if (pendingErr) {
+          console.warn("[fun-phantom-create] ⚠️ Failed to store pending metadata:", pendingErr.message);
+        } else {
+          console.log("[fun-phantom-create] 📝 Pending metadata stored for:", mintAddress);
+        }
+      } catch (pendingStoreErr) {
+        console.warn("[fun-phantom-create] ⚠️ Pending metadata store error:", pendingStoreErr);
+      }
+
     } catch (fetchError) {
       console.error("[fun-phantom-create] ❌ Pool API fetch error:", fetchError);
       return new Response(
@@ -311,7 +344,7 @@ serve(async (req) => {
       );
     }
 
-    // NOTE: We do NOT insert into database here!
+    // NOTE: We do NOT insert into fun_tokens database here!
     // Token will only be recorded after Phantom confirms the transaction
 
     return new Response(
