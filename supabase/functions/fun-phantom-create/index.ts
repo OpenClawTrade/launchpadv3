@@ -31,7 +31,6 @@ function isBlockedName(name: string): boolean {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    // Always respond to preflight with CORS headers (and no auth requirement)
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
@@ -77,8 +76,88 @@ serve(async (req) => {
     }
     // ===== END RATE LIMIT ENFORCEMENT =====
 
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, phantomWallet } = await req.json();
+    const body = await req.json();
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress } = body;
 
+    // ===== PHASE 2: Record token after confirmation =====
+    if (confirmed === true && confirmedMintAddress && confirmedPoolAddress) {
+      console.log("[fun-phantom-create] 📝 Phase 2: Recording confirmed token...");
+      
+      // Upload base64 image if needed
+      let storedImageUrl = imageUrl;
+      if (imageUrl?.startsWith("data:image")) {
+        try {
+          const base64Data = imageUrl.split(",")[1];
+          const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          const fileName = `fun-tokens/${Date.now()}-${ticker.toLowerCase()}.png`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("post-images")
+            .upload(fileName, imageBuffer, {
+              contentType: "image/png",
+              upsert: true,
+            });
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from("post-images")
+              .getPublicUrl(fileName);
+            storedImageUrl = publicUrl;
+          }
+        } catch (uploadErr) {
+          console.error("[fun-phantom-create] ⚠️ Image processing error:", uploadErr);
+        }
+      }
+
+      // Insert into fun_tokens after confirmation
+      const { data: funToken, error: insertError } = await supabase
+        .from("fun_tokens")
+        .insert({
+          name: name.slice(0, 50),
+          ticker: ticker.toUpperCase().slice(0, 5),
+          description: description?.slice(0, 500) || null,
+          image_url: storedImageUrl || null,
+          creator_wallet: phantomWallet,
+          mint_address: confirmedMintAddress,
+          dbc_pool_address: confirmedPoolAddress,
+          status: "active",
+          price_sol: 0.00000003,
+          website_url: websiteUrl || DEFAULT_WEBSITE,
+          twitter_url: twitterUrl || DEFAULT_TWITTER,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("[fun-phantom-create] ❌ Insert error:", insertError);
+        throw new Error("Failed to create token record");
+      }
+
+      // Record this launch for rate limiting
+      try {
+        await supabase.from("launch_rate_limits").insert({
+          ip_address: clientIP,
+          token_id: null,
+        });
+        console.log("[fun-phantom-create] 📊 Rate limit recorded for IP:", clientIP);
+      } catch (rlErr) {
+        console.warn("[fun-phantom-create] ⚠️ Failed to record rate limit:", rlErr);
+      }
+
+      console.log("[fun-phantom-create] ✅ Token recorded:", { id: funToken.id, name: funToken.name });
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          tokenId: funToken.id,
+          recorded: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== PHASE 1: Prepare transactions (no DB insert) =====
+    
     // Validate required fields
     if (!name || !ticker || !phantomWallet) {
       return new Response(
@@ -104,7 +183,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("[fun-phantom-create] 🚀 Creating Phantom-paid token:", { name, ticker, phantomWallet, clientIP });
+    console.log("[fun-phantom-create] 🚀 Phase 1: Preparing Phantom transactions:", { name, ticker, phantomWallet, clientIP });
 
     // Upload base64 image to storage if provided
     let storedImageUrl = imageUrl;
@@ -203,7 +282,7 @@ serve(async (req) => {
       dbcPoolAddress = poolData.dbcPoolAddress || poolData.poolAddress;
       unsignedTransactions = poolData.unsignedTransactions || [];
       
-      console.log("[fun-phantom-create] ✅ Pool created with Phantom wallet:", { 
+      console.log("[fun-phantom-create] ✅ Transactions prepared (NOT recorded in DB yet):", { 
         mintAddress, 
         dbcPoolAddress,
         txCount: unsignedTransactions.length 
@@ -220,64 +299,23 @@ serve(async (req) => {
       );
     }
 
-    // Insert into fun_tokens with Phantom wallet as creator
-    const { data: funToken, error: insertError } = await supabase
-      .from("fun_tokens")
-      .insert({
-        name: name.slice(0, 50),
-        ticker: ticker.toUpperCase().slice(0, 5),
-        description: description?.slice(0, 500) || null,
-        image_url: storedImageUrl || null,
-        creator_wallet: phantomWallet, // Phantom wallet receives fees
-        mint_address: mintAddress,
-        dbc_pool_address: dbcPoolAddress,
-        status: "active",
-        price_sol: 0.00000003,
-        website_url: websiteUrl || DEFAULT_WEBSITE,
-        twitter_url: twitterUrl || DEFAULT_TWITTER,
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error("[fun-phantom-create] ❌ Insert error:", insertError);
-      throw new Error("Failed to create token record");
-    }
-
-    console.log("[fun-phantom-create] ✅ Token created successfully:", {
-      id: funToken.id,
-      name: funToken.name,
-      ticker: funToken.ticker,
-      mintAddress,
-      dbcPoolAddress,
-      creatorWallet: phantomWallet,
-    });
-
-    // Record this launch for rate limiting
-    try {
-      await supabase.from("launch_rate_limits").insert({
-        ip_address: clientIP,
-        token_id: null,
-      });
-      console.log("[fun-phantom-create] 📊 Rate limit recorded for IP:", clientIP);
-    } catch (rlErr) {
-      console.warn("[fun-phantom-create] ⚠️ Failed to record rate limit:", rlErr);
-    }
+    // NOTE: We do NOT insert into database here!
+    // Token will only be recorded after Phantom confirms the transaction
 
     return new Response(
       JSON.stringify({
         success: true,
-        tokenId: funToken.id,
-        name: funToken.name,
-        ticker: funToken.ticker,
+        // Return data needed for Phase 2 after confirmation
+        name: name.slice(0, 50),
+        ticker: ticker.toUpperCase().slice(0, 5),
         mintAddress,
         dbcPoolAddress,
         imageUrl: storedImageUrl,
         unsignedTransactions, // Return transactions for Phantom to sign
-        onChainSuccess: true,
+        onChainSuccess: false, // Not yet confirmed
         solscanUrl: `https://solscan.io/token/${mintAddress}`,
         tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}`,
-        message: "🚀 Token launched with Phantom! 100% of trading fees go to your wallet.",
+        message: "🚀 Ready for Phantom signature. Token will be recorded after confirmation.",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
