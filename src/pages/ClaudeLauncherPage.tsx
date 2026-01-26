@@ -125,6 +125,8 @@ export default function ClaudeLauncherPage() {
   const [phantomImagePreview, setPhantomImagePreview] = useState<string | null>(null);
   const [phantomMeme, setPhantomMeme] = useState<MemeToken | null>(null);
   const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
+  const [phantomDescribePrompt, setPhantomDescribePrompt] = useState("");
+  const [phantomInputMode, setPhantomInputMode] = useState<"random" | "describe" | "custom">("random");
   
   const { 
     generateBanner, 
@@ -485,6 +487,46 @@ export default function ClaudeLauncherPage() {
     }
   }, [toast, clearBanner]);
 
+  const handlePhantomDescribeGenerate = useCallback(async () => {
+    if (!phantomDescribePrompt.trim()) {
+      toast({
+        title: "Enter a description",
+        description: "Describe the meme character you want to create",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPhantomGenerating(true);
+    setPhantomMeme(null);
+    clearBanner();
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("fun-generate", {
+        body: { description: phantomDescribePrompt }
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || "Generation failed");
+
+      if (data?.meme) {
+        setPhantomMeme(data.meme);
+        toast({
+          title: "Token Generated! 🎨",
+          description: `${data.meme.name} ($${data.meme.ticker}) created from your description!`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Failed to generate meme",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPhantomGenerating(false);
+    }
+  }, [phantomDescribePrompt, toast, clearBanner]);
+
   const handlePhantomImageChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -539,6 +581,7 @@ export default function ClaudeLauncherPage() {
         imageUrl = await uploadPhantomImageIfNeeded();
       }
 
+      // Phase 1: Get unsigned transactions (token NOT recorded in DB yet)
       const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
         body: {
           name: tokenToLaunch.name.slice(0, 20),
@@ -549,30 +592,64 @@ export default function ClaudeLauncherPage() {
           twitterUrl: tokenToLaunch.twitterUrl,
           telegramUrl: tokenToLaunch.telegramUrl,
           discordUrl: tokenToLaunch.discordUrl,
-          creatorWallet: phantomWallet.publicKey,
+          phantomWallet: phantomWallet.address,
         },
       });
 
       if (error) throw new Error(error.message || "Failed to prepare transaction");
       if (!data?.success) throw new Error(data?.error || "Failed to prepare transaction");
 
-      const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
-      const txBuffer = Buffer.from(data.serializedTransaction, "base64");
+      // Get RPC URL from localStorage or env
+      const rpcUrl = localStorage.getItem("heliusRpcUrl") || "https://api.mainnet-beta.solana.com";
+      const connection = new Connection(rpcUrl, "confirmed");
       
-      let transaction: Transaction | VersionedTransaction;
-      try {
-        transaction = VersionedTransaction.deserialize(txBuffer);
-      } catch {
-        transaction = Transaction.from(txBuffer);
+      // Process unsigned transactions
+      const unsignedTxs = data.unsignedTransactions || [];
+      if (unsignedTxs.length === 0) {
+        throw new Error("No transactions to sign");
       }
 
-      const signedTx = await phantomWallet.signTransaction(transaction);
-      const signature = await connection.sendRawTransaction(signedTx.serialize(), {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
+      // Sign and send each transaction
+      for (let i = 0; i < unsignedTxs.length; i++) {
+        const txBuffer = Buffer.from(unsignedTxs[i], "base64");
+        
+        let transaction: Transaction | VersionedTransaction;
+        try {
+          transaction = VersionedTransaction.deserialize(txBuffer);
+        } catch {
+          transaction = Transaction.from(txBuffer);
+        }
+
+        const signedTx = await phantomWallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        });
+
+        await connection.confirmTransaction(signature, "confirmed");
+        console.log(`[ClaudeLauncher] Transaction ${i + 1}/${unsignedTxs.length} confirmed:`, signature);
+      }
+
+      // Phase 2: Record token in database AFTER confirmation
+      const { error: recordError } = await supabase.functions.invoke("fun-phantom-create", {
+        body: {
+          confirmed: true,
+          name: tokenToLaunch.name.slice(0, 20),
+          ticker: tokenToLaunch.ticker.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6),
+          description: tokenToLaunch.description || "",
+          imageUrl,
+          websiteUrl: tokenToLaunch.websiteUrl,
+          twitterUrl: tokenToLaunch.twitterUrl,
+          phantomWallet: phantomWallet.address,
+          mintAddress: data.mintAddress,
+          dbcPoolAddress: data.dbcPoolAddress,
+        },
       });
 
-      await connection.confirmTransaction(signature, "confirmed");
+      if (recordError) {
+        console.error("[ClaudeLauncher] Failed to record token:", recordError);
+        // Still show success since on-chain worked
+      }
 
       setLaunchResult({
         success: true,
@@ -581,7 +658,7 @@ export default function ClaudeLauncherPage() {
         mintAddress: data.mintAddress,
         imageUrl: imageUrl,
         onChainSuccess: true,
-        solscanUrl: `https://solscan.io/tx/${signature}`,
+        solscanUrl: data.solscanUrl,
         tradeUrl: data.tradeUrl,
         message: "Token launched successfully with your Phantom wallet!",
       });
@@ -605,11 +682,12 @@ export default function ClaudeLauncherPage() {
       });
       setPhantomImageFile(null);
       setPhantomImagePreview(null);
+      setPhantomDescribePrompt("");
       clearBanner();
       refetch();
 
     } catch (error) {
-      console.error("[FunLauncher] Phantom launch error:", error);
+      console.error("[ClaudeLauncher] Phantom launch error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to launch token";
       
       setLaunchResult({
@@ -626,7 +704,7 @@ export default function ClaudeLauncherPage() {
     } finally {
       setIsPhantomLaunching(false);
     }
-  }, [phantomWallet, phantomMeme, phantomToken, phantomImageFile, uploadPhantomImageIfNeeded, toast, clearBanner, refetch]);
+  }, [phantomWallet, phantomMeme, phantomToken, phantomImageFile, phantomDescribePrompt, uploadPhantomImageIfNeeded, toast, clearBanner, refetch]);
 
   // Stats calculations
   const totalCreatorPaid = distributions.reduce((acc, d) => acc + (d.amount_sol || 0), 0);
@@ -1034,56 +1112,176 @@ export default function ClaudeLauncherPage() {
 
                   {phantomWallet.isConnected && (
                     <>
-                      <div className="flex items-start gap-5 p-5 bg-[hsl(40,30%,96%)] rounded-2xl">
-                        <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white border border-[hsl(35,15%,85%)] flex-shrink-0">
-                          {(phantomMeme?.imageUrl || phantomImagePreview || phantomToken.imageUrl) ? (
-                            <img src={phantomMeme?.imageUrl || phantomImagePreview || phantomToken.imageUrl} alt="Token" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Bot className="h-8 w-8 text-[hsl(25,10%,75%)]" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 space-y-2">
-                          <Input
-                            value={phantomMeme?.name || phantomToken.name}
-                            onChange={(e) => phantomMeme ? setPhantomMeme({ ...phantomMeme, name: e.target.value.slice(0, 20) }) : setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 20) })}
-                            className="claude-input font-semibold"
-                            placeholder="Token name"
-                            maxLength={20}
-                          />
-                          <div className="flex items-center gap-2">
-                            <span className="text-[hsl(15,70%,55%)] font-semibold">$</span>
-                            <Input
-                              value={phantomMeme?.ticker || phantomToken.ticker}
-                              onChange={(e) => {
-                                const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-                                phantomMeme ? setPhantomMeme({ ...phantomMeme, ticker: val }) : setPhantomToken({ ...phantomToken, ticker: val });
-                              }}
-                              className="claude-input w-28 font-mono"
-                              placeholder="TICKER"
-                              maxLength={6}
-                            />
-                          </div>
-                        </div>
+                      {/* Phantom Input Mode Selector */}
+                      <div className="flex gap-2 p-1 bg-[hsl(35,20%,92%)] rounded-xl">
+                        {[
+                          { id: "random", label: "Random", icon: Shuffle },
+                          { id: "describe", label: "Describe", icon: Sparkles },
+                          { id: "custom", label: "Custom", icon: Image },
+                        ].map((mode) => (
+                          <button
+                            key={mode.id}
+                            onClick={() => {
+                              setPhantomInputMode(mode.id as any);
+                              setPhantomMeme(null);
+                            }}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                              phantomInputMode === mode.id
+                                ? "bg-white text-[hsl(25,30%,15%)] shadow-sm"
+                                : "text-[hsl(25,10%,55%)] hover:text-[hsl(25,15%,40%)]"
+                            }`}
+                          >
+                            <mode.icon className="h-4 w-4" />
+                            <span className="hidden sm:inline">{mode.label}</span>
+                          </button>
+                        ))}
                       </div>
 
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={handlePhantomRandomize}
-                          disabled={isPhantomGenerating}
-                          className="flex-1 claude-btn-secondary"
-                        >
-                          {isPhantomGenerating ? <Shuffle className="h-4 w-4 animate-spin" /> : <Shuffle className="h-4 w-4 mr-2" />}
-                          {!isPhantomGenerating && "Generate"}
-                        </Button>
-                        <label className="flex-1">
-                          <Input type="file" accept="image/*" onChange={handlePhantomImageChange} className="hidden" />
-                          <div className="claude-btn-secondary h-10 flex items-center justify-center cursor-pointer rounded-xl">
-                            <Image className="h-4 w-4 mr-2" /> Upload
+                      {/* Random Mode */}
+                      {phantomInputMode === "random" && (
+                        <>
+                          <div className="flex items-start gap-5 p-5 bg-[hsl(40,30%,96%)] rounded-2xl">
+                            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white border border-[hsl(35,15%,85%)] flex-shrink-0">
+                              {phantomMeme?.imageUrl ? (
+                                <img src={phantomMeme.imageUrl} alt="Token" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Bot className="h-8 w-8 text-[hsl(25,10%,75%)]" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              {phantomMeme ? (
+                                <>
+                                  <Input
+                                    value={phantomMeme.name}
+                                    onChange={(e) => setPhantomMeme({ ...phantomMeme, name: e.target.value.slice(0, 20) })}
+                                    className="claude-input font-semibold"
+                                    maxLength={20}
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[hsl(15,70%,55%)] font-semibold">$</span>
+                                    <Input
+                                      value={phantomMeme.ticker}
+                                      onChange={(e) => setPhantomMeme({ ...phantomMeme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })}
+                                      className="claude-input w-28 font-mono"
+                                      maxLength={6}
+                                    />
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-[hsl(25,10%,55%)] py-4">Click Generate to create a token</p>
+                              )}
+                            </div>
                           </div>
-                        </label>
-                      </div>
+
+                          <Button
+                            onClick={handlePhantomRandomize}
+                            disabled={isPhantomGenerating}
+                            className="w-full claude-btn-secondary"
+                          >
+                            {isPhantomGenerating ? <Shuffle className="h-4 w-4 mr-2 animate-spin" /> : <Shuffle className="h-4 w-4 mr-2" />}
+                            {isPhantomGenerating ? "Generating..." : "Generate Random Token"}
+                          </Button>
+                        </>
+                      )}
+
+                      {/* Describe Mode */}
+                      {phantomInputMode === "describe" && (
+                        <>
+                          <div className="p-5 bg-[hsl(40,30%,96%)] rounded-2xl space-y-4">
+                            <Textarea
+                              value={phantomDescribePrompt}
+                              onChange={(e) => setPhantomDescribePrompt(e.target.value)}
+                              placeholder="Describe your meme concept... (e.g., 'A friendly robot cat wearing sunglasses')"
+                              className="claude-input min-h-[100px] resize-none"
+                            />
+                            <Button
+                              onClick={handlePhantomDescribeGenerate}
+                              disabled={isPhantomGenerating || !phantomDescribePrompt.trim()}
+                              className="w-full claude-btn-secondary"
+                            >
+                              {isPhantomGenerating ? <Sparkles className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                              {isPhantomGenerating ? "Creating..." : "Generate from Description"}
+                            </Button>
+                          </div>
+
+                          {phantomMeme && (
+                            <div className="flex items-center gap-4 p-4 bg-[hsl(40,30%,96%)] rounded-xl">
+                              <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-[hsl(15,70%,55%)]">
+                                <img src={phantomMeme.imageUrl} alt={phantomMeme.name} className="w-full h-full object-cover" />
+                              </div>
+                              <div>
+                                <Input
+                                  value={phantomMeme.name}
+                                  onChange={(e) => setPhantomMeme({ ...phantomMeme, name: e.target.value.slice(0, 20) })}
+                                  className="claude-input font-semibold mb-1"
+                                  maxLength={20}
+                                />
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[hsl(15,70%,55%)] font-mono">$</span>
+                                  <Input
+                                    value={phantomMeme.ticker}
+                                    onChange={(e) => setPhantomMeme({ ...phantomMeme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })}
+                                    className="claude-input w-24 font-mono text-sm"
+                                    maxLength={6}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Custom Mode */}
+                      {phantomInputMode === "custom" && (
+                        <div className="p-5 bg-[hsl(40,30%,96%)] rounded-2xl space-y-4">
+                          <div className="flex items-start gap-4">
+                            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white border border-[hsl(35,15%,85%)] flex-shrink-0">
+                              {(phantomImagePreview || phantomToken.imageUrl) ? (
+                                <img src={phantomImagePreview || phantomToken.imageUrl} alt="Token" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Image className="h-8 w-8 text-[hsl(25,10%,75%)]" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              <Input
+                                value={phantomToken.name}
+                                onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 20) })}
+                                className="claude-input font-semibold"
+                                placeholder="Token name"
+                                maxLength={20}
+                              />
+                              <div className="flex items-center gap-2">
+                                <span className="text-[hsl(15,70%,55%)] font-semibold">$</span>
+                                <Input
+                                  value={phantomToken.ticker}
+                                  onChange={(e) => setPhantomToken({ ...phantomToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) })}
+                                  className="claude-input w-28 font-mono"
+                                  placeholder="TICKER"
+                                  maxLength={10}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <Textarea
+                            value={phantomToken.description}
+                            onChange={(e) => setPhantomToken({ ...phantomToken, description: e.target.value })}
+                            placeholder="Description (optional)"
+                            className="claude-input min-h-[60px]"
+                          />
+
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhantomImageChange}
+                            className="claude-input text-sm"
+                          />
+                        </div>
+                      )}
 
                       <Button
                         onClick={handlePhantomLaunch}
@@ -1098,7 +1296,7 @@ export default function ClaudeLauncherPage() {
                       </Button>
 
                       <p className="text-xs text-center text-[hsl(25,10%,55%)]">
-                        You pay ~0.02 SOL and receive 100% of trading fees
+                        You pay ~0.02 SOL and receive 50% of trading fees
                       </p>
                     </>
                   )}
