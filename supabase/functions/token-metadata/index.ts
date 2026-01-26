@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       creator_wallet: string;
     }
 
-    // Fetch token from database - check both tokens and fun_tokens tables
+    // Fetch token from database - check tokens, fun_tokens, and pending_token_metadata
     let token: TokenData | null = null;
     let tokenSource = 'tokens';
     
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       .from('tokens')
       .select('*')
       .eq('mint_address', mintAddress)
-      .single();
+      .maybeSingle();
 
     if (launchpadToken && !launchpadError) {
       token = launchpadToken as TokenData;
@@ -67,21 +67,42 @@ Deno.serve(async (req) => {
         .from('fun_tokens')
         .select('*')
         .eq('mint_address', mintAddress)
-        .single();
+        .maybeSingle();
       
       if (funToken && !funError) {
         token = funToken as TokenData;
         tokenSource = 'fun_tokens';
+      } else {
+        // Finally, check pending_token_metadata (Phantom launch in-flight)
+        const { data: pendingToken, error: pendingError } = await supabase
+          .from('pending_token_metadata')
+          .select('*')
+          .eq('mint_address', mintAddress)
+          .maybeSingle();
+        
+        if (pendingToken && !pendingError) {
+          console.log('[token-metadata] Found pending metadata for:', mintAddress);
+          token = {
+            name: pendingToken.name,
+            ticker: pendingToken.ticker,
+            description: pendingToken.description,
+            image_url: pendingToken.image_url,
+            website_url: pendingToken.website_url,
+            twitter_url: pendingToken.twitter_url,
+            telegram_url: pendingToken.telegram_url,
+            discord_url: pendingToken.discord_url,
+            status: 'launching',
+            creator_wallet: pendingToken.creator_wallet || '',
+          };
+          tokenSource = 'pending_token_metadata';
+        }
       }
     }
 
-    // If token not found in DB yet (e.g., Phantom launch in progress), return fallback metadata
-    // This is normal for Phantom launches where on-chain tx happens before DB insert
+    // If token not found anywhere, return a fallback
     if (!token) {
-      console.log('[token-metadata] Token not in DB yet, returning fallback:', mintAddress);
+      console.log('[token-metadata] Token not in any table, returning generic fallback:', mintAddress);
       
-      // Return minimal valid Metaplex metadata so the on-chain tx succeeds
-      // The metadata will be updated when token is recorded in DB
       const fallbackMetadata = {
         name: 'New Token',
         symbol: 'TOKEN',
@@ -106,7 +127,7 @@ Deno.serve(async (req) => {
           status: 200, 
           headers: {
             ...corsHeaders,
-            'Cache-Control': 'no-cache, no-store', // Don't cache fallback
+            'Cache-Control': 'no-cache, no-store',
           }
         }
       );
