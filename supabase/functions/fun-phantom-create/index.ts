@@ -214,21 +214,32 @@ serve(async (req) => {
       }
     }
 
-    // Call Vercel API to create pool - but with Phantom wallet as fee payer
-    const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
-    
+    // Call pool creation API (Vercel /api route).
+    // IMPORTANT: If METEORA_API_URL points to an older deployment, Phantom launches can fail with
+    // "URI too long" due to older metadata URI construction.
+    // To make preview + current deployment consistent, fallback to the request Origin.
+    const origin = req.headers.get("origin")?.replace(/\/$/, "") || "";
+    const meteoraApiUrl =
+      Deno.env.get("METEORA_API_URL") ||
+      Deno.env.get("VITE_METEORA_API_URL") ||
+      origin;
+
     if (!meteoraApiUrl) {
-      console.error("[fun-phantom-create] ❌ METEORA_API_URL not configured");
+      console.error("[fun-phantom-create] ❌ METEORA_API_URL not configured and no Origin header present");
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "On-chain pool creation not configured. Please configure METEORA_API_URL." 
+        JSON.stringify({
+          success: false,
+          error: "On-chain pool creation not configured. Please configure METEORA_API_URL.",
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("[fun-phantom-create] 📡 Calling Meteora API for Phantom launch:", `${meteoraApiUrl}/api/pool/create-phantom`);
+    console.log(
+      "[fun-phantom-create] 📡 Calling pool creation API for Phantom launch:",
+      `${meteoraApiUrl}/api/pool/create-phantom`,
+      { usedOriginFallback: !Deno.env.get("METEORA_API_URL") && !Deno.env.get("VITE_METEORA_API_URL") }
+    );
 
     let mintAddress: string;
     let dbcPoolAddress: string | null = null;
