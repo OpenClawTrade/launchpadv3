@@ -62,6 +62,8 @@ import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { Ai67xPriceDisplay } from "@/components/layout/Ai67xPriceDisplay";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { Link } from "react-router-dom";
+import { usePhantomWallet } from "@/hooks/usePhantomWallet";
+import { Transaction, Connection, VersionedTransaction } from "@solana/web3.js";
 
 interface MemeToken {
   name: string;
@@ -113,7 +115,7 @@ export default function FunLauncherPage() {
   const { data: distributions = [] } = useFunDistributions();
   const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
   const { data: topPerformers = [], isLoading: topPerformersLoading } = useFunTopPerformers(10);
-  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe">("random");
+  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
     name: "",
@@ -139,6 +141,22 @@ export default function FunLauncherPage() {
   
   // Admin check for sniper panel (uses walletAddress from input field)
   const { isAdmin } = useIsAdmin(walletAddress || null);
+  
+  // Phantom wallet integration for "Phantom" launch mode
+  const phantomWallet = usePhantomWallet();
+  const [isPhantomLaunching, setIsPhantomLaunching] = useState(false);
+  const [phantomToken, setPhantomToken] = useState<MemeToken>({
+    name: "",
+    ticker: "",
+    description: "",
+    imageUrl: "",
+    websiteUrl: "",
+    twitterUrl: "",
+    telegramUrl: "",
+    discordUrl: "",
+  });
+  const [phantomImageFile, setPhantomImageFile] = useState<File | null>(null);
+  const [phantomImagePreview, setPhantomImagePreview] = useState<string | null>(null);
   
   // Banner generation
   const { 
@@ -493,6 +511,191 @@ export default function FunLauncherPage() {
     await performLaunch(describedToken);
   }, [describedToken, performLaunch, toast]);
 
+  // Handle Phantom image upload
+  const handlePhantomImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhantomImageFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPhantomImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  // Upload Phantom image to storage if needed
+  const uploadPhantomImageIfNeeded = useCallback(async (): Promise<string> => {
+    if (phantomImageFile) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Failed to read image file"));
+        reader.readAsDataURL(phantomImageFile);
+      });
+    }
+    return phantomToken.imageUrl || "";
+  }, [phantomImageFile, phantomToken.imageUrl]);
+
+  // Handle Phantom wallet launch
+  const handlePhantomLaunch = useCallback(async () => {
+    if (!phantomWallet.isConnected || !phantomWallet.address) {
+      toast({
+        title: "Connect Phantom",
+        description: "Please connect your Phantom wallet first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!phantomToken.name.trim() || !phantomToken.ticker.trim()) {
+      toast({
+        title: "Missing token info",
+        description: "Name and ticker are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check balance (need ~0.02 SOL for launch)
+    if (phantomWallet.balance !== null && phantomWallet.balance < 0.02) {
+      toast({
+        title: "Insufficient balance",
+        description: "You need at least 0.02 SOL to launch a token",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPhantomLaunching(true);
+
+    try {
+      // Upload image if provided
+      const imageUrl = await uploadPhantomImageIfNeeded();
+
+      console.log("[FunLauncher] Starting Phantom launch:", {
+        name: phantomToken.name,
+        ticker: phantomToken.ticker,
+        phantomWallet: phantomWallet.address,
+      });
+
+      // Call the Phantom-specific edge function
+      const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
+        body: {
+          name: phantomToken.name.slice(0, 32),
+          ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+          description: phantomToken.description?.slice(0, 500) || `${phantomToken.name} - A fun meme coin!`,
+          imageUrl,
+          websiteUrl: phantomToken.websiteUrl,
+          twitterUrl: phantomToken.twitterUrl,
+          phantomWallet: phantomWallet.address,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to create token");
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || "Token creation failed");
+      }
+
+      console.log("[FunLauncher] Phantom token created:", data);
+
+      // If there are unsigned transactions, sign them with Phantom
+      if (data.unsignedTransactions && data.unsignedTransactions.length > 0) {
+        console.log("[FunLauncher] Signing transactions with Phantom...");
+        
+        const rpcUrl = (window as unknown as { __RUNTIME_CONFIG__?: { heliusRpcUrl?: string } }).__RUNTIME_CONFIG__?.heliusRpcUrl 
+          || 'https://api.mainnet-beta.solana.com';
+        const connection = new Connection(rpcUrl, 'confirmed');
+
+        for (let i = 0; i < data.unsignedTransactions.length; i++) {
+          const txBase64 = data.unsignedTransactions[i];
+          const txBuffer = Buffer.from(txBase64, 'base64');
+          const tx = Transaction.from(txBuffer);
+
+          toast({
+            title: `Sign Transaction ${i + 1}/${data.unsignedTransactions.length}`,
+            description: "Please confirm in Phantom wallet",
+          });
+
+          const signedTx = await phantomWallet.signTransaction(tx);
+          if (!signedTx) {
+            throw new Error(`User rejected transaction ${i + 1}`);
+          }
+
+          // Send the signed transaction
+          const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed',
+          });
+
+          console.log(`[FunLauncher] Transaction ${i + 1} sent:`, signature);
+
+          // Wait for confirmation
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+          await connection.confirmTransaction({
+            signature,
+            blockhash,
+            lastValidBlockHeight,
+          }, 'confirmed');
+
+          console.log(`[FunLauncher] Transaction ${i + 1} confirmed:`, signature);
+        }
+      }
+
+      // Show success
+      setLaunchResult({
+        success: true,
+        name: data.name || phantomToken.name,
+        ticker: data.ticker || phantomToken.ticker,
+        mintAddress: data.mintAddress,
+        imageUrl: data.imageUrl || imageUrl,
+        onChainSuccess: true,
+        solscanUrl: data.solscanUrl,
+        tradeUrl: data.tradeUrl,
+        message: data.message || "Token launched with Phantom! 100% of fees go to your wallet.",
+      });
+      setShowResultModal(true);
+
+      toast({
+        title: "🎉 Token Launched!",
+        description: "Your token is live! 100% of trading fees go to your Phantom wallet.",
+      });
+
+      // Refresh balance
+      phantomWallet.refreshBalance();
+
+      // Clear form
+      setPhantomToken({
+        name: "",
+        ticker: "",
+        description: "",
+        imageUrl: "",
+        websiteUrl: "",
+        twitterUrl: "",
+        telegramUrl: "",
+        discordUrl: "",
+      });
+      setPhantomImageFile(null);
+      setPhantomImagePreview(null);
+
+      // Refresh tokens list
+      refetch();
+
+    } catch (error) {
+      console.error("[FunLauncher] Phantom launch error:", error);
+      toast({
+        title: "Launch Failed",
+        description: error instanceof Error ? error.message : "Failed to launch token",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPhantomLaunching(false);
+    }
+  }, [phantomWallet, phantomToken, uploadPhantomImageIfNeeded, toast, refetch]);
+
   const formatSOL = (sol: number) => {
     if (!Number.isFinite(sol)) return "0";
     if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K`;
@@ -804,6 +1007,20 @@ export default function FunLauncherPage() {
                     }
                   >
                     Custom
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setGeneratorMode("phantom")}
+                    className={
+                      generatorMode === "phantom"
+                        ? "h-7 px-2 border-purple-400/40 text-purple-400 bg-purple-400/10"
+                        : "h-7 px-2 border-[#2a2a35] text-gray-300 bg-transparent"
+                    }
+                  >
+                    <Wallet className="h-3 w-3 mr-1" />
+                    Phantom
                   </Button>
                 </div>
               </div>
@@ -1305,7 +1522,7 @@ export default function FunLauncherPage() {
                     </>
                   )}
                 </>
-              ) : (
+              ) : generatorMode === "custom" ? (
                 <>
                   {/* Custom Form */}
                   <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4 space-y-3">
@@ -1420,7 +1637,213 @@ export default function FunLauncherPage() {
                     </Button>
                   </div>
                 </>
-              )}
+              ) : generatorMode === "phantom" ? (
+                <>
+                  {/* Phantom Wallet Mode */}
+                  <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4 space-y-4">
+                    {/* Header with Phantom branding */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-5 w-5 text-purple-400" />
+                        <span className="text-sm font-semibold text-white">Phantom Wallet Launch</span>
+                      </div>
+                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+                        100% Fees to You
+                      </Badge>
+                    </div>
+
+                    {/* Info box */}
+                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs text-gray-300">
+                      <p className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-purple-400">Phantom Mode:</strong> You pay the launch fee (~0.02 SOL) from your wallet and receive 100% of all trading fees directly to your Phantom wallet.
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Connect/Disconnect Button */}
+                    {!phantomWallet.isConnected ? (
+                      <Button
+                        onClick={phantomWallet.connect}
+                        disabled={phantomWallet.isConnecting}
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+                      >
+                        {phantomWallet.isConnecting ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Connecting...
+                          </>
+                        ) : !phantomWallet.isPhantomInstalled ? (
+                          <>
+                            <ExternalLink className="h-4 w-4 mr-2" /> Install Phantom
+                          </>
+                        ) : (
+                          <>
+                            <Wallet className="h-4 w-4 mr-2" /> Connect Phantom Wallet
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Connected Wallet Info */}
+                        <div className="flex items-center justify-between bg-[#1a1a1f] rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                              <Wallet className="h-4 w-4 text-purple-400" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-mono text-white">
+                                {phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {phantomWallet.isLoadingBalance ? (
+                                  "Loading..."
+                                ) : phantomWallet.balance !== null ? (
+                                  `${phantomWallet.balance.toFixed(4)} SOL`
+                                ) : (
+                                  "Balance unavailable"
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={phantomWallet.disconnect}
+                            className="text-gray-400 hover:text-white"
+                          >
+                            Disconnect
+                          </Button>
+                        </div>
+
+                        {/* Token Form */}
+                        <div className="flex items-center gap-4">
+                          <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-purple-500/30">
+                            {phantomImagePreview || phantomToken.imageUrl ? (
+                              <img
+                                src={phantomImagePreview || phantomToken.imageUrl}
+                                alt={phantomToken.name || "Token"}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Bot className="h-8 w-8 text-gray-600" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 space-y-2">
+                            <Input
+                              value={phantomToken.name}
+                              onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 32) })}
+                              className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
+                              placeholder="Token name"
+                              maxLength={32}
+                            />
+                            <div className="flex items-center gap-1">
+                              <span className="text-purple-400 text-sm">$</span>
+                              <Input
+                                value={phantomToken.ticker}
+                                onChange={(e) =>
+                                  setPhantomToken({
+                                    ...phantomToken,
+                                    ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+                                  })
+                                }
+                                className="bg-[#1a1a1f] border-[#2a2a35] text-purple-400 font-mono text-sm h-7 px-2 w-28"
+                                placeholder="TICKER"
+                                maxLength={10}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <Textarea
+                          value={phantomToken.description}
+                          onChange={(e) => setPhantomToken({ ...phantomToken, description: e.target.value })}
+                          placeholder="Description (optional)"
+                          className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm min-h-[80px]"
+                          maxLength={500}
+                        />
+
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhantomImageChange}
+                          className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                        />
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            value={phantomToken.websiteUrl || ""}
+                            onChange={(e) => setPhantomToken({ ...phantomToken, websiteUrl: e.target.value })}
+                            className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                            placeholder="Website URL"
+                          />
+                          <Input
+                            value={phantomToken.twitterUrl || ""}
+                            onChange={(e) => setPhantomToken({ ...phantomToken, twitterUrl: e.target.value })}
+                            className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
+                            placeholder="X / Twitter URL"
+                          />
+                        </div>
+
+                        {/* Launch Button */}
+                        <Button
+                          onClick={handlePhantomLaunch}
+                          disabled={
+                            isPhantomLaunching || 
+                            !phantomToken.name.trim() || 
+                            !phantomToken.ticker.trim() ||
+                            (phantomWallet.balance !== null && phantomWallet.balance < 0.02)
+                          }
+                          className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold"
+                        >
+                          {isPhantomLaunching ? (
+                            <>
+                              <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching with Phantom...
+                            </>
+                          ) : (
+                            <>
+                              <Rocket className="h-4 w-4 mr-2" /> Launch Token (~0.02 SOL)
+                            </>
+                          )}
+                        </Button>
+
+                        {/* Balance warning */}
+                        {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && (
+                          <p className="text-xs text-red-400 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Insufficient balance. Need at least 0.02 SOL.
+                          </p>
+                        )}
+
+                        <p className="text-xs text-gray-500 text-center">
+                          You pay launch fee • 100% trading fees to your wallet
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Phantom Mode Fee Info */}
+                  <div className="bg-[#0d0d0f] rounded-lg p-3 border border-purple-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Coins className="h-4 w-4 text-purple-400" />
+                      <span className="text-xs font-semibold text-white">Phantom Fee Structure</span>
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Launch Fee (you pay)</span>
+                        <span className="text-purple-400 font-semibold">~0.02 SOL</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Your Trading Fee Share</span>
+                        <span className="text-[#00d4aa] font-bold">100%</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : null}
             </Card>
 
             {/* Stats Cards */}
