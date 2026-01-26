@@ -52,7 +52,8 @@ import {
   Menu,
   X,
   Image,
-  Download
+  Download,
+  Pencil
 } from "lucide-react";
 import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -147,6 +148,12 @@ export default function FunLauncherPage() {
     isGenerating: isBannerGenerating, 
     bannerUrl 
   } = useBannerGenerator();
+  
+  // Editable banner text
+  const [bannerTextName, setBannerTextName] = useState("");
+  const [bannerTextTicker, setBannerTextTicker] = useState("");
+  const [isEditingBannerText, setIsEditingBannerText] = useState(false);
+  const [bannerImageUrl, setBannerImageUrl] = useState("");
 
   const isValidSolanaAddress = (address: string) => {
     return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
@@ -439,6 +446,11 @@ export default function FunLauncherPage() {
       if (data?.meme) {
         console.log("[FunLauncher] Described meme generated:", data.meme);
         setDescribedToken(data.meme);
+        
+        // Set banner text state for editing
+        setBannerTextName(data.meme.name);
+        setBannerTextTicker(data.meme.ticker);
+        setBannerImageUrl(data.meme.imageUrl);
         
         // Auto-generate banner
         if (data.meme.imageUrl) {
@@ -959,11 +971,16 @@ export default function FunLauncherPage() {
                   {meme && (
                     <div className="space-y-2 mb-3">
                       <Button
-                        onClick={() => generateBanner({
-                          imageUrl: meme.imageUrl,
-                          tokenName: meme.name,
-                          ticker: meme.ticker,
-                        })}
+                        onClick={() => {
+                          setBannerTextName(meme.name);
+                          setBannerTextTicker(meme.ticker);
+                          setBannerImageUrl(meme.imageUrl);
+                          generateBanner({
+                            imageUrl: meme.imageUrl,
+                            tokenName: meme.name,
+                            ticker: meme.ticker,
+                          });
+                        }}
                         disabled={isBannerGenerating || !meme.imageUrl}
                         variant="outline"
                         className="w-full border-[#2a2a35] text-gray-300 hover:text-white hover:bg-[#1a1a1f]"
@@ -982,14 +999,70 @@ export default function FunLauncherPage() {
                       {/* Banner Preview & Download */}
                       {bannerUrl && (
                         <div className="space-y-2 p-3 bg-[#0d0d0f] rounded-lg border border-[#2a2a35]">
-                          <p className="text-xs text-gray-400 mb-2">Preview (1500×500):</p>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs text-gray-400">Preview (1500×500):</p>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setIsEditingBannerText(!isEditingBannerText)}
+                              className="h-6 px-2 text-xs text-gray-400 hover:text-white"
+                            >
+                              <Pencil className="h-3 w-3 mr-1" /> Edit Text
+                            </Button>
+                          </div>
+                          
+                          {/* Editable Text Fields */}
+                          {isEditingBannerText && (
+                            <div className="space-y-2 p-2 bg-[#1a1a1f] rounded border border-[#2a2a35]">
+                              <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Name</label>
+                                <Input
+                                  value={bannerTextName}
+                                  onChange={(e) => setBannerTextName(e.target.value)}
+                                  placeholder="Token name..."
+                                  className="bg-[#0d0d0f] border-[#2a2a35] text-white text-sm h-8"
+                                  maxLength={20}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Ticker</label>
+                                <Input
+                                  value={bannerTextTicker}
+                                  onChange={(e) => setBannerTextTicker(e.target.value.toUpperCase())}
+                                  placeholder="TICKER..."
+                                  className="bg-[#0d0d0f] border-[#2a2a35] text-white text-sm h-8 font-mono"
+                                  maxLength={10}
+                                />
+                              </div>
+                              <Button
+                                onClick={() => {
+                                  generateBanner({
+                                    imageUrl: bannerImageUrl,
+                                    tokenName: bannerTextName,
+                                    ticker: bannerTextTicker,
+                                  });
+                                  setIsEditingBannerText(false);
+                                }}
+                                disabled={isBannerGenerating}
+                                size="sm"
+                                className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold h-8"
+                              >
+                                {isBannerGenerating ? (
+                                  <><RefreshCw className="h-3 w-3 mr-1 animate-spin" /> Regenerating...</>
+                                ) : (
+                                  <><RefreshCw className="h-3 w-3 mr-1" /> Regenerate Banner</>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                          
                           <img 
                             src={bannerUrl} 
                             alt="Generated X Banner" 
                             className="w-full rounded border border-[#2a2a35]"
                           />
                           <Button
-                            onClick={() => downloadBanner(bannerUrl, meme.name)}
+                            onClick={() => downloadBanner(bannerUrl, bannerTextName || meme.name)}
                             className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
                           >
                             <Download className="h-4 w-4 mr-2" /> Download Banner
@@ -1129,7 +1202,7 @@ export default function FunLauncherPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => downloadBanner(bannerUrl, describedToken.name)}
+                              onClick={() => downloadBanner(bannerUrl, bannerTextName || describedToken.name)}
                               className="flex-1 h-8 text-xs border-[#2a2a35] text-gray-300 hover:text-white hover:border-[#00d4aa]/40"
                             >
                               <Image className="h-3 w-3 mr-1" /> Banner
@@ -1137,10 +1210,69 @@ export default function FunLauncherPage() {
                           )}
                         </div>
 
-                        {/* Banner Preview */}
+                        {/* Banner Preview with Edit Text */}
                         {bannerUrl && (
-                          <div className="rounded-lg overflow-hidden border border-[#2a2a35]">
-                            <img src={bannerUrl} alt="Generated banner" className="w-full h-auto" />
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-gray-400">Banner Preview:</p>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setIsEditingBannerText(!isEditingBannerText)}
+                                className="h-6 px-2 text-xs text-gray-400 hover:text-white"
+                              >
+                                <Pencil className="h-3 w-3 mr-1" /> Edit Text
+                              </Button>
+                            </div>
+                            
+                            {/* Editable Text Fields */}
+                            {isEditingBannerText && (
+                              <div className="space-y-2 p-2 bg-[#1a1a1f] rounded border border-[#2a2a35]">
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Name</label>
+                                  <Input
+                                    value={bannerTextName}
+                                    onChange={(e) => setBannerTextName(e.target.value)}
+                                    placeholder="Token name..."
+                                    className="bg-[#0d0d0f] border-[#2a2a35] text-white text-sm h-8"
+                                    maxLength={20}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Ticker</label>
+                                  <Input
+                                    value={bannerTextTicker}
+                                    onChange={(e) => setBannerTextTicker(e.target.value.toUpperCase())}
+                                    placeholder="TICKER..."
+                                    className="bg-[#0d0d0f] border-[#2a2a35] text-white text-sm h-8 font-mono"
+                                    maxLength={10}
+                                  />
+                                </div>
+                                <Button
+                                  onClick={() => {
+                                    generateBanner({
+                                      imageUrl: bannerImageUrl,
+                                      tokenName: bannerTextName,
+                                      ticker: bannerTextTicker,
+                                    });
+                                    setIsEditingBannerText(false);
+                                  }}
+                                  disabled={isBannerGenerating}
+                                  size="sm"
+                                  className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold h-8"
+                                >
+                                  {isBannerGenerating ? (
+                                    <><RefreshCw className="h-3 w-3 mr-1 animate-spin" /> Regenerating...</>
+                                  ) : (
+                                    <><RefreshCw className="h-3 w-3 mr-1" /> Regenerate Banner</>
+                                  )}
+                                </Button>
+                              </div>
+                            )}
+                            
+                            <div className="rounded-lg overflow-hidden border border-[#2a2a35]">
+                              <img src={bannerUrl} alt="Generated banner" className="w-full h-auto" />
+                            </div>
                           </div>
                         )}
                       </div>
