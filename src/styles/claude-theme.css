@@ -1,0 +1,265 @@
+/* Claude Theme - Inspired by growclaude.com / Anthropic aesthetic */
+
+/* Claude Theme CSS Variables */
+.claude-theme {
+  /* Core Claude Colors - Warm amber/peach tones */
+  --claude-primary: 32 95% 55%;           /* Warm amber/orange */
+  --claude-primary-hover: 32 95% 48%;
+  --claude-primary-light: 32 95% 70%;
+  --claude-primary-dark: 32 80% 40%;
+  
+  /* Background layers - Soft creams and warm grays */
+  --claude-bg-base: 30 20% 4%;            /* Very dark warm gray */
+  --claude-bg-surface: 30 15% 8%;         /* Dark surface */
+  --claude-bg-elevated: 30 12% 12%;       /* Elevated surface */
+  --claude-bg-muted: 30 10% 16%;          /* Muted backgrounds */
+  
+  /* Text colors */
+  --claude-text: 30 10% 96%;              /* Near white with warmth */
+  --claude-text-secondary: 30 8% 65%;     /* Muted text */
+  --claude-text-muted: 30 6% 45%;         /* Very muted */
+  
+  /* Accent colors */
+  --claude-accent-green: 145 60% 45%;     /* Success green */
+  --claude-accent-blue: 210 70% 55%;      /* Info blue */
+  --claude-accent-purple: 270 60% 60%;    /* Purple accent */
+  --claude-accent-red: 0 70% 55%;         /* Error red */
+  
+  /* Border colors */
+  --claude-border: 30 10% 18%;
+  --claude-border-light: 30 8% 25%;
+  
+  /* Effects */
+  --claude-glow: 0 0 30px hsla(32, 95%, 55%, 0.15);
+  --claude-shadow: 0 4px 20px -4px hsla(0, 0%, 0%, 0.5);
+}
+
+/* Apply Claude theme variables */
+.claude-theme {
+  background-color: hsl(var(--claude-bg-base));
+  color: hsl(var(--claude-text));
+}
+
+/* Claude-specific utility classes */
+.claude-card {
+  background-color: hsl(var(--claude-bg-surface));
+  border: 1px solid hsl(var(--claude-border));
+  border-radius: 16px;
+}
+
+.claude-card-elevated {
+  background-color: hsl(var(--claude-bg-elevated));
+  border: 1px solid hsl(var(--claude-border-light));
+  border-radius: 16px;
+}
+
+.claude-input {
+  background-color: hsl(var(--claude-bg-elevated));
+  border: 1px solid hsl(var(--claude-border));
+  color: hsl(var(--claude-text));
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.claude-input:focus {
+  border-color: hsl(var(--claude-primary));
+  box-shadow: 0 0 0 2px hsla(32, 95%, 55%, 0.15);
+}
+
+.claude-input::placeholder {
+  color: hsl(var(--claude-text-muted));
+}
+
+/* Claude button styles */
+.claude-btn-primary {
+  background: linear-gradient(135deg, hsl(var(--claude-primary)), hsl(var(--claude-primary-hover)));
+  color: hsl(30 20% 4%);
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px hsla(32, 95%, 55%, 0.25);
+}
+
+.claude-btn-primary:hover {
+  background: linear-gradient(135deg, hsl(var(--claude-primary-hover)), hsl(var(--claude-primary-dark)));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsla(32, 95%, 55%, 0.35);
+}
+
+.claude-btn-secondary {
+  background-color: hsl(var(--claude-bg-elevated));
+  color: hsl(var(--claude-text));
+  border: 1px solid hsl(var(--claude-border));
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.claude-btn-secondary:hover {
+  background-color: hsl(var(--claude-bg-muted));
+  border-color: hsl(var(--claude-border-light));
+}
+
+.claude-btn-ghost {
+  background: transparent;
+  color: hsl(var(--claude-text-secondary));
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.claude-btn-ghost:hover {
+  background-color: hsla(var(--claude-primary), 0.1);
+  color: hsl(var(--claude-primary));
+}
+
+/* Claude text utilities */
+.claude-text-primary {
+  color: hsl(var(--claude-primary));
+}
+
+.claude-text-secondary {
+  color: hsl(var(--claude-text-secondary));
+}
+
+.claude-text-muted {
+  color: hsl(var(--claude-text-muted));
+}
+
+/* Claude gradient text */
+.claude-gradient-text {
+  background: linear-gradient(135deg, hsl(var(--claude-primary)), hsl(var(--claude-primary-light)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Claude badge styles */
+.claude-badge {
+  background-color: hsla(var(--claude-primary), 0.15);
+  color: hsl(var(--claude-primary));
+  border: 1px solid hsla(var(--claude-primary), 0.3);
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.claude-badge-success {
+  background-color: hsla(var(--claude-accent-green), 0.15);
+  color: hsl(var(--claude-accent-green));
+  border: 1px solid hsla(var(--claude-accent-green), 0.3);
+}
+
+.claude-badge-purple {
+  background-color: hsla(var(--claude-accent-purple), 0.15);
+  color: hsl(var(--claude-accent-purple));
+  border: 1px solid hsla(var(--claude-accent-purple), 0.3);
+}
+
+/* Claude tab styles */
+.claude-tabs {
+  background-color: hsl(var(--claude-bg-surface));
+  border: 1px solid hsl(var(--claude-border));
+  border-radius: 16px;
+  padding: 4px;
+}
+
+.claude-tab {
+  color: hsl(var(--claude-text-secondary));
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.claude-tab[data-state="active"] {
+  background-color: hsl(var(--claude-bg-elevated));
+  color: hsl(var(--claude-text));
+}
+
+.claude-tab:hover:not([data-state="active"]) {
+  color: hsl(var(--claude-text));
+  background-color: hsla(var(--claude-bg-elevated), 0.5);
+}
+
+/* Claude progress bar */
+.claude-progress {
+  background-color: hsl(var(--claude-bg-muted));
+  border-radius: 9999px;
+  height: 6px;
+}
+
+.claude-progress > div {
+  background: linear-gradient(90deg, hsl(var(--claude-primary)), hsl(var(--claude-primary-light)));
+  border-radius: 9999px;
+}
+
+/* Claude table styles */
+.claude-table th {
+  color: hsl(var(--claude-text-muted));
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.claude-table tr {
+  border-bottom: 1px solid hsl(var(--claude-border));
+}
+
+.claude-table tr:hover {
+  background-color: hsla(var(--claude-bg-elevated), 0.5);
+}
+
+/* Claude glow effect */
+.claude-glow {
+  box-shadow: var(--claude-glow);
+}
+
+/* Claude scrollbar */
+.claude-theme::-webkit-scrollbar {
+  width: 8px;
+}
+
+.claude-theme::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.claude-theme::-webkit-scrollbar-thumb {
+  background: hsl(var(--claude-border-light));
+  border-radius: 4px;
+}
+
+.claude-theme::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--claude-text-muted));
+}
+
+/* Smooth animations */
+@keyframes claude-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes claude-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.claude-animate-pulse {
+  animation: claude-pulse 2s ease-in-out infinite;
+}
+
+.claude-skeleton {
+  background: linear-gradient(90deg, 
+    hsl(var(--claude-bg-muted)) 0%, 
+    hsl(var(--claude-bg-elevated)) 50%, 
+    hsl(var(--claude-bg-muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: claude-shimmer 1.5s infinite;
+}

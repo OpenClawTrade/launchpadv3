@@ -26,6 +26,7 @@ const GovernancePage = lazy(() => import("./pages/GovernancePage"));
 const LaunchpadTemplatePage = lazy(() => import("./pages/LaunchpadTemplatePage"));
 const TwitterBotAdminPage = lazy(() => import("./pages/TwitterBotAdminPage"));
 const InvestigateTokenPage = lazy(() => import("./pages/InvestigateTokenPage"));
+const ClaudeLauncherPage = lazy(() => import("./pages/ClaudeLauncherPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -61,6 +62,7 @@ const App = () => (
             <Suspense fallback={<RouteLoader />}>
               <Routes>
                 <Route path="/" element={<FunLauncherPage />} />
+                <Route path="/claude" element={<ClaudeLauncherPage />} />
                 <Route path="/launchpad" element={<LaunchpadPage />} />
                 <Route path="/launch" element={<LaunchTokenPage />} />
                 <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
