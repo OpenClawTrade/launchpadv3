@@ -1,69 +1,90 @@
 /* Claude Theme - Inspired by growclaude.com / Anthropic aesthetic */
+/* Light, warm, cream-based design with terracotta accents */
 
 /* Claude Theme CSS Variables */
 .claude-theme {
-  /* Core Claude Colors - Warm amber/peach tones */
-  --claude-primary: 32 95% 55%;           /* Warm amber/orange */
-  --claude-primary-hover: 32 95% 48%;
-  --claude-primary-light: 32 95% 70%;
-  --claude-primary-dark: 32 80% 40%;
+  /* Core Claude Colors - Terracotta/Coral */
+  --claude-primary: 15 70% 55%;             /* Terracotta coral */
+  --claude-primary-hover: 15 70% 48%;
+  --claude-primary-light: 15 60% 70%;
+  --claude-primary-dark: 15 65% 40%;
   
-  /* Background layers - Soft creams and warm grays */
-  --claude-bg-base: 30 20% 4%;            /* Very dark warm gray */
-  --claude-bg-surface: 30 15% 8%;         /* Dark surface */
-  --claude-bg-elevated: 30 12% 12%;       /* Elevated surface */
-  --claude-bg-muted: 30 10% 16%;          /* Muted backgrounds */
+  /* Background layers - Warm creams and off-whites */
+  --claude-bg-base: 40 30% 96%;             /* Warm cream #F9F7F3 */
+  --claude-bg-surface: 40 25% 98%;          /* Near white */
+  --claude-bg-elevated: 0 0% 100%;          /* Pure white cards */
+  --claude-bg-muted: 35 20% 92%;            /* Subtle warm gray */
   
   /* Text colors */
-  --claude-text: 30 10% 96%;              /* Near white with warmth */
-  --claude-text-secondary: 30 8% 65%;     /* Muted text */
-  --claude-text-muted: 30 6% 45%;         /* Very muted */
+  --claude-text: 25 30% 15%;                /* Warm dark brown */
+  --claude-text-secondary: 25 15% 40%;      /* Medium brown */
+  --claude-text-muted: 25 10% 55%;          /* Light brown */
   
   /* Accent colors */
-  --claude-accent-green: 145 60% 45%;     /* Success green */
-  --claude-accent-blue: 210 70% 55%;      /* Info blue */
-  --claude-accent-purple: 270 60% 60%;    /* Purple accent */
-  --claude-accent-red: 0 70% 55%;         /* Error red */
+  --claude-accent-green: 150 45% 40%;       /* Sage green */
+  --claude-accent-blue: 200 50% 45%;        /* Soft blue */
+  --claude-accent-purple: 260 40% 55%;      /* Muted purple */
+  --claude-accent-red: 0 55% 50%;           /* Soft red */
   
   /* Border colors */
-  --claude-border: 30 10% 18%;
-  --claude-border-light: 30 8% 25%;
+  --claude-border: 35 15% 85%;              /* Light warm gray */
+  --claude-border-light: 35 10% 90%;        /* Very light border */
   
   /* Effects */
-  --claude-glow: 0 0 30px hsla(32, 95%, 55%, 0.15);
-  --claude-shadow: 0 4px 20px -4px hsla(0, 0%, 0%, 0.5);
+  --claude-shadow: 0 2px 8px -2px rgba(95, 71, 56, 0.08);
+  --claude-shadow-lg: 0 8px 24px -8px rgba(95, 71, 56, 0.12);
 }
 
 /* Apply Claude theme variables */
 .claude-theme {
   background-color: hsl(var(--claude-bg-base));
   color: hsl(var(--claude-text));
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
 }
 
-/* Claude-specific utility classes */
+/* Claude page wrapper */
+.claude-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, hsl(40 30% 96%) 0%, hsl(35 25% 94%) 100%);
+}
+
+/* Claude header */
+.claude-header {
+  background-color: hsl(0 0% 100% / 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid hsl(var(--claude-border));
+}
+
+/* Claude-specific card */
 .claude-card {
-  background-color: hsl(var(--claude-bg-surface));
+  background-color: hsl(0 0% 100%);
   border: 1px solid hsl(var(--claude-border));
   border-radius: 16px;
+  box-shadow: var(--claude-shadow);
 }
 
 .claude-card-elevated {
-  background-color: hsl(var(--claude-bg-elevated));
+  background-color: hsl(0 0% 100%);
   border: 1px solid hsl(var(--claude-border-light));
-  border-radius: 16px;
+  border-radius: 20px;
+  box-shadow: var(--claude-shadow-lg);
 }
 
+/* Claude input styles */
 .claude-input {
-  background-color: hsl(var(--claude-bg-elevated));
+  background-color: hsl(var(--claude-bg-muted));
   border: 1px solid hsl(var(--claude-border));
   color: hsl(var(--claude-text));
   border-radius: 12px;
   transition: all 0.2s ease;
+  font-size: 15px;
+  padding: 12px 16px;
 }
 
 .claude-input:focus {
   border-color: hsl(var(--claude-primary));
-  box-shadow: 0 0 0 2px hsla(32, 95%, 55%, 0.15);
+  box-shadow: 0 0 0 3px hsla(15, 70%, 55%, 0.1);
+  background-color: hsl(0 0% 100%);
 }
 
 .claude-input::placeholder {
@@ -72,43 +93,45 @@
 
 /* Claude button styles */
 .claude-btn-primary {
-  background: linear-gradient(135deg, hsl(var(--claude-primary)), hsl(var(--claude-primary-hover)));
-  color: hsl(30 20% 4%);
+  background-color: hsl(var(--claude-primary));
+  color: white;
   font-weight: 600;
   border-radius: 12px;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px hsla(32, 95%, 55%, 0.25);
+  box-shadow: 0 2px 4px hsla(15, 70%, 55%, 0.2);
+  padding: 12px 24px;
 }
 
 .claude-btn-primary:hover {
-  background: linear-gradient(135deg, hsl(var(--claude-primary-hover)), hsl(var(--claude-primary-dark)));
+  background-color: hsl(var(--claude-primary-hover));
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px hsla(32, 95%, 55%, 0.35);
+  box-shadow: 0 4px 8px hsla(15, 70%, 55%, 0.25);
 }
 
 .claude-btn-secondary {
-  background-color: hsl(var(--claude-bg-elevated));
+  background-color: hsl(var(--claude-bg-muted));
   color: hsl(var(--claude-text));
   border: 1px solid hsl(var(--claude-border));
   border-radius: 12px;
   transition: all 0.2s ease;
+  padding: 12px 24px;
 }
 
 .claude-btn-secondary:hover {
-  background-color: hsl(var(--claude-bg-muted));
-  border-color: hsl(var(--claude-border-light));
+  background-color: hsl(var(--claude-bg-base));
+  border-color: hsl(var(--claude-text-muted));
 }
 
 .claude-btn-ghost {
   background: transparent;
   color: hsl(var(--claude-text-secondary));
-  border-radius: 12px;
+  border-radius: 10px;
   transition: all 0.2s ease;
 }
 
 .claude-btn-ghost:hover {
-  background-color: hsla(var(--claude-primary), 0.1);
-  color: hsl(var(--claude-primary));
+  background-color: hsl(var(--claude-bg-muted));
+  color: hsl(var(--claude-text));
 }
 
 /* Claude text utilities */
@@ -124,93 +147,172 @@
   color: hsl(var(--claude-text-muted));
 }
 
-/* Claude gradient text */
-.claude-gradient-text {
-  background: linear-gradient(135deg, hsl(var(--claude-primary)), hsl(var(--claude-primary-light)));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 /* Claude badge styles */
 .claude-badge {
-  background-color: hsla(var(--claude-primary), 0.15);
+  background-color: hsla(15, 70%, 55%, 0.1);
   color: hsl(var(--claude-primary));
-  border: 1px solid hsla(var(--claude-primary), 0.3);
-  border-radius: 9999px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
+  border: 1px solid hsla(15, 70%, 55%, 0.2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .claude-badge-success {
-  background-color: hsla(var(--claude-accent-green), 0.15);
+  background-color: hsla(150, 45%, 40%, 0.1);
   color: hsl(var(--claude-accent-green));
-  border: 1px solid hsla(var(--claude-accent-green), 0.3);
+  border: 1px solid hsla(150, 45%, 40%, 0.2);
 }
 
-.claude-badge-purple {
-  background-color: hsla(var(--claude-accent-purple), 0.15);
-  color: hsl(var(--claude-accent-purple));
-  border: 1px solid hsla(var(--claude-accent-purple), 0.3);
+.claude-badge-info {
+  background-color: hsla(200, 50%, 45%, 0.1);
+  color: hsl(var(--claude-accent-blue));
+  border: 1px solid hsla(200, 50%, 45%, 0.2);
 }
 
 /* Claude tab styles */
 .claude-tabs {
-  background-color: hsl(var(--claude-bg-surface));
+  background-color: hsl(var(--claude-bg-muted));
   border: 1px solid hsl(var(--claude-border));
-  border-radius: 16px;
+  border-radius: 14px;
   padding: 4px;
 }
 
 .claude-tab {
-  color: hsl(var(--claude-text-secondary));
-  border-radius: 12px;
+  color: hsl(var(--claude-text-muted));
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .claude-tab[data-state="active"] {
-  background-color: hsl(var(--claude-bg-elevated));
+  background-color: hsl(0 0% 100%);
   color: hsl(var(--claude-text));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .claude-tab:hover:not([data-state="active"]) {
-  color: hsl(var(--claude-text));
-  background-color: hsla(var(--claude-bg-elevated), 0.5);
+  color: hsl(var(--claude-text-secondary));
+}
+
+/* Claude table styles - DISTINCT from main launchpad */
+.claude-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.claude-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.claude-table th {
+  background-color: hsl(var(--claude-bg-muted));
+  color: hsl(var(--claude-text-muted));
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid hsl(var(--claude-border));
+}
+
+.claude-table th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.claude-table th:last-child {
+  border-top-right-radius: 12px;
+}
+
+.claude-table td {
+  padding: 16px;
+  border-bottom: 1px solid hsl(var(--claude-border-light));
+  vertical-align: middle;
+}
+
+.claude-table tr:last-child td {
+  border-bottom: none;
+}
+
+.claude-table tr:hover td {
+  background-color: hsl(var(--claude-bg-muted) / 0.5);
 }
 
 /* Claude progress bar */
 .claude-progress {
   background-color: hsl(var(--claude-bg-muted));
-  border-radius: 9999px;
-  height: 6px;
+  border-radius: 10px;
+  height: 8px;
+  overflow: hidden;
 }
 
 .claude-progress > div {
   background: linear-gradient(90deg, hsl(var(--claude-primary)), hsl(var(--claude-primary-light)));
-  border-radius: 9999px;
+  border-radius: 10px;
+  height: 100%;
+  transition: width 0.3s ease;
 }
 
-/* Claude table styles */
-.claude-table th {
+/* Claude stat card */
+.claude-stat-card {
+  background: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(var(--claude-bg-muted)) 100%);
+  border: 1px solid hsl(var(--claude-border));
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.claude-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: hsl(var(--claude-text));
+  line-height: 1.2;
+}
+
+.claude-stat-label {
+  font-size: 13px;
   color: hsl(var(--claude-text-muted));
-  font-weight: 500;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  margin-top: 4px;
 }
 
-.claude-table tr {
-  border-bottom: 1px solid hsl(var(--claude-border));
+/* Claude token row - COMPLETELY different from main launchpad */
+.claude-token-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 120px 100px 80px;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 20px;
+  background: hsl(0 0% 100%);
+  border-bottom: 1px solid hsl(var(--claude-border-light));
+  transition: all 0.15s ease;
 }
 
-.claude-table tr:hover {
-  background-color: hsla(var(--claude-bg-elevated), 0.5);
+.claude-token-row:hover {
+  background: hsl(var(--claude-bg-muted) / 0.4);
 }
 
-/* Claude glow effect */
-.claude-glow {
-  box-shadow: var(--claude-glow);
+.claude-token-row:last-child {
+  border-bottom: none;
+}
+
+/* Claude avatar */
+.claude-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: hsl(var(--claude-bg-muted));
+  flex-shrink: 0;
+}
+
+.claude-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* Claude scrollbar */
@@ -223,7 +325,7 @@
 }
 
 .claude-theme::-webkit-scrollbar-thumb {
-  background: hsl(var(--claude-border-light));
+  background: hsl(var(--claude-border));
   border-radius: 4px;
 }
 
@@ -231,35 +333,56 @@
   background: hsl(var(--claude-text-muted));
 }
 
-/* Smooth animations */
-@keyframes claude-pulse {
-  0%, 100% {
+/* Animations */
+@keyframes claude-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
     opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
+    transform: translateY(0);
   }
 }
 
-@keyframes claude-shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+.claude-animate-in {
+  animation: claude-fadeIn 0.3s ease-out;
 }
 
-.claude-animate-pulse {
-  animation: claude-pulse 2s ease-in-out infinite;
+/* Claude section divider */
+.claude-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--claude-border)), transparent);
+  margin: 32px 0;
 }
 
-.claude-skeleton {
-  background: linear-gradient(90deg, 
-    hsl(var(--claude-bg-muted)) 0%, 
-    hsl(var(--claude-bg-elevated)) 50%, 
-    hsl(var(--claude-bg-muted)) 100%
-  );
-  background-size: 200% 100%;
-  animation: claude-shimmer 1.5s infinite;
+/* Claude feature pill */
+.claude-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: hsl(var(--claude-bg-muted));
+  border-radius: 20px;
+  font-size: 13px;
+  color: hsl(var(--claude-text-secondary));
+}
+
+.claude-pill-icon {
+  width: 16px;
+  height: 16px;
+  color: hsl(var(--claude-primary));
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .claude-token-row {
+    grid-template-columns: 36px 1fr auto;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  
+  .claude-stat-value {
+    font-size: 22px;
+  }
 }
