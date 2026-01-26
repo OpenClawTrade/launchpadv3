@@ -325,10 +325,26 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     };
   }
 
-  // Build token metadata URI - points to our edge function that serves Metaplex-standard JSON
-  // This includes name, symbol, description, image, and social links
+  // Build token metadata URI - use static endpoint with query params for immediate availability
+  // This allows the on-chain metadata to be correct even before DB record exists
+  // (critical for Phantom launches where on-chain happens before DB insert)
   const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
-  const metadataUri = `${supabaseUrl}/functions/v1/token-metadata/${mintKeypair.publicKey.toBase58()}`;
+  
+  // URL-encode metadata params for the static endpoint
+  const metadataParams = new URLSearchParams({
+    name: params.name,
+    symbol: params.ticker.toUpperCase(),
+    description: params.description || `${params.name} - A fun meme coin!`,
+    image: params.imageUrl || '',
+    website: params.websiteUrl || 'https://ai67x.fun',
+    twitter: params.twitterUrl || 'https://x.com/ai67x_fun',
+    telegram: params.telegramUrl || '',
+    discord: params.discordUrl || '',
+    creator: params.creatorWallet,
+  });
+  
+  const metadataUri = `${supabaseUrl}/functions/v1/token-metadata-static/${mintKeypair.publicKey.toBase58()}?${metadataParams.toString()}`;
+  console.log('[meteora] Metadata URI:', metadataUri.substring(0, 120) + '...');
 
   // Derive pool address
   const { deriveDbcPoolAddress } = await import('@meteora-ag/dynamic-bonding-curve-sdk');

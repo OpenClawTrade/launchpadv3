@@ -30,6 +30,15 @@ verify_jwt = false
 [functions.token-metadata]
 verify_jwt = false
 
+[functions.token-metadata-static]
+verify_jwt = false
+
+[functions.dexscreener-proxy]
+verify_jwt = false
+
+[functions.sol-price]
+verify_jwt = false
+
 [functions.pool-state]
 verify_jwt = false
 
