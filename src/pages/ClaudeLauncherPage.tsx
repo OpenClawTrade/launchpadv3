@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -139,6 +140,7 @@ export default function ClaudeLauncherPage() {
   const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
   const [phantomDescribePrompt, setPhantomDescribePrompt] = useState("");
   const [phantomInputMode, setPhantomInputMode] = useState<"random" | "describe" | "custom">("random");
+  const [phantomTradingFee, setPhantomTradingFee] = useState(200); // 200 bps = 2% default
   
   const { 
     generateBanner, 
@@ -471,7 +473,8 @@ export default function ClaudeLauncherPage() {
           twitterUrl: tokenData.twitterUrl,
           telegramUrl: tokenData.telegramUrl,
           discordUrl: tokenData.discordUrl,
-          creatorWallet: phantomWallet.address,
+          phantomWallet: phantomWallet.address,
+          tradingFeeBps: phantomTradingFee, // Custom trading fee
         },
       });
 
@@ -1365,9 +1368,31 @@ export default function ClaudeLauncherPage() {
                         </div>
                       )}
 
+                      {/* Trading Fee Slider */}
+                      <div className="p-4 bg-[hsl(220,12%,14%)] rounded-xl border border-[hsl(220,12%,20%)]">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="text-sm font-medium">Trading Fee</label>
+                          <span className="text-sm font-mono text-[hsl(160,70%,50%)]">{(phantomTradingFee / 100).toFixed(1)}%</span>
+                        </div>
+                        <Slider
+                          value={[phantomTradingFee]}
+                          onValueChange={(v) => setPhantomTradingFee(v[0])}
+                          min={10}
+                          max={1000}
+                          step={10}
+                          className="mb-2"
+                        />
+                        <div className="flex justify-between text-xs text-[hsl(220,10%,45%)]">
+                          <span>0.1%</span>
+                          <span>2%</span>
+                          <span>5%</span>
+                          <span>10%</span>
+                        </div>
+                      </div>
+
                       <div className="p-3 bg-[hsl(160,70%,50%,0.1)] border border-[hsl(160,70%,50%,0.3)] rounded-xl">
                         <p className="text-sm text-[hsl(160,70%,60%)]">
-                          💡 You pay ~0.02 SOL and receive 50% of trading fees directly to your wallet.
+                          💡 You pay ~0.02 SOL and earn {(phantomTradingFee / 100).toFixed(1)}% on every trade (50% to you, 50% to platform).
                         </p>
                       </div>
 

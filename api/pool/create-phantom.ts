@@ -76,7 +76,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       twitterUrl, 
       phantomWallet,
       feeRecipientWallet,
-      useVanityAddress = true 
+      useVanityAddress = true,
+      tradingFeeBps = 200, // Default 2%, range 10-1000 (0.1%-10%)
     } = req.body;
 
     if (!name || !ticker || !phantomWallet) {
@@ -128,6 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ticker: ticker.toUpperCase().slice(0, 10),
       phantomWallet,
       feeRecipientWallet: effectiveFeeRecipient,
+      tradingFeeBps,
       useVanityAddress,
       hasVanityKeypair: !!vanityKeypair,
     });
@@ -147,6 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         description: description || `${name} - A fun meme coin!`,
         imageUrl: imageUrl || undefined,
         initialBuySol: 0,
+        tradingFeeBps, // Pass custom fee
       });
       transactions = result.transactions;
       mintKeypair = vanityKeypair.keypair;
@@ -161,6 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         description: description || `${name} - A fun meme coin!`,
         imageUrl: imageUrl || undefined,
         initialBuySol: 0,
+        tradingFeeBps, // Pass custom fee
       });
       transactions = result.transactions;
       mintKeypair = result.mintKeypair;

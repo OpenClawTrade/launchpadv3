@@ -77,7 +77,7 @@ serve(async (req) => {
     // ===== END RATE LIMIT ENFORCEMENT =====
 
     const body = await req.json();
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress } = body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps } = body;
 
     // ===== PHASE 2: Record token after confirmation =====
     if (confirmed === true && confirmedMintAddress && confirmedPoolAddress) {
@@ -250,6 +250,7 @@ serve(async (req) => {
           twitterUrl: twitterUrl || DEFAULT_TWITTER,
           phantomWallet, // User's Phantom wallet as fee payer
           feeRecipientWallet: phantomWallet, // All fees go to Phantom wallet
+          tradingFeeBps: tradingFeeBps || 200, // Default 2%, allow 0.1%-10%
         }),
       });
 
