@@ -8,8 +8,8 @@ import { PrivyProviderWrapper } from "@/providers/PrivyProviderWrapper";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 
-// Critical: Load FunLauncherPage eagerly for instant home page
-import FunLauncherPage from "./pages/FunLauncherPage";
+// Critical: Load ClaudeLauncherPage eagerly for instant home page
+import ClaudeLauncherPage from "./pages/ClaudeLauncherPage";
 
 // Lazy load other pages
 const LaunchpadPage = lazy(() => import("./pages/LaunchpadPage"));
@@ -26,7 +26,7 @@ const GovernancePage = lazy(() => import("./pages/GovernancePage"));
 const LaunchpadTemplatePage = lazy(() => import("./pages/LaunchpadTemplatePage"));
 const TwitterBotAdminPage = lazy(() => import("./pages/TwitterBotAdminPage"));
 const InvestigateTokenPage = lazy(() => import("./pages/InvestigateTokenPage"));
-const ClaudeLauncherPage = lazy(() => import("./pages/ClaudeLauncherPage"));
+const FunLauncherPage = lazy(() => import("./pages/FunLauncherPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -61,8 +61,8 @@ const App = () => (
           <BrowserRouter>
             <Suspense fallback={<RouteLoader />}>
               <Routes>
-                <Route path="/" element={<FunLauncherPage />} />
-                <Route path="/claude" element={<ClaudeLauncherPage />} />
+                <Route path="/" element={<ClaudeLauncherPage />} />
+                <Route path="/classic" element={<FunLauncherPage />} />
                 <Route path="/launchpad" element={<LaunchpadPage />} />
                 <Route path="/launch" element={<LaunchTokenPage />} />
                 <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
