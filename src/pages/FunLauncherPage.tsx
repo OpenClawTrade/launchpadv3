@@ -961,24 +961,26 @@ export default function FunLauncherPage() {
           <div className="lg:col-span-1 space-y-3 sm:space-y-4">
             {/* Generator Card */}
             <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-white flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#00d4aa]" />
-                  {generatorMode === "random" ? "AI Meme Generator" : generatorMode === "describe" ? "Describe & Generate" : "Custom Token"}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <h2 className="font-semibold text-white flex items-center gap-2 whitespace-nowrap">
+                  <Sparkles className="h-4 w-4 text-[#00d4aa] shrink-0" />
+                  <span className="truncate">
+                    {generatorMode === "random" ? "AI Meme Generator" : generatorMode === "describe" ? "Describe & Generate" : generatorMode === "phantom" ? "Phantom Launch" : "Custom Token"}
+                  </span>
                 </h2>
 
                 {/* Mode Switcher */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     onClick={() => setGeneratorMode("random")}
-                    className={
+                    className={`h-7 px-2 text-xs sm:text-sm ${
                       generatorMode === "random"
-                        ? "h-7 px-2 border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
-                        : "h-7 px-2 border-[#2a2a35] text-gray-300 bg-transparent"
-                    }
+                        ? "border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
+                        : "border-[#2a2a35] text-gray-300 bg-transparent"
+                    }`}
                   >
                     Randomizer
                   </Button>
@@ -987,11 +989,11 @@ export default function FunLauncherPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setGeneratorMode("describe")}
-                    className={
+                    className={`h-7 px-2 text-xs sm:text-sm ${
                       generatorMode === "describe"
-                        ? "h-7 px-2 border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
-                        : "h-7 px-2 border-[#2a2a35] text-gray-300 bg-transparent"
-                    }
+                        ? "border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
+                        : "border-[#2a2a35] text-gray-300 bg-transparent"
+                    }`}
                   >
                     Describe
                   </Button>
@@ -1000,11 +1002,11 @@ export default function FunLauncherPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setGeneratorMode("custom")}
-                    className={
+                    className={`h-7 px-2 text-xs sm:text-sm ${
                       generatorMode === "custom"
-                        ? "h-7 px-2 border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
-                        : "h-7 px-2 border-[#2a2a35] text-gray-300 bg-transparent"
-                    }
+                        ? "border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
+                        : "border-[#2a2a35] text-gray-300 bg-transparent"
+                    }`}
                   >
                     Custom
                   </Button>
@@ -1013,13 +1015,13 @@ export default function FunLauncherPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setGeneratorMode("phantom")}
-                    className={
+                    className={`h-7 px-2 text-xs sm:text-sm ${
                       generatorMode === "phantom"
-                        ? "h-7 px-2 border-purple-400/40 text-purple-400 bg-purple-400/10"
-                        : "h-7 px-2 border-[#2a2a35] text-gray-300 bg-transparent"
-                    }
+                        ? "border-purple-400/40 text-purple-400 bg-purple-400/10"
+                        : "border-[#2a2a35] text-gray-300 bg-transparent"
+                    }`}
                   >
-                    <Wallet className="h-3 w-3 mr-1" />
+                    <Wallet className="h-3 w-3 mr-1 shrink-0" />
                     Phantom
                   </Button>
                 </div>
