@@ -75,7 +75,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           <Link to="/trending">
             <Button 
               size="sm" 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9 px-4 font-medium"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-xs sm:text-sm font-medium"
             >
               <TrendUp className="h-4 w-4 mr-1.5" weight="bold" />
               Narratives
@@ -85,7 +85,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           <Link to="/api">
             <Button 
               size="sm" 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9 px-4 font-medium"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-xs sm:text-sm font-medium"
             >
               <Key className="h-4 w-4 mr-1.5" weight="bold" />
               API
@@ -95,7 +95,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           <Link to="/governance">
             <Button 
               size="sm" 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9 px-4 font-medium"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-xs sm:text-sm font-medium"
             >
               <Scales className="h-4 w-4 mr-1.5" weight="bold" />
               Governance
@@ -179,20 +179,20 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                 </div>
                 
                 {/* Menu items */}
-                <nav className="flex-1 p-4 space-y-3">
-                  <Link to="/trending" className="flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-primary hover:bg-primary/90 transition-colors">
-                    <TrendUp className="h-5 w-5 text-primary-foreground" weight="bold" />
-                    <span className="text-primary-foreground font-medium">Narratives</span>
+                <nav className="flex-1 p-4 space-y-2">
+                  <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
+                    <TrendUp className="h-4 w-4 text-primary-foreground" weight="bold" />
+                    <span className="text-primary-foreground text-sm font-medium">Narratives</span>
                   </Link>
                   
-                  <Link to="/api" className="flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-primary hover:bg-primary/90 transition-colors">
-                    <Key className="h-5 w-5 text-primary-foreground" weight="bold" />
-                    <span className="text-primary-foreground font-medium">API</span>
+                  <Link to="/api" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
+                    <Key className="h-4 w-4 text-primary-foreground" weight="bold" />
+                    <span className="text-primary-foreground text-sm font-medium">API</span>
                   </Link>
                   
-                  <Link to="/governance" className="flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-primary hover:bg-primary/90 transition-colors">
-                    <Scales className="h-5 w-5 text-primary-foreground" weight="bold" />
-                    <span className="text-primary-foreground font-medium">Governance</span>
+                  <Link to="/governance" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
+                    <Scales className="h-4 w-4 text-primary-foreground" weight="bold" />
+                    <span className="text-primary-foreground text-sm font-medium">Governance</span>
                   </Link>
                   
                   <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
