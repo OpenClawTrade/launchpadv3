@@ -34,13 +34,12 @@ import {
   TrendingUp,
   TrendingDown,
   Users,
-  Flame,
   PartyPopper,
   Menu,
   X,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import logoImage from "@/assets/logo.png";
+import logoImage from "@/assets/rift-wordmark.png";
 
 interface LaunchResult {
   success: boolean;
