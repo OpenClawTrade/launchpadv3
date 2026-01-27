@@ -31,6 +31,7 @@ interface FunToken {
   dbc_pool_address: string | null;
   status: string;
   price_sol: number;
+  price_change_24h?: number | null;
   volume_24h_sol: number;
   total_fees_earned: number;
   holder_count?: number;

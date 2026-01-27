@@ -114,7 +114,6 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
               </tr>
             ) : (
               paginatedTokens.map((token, index) => {
-                const priceChange = token.price_change_24h ?? 0;
                 const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
 
                 return (
@@ -141,10 +140,10 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
                       </Link>
                     </td>
                     <td>
-                      {priceChange !== 0 ? (
-                        <span className={`flex items-center gap-1 font-medium ${priceChange > 0 ? "text-green-500" : "text-red-500"}`}>
-                          {priceChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                          {Math.abs(priceChange).toFixed(1)}%
+                      {token.price_change_24h != null && token.price_change_24h !== 0 ? (
+                        <span className={`flex items-center gap-1 font-medium ${token.price_change_24h > 0 ? "text-green-500" : "text-red-500"}`}>
+                          {token.price_change_24h > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                          {Math.abs(token.price_change_24h).toFixed(1)}%
                         </span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
