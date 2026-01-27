@@ -56,16 +56,10 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
 
   const shortenAddress = (address: string) => `${address.slice(0, 4)}...${address.slice(-4)}`;
 
-  const formatMarketCap = (mcapSol: number | null) => {
-    if (!mcapSol) return "-";
-    if (mcapSol >= 1000) return `${(mcapSol / 1000).toFixed(1)}K`;
-    return mcapSol.toFixed(1);
-  };
-
-  const formatUSD = (sol: number | null) => {
-    if (!sol || !solPrice) return "";
-    const usd = sol * solPrice;
-    if (usd >= 1000000) return `$${(usd / 1000000).toFixed(1)}M`;
+  const formatUsdMarketCap = (mcapSol: number | null) => {
+    if (!mcapSol || !solPrice) return "$0";
+    const usd = mcapSol * solPrice;
+    if (usd >= 1000000) return `$${(usd / 1000000).toFixed(2)}M`;
     if (usd >= 1000) return `$${(usd / 1000).toFixed(1)}K`;
     return `$${usd.toFixed(0)}`;
   };
@@ -149,18 +143,13 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
                       </Link>
                     </td>
                     <td>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-foreground">
-                          {token.price_sol ? `${token.price_sol.toExponential(2)}` : "-"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatUSD(token.price_sol)}
-                        </span>
-                      </div>
+                      <span className="font-medium text-foreground">
+                        {token.price_sol ? `${token.price_sol.toExponential(2)}` : "-"}
+                      </span>
                     </td>
                     <td>
                       {priceChange !== 0 ? (
-                        <span className={`flex items-center gap-1 font-medium ${priceChange > 0 ? "gate-price-up" : "gate-price-down"}`}>
+                        <span className={`flex items-center gap-1 font-medium ${priceChange > 0 ? "text-green-500" : "text-red-500"}`}>
                           {priceChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                           {Math.abs(priceChange).toFixed(1)}%
                         </span>
@@ -169,10 +158,7 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
                       )}
                     </td>
                     <td>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-foreground">{formatMarketCap(token.market_cap_sol)} SOL</span>
-                        <span className="text-xs text-muted-foreground">{formatUSD(token.market_cap_sol)}</span>
-                      </div>
+                      <span className="font-semibold text-foreground">{formatUsdMarketCap(token.market_cap_sol)}</span>
                     </td>
                     <td>
                       <span className="flex items-center gap-1 text-muted-foreground">
