@@ -19,7 +19,6 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
-import { Ai67xPriceDisplay } from "@/components/layout/Ai67xPriceDisplay";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
 import { 
   Shuffle, 
@@ -961,12 +960,12 @@ export default function ClaudeLauncherPage() {
                           <span className="text-white font-medium">Governance</span>
                         </Link>
                         <div className="pt-4 border-t border-[hsl(220,12%,20%)] space-y-2">
-                          <a href="https://dune.com/ai67xlaunch/stats" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[hsl(220,12%,18%)] transition-colors">
+                          <a href="https://dune.com/riftlaunch/stats" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[hsl(220,12%,18%)] transition-colors">
                             <BarChart3 className="h-5 w-5 text-orange-400" />
                             <span className="text-[hsl(220,10%,65%)]">Analytics (Dune)</span>
                             <ExternalLink className="h-3 w-3 text-[hsl(220,10%,45%)] ml-auto" />
                           </a>
-                          <a href="https://x.com/ai67x_fun" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[hsl(220,12%,18%)] transition-colors">
+                          <a href="https://x.com/rift_fun" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[hsl(220,12%,18%)] transition-colors">
                             <Twitter className="h-5 w-5 text-[hsl(220,10%,65%)]" />
                             <span className="text-[hsl(220,10%,65%)]">Follow on X</span>
                             <ExternalLink className="h-3 w-3 text-[hsl(220,10%,45%)] ml-auto" />
@@ -979,7 +978,6 @@ export default function ClaudeLauncherPage() {
               </div>
             </div>
             <div className="flex items-center justify-center gap-3">
-              <Ai67xPriceDisplay />
               <SolPriceDisplay />
             </div>
           </div>
@@ -997,7 +995,6 @@ export default function ClaudeLauncherPage() {
             </Link>
 
             <div className="flex items-center gap-4">
-              <Ai67xPriceDisplay />
               <SolPriceDisplay />
               <div className="flex items-center gap-2 text-xs text-[hsl(220,10%,45%)]">
                 <span className="w-2 h-2 bg-[hsl(160,70%,50%)] rounded-full animate-pulse" />
@@ -1006,8 +1003,8 @@ export default function ClaudeLauncherPage() {
               <Link to="/trending" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><TrendingUp className="h-5 w-5" /></Link>
               <Link to="/api" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><Key className="h-5 w-5" /></Link>
               <Link to="/governance" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><Scale className="h-5 w-5" /></Link>
-              <a href="https://dune.com/ai67xlaunch/stats" target="_blank" rel="noopener noreferrer" className="text-[hsl(220,10%,45%)] hover:text-orange-400 transition-colors"><BarChart3 className="h-5 w-5" /></a>
-              <a href="https://x.com/ai67x_fun" target="_blank" rel="noopener noreferrer" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><Twitter className="h-5 w-5" /></a>
+              <a href="https://dune.com/riftlaunch/stats" target="_blank" rel="noopener noreferrer" className="text-[hsl(220,10%,45%)] hover:text-orange-400 transition-colors"><BarChart3 className="h-5 w-5" /></a>
+              <a href="https://x.com/rift_fun" target="_blank" rel="noopener noreferrer" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><Twitter className="h-5 w-5" /></a>
               <Button onClick={() => refetch()} variant="ghost" size="sm" className="claude-btn-ghost">
                 <RefreshCw className="h-4 w-4" />
               </Button>

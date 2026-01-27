@@ -7,9 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
-// Default socials for all tokens
-const DEFAULT_WEBSITE = "https://ai67x.fun";
-const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
+// Default socials removed per memory - fields should be null when not provided
+// const DEFAULT_WEBSITE = "https://rift.fun";
+// const DEFAULT_TWITTER = "https://x.com/rift_fun";
 
 // Blocked patterns for spam/exploit names
 const BLOCKED_PATTERNS = [

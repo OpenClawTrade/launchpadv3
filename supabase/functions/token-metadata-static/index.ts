@@ -49,10 +49,10 @@ serve(async (req) => {
     console.log(`[token-metadata-static] Serving metadata for: ${mintAddress}`);
     console.log(`[token-metadata-static] Name: ${name}, Symbol: ${symbol}, Image: ${image?.substring(0, 50)}...`);
 
-    // Append #ai67x hashtag for Solscan visibility
-    const descriptionWithTag = description.includes("#ai67x")
+    // Append #RIFT hashtag for Solscan visibility
+    const descriptionWithTag = description.includes("#RIFT")
       ? description
-      : `${description} #ai67x`;
+      : `${description} #RIFT`;
 
     // Build Metaplex-standard metadata JSON
     const metadata: Record<string, unknown> = {
@@ -60,10 +60,10 @@ serve(async (req) => {
       symbol: symbol.toUpperCase(),
       description: descriptionWithTag,
       image,
-      external_url: website || `https://ai67x.io/token/${mintAddress}`,
-      tags: ["Meme", "ai67x"],
+      external_url: website || `https://rift.fun/token/${mintAddress}`,
+      tags: ["Meme", "RIFT"],
       attributes: [
-        { trait_type: "Platform", value: "ai67x" },
+        { trait_type: "Platform", value: "RIFT" },
         { trait_type: "Status", value: "bonding" },
       ],
       properties: {

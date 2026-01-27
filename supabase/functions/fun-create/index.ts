@@ -6,9 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Default socials for all tokens
-const DEFAULT_WEBSITE = "https://ai67x.fun";
-const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
+// Default socials removed per memory - fields should be null when not provided
+// const DEFAULT_WEBSITE = "https://rift.fun";
+// const DEFAULT_TWITTER = "https://x.com/rift_fun";
 
 // Blocked patterns for spam/exploit names
 const BLOCKED_PATTERNS = [
@@ -177,8 +177,8 @@ serve(async (req) => {
           ticker: ticker.toUpperCase().slice(0, 10),
           description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
           imageUrl: storedImageUrl,
-          websiteUrl: websiteUrl || DEFAULT_WEBSITE,
-          twitterUrl: twitterUrl || DEFAULT_TWITTER,
+          websiteUrl: websiteUrl || null,
+          twitterUrl: twitterUrl || null,
           serverSideSign: true,
           feeRecipientWallet: creatorWallet,
         }),
@@ -238,8 +238,8 @@ serve(async (req) => {
         dbc_pool_address: dbcPoolAddress,
         status: "active",
         price_sol: 0.00000003,
-        website_url: websiteUrl || DEFAULT_WEBSITE,
-        twitter_url: twitterUrl || DEFAULT_TWITTER,
+        website_url: websiteUrl || null,
+        twitter_url: twitterUrl || null,
       })
       .select()
       .single();

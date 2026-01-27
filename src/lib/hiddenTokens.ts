@@ -10,7 +10,7 @@ export const HIDDEN_TOKEN_IDS = new Set([
   "0a943756-9ffa-4f14-9f48-fc1d678d9e32",
   "2ea2469c-e0f9-4ad4-8a11-fae0af31ecf2",
   "0dc14468-49ae-4a4b-9825-d956089dae1e",
-  // Ai67xIsARug spam tokens
+  // RiftIsARug spam tokens
   "f0f00eea-2be8-46f6-94a7-cd1e7b27abba",
   "6406f5ba-b336-4682-b2e9-709c50bd7449",
 ]);

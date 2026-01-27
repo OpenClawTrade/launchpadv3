@@ -106,12 +106,12 @@ Deno.serve(async (req) => {
       const fallbackMetadata = {
         name: 'New Token',
         symbol: 'TOKEN',
-        description: 'Token launching on ai67x #ai67x',
+        description: 'Token launching on RIFT #RIFT',
         image: '',
-        external_url: `https://ai67x.io/token/${mintAddress}`,
-        tags: ['Meme', 'ai67x'],
+        external_url: `https://rift.fun/token/${mintAddress}`,
+        tags: ['Meme', 'RIFT'],
         attributes: [
-          { trait_type: 'Platform', value: 'ai67x' },
+          { trait_type: 'Platform', value: 'RIFT' },
           { trait_type: 'Status', value: 'launching' },
         ],
         properties: {
@@ -137,24 +137,24 @@ Deno.serve(async (req) => {
 
     // Build Metaplex-standard metadata JSON
     // See: https://docs.metaplex.com/programs/token-metadata/token-standard
-    // Append #ai67x hashtag for Solscan visibility
+    // Append #RIFT hashtag for Solscan visibility
     const baseDescription = token.description || `${token.name} token`;
-    const descriptionWithTag = baseDescription.includes('#ai67x') 
+    const descriptionWithTag = baseDescription.includes('#RIFT') 
       ? baseDescription 
-      : `${baseDescription} #ai67x`;
+      : `${baseDescription} #RIFT`;
 
     const metadata: Record<string, unknown> = {
       name: token.name,
       symbol: token.ticker?.toUpperCase() || '',
       description: descriptionWithTag,
       image: token.image_url || '',
-      external_url: token.website_url || `https://ai67x.io/token/${mintAddress}`,
+      external_url: token.website_url || `https://rift.fun/token/${mintAddress}`,
       // Tags array for Solscan tag chips
-      tags: ['Meme', 'ai67x'],
+      tags: ['Meme', 'RIFT'],
       attributes: [
         {
           trait_type: 'Platform',
-          value: 'ai67x',
+          value: 'RIFT',
         },
         {
           trait_type: 'Status',

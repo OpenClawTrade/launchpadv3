@@ -162,7 +162,7 @@ export default function TokenDetailPage() {
     if (navigator.share && token) {
       navigator.share({
         title: `${token.name} ($${token.ticker})`,
-        text: `Check out ${token.name} on ai67x!`,
+        text: `Check out ${token.name} on RIFT!`,
         url: window.location.href,
       });
     } else {
