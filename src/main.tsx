@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "./styles/gate-theme.css";
 
 // Polyfill Buffer for browser (required by Privy SDK) - must be after React imports
 import { Buffer } from "buffer";

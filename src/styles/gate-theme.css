@@ -787,3 +787,205 @@
     font-size: 13px;
   }
 }
+
+/* ===== GLOBAL OVERRIDES FOR HARDCODED COLORS ===== */
+/* Override common hardcoded hex colors with theme tokens */
+
+/* Dark backgrounds -> background tokens */
+.gate-theme [class*="bg-[#0d0d0f]"],
+.gate-theme [class*="bg-[#0a0a0c]"],
+.gate-theme [class*="bg-[#0b0e11]"] {
+  background-color: hsl(var(--gate-bg-primary)) !important;
+}
+
+.gate-theme [class*="bg-[#12121a]"],
+.gate-theme [class*="bg-[#14171a]"],
+.gate-theme [class*="bg-[#1a1a1f]"],
+.gate-theme [class*="bg-[#1c2127]"] {
+  background-color: hsl(var(--gate-bg-secondary)) !important;
+}
+
+.gate-theme [class*="bg-[#252530]"],
+.gate-theme [class*="bg-[#2a2a35]"] {
+  background-color: hsl(var(--gate-bg-tertiary)) !important;
+}
+
+/* Borders */
+.gate-theme [class*="border-[#1a1a1f]"],
+.gate-theme [class*="border-[#2a2a35]"] {
+  border-color: hsl(var(--gate-border)) !important;
+}
+
+/* Primary accent (green) */
+.gate-theme [class*="text-[#00d4aa]"],
+.gate-theme [class*="text-[#00d26a]"],
+.gate-theme [class*="text-emerald-"],
+.gate-theme [class*="text-teal-"] {
+  color: hsl(var(--gate-primary)) !important;
+}
+
+.gate-theme [class*="bg-[#00d4aa]"],
+.gate-theme [class*="bg-[#00d26a]"] {
+  background-color: hsl(var(--gate-primary)) !important;
+}
+
+.gate-theme [class*="border-[#00d4aa]"],
+.gate-theme [class*="border-[#00d26a]"] {
+  border-color: hsl(var(--gate-primary)) !important;
+}
+
+/* Text colors */
+.gate-theme [class*="text-white"] {
+  color: hsl(var(--gate-text-primary)) !important;
+}
+
+.gate-theme [class*="text-gray-300"],
+.gate-theme [class*="text-gray-400"] {
+  color: hsl(var(--gate-text-secondary)) !important;
+}
+
+.gate-theme [class*="text-gray-500"],
+.gate-theme [class*="text-gray-600"] {
+  color: hsl(var(--gate-text-muted)) !important;
+}
+
+/* Override shadcn Card component */
+.gate-theme .card,
+.gate-theme [class*="Card"],
+.gate-theme div[class*="rounded-lg"][class*="border"][class*="bg-"] {
+  background-color: hsl(var(--gate-bg-card)) !important;
+  border-color: hsl(var(--gate-border)) !important;
+}
+
+/* Button overrides for gate theme */
+.gate-theme button[class*="bg-[#"] {
+  background-color: hsl(var(--gate-bg-tertiary)) !important;
+  border-color: hsl(var(--gate-border)) !important;
+  color: hsl(var(--gate-text-primary)) !important;
+}
+
+.gate-theme button[class*="bg-[#"]:hover {
+  background-color: hsl(var(--gate-bg-elevated)) !important;
+}
+
+/* Input overrides */
+.gate-theme input[class*="bg-[#"],
+.gate-theme textarea[class*="bg-[#"] {
+  background-color: hsl(var(--gate-bg-input)) !important;
+  border-color: hsl(var(--gate-border)) !important;
+  color: hsl(var(--gate-text-primary)) !important;
+}
+
+.gate-theme input[class*="bg-[#"]::placeholder,
+.gate-theme textarea[class*="bg-[#"]::placeholder {
+  color: hsl(var(--gate-text-muted)) !important;
+}
+
+/* Sheet/Dialog backgrounds */
+.gate-theme [data-state="open"][class*="bg-[#"] {
+  background-color: hsl(var(--gate-bg-card)) !important;
+}
+
+/* Ensure proper contrast for primary buttons */
+.gate-theme .gate-btn-primary,
+.gate-theme button[class*="bg-primary"] {
+  background-color: hsl(var(--gate-primary)) !important;
+  color: white !important;
+}
+
+.gate-theme .gate-btn-primary:hover,
+.gate-theme button[class*="bg-primary"]:hover {
+  background-color: hsl(var(--gate-primary-hover)) !important;
+}
+
+/* Fix specific components with aggressive overrides */
+.gate-theme .bg-card {
+  background-color: hsl(var(--gate-bg-card)) !important;
+}
+
+.gate-theme .bg-background {
+  background-color: hsl(var(--gate-bg-primary)) !important;
+}
+
+.gate-theme .bg-secondary {
+  background-color: hsl(var(--gate-bg-secondary)) !important;
+}
+
+.gate-theme .bg-muted {
+  background-color: hsl(var(--gate-bg-tertiary)) !important;
+}
+
+.gate-theme .text-foreground {
+  color: hsl(var(--gate-text-primary)) !important;
+}
+
+.gate-theme .text-muted-foreground {
+  color: hsl(var(--gate-text-secondary)) !important;
+}
+
+.gate-theme .border-border {
+  border-color: hsl(var(--gate-border)) !important;
+}
+
+.gate-theme .text-primary {
+  color: hsl(var(--gate-primary)) !important;
+}
+
+/* Toast/notification styling */
+.gate-theme [data-sonner-toaster] [data-sonner-toast] {
+  background-color: hsl(var(--gate-bg-card)) !important;
+  border-color: hsl(var(--gate-border)) !important;
+  color: hsl(var(--gate-text-primary)) !important;
+}
+
+/* Dialog/Sheet content */
+.gate-theme [data-radix-dialog-content],
+.gate-theme [data-radix-sheet-content] {
+  background-color: hsl(var(--gate-bg-card)) !important;
+  border-color: hsl(var(--gate-border)) !important;
+}
+
+/* Tabs */
+.gate-theme [role="tablist"] {
+  background-color: hsl(var(--gate-bg-secondary)) !important;
+  border-radius: var(--gate-radius-lg);
+  padding: 4px;
+}
+
+.gate-theme [role="tab"] {
+  color: hsl(var(--gate-text-secondary)) !important;
+}
+
+.gate-theme [role="tab"][data-state="active"] {
+  background-color: hsl(var(--gate-bg-card)) !important;
+  color: hsl(var(--gate-text-primary)) !important;
+}
+
+/* Dropdown menus */
+.gate-theme [data-radix-popper-content-wrapper] {
+  z-index: 100 !important;
+}
+
+.gate-theme [data-radix-menu-content],
+.gate-theme [data-radix-dropdown-menu-content] {
+  background-color: hsl(var(--gate-bg-card)) !important;
+  border: 1px solid hsl(var(--gate-border)) !important;
+}
+
+/* Badge styles */
+.gate-theme .badge,
+.gate-theme [class*="Badge"] {
+  background-color: hsl(var(--gate-bg-secondary)) !important;
+  color: hsl(var(--gate-text-secondary)) !important;
+  border-color: hsl(var(--gate-border)) !important;
+}
+
+/* Progress bar */
+.gate-theme [class*="Progress"] [class*="Indicator"] {
+  background: linear-gradient(90deg, hsl(var(--gate-primary)), hsl(152 69% 55%)) !important;
+}
+
+/* Skeleton */
+.gate-theme [class*="Skeleton"] {
+  background-color: hsl(var(--gate-bg-tertiary)) !important;
+}
