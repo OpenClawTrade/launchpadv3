@@ -163,7 +163,9 @@ export default function FunLauncherPage() {
       </header>
 
       {/* Ticker Bar */}
-      <TokenTickerBar />
+      <div className="mt-4">
+        <TokenTickerBar />
+      </div>
 
       {/* Main Content */}
       <main className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
