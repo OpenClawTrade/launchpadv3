@@ -40,6 +40,7 @@ import {
   X,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import logoImage from "@/assets/logo.png";
 
 interface LaunchResult {
   success: boolean;
@@ -121,12 +122,15 @@ export default function FunLauncherPage() {
       {/* Header */}
       <header className="gate-header">
         <div className="gate-header-inner">
-          <Link to="/" className="gate-logo">
-            <div className="gate-logo-icon">
-              <Flame className="h-5 w-5 text-white" />
-            </div>
-            <span>RIFT</span>
-          </Link>
+
+            <Link to="/" className="gate-logo" aria-label="RIFT">
+              <img
+                src={logoImage}
+                alt="RIFT"
+                className="h-7 sm:h-8 w-auto"
+                loading="eager"
+              />
+            </Link>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex gate-nav">
