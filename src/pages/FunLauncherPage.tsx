@@ -132,11 +132,11 @@ export default function FunLauncherPage() {
             </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex gate-nav">
-            <Link to="/" className="gate-nav-link active">Launch</Link>
-            <Link to="/launchpad" className="gate-nav-link">Trade</Link>
-            <Link to="/trending" className="gate-nav-link">Trending</Link>
-            <Link to="/portfolio" className="gate-nav-link">Portfolio</Link>
+          <nav className="hidden md:flex items-center bg-card border border-border p-1 rounded-xl gap-1">
+            <Link to="/" className="bg-primary text-primary-foreground text-sm font-medium rounded-lg px-4 py-2">Launch</Link>
+            <Link to="/launchpad" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2 hover:bg-muted/50 transition-colors">Trade</Link>
+            <Link to="/trending" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2 hover:bg-muted/50 transition-colors">Trending</Link>
+            <Link to="/portfolio" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2 hover:bg-muted/50 transition-colors">Portfolio</Link>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -151,10 +151,10 @@ export default function FunLauncherPage() {
               </SheetTrigger>
               <SheetContent side="right" className="bg-card border-border">
                 <nav className="flex flex-col gap-2 mt-8">
-                  <Link to="/" className="gate-nav-link active" onClick={() => setMobileMenuOpen(false)}>Launch</Link>
-                  <Link to="/launchpad" className="gate-nav-link" onClick={() => setMobileMenuOpen(false)}>Trade</Link>
-                  <Link to="/trending" className="gate-nav-link" onClick={() => setMobileMenuOpen(false)}>Trending</Link>
-                  <Link to="/portfolio" className="gate-nav-link" onClick={() => setMobileMenuOpen(false)}>Portfolio</Link>
+                  <Link to="/" className="bg-primary text-primary-foreground text-sm font-medium rounded-lg px-4 py-2.5" onClick={() => setMobileMenuOpen(false)}>Launch</Link>
+                  <Link to="/launchpad" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2.5 hover:bg-muted/50 transition-colors" onClick={() => setMobileMenuOpen(false)}>Trade</Link>
+                  <Link to="/trending" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2.5 hover:bg-muted/50 transition-colors" onClick={() => setMobileMenuOpen(false)}>Trending</Link>
+                  <Link to="/portfolio" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2.5 hover:bg-muted/50 transition-colors" onClick={() => setMobileMenuOpen(false)}>Portfolio</Link>
                 </nav>
               </SheetContent>
             </Sheet>
