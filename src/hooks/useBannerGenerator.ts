@@ -37,7 +37,7 @@ const loadImageToCanvas = (imageUrl: string): Promise<HTMLCanvasElement> => {
 };
 
 /**
- * Extracts the dominant color from a canvas
+ * Extracts the dominant color from a canvas and returns a uniform color (not dimmed)
  */
 const extractDominantColor = (canvas: HTMLCanvasElement): string => {
   const ctx = canvas.getContext("2d");
@@ -60,19 +60,15 @@ const extractDominantColor = (canvas: HTMLCanvasElement): string => {
   g = Math.floor(g / count);
   b = Math.floor(b / count);
   
-  // Darken the color for better contrast
-  r = Math.floor(r * 0.7);
-  g = Math.floor(g * 0.7);
-  b = Math.floor(b * 0.7);
-  
+  // Return uniform color without darkening
   return `rgb(${r}, ${g}, ${b})`;
 };
 
 /**
- * Generates a 1500x500px X banner with token image on right, text on left
+ * Generates a 1500x500px X banner with token image centered, no text overlay
  */
 const generateXBanner = async (params: BannerParams): Promise<Blob> => {
-  const { imageUrl, tokenName, ticker } = params;
+  const { imageUrl } = params;
 
   // 1. Load the generated token image
   const tokenImgCanvas = await loadImageToCanvas(imageUrl);
@@ -86,13 +82,13 @@ const generateXBanner = async (params: BannerParams): Promise<Blob> => {
   bannerCanvas.height = BANNER_HEIGHT;
   const ctx = bannerCanvas.getContext("2d")!;
 
-  // 4. Draw solid background (no gradient)
+  // 4. Draw solid background (uniform color)
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, BANNER_WIDTH, BANNER_HEIGHT);
 
-  // 5. Draw Token Image on the Right Side (circular mask)
-  const imgSize = BANNER_HEIGHT * 0.8; // 80% of banner height
-  const imgX = BANNER_WIDTH - imgSize - 100; // 100px from right edge
+  // 5. Draw Token Image centered (circular mask)
+  const imgSize = BANNER_HEIGHT * 0.85; // 85% of banner height
+  const imgX = (BANNER_WIDTH - imgSize) / 2; // Centered horizontally
   const imgY = (BANNER_HEIGHT - imgSize) / 2;
   
   // Create circular clipping mask
@@ -112,46 +108,20 @@ const generateXBanner = async (params: BannerParams): Promise<Blob> => {
   ctx.drawImage(tokenImgCanvas, offsetX, offsetY, scaledWidth, scaledHeight);
   ctx.restore();
   
-  // Add glow effect around the image
+  // Add subtle glow effect around the image
   ctx.save();
-  ctx.shadowColor = "rgba(0, 212, 170, 0.5)";
-  ctx.shadowBlur = 30;
+  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
+  ctx.shadowBlur = 20;
   ctx.beginPath();
-  ctx.arc(imgX + imgSize / 2, imgY + imgSize / 2, imgSize / 2 + 5, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(0, 212, 170, 0.8)";
-  ctx.lineWidth = 4;
+  ctx.arc(imgX + imgSize / 2, imgY + imgSize / 2, imgSize / 2 + 3, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+  ctx.lineWidth = 3;
   ctx.stroke();
   ctx.restore();
 
-  // 6. Draw text on the left side
-  const textX = 80;
-  const centerY = BANNER_HEIGHT / 2;
-  
-  // Token name - large bold text
-  ctx.save();
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 72px sans-serif";
-  ctx.textBaseline = "bottom";
-  ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
-  ctx.fillText(tokenName, textX, centerY - 10);
-  ctx.restore();
-  
-  // Ticker - smaller text with accent color
-  ctx.save();
-  ctx.fillStyle = "#00d4aa";
-  ctx.font = "bold 48px sans-serif";
-  ctx.textBaseline = "top";
-  ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
-  ctx.fillText(`$${ticker}`, textX, centerY + 10);
-  ctx.restore();
+  // No text overlay - clean banner with just the mascot
 
-  // 7. Export as Blob
+  // 6. Export as Blob
   return new Promise((resolve, reject) => {
     bannerCanvas.toBlob(
       (blob) => blob ? resolve(blob) : reject(new Error("Banner generation failed")),

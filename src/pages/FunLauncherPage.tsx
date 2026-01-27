@@ -129,7 +129,7 @@ export default function FunLauncherPage() {
             <div className="gate-logo-icon">
               <Flame className="h-5 w-5 text-white" />
             </div>
-            <span>Trenches</span>
+            <span>RIFT</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -140,13 +140,13 @@ export default function FunLauncherPage() {
             <Link to="/portfolio" className="gate-nav-link">Portfolio</Link>
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <SolPriceDisplay />
             
             {/* Mobile Menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="sm" className="gate-btn-ghost">
+                <Button variant="ghost" size="sm" className="gate-btn-ghost h-10 w-10">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -213,24 +213,24 @@ export default function FunLauncherPage() {
           {/* Right: Tabbed Content */}
           <div className="flex-1 min-w-0">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="w-full bg-card border border-border p-1 mb-4 grid grid-cols-5 rounded-xl">
-                <TabsTrigger value="tokens" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
+              <TabsList className="w-full bg-card border border-border p-1.5 mb-4 grid grid-cols-5 gap-2 rounded-xl">
+                <TabsTrigger value="tokens" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
                   <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Tokens</span>
                 </TabsTrigger>
-                <TabsTrigger value="top" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
+                <TabsTrigger value="top" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
                   <Trophy className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Top</span>
                 </TabsTrigger>
-                <TabsTrigger value="claims" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
+                <TabsTrigger value="claims" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
                   <Coins className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Claims</span>
                 </TabsTrigger>
-                <TabsTrigger value="buybacks" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
+                <TabsTrigger value="buybacks" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
                   <Repeat className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Buybacks</span>
                 </TabsTrigger>
-                <TabsTrigger value="creators" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
+                <TabsTrigger value="creators" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
                   <Wallet className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Creators</span>
                 </TabsTrigger>
