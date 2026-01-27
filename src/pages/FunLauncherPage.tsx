@@ -39,7 +39,8 @@ import {
   X,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import logoImage from "@/assets/rift-wordmark.png";
+
+const HEADER_LOGO_SRC = "/rift-wordmark.png?v=1";
 
 interface LaunchResult {
   success: boolean;
@@ -124,7 +125,7 @@ export default function FunLauncherPage() {
 
             <Link to="/" className="gate-logo" aria-label="RIFT">
               <img
-                src={logoImage}
+                src={HEADER_LOGO_SRC}
                 alt="RIFT"
                 className="h-7 sm:h-8 w-auto"
                 loading="eager"

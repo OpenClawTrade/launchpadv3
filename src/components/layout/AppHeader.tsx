@@ -14,7 +14,7 @@ import {
 import { ExternalLink, Menu } from "lucide-react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import logoImage from "@/assets/rift-wordmark.png";
+const HEADER_LOGO_SRC = "/rift-logo.png?v=1";
 
 interface AppHeaderProps {
   showBack?: boolean;
@@ -36,7 +36,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         {/* Logo section */}
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <Link to="/" className="flex items-center gap-2">
-            <img src={logoImage} alt="RIFT" className="h-7 w-auto" loading="eager" />
+            <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-auto" loading="eager" />
           </Link>
           {showBack && backLabel && (
             <div className="hidden sm:flex items-center gap-2 text-muted-foreground">
@@ -146,7 +146,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
               <div className="flex flex-col h-full">
                 {/* Menu header */}
                 <div className="flex items-center gap-3 p-4 border-b border-border">
-                  <img src={logoImage} alt="RIFT" className="h-8 w-auto" loading="eager" />
+                  <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-9 w-auto" loading="eager" />
                 </div>
                 
                 {/* Auth section */}
