@@ -61,13 +61,13 @@ export function SolPriceDisplay() {
 
   if (isLoading || !priceData) {
     return (
-      <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1a1a1f] rounded-md animate-pulse">
+      <div className="flex items-center gap-1.5 px-2 py-1 bg-secondary rounded-md animate-pulse">
         <svg viewBox="0 0 397.7 311.7" className="h-4 w-4 opacity-50" fill="none">
           <path fill="#9945FF" d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/>
           <path fill="#9945FF" d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/>
           <path fill="#9945FF" d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/>
         </svg>
-        <span className="text-xs text-gray-500">---</span>
+        <span className="text-xs text-muted-foreground">---</span>
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function SolPriceDisplay() {
   const isPositive = priceData.change24h >= 0;
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1a1a1f] rounded-md">
+    <div className="flex items-center gap-1.5 px-2 py-1 bg-secondary rounded-md">
       {/* Solana Logo */}
       <svg viewBox="0 0 397.7 311.7" className="h-4 w-4" fill="none">
         <linearGradient id="solGrad1" x1="360.879" x2="141.213" y1="351.455" y2="-69.294" gradientTransform="matrix(1 0 0 -1 0 314)" gradientUnits="userSpaceOnUse">
@@ -95,12 +95,12 @@ export function SolPriceDisplay() {
         <path fill="url(#solGrad3)" d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/>
       </svg>
       
-      <span className="text-xs font-medium text-white">
+      <span className="text-xs font-medium text-foreground">
         ${priceData.price.toFixed(2)}
       </span>
       
       <div className={`flex items-center gap-0.5 text-xs font-medium ${
-        isPositive ? 'text-green-400' : 'text-red-400'
+        isPositive ? 'text-success' : 'text-destructive'
       }`}>
         {isPositive ? (
           <TrendUp className="h-3 w-3" weight="bold" />

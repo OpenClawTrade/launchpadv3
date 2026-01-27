@@ -817,18 +817,18 @@ export default function FunLauncherPage() {
   const totalCreatorPaid = creatorDistributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0);
 
   return (
-    <div className="min-h-screen bg-[#0d0d0f] text-white overflow-x-hidden">
+    <div className="gate-theme dark min-h-screen overflow-x-hidden">
       {/* Token Ticker Bar - bags.fm style */}
       <TokenTickerBar />
       
       {/* Header Bar */}
-      <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50 w-full">
+      <header className="gate-header">
         {/* Mobile: Two-line header */}
         <div className="sm:hidden">
           {/* Line 1: Logo + Burger */}
-          <div className="flex items-center justify-between px-3 h-12 border-b border-[#1a1a1f]">
+          <div className="flex items-center justify-between px-3 h-12 border-b border-border">
             <Link to="/" className="flex items-center gap-2">
-              <span className="text-xl font-black text-white tracking-tight">RIFT</span>
+              <span className="text-xl font-black text-foreground tracking-tight">RIFT</span>
             </Link>
             
             <div className="flex items-center gap-2">
@@ -836,68 +836,68 @@ export default function FunLauncherPage() {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => refetch()}
-                className="text-gray-400 hover:text-white h-8 w-8 p-0"
+                className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
               
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-72 bg-[#0d0d0f] border-[#1a1a1f] p-0">
+                <SheetContent side="right" className="w-72 bg-card border-border p-0">
                   <div className="flex flex-col h-full">
-                    <div className="flex items-center gap-3 p-4 border-b border-[#1a1a1f]">
-                      <span className="text-2xl font-black text-white tracking-tight">RIFT</span>
+                    <div className="flex items-center gap-3 p-4 border-b border-border">
+                      <span className="text-2xl font-black text-foreground tracking-tight">RIFT</span>
                     </div>
                     
                     <nav className="flex-1 p-4 space-y-2">
-                      <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                        <TrendingUp className="h-5 w-5 text-green-400" />
-                        <span className="text-white font-medium">Narratives</span>
+                      <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                        <span className="text-foreground font-medium">Narratives</span>
                       </Link>
                       
-                      <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                        <Key className="h-5 w-5 text-purple-400" />
-                        <span className="text-white font-medium">API</span>
+                      <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
+                        <Key className="h-5 w-5 text-accent-foreground" />
+                        <span className="text-foreground font-medium">API</span>
                       </Link>
                       
-                      <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                        <Scale className="h-5 w-5 text-cyan-400" />
-                        <span className="text-white font-medium">Governance</span>
+                      <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
+                        <Scale className="h-5 w-5 text-primary" />
+                        <span className="text-foreground font-medium">Governance</span>
                       </Link>
                       
-                      <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
+                      <div className="pt-4 border-t border-border space-y-2">
                         <a 
                           href="https://dune.com/riftlaunch/stats" 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors"
                         >
-                          <BarChart2 className="h-5 w-5 text-orange-400" />
-                          <span className="text-gray-300">Analytics (Dune)</span>
-                          <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
+                          <BarChart2 className="h-5 w-5 text-warning" />
+                          <span className="text-muted-foreground">Analytics (Dune)</span>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground/60 ml-auto" />
                         </a>
                         
                         <a 
                           href="https://x.com/rift_fun" 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors"
                         >
-                          <svg viewBox="0 0 24 24" className="h-5 w-5 text-gray-400 fill-current">
+                          <svg viewBox="0 0 24 24" className="h-5 w-5 text-muted-foreground fill-current">
                             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                           </svg>
-                          <span className="text-gray-300">Follow on X</span>
-                          <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
+                          <span className="text-muted-foreground">Follow on X</span>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground/60 ml-auto" />
                         </a>
                       </div>
                     </nav>
                     
-                    <div className="p-4 border-t border-[#1a1a1f]">
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="p-4 border-t border-border">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3.5 w-3.5" />
                         Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
                       </div>
@@ -909,7 +909,7 @@ export default function FunLauncherPage() {
           </div>
           
           {/* Line 2: Prices */}
-          <div className="flex items-center justify-center gap-3 px-3 h-10 bg-[#0a0a0c]">
+          <div className="flex items-center justify-center gap-3 px-3 h-10 bg-background-secondary">
             <SolPriceDisplay />
           </div>
         </div>
@@ -917,7 +917,7 @@ export default function FunLauncherPage() {
         {/* Desktop: Single-line header */}
         <div className="hidden sm:flex w-full max-w-7xl mx-auto px-4 h-14 items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-2xl font-black text-white tracking-tight">RIFT</span>
+            <span className="text-2xl font-black text-foreground tracking-tight">RIFT</span>
           </Link>
           
           <div className="flex items-center gap-2">
@@ -926,23 +926,23 @@ export default function FunLauncherPage() {
             </div>
             
             <a 
-              href="https://dune.com/ai67xlaunch/stats" 
+              href="https://dune.com/riftlaunch/stats" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-warning/10 transition-colors"
               title="View Analytics on Dune"
             >
-              <BarChart2 className="h-4 w-4 text-orange-400 hover:text-orange-300" />
+              <BarChart2 className="h-4 w-4 text-warning hover:text-warning/80" />
             </a>
             
             <a 
-              href="https://x.com/ai67x_fun" 
+              href="https://x.com/rift_fun" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-foreground/10 transition-colors"
               title="Follow us on X"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4 text-gray-400 hover:text-white fill-current">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 text-muted-foreground hover:text-foreground fill-current">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
             </a>
@@ -951,7 +951,7 @@ export default function FunLauncherPage() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-8 px-3"
+                className="text-primary hover:text-primary/80 hover:bg-primary/10 h-8 px-3"
               >
                 <TrendingUp className="h-4 w-4 mr-1" />
                 Narratives
@@ -962,7 +962,7 @@ export default function FunLauncherPage() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 px-3"
+                className="text-accent-foreground hover:text-accent-foreground/80 hover:bg-accent/10 h-8 px-3"
               >
                 <Key className="h-4 w-4 mr-1" />
                 API
@@ -973,14 +973,14 @@ export default function FunLauncherPage() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 px-3"
+                className="text-primary hover:text-primary/80 hover:bg-primary/10 h-8 px-3"
               >
                 <Scale className="h-4 w-4 mr-1" />
                 Governance
               </Button>
             </Link>
             
-            <span className="hidden lg:flex items-center gap-1 text-xs text-gray-400">
+            <span className="hidden lg:flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
               Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
             </span>
@@ -989,7 +989,7 @@ export default function FunLauncherPage() {
               variant="ghost" 
               size="sm" 
               onClick={() => refetch()}
-              className="text-gray-400 hover:text-white h-8 w-8 p-0"
+              className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -998,46 +998,46 @@ export default function FunLauncherPage() {
       </header>
 
       {/* Hero Intro Section */}
-      <section className="border-b border-[#1a1a1f] bg-gradient-to-b from-[#0d0d0f] to-[#12121a] w-full">
+      <section className="border-b border-border bg-gradient-to-b from-background to-background-secondary w-full">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10 md:py-14">
           <div className="max-w-3xl mx-auto text-center">
             
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight px-2">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-2 sm:mb-3 leading-tight px-2">
               Autonomous Token Launchpad
             </h1>
             
-            <p className="text-gray-400 text-xs sm:text-sm md:text-base mb-4 sm:mb-6 leading-relaxed max-w-2xl mx-auto px-4">
+            <p className="text-muted-foreground text-xs sm:text-sm md:text-base mb-4 sm:mb-6 leading-relaxed max-w-2xl mx-auto px-4">
               RIFT leverages neural network inference and on-chain automation to orchestrate the entire token lifecycle. 
               Zero wallet connections. Zero manual configurations.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 sm:mb-6 px-2">
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
-                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <Zap className="h-4 w-4 text-[#00d4aa]" />
+              <div className="gate-card p-4">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                  <Zap className="h-4 w-4 text-primary" />
                 </div>
-                <h3 className="font-semibold text-white text-sm mb-1">One-Click Launch</h3>
-                <p className="text-xs text-gray-500">Generate AI memes and deploy tokens instantly</p>
+                <h3 className="font-semibold text-foreground text-sm mb-1">One-Click Launch</h3>
+                <p className="text-xs text-muted-foreground">Generate AI memes and deploy tokens instantly</p>
               </div>
               
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
-                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <TrendingUp className="h-4 w-4 text-[#00d4aa]" />
+              <div className="gate-card p-4">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
                 </div>
-                <h3 className="font-semibold text-white text-sm mb-1">50% Lifetime Fees</h3>
-                <p className="text-xs text-gray-500">Creators receive half of all trading fees</p>
+                <h3 className="font-semibold text-foreground text-sm mb-1">50% Lifetime Fees</h3>
+                <p className="text-xs text-muted-foreground">Creators receive half of all trading fees</p>
               </div>
               
-              <div className="bg-[#12121a] border border-[#1a1a1f] rounded-xl p-4">
-                <div className="w-9 h-9 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center mx-auto mb-2">
-                  <RefreshCw className="h-4 w-4 text-[#00d4aa]" />
+              <div className="gate-card p-4">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                  <RefreshCw className="h-4 w-4 text-primary" />
                 </div>
-                <h3 className="font-semibold text-white text-sm mb-1">30% Buybacks</h3>
-                <p className="text-xs text-gray-500">Fees dedicated to native token buybacks</p>
+                <h3 className="font-semibold text-foreground text-sm mb-1">30% Buybacks</h3>
+                <p className="text-xs text-muted-foreground">Fees dedicated to native token buybacks</p>
               </div>
             </div>
 
-            <p className="hidden sm:block text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
+            <p className="hidden sm:block text-xs text-muted-foreground/70 max-w-2xl mx-auto leading-relaxed">
               Every token launched through RIFT operates with a unique mechanism designed to pioneer a new narrative in decentralized finance. 
               The system is fully automated with no developer interaction required.
             </p>
