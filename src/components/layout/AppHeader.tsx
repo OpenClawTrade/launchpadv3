@@ -14,6 +14,7 @@ import {
 import { ExternalLink, Menu } from "lucide-react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import logoImage from "@/assets/logo.png";
 
 interface AppHeaderProps {
   showBack?: boolean;
@@ -32,14 +33,14 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
   return (
     <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50 w-full">
       <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
-        {/* Logo section - RIFT text instead of image */}
+        {/* Logo section */}
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl sm:text-2xl font-black text-white tracking-tight">RIFT</span>
+            <img src={logoImage} alt="Logo" className="h-9 w-9 rounded-full" />
           </Link>
           {showBack && backLabel && (
-            <div className="hidden sm:flex items-center gap-2 text-gray-400">
-              <span className="text-gray-600">|</span>
+            <div className="hidden sm:flex items-center gap-2 text-muted-foreground">
+              <span className="text-muted-foreground/50">|</span>
               <span className="text-sm">{backLabel}</span>
             </div>
           )}
@@ -143,9 +144,9 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
             </SheetTrigger>
             <SheetContent side="right" className="w-72 bg-[#0d0d0f] border-[#1a1a1f] p-0">
               <div className="flex flex-col h-full">
-                {/* Menu header - RIFT text */}
-                <div className="flex items-center gap-3 p-4 border-b border-[#1a1a1f]">
-                  <span className="text-2xl font-black text-white tracking-tight">RIFT</span>
+                {/* Menu header */}
+                <div className="flex items-center gap-3 p-4 border-b border-border">
+                  <img src={logoImage} alt="Logo" className="h-10 w-10 rounded-full" />
                 </div>
                 
                 {/* Auth section */}
@@ -178,20 +179,20 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                 </div>
                 
                 {/* Menu items */}
-                <nav className="flex-1 p-4 space-y-2">
-                  <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                    <TrendUp className="h-5 w-5 text-green-400" weight="bold" />
-                    <span className="text-white font-medium">Narratives</span>
+                <nav className="flex-1 p-4 space-y-3">
+                  <Link to="/trending" className="flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-primary hover:bg-primary/90 transition-colors">
+                    <TrendUp className="h-5 w-5 text-primary-foreground" weight="bold" />
+                    <span className="text-primary-foreground font-medium">Narratives</span>
                   </Link>
                   
-                  <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                    <Key className="h-5 w-5 text-purple-400" weight="bold" />
-                    <span className="text-white font-medium">API</span>
+                  <Link to="/api" className="flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-primary hover:bg-primary/90 transition-colors">
+                    <Key className="h-5 w-5 text-primary-foreground" weight="bold" />
+                    <span className="text-primary-foreground font-medium">API</span>
                   </Link>
                   
-                  <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#12121a] hover:bg-[#1a1a1f] transition-colors">
-                    <Scales className="h-5 w-5 text-cyan-400" weight="bold" />
-                    <span className="text-white font-medium">Governance</span>
+                  <Link to="/governance" className="flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-primary hover:bg-primary/90 transition-colors">
+                    <Scales className="h-5 w-5 text-primary-foreground" weight="bold" />
+                    <span className="text-primary-foreground font-medium">Governance</span>
                   </Link>
                   
                   <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
