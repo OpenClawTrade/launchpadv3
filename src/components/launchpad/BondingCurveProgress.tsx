@@ -35,7 +35,7 @@ export function BondingCurveProgress({
         <div className="flex-1 relative">
           <Progress 
             value={Math.min(progress, 100)} 
-            className={`h-1.5 ${isNearGraduation ? 'glow-yellow' : ''}`}
+            className={`h-1.5 ${isNearGraduation ? 'shadow-[0_0_10px_hsl(152_69%_41%/0.3)]' : ''}`}
           />
         </div>
         <span className={`text-xs font-medium tabular-nums ${isNearGraduation ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -69,7 +69,7 @@ export function BondingCurveProgress({
       <div className="relative">
         <Progress 
           value={Math.min(progress, 100)} 
-          className={`h-2.5 ${isNearGraduation ? 'glow-yellow' : ''}`}
+          className={`h-2.5 ${isNearGraduation ? 'shadow-[0_0_10px_hsl(152_69%_41%/0.3)]' : ''}`}
         />
         {isNearGraduation && !isGraduated && (
           <div className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-primary rounded-full animate-pulse flex items-center justify-center shadow-lg">

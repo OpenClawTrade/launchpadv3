@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -14,101 +14,106 @@
   animation: float 2s ease-in-out infinite;
 }
 
-/* ai67x Design System - Binance Inspired Dark Theme */
+/* RIFT Design System - Gate.io Inspired Professional Theme */
 
 @layer base {
   :root {
-    /* Core Brand Colors - Binance Yellow */
+    /* Gate.io Primary - Professional Green */
+    --gate-green: 152 69% 41%;
+    --gate-green-hover: 152 69% 35%;
+    --gate-green-light: 152 69% 95%;
+    
+    /* Semantic Colors */
+    --success: 152 69% 41%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    
+    /* Light Theme - Clean Professional */
+    --background: 0 0% 100%;
+    --background-secondary: 220 20% 97%;
+    --background-tertiary: 220 14% 95%;
+    --foreground: 220 13% 8%;
+    --foreground-secondary: 220 9% 46%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 8%;
+
+    --primary: 152 69% 41%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 20% 97%;
+    --secondary-foreground: 220 13% 8%;
+
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 152 69% 95%;
+    --accent-foreground: 152 69% 35%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --border-light: 220 13% 95%;
+    --input: 220 13% 91%;
+    --ring: 152 69% 41%;
+
+    --radius: 0.625rem;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 13% 8%;
+    --sidebar-primary: 152 69% 41%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 152 69% 95%;
+    --sidebar-accent-foreground: 152 69% 35%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 152 69% 41%;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+    --shadow-md: 0 4px 12px -1px rgb(0 0 0 / 0.08);
+    --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.12);
+    --shadow-xl: 0 20px 40px -8px rgb(0 0 0 / 0.15);
+    --shadow-glow: 0 0 20px hsl(152 69% 41% / 0.25);
+    
+    /* Badge colors */
+    --badge-blue: 210 100% 50%;
+    --badge-gold: 38 92% 50%;
+    --badge-gold-light: 38 92% 70%;
+    
+    /* Interaction colors */
+    --like-red: 0 84% 60%;
+    --repost-green: 152 69% 41%;
+    --bookmark-yellow: 38 92% 50%;
+    
+    /* Binance colors (kept for compatibility) */
     --binance-yellow: 43 96% 56%;
     --binance-yellow-hover: 43 96% 48%;
     --binance-yellow-light: 43 96% 70%;
     --binance-yellow-dark: 43 80% 40%;
-    
-    /* Verification Badges */
-    --badge-blue: 203 89% 53%;
-    --badge-gold: 43 96% 56%;
-    --badge-gold-light: 43 96% 70%;
-    
-    /* Semantic Colors */
-    --like-red: 0 84% 60%;
-    --repost-green: 142 76% 36%;
-    --bookmark-yellow: 43 96% 56%;
-    
-    /* Success/Error States */
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
-    --warning: 43 96% 56%;
-    --warning-foreground: 0 0% 0%;
-    
-    /* Light Theme - Binance Light Mode */
-    --background: 0 0% 100%;
-    --background-secondary: 220 14% 96%;
-    --background-tertiary: 220 13% 91%;
-    --foreground: 220 9% 12%;
-    --foreground-secondary: 220 9% 46%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 220 9% 12%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 9% 12%;
-
-    --primary: 43 96% 56%;
-    --primary-foreground: 0 0% 0%;
-
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 9% 12%;
-
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-
-    --accent: 43 50% 95%;
-    --accent-foreground: 43 96% 40%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 13% 91%;
-    --border-light: 220 13% 94%;
-    --input: 220 13% 91%;
-    --ring: 43 96% 56%;
-
-    --radius: 0.5rem;
-
-    /* Sidebar */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 9% 12%;
-    --sidebar-primary: 43 96% 56%;
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 43 50% 95%;
-    --sidebar-accent-foreground: 43 96% 40%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 43 96% 56%;
-
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-    --shadow-glow: 0 0 20px hsl(43 96% 56% / 0.3);
   }
 
   .dark {
-    /* Dark Theme - Binance Dark Mode */
-    --background: 220 13% 5%;
-    --background-secondary: 220 13% 8%;
-    --background-tertiary: 220 13% 11%;
+    /* Dark Theme - Professional Dark */
+    --background: 220 13% 6%;
+    --background-secondary: 220 13% 9%;
+    --background-tertiary: 220 13% 12%;
     --foreground: 0 0% 98%;
     --foreground-secondary: 220 9% 60%;
 
-    --card: 220 13% 8%;
+    --card: 220 13% 9%;
     --card-foreground: 0 0% 98%;
 
     --popover: 220 13% 10%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 43 96% 56%;
-    --primary-foreground: 0 0% 0%;
+    --primary: 152 69% 45%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 220 13% 14%;
     --secondary-foreground: 0 0% 98%;
@@ -116,27 +121,27 @@
     --muted: 220 13% 14%;
     --muted-foreground: 220 9% 55%;
 
-    --accent: 43 40% 15%;
-    --accent-foreground: 43 96% 70%;
+    --accent: 152 50% 15%;
+    --accent-foreground: 152 69% 60%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 16%;
-    --border-light: 220 13% 20%;
-    --input: 220 13% 16%;
-    --ring: 43 96% 56%;
+    --border: 220 13% 18%;
+    --border-light: 220 13% 22%;
+    --input: 220 13% 18%;
+    --ring: 152 69% 45%;
 
-    --sidebar-background: 220 13% 5%;
+    --sidebar-background: 220 13% 6%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 43 96% 56%;
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 43 40% 15%;
-    --sidebar-accent-foreground: 43 96% 70%;
-    --sidebar-border: 220 13% 16%;
-    --sidebar-ring: 43 96% 56%;
+    --sidebar-primary: 152 69% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 152 50% 15%;
+    --sidebar-accent-foreground: 152 69% 60%;
+    --sidebar-border: 220 13% 18%;
+    --sidebar-ring: 152 69% 45%;
 
-    --shadow-glow: 0 0 30px hsl(43 96% 56% / 0.2);
+    --shadow-glow: 0 0 30px hsl(152 69% 45% / 0.2);
   }
 }
 
@@ -150,15 +155,14 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    /* Safe area insets for notch devices */
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
 
-  /* Safe area class for bottom navigation */
   .safe-area-inset-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }

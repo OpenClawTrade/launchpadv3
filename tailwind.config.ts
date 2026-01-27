@@ -22,12 +22,19 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['IBM Plex Sans', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Inter', 'IBM Plex Sans', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
         "border-light": "hsl(var(--border-light))",
         input: "hsl(var(--input))",
+        // Gate.io Green
+        gate: {
+          DEFAULT: "hsl(152 69% 41%)",
+          light: "hsl(152 69% 95%)",
+          dark: "hsl(152 69% 35%)",
+        },
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         "background-secondary": "hsl(var(--background-secondary))",

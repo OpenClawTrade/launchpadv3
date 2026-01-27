@@ -1,0 +1,789 @@
+/* Gate.io Inspired Theme - Professional Crypto Exchange Aesthetic */
+/* Clean, modern, professional trading platform design */
+
+.gate-theme {
+  /* Core Brand Colors - Gate.io Green */
+  --gate-primary: 152 69% 41%;              /* #00D26A - Gate green */
+  --gate-primary-hover: 152 69% 35%;
+  --gate-primary-light: 152 69% 95%;
+  
+  /* Semantic Colors */
+  --gate-success: 152 69% 41%;              /* Green */
+  --gate-danger: 0 72% 51%;                 /* Red #F04438 */
+  --gate-warning: 38 92% 50%;               /* Orange */
+  --gate-info: 210 100% 50%;                /* Blue */
+  
+  /* Background layers - Light Theme */
+  --gate-bg-primary: 0 0% 100%;             /* Pure white */
+  --gate-bg-secondary: 220 20% 97%;         /* #F5F5F7 */
+  --gate-bg-tertiary: 220 14% 95%;          /* #EAECEF */
+  --gate-bg-card: 0 0% 100%;                /* White cards */
+  --gate-bg-elevated: 0 0% 100%;
+  --gate-bg-input: 220 20% 97%;
+  
+  /* Text colors */
+  --gate-text-primary: 220 13% 5%;          /* Near black #0D1421 */
+  --gate-text-secondary: 220 9% 46%;        /* Gray #707A8A */
+  --gate-text-muted: 220 9% 62%;            /* Lighter gray */
+  --gate-text-inverse: 0 0% 100%;           /* White text */
+  
+  /* Border colors */
+  --gate-border: 220 13% 91%;               /* #EAECEF */
+  --gate-border-hover: 220 13% 80%;
+  --gate-border-focus: 152 69% 41%;
+  
+  /* Effects */
+  --gate-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --gate-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --gate-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --gate-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
+  
+  /* Radius */
+  --gate-radius-sm: 6px;
+  --gate-radius-md: 10px;
+  --gate-radius-lg: 14px;
+  --gate-radius-xl: 20px;
+  --gate-radius-full: 9999px;
+}
+
+/* Dark Mode */
+.gate-theme.dark,
+.dark .gate-theme {
+  --gate-bg-primary: 220 13% 6%;            /* #0B0E11 */
+  --gate-bg-secondary: 220 13% 9%;          /* #14171A */
+  --gate-bg-tertiary: 220 13% 12%;          /* #1C2127 */
+  --gate-bg-card: 220 13% 10%;
+  --gate-bg-elevated: 220 13% 14%;
+  --gate-bg-input: 220 13% 12%;
+  
+  --gate-text-primary: 0 0% 98%;
+  --gate-text-secondary: 220 9% 55%;
+  --gate-text-muted: 220 9% 45%;
+  
+  --gate-border: 220 13% 18%;
+  --gate-border-hover: 220 13% 25%;
+  
+  --gate-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --gate-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --gate-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Apply Gate theme */
+.gate-theme {
+  background-color: hsl(var(--gate-bg-primary));
+  color: hsl(var(--gate-text-primary));
+  font-family: 'Inter', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+/* ===== HEADER ===== */
+.gate-header {
+  background-color: hsl(var(--gate-bg-card));
+  border-bottom: 1px solid hsl(var(--gate-border));
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.gate-header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gate-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: hsl(var(--gate-text-primary));
+}
+
+.gate-logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, hsl(var(--gate-primary)), hsl(152 69% 30%));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gate-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gate-nav-link {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--gate-text-secondary));
+  border-radius: var(--gate-radius-md);
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.gate-nav-link:hover {
+  color: hsl(var(--gate-text-primary));
+  background-color: hsl(var(--gate-bg-secondary));
+}
+
+.gate-nav-link.active {
+  color: hsl(var(--gate-primary));
+  background-color: hsl(var(--gate-primary-light));
+}
+
+/* ===== CARDS ===== */
+.gate-card {
+  background-color: hsl(var(--gate-bg-card));
+  border: 1px solid hsl(var(--gate-border));
+  border-radius: var(--gate-radius-lg);
+  overflow: hidden;
+}
+
+.gate-card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid hsl(var(--gate-border));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gate-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: hsl(var(--gate-text-primary));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gate-card-body {
+  padding: 20px;
+}
+
+/* ===== BUTTONS ===== */
+.gate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: var(--gate-radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.gate-btn-primary {
+  background-color: hsl(var(--gate-primary));
+  color: hsl(var(--gate-text-inverse));
+}
+
+.gate-btn-primary:hover {
+  background-color: hsl(var(--gate-primary-hover));
+  transform: translateY(-1px);
+  box-shadow: var(--gate-shadow-md);
+}
+
+.gate-btn-secondary {
+  background-color: hsl(var(--gate-bg-secondary));
+  color: hsl(var(--gate-text-primary));
+  border: 1px solid hsl(var(--gate-border));
+}
+
+.gate-btn-secondary:hover {
+  background-color: hsl(var(--gate-bg-tertiary));
+  border-color: hsl(var(--gate-border-hover));
+}
+
+.gate-btn-ghost {
+  background: transparent;
+  color: hsl(var(--gate-text-secondary));
+}
+
+.gate-btn-ghost:hover {
+  background-color: hsl(var(--gate-bg-secondary));
+  color: hsl(var(--gate-text-primary));
+}
+
+.gate-btn-danger {
+  background-color: hsl(var(--gate-danger));
+  color: hsl(var(--gate-text-inverse));
+}
+
+.gate-btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.gate-btn-lg {
+  padding: 14px 28px;
+  font-size: 16px;
+}
+
+.gate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ===== INPUTS ===== */
+.gate-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  background-color: hsl(var(--gate-bg-input));
+  border: 1px solid hsl(var(--gate-border));
+  border-radius: var(--gate-radius-md);
+  color: hsl(var(--gate-text-primary));
+  transition: all 0.2s ease;
+}
+
+.gate-input:focus {
+  outline: none;
+  border-color: hsl(var(--gate-primary));
+  box-shadow: 0 0 0 3px hsl(var(--gate-primary) / 0.1);
+}
+
+.gate-input::placeholder {
+  color: hsl(var(--gate-text-muted));
+}
+
+.gate-textarea {
+  min-height: 100px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+/* ===== TABS ===== */
+.gate-tabs {
+  display: inline-flex;
+  background-color: hsl(var(--gate-bg-secondary));
+  border-radius: var(--gate-radius-lg);
+  padding: 4px;
+  gap: 4px;
+}
+
+.gate-tab {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--gate-text-secondary));
+  background: transparent;
+  border: none;
+  border-radius: var(--gate-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.gate-tab:hover {
+  color: hsl(var(--gate-text-primary));
+}
+
+.gate-tab.active {
+  background-color: hsl(var(--gate-bg-card));
+  color: hsl(var(--gate-text-primary));
+  box-shadow: var(--gate-shadow-sm);
+}
+
+/* ===== TABLE ===== */
+.gate-table-wrapper {
+  overflow-x: auto;
+}
+
+.gate-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gate-table th {
+  padding: 14px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--gate-text-muted));
+  text-align: left;
+  background-color: hsl(var(--gate-bg-secondary));
+  border-bottom: 1px solid hsl(var(--gate-border));
+}
+
+.gate-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: hsl(var(--gate-text-primary));
+  border-bottom: 1px solid hsl(var(--gate-border));
+}
+
+.gate-table tr:last-child td {
+  border-bottom: none;
+}
+
+.gate-table tr:hover td {
+  background-color: hsl(var(--gate-bg-secondary) / 0.5);
+}
+
+/* ===== TOKEN ROW ===== */
+.gate-token-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gate-token-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: hsl(var(--gate-bg-tertiary));
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gate-token-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gate-token-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gate-token-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(var(--gate-text-primary));
+}
+
+.gate-token-ticker {
+  font-size: 12px;
+  color: hsl(var(--gate-text-secondary));
+}
+
+/* ===== PRICE CHANGE ===== */
+.gate-price-up {
+  color: hsl(var(--gate-success));
+}
+
+.gate-price-down {
+  color: hsl(var(--gate-danger));
+}
+
+/* ===== PROGRESS BAR ===== */
+.gate-progress {
+  height: 6px;
+  background-color: hsl(var(--gate-bg-tertiary));
+  border-radius: var(--gate-radius-full);
+  overflow: hidden;
+}
+
+.gate-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(var(--gate-primary)), hsl(152 69% 50%));
+  border-radius: var(--gate-radius-full);
+  transition: width 0.3s ease;
+}
+
+/* ===== BADGES ===== */
+.gate-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--gate-radius-full);
+  background-color: hsl(var(--gate-bg-secondary));
+  color: hsl(var(--gate-text-secondary));
+}
+
+.gate-badge-success {
+  background-color: hsl(var(--gate-success) / 0.1);
+  color: hsl(var(--gate-success));
+}
+
+.gate-badge-danger {
+  background-color: hsl(var(--gate-danger) / 0.1);
+  color: hsl(var(--gate-danger));
+}
+
+.gate-badge-warning {
+  background-color: hsl(var(--gate-warning) / 0.1);
+  color: hsl(var(--gate-warning));
+}
+
+.gate-badge-primary {
+  background-color: hsl(var(--gate-primary) / 0.1);
+  color: hsl(var(--gate-primary));
+}
+
+/* ===== STAT CARDS ===== */
+.gate-stat-card {
+  background-color: hsl(var(--gate-bg-card));
+  border: 1px solid hsl(var(--gate-border));
+  border-radius: var(--gate-radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gate-stat-label {
+  font-size: 12px;
+  color: hsl(var(--gate-text-secondary));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gate-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: hsl(var(--gate-text-primary));
+}
+
+.gate-stat-sub {
+  font-size: 12px;
+  color: hsl(var(--gate-text-muted));
+}
+
+/* ===== PAGINATION ===== */
+.gate-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-top: 1px solid hsl(var(--gate-border));
+}
+
+.gate-pagination-info {
+  font-size: 13px;
+  color: hsl(var(--gate-text-secondary));
+}
+
+.gate-pagination-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.gate-page-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: hsl(var(--gate-text-secondary));
+  background: transparent;
+  border: 1px solid hsl(var(--gate-border));
+  border-radius: var(--gate-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gate-page-btn:hover:not(:disabled) {
+  background-color: hsl(var(--gate-bg-secondary));
+  color: hsl(var(--gate-text-primary));
+}
+
+.gate-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ===== COPY BUTTON ===== */
+.gate-copy-btn {
+  padding: 4px;
+  color: hsl(var(--gate-text-muted));
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gate-copy-btn:hover {
+  color: hsl(var(--gate-primary));
+  background-color: hsl(var(--gate-primary) / 0.1);
+}
+
+/* ===== LINKS ===== */
+.gate-link {
+  color: hsl(var(--gate-primary));
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+
+.gate-link:hover {
+  opacity: 0.8;
+}
+
+/* ===== WALLET DISPLAY ===== */
+.gate-wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background-color: hsl(var(--gate-bg-secondary));
+  border-radius: var(--gate-radius-md);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  color: hsl(var(--gate-text-secondary));
+}
+
+/* ===== EMPTY STATE ===== */
+.gate-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: hsl(var(--gate-text-muted));
+}
+
+/* ===== TICKER BAR ===== */
+.gate-ticker-bar {
+  background-color: hsl(var(--gate-bg-card));
+  border-bottom: 1px solid hsl(var(--gate-border));
+  overflow: hidden;
+}
+
+.gate-ticker-inner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 16px;
+  white-space: nowrap;
+}
+
+.gate-ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.gate-ticker-item img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.gate-ticker-symbol {
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--gate-text-primary));
+}
+
+.gate-ticker-price {
+  font-size: 14px;
+  color: hsl(var(--gate-text-secondary));
+}
+
+.gate-ticker-change {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ===== LAUNCH BOX ===== */
+.gate-launch-box {
+  background-color: hsl(var(--gate-bg-card));
+  border: 1px solid hsl(var(--gate-border));
+  border-radius: var(--gate-radius-xl);
+  padding: 24px;
+  box-shadow: var(--gate-shadow-md);
+}
+
+.gate-launch-box-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: hsl(var(--gate-text-primary));
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gate-launch-modes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.gate-launch-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--gate-text-secondary));
+  background-color: hsl(var(--gate-bg-secondary));
+  border: 1px solid hsl(var(--gate-border));
+  border-radius: var(--gate-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gate-launch-mode:hover {
+  border-color: hsl(var(--gate-border-hover));
+  background-color: hsl(var(--gate-bg-tertiary));
+}
+
+.gate-launch-mode.active {
+  border-color: hsl(var(--gate-primary));
+  background-color: hsl(var(--gate-primary) / 0.1);
+  color: hsl(var(--gate-primary));
+}
+
+.gate-launch-mode svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ===== TOKEN PREVIEW ===== */
+.gate-token-preview {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background-color: hsl(var(--gate-bg-secondary));
+  border-radius: var(--gate-radius-lg);
+  border: 1px solid hsl(var(--gate-border));
+}
+
+.gate-token-preview-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--gate-radius-md);
+  overflow: hidden;
+  background-color: hsl(var(--gate-bg-tertiary));
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gate-token-preview-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gate-token-preview-info {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ===== SCROLLBAR ===== */
+.gate-theme::-webkit-scrollbar,
+.gate-theme *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gate-theme::-webkit-scrollbar-track,
+.gate-theme *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gate-theme::-webkit-scrollbar-thumb,
+.gate-theme *::-webkit-scrollbar-thumb {
+  background: hsl(var(--gate-border));
+  border-radius: 4px;
+}
+
+.gate-theme::-webkit-scrollbar-thumb:hover,
+.gate-theme *::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--gate-text-muted));
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes gate-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gate-animate-in {
+  animation: gate-fadeIn 0.3s ease-out;
+}
+
+@keyframes gate-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.gate-spin {
+  animation: gate-spin 1s linear infinite;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .gate-header-inner {
+    height: 56px;
+    padding: 0 12px;
+  }
+  
+  .gate-launch-modes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .gate-stat-card {
+    padding: 12px 16px;
+  }
+  
+  .gate-stat-value {
+    font-size: 20px;
+  }
+  
+  .gate-launch-box {
+    padding: 16px;
+  }
+  
+  .gate-table th,
+  .gate-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .gate-tabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+  
+  .gate-tab {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+}

@@ -86,10 +86,10 @@ export function TokenTickerBar() {
   const displayTokens = [...tokens, ...tokens];
 
   return (
-    <div className="w-full bg-[#0a0a0c] border-b border-[#1a1a1f] overflow-hidden">
+    <div className="gate-ticker-bar w-full overflow-hidden">
       <div
         ref={scrollRef}
-        className="flex items-center gap-4 sm:gap-6 py-2 px-3 sm:px-4 overflow-hidden whitespace-nowrap no-scrollbar"
+        className="gate-ticker-inner overflow-hidden whitespace-nowrap no-scrollbar"
         style={{ scrollBehavior: "auto" }}
       >
         {displayTokens.map((token, index) => {
@@ -98,7 +98,7 @@ export function TokenTickerBar() {
             <Link
               key={`${token.id}-${index}`}
               to={`/token/${token.id}`}
-              className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity"
+              className="gate-ticker-item hover:opacity-80 transition-opacity"
             >
               {token.image_url ? (
                 <img
@@ -110,16 +110,16 @@ export function TokenTickerBar() {
                   }}
                 />
               ) : (
-                <div className="w-5 h-5 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold">
+                <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
                   {token.ticker?.[0] || "?"}
                 </div>
               )}
-              <span className="text-sm font-medium text-white">
+              <span className="gate-ticker-symbol">
                 {token.ticker}
               </span>
               <span
-                className={`text-sm font-medium ${
-                  priceChange >= 0 ? "text-green-400" : "text-red-400"
+                className={`gate-ticker-change ${
+                  priceChange >= 0 ? "gate-price-up" : "gate-price-down"
                 }`}
               >
                 {priceChange >= 0 ? "+" : ""}
