@@ -11,6 +11,33 @@ import { createMeteoraPool, createMeteoraPoolWithMint } from '../../lib/meteora.
 import { PLATFORM_FEE_WALLET } from '../../lib/config.js';
 import { getAvailableVanityAddress, releaseVanityAddress } from '../../lib/vanityGenerator.js';
 
+// Retry helper with exponential backoff for RPC rate limits
+async function getBlockhashWithRetry(
+  connection: Connection,
+  maxRetries = 5,
+  initialDelayMs = 1000
+): Promise<{ blockhash: string; lastValidBlockHeight: number }> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const result = await connection.getLatestBlockhash('confirmed');
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      
+      // Check if it's a rate limit error
+      if (errorMsg.includes('429') || errorMsg.includes('max usage reached')) {
+        const delayMs = initialDelayMs * Math.pow(2, attempt);
+        console.warn(`[create-phantom] Rate limited (429). Retrying in ${delayMs}ms (Attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      } else {
+        // Non-rate-limit error, throw immediately
+        throw error;
+      }
+    }
+  }
+  throw new Error(`Failed to get recent blockhash after ${maxRetries} retries due to rate limiting.`);
+}
+
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -200,8 +227,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (let i = 0; i < transactions.length; i++) {
       const tx = transactions[i];
 
-      // Fresh blockhash
-      const latest = await connection.getLatestBlockhash('confirmed');
+      // Fresh blockhash with retry for rate limits
+      const latest = await getBlockhashWithRetry(connection);
       tx.recentBlockhash = latest.blockhash;
       tx.feePayer = phantomPubkey; // Phantom wallet pays fees
 

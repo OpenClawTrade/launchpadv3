@@ -50,6 +50,35 @@ export function getMeteoraClient(): DynamicBondingCurveClient {
 }
 
 // ============================================================================
+// Retry helper with exponential backoff for RPC rate limits (429 errors)
+// ============================================================================
+async function getBlockhashWithRetry(
+  connection: Connection,
+  maxRetries = 5,
+  initialDelayMs = 1000
+): Promise<{ blockhash: string; lastValidBlockHeight: number }> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const result = await connection.getLatestBlockhash('confirmed');
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      
+      // Check if it's a rate limit error
+      if (errorMsg.includes('429') || errorMsg.includes('max usage reached')) {
+        const delayMs = initialDelayMs * Math.pow(2, attempt);
+        console.warn(`[meteora] Rate limited (429). Retrying in ${delayMs}ms (Attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      } else {
+        // Non-rate-limit error, throw immediately
+        throw error;
+      }
+    }
+  }
+  throw new Error(`failed to get recent blockhash: Error: 429 Too Many Requests after ${maxRetries} retries`);
+}
+
+// ============================================================================
 // SDK Curve Builder - For Terminal Compatibility
 // ============================================================================
 // CRITICAL: Use buildCurveWithMarketCap from SDK instead of manual calculation
@@ -383,8 +412,8 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   } as any);
 
 
-  // Get recent blockhash for all transactions
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+  // Get recent blockhash for all transactions with retry
+  const { blockhash, lastValidBlockHeight } = await getBlockhashWithRetry(connection);
   
   // Priority fee settings for faster confirmation
   const PRIORITY_FEE_MICRO_LAMPORTS = 100_000; // 0.0001 SOL per compute unit
@@ -548,7 +577,7 @@ export async function executeMeteoraSwap(params: {
   // Ensure the returned tx is immediately serializable/signable.
   // Some SDK helpers return a Transaction without a recentBlockhash, which later fails with:
   // "Transaction recentBlockhash required".
-  const { blockhash } = await connection.getLatestBlockhash('confirmed');
+  const { blockhash } = await getBlockhashWithRetry(connection);
 
   if (transaction instanceof VersionedTransaction) {
     // Versioned tx stores blockhash on the compiled message.
@@ -651,7 +680,7 @@ export async function migratePool(poolAddress: string): Promise<string[]> {
       config: config,
     });
     
-    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    const { blockhash } = await getBlockhashWithRetry(connection);
     createMetadataTx.recentBlockhash = blockhash;
     createMetadataTx.feePayer = treasury.publicKey;
     
@@ -675,7 +704,7 @@ export async function migratePool(poolAddress: string): Promise<string[]> {
         payer: treasury.publicKey,
       });
       
-      const { blockhash } = await connection.getLatestBlockhash('confirmed');
+      const { blockhash } = await getBlockhashWithRetry(connection);
       createLockerTx.recentBlockhash = blockhash;
       createLockerTx.feePayer = treasury.publicKey;
       
@@ -692,7 +721,7 @@ export async function migratePool(poolAddress: string): Promise<string[]> {
     dammConfig: DAMM_V1_MIGRATION_FEE_ADDRESS[poolConfig.migrationFeeOption],
   });
   
-  const { blockhash: migrateBlockhash } = await connection.getLatestBlockhash('confirmed');
+  const { blockhash: migrateBlockhash } = await getBlockhashWithRetry(connection);
   migrateTx.recentBlockhash = migrateBlockhash;
   migrateTx.feePayer = treasury.publicKey;
   
@@ -709,7 +738,7 @@ export async function migratePool(poolAddress: string): Promise<string[]> {
       isPartner: true,
     });
     
-    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    const { blockhash } = await getBlockhashWithRetry(connection);
     lockTx.recentBlockhash = blockhash;
     lockTx.feePayer = treasury.publicKey;
     
@@ -754,7 +783,7 @@ export async function claimPartnerFees(poolAddress: string): Promise<{
     maxQuoteAmount: new BN('18446744073709551615'), // Max uint64
   });
   
-  const { blockhash } = await connection.getLatestBlockhash('confirmed');
+  const { blockhash } = await getBlockhashWithRetry(connection);
   claimTx.recentBlockhash = blockhash;
   claimTx.feePayer = treasury.publicKey;
   
