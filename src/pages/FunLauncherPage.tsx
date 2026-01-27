@@ -138,7 +138,6 @@ export default function FunLauncherPage() {
             <Link to="/" className="bg-primary text-primary-foreground text-sm font-medium rounded-lg px-4 py-2">Launch</Link>
             <Link to="/launchpad" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2 hover:bg-muted/50 transition-colors">Trade</Link>
             <Link to="/trending" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2 hover:bg-muted/50 transition-colors">Trending</Link>
-            <Link to="/portfolio" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2 hover:bg-muted/50 transition-colors">Portfolio</Link>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -156,7 +155,6 @@ export default function FunLauncherPage() {
                   <Link to="/" className="bg-primary text-primary-foreground text-sm font-medium rounded-lg px-4 py-2.5" onClick={() => setMobileMenuOpen(false)}>Launch</Link>
                   <Link to="/launchpad" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2.5 hover:bg-muted/50 transition-colors" onClick={() => setMobileMenuOpen(false)}>Trade</Link>
                   <Link to="/trending" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2.5 hover:bg-muted/50 transition-colors" onClick={() => setMobileMenuOpen(false)}>Trending</Link>
-                  <Link to="/portfolio" className="text-muted-foreground hover:text-foreground text-sm font-medium rounded-lg px-4 py-2.5 hover:bg-muted/50 transition-colors" onClick={() => setMobileMenuOpen(false)}>Portfolio</Link>
                 </nav>
               </SheetContent>
             </Sheet>
