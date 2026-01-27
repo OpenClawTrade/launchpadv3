@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
-import { Wallet, TrendingUp, Coins, ArrowRight, Plus, ArrowLeft } from "lucide-react";
+import { Wallet, TrendingUp, Coins, ArrowRight, Plus } from "lucide-react";
 import { useMemo } from "react";
+
+const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
 
 interface HoldingWithToken {
   id: string;
@@ -69,11 +71,10 @@ export default function PortfolioPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="flex items-center gap-4 px-4 h-14">
-          <Link to="/">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+        <div className="flex items-center justify-between px-4 h-14">
+          <Link to="/" className="flex items-center gap-2">
+            <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" />
+            <span className="text-lg font-bold">RIFT</span>
           </Link>
           <h1 className="text-xl font-bold">Portfolio</h1>
         </div>

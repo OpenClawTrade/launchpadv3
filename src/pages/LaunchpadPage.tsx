@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame, ArrowLeft, Trophy } from "lucide-react";
+import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
+
+const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
 
 export default function LaunchpadPage() {
   const { tokens, isLoadingTokens } = useLaunchpad();
@@ -84,20 +86,10 @@ export default function LaunchpadPage() {
 
         <div className="relative px-4 pt-6 pb-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Link to="/">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
-              <div className="p-2.5 bg-primary/10 rounded-xl">
-                <Rocket className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">Launchpad</h1>
-                <p className="text-sm text-muted-foreground">Discover & trade new tokens</p>
-              </div>
-            </div>
+            <Link to="/" className="flex items-center gap-2">
+              <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" />
+              <span className="text-lg font-bold">RIFT</span>
+            </Link>
             <Link to="/launch">
               <Button size="default" className="gap-2 shadow-lg glow-yellow">
                 <Sparkles className="h-4 w-4" />
