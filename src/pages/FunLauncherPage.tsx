@@ -1,81 +1,46 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
 import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
-import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
-import { 
-  Shuffle, 
-  Rocket, 
-  Sparkles, 
-  TrendingUp, 
-  Users, 
-  BarChart3, 
-  Clock,
-  RefreshCw,
-  Zap,
+import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
+import { StatsCards } from "@/components/launchpad/StatsCards";
+import { TokenTable } from "@/components/launchpad/TokenTable";
+import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
+import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
+import { formatDistanceToNow } from "date-fns";
+import { Link } from "react-router-dom";
+import {
+  BarChart3,
+  Trophy,
+  Coins,
+  Repeat,
+  Wallet,
   ExternalLink,
   Copy,
   CheckCircle,
-  Coins,
-  ArrowDownCircle,
-  Wallet,
-  AlertTriangle,
-  PartyPopper,
-  Key,
-  Bot,
-  Repeat,
-  Infinity as InfinityIcon,
-  Globe,
-  Twitter,
-  MessageCircle,
-  MessageSquare,
-  Trophy,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  Users,
   Flame,
-  Scale,
-  BarChart2,
+  PartyPopper,
   Menu,
   X,
-  Image,
-  Download,
-  Pencil
 } from "lucide-react";
-import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { formatDistanceToNow } from "date-fns";
-import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
-import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
-import { Link } from "react-router-dom";
-import { usePhantomWallet } from "@/hooks/usePhantomWallet";
-import { Transaction, Connection, VersionedTransaction } from "@solana/web3.js";
-
-interface MemeToken {
-  name: string;
-  ticker: string;
-  description: string;
-  imageUrl: string;
-  websiteUrl?: string;
-  twitterUrl?: string;
-  telegramUrl?: string;
-  discordUrl?: string;
-  narrative?: string;
-}
 
 interface LaunchResult {
   success: boolean;
@@ -94,2588 +59,345 @@ export default function FunLauncherPage() {
   const { toast } = useToast();
   const { solPrice } = useSolPrice();
   const isMobile = useIsMobile();
-  const { tokens, isLoading: tokensLoading, lastUpdate, refetch } = useFunTokens();
+  const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
 
+  // Pagination states
   const [claimsPage, setClaimsPage] = useState(1);
-  const claimsPageSize = 20;
-
-  const [tokensPage, setTokensPage] = useState(1);
-  const tokensPageSize = 20;
-
   const [creatorFeesPage, setCreatorFeesPage] = useState(1);
-  const creatorFeesPageSize = 20;
+  const [buybacksPage, setBuybacksPage] = useState(1);
+  const pageSize = 15;
 
-  const { data: claimsData, isLoading: claimsLoading } = useFunFeeClaims({
-    page: claimsPage,
-    pageSize: claimsPageSize,
-  });
+  // Data hooks
+  const { data: claimsData, isLoading: claimsLoading } = useFunFeeClaims({ page: claimsPage, pageSize });
   const feeClaims = claimsData?.items ?? [];
   const claimsCount = claimsData?.count ?? 0;
 
+  const { data: claimsSummary } = useFunFeeClaimsSummary();
   const { data: distributions = [] } = useFunDistributions();
   const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
   const { data: topPerformers = [], isLoading: topPerformersLoading } = useFunTopPerformers(10);
-  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom">("random");
-  const [meme, setMeme] = useState<MemeToken | null>(null);
-  const [customToken, setCustomToken] = useState<MemeToken>({
-    name: "",
-    ticker: "",
-    description: "",
-    imageUrl: "",
-    websiteUrl: "",
-    twitterUrl: "",
-    telegramUrl: "",
-    discordUrl: "",
-  });
-  const [describePrompt, setDescribePrompt] = useState("");
-  const [describedToken, setDescribedToken] = useState<MemeToken | null>(null);
-  const [customImageFile, setCustomImageFile] = useState<File | null>(null);
-  const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
 
-  const [walletAddress, setWalletAddress] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isLaunching, setIsLaunching] = useState(false);
-  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  // Launch result modal
   const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
-  
-  // Admin check for sniper panel (uses walletAddress from input field)
-  const { isAdmin } = useIsAdmin(walletAddress || null);
-  
-  // Phantom wallet integration for "Phantom" launch mode
-  const phantomWallet = usePhantomWallet();
-  const [isPhantomLaunching, setIsPhantomLaunching] = useState(false);
-  const [phantomTradingFee, setPhantomTradingFee] = useState(200); // bps (10-1000)
-  const [phantomToken, setPhantomToken] = useState<MemeToken>({
-    name: "",
-    ticker: "",
-    description: "",
-    imageUrl: "",
-    websiteUrl: "",
-    twitterUrl: "",
-    telegramUrl: "",
-    discordUrl: "",
-  });
-  const [phantomImageFile, setPhantomImageFile] = useState<File | null>(null);
-  const [phantomImagePreview, setPhantomImagePreview] = useState<string | null>(null);
-  const [phantomMeme, setPhantomMeme] = useState<MemeToken | null>(null);
-  const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
-  
-  // Banner generation
-  const { 
-    generateBanner, 
-    downloadBanner, 
-    clearBanner, 
-    isGenerating: isBannerGenerating, 
-    bannerUrl 
-  } = useBannerGenerator();
-  
-  // Editable banner text
-  const [bannerTextName, setBannerTextName] = useState("");
-  const [bannerTextTicker, setBannerTextTicker] = useState("");
-  const [isEditingBannerText, setIsEditingBannerText] = useState(false);
-  const [bannerImageUrl, setBannerImageUrl] = useState("");
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const isValidSolanaAddress = (address: string) => {
-    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
-  };
+  // Admin check
+  const [adminWallet] = useState("");
+  const { isAdmin } = useIsAdmin(adminWallet || null);
 
+  // Computed values
+  const totalClaimed = claimsSummary?.totalClaimedSol ?? 0;
+  const totalPayouts = useMemo(() => distributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0), [distributions]);
+  const totalBuybacks = useMemo(() => buybacks.reduce((sum, b) => sum + Number(b.amount_sol || 0), 0), [buybacks]);
+
+  const creatorDistributions = useMemo(() => {
+    return distributions.filter((d) => d.distribution_type === "creator" && d.status === "completed");
+  }, [distributions]);
+
+  // Helpers
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedAddress(text);
+    toast({ title: "Copied!", description: "Address copied to clipboard" });
     setTimeout(() => setCopiedAddress(null), 2000);
   };
 
-  const shortenAddress = (address: string) => {
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  const shortenAddress = (address: string) => `${address.slice(0, 4)}...${address.slice(-4)}`;
+
+  const formatSOL = (amount: number) => {
+    if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
+    return amount.toFixed(2);
   };
 
-  const handleRandomize = useCallback(async () => {
-    console.log("[FunLauncher] Randomize clicked");
-    setIsGenerating(true);
-    setMeme(null);
-    clearBanner(); // Clear any previous banner when generating new token
-    
-    try {
-      console.log("[FunLauncher] Calling fun-generate...");
-      const { data, error } = await supabase.functions.invoke("fun-generate", {
-        body: {}
-      });
+  const handleLaunchSuccess = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
-      console.log("[FunLauncher] fun-generate response:", { data, error });
-
-      if (error) {
-        console.error("[FunLauncher] fun-generate error:", error);
-        throw error;
-      }
-
-      // Handle backend returning success: false
-      if (data && !data.success) {
-        console.error("[FunLauncher] fun-generate returned failure:", data.error);
-        throw new Error(data.error || "Generation failed on server");
-      }
-
-      if (data?.meme) {
-        console.log("[FunLauncher] Meme generated:", data.meme);
-        setMeme(data.meme);
-        toast({
-          title: "Meme Generated! 🎲",
-          description: `${data.meme.name} ($${data.meme.ticker}) is ready!`,
-        });
-      } else {
-        console.error("[FunLauncher] No meme in response:", data);
-        throw new Error("No meme data returned from server");
-      }
-    } catch (error) {
-      console.error("[FunLauncher] Generate error:", error);
-      toast({
-        title: "Generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate meme",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [toast, clearBanner]);
-
-  const uploadCustomImageIfNeeded = useCallback(async (): Promise<string> => {
-    if (!customImageFile) return customToken.imageUrl;
-
-    const fileExt = customImageFile.name.split('.').pop() || 'png';
-    const fileName = `${crypto.randomUUID()}.${fileExt}`;
-    const filePath = `token-images/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage.from('post-images').upload(filePath, customImageFile);
-    if (uploadError) throw uploadError;
-
-    const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(filePath);
-    return urlData.publicUrl;
-  }, [customImageFile, customToken.imageUrl]);
-
-  const performLaunch = useCallback(
-    async (tokenToLaunch: MemeToken) => {
-      if (!walletAddress || !isValidSolanaAddress(walletAddress)) {
-        toast({
-          title: "Invalid wallet address",
-          description: "Please enter a valid Solana wallet address",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setIsLaunching(true);
-      console.log("[FunLauncher] Starting token launch:", {
-        name: tokenToLaunch.name,
-        ticker: tokenToLaunch.ticker,
-        wallet: walletAddress,
-      });
-
-      try {
-        console.log("[FunLauncher] Calling fun-create...");
-        const { data, error } = await supabase.functions.invoke("fun-create", {
-          body: {
-            name: tokenToLaunch.name,
-            ticker: tokenToLaunch.ticker,
-            description: tokenToLaunch.description,
-            imageUrl: tokenToLaunch.imageUrl,
-            websiteUrl: tokenToLaunch.websiteUrl,
-            twitterUrl: tokenToLaunch.twitterUrl,
-            telegramUrl: tokenToLaunch.telegramUrl,
-            discordUrl: tokenToLaunch.discordUrl,
-            creatorWallet: walletAddress,
-          },
-        });
-
-        console.log("[FunLauncher] fun-create response:", { data, error });
-
-        // Handle HTTP-level errors
-        if (error) {
-          console.error("[FunLauncher] fun-create HTTP error:", error);
-          const errorMsg = error.message || error.toString();
-          throw new Error(`Server error: ${errorMsg}`);
-        }
-
-        // Handle application-level failures
-        if (!data?.success) {
-          console.error("[FunLauncher] fun-create returned failure:", data);
-          throw new Error(data?.error || "Launch failed - no details provided");
-        }
-
-        console.log("[FunLauncher] ✅ Token launched successfully:", data);
-
-        // Set result and show modal
-        setLaunchResult({
-          success: true,
-          name: data.name || tokenToLaunch.name,
-          ticker: data.ticker || tokenToLaunch.ticker,
-          mintAddress: data.mintAddress,
-          imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
-          onChainSuccess: data.onChainSuccess,
-          solscanUrl: data.solscanUrl,
-          tradeUrl: data.tradeUrl,
-          message: data.message,
-        });
-        setShowResultModal(true);
-
-        toast({
-          title: "🚀 Token Launched!",
-          description: `${data.name || tokenToLaunch.name} is now live on Solana!`,
-        });
-
-        // Clear form
-        setMeme(null);
-        clearBanner();
-        setCustomToken({
-          name: "",
-          ticker: "",
-          description: "",
-          imageUrl: "",
-          websiteUrl: "",
-          twitterUrl: "",
-          telegramUrl: "",
-          discordUrl: "",
-        });
-        setCustomImageFile(null);
-        setCustomImagePreview(null);
-        setWalletAddress("");
-
-        // Refresh token list
-        refetch();
-      } catch (error) {
-        console.error("[FunLauncher] Launch error:", error);
-        const errorMessage = error instanceof Error ? error.message : "Failed to launch token";
-
-        setLaunchResult({
-          success: false,
-          error: errorMessage,
-        });
-        setShowResultModal(true);
-
-        toast({
-          title: "Launch Failed",
-          description: errorMessage.length > 100 ? errorMessage.slice(0, 100) + "..." : errorMessage,
-          variant: "destructive",
-        });
-      } finally {
-        setIsLaunching(false);
-      }
-    },
-    [isValidSolanaAddress, refetch, toast, walletAddress, clearBanner]
-  );
-
-  const handleLaunch = useCallback(async () => {
-    if (!meme) {
-      toast({
-        title: "No meme to launch",
-        description: "Click Randomize first to generate a meme token",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    await performLaunch(meme);
-  }, [meme, performLaunch, toast]);
-
-  const handleCustomImageChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: "Image too large", description: "Max 5MB allowed", variant: "destructive" });
-        return;
-      }
-
-      setCustomImageFile(file);
-      setCustomImagePreview(URL.createObjectURL(file));
-    },
-    [toast]
-  );
-
-  const handleCustomLaunch = useCallback(async () => {
-    if (!customToken.name.trim() || !customToken.ticker.trim()) {
-      toast({
-        title: "Missing token info",
-        description: "Name and ticker are required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Require image for custom launches
-    if (!customImageFile && !customToken.imageUrl.trim()) {
-      toast({
-        title: "Image required",
-        description: "Please upload an image for your token",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const imageUrl = await uploadCustomImageIfNeeded();
-      await performLaunch({
-        ...customToken,
-        name: customToken.name.slice(0, 20),
-        ticker: customToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6),
-        imageUrl,
-      });
-    } catch (e) {
-      console.error('[FunLauncher] Custom launch error:', e);
-      toast({
-        title: 'Custom launch failed',
-        description: e instanceof Error ? e.message : 'Failed to launch custom token',
-        variant: 'destructive',
-      });
-    }
-  }, [customToken, performLaunch, toast, uploadCustomImageIfNeeded]);
-
-  // Generate meme from description
-  const handleDescribeGenerate = useCallback(async () => {
-    if (!describePrompt.trim()) {
-      toast({
-        title: "Enter a description",
-        description: "Describe the meme character you want to create",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log("[FunLauncher] Describe generate clicked:", describePrompt);
-    setIsGenerating(true);
-    setDescribedToken(null);
-    clearBanner();
-    
-    try {
-      console.log("[FunLauncher] Calling fun-generate with description...");
-      const { data, error } = await supabase.functions.invoke("fun-generate", {
-        body: { description: describePrompt }
-      });
-
-      console.log("[FunLauncher] fun-generate response:", { data, error });
-
-      if (error) {
-        console.error("[FunLauncher] fun-generate error:", error);
-        throw error;
-      }
-
-      if (data && !data.success) {
-        console.error("[FunLauncher] fun-generate returned failure:", data.error);
-        throw new Error(data.error || "Generation failed on server");
-      }
-
-      if (data?.meme) {
-        console.log("[FunLauncher] Described meme generated:", data.meme);
-        setDescribedToken(data.meme);
-        
-        // Set banner text state for editing
-        setBannerTextName(data.meme.name);
-        setBannerTextTicker(data.meme.ticker);
-        setBannerImageUrl(data.meme.imageUrl);
-        
-        // Auto-generate banner
-        if (data.meme.imageUrl) {
-          await generateBanner({
-            imageUrl: data.meme.imageUrl,
-            tokenName: data.meme.name,
-            ticker: data.meme.ticker,
-          });
-        }
-        
-        toast({
-          title: "Meme Generated! 🎨",
-          description: `${data.meme.name} ($${data.meme.ticker}) created from your description!`,
-        });
-      } else {
-        throw new Error("No meme data returned from server");
-      }
-    } catch (error) {
-      console.error("[FunLauncher] Describe generate error:", error);
-      toast({
-        title: "Generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate meme",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [describePrompt, toast, clearBanner, generateBanner]);
-
-  const handleDescribeLaunch = useCallback(async () => {
-    if (!describedToken) {
-      toast({
-        title: "No meme to launch",
-        description: "Generate a meme from your description first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    await performLaunch(describedToken);
-  }, [describedToken, performLaunch, toast]);
-
-  // Handle Phantom AI randomization
-  const handlePhantomRandomize = useCallback(async () => {
-    console.log("[FunLauncher] Phantom Randomize clicked");
-    setIsPhantomGenerating(true);
-    setPhantomMeme(null);
-    setPhantomImageFile(null);
-    setPhantomImagePreview(null);
-    
-    try {
-      console.log("[FunLauncher] Calling fun-generate for Phantom mode...");
-      const { data, error } = await supabase.functions.invoke("fun-generate", {
-        body: {}
-      });
-
-      console.log("[FunLauncher] fun-generate response for Phantom:", { data, error });
-
-      if (error) {
-        console.error("[FunLauncher] fun-generate error:", error);
-        throw error;
-      }
-
-      if (data && !data.success) {
-        console.error("[FunLauncher] fun-generate returned failure:", data.error);
-        throw new Error(data.error || "Generation failed on server");
-      }
-
-      if (data?.meme) {
-        console.log("[FunLauncher] Phantom Meme generated:", data.meme);
-        setPhantomMeme(data.meme);
-        // Also update phantomToken for the launch
-        setPhantomToken({
-          name: data.meme.name || "",
-          ticker: data.meme.ticker || "",
-          description: data.meme.description || "",
-          imageUrl: data.meme.imageUrl || "",
-          websiteUrl: data.meme.websiteUrl || "",
-          twitterUrl: data.meme.twitterUrl || "",
-          telegramUrl: data.meme.telegramUrl || "",
-          discordUrl: data.meme.discordUrl || "",
-        });
-        toast({
-          title: "Token Generated! 🎲",
-          description: `${data.meme.name} ($${data.meme.ticker}) is ready for Phantom launch!`,
-        });
-      } else {
-        throw new Error("No meme data returned");
-      }
-    } catch (error) {
-      console.error("[FunLauncher] Phantom generation error:", error);
-      toast({
-        title: "Generation Failed",
-        description: error instanceof Error ? error.message : "Failed to generate token concept",
-        variant: "destructive",
-      });
-    } finally {
-      setIsPhantomGenerating(false);
-    }
-  }, [toast]);
-
-  // Handle Phantom image upload
-  const handlePhantomImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPhantomImageFile(file);
-      setPhantomMeme(null); // Clear AI meme when user uploads custom image
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setPhantomImagePreview(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleShowResult = useCallback((result: LaunchResult) => {
+    setLaunchResult(result);
+    setShowResultModal(true);
   }, []);
 
-  // Upload Phantom image to storage if needed
-  const uploadPhantomImageIfNeeded = useCallback(async (): Promise<string> => {
-    // If user uploaded a custom image, use that
-    if (phantomImageFile) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("Failed to read image file"));
-        reader.readAsDataURL(phantomImageFile);
-      });
-    }
-    // If AI generated meme has an image, use that
-    if (phantomMeme?.imageUrl) {
-      return phantomMeme.imageUrl;
-    }
-    return phantomToken.imageUrl || "";
-  }, [phantomImageFile, phantomToken.imageUrl, phantomMeme?.imageUrl]);
-
-  // Handle Phantom wallet launch
-  const handlePhantomLaunch = useCallback(async () => {
-    if (!phantomWallet.isConnected || !phantomWallet.address) {
-      toast({
-        title: "Connect Phantom",
-        description: "Please connect your Phantom wallet first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!phantomToken.name.trim() || !phantomToken.ticker.trim()) {
-      toast({
-        title: "Missing token info",
-        description: "Name and ticker are required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check balance (need ~0.02 SOL for launch)
-    if (phantomWallet.balance !== null && phantomWallet.balance < 0.02) {
-      toast({
-        title: "Insufficient balance",
-        description: "You need at least 0.02 SOL to launch a token",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsPhantomLaunching(true);
-
-    try {
-      // Ensure we have an image URL for on-chain metadata
-      const imageUrl = await uploadPhantomImageIfNeeded();
-      if (!imageUrl) {
-        toast({
-          title: "Image required",
-          description: "Please upload an image (or generate a token that includes one) before launching.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const tokenData: MemeToken = {
-        ...phantomToken,
-        name: phantomToken.name.slice(0, 32),
-        ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
-        description: (phantomToken.description || `${phantomToken.name} - A fun meme coin!`).slice(0, 500),
-        imageUrl,
-      };
-
-      console.log("[FunLauncher] Starting Phantom launch:", {
-        name: tokenData.name,
-        ticker: tokenData.ticker,
-        phantomWallet: phantomWallet.address,
-        tradingFeeBps: phantomTradingFee,
-      });
-
-      // Phase 1: prepare unsigned txs (NO DB insert)
-      const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
-        body: {
-          name: tokenData.name,
-          ticker: tokenData.ticker,
-          description: tokenData.description,
-          imageUrl: tokenData.imageUrl,
-          websiteUrl: tokenData.websiteUrl,
-          twitterUrl: tokenData.twitterUrl,
-          telegramUrl: tokenData.telegramUrl,
-          discordUrl: tokenData.discordUrl,
-          phantomWallet: phantomWallet.address,
-          tradingFeeBps: phantomTradingFee,
-        },
-      });
-
-      if (error) throw new Error(error.message || "Failed to prepare token");
-      if (!data?.success) throw new Error(data?.error || "Token preparation failed");
-
-      const mintAddress: string | undefined = data.mintAddress;
-      const dbcPoolAddress: string | undefined = data.dbcPoolAddress;
-      const unsignedTransactions: string[] = data.unsignedTransactions || [];
-      const storedImageUrl: string | undefined = data.imageUrl;
-
-      if (!mintAddress || !dbcPoolAddress || unsignedTransactions.length < 2) {
-        throw new Error("Invalid transaction data received");
-      }
-
-      // Sign + send each tx sequentially
-      const rpcUrl =
-        (window as unknown as { __RUNTIME_CONFIG__?: { heliusRpcUrl?: string } }).__RUNTIME_CONFIG__?.heliusRpcUrl ||
-        localStorage.getItem("heliusRpcUrl") ||
-        import.meta.env.VITE_HELIUS_RPC_URL ||
-        "https://mainnet.helius-rpc.com/?api-key=f5b6ebeb-c3d0-422b-8785-12dfa7af0585";
-
-      const connection = new Connection(rpcUrl, "confirmed");
-
-      for (let i = 0; i < unsignedTransactions.length; i++) {
-        const txName = i === 0 ? "Config" : "Pool";
-        const txBuffer = Buffer.from(unsignedTransactions[i], "base64");
-        const tx = Transaction.from(txBuffer);
-
-        toast({
-          title: `Sign ${txName} Transaction (${i + 1}/${unsignedTransactions.length})`,
-          description: "Approve in Phantom wallet...",
-        });
-
-        const signedTx = await phantomWallet.signTransaction(tx);
-        if (!signedTx) throw new Error(`${txName} signing cancelled`);
-
-        const signature = await connection.sendRawTransaction(signedTx.serialize(), {
-          skipPreflight: false,
-          preflightCommitment: "confirmed",
-        });
-
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
-
-        if (i < unsignedTransactions.length - 1) {
-          await new Promise((r) => setTimeout(r, 2000));
-        }
-      }
-
-      // Phase 2: record token in DB AFTER confirmation (so it appears in the list)
-      const { data: recordData, error: recordError } = await supabase.functions.invoke("fun-phantom-create", {
-        body: {
-          confirmed: true,
-          mintAddress,
-          dbcPoolAddress,
-          name: tokenData.name,
-          ticker: tokenData.ticker,
-          description: tokenData.description,
-          imageUrl: storedImageUrl || tokenData.imageUrl,
-          websiteUrl: tokenData.websiteUrl,
-          twitterUrl: tokenData.twitterUrl,
-          telegramUrl: tokenData.telegramUrl,
-          discordUrl: tokenData.discordUrl,
-          phantomWallet: phantomWallet.address,
-        },
-      });
-
-      if (recordError || !recordData?.success) {
-        console.error("[FunLauncher] Phase 2 recording failed:", recordError || recordData);
-        toast({
-          title: "Warning",
-          description: "Token launched, but database recording failed (it may not show in the list yet).",
-          variant: "destructive",
-        });
-      }
-
-      setLaunchResult({
-        success: true,
-        name: tokenData.name,
-        ticker: tokenData.ticker,
-        mintAddress,
-        imageUrl: storedImageUrl || tokenData.imageUrl,
-        onChainSuccess: true,
-        solscanUrl: `https://solscan.io/token/${mintAddress}`,
-        tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress}?chain=sol`,
-        message: `Token launched! Trading fee set to ${(phantomTradingFee / 100).toFixed(1)}%.`,
-      });
-      setShowResultModal(true);
-
-      toast({
-        title: "🚀 Token Launched!",
-        description: `${tokenData.name} is live.`,
-      });
-
-      phantomWallet.refreshBalance();
-      setPhantomToken({ name: "", ticker: "", description: "", imageUrl: "", websiteUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "" });
-      setPhantomImageFile(null);
-      setPhantomImagePreview(null);
-      setPhantomMeme(null);
-      refetch();
-
-    } catch (error) {
-      console.error("[FunLauncher] Phantom launch error:", error);
-      toast({
-        title: "Launch Failed",
-        description: error instanceof Error ? error.message : "Failed to launch token",
-        variant: "destructive",
-      });
-    } finally {
-      setIsPhantomLaunching(false);
-    }
-  }, [phantomWallet, phantomToken, phantomTradingFee, uploadPhantomImageIfNeeded, toast, refetch]);
-
-  const formatSOL = (sol: number) => {
-    if (!Number.isFinite(sol)) return "0";
-    if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K`;
-    if (sol >= 1) return sol.toFixed(2);
-    // Prevent misleading "0.000000" for very small prices
-    if (sol > 0 && sol < 0.000001) return sol.toExponential(2);
-    if (sol > 0 && sol < 0.01) return sol.toFixed(8);
-    return sol.toFixed(6);
-  };
-
-  const formatUsd = (marketCapSol: number) => {
-    const usdValue = Number(marketCapSol || 0) * Number(solPrice || 0);
-    if (!Number.isFinite(usdValue) || usdValue <= 0) return "$0";
-    if (usdValue >= 1_000_000) return `$${(usdValue / 1_000_000).toFixed(2)}M`;
-    if (usdValue >= 1_000) return `$${(usdValue / 1_000).toFixed(1)}K`;
-    return `$${usdValue.toFixed(0)}`;
-  };
-
-  // Calculate totals - use summary for global totals, not paginated data
-  const { data: claimsSummary } = useFunFeeClaimsSummary();
-  const totalClaimed = claimsSummary?.totalClaimedSol ?? 0;
-  const totalBuybacks = buybacks.reduce((sum, b) => sum + Number(b.amount_sol || 0), 0);
-  const creatorDistributions = distributions.filter(d => d.distribution_type === 'creator');
-  const totalCreatorPaid = creatorDistributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0);
-
   return (
-    <div className="gate-theme dark min-h-screen overflow-x-hidden">
-      {/* Token Ticker Bar - bags.fm style */}
-      <TokenTickerBar />
-      
-      {/* Header Bar */}
+    <div className="gate-theme dark min-h-screen">
+      {/* Header */}
       <header className="gate-header">
-        {/* Mobile: Two-line header */}
-        <div className="sm:hidden">
-          {/* Line 1: Logo + Burger */}
-          <div className="flex items-center justify-between px-3 h-12 border-b border-border">
-            <Link to="/" className="flex items-center gap-2">
-              <span className="text-xl font-black text-foreground tracking-tight">RIFT</span>
-            </Link>
-            
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => refetch()}
-                className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-72 bg-card border-border p-0">
-                  <div className="flex flex-col h-full">
-                    <div className="flex items-center gap-3 p-4 border-b border-border">
-                      <span className="text-2xl font-black text-foreground tracking-tight">RIFT</span>
-                    </div>
-                    
-                    <nav className="flex-1 p-4 space-y-2">
-                      <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                        <TrendingUp className="h-5 w-5 text-primary" />
-                        <span className="text-foreground font-medium">Narratives</span>
-                      </Link>
-                      
-                      <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                        <Key className="h-5 w-5 text-accent-foreground" />
-                        <span className="text-foreground font-medium">API</span>
-                      </Link>
-                      
-                      <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                        <Scale className="h-5 w-5 text-primary" />
-                        <span className="text-foreground font-medium">Governance</span>
-                      </Link>
-                      
-                      <div className="pt-4 border-t border-border space-y-2">
-                        <a 
-                          href="https://dune.com/riftlaunch/stats" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors"
-                        >
-                          <BarChart2 className="h-5 w-5 text-warning" />
-                          <span className="text-muted-foreground">Analytics (Dune)</span>
-                          <ExternalLink className="h-3 w-3 text-muted-foreground/60 ml-auto" />
-                        </a>
-                        
-                        <a 
-                          href="https://x.com/rift_fun" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors"
-                        >
-                          <svg viewBox="0 0 24 24" className="h-5 w-5 text-muted-foreground fill-current">
-                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                          </svg>
-                          <span className="text-muted-foreground">Follow on X</span>
-                          <ExternalLink className="h-3 w-3 text-muted-foreground/60 ml-auto" />
-                        </a>
-                      </div>
-                    </nav>
-                    
-                    <div className="p-4 border-t border-border">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5" />
-                        Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
-                      </div>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
+        <div className="gate-header-inner">
+          <Link to="/" className="gate-logo">
+            <div className="gate-logo-icon">
+              <Flame className="h-5 w-5 text-white" />
             </div>
-          </div>
-          
-          {/* Line 2: Prices */}
-          <div className="flex items-center justify-center gap-3 px-3 h-10 bg-background-secondary">
-            <SolPriceDisplay />
-          </div>
-        </div>
-        
-        {/* Desktop: Single-line header */}
-        <div className="hidden sm:flex w-full max-w-7xl mx-auto px-4 h-14 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-2xl font-black text-foreground tracking-tight">RIFT</span>
+            <span>Trenches</span>
           </Link>
-          
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <SolPriceDisplay />
-            </div>
+
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex gate-nav">
+            <Link to="/" className="gate-nav-link active">Launch</Link>
+            <Link to="/launchpad" className="gate-nav-link">Trade</Link>
+            <Link to="/trending" className="gate-nav-link">Trending</Link>
+            <Link to="/portfolio" className="gate-nav-link">Portfolio</Link>
+          </nav>
+
+          <div className="flex items-center gap-4">
+            <SolPriceDisplay />
             
-            <a 
-              href="https://dune.com/riftlaunch/stats" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-warning/10 transition-colors"
-              title="View Analytics on Dune"
-            >
-              <BarChart2 className="h-4 w-4 text-warning hover:text-warning/80" />
-            </a>
-            
-            <a 
-              href="https://x.com/rift_fun" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-foreground/10 transition-colors"
-              title="Follow us on X"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4 text-muted-foreground hover:text-foreground fill-current">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-            </a>
-            
-            <Link to="/trending">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-primary hover:text-primary/80 hover:bg-primary/10 h-8 px-3"
-              >
-                <TrendingUp className="h-4 w-4 mr-1" />
-                Narratives
-              </Button>
-            </Link>
-            
-            <Link to="/api">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-accent-foreground hover:text-accent-foreground/80 hover:bg-accent/10 h-8 px-3"
-              >
-                <Key className="h-4 w-4 mr-1" />
-                API
-              </Button>
-            </Link>
-            
-            <Link to="/governance">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-primary hover:text-primary/80 hover:bg-primary/10 h-8 px-3"
-              >
-                <Scale className="h-4 w-4 mr-1" />
-                Governance
-              </Button>
-            </Link>
-            
-            <span className="hidden lg:flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
-            </span>
-            
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => refetch()}
-              className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            {/* Mobile Menu */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild className="md:hidden">
+                <Button variant="ghost" size="sm" className="gate-btn-ghost">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="bg-card border-border">
+                <nav className="flex flex-col gap-2 mt-8">
+                  <Link to="/" className="gate-nav-link active" onClick={() => setMobileMenuOpen(false)}>Launch</Link>
+                  <Link to="/launchpad" className="gate-nav-link" onClick={() => setMobileMenuOpen(false)}>Trade</Link>
+                  <Link to="/trending" className="gate-nav-link" onClick={() => setMobileMenuOpen(false)}>Trending</Link>
+                  <Link to="/portfolio" className="gate-nav-link" onClick={() => setMobileMenuOpen(false)}>Portfolio</Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
 
-      {/* REDESIGNED LAYOUT - Gate.io Professional Exchange Style */}
-      
-      {/* Stats Bar - Horizontal metrics strip */}
-      <section className="border-b border-border bg-card/50">
-        <div className="w-full max-w-7xl mx-auto px-4 py-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <BarChart3 className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Tokens</p>
-                <p className="text-lg font-bold text-foreground">{tokens.length}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Coins className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Fees Claimed</p>
-                <p className="text-lg font-bold text-foreground">{formatSOL(claimsSummary?.totalClaimedSol || 0)} SOL</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Wallet className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Creator Payouts</p>
-                <p className="text-lg font-bold text-foreground">{formatSOL(totalCreatorPaid)} SOL</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Repeat className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Buybacks</p>
-                <p className="text-lg font-bold text-foreground">{buybacks.length}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Ticker Bar */}
+      <TokenTickerBar />
 
-      {/* Main Content Area - Redesigned Layout */}
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-        {/* Two-column layout: Left = Generator (narrow), Right = Content (wide) */}
+      {/* Main Content */}
+      <main className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
+        {/* Stats Row */}
+        <StatsCards
+          totalTokens={tokens.length}
+          totalClaimed={totalClaimed}
+          totalPayouts={totalPayouts}
+          totalBuybacks={totalBuybacks}
+          solPrice={solPrice}
+        />
+
+        {/* Two Column Layout: Launcher + Content */}
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Column - Token Generator (Compact) */}
-          <div className="lg:w-80 lg:flex-shrink-0">
-            <Card className="gate-card p-4 sticky top-20">
-              <div className="flex flex-col gap-3 mb-4">
-                <h2 className="font-semibold text-foreground flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                  <span className="truncate">
-                    {generatorMode === "random" ? "AI Meme Generator" : generatorMode === "describe" ? "Describe & Generate" : generatorMode === "phantom" ? "Phantom Launch" : "Custom Token"}
-                  </span>
-                </h2>
+          {/* Left: Token Launcher (Sticky on Desktop) */}
+          <div className="lg:w-[360px] lg:flex-shrink-0">
+            <div className="lg:sticky lg:top-20">
+              <TokenLauncher onLaunchSuccess={handleLaunchSuccess} onShowResult={handleShowResult} />
 
-                {/* Mode Switcher */}
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setGeneratorMode("random")}
-                    className={`h-8 text-xs ${
-                      generatorMode === "random"
-                        ? "border-primary/40 text-primary bg-primary/10"
-                        : "border-border text-muted-foreground bg-transparent"
-                    }`}
-                  >
-                    Randomizer
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setGeneratorMode("describe")}
-                    className={`h-8 text-xs ${
-                      generatorMode === "describe"
-                        ? "border-primary/40 text-primary bg-primary/10"
-                        : "border-border text-muted-foreground bg-transparent"
-                    }`}
-                  >
-                    Describe
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setGeneratorMode("custom")}
-                    className={`h-8 text-xs ${
-                      generatorMode === "custom"
-                        ? "border-primary/40 text-primary bg-primary/10"
-                        : "border-border text-muted-foreground bg-transparent"
-                    }`}
-                  >
-                    Custom
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setGeneratorMode("phantom")}
-                    className={`h-8 text-xs ${
-                      generatorMode === "phantom"
-                        ? "border-accent-foreground/40 text-accent-foreground bg-accent/20"
-                        : "border-border text-muted-foreground bg-transparent"
-                    }`}
-                  >
-                    <Wallet className="h-3 w-3 mr-1 shrink-0" />
-                    Phantom
-                  </Button>
+              {/* Fee Info Card */}
+              <Card className="gate-card mt-4">
+                <div className="gate-card-body">
+                  <h3 className="text-sm font-semibold text-foreground mb-3">Fee Distribution</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Creator Share</span>
+                      <span className="text-primary font-semibold">50%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Buybacks</span>
+                      <span className="text-blue-500 font-semibold">30%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">System</span>
+                      <span className="text-muted-foreground font-semibold">20%</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              {generatorMode === "random" ? (
-                <>
-                  {/* Preview */}
-                  <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#1a1a1f]">
-                        {isGenerating ? (
-                          <MemeLoadingAnimation />
-                        ) : meme?.imageUrl ? (
-                          <img src={meme.imageUrl} alt={meme.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Shuffle className="h-8 w-8 text-gray-600" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {isGenerating ? (
-                          <MemeLoadingText />
-                        ) : meme ? (
-                          <div className="space-y-2">
-                            <Input
-                              value={meme.name}
-                              onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })}
-                              className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
-                              placeholder="Token name"
-                              maxLength={20}
-                            />
-                            <div className="flex items-center gap-1">
-                              <span className="text-[#00d4aa] text-sm">$</span>
-                              <Input
-                                value={meme.ticker}
-                                onChange={(e) =>
-                                  setMeme({
-                                    ...meme,
-                                    ticker: e.target.value
-                                      .toUpperCase()
-                                      .replace(/[^A-Z0-9]/g, "")
-                                      .slice(0, 6),
-                                  })
-                                }
-                                className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-20"
-                                placeholder="TICKER"
-                                maxLength={6}
-                              />
-                            </div>
-                            <Textarea
-                              value={meme.description}
-                              onChange={(e) => setMeme({ ...meme, description: e.target.value.slice(0, 280) })}
-                              className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs min-h-[60px] resize-none"
-                              placeholder="Description"
-                              maxLength={280}
-                            />
-                            
-                            {/* Social Links - Collapsible */}
-                            <details className="group">
-                              <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-400 flex items-center gap-1">
-                                <Globe className="h-3 w-3" />
-                                Edit Socials (optional)
-                              </summary>
-                              <div className="mt-2 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <Globe className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                                  <Input
-                                    value={meme.websiteUrl || ""}
-                                    onChange={(e) => setMeme({ ...meme, websiteUrl: e.target.value })}
-                                    className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs h-7 px-2"
-                                    placeholder="Website URL"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Twitter className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                                  <Input
-                                    value={meme.twitterUrl || ""}
-                                    onChange={(e) => setMeme({ ...meme, twitterUrl: e.target.value })}
-                                    className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs h-7 px-2"
-                                    placeholder="Twitter URL"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <MessageCircle className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                                  <Input
-                                    value={meme.telegramUrl || ""}
-                                    onChange={(e) => setMeme({ ...meme, telegramUrl: e.target.value })}
-                                    className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs h-7 px-2"
-                                    placeholder="Telegram URL"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <MessageSquare className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                                  <Input
-                                    value={meme.discordUrl || ""}
-                                    onChange={(e) => setMeme({ ...meme, discordUrl: e.target.value })}
-                                    className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs h-7 px-2"
-                                    placeholder="Discord URL"
-                                  />
-                                </div>
-                              </div>
-                            </details>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500">Click Randomize to generate</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Randomize Button */}
-                  <Button
-                    onClick={handleRandomize}
-                    disabled={isGenerating || isLaunching}
-                    className="w-full bg-[#1a1a1f] hover:bg-[#252530] text-white border border-[#2a2a35] mb-2"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Shuffle className="h-4 w-4 mr-2 animate-spin" /> Generating your next gem...
-                      </>
-                    ) : (
-                      <>
-                        <Shuffle className="h-4 w-4 mr-2" /> Randomize
-                      </>
-                    )}
-                  </Button>
-
-                  {/* Download Avatar Button - Only show when meme is generated */}
-                  {meme && meme.imageUrl && (
-                    <Button
-                      onClick={async () => {
-                        try {
-                          const response = await fetch(meme.imageUrl);
-                          const blob = await response.blob();
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = `${meme.name.replace(/[^a-zA-Z0-9]/g, "_")}_avatar.png`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                          toast({
-                            title: "Avatar Downloaded!",
-                            description: "Token avatar image saved.",
-                          });
-                        } catch (error) {
-                          console.error("Error downloading avatar:", error);
-                          toast({
-                            title: "Download Failed",
-                            description: "Could not download the avatar image.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      variant="outline"
-                      className="w-full border-[#2a2a35] text-gray-300 hover:text-white hover:bg-[#1a1a1f] mb-2"
-                    >
-                      <Download className="h-4 w-4 mr-2" /> Download Avatar
-                    </Button>
-                  )}
-
-                  {/* Generate Banner Button - Only show when meme is generated */}
-                  {meme && (
-                    <div className="space-y-2 mb-3">
-                      <Button
-                        onClick={() => {
-                          setBannerTextName(meme.name);
-                          setBannerTextTicker(meme.ticker);
-                          setBannerImageUrl(meme.imageUrl);
-                          generateBanner({
-                            imageUrl: meme.imageUrl,
-                            tokenName: meme.name,
-                            ticker: meme.ticker,
-                          });
-                        }}
-                        disabled={isBannerGenerating || !meme.imageUrl}
-                        variant="outline"
-                        className="w-full border-[#2a2a35] text-gray-300 hover:text-white hover:bg-[#1a1a1f]"
-                      >
-                        {isBannerGenerating ? (
-                          <>
-                            <Image className="h-4 w-4 mr-2 animate-pulse" /> Generating Banner...
-                          </>
-                        ) : (
-                          <>
-                            <Image className="h-4 w-4 mr-2" /> Generate X Banner (1500×500)
-                          </>
-                        )}
-                      </Button>
-                      
-                      {/* Banner Preview & Download */}
-                      {bannerUrl && (
-                        <div className="space-y-2 p-3 bg-[#0d0d0f] rounded-lg border border-[#2a2a35]">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs text-gray-400">Preview (1500×500):</p>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setIsEditingBannerText(!isEditingBannerText)}
-                              className="h-6 px-2 text-xs text-gray-400 hover:text-white"
-                            >
-                              <Pencil className="h-3 w-3 mr-1" /> Edit Text
-                            </Button>
-                          </div>
-                          
-                          {/* Editable Text Fields */}
-                          {isEditingBannerText && (
-                            <div className="space-y-2 p-2 bg-[#1a1a1f] rounded border border-[#2a2a35]">
-                              <div>
-                                <label className="text-xs text-gray-500 mb-1 block">Name</label>
-                                <Input
-                                  value={bannerTextName}
-                                  onChange={(e) => setBannerTextName(e.target.value)}
-                                  placeholder="Token name..."
-                                  className="bg-[#0d0d0f] border-[#2a2a35] text-white text-sm h-8"
-                                  maxLength={20}
-                                />
-                              </div>
-                              <div>
-                                <label className="text-xs text-gray-500 mb-1 block">Ticker</label>
-                                <Input
-                                  value={bannerTextTicker}
-                                  onChange={(e) => setBannerTextTicker(e.target.value.toUpperCase())}
-                                  placeholder="TICKER..."
-                                  className="bg-[#0d0d0f] border-[#2a2a35] text-white text-sm h-8 font-mono"
-                                  maxLength={10}
-                                />
-                              </div>
-                              <Button
-                                onClick={() => {
-                                  generateBanner({
-                                    imageUrl: bannerImageUrl,
-                                    tokenName: bannerTextName,
-                                    ticker: bannerTextTicker,
-                                  });
-                                  setIsEditingBannerText(false);
-                                }}
-                                disabled={isBannerGenerating}
-                                size="sm"
-                                className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold h-8"
-                              >
-                                {isBannerGenerating ? (
-                                  <><RefreshCw className="h-3 w-3 mr-1 animate-spin" /> Regenerating...</>
-                                ) : (
-                                  <><RefreshCw className="h-3 w-3 mr-1" /> Regenerate Banner</>
-                                )}
-                              </Button>
-                            </div>
-                          )}
-                          
-                          <img 
-                            src={bannerUrl} 
-                            alt="Generated X Banner" 
-                            className="w-full rounded border border-[#2a2a35]"
-                          />
-                          <Button
-                            onClick={() => downloadBanner(bannerUrl, bannerTextName || meme.name)}
-                            className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
-                          >
-                            <Download className="h-4 w-4 mr-2" /> Download Banner
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Wallet & Launch */}
-                  {meme && (
-                    <div className="space-y-3 pt-3 border-t border-[#1a1a1f]">
-                      <Input
-                        placeholder="Your SOL wallet address..."
-                        value={walletAddress}
-                        onChange={(e) => setWalletAddress(e.target.value)}
-                        className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
-                      />
-                      <p className="text-xs text-gray-500">Receive 50% of trading fees every few min</p>
-                      <Button
-                        onClick={handleLaunch}
-                        disabled={isLaunching || !walletAddress}
-                        className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
-                      >
-                        {isLaunching ? (
-                          <>
-                            <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...
-                          </>
-                        ) : (
-                          <>
-                            <Rocket className="h-4 w-4 mr-2" /> Launch Token
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </>
-              ) : generatorMode === "describe" ? (
-                <>
-                  {/* Describe Mode */}
-                  <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4 space-y-3">
-                    <div className="text-sm text-gray-400 mb-2">
-                      Describe the meme character you want. AI will generate the image, name, ticker, and banner.
-                    </div>
-                    <Textarea
-                      value={describePrompt}
-                      onChange={(e) => setDescribePrompt(e.target.value)}
-                      placeholder="e.g., A smug frog wearing sunglasses and a gold chain, looking like a crypto millionaire..."
-                      className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm min-h-[100px]"
-                      maxLength={500}
-                    />
-                    <Button
-                      onClick={handleDescribeGenerate}
-                      disabled={isGenerating || !describePrompt.trim()}
-                      className="w-full bg-gradient-to-r from-[#00d4aa] to-[#00b894] hover:from-[#00b894] hover:to-[#009975] text-black font-semibold"
-                    >
-                      {isGenerating ? (
-                        <>
-                          <Sparkles className="h-4 w-4 mr-2 animate-spin" /> Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4 mr-2" /> Generate Meme & Banner
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
-                  {/* Generated Result Preview */}
-                  {describedToken && (
-                    <>
-                      <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4">
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#00d4aa]/30">
-                            {describedToken.imageUrl ? (
-                              <img src={describedToken.imageUrl} alt={describedToken.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Bot className="h-8 w-8 text-gray-600" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              value={describedToken.name}
-                              onChange={(e) => setDescribedToken({ ...describedToken, name: e.target.value.slice(0, 20) })}
-                              className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
-                              placeholder="Token name"
-                              maxLength={20}
-                            />
-                            <div className="flex items-center gap-1">
-                              <span className="text-[#00d4aa] text-sm">$</span>
-                              <Input
-                                value={describedToken.ticker}
-                                onChange={(e) =>
-                                  setDescribedToken({
-                                    ...describedToken,
-                                    ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
-                                  })
-                                }
-                                className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-20"
-                                placeholder="TICKER"
-                                maxLength={6}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <Textarea
-                          value={describedToken.description}
-                          onChange={(e) => setDescribedToken({ ...describedToken, description: e.target.value.slice(0, 280) })}
-                          className="bg-[#1a1a1f] border-[#2a2a35] text-gray-300 text-xs min-h-[60px] resize-none mb-3"
-                          placeholder="Description"
-                          maxLength={280}
-                        />
-
-                        {/* Download buttons */}
-                        <div className="flex gap-2 mb-3">
-                          {describedToken.imageUrl && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement("a");
-                                link.href = describedToken.imageUrl;
-                                link.download = `${describedToken.name.toLowerCase().replace(/\s+/g, "-")}-avatar.png`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                              }}
-                              className="flex-1 h-8 text-xs border-[#2a2a35] text-gray-300 hover:text-white hover:border-[#00d4aa]/40"
-                            >
-                              <Download className="h-3 w-3 mr-1" /> Avatar
-                            </Button>
-                          )}
-                          {bannerUrl && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => downloadBanner(bannerUrl, bannerTextName || describedToken.name)}
-                              className="flex-1 h-8 text-xs border-[#2a2a35] text-gray-300 hover:text-white hover:border-[#00d4aa]/40"
-                            >
-                              <Image className="h-3 w-3 mr-1" /> Banner
-                            </Button>
-                          )}
-                        </div>
-
-                        {/* Banner Preview with Edit Text */}
-                        {bannerUrl && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-gray-400">Banner Preview:</p>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setIsEditingBannerText(!isEditingBannerText)}
-                                className="h-6 px-2 text-xs text-gray-400 hover:text-white"
-                              >
-                                <Pencil className="h-3 w-3 mr-1" /> Edit Text
-                              </Button>
-                            </div>
-                            
-                            {/* Editable Text Fields */}
-                            {isEditingBannerText && (
-                              <div className="space-y-2 p-2 bg-[#1a1a1f] rounded border border-[#2a2a35]">
-                                <div>
-                                  <label className="text-xs text-gray-500 mb-1 block">Name</label>
-                                  <Input
-                                    value={bannerTextName}
-                                    onChange={(e) => setBannerTextName(e.target.value)}
-                                    placeholder="Token name..."
-                                    className="bg-[#0d0d0f] border-[#2a2a35] text-white text-sm h-8"
-                                    maxLength={20}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-gray-500 mb-1 block">Ticker</label>
-                                  <Input
-                                    value={bannerTextTicker}
-                                    onChange={(e) => setBannerTextTicker(e.target.value.toUpperCase())}
-                                    placeholder="TICKER..."
-                                    className="bg-[#0d0d0f] border-[#2a2a35] text-white text-sm h-8 font-mono"
-                                    maxLength={10}
-                                  />
-                                </div>
-                                <Button
-                                  onClick={() => {
-                                    generateBanner({
-                                      imageUrl: bannerImageUrl,
-                                      tokenName: bannerTextName,
-                                      ticker: bannerTextTicker,
-                                    });
-                                    setIsEditingBannerText(false);
-                                  }}
-                                  disabled={isBannerGenerating}
-                                  size="sm"
-                                  className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold h-8"
-                                >
-                                  {isBannerGenerating ? (
-                                    <><RefreshCw className="h-3 w-3 mr-1 animate-spin" /> Regenerating...</>
-                                  ) : (
-                                    <><RefreshCw className="h-3 w-3 mr-1" /> Regenerate Banner</>
-                                  )}
-                                </Button>
-                              </div>
-                            )}
-                            
-                            <div className="rounded-lg overflow-hidden border border-[#2a2a35]">
-                              <img src={bannerUrl} alt="Generated banner" className="w-full h-auto" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Wallet & Launch */}
-                      <div className="space-y-3 pt-3 border-t border-[#1a1a1f]">
-                        <Input
-                          placeholder="Your SOL wallet address..."
-                          value={walletAddress}
-                          onChange={(e) => setWalletAddress(e.target.value)}
-                          className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
-                        />
-                        <p className="text-xs text-gray-500">Receive 50% of trading fees every few min</p>
-                        <Button
-                          onClick={handleDescribeLaunch}
-                          disabled={isLaunching || !walletAddress}
-                          className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
-                        >
-                          {isLaunching ? (
-                            <>
-                              <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...
-                            </>
-                          ) : (
-                            <>
-                              <Rocket className="h-4 w-4 mr-2" /> Launch Token
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : generatorMode === "custom" ? (
-                <>
-                  {/* Custom Form */}
-                  <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4 space-y-3">
-                    <div className="flex items-center gap-4">
-                      <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-[#1a1a1f]">
-                        {customImagePreview || customToken.imageUrl ? (
-                          <img
-                            src={customImagePreview || customToken.imageUrl}
-                            alt={customToken.name || "Custom token"}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Bot className="h-8 w-8 text-gray-600" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex-1 space-y-2">
-                        <Input
-                          value={customToken.name}
-                          onChange={(e) => setCustomToken({ ...customToken, name: e.target.value.slice(0, 20) })}
-                          className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
-                          placeholder="Token name"
-                          maxLength={20}
-                        />
-                        <div className="flex items-center gap-1">
-                          <span className="text-[#00d4aa] text-sm">$</span>
-                          <Input
-                            value={customToken.ticker}
-                            onChange={(e) =>
-                              setCustomToken({
-                                ...customToken,
-                                ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
-                              })
-                            }
-                            className="bg-[#1a1a1f] border-[#2a2a35] text-[#00d4aa] font-mono text-sm h-7 px-2 w-28"
-                            placeholder="TICKER"
-                            maxLength={10}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <Textarea
-                      value={customToken.description}
-                      onChange={(e) => setCustomToken({ ...customToken, description: e.target.value })}
-                      placeholder="Description"
-                      className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm min-h-[80px]"
-                    />
-
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleCustomImageChange}
-                      className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                    />
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        value={customToken.websiteUrl || ""}
-                        onChange={(e) => setCustomToken({ ...customToken, websiteUrl: e.target.value })}
-                        className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                        placeholder="Website URL"
-                      />
-                      <Input
-                        value={customToken.twitterUrl || ""}
-                        onChange={(e) => setCustomToken({ ...customToken, twitterUrl: e.target.value })}
-                        className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                        placeholder="X / Twitter URL"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        value={customToken.telegramUrl || ""}
-                        onChange={(e) => setCustomToken({ ...customToken, telegramUrl: e.target.value })}
-                        className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                        placeholder="Telegram URL"
-                      />
-                      <Input
-                        value={customToken.discordUrl || ""}
-                        onChange={(e) => setCustomToken({ ...customToken, discordUrl: e.target.value })}
-                        className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                        placeholder="Discord URL"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 pt-3 border-t border-[#1a1a1f]">
-                    <Input
-                      placeholder="Your SOL wallet address..."
-                      value={walletAddress}
-                      onChange={(e) => setWalletAddress(e.target.value)}
-                      className="bg-[#0d0d0f] border-[#1a1a1f] text-white placeholder:text-gray-500 font-mono text-sm"
-                    />
-                    <p className="text-xs text-gray-500">Receive 50% of trading fees every few min</p>
-                    <Button
-                      onClick={handleCustomLaunch}
-                      disabled={isLaunching || !walletAddress || !customToken.name.trim() || !customToken.ticker.trim()}
-                      className="w-full bg-[#00d4aa] hover:bg-[#00b894] text-black font-semibold"
-                    >
-                      {isLaunching ? (
-                        <>
-                          <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...
-                        </>
-                      ) : (
-                        <>
-                          <Rocket className="h-4 w-4 mr-2" /> Launch Token
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </>
-              ) : generatorMode === "phantom" ? (
-                <>
-                  {/* Phantom Wallet Mode */}
-                  <div className="bg-[#0d0d0f] rounded-lg p-4 mb-4 space-y-4">
-                    {/* Header with Phantom branding */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="h-5 w-5 text-purple-400" />
-                        <span className="text-sm font-semibold text-white">Phantom Wallet Launch</span>
-                      </div>
-                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                        Custom Fee
-                      </Badge>
-                    </div>
-
-                    {/* Info box */}
-                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs text-gray-300">
-                      <p className="flex items-start gap-2">
-                        <AlertTriangle className="h-4 w-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                        <span>
-                          <strong className="text-purple-400">Phantom Mode:</strong> You pay the launch fee (~0.02 SOL) from your wallet and receive 100% of all trading fees directly to your Phantom wallet.
-                          <strong className="text-purple-400">Phantom Mode:</strong> Pay ~0.02 SOL and earn {(phantomTradingFee / 100).toFixed(1)}% on every trade (distributed 50% to you, 50% to platform).
-                        </span>
-                      </p>
-                    </div>
-
-                    {/* Connect/Disconnect Button */}
-                    {!phantomWallet.isConnected ? (
-                      <Button
-                        onClick={phantomWallet.connect}
-                        disabled={phantomWallet.isConnecting}
-                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold"
-                      >
-                        {phantomWallet.isConnecting ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Connecting...
-                          </>
-                        ) : !phantomWallet.isPhantomInstalled ? (
-                          <>
-                            <ExternalLink className="h-4 w-4 mr-2" /> Install Phantom
-                          </>
-                        ) : (
-                          <>
-                            <Wallet className="h-4 w-4 mr-2" /> Connect Phantom Wallet
-                          </>
-                        )}
-                      </Button>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* Connected Wallet Info */}
-                        <div className="flex items-center justify-between bg-[#1a1a1f] rounded-lg p-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                              <Wallet className="h-4 w-4 text-purple-400" />
-                            </div>
-                            <div>
-                              <div className="text-sm font-mono text-white">
-                                {phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                {phantomWallet.isLoadingBalance ? (
-                                  "Loading..."
-                                ) : phantomWallet.balance !== null ? (
-                                  `${phantomWallet.balance.toFixed(4)} SOL`
-                                ) : (
-                                  "Balance unavailable"
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={phantomWallet.disconnect}
-                            className="text-gray-400 hover:text-white"
-                          >
-                            Disconnect
-                          </Button>
-                        </div>
-
-                        {/* Trading Fee Slider */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs text-gray-400">
-                            <span>Trading Fee</span>
-                            <span className="font-semibold text-purple-400">{(phantomTradingFee / 100).toFixed(1)}%</span>
-                          </div>
-                          <Slider
-                            value={[phantomTradingFee]}
-                            onValueChange={(v) => setPhantomTradingFee(v[0])}
-                            min={10}
-                            max={1000}
-                            step={10}
-                            className="w-full"
-                          />
-                          <div className="flex justify-between text-[10px] text-gray-500">
-                            <span>0.1%</span>
-                            <span>10%</span>
-                          </div>
-                        </div>
-
-                        {/* AI Randomize Button */}
-                        <Button
-                          onClick={handlePhantomRandomize}
-                          disabled={isPhantomGenerating}
-                          className="w-full bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-white border border-purple-500/30"
-                          variant="outline"
-                        >
-                          {isPhantomGenerating ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              Generating AI Token...
-                            </>
-                          ) : (
-                            <>
-                              <Shuffle className="h-4 w-4 mr-2" />
-                              AI Randomize Token
-                            </>
-                          )}
-                        </Button>
-
-                        {/* Loading Animation */}
-                        {isPhantomGenerating && (
-                          <div className="flex flex-col items-center justify-center py-6">
-                            <MemeLoadingAnimation />
-                            <MemeLoadingText />
-                          </div>
-                        )}
-
-                        {/* Token Preview/Form */}
-                        {!isPhantomGenerating && (
-                          <>
-                            <div className="flex items-center gap-4">
-                              <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0 border-2 border-purple-500/30">
-                                {phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl ? (
-                                  <img
-                                    src={phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl}
-                                    alt={phantomToken.name || "Token"}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <Bot className="h-8 w-8 text-gray-600" />
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex-1 space-y-2">
-                                <Input
-                                  value={phantomToken.name}
-                                  onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 32) })}
-                                  className="bg-[#1a1a1f] border-[#2a2a35] text-white font-bold text-sm h-8 px-2"
-                                  placeholder="Token name"
-                                  maxLength={32}
-                                />
-                                <div className="flex items-center gap-1">
-                                  <span className="text-purple-400 text-sm">$</span>
-                                  <Input
-                                    value={phantomToken.ticker}
-                                    onChange={(e) =>
-                                      setPhantomToken({
-                                        ...phantomToken,
-                                        ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
-                                      })
-                                    }
-                                    className="bg-[#1a1a1f] border-[#2a2a35] text-purple-400 font-mono text-sm h-7 px-2 w-28"
-                                    placeholder="TICKER"
-                                    maxLength={10}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            <Textarea
-                              value={phantomToken.description}
-                              onChange={(e) => setPhantomToken({ ...phantomToken, description: e.target.value })}
-                              placeholder="Description (optional)"
-                              className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm min-h-[60px]"
-                              maxLength={500}
-                            />
-
-                            {/* Custom Image Upload (optional) */}
-                            <div className="text-xs text-gray-400 flex items-center gap-2">
-                              <span>Or upload custom image:</span>
-                              <Input
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePhantomImageChange}
-                                className="bg-[#1a1a1f] border-[#2a2a35] text-white text-xs h-8 flex-1"
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                              <Input
-                                value={phantomToken.websiteUrl || ""}
-                                onChange={(e) => setPhantomToken({ ...phantomToken, websiteUrl: e.target.value })}
-                                className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                                placeholder="Website URL"
-                              />
-                              <Input
-                                value={phantomToken.twitterUrl || ""}
-                                onChange={(e) => setPhantomToken({ ...phantomToken, twitterUrl: e.target.value })}
-                                className="bg-[#1a1a1f] border-[#2a2a35] text-white text-sm"
-                                placeholder="X / Twitter URL"
-                              />
-                            </div>
-
-                            {/* Launch Button */}
-                            <Button
-                              onClick={handlePhantomLaunch}
-                              disabled={
-                                isPhantomLaunching || 
-                                !phantomToken.name.trim() || 
-                                !phantomToken.ticker.trim() ||
-                                (!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl) ||
-                                (phantomWallet.balance !== null && phantomWallet.balance < 0.02)
-                              }
-                              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold"
-                            >
-                              {isPhantomLaunching ? (
-                                <>
-                                  <Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching with Phantom...
-                                </>
-                              ) : (
-                                <>
-                                  <Rocket className="h-4 w-4 mr-2" /> Launch Token (~0.02 SOL)
-                                </>
-                              )}
-                            </Button>
-
-                            {/* Balance warning */}
-                            {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && (
-                              <p className="text-xs text-red-400 flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                Insufficient balance. Need at least 0.02 SOL.
-                              </p>
-                            )}
-
-                            {/* Missing image warning */}
-                            {!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl && phantomToken.name && (
-                              <p className="text-xs text-yellow-400 flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                Click "AI Randomize" or upload an image to continue.
-                              </p>
-                            )}
-
-                            <p className="text-xs text-gray-500 text-center">
-                              You pay launch fee • trading fee set to {(phantomTradingFee / 100).toFixed(1)}%
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Phantom Mode Fee Info */}
-                  <div className="bg-[#0d0d0f] rounded-lg p-3 border border-purple-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Coins className="h-4 w-4 text-purple-400" />
-                      <span className="text-xs font-semibold text-white">Phantom Fee Structure</span>
-                    </div>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Launch Fee (you pay)</span>
-                        <span className="text-purple-400 font-semibold">~0.02 SOL</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Your Trading Fee Share</span>
-                        <span className="text-[#00d4aa] font-bold">50%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Trading Fee (total)</span>
-                        <span className="text-purple-400 font-semibold">{(phantomTradingFee / 100).toFixed(1)}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : null}
-            </Card>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 gap-3">
-              <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-                <div className="text-2xl font-bold text-white">{tokens.length}</div>
-                <div className="text-xs text-gray-400">Total Tokens</div>
               </Card>
-              <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-                <div className="text-2xl font-bold text-[#00d4aa]">{formatSOL(totalClaimed)}</div>
-                <div className="text-xs text-gray-400">Fees Claimed</div>
-              </Card>
+
+              {/* Admin Panel */}
+              {isAdmin && <div className="mt-4"><SniperStatusPanel /></div>}
             </div>
-
-            {/* Fee Split Info */}
-            <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-              <h3 className="text-sm font-semibold text-white mb-3">Fee Distribution</h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Creator Share</span>
-                  <span className="text-[#00d4aa] font-semibold">50%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Buybacks</span>
-                  <span className="text-blue-400 font-semibold">30%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">System/Expenses</span>
-                  <span className="text-gray-400 font-semibold">20%</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Admin-only Sniper Status Panel */}
-            {isAdmin && <SniperStatusPanel />}
           </div>
 
-          {/* Right Column - Tabbed Content (Expands to fill) */}
+          {/* Right: Tabbed Content */}
           <div className="flex-1 min-w-0">
             <Tabs defaultValue="tokens" className="w-full">
               <TabsList className="w-full bg-card border border-border p-1 mb-4 grid grid-cols-5 rounded-xl">
-                <TabsTrigger 
-                  value="tokens" 
-                  className="data-[state=active]:bg-secondary data-[state=active]:text-foreground text-muted-foreground text-xs sm:text-sm rounded-lg"
-                >
+                <TabsTrigger value="tokens" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
                   <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Tokens</span> ({tokens.length})
+                  <span className="hidden sm:inline">Tokens</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="top" 
-                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg"
-                >
+                <TabsTrigger value="top" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
                   <Trophy className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Top</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="claims" 
-                  className="data-[state=active]:bg-secondary data-[state=active]:text-foreground text-muted-foreground text-xs sm:text-sm rounded-lg"
-                >
+                <TabsTrigger value="claims" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
                   <Coins className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Claimed</span> ({claimsCount})
+                  <span className="hidden sm:inline">Claims</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="buybacks" 
-                  className="data-[state=active]:bg-secondary data-[state=active]:text-foreground text-muted-foreground text-xs sm:text-sm rounded-lg"
-                >
+                <TabsTrigger value="buybacks" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
                   <Repeat className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Buybacks</span> ({buybacks.length})
+                  <span className="hidden sm:inline">Buybacks</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="creator-fees" 
-                  className="data-[state=active]:bg-secondary data-[state=active]:text-foreground text-muted-foreground text-xs sm:text-sm rounded-lg"
-                >
+                <TabsTrigger value="creators" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg">
                   <Wallet className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Creators</span> ({creatorDistributions.length})
+                  <span className="hidden sm:inline">Creators</span>
                 </TabsTrigger>
               </TabsList>
 
               {/* Tokens Tab */}
               <TabsContent value="tokens">
+                <TokenTable tokens={tokens} isLoading={tokensLoading} solPrice={solPrice} />
+              </TabsContent>
+
+              {/* Top Performers Tab */}
+              <TabsContent value="top">
                 <Card className="gate-card">
-                  <div className="p-3 sm:p-4 border-b border-[#1a1a1f] flex items-center justify-between">
-                    <h2 className="font-semibold text-white flex items-center gap-2 text-sm sm:text-base">
-                      <BarChart3 className="h-4 w-4 text-[#00d4aa]" />
-                      Live Tokens
+                  <div className="gate-card-header">
+                    <h2 className="gate-card-title">
+                      <Trophy className="h-5 w-5 text-yellow-500" />
+                      Top Performers (24h)
                     </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 bg-[#00d4aa] rounded-full animate-pulse" />
-                      <span className="text-xs text-gray-400">Real-time</span>
-                    </div>
                   </div>
-
-                  {/* Mobile: Card Layout */}
-                  <div className="sm:hidden divide-y divide-[#1a1a1f]">
-                    {tokensLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="p-3 space-y-2">
-                          <div className="flex items-center gap-3">
-                            <Skeleton className="h-10 w-10 rounded-full bg-[#1a1a1f]" />
-                            <div className="flex-1">
-                              <Skeleton className="h-4 w-24 bg-[#1a1a1f] mb-1" />
-                              <Skeleton className="h-3 w-16 bg-[#1a1a1f]" />
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : tokens.length === 0 ? (
-                      <div className="p-6 text-center text-gray-500 text-sm">
-                        No tokens launched yet. Be the first!
-                      </div>
-                    ) : (
-                      tokens
-                        .slice((tokensPage - 1) * 10, tokensPage * 10)
-                        .map((token, index) => (
-                        <div key={token.id} className="p-3">
-                          <div className="flex items-center gap-3">
-                            {/* Token image & info */}
-                            <div className="w-10 h-10 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
-                              {token.image_url ? (
-                                <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">
-                                  {token.ticker?.slice(0, 2)}
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-white text-sm truncate">{token.name}</span>
-                                <span className="text-xs text-gray-500 font-mono">${token.ticker}</span>
-                              </div>
-                              <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                                <span className="text-white font-medium">{formatUsd(token.market_cap_sol || 0)}</span>
-                                <span className="flex items-center gap-1">
-                                  <Users className="h-3 w-3" />
-                                  {token.holder_count || 0}
-                                </span>
-                                <span>{(token.bonding_progress || 0).toFixed(1)}%</span>
-                              </div>
-                            </div>
-                            
-                            {/* Copy CA & Trade buttons */}
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              {token.mint_address && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    copyToClipboard(token.mint_address!);
-                                  }}
-                                  className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                                >
-                                  {copiedAddress === token.mint_address ? (
-                                    <CheckCircle className="h-3.5 w-3.5 text-[#00d4aa]" />
-                                  ) : (
-                                    <Copy className="h-3.5 w-3.5" />
-                                  )}
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                asChild
-                                className="h-8 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10"
-                              >
-                                <a 
-                                  href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Trade
-                                </a>
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Desktop: Table Layout */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full">
+                  <div className="gate-table-wrapper">
+                    <table className="gate-table">
                       <thead>
-                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
-                          <th className="text-left p-3 font-medium">#</th>
-                          <th className="text-left p-3 font-medium">Token</th>
-                          <th className="text-right p-3 font-medium">Market Cap</th>
-                          <th className="text-right p-3 font-medium">Holders</th>
-                          <th className="text-center p-3 font-medium">Progress</th>
-                          <th className="text-right p-3 font-medium">Age</th>
-                          <th className="text-center p-3 font-medium">Action</th>
+                        <tr>
+                          <th>#</th>
+                          <th>Token</th>
+                          <th>Price</th>
+                          <th>24h Change</th>
+                          <th>Volume</th>
+                          <th>Market Cap</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {tokensLoading ? (
+                        {topPerformersLoading ? (
                           Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={i} className="border-b border-[#1a1a1f]">
-                              <td className="p-3"><Skeleton className="h-4 w-6 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-8 w-32 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-20 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-6 w-16 bg-[#1a1a1f]" /></td>
+                            <tr key={i}>
+                              <td><Skeleton className="h-4 w-6" /></td>
+                              <td><Skeleton className="h-4 w-24" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
+                              <td><Skeleton className="h-4 w-12" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
                             </tr>
                           ))
-                        ) : tokens.length === 0 ? (
+                        ) : topPerformers.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="p-8 text-center text-gray-500">
-                              No tokens launched yet. Be the first!
+                            <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                              No top performers yet
                             </td>
                           </tr>
                         ) : (
-                          tokens
-                            .slice((tokensPage - 1) * tokensPageSize, tokensPage * tokensPageSize)
-                            .map((token, index) => (
-                            <tr 
-                              key={token.id} 
-                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
-                            >
-                              <td className="p-3 text-sm text-gray-400">{(tokensPage - 1) * tokensPageSize + index + 1}</td>
-                              <td className="p-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
+                          topPerformers.map((token, index) => (
+                            <tr key={token.id}>
+                              <td className="font-medium text-muted-foreground">{index + 1}</td>
+                              <td>
+                                <Link to={`/launchpad/${token.mint_address}`} className="gate-token-row">
+                                  <div className="gate-token-avatar">
                                     {token.image_url ? (
                                       <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
                                     ) : (
-                                      <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">
+                                      <div className="w-full h-full bg-secondary flex items-center justify-center text-xs font-bold">
                                         {token.ticker?.slice(0, 2)}
                                       </div>
                                     )}
                                   </div>
-                                  <div>
-                                    <div className="font-medium text-white text-sm">{token.name}</div>
-                                    <div className="text-xs text-gray-400 font-mono">${token.ticker}</div>
+                                  <div className="gate-token-info">
+                                    <span className="gate-token-name">{token.name}</span>
+                                    <span className="gate-token-ticker">${token.ticker}</span>
                                   </div>
-                                </div>
+                                </Link>
                               </td>
-                              <td className="p-3 text-right">
-                                <span className="text-sm text-white">
-                                  {formatUsd(token.market_cap_sol || 0)}
+                              <td className="font-medium">-</td>
+                              <td>
+                                <span className="flex items-center gap-1 font-medium gate-price-up">
+                                  <TrendingUp className="h-3 w-3" />
+                                  {token.claim_count} claims
                                 </span>
                               </td>
-                              <td className="p-3 text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Users className="h-3 w-3 text-gray-400" />
-                                  <span className="text-sm text-white">{token.holder_count || 0}</span>
-                                </div>
-                              </td>
-                              <td className="p-3">
-                                <div className="flex flex-col items-center gap-1">
-                                  <Progress 
-                                    value={token.bonding_progress || 0} 
-                                    className="h-1.5 w-16 bg-[#1a1a1f] [&>div]:bg-[#00d4aa]" 
-                                  />
-                                  <span className="text-xs text-gray-400">
-                                    {(token.bonding_progress || 0).toFixed(1)}%
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="p-3 text-right">
-                                <span className="text-xs text-gray-400">
-                                  {formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                <div className="flex items-center justify-center gap-1">
-                                  {token.mint_address && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => copyToClipboard(token.mint_address!)}
-                                      className="h-7 w-7 p-0 text-gray-400 hover:text-white"
-                                    >
-                                      {copiedAddress === token.mint_address ? (
-                                        <CheckCircle className="h-3.5 w-3.5 text-[#00d4aa]" />
-                                      ) : (
-                                        <Copy className="h-3.5 w-3.5" />
-                                      )}
-                                    </Button>
-                                  )}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    asChild
-                                    className="h-7 px-2 text-xs text-[#00d4aa] hover:bg-[#00d4aa]/10"
-                                  >
-                                    <a 
-                                      href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      Trade
-                                      <ExternalLink className="h-3 w-3 ml-1" />
-                                    </a>
-                                  </Button>
-                                </div>
-                              </td>
+                              <td>{formatSOL(token.total_fees_24h)} SOL</td>
+                              <td>-</td>
                             </tr>
                           ))
                         )}
                       </tbody>
                     </table>
                   </div>
-
-                  {/* Tokens Pagination */}
-                  {tokens.length > tokensPageSize && (
-                    <div className="p-4 border-t border-[#1a1a1f] flex items-center justify-between">
-                      <span className="text-xs text-gray-400">
-                        Showing {(tokensPage - 1) * tokensPageSize + 1}-{Math.min(tokensPage * tokensPageSize, tokens.length)} of {tokens.length}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={tokensPage === 1}
-                          onClick={() => setTokensPage(p => p - 1)}
-                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
-                        >
-                          Previous
-                        </Button>
-                        <span className="text-xs text-gray-400">
-                          Page {tokensPage} of {Math.ceil(tokens.length / tokensPageSize)}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={tokensPage >= Math.ceil(tokens.length / tokensPageSize)}
-                          onClick={() => setTokensPage(p => p + 1)}
-                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </Card>
               </TabsContent>
 
-              {/* Top Performers Tab */}
-              <TabsContent value="top">
-                <Card className="bg-[#12121a] border-[#1a1a1f]">
-                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
-                    <h2 className="font-semibold text-white flex items-center gap-2">
-                      <Trophy className="h-4 w-4 text-[#00d4aa]" />
-                      Top Earners (24h)
-                    </h2>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#00d4aa] animate-pulse" />
-                      <span>Updates every 5min</span>
-                    </div>
-                  </div>
-
-                  <div className="divide-y divide-[#1a1a1f]">
-                    {topPerformersLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="flex items-center gap-3 p-4">
-                          <Skeleton className="w-8 h-8 rounded-full bg-[#1a1a1f]" />
-                          <Skeleton className="w-10 h-10 rounded-lg bg-[#1a1a1f]" />
-                          <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-24 bg-[#1a1a1f]" />
-                            <Skeleton className="h-3 w-16 bg-[#1a1a1f]" />
-                          </div>
-                          <Skeleton className="h-5 w-20 bg-[#1a1a1f]" />
-                        </div>
-                      ))
-                    ) : topPerformers.length === 0 ? (
-                      <div className="p-8 text-center text-gray-500">
-                        <Trophy className="h-12 w-12 mx-auto mb-3 text-gray-600" />
-                        <p className="font-medium">No fees claimed today</p>
-                        <p className="text-sm mt-1">Tokens that generate trading fees will appear here</p>
-                      </div>
-                    ) : (
-                      topPerformers.map((token, index) => {
-                        const rank = index + 1;
-                        const isTopThree = rank <= 3;
-                        return (
-                          <a
-                            key={token.id}
-                            href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center gap-3 p-4 hover:bg-[#1a1a1f]/50 transition-colors ${isTopThree ? 'bg-[#00d4aa]/5' : ''}`}
-                          >
-                            {/* Rank Badge */}
-                            {rank === 1 ? (
-                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-black font-bold text-sm shadow-lg shadow-yellow-500/30">
-                                🥇
-                              </div>
-                            ) : rank === 2 ? (
-                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 text-black font-bold text-sm">
-                                🥈
-                              </div>
-                            ) : rank === 3 ? (
-                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-amber-600 to-amber-700 text-white font-bold text-sm">
-                                🥉
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#1a1a1f] text-gray-400 font-bold text-sm">
-                                #{rank}
-                              </div>
-                            )}
-
-                            {/* Token Image */}
-                            <div className="relative">
-                              {token.image_url ? (
-                                <img
-                                  src={token.image_url}
-                                  alt={token.name}
-                                  className="w-10 h-10 rounded-lg object-cover border border-[#2a2a35]"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = "/placeholder.svg";
-                                  }}
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-lg bg-[#1a1a1f] flex items-center justify-center">
-                                  <Coins className="w-5 h-5 text-gray-600" />
-                                </div>
-                              )}
-                              {isTopThree && (
-                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#00d4aa] rounded-full flex items-center justify-center">
-                                  <Flame className="w-2.5 h-2.5 text-black" />
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Token Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-white truncate">{token.name}</span>
-                                <span className="text-xs text-gray-500">${token.ticker}</span>
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {token.claim_count} claim{token.claim_count !== 1 ? 's' : ''}
-                              </div>
-                            </div>
-
-                            {/* Fees */}
-                            <div className="text-right">
-                              <div className={`font-bold text-sm ${isTopThree ? 'text-[#00d4aa]' : 'text-green-500'}`}>
-                                +{token.total_fees_24h.toFixed(4)} SOL
-                              </div>
-                              <div className="flex items-center justify-end gap-1 text-xs text-gray-500">
-                                <TrendingUp className="w-3 h-3" />
-                                <span>24h fees</span>
-                              </div>
-                            </div>
-                          </a>
-                        );
-                      })
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-
-              {/* Claimed Fees Tab */}
+              {/* Claims Tab */}
               <TabsContent value="claims">
-                <Card className="bg-[#12121a] border-[#1a1a1f]">
-                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
-                    <h2 className="font-semibold text-white flex items-center gap-2">
-                      <Coins className="h-4 w-4 text-[#00d4aa]" />
-                      Claimed Fees from Pools
+                <Card className="gate-card">
+                  <div className="gate-card-header">
+                    <h2 className="gate-card-title">
+                      <Coins className="h-5 w-5 text-primary" />
+                      Fee Claims
                     </h2>
-                    <Badge className="bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30">
-                      Total: {formatSOL(totalClaimed)} SOL
-                    </Badge>
+                    <span className="text-sm text-muted-foreground">{claimsCount} total</span>
                   </div>
-
-                  {/* Mobile Card Layout */}
-                  <div className="md:hidden">
-                    {claimsLoading ? (
-                      <div className="p-4 space-y-3">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div key={i} className="bg-[#1a1a1f] rounded-lg p-4">
-                            <Skeleton className="h-4 w-32 bg-[#252530] mb-2" />
-                            <Skeleton className="h-3 w-24 bg-[#252530]" />
-                          </div>
-                        ))}
-                      </div>
-                    ) : feeClaims.length === 0 ? (
-                      <div className="p-8 text-center text-gray-500">
-                        No fees claimed yet. Cron runs every few minutes.
-                      </div>
-                    ) : (
-                      <div className="p-3 space-y-3">
-                        {feeClaims.slice(0, isMobile ? 10 : claimsPageSize).map((claim) => (
-                          <div 
-                            key={claim.id} 
-                            className="bg-[#1a1a1f] rounded-lg p-4 space-y-3"
-                          >
-                            {/* Token Info */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {claim.fun_token?.image_url && (
-                                  <img 
-                                    src={claim.fun_token.image_url} 
-                                    alt={claim.fun_token.name} 
-                                    className="w-8 h-8 rounded-full"
-                                  />
-                                )}
-                                <div>
-                                  <div className="text-sm text-white font-medium">{claim.fun_token?.name || "Unknown"}</div>
-                                  <div className="text-xs text-gray-400">${claim.fun_token?.ticker}</div>
-                                </div>
-                              </div>
-                              <span className="text-sm text-[#00d4aa] font-bold">
-                                +{formatSOL(Number(claim.claimed_sol))} SOL
-                              </span>
-                            </div>
-
-                            {/* Creator Wallet */}
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-500">Creator Wallet</span>
-                              <div className="flex items-center gap-2">
-                                <Wallet className="h-3 w-3 text-gray-400" />
-                                <span className="text-gray-300 font-mono">
-                                  {shortenAddress(claim.fun_token?.creator_wallet || "")}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => copyToClipboard(claim.fun_token?.creator_wallet || "")}
-                                  className="h-5 w-5 p-0 text-gray-500 hover:text-white"
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Time and TX */}
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-400">
-                                {formatDistanceToNow(new Date(claim.claimed_at), { addSuffix: true })}
-                              </span>
-                              {claim.signature ? (
-                                <a
-                                  href={`https://solscan.io/tx/${claim.signature}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[#00d4aa] hover:underline flex items-center gap-1"
-                                >
-                                  View TX <ExternalLink className="h-3 w-3" />
-                                </a>
-                              ) : (
-                                <span className="text-gray-500">-</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Mobile Pagination - 10 per page */}
-                    {claimsCount > 10 && (
-                      <div className="p-3 border-t border-[#1a1a1f] flex items-center justify-between">
-                        <div className="text-xs text-gray-500">
-                          Page {claimsPage} / {Math.max(1, Math.ceil(claimsCount / 10))}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-3 text-gray-300 hover:text-white"
-                            disabled={claimsPage <= 1}
-                            onClick={() => setClaimsPage((p) => Math.max(1, p - 1))}
-                          >
-                            Prev
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-3 text-gray-300 hover:text-white"
-                            disabled={claimsPage >= Math.ceil(claimsCount / 10)}
-                            onClick={() => setClaimsPage((p) => p + 1)}
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Desktop Table Layout */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full">
+                  <div className="gate-table-wrapper">
+                    <table className="gate-table">
                       <thead>
-                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
-                          <th className="text-left p-3 font-medium">Token</th>
-                          <th className="text-left p-3 font-medium">Creator Wallet</th>
-                          <th className="text-right p-3 font-medium">Amount (SOL)</th>
-                          <th className="text-right p-3 font-medium">Time</th>
-                          <th className="text-center p-3 font-medium">TX</th>
+                        <tr>
+                          <th>Token</th>
+                          <th>Pool</th>
+                          <th>Amount</th>
+                          <th>Time</th>
+                          <th>TX</th>
                         </tr>
                       </thead>
                       <tbody>
                         {claimsLoading ? (
                           Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={i} className="border-b border-[#1a1a1f]">
-                              <td className="p-3"><Skeleton className="h-4 w-24 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-20 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-16 bg-[#1a1a1f]" /></td>
-                              <td className="p-3"><Skeleton className="h-4 w-12 bg-[#1a1a1f]" /></td>
+                            <tr key={i}>
+                              <td><Skeleton className="h-4 w-24" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
+                              <td><Skeleton className="h-4 w-12" /></td>
                             </tr>
                           ))
                         ) : feeClaims.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="p-8 text-center text-gray-500">
-                              No fees claimed yet. Cron runs every few minutes.
+                            <td colSpan={5} className="text-center py-12 text-muted-foreground">
+                              No fee claims yet
                             </td>
                           </tr>
                         ) : (
                           feeClaims.map((claim) => (
-                            <tr 
-                              key={claim.id} 
-                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
-                            >
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  {claim.fun_token?.image_url && (
-                                    <img 
-                                      src={claim.fun_token.image_url} 
-                                      alt={claim.fun_token.name} 
-                                      className="w-6 h-6 rounded-full"
-                                    />
-                                  )}
-                                  <div>
-                                    <div className="text-sm text-white">{claim.fun_token?.name || "Unknown"}</div>
-                                    <div className="text-xs text-gray-400">${claim.fun_token?.ticker}</div>
+                            <tr key={claim.id}>
+                              <td>
+                                <div className="gate-token-row">
+                                  <div className="gate-token-avatar">
+                                    {claim.fun_token?.image_url ? (
+                                      <img src={claim.fun_token.image_url} alt={claim.fun_token.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full bg-secondary flex items-center justify-center text-xs">
+                                        {claim.fun_token?.ticker?.slice(0, 2)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="gate-token-info">
+                                    <span className="gate-token-name">{claim.fun_token?.name || "Unknown"}</span>
+                                    <span className="gate-token-ticker">${claim.fun_token?.ticker}</span>
                                   </div>
                                 </div>
                               </td>
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  <Wallet className="h-3 w-3 text-gray-400" />
-                                  <span className="text-sm text-gray-300 font-mono">
-                                    {shortenAddress(claim.fun_token?.creator_wallet || "")}
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => copyToClipboard(claim.fun_token?.creator_wallet || "")}
-                                    className="h-5 w-5 p-0 text-gray-500 hover:text-white"
-                                  >
-                                    <Copy className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </td>
-                              <td className="p-3 text-right">
-                                <span className="text-sm text-[#00d4aa] font-semibold">
-                                  +{formatSOL(Number(claim.claimed_sol))} SOL
+                              <td>
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  {shortenAddress(claim.pool_address)}
                                 </span>
                               </td>
-                              <td className="p-3 text-right text-xs text-gray-400">
-                                {formatDistanceToNow(new Date(claim.claimed_at), { addSuffix: true })}
+                              <td className="text-primary font-semibold">+{formatSOL(claim.claimed_sol ?? 0)} SOL</td>
+                              <td className="text-muted-foreground text-sm">
+                                {claim.claimed_at ? formatDistanceToNow(new Date(claim.claimed_at), { addSuffix: true }) : "-"}
                               </td>
-                              <td className="p-3 text-center">
+                              <td>
                                 {claim.signature ? (
                                   <a
                                     href={`https://solscan.io/tx/${claim.signature}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-[#00d4aa] hover:underline text-xs flex items-center justify-center gap-1"
+                                    className="gate-link text-xs"
                                   >
                                     View <ExternalLink className="h-3 w-3" />
                                   </a>
                                 ) : (
-                                  <span className="text-gray-500 text-xs">-</span>
+                                  "-"
                                 )}
                               </td>
                             </tr>
@@ -2684,32 +406,17 @@ export default function FunLauncherPage() {
                       </tbody>
                     </table>
                   </div>
-
-                  {/* Desktop Pagination */}
-                  {claimsCount > claimsPageSize && (
-                    <div className="hidden md:flex p-3 border-t border-[#1a1a1f] items-center justify-between">
-                      <div className="text-xs text-gray-500">
-                        Page {claimsPage} / {Math.max(1, Math.ceil(claimsCount / claimsPageSize))} • {claimsCount} total
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-gray-300 hover:text-white"
-                          disabled={claimsPage <= 1}
-                          onClick={() => setClaimsPage((p) => Math.max(1, p - 1))}
-                        >
-                          Prev
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-gray-300 hover:text-white"
-                          disabled={claimsPage >= Math.ceil(claimsCount / claimsPageSize)}
-                          onClick={() => setClaimsPage((p) => p + 1)}
-                        >
-                          Next
-                        </Button>
+                  {/* Pagination */}
+                  {Math.ceil(claimsCount / pageSize) > 1 && (
+                    <div className="gate-pagination">
+                      <span className="gate-pagination-info">Page {claimsPage} of {Math.ceil(claimsCount / pageSize)}</span>
+                      <div className="gate-pagination-buttons">
+                        <button onClick={() => setClaimsPage((p) => Math.max(1, p - 1))} disabled={claimsPage === 1} className="gate-page-btn">
+                          <ChevronLeft className="h-4 w-4" /> Prev
+                        </button>
+                        <button onClick={() => setClaimsPage((p) => p + 1)} disabled={claimsPage >= Math.ceil(claimsCount / pageSize)} className="gate-page-btn">
+                          Next <ChevronRight className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   )}
@@ -2718,138 +425,82 @@ export default function FunLauncherPage() {
 
               {/* Buybacks Tab */}
               <TabsContent value="buybacks">
-                <Card className="bg-[#12121a] border-[#1a1a1f]">
-                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
-                    <h2 className="font-semibold text-white flex items-center gap-2">
-                      <Repeat className="h-4 w-4 text-blue-400" />
-                      Automated Buybacks (30%)
+                <Card className="gate-card">
+                  <div className="gate-card-header">
+                    <h2 className="gate-card-title">
+                      <Repeat className="h-5 w-5 text-blue-500" />
+                      Token Buybacks
                     </h2>
-                    <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/30">
-                      Total: {formatSOL(totalBuybacks)} SOL
-                    </Badge>
                   </div>
-
-                  {/* Info Banner */}
-                  <div className="p-4 bg-blue-500/5 border-b border-[#1a1a1f]">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-                        <InfinityIcon className="h-4 w-4 text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-white font-medium mb-1">Forever Buybacks</p>
-                        <p className="text-xs text-gray-400 leading-relaxed">
-                          Buybacks are automated and will continue forever. The more launches, the higher volume for every token launched through our AI launchpad, the higher the buybacks.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Buyback Stats */}
-                  <div className="grid grid-cols-3 gap-4 p-4 border-b border-[#1a1a1f]">
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-blue-400">{buybacks.length}</div>
-                      <div className="text-xs text-gray-500">Total Buybacks</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-[#00d4aa]">{formatSOL(totalBuybacks)}</div>
-                      <div className="text-xs text-gray-500">SOL Spent</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-white">30%</div>
-                      <div className="text-xs text-gray-500">Of Fees</div>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <div className="gate-table-wrapper">
+                    <table className="gate-table">
                       <thead>
-                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
-                          <th className="text-left p-3 font-medium">Token</th>
-                          <th className="text-right p-3 font-medium">SOL Spent</th>
-                          <th className="text-right p-3 font-medium">Tokens Bought</th>
-                          <th className="text-center p-3 font-medium">Status</th>
-                          <th className="text-right p-3 font-medium">Time</th>
-                          <th className="text-center p-3 font-medium">TX</th>
+                        <tr>
+                          <th>Token</th>
+                          <th>Amount</th>
+                          <th>Tokens Bought</th>
+                          <th>Status</th>
+                          <th>Time</th>
+                          <th>TX</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {buybacks.length === 0 ? (
+                        {buybacksLoading ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <tr key={i}>
+                              <td><Skeleton className="h-4 w-24" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
+                              <td><Skeleton className="h-4 w-12" /></td>
+                              <td><Skeleton className="h-4 w-16" /></td>
+                              <td><Skeleton className="h-4 w-12" /></td>
+                            </tr>
+                          ))
+                        ) : buybacks.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center">
-                              <div className="flex flex-col items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                                  <Repeat className="h-6 w-6 text-blue-400" />
-                                </div>
-                                <div>
-                                  <p className="text-gray-400 text-sm font-medium">Buybacks Coming Soon</p>
-                                  <p className="text-gray-500 text-xs mt-1">Automated buybacks will execute as fees accumulate.</p>
-                                </div>
-                              </div>
+                            <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                              No buybacks executed yet
                             </td>
                           </tr>
                         ) : (
-                          buybacks.map((buyback) => (
-                            <tr 
-                              key={buyback.id} 
-                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
-                            >
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  {buyback.fun_token?.image_url ? (
-                                    <img 
-                                      src={buyback.fun_token.image_url} 
-                                      alt={buyback.fun_token.name} 
-                                      className="w-6 h-6 rounded-full"
-                                    />
-                                  ) : (
-                                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                                      <span className="text-[8px] font-bold text-white">R</span>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <div className="font-medium text-white text-sm">{buyback.fun_token?.name || "RIFT"}</div>
-                                    <div className="text-xs text-gray-500">${buyback.fun_token?.ticker || "RIFT"}</div>
+                          buybacks.slice((buybacksPage - 1) * pageSize, buybacksPage * pageSize).map((buyback) => (
+                            <tr key={buyback.id}>
+                              <td>
+                                <div className="gate-token-row">
+                                  <div className="gate-token-avatar">
+                                    {buyback.fun_token?.image_url ? (
+                                      <img src={buyback.fun_token.image_url} alt={buyback.fun_token.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full bg-secondary flex items-center justify-center text-xs">
+                                        {buyback.fun_token?.ticker?.slice(0, 2)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="gate-token-info">
+                                    <span className="gate-token-name">{buyback.fun_token?.name || "Unknown"}</span>
+                                    <span className="gate-token-ticker">${buyback.fun_token?.ticker}</span>
                                   </div>
                                 </div>
                               </td>
-                              <td className="p-3 text-right">
-                                <span className="text-sm text-blue-400 font-semibold">
-                                  {formatSOL(Number(buyback.amount_sol))} SOL
-                                </span>
+                              <td className="text-blue-500 font-semibold">{formatSOL(buyback.amount_sol ?? 0)} SOL</td>
+                              <td className="text-muted-foreground">
+                                {buyback.tokens_bought ? `${(buyback.tokens_bought / 1e6).toFixed(2)}M` : "-"}
                               </td>
-                              <td className="p-3 text-right">
-                                <span className="text-sm text-[#00d4aa]">
-                                  {buyback.tokens_bought ? Number(buyback.tokens_bought).toLocaleString() : "-"}
-                                </span>
-                              </td>
-                              <td className="p-3 text-center">
-                                <Badge 
-                                  className={
-                                    buyback.status === "completed" 
-                                      ? "bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30"
-                                      : buyback.status === "failed"
-                                      ? "bg-red-500/10 text-red-400 border-red-500/30"
-                                      : "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-                                  }
-                                >
+                              <td>
+                                <Badge className={buyback.status === "completed" ? "gate-badge-success" : "gate-badge-warning"}>
                                   {buyback.status}
                                 </Badge>
                               </td>
-                              <td className="p-3 text-right text-xs text-gray-400">
-                                {formatDistanceToNow(new Date(buyback.created_at), { addSuffix: true })}
+                              <td className="text-muted-foreground text-sm">
+                                {buyback.created_at ? formatDistanceToNow(new Date(buyback.created_at), { addSuffix: true }) : "-"}
                               </td>
-                              <td className="p-3 text-center">
+                              <td>
                                 {buyback.signature ? (
-                                  <a
-                                    href={`https://solscan.io/tx/${buyback.signature}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-400 hover:underline text-xs flex items-center justify-center gap-1"
-                                  >
+                                  <a href={`https://solscan.io/tx/${buyback.signature}`} target="_blank" rel="noopener noreferrer" className="gate-link text-xs">
                                     View <ExternalLink className="h-3 w-3" />
                                   </a>
                                 ) : (
-                                  <span className="text-gray-500 text-xs">-</span>
+                                  "-"
                                 )}
                               </td>
                             </tr>
@@ -2858,237 +509,95 @@ export default function FunLauncherPage() {
                       </tbody>
                     </table>
                   </div>
-                </Card>
-              </TabsContent>
-
-              {/* Creator Fees Tab */}
-              <TabsContent value="creator-fees">
-                <Card className="bg-[#12121a] border-[#1a1a1f]">
-                  <div className="p-4 border-b border-[#1a1a1f] flex items-center justify-between">
-                    <h2 className="font-semibold text-white flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-[#00d4aa]" />
-                      Creator Fee Distributions (50%)
-                    </h2>
-                    <Badge className="bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30">
-                      Total Paid: {formatSOL(totalCreatorPaid)} SOL
-                    </Badge>
-                  </div>
-
-                  {/* Info Banner */}
-                  <div className="p-4 bg-[#00d4aa]/5 border-b border-[#1a1a1f]">
-                    <p className="text-xs text-gray-400">
-                      50% of all claimed trading fees are automatically distributed to token creators every 5 minutes.
-                      The wallet address entered during token launch receives the payments.
-                    </p>
-                  </div>
-
-                  {/* Mobile: Card Layout */}
-                  <div className="sm:hidden divide-y divide-[#1a1a1f]">
-                    {creatorDistributions.length === 0 ? (
-                      <div className="p-6 text-center text-gray-500 text-sm">
-                        No creator fees distributed yet. Distributions run every 5 minutes after fee claims.
-                      </div>
-                    ) : (
-                      creatorDistributions
-                        .slice((creatorFeesPage - 1) * 10, creatorFeesPage * 10)
-                        .map((dist) => (
-                        <div key={dist.id} className="p-3">
-                          <div className="flex items-center gap-3">
-                            {/* Token image & info */}
-                            <div className="w-10 h-10 rounded-full overflow-hidden bg-[#1a1a1f] flex-shrink-0">
-                              {dist.fun_token?.image_url ? (
-                                <img src={dist.fun_token.image_url} alt={dist.fun_token.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs font-bold">
-                                  {dist.fun_token?.ticker?.slice(0, 2)}
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-white text-sm truncate">{dist.fun_token?.name || "Unknown"}</span>
-                                <span className="text-xs text-gray-500 font-mono">${dist.fun_token?.ticker}</span>
-                              </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Wallet className="h-3 w-3 text-gray-400" />
-                                <span className="text-xs text-gray-400 font-mono">{shortenAddress(dist.creator_wallet)}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => copyToClipboard(dist.creator_wallet)}
-                                  className="h-5 w-5 p-0 text-gray-500 hover:text-white"
-                                >
-                                  {copiedAddress === dist.creator_wallet ? (
-                                    <CheckCircle className="h-3 w-3 text-[#00d4aa]" />
-                                  ) : (
-                                    <Copy className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              </div>
-                              <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                                <Badge 
-                                  className={`text-[10px] px-1.5 py-0 ${
-                                    dist.status === 'completed' 
-                                      ? "bg-green-500/10 text-green-400 border-green-500/30" 
-                                      : dist.status === 'pending'
-                                      ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-                                      : "bg-red-500/10 text-red-400 border-red-500/30"
-                                  }`}
-                                >
-                                  {dist.status}
-                                </Badge>
-                                <span>{formatDistanceToNow(new Date(dist.created_at), { addSuffix: true })}</span>
-                              </div>
-                            </div>
-                            
-                            {/* Amount & TX */}
-                            <div className="text-right flex-shrink-0">
-                              <span className="text-sm text-[#00d4aa] font-semibold">
-                                +{formatSOL(Number(dist.amount_sol))} SOL
-                              </span>
-                              {dist.signature && (
-                                <a
-                                  href={`https://solscan.io/tx/${dist.signature}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="block text-[10px] text-gray-400 hover:text-[#00d4aa] mt-0.5"
-                                >
-                                  View TX →
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Mobile Pagination */}
-                  {creatorDistributions.length > 10 && (
-                    <div className="sm:hidden p-3 border-t border-[#1a1a1f] flex items-center justify-between">
-                      <span className="text-xs text-gray-400">
-                        {(creatorFeesPage - 1) * 10 + 1}-{Math.min(creatorFeesPage * 10, creatorDistributions.length)} of {creatorDistributions.length}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={creatorFeesPage === 1}
-                          onClick={() => setCreatorFeesPage(p => p - 1)}
-                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
-                        >
-                          Prev
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={creatorFeesPage >= Math.ceil(creatorDistributions.length / 10)}
-                          onClick={() => setCreatorFeesPage(p => p + 1)}
-                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
-                        >
-                          Next
-                        </Button>
+                  {/* Pagination */}
+                  {Math.ceil(buybacks.length / pageSize) > 1 && (
+                    <div className="gate-pagination">
+                      <span className="gate-pagination-info">Page {buybacksPage} of {Math.ceil(buybacks.length / pageSize)}</span>
+                      <div className="gate-pagination-buttons">
+                        <button onClick={() => setBuybacksPage((p) => Math.max(1, p - 1))} disabled={buybacksPage === 1} className="gate-page-btn">
+                          <ChevronLeft className="h-4 w-4" /> Prev
+                        </button>
+                        <button onClick={() => setBuybacksPage((p) => p + 1)} disabled={buybacksPage >= Math.ceil(buybacks.length / pageSize)} className="gate-page-btn">
+                          Next <ChevronRight className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   )}
+                </Card>
+              </TabsContent>
 
-                  {/* Desktop: Table Layout */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full">
+              {/* Creators Tab */}
+              <TabsContent value="creators">
+                <Card className="gate-card">
+                  <div className="gate-card-header">
+                    <h2 className="gate-card-title">
+                      <Wallet className="h-5 w-5 text-primary" />
+                      Creator Payouts
+                    </h2>
+                  </div>
+                  <div className="gate-table-wrapper">
+                    <table className="gate-table">
                       <thead>
-                        <tr className="text-xs text-gray-500 border-b border-[#1a1a1f]">
-                          <th className="text-left p-3 font-medium">Token</th>
-                          <th className="text-left p-3 font-medium">Creator Wallet</th>
-                          <th className="text-right p-3 font-medium">Amount (SOL)</th>
-                          <th className="text-center p-3 font-medium">Status</th>
-                          <th className="text-right p-3 font-medium">Time</th>
-                          <th className="text-center p-3 font-medium">TX</th>
+                        <tr>
+                          <th>Token</th>
+                          <th>Creator</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                          <th>Time</th>
+                          <th>TX</th>
                         </tr>
                       </thead>
                       <tbody>
                         {creatorDistributions.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-gray-500">
-                              No creator fees distributed yet. Distributions run every 5 minutes after fee claims.
+                            <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                              No creator payouts yet
                             </td>
                           </tr>
                         ) : (
-                          creatorDistributions
-                            .slice((creatorFeesPage - 1) * creatorFeesPageSize, creatorFeesPage * creatorFeesPageSize)
-                            .map((dist) => (
-                            <tr 
-                              key={dist.id} 
-                              className="border-b border-[#1a1a1f] hover:bg-[#1a1a1f]/50 transition-colors"
-                            >
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  {dist.fun_token?.image_url && (
-                                    <img 
-                                      src={dist.fun_token.image_url} 
-                                      alt={dist.fun_token.name} 
-                                      className="w-6 h-6 rounded-full"
-                                    />
-                                  )}
-                                  <div>
-                                    <div className="text-sm text-white">{dist.fun_token?.name || "Unknown"}</div>
-                                    <div className="text-xs text-gray-400">${dist.fun_token?.ticker}</div>
+                          creatorDistributions.slice((creatorFeesPage - 1) * pageSize, creatorFeesPage * pageSize).map((dist) => (
+                            <tr key={dist.id}>
+                              <td>
+                                <div className="gate-token-row">
+                                  <div className="gate-token-avatar">
+                                    {dist.fun_token?.image_url ? (
+                                      <img src={dist.fun_token.image_url} alt={dist.fun_token.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full bg-secondary flex items-center justify-center text-xs">
+                                        {dist.fun_token?.ticker?.slice(0, 2)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="gate-token-info">
+                                    <span className="gate-token-name">{dist.fun_token?.name || "Unknown"}</span>
+                                    <span className="gate-token-ticker">${dist.fun_token?.ticker}</span>
                                   </div>
                                 </div>
                               </td>
-                              <td className="p-3">
+                              <td>
                                 <div className="flex items-center gap-2">
-                                  <Wallet className="h-3 w-3 text-gray-400" />
-                                  <span className="text-sm text-gray-300 font-mono">
-                                    {shortenAddress(dist.creator_wallet)}
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => copyToClipboard(dist.creator_wallet)}
-                                    className="h-5 w-5 p-0 text-gray-500 hover:text-white"
-                                  >
-                                    {copiedAddress === dist.creator_wallet ? (
-                                      <CheckCircle className="h-3 w-3 text-[#00d4aa]" />
-                                    ) : (
-                                      <Copy className="h-3 w-3" />
-                                    )}
-                                  </Button>
+                                  <span className="font-mono text-xs text-muted-foreground">{shortenAddress(dist.creator_wallet)}</span>
+                                  <button onClick={() => copyToClipboard(dist.creator_wallet)} className="gate-copy-btn">
+                                    {copiedAddress === dist.creator_wallet ? <CheckCircle className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                                  </button>
                                 </div>
                               </td>
-                              <td className="p-3 text-right">
-                                <span className="text-sm text-[#00d4aa] font-semibold">
-                                  +{formatSOL(Number(dist.amount_sol))} SOL
-                                </span>
-                              </td>
-                              <td className="p-3 text-center">
-                                <Badge 
-                                  className={
-                                    dist.status === 'completed' 
-                                      ? "bg-green-500/10 text-green-400 border-green-500/30" 
-                                      : dist.status === 'pending'
-                                      ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-                                      : "bg-red-500/10 text-red-400 border-red-500/30"
-                                  }
-                                >
+                              <td className="text-primary font-semibold">+{formatSOL(Number(dist.amount_sol))} SOL</td>
+                              <td>
+                                <Badge className={dist.status === "completed" ? "gate-badge-success" : "gate-badge-warning"}>
                                   {dist.status}
                                 </Badge>
                               </td>
-                              <td className="p-3 text-right text-xs text-gray-400">
-                                {formatDistanceToNow(new Date(dist.created_at), { addSuffix: true })}
+                              <td className="text-muted-foreground text-sm">
+                                {dist.created_at ? formatDistanceToNow(new Date(dist.created_at), { addSuffix: true }) : "-"}
                               </td>
-                              <td className="p-3 text-center">
+                              <td>
                                 {dist.signature ? (
-                                  <a
-                                    href={`https://solscan.io/tx/${dist.signature}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-[#00d4aa] hover:underline text-xs flex items-center justify-center gap-1"
-                                  >
+                                  <a href={`https://solscan.io/tx/${dist.signature}`} target="_blank" rel="noopener noreferrer" className="gate-link text-xs">
                                     View <ExternalLink className="h-3 w-3" />
                                   </a>
                                 ) : (
-                                  <span className="text-gray-500 text-xs">-</span>
+                                  "-"
                                 )}
                               </td>
                             </tr>
@@ -3097,32 +606,17 @@ export default function FunLauncherPage() {
                       </tbody>
                     </table>
                   </div>
-
-                  {/* Desktop Pagination */}
-                  {creatorDistributions.length > creatorFeesPageSize && (
-                    <div className="hidden sm:flex p-3 border-t border-[#1a1a1f] items-center justify-between">
-                      <span className="text-xs text-gray-400">
-                        {(creatorFeesPage - 1) * creatorFeesPageSize + 1}-{Math.min(creatorFeesPage * creatorFeesPageSize, creatorDistributions.length)} of {creatorDistributions.length}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={creatorFeesPage === 1}
-                          onClick={() => setCreatorFeesPage(p => p - 1)}
-                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
-                        >
-                          Prev
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={creatorFeesPage >= Math.ceil(creatorDistributions.length / creatorFeesPageSize)}
-                          onClick={() => setCreatorFeesPage(p => p + 1)}
-                          className="h-7 px-2 text-xs bg-[#1a1a1f] border-[#2a2a35] text-gray-300 hover:bg-[#2a2a35] disabled:opacity-50"
-                        >
-                          Next
-                        </Button>
+                  {/* Pagination */}
+                  {Math.ceil(creatorDistributions.length / pageSize) > 1 && (
+                    <div className="gate-pagination">
+                      <span className="gate-pagination-info">Page {creatorFeesPage} of {Math.ceil(creatorDistributions.length / pageSize)}</span>
+                      <div className="gate-pagination-buttons">
+                        <button onClick={() => setCreatorFeesPage((p) => Math.max(1, p - 1))} disabled={creatorFeesPage === 1} className="gate-page-btn">
+                          <ChevronLeft className="h-4 w-4" /> Prev
+                        </button>
+                        <button onClick={() => setCreatorFeesPage((p) => p + 1)} disabled={creatorFeesPage >= Math.ceil(creatorDistributions.length / pageSize)} className="gate-page-btn">
+                          Next <ChevronRight className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   )}
@@ -3131,173 +625,68 @@ export default function FunLauncherPage() {
             </Tabs>
           </div>
         </div>
-
-        {/* Bottom Info */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-[#00d4aa]" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-white">AI Generated</div>
-                <div className="text-xs text-gray-400">Unique meme tokens</div>
-              </div>
-            </div>
-          </Card>
-          <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center">
-                <Rocket className="h-5 w-5 text-[#00d4aa]" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-white">Free Launch</div>
-                <div className="text-xs text-gray-400">No fees to create</div>
-              </div>
-            </div>
-          </Card>
-          <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-[#00d4aa]" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-white">50% Revenue</div>
-                <div className="text-xs text-gray-400">Trading fees to you</div>
-              </div>
-            </div>
-          </Card>
-          <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#00d4aa]/10 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-[#00d4aa]" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-white">Instant Payouts</div>
-                <div className="text-xs text-gray-400">Every minute to wallet</div>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
+      </main>
 
       {/* Launch Result Modal */}
       <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
-        <DialogContent className="bg-[#12121a] border-[#1a1a1f] text-white max-w-md">
+        <DialogContent className="gate-card max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {launchResult?.success ? (
                 <>
-                  <PartyPopper className="h-5 w-5 text-[#00d4aa]" />
+                  <PartyPopper className="h-5 w-5 text-primary" />
                   Token Launched!
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  <X className="h-5 w-5 text-destructive" />
                   Launch Failed
                 </>
               )}
             </DialogTitle>
-            <DialogDescription className="sr-only">
-              {launchResult?.success ? "Your token has been launched successfully" : "Token launch failed"}
+            <DialogDescription>
+              {launchResult?.success
+                ? `${launchResult.name} ($${launchResult.ticker}) is now live on Solana!`
+                : launchResult?.error || "Something went wrong"}
             </DialogDescription>
           </DialogHeader>
 
-          {launchResult?.success ? (
+          {launchResult?.success && (
             <div className="space-y-4">
-              {/* Token Preview */}
-              <div className="flex items-center gap-4 p-4 bg-[#0d0d0f] rounded-lg">
-                {launchResult.imageUrl && (
-                  <img 
-                    src={launchResult.imageUrl} 
-                    alt={launchResult.name} 
-                    className="w-16 h-16 rounded-full object-cover border-2 border-[#00d4aa]"
-                  />
-                )}
-                <div>
-                  <h3 className="font-bold text-lg">{launchResult.name}</h3>
-                  <span className="text-[#00d4aa] font-mono">${launchResult.ticker}</span>
+              {launchResult.imageUrl && (
+                <div className="flex justify-center">
+                  <img src={launchResult.imageUrl} alt={launchResult.name} className="w-24 h-24 rounded-full border-4 border-primary/20" />
                 </div>
-              </div>
+              )}
 
-              {/* Status */}
-              <div className={`p-3 rounded-lg ${launchResult.onChainSuccess ? 'bg-green-500/10 border border-green-500/30' : 'bg-yellow-500/10 border border-yellow-500/30'}`}>
-                <p className="text-sm">
-                  {launchResult.message}
-                </p>
-              </div>
-
-              {/* Contract Address */}
               {launchResult.mintAddress && (
-                <div className="space-y-2">
-                  <label className="text-xs text-gray-400">Contract Address (CA)</label>
-                  <div className="flex items-center gap-2 p-3 bg-[#0d0d0f] rounded-lg">
-                    <code className="flex-1 text-sm font-mono text-gray-300 break-all">
-                      {launchResult.mintAddress}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(launchResult.mintAddress!)}
-                      className="shrink-0"
-                    >
-                      {copiedAddress === launchResult.mintAddress ? (
-                        <CheckCircle className="h-4 w-4 text-[#00d4aa]" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
+                <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Contract Address</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs font-mono text-foreground truncate">{launchResult.mintAddress}</code>
+                    <button onClick={() => copyToClipboard(launchResult.mintAddress!)} className="gate-copy-btn">
+                      {copiedAddress === launchResult.mintAddress ? <CheckCircle className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Kickstart Note */}
-              <div className="p-3 bg-[#00d4aa]/10 border border-[#00d4aa]/30 rounded-lg">
-                <p className="text-sm text-[#00d4aa] font-bold">
-                  💡 In order to kickstart the token, make a small purchase, cause there is no dev buy and your initial holdings are 0% supply, you receive just fees from swaps. This will help to generate more fees on your launches if you do initial buy.
-                </p>
-              </div>
-
-              {/* Links */}
               <div className="flex gap-2">
                 {launchResult.solscanUrl && (
-                  <Button
-                    variant="outline"
-                    className="flex-1 border-[#1a1a1f] hover:bg-[#1a1a1f]"
-                    asChild
-                  >
-                    <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer">
-                      View on Solscan
-                      <ExternalLink className="h-4 w-4 ml-2" />
-                    </a>
-                  </Button>
+                  <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+                    <Button variant="outline" className="w-full gate-btn gate-btn-secondary">
+                      <ExternalLink className="h-4 w-4 mr-2" /> View on Solscan
+                    </Button>
+                  </a>
                 )}
                 {launchResult.tradeUrl && (
-                  <Button
-                    className="flex-1 bg-[#00d4aa] hover:bg-[#00b894] text-black"
-                    asChild
-                  >
-                    <a href={launchResult.tradeUrl} target="_blank" rel="noopener noreferrer">
+                  <a href={launchResult.tradeUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+                    <Button className="w-full gate-btn gate-btn-primary">
                       Trade Now
-                      <ExternalLink className="h-4 w-4 ml-2" />
-                    </a>
-                  </Button>
+                    </Button>
+                  </a>
                 )}
               </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-sm text-red-400">
-                  {launchResult?.error || "An unknown error occurred"}
-                </p>
-              </div>
-              <Button
-                onClick={() => setShowResultModal(false)}
-                className="w-full bg-[#1a1a1f] hover:bg-[#252530]"
-              >
-                Try Again
-              </Button>
             </div>
           )}
         </DialogContent>
