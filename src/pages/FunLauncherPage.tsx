@@ -997,79 +997,78 @@ export default function FunLauncherPage() {
         </div>
       </header>
 
-      {/* Hero Intro Section */}
-      <section className="border-b border-border bg-gradient-to-b from-background to-background-secondary w-full">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10 md:py-14">
-          <div className="max-w-3xl mx-auto text-center">
-            
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-2 sm:mb-3 leading-tight px-2">
-              Autonomous Token Launchpad
-            </h1>
-            
-            <p className="text-muted-foreground text-xs sm:text-sm md:text-base mb-4 sm:mb-6 leading-relaxed max-w-2xl mx-auto px-4">
-              RIFT leverages neural network inference and on-chain automation to orchestrate the entire token lifecycle. 
-              Zero wallet connections. Zero manual configurations.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 sm:mb-6 px-2">
-              <div className="gate-card p-4">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                  <Zap className="h-4 w-4 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground text-sm mb-1">One-Click Launch</h3>
-                <p className="text-xs text-muted-foreground">Generate AI memes and deploy tokens instantly</p>
+      {/* REDESIGNED LAYOUT - Gate.io Professional Exchange Style */}
+      
+      {/* Stats Bar - Horizontal metrics strip */}
+      <section className="border-b border-border bg-card/50">
+        <div className="w-full max-w-7xl mx-auto px-4 py-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="h-5 w-5 text-primary" />
               </div>
-              
-              <div className="gate-card p-4">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground text-sm mb-1">50% Lifetime Fees</h3>
-                <p className="text-xs text-muted-foreground">Creators receive half of all trading fees</p>
-              </div>
-              
-              <div className="gate-card p-4">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                  <RefreshCw className="h-4 w-4 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground text-sm mb-1">30% Buybacks</h3>
-                <p className="text-xs text-muted-foreground">Fees dedicated to native token buybacks</p>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Tokens</p>
+                <p className="text-lg font-bold text-foreground">{tokens.length}</p>
               </div>
             </div>
-
-            <p className="hidden sm:block text-xs text-muted-foreground/70 max-w-2xl mx-auto leading-relaxed">
-              Every token launched through RIFT operates with a unique mechanism designed to pioneer a new narrative in decentralized finance. 
-              The system is fully automated with no developer interaction required.
-            </p>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Coins className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Fees Claimed</p>
+                <p className="text-lg font-bold text-foreground">{formatSOL(claimsSummary?.totalClaimedSol || 0)} SOL</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Wallet className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Creator Payouts</p>
+                <p className="text-lg font-bold text-foreground">{formatSOL(totalCreatorPaid)} SOL</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Repeat className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Buybacks</p>
+                <p className="text-lg font-bold text-foreground">{buybacks.length}</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
+      {/* Main Content Area - Redesigned Layout */}
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Left Panel - Token Generator */}
-          <div className="lg:col-span-1 space-y-3 sm:space-y-4">
-            {/* Generator Card */}
-            <Card className="bg-[#12121a] border-[#1a1a1f] p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                <h2 className="font-semibold text-white flex items-center gap-2 whitespace-nowrap">
-                  <Sparkles className="h-4 w-4 text-[#00d4aa] shrink-0" />
+        {/* Two-column layout: Left = Generator (narrow), Right = Content (wide) */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left Column - Token Generator (Compact) */}
+          <div className="lg:w-80 lg:flex-shrink-0">
+            <Card className="gate-card p-4 sticky top-20">
+              <div className="flex flex-col gap-3 mb-4">
+                <h2 className="font-semibold text-foreground flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary shrink-0" />
                   <span className="truncate">
                     {generatorMode === "random" ? "AI Meme Generator" : generatorMode === "describe" ? "Describe & Generate" : generatorMode === "phantom" ? "Phantom Launch" : "Custom Token"}
                   </span>
                 </h2>
 
                 {/* Mode Switcher */}
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     onClick={() => setGeneratorMode("random")}
-                    className={`h-7 px-2 text-xs sm:text-sm ${
+                    className={`h-8 text-xs ${
                       generatorMode === "random"
-                        ? "border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
-                        : "border-[#2a2a35] text-gray-300 bg-transparent"
+                        ? "border-primary/40 text-primary bg-primary/10"
+                        : "border-border text-muted-foreground bg-transparent"
                     }`}
                   >
                     Randomizer
@@ -1079,10 +1078,10 @@ export default function FunLauncherPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setGeneratorMode("describe")}
-                    className={`h-7 px-2 text-xs sm:text-sm ${
+                    className={`h-8 text-xs ${
                       generatorMode === "describe"
-                        ? "border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
-                        : "border-[#2a2a35] text-gray-300 bg-transparent"
+                        ? "border-primary/40 text-primary bg-primary/10"
+                        : "border-border text-muted-foreground bg-transparent"
                     }`}
                   >
                     Describe
@@ -1092,10 +1091,10 @@ export default function FunLauncherPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setGeneratorMode("custom")}
-                    className={`h-7 px-2 text-xs sm:text-sm ${
+                    className={`h-8 text-xs ${
                       generatorMode === "custom"
-                        ? "border-[#00d4aa]/40 text-[#00d4aa] bg-[#00d4aa]/10"
-                        : "border-[#2a2a35] text-gray-300 bg-transparent"
+                        ? "border-primary/40 text-primary bg-primary/10"
+                        : "border-border text-muted-foreground bg-transparent"
                     }`}
                   >
                     Custom
@@ -1105,10 +1104,10 @@ export default function FunLauncherPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setGeneratorMode("phantom")}
-                    className={`h-7 px-2 text-xs sm:text-sm ${
+                    className={`h-8 text-xs ${
                       generatorMode === "phantom"
-                        ? "border-purple-400/40 text-purple-400 bg-purple-400/10"
-                        : "border-[#2a2a35] text-gray-300 bg-transparent"
+                        ? "border-accent-foreground/40 text-accent-foreground bg-accent/20"
+                        : "border-border text-muted-foreground bg-transparent"
                     }`}
                   >
                     <Wallet className="h-3 w-3 mr-1 shrink-0" />
@@ -2043,41 +2042,41 @@ export default function FunLauncherPage() {
             {isAdmin && <SniperStatusPanel />}
           </div>
 
-          {/* Right Panel - Tabbed Content */}
-          <div className="lg:col-span-2">
+          {/* Right Column - Tabbed Content (Expands to fill) */}
+          <div className="flex-1 min-w-0">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="w-full bg-[#12121a] border border-[#1a1a1f] p-1 mb-4 grid grid-cols-5">
+              <TabsList className="w-full bg-card border border-border p-1 mb-4 grid grid-cols-5 rounded-xl">
                 <TabsTrigger 
                   value="tokens" 
-                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
+                  className="data-[state=active]:bg-secondary data-[state=active]:text-foreground text-muted-foreground text-xs sm:text-sm rounded-lg"
                 >
                   <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Tokens</span> ({tokens.length})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="top" 
-                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-[#00d4aa] text-gray-400 text-xs sm:text-sm"
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-muted-foreground text-xs sm:text-sm rounded-lg"
                 >
                   <Trophy className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Top</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="claims" 
-                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
+                  className="data-[state=active]:bg-secondary data-[state=active]:text-foreground text-muted-foreground text-xs sm:text-sm rounded-lg"
                 >
                   <Coins className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Claimed</span> ({claimsCount})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="buybacks" 
-                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
+                  className="data-[state=active]:bg-secondary data-[state=active]:text-foreground text-muted-foreground text-xs sm:text-sm rounded-lg"
                 >
                   <Repeat className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Buybacks</span> ({buybacks.length})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="creator-fees" 
-                  className="data-[state=active]:bg-[#1a1a1f] data-[state=active]:text-white text-gray-400 text-xs sm:text-sm"
+                  className="data-[state=active]:bg-secondary data-[state=active]:text-foreground text-muted-foreground text-xs sm:text-sm rounded-lg"
                 >
                   <Wallet className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Creators</span> ({creatorDistributions.length})
@@ -2086,7 +2085,7 @@ export default function FunLauncherPage() {
 
               {/* Tokens Tab */}
               <TabsContent value="tokens">
-                <Card className="bg-[#12121a] border-[#1a1a1f]">
+                <Card className="gate-card">
                   <div className="p-3 sm:p-4 border-b border-[#1a1a1f] flex items-center justify-between">
                     <h2 className="font-semibold text-white flex items-center gap-2 text-sm sm:text-base">
                       <BarChart3 className="h-4 w-4 text-[#00d4aa]" />
