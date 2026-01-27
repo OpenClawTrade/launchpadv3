@@ -19,7 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
 import { 
-  ArrowLeft, 
   ExternalLink, 
   Copy, 
   Share2, 
@@ -29,6 +28,8 @@ import {
   RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
 
 export default function TokenDetailPage() {
   const { mintAddress } = useParams<{ mintAddress: string }>();
@@ -216,10 +217,9 @@ export default function TokenDetailPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-4 px-4 h-14">
-          <Link to="/launchpad">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+          <Link to="/" className="flex items-center gap-2">
+            <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" />
+            <span className="text-lg font-bold">RIFT</span>
           </Link>
           <div className="flex items-center gap-3 flex-1">
             <Avatar className="h-8 w-8 rounded-lg">
