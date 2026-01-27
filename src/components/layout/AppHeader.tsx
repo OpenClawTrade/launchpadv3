@@ -63,13 +63,13 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           </a>
           
           <a 
-            href="https://x.com/rift_fun" 
+            href="https://x.com/Rift_privacy" 
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
             title="Follow us on X"
           >
-            <XLogo className="h-4 w-4 text-gray-400 hover:text-white" weight="fill" />
+            <XLogo className="h-4 w-4 text-muted-foreground hover:text-foreground" weight="fill" />
           </a>
           
           <Link to="/trending">
