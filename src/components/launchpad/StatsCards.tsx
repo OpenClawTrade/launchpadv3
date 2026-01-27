@@ -1,15 +1,14 @@
 import { Card } from "@/components/ui/card";
-import { Coins, Wallet, Repeat, BarChart3 } from "lucide-react";
+import { Coins, Wallet, BarChart3 } from "lucide-react";
 
 interface StatsCardsProps {
   totalTokens: number;
   totalClaimed: number;
   totalPayouts: number;
-  totalBuybacks: number;
   solPrice: number | null;
 }
 
-export function StatsCards({ totalTokens, totalClaimed, totalPayouts, totalBuybacks, solPrice }: StatsCardsProps) {
+export function StatsCards({ totalTokens, totalClaimed, totalPayouts, solPrice }: StatsCardsProps) {
   const formatSOL = (amount: number) => {
     if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
     return amount.toFixed(2);
@@ -44,17 +43,10 @@ export function StatsCards({ totalTokens, totalClaimed, totalPayouts, totalBuyba
       icon: Wallet,
       color: "text-primary",
     },
-    {
-      label: "Buybacks",
-      value: `${formatSOL(totalBuybacks)} SOL`,
-      sub: formatUSD(totalBuybacks),
-      icon: Repeat,
-      color: "text-blue-500",
-    },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-3 gap-3">
       {stats.map((stat) => (
         <Card key={stat.label} className="gate-stat-card">
           <div className="gate-stat-label">

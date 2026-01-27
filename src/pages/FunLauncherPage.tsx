@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { useFunTokens } from "@/hooks/useFunTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
+import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions } from "@/hooks/useFunFeeData";
 import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
@@ -25,7 +25,6 @@ import {
   BarChart3,
   Trophy,
   Coins,
-  Repeat,
   Wallet,
   ExternalLink,
   Copy,
@@ -64,7 +63,6 @@ export default function FunLauncherPage() {
   // Pagination states
   const [claimsPage, setClaimsPage] = useState(1);
   const [creatorFeesPage, setCreatorFeesPage] = useState(1);
-  const [buybacksPage, setBuybacksPage] = useState(1);
   const pageSize = 15;
 
   // Data hooks
@@ -74,7 +72,6 @@ export default function FunLauncherPage() {
 
   const { data: claimsSummary } = useFunFeeClaimsSummary();
   const { data: distributions = [] } = useFunDistributions();
-  const { data: buybacks = [], isLoading: buybacksLoading } = useFunBuybacks();
   const { data: topPerformers = [], isLoading: topPerformersLoading } = useFunTopPerformers(10);
 
   // Launch result modal
@@ -90,7 +87,6 @@ export default function FunLauncherPage() {
   // Computed values
   const totalClaimed = claimsSummary?.totalClaimedSol ?? 0;
   const totalPayouts = useMemo(() => distributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0), [distributions]);
-  const totalBuybacks = useMemo(() => buybacks.reduce((sum, b) => sum + Number(b.amount_sol || 0), 0), [buybacks]);
 
   const creatorDistributions = useMemo(() => {
     return distributions.filter((d) => d.distribution_type === "creator" && d.status === "completed");
@@ -173,7 +169,6 @@ export default function FunLauncherPage() {
           totalTokens={tokens.length}
           totalClaimed={totalClaimed}
           totalPayouts={totalPayouts}
-          totalBuybacks={totalBuybacks}
           solPrice={solPrice}
         />
 
@@ -213,7 +208,7 @@ export default function FunLauncherPage() {
           {/* Right: Tabbed Content */}
           <div className="flex-1 min-w-0">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="w-full bg-card border border-border p-1.5 mb-4 grid grid-cols-5 gap-2 rounded-xl">
+              <TabsList className="w-full bg-card border border-border p-1.5 mb-4 grid grid-cols-4 gap-2 rounded-xl">
                 <TabsTrigger value="tokens" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
                   <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Tokens</span>
@@ -225,10 +220,6 @@ export default function FunLauncherPage() {
                 <TabsTrigger value="claims" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
                   <Coins className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Claims</span>
-                </TabsTrigger>
-                <TabsTrigger value="buybacks" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
-                  <Repeat className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Buybacks</span>
                 </TabsTrigger>
                 <TabsTrigger value="creators" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
                   <Wallet className="h-4 w-4 mr-1 sm:mr-2" />
@@ -423,108 +414,6 @@ export default function FunLauncherPage() {
                 </Card>
               </TabsContent>
 
-              {/* Buybacks Tab */}
-              <TabsContent value="buybacks">
-                <Card className="gate-card">
-                  <div className="gate-card-header">
-                    <h2 className="gate-card-title">
-                      <Repeat className="h-5 w-5 text-blue-500" />
-                      Token Buybacks
-                    </h2>
-                  </div>
-                  <div className="gate-table-wrapper">
-                    <table className="gate-table">
-                      <thead>
-                        <tr>
-                          <th>Token</th>
-                          <th>Amount</th>
-                          <th>Tokens Bought</th>
-                          <th>Status</th>
-                          <th>Time</th>
-                          <th>TX</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {buybacksLoading ? (
-                          Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={i}>
-                              <td><Skeleton className="h-4 w-24" /></td>
-                              <td><Skeleton className="h-4 w-16" /></td>
-                              <td><Skeleton className="h-4 w-16" /></td>
-                              <td><Skeleton className="h-4 w-12" /></td>
-                              <td><Skeleton className="h-4 w-16" /></td>
-                              <td><Skeleton className="h-4 w-12" /></td>
-                            </tr>
-                          ))
-                        ) : buybacks.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="text-center py-12 text-muted-foreground">
-                              No buybacks executed yet
-                            </td>
-                          </tr>
-                        ) : (
-                          buybacks.slice((buybacksPage - 1) * pageSize, buybacksPage * pageSize).map((buyback) => (
-                            <tr key={buyback.id}>
-                              <td>
-                                <div className="gate-token-row">
-                                  <div className="gate-token-avatar">
-                                    {buyback.fun_token?.image_url ? (
-                                      <img src={buyback.fun_token.image_url} alt={buyback.fun_token.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                      <div className="w-full h-full bg-secondary flex items-center justify-center text-xs">
-                                        {buyback.fun_token?.ticker?.slice(0, 2)}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="gate-token-info">
-                                    <span className="gate-token-name">{buyback.fun_token?.name || "Unknown"}</span>
-                                    <span className="gate-token-ticker">${buyback.fun_token?.ticker}</span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="text-blue-500 font-semibold">{formatSOL(buyback.amount_sol ?? 0)} SOL</td>
-                              <td className="text-muted-foreground">
-                                {buyback.tokens_bought ? `${(buyback.tokens_bought / 1e6).toFixed(2)}M` : "-"}
-                              </td>
-                              <td>
-                                <Badge className={buyback.status === "completed" ? "gate-badge-success" : "gate-badge-warning"}>
-                                  {buyback.status}
-                                </Badge>
-                              </td>
-                              <td className="text-muted-foreground text-sm">
-                                {buyback.created_at ? formatDistanceToNow(new Date(buyback.created_at), { addSuffix: true }) : "-"}
-                              </td>
-                              <td>
-                                {buyback.signature ? (
-                                  <a href={`https://solscan.io/tx/${buyback.signature}`} target="_blank" rel="noopener noreferrer" className="gate-link text-xs">
-                                    View <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                ) : (
-                                  "-"
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  {/* Pagination */}
-                  {Math.ceil(buybacks.length / pageSize) > 1 && (
-                    <div className="gate-pagination">
-                      <span className="gate-pagination-info">Page {buybacksPage} of {Math.ceil(buybacks.length / pageSize)}</span>
-                      <div className="gate-pagination-buttons">
-                        <button onClick={() => setBuybacksPage((p) => Math.max(1, p - 1))} disabled={buybacksPage === 1} className="gate-page-btn">
-                          <ChevronLeft className="h-4 w-4" /> Prev
-                        </button>
-                        <button onClick={() => setBuybacksPage((p) => p + 1)} disabled={buybacksPage >= Math.ceil(buybacks.length / pageSize)} className="gate-page-btn">
-                          Next <ChevronRight className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              </TabsContent>
 
               {/* Creators Tab */}
               <TabsContent value="creators">
