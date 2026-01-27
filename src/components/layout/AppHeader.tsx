@@ -73,33 +73,30 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           
           <Link to="/trending">
             <Button 
-              variant="ghost" 
               size="sm" 
-              className="text-green-400 hover:text-green-300 hover:bg-green-500/10 h-8 px-3"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9 px-4 font-medium"
             >
-              <TrendUp className="h-4 w-4 mr-1" weight="bold" />
+              <TrendUp className="h-4 w-4 mr-1.5" weight="bold" />
               Narratives
             </Button>
           </Link>
           
           <Link to="/api">
             <Button 
-              variant="ghost" 
               size="sm" 
-              className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-8 px-3"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9 px-4 font-medium"
             >
-              <Key className="h-4 w-4 mr-1" weight="bold" />
+              <Key className="h-4 w-4 mr-1.5" weight="bold" />
               API
             </Button>
           </Link>
           
           <Link to="/governance">
             <Button 
-              variant="ghost" 
               size="sm" 
-              className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 h-8 px-3"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9 px-4 font-medium"
             >
-              <Scales className="h-4 w-4 mr-1" weight="bold" />
+              <Scales className="h-4 w-4 mr-1.5" weight="bold" />
               Governance
             </Button>
           </Link>
