@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import ai69xLogo from "@/assets/ai69x-logo.png";
 import { 
   TrendUp, 
   Key, 
@@ -14,7 +13,6 @@ import {
 } from "@phosphor-icons/react";
 import { ExternalLink, Menu } from "lucide-react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
-import { Ai67xPriceDisplay } from "./Ai67xPriceDisplay";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface AppHeaderProps {
@@ -34,11 +32,10 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
   return (
     <header className="border-b border-[#1a1a1f] bg-[#0d0d0f]/95 backdrop-blur sticky top-0 z-50 w-full">
       <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
-        {/* Logo section - always visible */}
+        {/* Logo section - RIFT text instead of image */}
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <Link to="/" className="flex items-center gap-2">
-            <img src={ai69xLogo} alt="ai67x" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full" />
-            <span className="text-base sm:text-lg font-bold text-white">ai67x</span>
+            <span className="text-xl sm:text-2xl font-black text-white tracking-tight">RIFT</span>
           </Link>
           {showBack && backLabel && (
             <div className="hidden sm:flex items-center gap-2 text-gray-400">
@@ -51,12 +48,11 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         {/* Desktop navigation */}
         <div className="hidden sm:flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <Ai67xPriceDisplay />
             <SolPriceDisplay />
           </div>
           
           <a 
-            href="https://dune.com/ai67xlaunch/stats" 
+            href="https://dune.com/riftlaunch/stats" 
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors"
@@ -66,7 +62,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           </a>
           
           <a 
-            href="https://x.com/ai67x_fun" 
+            href="https://x.com/rift_fun" 
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
@@ -139,7 +135,6 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         {/* Mobile navigation */}
         <div className="flex sm:hidden items-center gap-2">
           <div className="flex items-center gap-0.5">
-            <Ai67xPriceDisplay />
             <SolPriceDisplay />
           </div>
           
@@ -151,10 +146,9 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
             </SheetTrigger>
             <SheetContent side="right" className="w-72 bg-[#0d0d0f] border-[#1a1a1f] p-0">
               <div className="flex flex-col h-full">
-                {/* Menu header */}
+                {/* Menu header - RIFT text */}
                 <div className="flex items-center gap-3 p-4 border-b border-[#1a1a1f]">
-                  <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
-                  <span className="text-lg font-bold text-white">ai67x</span>
+                  <span className="text-2xl font-black text-white tracking-tight">RIFT</span>
                 </div>
                 
                 {/* Auth section */}
@@ -205,7 +199,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                   
                   <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
                     <a 
-                      href="https://dune.com/ai67xlaunch/stats" 
+                      href="https://dune.com/riftlaunch/stats" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
@@ -216,7 +210,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                     </a>
                     
                     <a 
-                      href="https://x.com/ai67x_fun" 
+                      href="https://x.com/rift_fun" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"

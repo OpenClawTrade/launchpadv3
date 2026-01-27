@@ -27,9 +27,9 @@ const NAME_SUFFIXES = ["inu", "moon", "coin", "fi", "ai", "punk", "chad", "frog"
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-// Default socials for all generated tokens
-const DEFAULT_WEBSITE = "https://ai67x.fun";
-const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
+// Default socials removed per memory - fields should be null when not provided
+// const DEFAULT_WEBSITE = "https://rift.fun";
+// const DEFAULT_TWITTER = "https://x.com/rift_fun";
 
 // Image generation models to try in order
 const IMAGE_MODELS = [
@@ -376,9 +376,9 @@ Make it look like a viral internet meme mascot. Be creative and unique!`;
           description,
           imageUrl,
           narrative: narrativeInfo,
-          // Include default socials
-          websiteUrl: DEFAULT_WEBSITE,
-          twitterUrl: DEFAULT_TWITTER,
+          // Socials left null - user can fill in
+          websiteUrl: null,
+          twitterUrl: null,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

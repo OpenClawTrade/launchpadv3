@@ -3,7 +3,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import ai69xLogo from "@/assets/ai69x-logo.png";
+
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +60,6 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { formatDistanceToNow } from "date-fns";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
-import { Ai67xPriceDisplay } from "@/components/layout/Ai67xPriceDisplay";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { Link } from "react-router-dom";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
@@ -829,8 +828,7 @@ export default function FunLauncherPage() {
           {/* Line 1: Logo + Burger */}
           <div className="flex items-center justify-between px-3 h-12 border-b border-[#1a1a1f]">
             <Link to="/" className="flex items-center gap-2">
-              <img src={ai69xLogo} alt="ai69x" className="h-7 w-7 rounded-full" />
-              <span className="text-base font-bold">ai67x</span>
+              <span className="text-xl font-black text-white tracking-tight">RIFT</span>
             </Link>
             
             <div className="flex items-center gap-2">
@@ -852,8 +850,7 @@ export default function FunLauncherPage() {
                 <SheetContent side="right" className="w-72 bg-[#0d0d0f] border-[#1a1a1f] p-0">
                   <div className="flex flex-col h-full">
                     <div className="flex items-center gap-3 p-4 border-b border-[#1a1a1f]">
-                      <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
-                      <span className="text-lg font-bold text-white">ai67x</span>
+                      <span className="text-2xl font-black text-white tracking-tight">RIFT</span>
                     </div>
                     
                     <nav className="flex-1 p-4 space-y-2">
@@ -874,7 +871,7 @@ export default function FunLauncherPage() {
                       
                       <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
                         <a 
-                          href="https://dune.com/ai67xlaunch/stats" 
+                          href="https://dune.com/riftlaunch/stats" 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
@@ -885,7 +882,7 @@ export default function FunLauncherPage() {
                         </a>
                         
                         <a 
-                          href="https://x.com/ai67x_fun" 
+                          href="https://x.com/rift_fun" 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
@@ -913,7 +910,6 @@ export default function FunLauncherPage() {
           
           {/* Line 2: Prices */}
           <div className="flex items-center justify-center gap-3 px-3 h-10 bg-[#0a0a0c]">
-            <Ai67xPriceDisplay />
             <SolPriceDisplay />
           </div>
         </div>
@@ -921,13 +917,11 @@ export default function FunLauncherPage() {
         {/* Desktop: Single-line header */}
         <div className="hidden sm:flex w-full max-w-7xl mx-auto px-4 h-14 items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={ai69xLogo} alt="ai69x" className="h-8 w-8 rounded-full" />
-            <span className="text-lg font-bold">ai67x</span>
+            <span className="text-2xl font-black text-white tracking-tight">RIFT</span>
           </Link>
           
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              <Ai67xPriceDisplay />
               <SolPriceDisplay />
             </div>
             
@@ -1013,7 +1007,7 @@ export default function FunLauncherPage() {
             </h1>
             
             <p className="text-gray-400 text-xs sm:text-sm md:text-base mb-4 sm:mb-6 leading-relaxed max-w-2xl mx-auto px-4">
-              ai67x leverages neural network inference and on-chain automation to orchestrate the entire token lifecycle. 
+              RIFT leverages neural network inference and on-chain automation to orchestrate the entire token lifecycle. 
               Zero wallet connections. Zero manual configurations.
             </p>
 
@@ -1044,7 +1038,7 @@ export default function FunLauncherPage() {
             </div>
 
             <p className="hidden sm:block text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
-              Every token launched through ai67x operates with a unique mechanism designed to pioneer a new narrative in decentralized finance. 
+              Every token launched through RIFT operates with a unique mechanism designed to pioneer a new narrative in decentralized finance. 
               The system is fully automated with no developer interaction required.
             </p>
           </div>
@@ -2809,15 +2803,13 @@ export default function FunLauncherPage() {
                                       className="w-6 h-6 rounded-full"
                                     />
                                   ) : (
-                                    <img 
-                                      src={ai69xLogo} 
-                                      alt="AI67X" 
-                                      className="w-6 h-6 rounded-full"
-                                    />
+                                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                                      <span className="text-[8px] font-bold text-white">R</span>
+                                    </div>
                                   )}
                                   <div>
-                                    <div className="font-medium text-white text-sm">{buyback.fun_token?.name || "AI67X"}</div>
-                                    <div className="text-xs text-gray-500">${buyback.fun_token?.ticker || "AI67X"}</div>
+                                    <div className="font-medium text-white text-sm">{buyback.fun_token?.name || "RIFT"}</div>
+                                    <div className="text-xs text-gray-500">${buyback.fun_token?.ticker || "RIFT"}</div>
                                   </div>
                                 </div>
                               </td>
