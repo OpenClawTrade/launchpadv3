@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-const HEADER_LOGO_SRC = "/rift-wordmark.png?v=1";
+const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
 
 interface LaunchResult {
   success: boolean;
@@ -127,9 +127,10 @@ export default function FunLauncherPage() {
               <img
                 src={HEADER_LOGO_SRC}
                 alt="RIFT"
-                className="h-7 sm:h-8 w-auto"
+                className="h-8 w-8 rounded-lg object-cover"
                 loading="eager"
               />
+              <span className="text-lg font-bold">RIFT</span>
             </Link>
 
           {/* Desktop Nav */}
