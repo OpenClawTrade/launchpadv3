@@ -86,7 +86,6 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
             <tr>
               <th>#</th>
               <th>Token</th>
-              <th>Price</th>
               <th>24h</th>
               <th>Market Cap</th>
               <th>Holders</th>
@@ -100,7 +99,6 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
                 <tr key={i}>
                   <td><Skeleton className="h-4 w-6" /></td>
                   <td><div className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-full" /><Skeleton className="h-4 w-24" /></div></td>
-                  <td><Skeleton className="h-4 w-16" /></td>
                   <td><Skeleton className="h-4 w-12" /></td>
                   <td><Skeleton className="h-4 w-16" /></td>
                   <td><Skeleton className="h-4 w-10" /></td>
@@ -110,7 +108,7 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
               ))
             ) : paginatedTokens.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                <td colSpan={7} className="text-center py-12 text-muted-foreground">
                   No tokens launched yet. Be the first!
                 </td>
               </tr>
@@ -141,11 +139,6 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
                           <span className="gate-token-ticker">${token.ticker}</span>
                         </div>
                       </Link>
-                    </td>
-                    <td>
-                      <span className="font-medium text-foreground">
-                        {token.price_sol ? `${token.price_sol.toExponential(2)}` : "-"}
-                      </span>
                     </td>
                     <td>
                       {priceChange !== 0 ? (

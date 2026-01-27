@@ -83,16 +83,26 @@
   position: sticky;
   top: 0;
   z-index: 50;
+  width: 100%;
+  min-height: 56px;
 }
 
 .gate-header-inner {
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 16px;
-  height: 64px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .gate-header-inner {
+    padding: 0 12px;
+    gap: 8px;
+  }
 }
 
 .gate-logo {
@@ -102,6 +112,7 @@
   font-size: 20px;
   font-weight: 700;
   color: hsl(var(--gate-text-primary));
+  flex-shrink: 0;
 }
 
 .gate-logo-icon {
@@ -112,6 +123,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .gate-nav {
