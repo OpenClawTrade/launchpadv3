@@ -36,8 +36,9 @@ import {
   Users,
   PartyPopper,
   Menu,
-  X,
+  XCircle,
 } from "lucide-react";
+import { XLogo } from "@phosphor-icons/react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
@@ -152,7 +153,16 @@ export default function FunLauncherPage() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <a 
+              href="https://x.com/Rift_privacy" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
+              title="Follow us on X"
+            >
+              <XLogo className="h-4 w-4 text-muted-foreground hover:text-foreground" weight="fill" />
+            </a>
             <SolPriceDisplay />
             
             {/* Mobile Menu */}
@@ -551,7 +561,7 @@ export default function FunLauncherPage() {
                 </>
               ) : (
                 <>
-                  <X className="h-5 w-5 text-destructive" />
+                  <XCircle className="h-5 w-5 text-destructive" />
                   Launch Failed
                 </>
               )}
