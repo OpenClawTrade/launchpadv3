@@ -147,7 +147,8 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
               <div className="flex flex-col h-full">
                 {/* Menu header */}
                 <div className="flex items-center gap-3 p-4 border-b border-border">
-                  <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-9 w-auto" loading="eager" />
+                  <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" loading="eager" />
+                  <span className="text-lg font-bold">RIFT</span>
                 </div>
                 
                 {/* Auth section */}
