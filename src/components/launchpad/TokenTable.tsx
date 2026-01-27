@@ -147,13 +147,17 @@ export function TokenTable({ tokens, isLoading, solPrice }: TokenTableProps) {
                       </span>
                     </td>
                     <td>
-                      {token.price_change_24h != null && token.price_change_24h !== 0 ? (
-                        <span className={`flex items-center gap-1 font-medium ${token.price_change_24h > 0 ? "text-green-500" : "text-red-500"}`}>
-                          {token.price_change_24h > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                          {Math.abs(token.price_change_24h).toFixed(1)}%
+                      {token.price_change_24h != null ? (
+                        <span className={`flex items-center gap-1 font-medium ${
+                          token.price_change_24h > 0 ? "text-green-500" : 
+                          token.price_change_24h < 0 ? "text-red-500" : "text-muted-foreground"
+                        }`}>
+                          {token.price_change_24h > 0 && <TrendingUp className="h-3 w-3" />}
+                          {token.price_change_24h < 0 && <TrendingDown className="h-3 w-3" />}
+                          {token.price_change_24h === 0 ? "0.0%" : `${token.price_change_24h > 0 ? "+" : ""}${token.price_change_24h.toFixed(1)}%`}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">-</span>
+                        <span className="text-muted-foreground">0.0%</span>
                       )}
                     </td>
                     <td>
