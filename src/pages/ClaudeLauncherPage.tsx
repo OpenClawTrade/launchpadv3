@@ -59,7 +59,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { VersionedTransaction } from "@solana/web3.js";
-import "@/styles/claude-theme.css";
+import "@/styles/gate-theme.css";
 
 interface MemeToken {
   name: string;
@@ -639,15 +639,14 @@ export default function ClaudeLauncherPage() {
     const totalPages = Math.ceil(tokens.length / pageSize);
 
     return (
-      <div className="claude-card">
-        <div className="claude-section-header px-5 py-4 border-b border-[hsl(220,12%,20%)]">
-          <div className="claude-section-icon"><BarChart3 /></div>
-          <span className="claude-section-title">Live Tokens</span>
-          <span className="ml-auto text-sm text-[hsl(220,10%,45%)]">{tokens.length} total</span>
+      <div className="gate-card">
+        <div className="gate-card-header">
+          <div className="gate-card-title"><BarChart3 className="h-5 w-5 text-primary" /> Live Tokens</div>
+          <span className="text-sm text-muted-foreground">{tokens.length} total</span>
         </div>
         
-        <div className="claude-table-wrapper">
-          <table className="claude-table">
+        <div className="gate-table-wrapper">
+          <table className="gate-table">
             <thead>
               <tr>
                 <th style={{ width: 50 }}>#</th>
@@ -661,50 +660,50 @@ export default function ClaudeLauncherPage() {
               {tokensLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    <td><Skeleton className="h-4 w-6 bg-[hsl(220,12%,18%)]" /></td>
-                    <td><Skeleton className="h-10 w-32 bg-[hsl(220,12%,18%)]" /></td>
-                    <td><Skeleton className="h-4 w-20 ml-auto bg-[hsl(220,12%,18%)]" /></td>
-                    <td><Skeleton className="h-2 w-full bg-[hsl(220,12%,18%)]" /></td>
-                    <td><Skeleton className="h-8 w-16 ml-auto bg-[hsl(220,12%,18%)]" /></td>
+                    <td><Skeleton className="h-4 w-6" /></td>
+                    <td><Skeleton className="h-10 w-32" /></td>
+                    <td><Skeleton className="h-4 w-20 ml-auto" /></td>
+                    <td><Skeleton className="h-2 w-full" /></td>
+                    <td><Skeleton className="h-8 w-16 ml-auto" /></td>
                   </tr>
                 ))
               ) : paginatedTokens.length === 0 ? (
-                <tr><td colSpan={5} className="claude-empty">No tokens yet. Be the first!</td></tr>
+                <tr><td colSpan={5} className="gate-empty">No tokens yet. Be the first!</td></tr>
               ) : (
                 paginatedTokens.map((token, idx) => (
                   <tr key={token.id}>
-                    <td className="text-[hsl(220,10%,45%)]">{(tokensPage - 1) * pageSize + idx + 1}</td>
+                    <td className="text-muted-foreground">{(tokensPage - 1) * pageSize + idx + 1}</td>
                     <td>
-                      <div className="claude-token-cell">
-                        <div className="claude-avatar">
-                          {token.image_url ? <img src={token.image_url} alt={token.name} /> : <span className="text-xs font-bold text-[hsl(220,10%,45%)]">{token.ticker?.slice(0, 2)}</span>}
+                      <div className="gate-token-row">
+                        <div className="gate-token-avatar">
+                          {token.image_url ? <img src={token.image_url} alt={token.name} /> : <span className="text-xs font-bold text-muted-foreground">{token.ticker?.slice(0, 2)}</span>}
                         </div>
-                        <div>
+                        <div className="gate-token-info">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{token.name}</span>
-                            <button onClick={() => copyToClipboard(token.mint_address!)} className="claude-copy-btn">
+                            <span className="gate-token-name">{token.name}</span>
+                            <button onClick={() => copyToClipboard(token.mint_address!)} className="gate-copy-btn">
                               {copiedAddress === token.mint_address ? <CheckCircle className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                             </button>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-[hsl(220,10%,45%)]">
-                            <span className="text-[hsl(160,70%,50%)] font-mono">${token.ticker}</span>
-                            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{token.holder_count || 0}</span>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-primary font-mono">${token.ticker}</span>
+                            <span className="flex items-center gap-1 text-muted-foreground"><Users className="h-3 w-3" />{token.holder_count || 0}</span>
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="text-right">
                       <div className="font-semibold">{formatUsd(token.market_cap_sol || 0)}</div>
-                      <div className="text-xs text-[hsl(220,10%,45%)]">{formatSOL(token.market_cap_sol || 0)} SOL</div>
+                      <div className="text-xs text-muted-foreground">{formatSOL(token.market_cap_sol || 0)} SOL</div>
                     </td>
                     <td>
-                      <div className="claude-progress">
-                        <div className="claude-progress-bar" style={{ width: `${token.bonding_progress || 0}%` }} />
+                      <div className="gate-progress">
+                        <div className="gate-progress-bar" style={{ width: `${token.bonding_progress || 0}%` }} />
                       </div>
-                      <div className="text-xs text-center text-[hsl(220,10%,45%)] mt-1">{(token.bonding_progress || 0).toFixed(1)}%</div>
+                      <div className="text-xs text-center text-muted-foreground mt-1">{(token.bonding_progress || 0).toFixed(1)}%</div>
                     </td>
                     <td className="text-right">
-                      <a href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`} target="_blank" rel="noopener noreferrer" className="claude-link">
+                      <a href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`} target="_blank" rel="noopener noreferrer" className="gate-link">
                         Trade <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </td>
@@ -716,13 +715,13 @@ export default function ClaudeLauncherPage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="claude-pagination">
-            <span className="claude-pagination-info">{(tokensPage - 1) * pageSize + 1}–{Math.min(tokensPage * pageSize, tokens.length)} of {tokens.length}</span>
-            <div className="claude-pagination-buttons">
-              <button className="claude-page-btn" disabled={tokensPage === 1} onClick={() => setTokensPage(p => p - 1)}>
+          <div className="gate-pagination">
+            <span className="gate-pagination-info">{(tokensPage - 1) * pageSize + 1}–{Math.min(tokensPage * pageSize, tokens.length)} of {tokens.length}</span>
+            <div className="gate-pagination-buttons">
+              <button className="gate-page-btn" disabled={tokensPage === 1} onClick={() => setTokensPage(p => p - 1)}>
                 <ChevronLeft className="h-4 w-4" /> Previous
               </button>
-              <button className="claude-page-btn" disabled={tokensPage >= totalPages} onClick={() => setTokensPage(p => p + 1)}>
+              <button className="gate-page-btn" disabled={tokensPage >= totalPages} onClick={() => setTokensPage(p => p + 1)}>
                 Next <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -906,106 +905,105 @@ export default function ClaudeLauncherPage() {
   );
 
   return (
-    <div className="claude-theme">
+    <div className="gate-theme min-h-screen">
       {/* Token Ticker Bar */}
       <TokenTickerBar />
       
       {/* Header */}
-      <header className="claude-header sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+      <header className="gate-header">
+        <div className="gate-header-inner">
           {/* Mobile Header */}
-          <div className="sm:hidden">
-            <div className="flex items-center justify-between mb-2">
-              <Link to="/" className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-[hsl(160,70%,50%)] flex items-center justify-center">
-                  <Rocket className="h-5 w-5 text-[hsl(220,15%,8%)]" />
-                </div>
-                <div>
-                  <h1 className="text-base font-bold">Claude Launcher</h1>
-                </div>
-              </Link>
-              <div className="flex items-center gap-2">
-                <Button onClick={() => refetch()} variant="ghost" size="sm" className="h-8 w-8 p-0 text-[hsl(220,10%,45%)] hover:text-white">
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[hsl(220,10%,45%)] hover:text-white">
-                      <Menu className="h-5 w-5" />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="w-72 bg-[hsl(220,15%,10%)] border-[hsl(220,12%,20%)] p-0">
-                    <div className="flex flex-col h-full">
-                      <div className="flex items-center gap-3 p-4 border-b border-[hsl(220,12%,20%)]">
-                        <div className="w-9 h-9 rounded-xl bg-[hsl(160,70%,50%)] flex items-center justify-center">
-                          <Rocket className="h-5 w-5 text-[hsl(220,15%,8%)]" />
-                        </div>
-                        <span className="text-lg font-bold text-white">Claude Launcher</span>
-                      </div>
-                      <nav className="flex-1 p-4 space-y-2">
-                        <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[hsl(220,12%,14%)] hover:bg-[hsl(220,12%,18%)] transition-colors">
-                          <Rocket className="h-5 w-5 text-[hsl(160,70%,50%)]" />
-                          <span className="text-white font-medium">Main Launchpad</span>
-                        </Link>
-                        <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[hsl(220,12%,14%)] hover:bg-[hsl(220,12%,18%)] transition-colors">
-                          <TrendingUp className="h-5 w-5 text-green-400" />
-                          <span className="text-white font-medium">Narratives</span>
-                        </Link>
-                        <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[hsl(220,12%,14%)] hover:bg-[hsl(220,12%,18%)] transition-colors">
-                          <Key className="h-5 w-5 text-purple-400" />
-                          <span className="text-white font-medium">API</span>
-                        </Link>
-                        <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[hsl(220,12%,14%)] hover:bg-[hsl(220,12%,18%)] transition-colors">
-                          <Scale className="h-5 w-5 text-cyan-400" />
-                          <span className="text-white font-medium">Governance</span>
-                        </Link>
-                        <div className="pt-4 border-t border-[hsl(220,12%,20%)] space-y-2">
-                          <a href="https://dune.com/riftlaunch/stats" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[hsl(220,12%,18%)] transition-colors">
-                            <BarChart3 className="h-5 w-5 text-orange-400" />
-                            <span className="text-[hsl(220,10%,65%)]">Analytics (Dune)</span>
-                            <ExternalLink className="h-3 w-3 text-[hsl(220,10%,45%)] ml-auto" />
-                          </a>
-                          <a href="https://x.com/rift_fun" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[hsl(220,12%,18%)] transition-colors">
-                            <Twitter className="h-5 w-5 text-[hsl(220,10%,65%)]" />
-                            <span className="text-[hsl(220,10%,65%)]">Follow on X</span>
-                            <ExternalLink className="h-3 w-3 text-[hsl(220,10%,45%)] ml-auto" />
-                          </a>
-                        </div>
-                      </nav>
-                    </div>
-                  </SheetContent>
-                </Sheet>
+          <div className="sm:hidden flex items-center justify-between w-full">
+            <Link to="/" className="gate-logo">
+              <div className="gate-logo-icon">
+                <Rocket className="h-4 w-4 text-white" />
               </div>
-            </div>
-            <div className="flex items-center justify-center gap-3">
+              <span className="text-lg font-bold">RIFT</span>
+            </Link>
+            <div className="flex items-center gap-2">
               <SolPriceDisplay />
+              <Button onClick={() => refetch()} variant="ghost" size="sm" className="gate-btn-ghost h-8 w-8 p-0">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gate-btn-ghost h-8 w-8 p-0">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-72 bg-card border-border p-0">
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-3 p-4 border-b border-border">
+                      <div className="gate-logo-icon">
+                        <Rocket className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="text-lg font-bold">RIFT</span>
+                    </div>
+                    <nav className="flex-1 p-4 space-y-2">
+                      <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
+                        <Rocket className="h-5 w-5 text-primary" />
+                        <span className="font-medium">Launchpad</span>
+                      </Link>
+                      <Link to="/trending" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
+                        <TrendingUp className="h-5 w-5 text-green-500" />
+                        <span className="font-medium">Narratives</span>
+                      </Link>
+                      <Link to="/api" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
+                        <Key className="h-5 w-5 text-purple-500" />
+                        <span className="font-medium">API</span>
+                      </Link>
+                      <Link to="/governance" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
+                        <Scale className="h-5 w-5 text-cyan-500" />
+                        <span className="font-medium">Governance</span>
+                      </Link>
+                      <div className="pt-4 border-t border-border space-y-2">
+                        <a href="https://dune.com/riftlaunch/stats" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
+                          <BarChart3 className="h-5 w-5 text-orange-500" />
+                          <span className="text-muted-foreground">Analytics</span>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
+                        </a>
+                        <a href="https://x.com/rift_fun" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
+                          <Twitter className="h-5 w-5 text-muted-foreground" />
+                          <span className="text-muted-foreground">Follow on X</span>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
+                        </a>
+                      </div>
+                    </nav>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
           
           {/* Desktop Header */}
-          <div className="hidden sm:flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[hsl(160,70%,50%)] flex items-center justify-center">
-                <Rocket className="h-5 w-5 text-[hsl(220,15%,8%)]" />
+          <div className="hidden sm:flex items-center justify-between w-full">
+            <Link to="/" className="gate-logo">
+              <div className="gate-logo-icon">
+                <Rocket className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold">Claude Launcher</h1>
-                <p className="text-xs text-[hsl(220,10%,45%)]">AI Token Factory</p>
+                <span className="text-xl font-bold">RIFT</span>
+                <span className="text-xs text-muted-foreground ml-2">Meme Launchpad</span>
               </div>
             </Link>
 
+            <nav className="gate-nav">
+              <Link to="/trending" className="gate-nav-link">Narratives</Link>
+              <Link to="/api" className="gate-nav-link">API</Link>
+              <Link to="/governance" className="gate-nav-link">Governance</Link>
+              <a href="https://dune.com/riftlaunch/stats" target="_blank" rel="noopener noreferrer" className="gate-nav-link">Analytics</a>
+            </nav>
+
             <div className="flex items-center gap-4">
               <SolPriceDisplay />
-              <div className="flex items-center gap-2 text-xs text-[hsl(220,10%,45%)]">
-                <span className="w-2 h-2 bg-[hsl(160,70%,50%)] rounded-full animate-pulse" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                 {lastUpdate ? formatDistanceToNow(lastUpdate, { addSuffix: true }) : "Live"}
               </div>
-              <Link to="/trending" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><TrendingUp className="h-5 w-5" /></Link>
-              <Link to="/api" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><Key className="h-5 w-5" /></Link>
-              <Link to="/governance" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><Scale className="h-5 w-5" /></Link>
-              <a href="https://dune.com/riftlaunch/stats" target="_blank" rel="noopener noreferrer" className="text-[hsl(220,10%,45%)] hover:text-orange-400 transition-colors"><BarChart3 className="h-5 w-5" /></a>
-              <a href="https://x.com/rift_fun" target="_blank" rel="noopener noreferrer" className="text-[hsl(220,10%,45%)] hover:text-white transition-colors"><Twitter className="h-5 w-5" /></a>
-              <Button onClick={() => refetch()} variant="ghost" size="sm" className="claude-btn-ghost">
+              <a href="https://x.com/rift_fun" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Twitter className="h-5 w-5" />
+              </a>
+              <Button onClick={() => refetch()} variant="ghost" size="sm" className="gate-btn-ghost">
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
@@ -1014,85 +1012,64 @@ export default function ClaudeLauncherPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Stats Grid - Full Width at Top */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <div className="claude-stat-card py-3 px-4">
-            <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><BarChart3 className="h-3.5 w-3.5 text-[hsl(160,70%,50%)]" /> Tokens</div>
-            <div className="text-xl font-bold">{tokens.length}</div>
-          </div>
-          <div className="claude-stat-card py-3 px-4">
-            <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><Coins className="h-3.5 w-3.5 text-[hsl(160,70%,50%)]" /> Creator Paid</div>
-            <div className="text-xl font-bold">{formatSOL(totalCreatorPaid)}</div>
-            <div className="text-[10px] text-[hsl(220,10%,45%)]">{formatUsd(totalCreatorPaid)}</div>
-          </div>
-          <div className="claude-stat-card py-3 px-4">
-            <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><ArrowDownCircle className="h-3.5 w-3.5 text-[hsl(200,80%,55%)]" /> Buybacks</div>
-            <div className="text-xl font-bold">{formatSOL(totalBuybacks)}</div>
-            <div className="text-[10px] text-[hsl(220,10%,45%)]">{formatUsd(totalBuybacks)}</div>
-          </div>
-          <div className="claude-stat-card py-3 px-4">
-            <div className="flex items-center gap-1.5 mb-1 text-xs text-[hsl(220,10%,45%)]"><Users className="h-3.5 w-3.5 text-[hsl(45,90%,55%)]" /> Creators</div>
-            <div className="text-xl font-bold">{creatorsData.length}</div>
-          </div>
-        </div>
-
-        {/* Admin Sniper Panel */}
-        {isAdmin && walletAddress && <div className="mb-6"><SniperStatusPanel /></div>}
-
-        {/* Token Generator - Compact, Full Width */}
-        <div className="claude-card p-4 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Rocket className="h-5 w-5 text-[hsl(160,70%,50%)]" />
-            <h2 className="font-semibold text-sm">Launch Token</h2>
+        {/* Launch Box - TOP POSITION */}
+        <div className="gate-launch-box mb-6">
+          <div className="gate-launch-box-title">
+            <Rocket className="h-6 w-6 text-primary" />
+            <span>Launch Meme Coin</span>
           </div>
             
-            {/* Mode Selector - Compact */}
-            <div className="grid grid-cols-4 gap-1 mb-4">
+            {/* Mode Selector - Gate.io Style */}
+            <div className="gate-launch-modes">
               {[
-                { id: "random", label: "AI", icon: Shuffle },
-                { id: "describe", label: "Desc", icon: Sparkles },
+                { id: "random", label: "AI Generate", icon: Shuffle },
+                { id: "describe", label: "Describe", icon: Sparkles },
                 { id: "custom", label: "Custom", icon: Image },
                 { id: "phantom", label: "Wallet", icon: Wallet },
               ].map((mode) => (
-                <button key={mode.id} onClick={() => setGeneratorMode(mode.id as any)} className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg text-[10px] font-medium border transition-colors ${generatorMode === mode.id ? (mode.id === "phantom" ? "border-purple-500/50 bg-purple-500/20 text-purple-400" : "border-[hsl(160,70%,50%)]/50 bg-[hsl(160,70%,50%)]/10 text-[hsl(160,70%,50%)]") : "border-[hsl(220,12%,20%)] bg-[hsl(220,12%,14%)] text-[hsl(220,10%,45%)] hover:text-white hover:border-[hsl(220,12%,25%)]"}`}>
-                  <mode.icon className="h-4 w-4" />
+                <button 
+                  key={mode.id} 
+                  onClick={() => setGeneratorMode(mode.id as any)} 
+                  className={`gate-launch-mode ${generatorMode === mode.id ? "active" : ""}`}
+                >
+                  <mode.icon className="h-5 w-5" />
                   <span>{mode.label}</span>
                 </button>
               ))}
             </div>
 
-            {/* Random Mode - Compact */}
+            {/* Random Mode - Gate.io Style */}
             {generatorMode === "random" && (
-              <div className="space-y-3">
-                <div className="flex gap-3 p-3 bg-[hsl(220,12%,14%)] rounded-xl border border-[hsl(220,12%,20%)]">
-                  <div className="w-14 h-14 rounded-lg bg-[hsl(220,12%,18%)] overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    {isGenerating ? <RefreshCw className="h-5 w-5 text-[hsl(160,70%,50%)] animate-spin" /> : meme?.imageUrl ? <img src={meme.imageUrl} alt={meme.name} className="w-full h-full object-cover" /> : <Bot className="h-6 w-6 text-[hsl(220,10%,35%)]" />}
+              <div className="space-y-4">
+                <div className="gate-token-preview">
+                  <div className="gate-token-preview-avatar">
+                    {isGenerating ? <RefreshCw className="h-6 w-6 text-primary animate-spin" /> : meme?.imageUrl ? <img src={meme.imageUrl} alt={meme.name} /> : <Bot className="h-8 w-8 text-muted-foreground" />}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="gate-token-preview-info">
                     {isGenerating ? (
-                      <div className="space-y-1.5"><Skeleton className="h-4 w-24 bg-[hsl(220,12%,20%)]" /><Skeleton className="h-3 w-16 bg-[hsl(220,12%,20%)]" /></div>
+                      <div className="space-y-2"><Skeleton className="h-5 w-32" /><Skeleton className="h-4 w-20" /></div>
                     ) : meme ? (
                       <>
-                        <Input value={meme.name} onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })} className="claude-input h-7 text-sm font-semibold mb-1" maxLength={20} />
-                        <div className="flex items-center gap-1">
-                          <span className="text-[hsl(160,70%,50%)] text-xs">$</span>
-                          <Input value={meme.ticker} onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })} className="claude-input h-6 w-20 text-xs font-mono" maxLength={6} />
+                        <Input value={meme.name} onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })} className="gate-input h-9 font-semibold mb-2" maxLength={20} />
+                        <div className="flex items-center gap-2">
+                          <span className="text-primary font-medium">$</span>
+                          <Input value={meme.ticker} onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })} className="gate-input h-8 w-24 font-mono text-sm" maxLength={6} />
                         </div>
                       </>
                     ) : (
-                      <p className="text-xs text-[hsl(220,10%,45%)] py-2">Click Generate</p>
+                      <p className="text-sm text-muted-foreground py-2">Click Generate to create a token</p>
                     )}
                   </div>
                 </div>
-                <Button onClick={handleRandomize} disabled={isGenerating || isLaunching} size="sm" className="claude-btn-secondary w-full h-9 text-xs">
-                  {isGenerating ? <><Shuffle className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</> : <><Shuffle className="h-3.5 w-3.5 mr-1.5" /> Generate</>}
+                <Button onClick={handleRandomize} disabled={isGenerating || isLaunching} className="gate-btn gate-btn-secondary w-full">
+                  {isGenerating ? <><Shuffle className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4 mr-2" /> Generate Token</>}
                 </Button>
                 {meme && (
                   <>
-                    <Textarea value={meme.description} onChange={(e) => setMeme({ ...meme, description: e.target.value.slice(0, 280) })} className="claude-input text-xs min-h-[50px] resize-none" placeholder="Description" maxLength={280} />
-                    <Input placeholder="Your SOL wallet" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} className="claude-input font-mono text-xs h-8" />
-                    <Button onClick={handleLaunch} disabled={isLaunching || !walletAddress || !meme} size="sm" className="claude-btn-primary w-full h-9 text-xs">
-                      {isLaunching ? <><Rocket className="h-3.5 w-3.5 mr-1.5 animate-bounce" /> Launching...</> : <><Rocket className="h-3.5 w-3.5 mr-1.5" /> Launch (50% fees to you)</>}
+                    <Textarea value={meme.description} onChange={(e) => setMeme({ ...meme, description: e.target.value.slice(0, 280) })} className="gate-input gate-textarea min-h-[80px]" placeholder="Token description" maxLength={280} />
+                    <Input placeholder="Your SOL wallet address" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} className="gate-input font-mono text-sm" />
+                    <Button onClick={handleLaunch} disabled={isLaunching || !walletAddress || !meme} className="gate-btn gate-btn-primary w-full">
+                      {isLaunching ? <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</> : <><Rocket className="h-4 w-4 mr-2" /> Launch (50% fees to you)</>}
                     </Button>
                   </>
                 )}

@@ -35,7 +35,7 @@ export function TokenCard({ token }: TokenCardProps) {
 
   return (
     <Link to={`/launchpad/${token.mint_address}`}>
-      <Card className="relative overflow-hidden p-4 hover:bg-secondary/30 hover:border-primary/30 transition-all duration-200 cursor-pointer group border-border/50">
+      <Card className="relative overflow-hidden p-4 hover:bg-secondary/50 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer group">
         {/* Hot indicator glow */}
         {isHot && !isGraduated && (
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent pointer-events-none" />
@@ -44,7 +44,7 @@ export function TokenCard({ token }: TokenCardProps) {
         <div className="flex gap-4">
           {/* Token Image */}
           <div className="relative">
-            <Avatar className="h-14 w-14 rounded-xl border-2 border-border group-hover:border-primary/50 transition-colors shadow-md">
+            <Avatar className="h-14 w-14 rounded-xl border-2 border-border group-hover:border-primary/50 transition-colors shadow-sm">
               <AvatarImage src={token.image_url || undefined} alt={token.name} className="object-cover" />
               <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-primary/20 to-primary/5 text-primary rounded-xl">
                 {token.ticker.slice(0, 2)}
