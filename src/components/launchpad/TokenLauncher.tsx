@@ -10,6 +10,7 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { Connection, VersionedTransaction } from "@solana/web3.js";
+import { debugLog } from "@/lib/debugLogger";
 import {
   Shuffle,
   Rocket,
@@ -144,11 +145,19 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   }, [customImageFile, customToken.imageUrl]);
 
   const performLaunch = useCallback(async (tokenToLaunch: MemeToken) => {
+    debugLog('info', '🚀 Launch started', { 
+      name: tokenToLaunch.name, 
+      ticker: tokenToLaunch.ticker,
+      wallet: walletAddress?.slice(0, 8) + '...',
+    });
+
     if (!walletAddress || !isValidSolanaAddress(walletAddress)) {
+      debugLog('error', 'Invalid wallet address', { walletAddress });
       toast({ title: "Invalid wallet address", description: "Please enter a valid Solana wallet address", variant: "destructive" });
       return;
     }
 
+    debugLog('info', 'Wallet validated', { wallet: walletAddress.slice(0, 8) + '...' });
     setIsLaunching(true);
     
     // Show progress toast immediately
@@ -157,8 +166,11 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       description: "Preparing on-chain transactions (5-15 seconds)..." 
     });
 
-      try {
-        const { data, error } = await supabase.functions.invoke("fun-create", {
+    const startTime = Date.now();
+    debugLog('info', 'Calling fun-create Edge Function...');
+
+    try {
+      const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
           name: tokenToLaunch.name,
           ticker: tokenToLaunch.ticker,
@@ -172,29 +184,51 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         },
       });
 
-      if (error) {
-          const msg = error.message || "";
+      const elapsed = Date.now() - startTime;
+      debugLog('info', `Edge Function responded in ${elapsed}ms`, { 
+        hasData: !!data, 
+        hasError: !!error,
+        dataKeys: data ? Object.keys(data) : [],
+      });
 
-          if (msg.toLowerCase().includes("max usage reached")) {
-            throw new Error("RPC provider is at max usage. Please top up credits or try again later.");
-          }
+      if (error) {
+        const msg = error.message || "";
+        debugLog('error', 'Edge Function error', { 
+          message: msg, 
+          name: error.name,
+          elapsed,
+        });
+
+        if (msg.toLowerCase().includes("max usage reached")) {
+          throw new Error("RPC provider is at max usage. Please top up credits or try again later.");
+        }
 
         // Check for rate limit
-          if (msg.includes("429") || msg.toLowerCase().includes("rate")) {
+        if (msg.includes("429") || msg.toLowerCase().includes("rate")) {
           throw new Error('Rate limited. Please wait a few minutes before launching again.');
         }
-          throw new Error(`Server error: ${msg}`);
+        throw new Error(`Server error: ${msg}`);
       }
       
       if (!data?.success) {
-          const msg = String(data?.error || "Launch failed");
-          if (msg.toLowerCase().includes("max usage reached")) {
-            throw new Error("RPC provider is at max usage. Please top up credits or try again later.");
-          }
-          throw new Error(msg);
+        const msg = String(data?.error || "Launch failed");
+        debugLog('error', 'Launch failed (data.success=false)', { 
+          error: msg,
+          data,
+          elapsed,
+        });
+        if (msg.toLowerCase().includes("max usage reached")) {
+          throw new Error("RPC provider is at max usage. Please top up credits or try again later.");
+        }
+        throw new Error(msg);
       }
 
       // Success!
+      debugLog('info', '✅ Token launched successfully!', { 
+        mintAddress: data.mintAddress,
+        elapsed,
+      });
+
       onShowResult({
         success: true,
         name: tokenToLaunch.name,
@@ -219,18 +253,30 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       onLaunchSuccess();
     } catch (error) {
       let errorMessage = error instanceof Error ? error.message : "Failed to launch token";
+      const elapsed = Date.now() - startTime;
+      
+      debugLog('error', 'Launch failed with exception', { 
+        message: errorMessage,
+        elapsed,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+      });
       
       // Improve error messages for common cases
       if (errorMessage.includes('AbortError') || errorMessage.includes('timeout')) {
         errorMessage = 'Request timed out. The network may be congested. Please try again.';
+        debugLog('warn', 'Detected timeout/abort error');
       } else if (errorMessage.includes('504') || errorMessage.includes('Gateway')) {
         errorMessage = 'Server timeout. Please try again in a moment.';
+        debugLog('warn', 'Detected gateway timeout (504)');
+      } else if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
+        debugLog('error', 'CORS error detected - response headers missing');
       }
       
       onShowResult({ success: false, error: errorMessage });
       toast({ title: "Launch Failed", description: errorMessage.slice(0, 100), variant: "destructive" });
     } finally {
       setIsLaunching(false);
+      debugLog('info', 'Launch flow completed');
     }
   }, [walletAddress, toast, clearBanner, onLaunchSuccess, onShowResult]);
 
