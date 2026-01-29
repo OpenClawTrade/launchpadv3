@@ -1,165 +1,101 @@
 
-# Fix Token Launches - Complete Diagnosis and Solution
 
-## Root Cause Analysis
+# Fix Token Launch Timeout Issue
 
-After thorough investigation, here's exactly what's happening:
+## Problem Summary
+Token launches are timing out because:
+1. **Stale deployment** - The deployed `fun-create` Edge Function still has old background job code (`[fun-create/bg]`), not the synchronous version in the codebase
+2. **Redundant operations** - The flow does unnecessary work (job creation, duplicate DB inserts)
+3. **Slow Vercel API** - Multiple RPC calls and retries causing delays
 
-### The Problem Chain
-1. **Edge Function (`fun-create`)** has a 15-second timeout waiting for Vercel
-2. **Vercel API (`/api/pool/create-fun`)** takes 15-30+ seconds for on-chain work:
-   - RPC calls for blockhash (can hit 429 rate limits)
-   - Multiple transaction signing and sending
-   - Database inserts
-3. **Vercel Hobby plan kills the function at 10 seconds** - before it can respond
-4. **Edge Function's 15s timeout expires** - showing 504 Gateway Timeout
-5. **User sees nothing for 15+ seconds then an error**
+## Solution: Streamlined Synchronous Flow
 
-### Evidence from Logs
-- `fun_token_jobs` table shows jobs failing with "Token creation timed out after 50 seconds" and "On-chain creation timed out (55s)"
-- Jobs stuck in "processing" status forever
-- Edge function logs show rate limit hits: "❌ Rate limit exceeded for IP"
-- RPC logs show "429 max usage reached" errors throughout the system
-
-### Current Architecture Flaw
+### Architecture
 ```text
-Frontend ─→ Edge Function (60s limit) ─→ Vercel (10s limit) ─→ Solana RPC
-                    ↑
-           Waits 15s for Vercel
-                    ↓
-             Vercel dies at 10s
-                    ↓
-           Edge function times out
-                    ↓
-             User sees 504 error
+Frontend (TokenLauncher)
+    |
+    v
+Edge Function (fun-create)  
+    |
+    | [Simple passthrough - NO job creation]
+    v
+Vercel API (create-fun)
+    |
+    | [All on-chain + DB work]
+    v
+Direct Response (success/fail)
 ```
+
+### Changes Required
+
+#### 1. Simplify Edge Function (`supabase/functions/fun-create/index.ts`)
+Remove all job-related complexity. The Edge Function should:
+- Validate inputs
+- Upload image if base64
+- Record rate limit
+- Call Vercel API synchronously
+- Return Vercel's response directly
+- NO job creation, NO separate `fun_tokens` insert (Vercel handles DB)
+
+Key changes:
+- Remove `backend_create_token_job` call
+- Remove `fun_token_jobs` status updates
+- Remove `fun_tokens` insert (redundant - tokens table is the source)
+- Pass through Vercel response directly
+- Keep rate limiting and image upload
+
+#### 2. Optimize Vercel API (`api/pool/create-fun.ts`)
+Already mostly optimized but ensure:
+- Pre-fetch blockhash once (already done)
+- `skipPreflight: true` (already done)
+- Fire-and-forget for non-critical operations (already done)
+- Reduce delay between transactions from 300ms to 100ms
+
+#### 3. Update Frontend (`src/components/launchpad/TokenLauncher.tsx`)
+Already uses simple synchronous approach. No changes needed - the current code:
+- Calls `fun-create` 
+- Waits for response
+- Shows success/error
+
+#### 4. Deploy Edge Function
+Force redeploy to replace the stale background-job version
 
 ---
 
-## The Fix: Return Before Vercel Times Out
+## Technical Details
 
-Since Vercel Hobby has a hard 10-second limit, we must ensure it returns BEFORE that. The on-chain transactions can still complete after Vercel responds.
+### Edge Function Simplification
 
-### New Architecture
-```text
-Frontend ─→ Edge Function ─→ Vercel API
-     ↑                           │
-     │                           ├─→ Send transactions (fire-and-forget)
-     │                           └─→ Return immediately with txSignatures
-     │                                        ↓
-     └─────── Response in ~5-8 seconds ─────────
-```
+**Current (overcomplicated):**
+1. Create job in `fun_token_jobs`
+2. Set job to "processing"
+3. Call Vercel API
+4. Insert to `fun_tokens`
+5. Complete job
 
-### Key Changes
+**New (streamlined):**
+1. Validate + upload image
+2. Record rate limit
+3. Call Vercel API
+4. Return Vercel response
 
-**1. Vercel API (`api/pool/create-fun.ts`)**
-- Already optimized to skip confirmation (`skipPreflight: true`)
-- BUT still doing too much before responding
-- Remove or reduce RPC calls that cause delays
-- Return response immediately after sending transactions
+### Why This Works
+- The Vercel API already creates the token in the `tokens` table via `backend_create_token`
+- The `fun_tokens` table is for the "fun launcher" display but can use `tokens` data
+- Removing 3 database operations saves ~1-2 seconds
+- Direct passthrough eliminates timeout-prone job polling
 
-**2. Edge Function (`fun-create`)**
-- Reduce timeout from 15s to 10s (match Vercel limit)
-- Add better error messages for timeout
-- Ensure proper job status updates
-
-**3. RPC Rate Limiting**
-- The 429 "max usage reached" errors are causing RPC calls to retry/fail
-- Add exponential backoff for blockhash retrieval
-- Consider parallel RPC endpoints
-
----
-
-## Technical Implementation
-
-### Phase 1: Fix Vercel API Timing
-
-The Vercel API currently does:
-1. Get treasury keypair (~0s)
-2. Get vanity address (~1-2s network)
-3. Create Meteora pool transactions (~1-2s)
-4. Get blockhash for each tx (~1-2s each, can hit 429)
-5. Sign each transaction (~0s)
-6. Send each transaction (~2-3s each)
-7. Database inserts (~1-2s)
-8. Sniper buy (fire-and-forget)
-9. Return response
-
-**Total: 10-20+ seconds**
-
-To fix, we need to:
-- Move database inserts AFTER returning response (fire-and-forget)
-- Use a single blockhash for all transactions
-- Pre-fetch blockhash before signing loop
-- Ensure response returns within 8 seconds
-
-### Phase 2: Edge Function Alignment
-
-Update `fun-create` to:
-- Use 10-second timeout (not 15s or 50s)
-- Provide clear error if timeout occurs
-- Create `fun_tokens` record AFTER Vercel confirms success
-
-### Phase 3: Frontend UX
-
-The UI currently:
-- Calls Edge Function
-- Waits for response (up to 30+ seconds)
-- Shows nothing during wait
-
-To fix:
-- Show progress UI immediately ("Creating token...")
-- Handle 10-second timeout gracefully
-- Display success/failure clearly
+### Expected Timeline
+- Edge Function call: ~2s (validation, image upload, rate limit)
+- Vercel API call: ~5-7s (RPC + on-chain transactions)
+- Total: ~7-9s (within limits)
 
 ---
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `api/pool/create-fun.ts` | Pre-fetch blockhash once, reduce total execution time to < 8s |
-| `supabase/functions/fun-create/index.ts` | Reduce timeout to 10s, improve error handling |
-| `src/components/launchpad/TokenLauncher.tsx` | Better loading state, handle timeouts gracefully |
+| File | Change |
+|------|--------|
+| `supabase/functions/fun-create/index.ts` | Remove job logic, simplify to passthrough |
+| `api/pool/create-fun.ts` | Reduce inter-tx delay to 100ms |
 
----
-
-## Expected Outcome
-
-1. User clicks "Launch"
-2. Loading state shows immediately
-3. Response returns in ~5-10 seconds
-4. Success message with Solscan link
-5. Token appears in list
-
-If timeout occurs:
-- Clear error message: "Token creation took too long. Please try again."
-- Job marked as failed in database (not stuck in "processing")
-
----
-
-## Additional Fixes
-
-### CORS Error on `sol-price`
-The logs show CORS errors on `sol-price` endpoint. The function looks correct but may need redeployment.
-
-### RPC Rate Limiting
-Multiple functions show "429 max usage reached":
-- `fun-distribute`
-- `fun-claim-fees`
-- `sol-price`
-
-These are separate from the launch issue but indicate overall RPC congestion. The paid Helius tier should handle this, but we may need to:
-- Reduce polling frequency
-- Add better caching
-- Stagger concurrent requests
-
----
-
-## Implementation Order
-
-1. **Fix Vercel API timing** - Make it return in < 8 seconds
-2. **Update Edge Function timeout** - Align to 10 seconds
-3. **Redeploy both** - Vercel API + Edge Function
-4. **Test** - Verify launches complete successfully
-5. **Fix CORS** - Redeploy `sol-price` if needed
