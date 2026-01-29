@@ -1520,6 +1520,48 @@ export type Database = {
         }
         Relationships: []
       }
+      pool_state_cache: {
+        Row: {
+          bonding_progress: number | null
+          holder_count: number | null
+          is_graduated: boolean | null
+          market_cap_sol: number | null
+          mint_address: string | null
+          pool_address: string
+          price_sol: number | null
+          real_sol_reserves: number | null
+          updated_at: string | null
+          virtual_sol_reserves: number | null
+          virtual_token_reserves: number | null
+        }
+        Insert: {
+          bonding_progress?: number | null
+          holder_count?: number | null
+          is_graduated?: boolean | null
+          market_cap_sol?: number | null
+          mint_address?: string | null
+          pool_address: string
+          price_sol?: number | null
+          real_sol_reserves?: number | null
+          updated_at?: string | null
+          virtual_sol_reserves?: number | null
+          virtual_token_reserves?: number | null
+        }
+        Update: {
+          bonding_progress?: number | null
+          holder_count?: number | null
+          is_graduated?: boolean | null
+          market_cap_sol?: number | null
+          mint_address?: string | null
+          pool_address?: string
+          price_sol?: number | null
+          real_sol_reserves?: number | null
+          updated_at?: string | null
+          virtual_sol_reserves?: number | null
+          virtual_token_reserves?: number | null
+        }
+        Relationships: []
+      }
       post_hashtags: {
         Row: {
           created_at: string | null
