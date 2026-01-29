@@ -157,8 +157,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       description: "Preparing on-chain transactions (5-15 seconds)..." 
     });
 
-    try {
-      const { data, error } = await supabase.functions.invoke("fun-create", {
+      try {
+        const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
           name: tokenToLaunch.name,
           ticker: tokenToLaunch.ticker,
@@ -173,15 +173,25 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       });
 
       if (error) {
+          const msg = error.message || "";
+
+          if (msg.toLowerCase().includes("max usage reached")) {
+            throw new Error("RPC provider is at max usage. Please top up credits or try again later.");
+          }
+
         // Check for rate limit
-        if (error.message?.includes('429') || error.message?.includes('rate')) {
+          if (msg.includes("429") || msg.toLowerCase().includes("rate")) {
           throw new Error('Rate limited. Please wait a few minutes before launching again.');
         }
-        throw new Error(`Server error: ${error.message}`);
+          throw new Error(`Server error: ${msg}`);
       }
       
       if (!data?.success) {
-        throw new Error(data?.error || "Launch failed");
+          const msg = String(data?.error || "Launch failed");
+          if (msg.toLowerCase().includes("max usage reached")) {
+            throw new Error("RPC provider is at max usage. Please top up credits or try again later.");
+          }
+          throw new Error(msg);
       }
 
       // Success!
