@@ -1,158 +1,242 @@
 
-
-# Add Debug Logger for Token Launch Flow
+# Treasury Fee Recovery Admin Page
 
 ## Overview
-Create a comprehensive frontend logging system that captures and displays all stages of the token launch process. This will allow you to see exactly what's happening, where delays occur, and what errors are returned - all in real-time within the UI.
 
-## Current Situation
-- The Helius RPC is exhausted (429 "max usage reached")
-- The Edge Function times out waiting for Vercel API
-- No frontend logs are visible because there's no logging UI
-- Browser console logs disappear with page navigation
+This plan creates an admin page to discover and claim fees from **all** Meteora DBC pools launched by the deployer wallet (`CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ`), including those **not registered** in the database. This addresses the issue of unclaimed fees from 529+ tokens launched historically.
 
----
+## Problem Statement
 
-## Implementation Plan
+- The deployer wallet has launched 529+ tokens on-chain
+- Only a few are registered in `fun_tokens` or `tokens` tables
+- The existing `fun-claim-fees` cron only claims from database-registered tokens
+- Significant SOL in unclaimed trading fees is being lost
 
-### 1. Create Debug Logger Service
-**File:** `src/lib/debugLogger.ts`
-
-A singleton logger that:
-- Captures timestamped log entries with levels (info, warn, error, debug)
-- Stores logs in memory and localStorage (persists across refreshes)
-- Provides methods to add entries and clear logs
-- Calculates elapsed time from first log entry
+## Solution Architecture
 
 ```text
-Example Log Output:
-┌──────────────────────────────────────────────────────────────┐
-│ 00:00.000 [INFO]  🚀 Launch started                          │
-│ 00:00.012 [INFO]  Wallet validated: 7xKp...                  │
-│ 00:00.015 [INFO]  Calling fun-create Edge Function...        │
-│ 00:05.234 [WARN]  Still waiting for response...              │
-│ 00:10.001 [ERROR] 504 Gateway Timeout                        │
-│ 00:10.002 [ERROR] CORS: No Access-Control-Allow-Origin       │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Treasury Fee Recovery System                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐      │
+│  │  Helius DAS API  │────▶│  Edge Function   │────▶│  Admin UI Page   │      │
+│  │  (Token Discovery)│    │  (Pool Scanner)  │     │  (Claim All)     │      │
+│  └──────────────────┘     └──────────────────┘     └──────────────────┘      │
+│           │                        │                        │                 │
+│           ▼                        ▼                        ▼                 │
+│  ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐      │
+│  │ Get all mints    │     │ Derive DBC pool  │     │ Batch claim fees │      │
+│  │ created by wallet│     │ for each mint    │     │ from all pools   │      │
+│  └──────────────────┘     └──────────────────┘     └──────────────────┘      │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Create Debug Panel UI Component
-**File:** `src/components/debug/DebugLogPanel.tsx`
+## Implementation Details
 
-A collapsible panel that:
-- Shows in the corner of the screen (toggleable)
-- Displays all captured logs with color-coded levels
-- Has a "Copy Logs" button to copy to clipboard
-- Has a "Download" button to save as JSON file
-- Has a "Clear" button to reset logs
-- Auto-scrolls to newest entries
-- Shows elapsed time for each entry
+### 1. New Edge Function: `treasury-scan-pools`
 
-### 3. Add Logging to TokenLauncher
-**File:** `src/components/launchpad/TokenLauncher.tsx`
+Creates an edge function to discover all tokens minted by the deployer and derive their DBC pool addresses.
 
-Instrument the `performLaunch` function with detailed logging:
-- Log when launch starts (with token details)
-- Log before calling the Edge Function
-- Log response status and timing
-- Log any error messages
-- Log success with mint address
+**Location**: `supabase/functions/treasury-scan-pools/index.ts`
 
-### 4. Create Backend Log Upload Function
-**File:** `supabase/functions/debug-logs/index.ts`
+**Functionality**:
+- Uses Helius DAS API `searchAssets` to find all FungibleToken assets where deployer is the authority
+- Derives DBC pool address for each mint using Meteora SDK `deriveDbcPoolAddress`
+- Checks if pool exists on-chain via `getPool`
+- Returns list of pools with claimable fees status
+- Cross-references with database to identify "unregistered" pools
 
-A simple Edge Function that:
-- Accepts log entries via POST
-- Stores them in a `debug_logs` table
-- Includes client IP and timestamp
-- Has a 10KB max payload to prevent abuse
+**Key API calls**:
+- Helius `searchAssets` with `ownerAddress` (deployer) and `tokenType: "fungible"`
+- Meteora SDK `deriveDbcPoolAddress(WSOL_MINT, baseMint, configPubkey)`
+- Meteora SDK `client.state.getPoolFeeMetrics(poolAddress)`
 
-### 5. Create Debug Logs Table
-**Database migration:**
+### 2. New Edge Function: `treasury-claim-all`
+
+Creates an edge function to claim fees from multiple pools in sequence.
+
+**Location**: `supabase/functions/treasury-claim-all/index.ts`
+
+**Functionality**:
+- Accepts array of pool addresses
+- Claims fees from each pool using treasury wallet
+- Records claims in a new `treasury_fee_claims` table
+- Returns summary of total claimed
+
+### 3. Database Table: `treasury_fee_claims`
+
+Tracks all fee claims from unregistered pools for audit purposes.
+
+**Schema**:
 ```sql
-CREATE TABLE public.debug_logs (
+CREATE TABLE treasury_fee_claims (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id TEXT NOT NULL,
-  client_ip TEXT,
-  logs JSONB NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  pool_address TEXT NOT NULL,
+  mint_address TEXT,
+  token_name TEXT,
+  claimed_sol NUMERIC NOT NULL DEFAULT 0,
+  signature TEXT,
+  claimed_at TIMESTAMPTZ DEFAULT now(),
+  is_registered BOOLEAN DEFAULT false -- whether token was in DB
 );
-
--- Auto-delete logs older than 7 days
-ALTER TABLE public.debug_logs ENABLE ROW LEVEL SECURITY;
 ```
 
-### 6. Add Debug Toggle to FunLauncherPage
-**File:** `src/pages/FunLauncherPage.tsx`
+### 4. New Admin Page: `TreasuryAdminPage.tsx`
 
-Add a small debug icon button that:
-- Toggles the debug panel visibility
-- Shows a badge when there are unread error logs
-- Persists visibility preference in localStorage
+Creates a password-protected admin page for treasury operations.
 
----
+**Location**: `src/pages/TreasuryAdminPage.tsx`
+**Route**: `/admin/treasury`
 
-## Technical Details
+**Features**:
+- Password authentication (stored in localStorage)
+- "Scan Pools" button to discover all deployer pools
+- Display of:
+  - Total pools found
+  - Registered vs unregistered breakdown
+  - Per-pool claimable fees
+  - Total claimable SOL
+- "Claim All Fees" button with progress indicator
+- Claim history table
+- Links to Solscan for verification
 
-### DebugLogger API
-```typescript
-// Usage in components:
-import { debugLog, getLogs, clearLogs } from '@/lib/debugLogger';
-
-// Add a log entry
-debugLog('info', 'Starting token launch', { tokenName, ticker });
-
-// In error handlers
-debugLog('error', 'Edge function failed', { status: 504, message: 'Gateway Timeout' });
+**UI Layout**:
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  🏦 Treasury Fee Recovery                      [Refresh]   │
+├─────────────────────────────────────────────────────────────┤
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────┐ │
+│  │Total Pools │ │Registered  │ │Unregistered│ │Claimable │ │
+│  │    529     │ │     12     │ │    517     │ │ 45.2 SOL │ │
+│  └────────────┘ └────────────┘ └────────────┘ └──────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│  [Scan All Pools]  [Claim All Fees]  [Export CSV]          │
+├─────────────────────────────────────────────────────────────┤
+│  Pool Address        │ Mint      │ Status    │ Claimable   │
+│  5xYz...AbCd         │ TOK1...   │ ✓ Active  │ 0.125 SOL   │
+│  7mNo...EfGh         │ TOK2...   │ ⚠ Unreg   │ 0.543 SOL   │
+│  ...                 │ ...       │ ...       │ ...         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Panel Features
-- Position: Bottom-right corner
-- Default state: Collapsed (icon only)
-- Expanded state: 400px wide, 50vh tall
-- Dark theme matching app design
-- Keyboard shortcut: Ctrl+Shift+D to toggle
+### 5. Route Registration
 
-### Log Entry Structure
+Add the new page to `App.tsx` routes.
+
+### 6. Vercel API Endpoint (for claiming)
+
+Since edge functions don't have access to `TREASURY_PRIVATE_KEY`, the claim operation must go through the Vercel API backend which has the secret.
+
+**Location**: `api/treasury/claim-batch.ts`
+
+**Functionality**:
+- Accepts array of pool addresses
+- Uses treasury keypair to sign claim transactions
+- Processes pools sequentially with rate limiting
+- Returns results
+
+## Technical Approach
+
+### Token Discovery via Helius
+
 ```typescript
-interface LogEntry {
-  id: string;
-  timestamp: number;
-  elapsed: string; // "00:05.234"
-  level: 'debug' | 'info' | 'warn' | 'error';
-  message: string;
-  data?: Record<string, unknown>;
+// In treasury-scan-pools edge function
+const response = await fetch(heliusRpcUrl, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    jsonrpc: '2.0',
+    id: 'scan-pools',
+    method: 'searchAssets',
+    params: {
+      ownerAddress: DEPLOYER_WALLET, // CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ
+      tokenType: 'fungible',
+      page: 1,
+      limit: 1000,
+    },
+  }),
+});
+```
+
+### Pool Address Derivation
+
+```typescript
+// For each discovered mint
+import { deriveDbcPoolAddress } from '@meteora-ag/dynamic-bonding-curve-sdk';
+
+const poolAddress = deriveDbcPoolAddress(
+  WSOL_MINT,        // Quote token
+  mintPubkey,       // Base token (the launched token)
+  configPubkey      // Pool config
+);
+```
+
+**Challenge**: The `configPubkey` is not deterministic - it's generated at pool creation time. 
+
+**Solution**: Query all pools on-chain where `feeClaimer` = deployer wallet, or iterate through known config patterns.
+
+**Alternative Approach**: Use Helius `getProgramAccounts` to find all DBC pools where the `feeClaimer` field matches the treasury wallet.
+
+### Fee Claiming Flow
+
+```typescript
+// In api/treasury/claim-batch.ts
+for (const poolAddress of poolAddresses) {
+  const { signature, claimedSol } = await claimPartnerFees(poolAddress);
+  results.push({ poolAddress, claimedSol, signature });
+  await delay(500); // Rate limiting
 }
 ```
 
----
-
 ## Files to Create/Modify
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/lib/debugLogger.ts` | Create | Core logging service |
-| `src/components/debug/DebugLogPanel.tsx` | Create | UI panel component |
-| `src/components/launchpad/TokenLauncher.tsx` | Modify | Add logging calls |
-| `src/pages/FunLauncherPage.tsx` | Modify | Add debug panel |
-| `supabase/functions/debug-logs/index.ts` | Create | Backend log storage |
-| Database migration | Create | `debug_logs` table |
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/treasury-scan-pools/index.ts` | Create | Pool discovery edge function |
+| `api/treasury/claim-batch.ts` | Create | Batch claiming API endpoint |
+| `src/pages/TreasuryAdminPage.tsx` | Create | Admin UI page |
+| `src/App.tsx` | Modify | Add route for `/admin/treasury` |
 
----
+## Migration SQL
 
-## Expected Outcome
+```sql
+-- Table to track treasury claims from all pools
+CREATE TABLE IF NOT EXISTS treasury_fee_claims (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pool_address TEXT NOT NULL,
+  mint_address TEXT,
+  token_name TEXT,
+  claimed_sol NUMERIC NOT NULL DEFAULT 0,
+  signature TEXT,
+  claimed_at TIMESTAMPTZ DEFAULT now(),
+  is_registered BOOLEAN DEFAULT false
+);
 
-After implementation, you will be able to:
-1. See a small bug icon in the corner of the launcher page
-2. Click it to open the debug panel
-3. Attempt a token launch
-4. Watch logs appear in real-time showing exactly where the process fails
-5. Copy or download logs to share for debugging
-6. Optionally upload logs to the backend for remote inspection
+-- Index for efficient queries
+CREATE INDEX idx_treasury_claims_pool ON treasury_fee_claims(pool_address);
+CREATE INDEX idx_treasury_claims_date ON treasury_fee_claims(claimed_at DESC);
 
-This will make it immediately clear if the issue is:
-- Edge Function timeout (no response after X seconds)
-- Helius RPC rate limit (error message will show "max usage")
-- CORS configuration (specific header errors)
-- Other network issues
+-- RLS: Only allow service role access
+ALTER TABLE treasury_fee_claims ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "Deny direct access to treasury claims"
+  ON treasury_fee_claims FOR ALL
+  USING (false);
+```
+
+## Security Considerations
+
+1. **Password Protection**: Admin page requires secret password
+2. **Treasury Key**: Only accessible via Vercel API (not edge functions)
+3. **RLS Policies**: Treasury claims table is service-role only
+4. **Rate Limiting**: Claims are processed sequentially with delays
+
+## Success Criteria
+
+1. Can discover all 529+ tokens launched by deployer
+2. Can identify which pools have unclaimed fees
+3. Can claim fees from all pools with one action
+4. Claims are tracked for audit purposes
+5. Page is password-protected and secure
