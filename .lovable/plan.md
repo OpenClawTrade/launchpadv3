@@ -1,101 +1,101 @@
 
 
-# Fix Token Launch Timeout Issue
+# Fix Token Launch Timeout - Add Logging and Disable Vanity
 
-## Problem Summary
-Token launches are timing out because:
-1. **Stale deployment** - The deployed `fun-create` Edge Function still has old background job code (`[fun-create/bg]`), not the synchronous version in the codebase
-2. **Redundant operations** - The flow does unnecessary work (job creation, duplicate DB inserts)
-3. **Slow Vercel API** - Multiple RPC calls and retries causing delays
+## Problem Identified
+1. **Vanity pool is EMPTY**: 0 available, 40 reserved, 131 used
+2. The "Random Token" tab on Fun Launcher uses the flow:
+   - Frontend (`TokenLauncher.tsx`) → Edge Function (`fun-create`) → Vercel API (`api/pool/create-fun.ts`)
+3. Even though vanity fallback exists (random mint), the launch is still timing out somewhere in this chain
 
-## Solution: Streamlined Synchronous Flow
+## Root Cause Hypothesis
+The timeout is happening in one of these places:
+- Edge Function timing out waiting for Vercel
+- Vercel API timing out during RPC calls (blockhash, transaction send)
+- Meteora SDK curve calculation taking too long
+- Database operations taking too long
 
-### Architecture
-```text
-Frontend (TokenLauncher)
-    |
-    v
-Edge Function (fun-create)  
-    |
-    | [Simple passthrough - NO job creation]
-    v
-Vercel API (create-fun)
-    |
-    | [All on-chain + DB work]
-    v
-Direct Response (success/fail)
+## Solution: Add Detailed Logging + Disable Vanity
+
+### Step 1: Add Version and Timing Logs to Edge Function
+Add `VERSION` constant and timestamp logs at every step in `supabase/functions/fun-create/index.ts`:
+- Log version on entry
+- Log time elapsed at each major step (validation, image upload, rate limit, Vercel call, response)
+- This will help identify exactly where time is being spent
+
+### Step 2: Add Version and Timing Logs to Vercel API
+Add `VERSION` constant and timing logs to `api/pool/create-fun.ts`:
+- Log on entry with version
+- Log elapsed time after blockhash fetch
+- Log when vanity lookup starts/completes (and explicitly log "skipped" when disabled)
+- Log after pool creation
+- Log after each transaction send
+- Log after database operations
+
+### Step 3: Disable Vanity Address Lookup
+In `api/pool/create-fun.ts`, change `useVanityAddress = true` default to `false`:
+- This will bypass the vanity lookup entirely
+- Use random mint address for all launches
+- Once stable, vanity can be re-enabled after pool is refilled
+
+### Step 4: Reduce Potential Bottlenecks
+- Change the inter-transaction delay from 100ms to 50ms
+- Remove the 40 reserved addresses that are stuck (they will never be used)
+- These are blocking the pool and may indicate failed launches
+
+### Step 5: Deploy and Test
+- Deploy the `fun-create` Edge Function
+- Test a token launch
+- Check logs to see version confirmation and timing breakdown
+
+---
+
+## Technical Changes
+
+### File: `supabase/functions/fun-create/index.ts`
+Add version constant and timing logs:
+```typescript
+const VERSION = "v1.1.0";
+const DEPLOYED_AT = "2026-01-29T18:30:00Z";
+
+// At start of handler:
+console.log(`[fun-create][${VERSION}] Request received`, { clientIP, deployed: DEPLOYED_AT });
+const startTime = Date.now();
+
+// After each step:
+console.log(`[fun-create][${VERSION}] Rate limit check complete`, { elapsed: Date.now() - startTime });
+console.log(`[fun-create][${VERSION}] Image upload complete`, { elapsed: Date.now() - startTime });
+console.log(`[fun-create][${VERSION}] Calling Vercel API...`, { elapsed: Date.now() - startTime });
+console.log(`[fun-create][${VERSION}] Vercel response received`, { elapsed: Date.now() - startTime, success: result.success });
 ```
 
-### Changes Required
+### File: `api/pool/create-fun.ts`
+1. Add version constant and timing logs
+2. Disable vanity by default:
+```typescript
+const VERSION = "v1.1.0";
 
-#### 1. Simplify Edge Function (`supabase/functions/fun-create/index.ts`)
-Remove all job-related complexity. The Edge Function should:
-- Validate inputs
-- Upload image if base64
-- Record rate limit
-- Call Vercel API synchronously
-- Return Vercel's response directly
-- NO job creation, NO separate `fun_tokens` insert (Vercel handles DB)
+// Change default from true to false:
+const { useVanityAddress = false } = req.body;
 
-Key changes:
-- Remove `backend_create_token_job` call
-- Remove `fun_token_jobs` status updates
-- Remove `fun_tokens` insert (redundant - tokens table is the source)
-- Pass through Vercel response directly
-- Keep rate limiting and image upload
+// Add timing logs throughout
+```
+3. Reduce inter-transaction delay from 100ms to 50ms
 
-#### 2. Optimize Vercel API (`api/pool/create-fun.ts`)
-Already mostly optimized but ensure:
-- Pre-fetch blockhash once (already done)
-- `skipPreflight: true` (already done)
-- Fire-and-forget for non-critical operations (already done)
-- Reduce delay between transactions from 300ms to 100ms
-
-#### 3. Update Frontend (`src/components/launchpad/TokenLauncher.tsx`)
-Already uses simple synchronous approach. No changes needed - the current code:
-- Calls `fun-create` 
-- Waits for response
-- Shows success/error
-
-#### 4. Deploy Edge Function
-Force redeploy to replace the stale background-job version
+### Database: Clean Up Reserved Addresses
+SQL to release stuck reserved addresses back to available:
+```sql
+UPDATE public.vanity_keypairs 
+SET status = 'available' 
+WHERE status = 'reserved' 
+  AND created_at < NOW() - INTERVAL '1 hour';
+```
 
 ---
 
-## Technical Details
-
-### Edge Function Simplification
-
-**Current (overcomplicated):**
-1. Create job in `fun_token_jobs`
-2. Set job to "processing"
-3. Call Vercel API
-4. Insert to `fun_tokens`
-5. Complete job
-
-**New (streamlined):**
-1. Validate + upload image
-2. Record rate limit
-3. Call Vercel API
-4. Return Vercel response
-
-### Why This Works
-- The Vercel API already creates the token in the `tokens` table via `backend_create_token`
-- The `fun_tokens` table is for the "fun launcher" display but can use `tokens` data
-- Removing 3 database operations saves ~1-2 seconds
-- Direct passthrough eliminates timeout-prone job polling
-
-### Expected Timeline
-- Edge Function call: ~2s (validation, image upload, rate limit)
-- Vercel API call: ~5-7s (RPC + on-chain transactions)
-- Total: ~7-9s (within limits)
-
----
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `supabase/functions/fun-create/index.ts` | Remove job logic, simplify to passthrough |
-| `api/pool/create-fun.ts` | Reduce inter-tx delay to 100ms |
+## Expected Outcome
+- Token launches will use random mint addresses (no vanity lookup delay)
+- Detailed logs will show exactly where time is spent
+- Version in logs confirms we're running the latest code
+- If still failing, logs will pinpoint the bottleneck (RPC? SDK? DB?)
 
