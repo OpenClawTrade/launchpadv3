@@ -151,7 +151,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
 
     setIsLaunching(true);
     try {
-      // Step 1: Create job (returns immediately)
+      // Show immediate feedback for the long operation
+      toast({ title: "🔄 Creating Token...", description: "On-chain transaction in progress (may take up to 60 seconds)..." });
+
+      // Call fun-create which now waits for on-chain completion
       const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
           name: tokenToLaunch.name,
@@ -169,61 +172,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       if (error) throw new Error(`Server error: ${error.message}`);
       if (!data?.success) throw new Error(data?.error || "Launch failed");
 
-      // Step 2: If async, poll for completion
-      if (data.async && data.jobId) {
-        toast({ title: "🔄 Creating Token...", description: "On-chain transaction in progress..." });
-        
-        // Poll for job completion
-        const pollForCompletion = async (): Promise<typeof data> => {
-          const maxAttempts = 90; // 3 minutes with 2s intervals
-          for (let i = 0; i < maxAttempts; i++) {
-            await new Promise(r => setTimeout(r, 2000));
-            
-            const response = await fetch(
-              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fun-create-status?jobId=${data.jobId}`,
-              { headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } }
-            );
-            
-            if (!response.ok) continue;
-            const status = await response.json();
-            
-            if (status.status === 'completed') {
-              return { ...data, ...status, success: true };
-            }
-            if (status.status === 'failed') {
-              throw new Error(status.error || 'Token creation failed on-chain');
-            }
-          }
-          throw new Error('Token creation timed out. Check your wallet for the token.');
-        };
-
-        const finalData = await pollForCompletion();
-        
-        onShowResult({
-          success: true,
-          name: tokenToLaunch.name,
-          ticker: tokenToLaunch.ticker,
-          mintAddress: finalData.mintAddress,
-          imageUrl: tokenToLaunch.imageUrl,
-          onChainSuccess: true,
-          solscanUrl: finalData.solscanUrl,
-          tradeUrl: finalData.tradeUrl,
-          message: finalData.message || "🚀 Token launched successfully!",
-        });
-      } else {
-        // Synchronous response (backwards compatible)
-        onShowResult({
-          success: true,
-          name: data.name || tokenToLaunch.name,
-          ticker: data.ticker || tokenToLaunch.ticker,
-          mintAddress: data.mintAddress,
-          imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
-          onChainSuccess: data.onChainSuccess,
-          solscanUrl: data.solscanUrl,
-          tradeUrl: data.tradeUrl,
-          message: data.message,
-        });
-      }
+      // Show result
+      onShowResult({
+        success: true,
+        name: data.name || tokenToLaunch.name,
+        ticker: data.ticker || tokenToLaunch.ticker,
+        mintAddress: data.mintAddress,
+        imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
+        onChainSuccess: true,
+        solscanUrl: data.solscanUrl,
+        tradeUrl: data.tradeUrl,
+        message: data.message || "🚀 Token launched successfully!",
+      });
 
       toast({ title: "🚀 Token Launched!", description: `${tokenToLaunch.name} is now live on Solana!` });
 

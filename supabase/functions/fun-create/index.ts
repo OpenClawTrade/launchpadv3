@@ -157,14 +157,32 @@ serve(async (req) => {
       console.warn("[fun-create] ⚠️ Failed to record rate limit:", rlErr);
     }
 
-    // Fire-and-forget: Trigger the Vercel API to process the job
+    // Call Vercel API synchronously and wait for result
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
-    if (meteoraApiUrl) {
-      // Don't await - fire and forget with a short timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
-      
-      fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+    if (!meteoraApiUrl) {
+      throw new Error("METEORA_API_URL not configured - cannot create on-chain pool");
+    }
+
+    console.log("[fun-create] 🚀 Calling Vercel API for on-chain creation...");
+
+    // Set job to processing
+    await supabase.from("fun_token_jobs").update({ status: "processing" }).eq("id", jobId);
+
+    // Call Vercel with 55 second timeout (Edge functions have 60s limit)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
+
+    let vercelResponse: Response;
+    let vercelData: { 
+      success: boolean; 
+      mintAddress?: string; 
+      dbcPoolAddress?: string; 
+      error?: string;
+      tokenId?: string;
+    };
+
+    try {
+      vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -180,21 +198,92 @@ serve(async (req) => {
           callbackUrl: `${supabaseUrl}/functions/v1/fun-create-callback`,
         }),
         signal: controller.signal,
-      }).catch(() => {
-        // Ignore - job will be picked up by callback or cron
-      }).finally(() => clearTimeout(timeoutId));
-      
-      console.log("[fun-create] 📡 Triggered Vercel API (fire-and-forget)");
+      });
+      clearTimeout(timeoutId);
+
+      vercelData = await vercelResponse.json();
+      console.log("[fun-create] Vercel response:", { status: vercelResponse.status, success: vercelData.success });
+
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      const errorMessage = fetchError instanceof Error ? fetchError.message : "Vercel API call failed";
+      console.error("[fun-create] ❌ Vercel API error:", errorMessage);
+
+      // Mark job as failed
+      await supabase.rpc("backend_fail_token_job", {
+        p_job_id: jobId,
+        p_error_message: errorMessage.includes("abort") ? "On-chain creation timed out (55s)" : errorMessage,
+      });
+
+      throw new Error(`On-chain pool creation failed: ${errorMessage}`);
     }
 
-    // Return immediately with job ID
+    // Process Vercel response
+    if (!vercelData.success) {
+      console.error("[fun-create] ❌ Vercel API returned failure:", vercelData.error);
+      await supabase.rpc("backend_fail_token_job", {
+        p_job_id: jobId,
+        p_error_message: vercelData.error || "Unknown Vercel error",
+      });
+      throw new Error(vercelData.error || "On-chain pool creation failed");
+    }
+
+    // Success! Create the fun_token record and mark job complete
+    const { data: funToken, error: insertError } = await supabase
+      .from("fun_tokens")
+      .insert({
+        name: name.slice(0, 50),
+        ticker: ticker.toUpperCase().slice(0, 5),
+        description: description?.slice(0, 500) || null,
+        image_url: storedImageUrl || null,
+        creator_wallet: creatorWallet,
+        mint_address: vercelData.mintAddress,
+        dbc_pool_address: vercelData.dbcPoolAddress,
+        status: "active",
+        price_sol: 0.00000003,
+        website_url: websiteUrl || null,
+        twitter_url: twitterUrl || null,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("[fun-create] ❌ Fun token insert error:", insertError);
+      await supabase.rpc("backend_fail_token_job", {
+        p_job_id: jobId,
+        p_error_message: "Database insert failed: " + insertError.message,
+      });
+      throw new Error("Failed to save token record");
+    }
+
+    // Mark job as completed
+    await supabase.rpc("backend_complete_token_job", {
+      p_job_id: jobId,
+      p_mint_address: vercelData.mintAddress!,
+      p_dbc_pool_address: vercelData.dbcPoolAddress!,
+      p_fun_token_id: funToken.id,
+    });
+
+    console.log("[fun-create] ✅ Token launched successfully:", {
+      jobId,
+      tokenId: funToken.id,
+      mintAddress: vercelData.mintAddress,
+      dbcPoolAddress: vercelData.dbcPoolAddress,
+    });
+
+    // Return success with token details
     return new Response(
       JSON.stringify({
         success: true,
-        async: true,
-        jobId,
-        status: "processing",
-        message: "Token creation started! Poll /functions/v1/fun-create-status?jobId=" + jobId + " for updates.",
+        tokenId: funToken.id,
+        mintAddress: vercelData.mintAddress,
+        dbcPoolAddress: vercelData.dbcPoolAddress,
+        name: funToken.name,
+        ticker: funToken.ticker,
+        imageUrl: funToken.image_url,
+        solscanUrl: `https://solscan.io/token/${vercelData.mintAddress}`,
+        tradeUrl: `https://axiom.trade/meme/${vercelData.dbcPoolAddress || vercelData.mintAddress}`,
+        message: "🚀 Token launched successfully!",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
