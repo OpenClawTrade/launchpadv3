@@ -19,9 +19,11 @@ serve(async (req) => {
       Deno.env.get("VITE_METEORA_API_URL") ?? Deno.env.get("METEORA_API_URL") ?? "";
     const meteoraApiUrl = meteoraApiUrlRaw.trim();
 
-    const heliusRpcUrlRaw =
-      Deno.env.get("VITE_HELIUS_RPC_URL") ?? Deno.env.get("HELIUS_RPC_URL") ?? "";
+    // Get Helius RPC URL from HELIUS_RPC_URL secret (not VITE_ prefixed)
+    const heliusRpcUrlRaw = Deno.env.get("HELIUS_RPC_URL") ?? "";
     const heliusRpcUrl = heliusRpcUrlRaw.trim();
+    
+    console.log("[public-config] HELIUS_RPC_URL set:", !!heliusRpcUrl, "starts with https://mainnet.helius:", heliusRpcUrl.startsWith("https://mainnet.helius"));
 
     return new Response(JSON.stringify({ privyAppId, meteoraApiUrl, heliusRpcUrl }), {
       status: 200,
