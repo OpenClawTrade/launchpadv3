@@ -544,6 +544,37 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
 
             {meme && (
               <>
+                {/* Editable social links - all optional */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <Input
+                      placeholder="Website URL (optional)"
+                      value={meme.websiteUrl || ""}
+                      onChange={(e) => setMeme({ ...meme, websiteUrl: e.target.value || undefined })}
+                      className="gate-input text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Twitter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <Input
+                      placeholder="X/Twitter URL (optional)"
+                      value={meme.twitterUrl || ""}
+                      onChange={(e) => setMeme({ ...meme, twitterUrl: e.target.value || undefined })}
+                      className="gate-input text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <Input
+                      placeholder="Telegram URL (optional)"
+                      value={meme.telegramUrl || ""}
+                      onChange={(e) => setMeme({ ...meme, telegramUrl: e.target.value || undefined })}
+                      className="gate-input text-sm"
+                    />
+                  </div>
+                </div>
+
                 <Button
                   onClick={() => {
                     setBannerTextName(meme.name);
