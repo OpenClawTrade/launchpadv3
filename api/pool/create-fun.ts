@@ -59,21 +59,28 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-// Retry blockhash fetch with exponential backoff
-async function getBlockhashWithRetry(connection: Connection, maxRetries = 3): Promise<{ blockhash: string; lastValidBlockHeight: number }> {
+// Retry blockhash fetch with exponential backoff (1s, 2s, 4s, 8s, 16s)
+async function getBlockhashWithRetry(connection: Connection, maxRetries = 5): Promise<{ blockhash: string; lastValidBlockHeight: number }> {
   let lastError: Error | null = null;
+  const baseDelayMs = 1000;
+  
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await connection.getLatestBlockhash('confirmed');
     } catch (e) {
       lastError = e instanceof Error ? e : new Error('Unknown error');
-      console.log(`[create-fun] Blockhash attempt ${i + 1} failed:`, lastError.message);
+      const is429 = lastError.message.includes('429') || lastError.message.includes('max usage');
+      console.log(`[create-fun] Blockhash attempt ${i + 1}/${maxRetries} failed (429: ${is429}):`, lastError.message);
+      
       if (i < maxRetries - 1) {
-        await new Promise(r => setTimeout(r, 500 * (i + 1)));
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+        const delayMs = baseDelayMs * Math.pow(2, i);
+        console.log(`[create-fun] Waiting ${delayMs}ms before retry...`);
+        await new Promise(r => setTimeout(r, delayMs));
       }
     }
   }
-  throw lastError || new Error('Failed to get blockhash');
+  throw lastError || new Error('Failed to get blockhash after ' + maxRetries + ' retries');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
