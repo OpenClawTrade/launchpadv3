@@ -144,6 +144,35 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     return urlData.publicUrl;
   }, [customImageFile, customToken.imageUrl]);
 
+  // IMPORTANT: Avoid sending giant base64 images to backend functions (can hang / exceed limits)
+  const uploadDataUrlImageIfNeeded = useCallback(async (imageUrl: string, ticker: string): Promise<string> => {
+    if (!imageUrl || !imageUrl.startsWith("data:image")) return imageUrl;
+
+    debugLog('info', 'Uploading generated image to storage (pre-flight)', {
+      ticker,
+      bytesApprox: Math.round(imageUrl.length * 0.75),
+    });
+
+    const [meta, base64Data] = imageUrl.split(',');
+    if (!base64Data) throw new Error('Invalid base64 image data');
+
+    const contentTypeMatch = meta?.match(/data:(.*?);base64/);
+    const contentType = contentTypeMatch?.[1] || 'image/png';
+    const ext = contentType.includes('jpeg') ? 'jpg' : contentType.includes('png') ? 'png' : 'png';
+
+    const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const filePath = `fun-tokens/${Date.now()}-${ticker.toLowerCase()}-${crypto.randomUUID()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('post-images')
+      .upload(filePath, bytes, { contentType, upsert: true });
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(filePath);
+    debugLog('info', 'Generated image uploaded', { publicUrl: urlData.publicUrl });
+    return urlData.publicUrl;
+  }, []);
+
   const performLaunch = useCallback(async (tokenToLaunch: MemeToken) => {
     debugLog('info', '🚀 Launch started', { 
       name: tokenToLaunch.name, 
@@ -170,12 +199,21 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     debugLog('info', 'Calling fun-create Edge Function...');
 
     try {
-      const { data, error } = await supabase.functions.invoke("fun-create", {
+      // Pre-flight: ensure we send a small, stable payload to the backend
+      const imageUrlToSend = await uploadDataUrlImageIfNeeded(tokenToLaunch.imageUrl, tokenToLaunch.ticker);
+      debugLog('info', 'Prepared launch payload', {
+        imageUrlType: imageUrlToSend?.startsWith('data:image') ? 'data_url' : 'url',
+        imageUrlLength: imageUrlToSend?.length,
+      });
+
+      // Hard timeout so we never get stuck with "nothing happens"
+      const timeoutMs = 35_000;
+      const invokePromise = supabase.functions.invoke("fun-create", {
         body: {
           name: tokenToLaunch.name,
           ticker: tokenToLaunch.ticker,
           description: tokenToLaunch.description,
-          imageUrl: tokenToLaunch.imageUrl,
+          imageUrl: imageUrlToSend,
           websiteUrl: tokenToLaunch.websiteUrl,
           twitterUrl: tokenToLaunch.twitterUrl,
           telegramUrl: tokenToLaunch.telegramUrl,
@@ -183,6 +221,12 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           creatorWallet: walletAddress,
         },
       });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`fun-create timed out after ${Math.round(timeoutMs / 1000)}s`)), timeoutMs);
+      });
+
+      const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as any;
 
       const elapsed = Date.now() - startTime;
       debugLog('info', `Edge Function responded in ${elapsed}ms`, { 
@@ -262,8 +306,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       });
       
       // Improve error messages for common cases
-      if (errorMessage.includes('AbortError') || errorMessage.includes('timeout')) {
-        errorMessage = 'Request timed out. The network may be congested. Please try again.';
+        if (errorMessage.includes('AbortError') || errorMessage.includes('timeout')) {
+          errorMessage = 'Timed out waiting for server. The launch may still complete—wait ~60s and check the token list before retrying.';
         debugLog('warn', 'Detected timeout/abort error');
       } else if (errorMessage.includes('504') || errorMessage.includes('Gateway')) {
         errorMessage = 'Server timeout. Please try again in a moment.';

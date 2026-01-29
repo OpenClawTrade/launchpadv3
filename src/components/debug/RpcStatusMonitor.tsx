@@ -152,15 +152,15 @@ export function RpcStatusMonitor() {
         className={cn(
           "fixed bottom-4 left-4 z-50 h-10 w-10 rounded-full shadow-lg",
           rpcStatus.isConnected 
-            ? "bg-green-500/20 hover:bg-green-500/30 border border-green-500/50" 
-            : "bg-red-500/20 hover:bg-red-500/30 border border-red-500/50"
+            ? "bg-primary/15 hover:bg-primary/20 border border-primary/30" 
+            : "bg-destructive/15 hover:bg-destructive/20 border border-destructive/30"
         )}
         title="RPC Status (Ctrl+Shift+R)"
       >
         {rpcStatus.isConnected ? (
-          <Wifi className="h-4 w-4 text-green-400" />
+          <Wifi className="h-4 w-4 text-primary" />
         ) : (
-          <WifiOff className="h-4 w-4 text-red-400" />
+          <WifiOff className="h-4 w-4 text-destructive" />
         )}
       </Button>
     );
@@ -183,9 +183,9 @@ export function RpcStatusMonitor() {
       <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
         <div className="flex items-center gap-2">
           {rpcStatus.isConnected ? (
-            <Wifi className="h-4 w-4 text-green-400" />
+            <Wifi className="h-4 w-4 text-primary" />
           ) : (
-            <WifiOff className="h-4 w-4 text-red-400" />
+            <WifiOff className="h-4 w-4 text-destructive" />
           )}
           <span className="text-sm font-medium">RPC Status</span>
           <Badge variant={rpcStatus.isConnected ? "default" : "destructive"} className="text-xs">
@@ -229,9 +229,9 @@ export function RpcStatusMonitor() {
           <span className="text-muted-foreground">Source:</span>
           <span className={cn(
             rpcStatus.source.includes('localStorage') || rpcStatus.source.includes('HELIUS') 
-              ? 'text-green-400' 
+              ? 'text-primary' 
               : rpcStatus.source.includes('fallback') 
-                ? 'text-yellow-400' 
+                ? 'text-muted-foreground' 
                 : 'text-foreground'
           )}>
             {rpcStatus.source || 'Unknown'}
@@ -242,8 +242,8 @@ export function RpcStatusMonitor() {
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Latency:</span>
             <span className={cn(
-              rpcStatus.latency < 500 ? 'text-green-400' : 
-              rpcStatus.latency < 1500 ? 'text-yellow-400' : 'text-red-400'
+              rpcStatus.latency < 500 ? 'text-primary' : 
+              rpcStatus.latency < 1500 ? 'text-foreground' : 'text-destructive'
             )}>
               {rpcStatus.latency}ms
             </span>
@@ -258,8 +258,8 @@ export function RpcStatusMonitor() {
         )}
 
         {rpcStatus.error && (
-          <div className="p-2 bg-red-500/10 rounded border border-red-500/30">
-            <span className="text-red-400">Error: {rpcStatus.error}</span>
+          <div className="p-2 bg-destructive/10 rounded border border-destructive/30">
+            <span className="text-destructive">Error: {rpcStatus.error}</span>
           </div>
         )}
 
