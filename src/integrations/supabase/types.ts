@@ -571,6 +571,30 @@ export type Database = {
           },
         ]
       }
+      debug_logs: {
+        Row: {
+          client_ip: string | null
+          created_at: string | null
+          id: string
+          logs: Json
+          session_id: string
+        }
+        Insert: {
+          client_ip?: string | null
+          created_at?: string | null
+          id?: string
+          logs: Json
+          session_id: string
+        }
+        Update: {
+          client_ip?: string | null
+          created_at?: string | null
+          id?: string
+          logs?: Json
+          session_id?: string
+        }
+        Relationships: []
+      }
       fee_claims: {
         Row: {
           amount_sol: number
@@ -2936,6 +2960,7 @@ export type Database = {
       calculate_trending_topics: { Args: never; Returns: undefined }
       can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
       cleanup_old_bot_replies: { Args: never; Returns: undefined }
+      cleanup_old_debug_logs: { Args: never; Returns: undefined }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       generate_short_id: { Args: never; Returns: string }
       get_api_account_by_wallet: {
