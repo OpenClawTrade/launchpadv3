@@ -25,11 +25,11 @@ function isBlockedName(name: string): boolean {
 }
 
 serve(async (req) => {
+  // CRITICAL: Always return CORS headers, even on error
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Get client IP from headers
   const clientIP = 
     req.headers.get("cf-connecting-ip") ||
     req.headers.get("x-real-ip") ||
@@ -37,12 +37,11 @@ serve(async (req) => {
     "unknown";
 
   try {
-    // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // ===== SERVER-SIDE RATE LIMIT ENFORCEMENT =====
+    // Rate limit check
     const MAX_LAUNCHES_PER_HOUR = 2;
     const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
     const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
@@ -58,11 +57,11 @@ serve(async (req) => {
       const expiresAt = new Date(oldestLaunch.getTime() + RATE_LIMIT_WINDOW_MS);
       const waitSeconds = Math.ceil((expiresAt.getTime() - Date.now()) / 1000);
       
-      console.log(`[fun-create] ❌ Rate limit exceeded for IP: ${clientIP} (${recentLaunches.length} launches)`);
+      console.log(`[fun-create] Rate limit exceeded for IP: ${clientIP}`);
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: `You've already launched ${recentLaunches.length} coins in the last 60 minutes. Please wait ${Math.ceil(waitSeconds / 60)} minutes.`,
+          error: `Rate limited. Wait ${Math.ceil(waitSeconds / 60)} minutes.`,
           rateLimited: true,
           waitSeconds: Math.max(0, waitSeconds)
         }),
@@ -72,7 +71,6 @@ serve(async (req) => {
 
     const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet } = await req.json();
 
-    // Validate required fields
     if (!name || !ticker || !creatorWallet) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields: name, ticker, creatorWallet" }),
@@ -80,16 +78,14 @@ serve(async (req) => {
       );
     }
 
-    // Block spam/exploit names
     if (isBlockedName(name) || isBlockedName(ticker) || isBlockedName(description || "")) {
-      console.log("[fun-create] ❌ Blocked spam token attempt:", { name, ticker });
+      console.log("[fun-create] Blocked spam token:", { name, ticker });
       return new Response(
         JSON.stringify({ success: false, error: "Token name or ticker contains blocked content" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate Solana address format
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(creatorWallet)) {
       return new Response(
         JSON.stringify({ success: false, error: "Invalid Solana wallet address" }),
@@ -97,9 +93,9 @@ serve(async (req) => {
       );
     }
 
-    console.log("[fun-create] 🚀 Starting token creation:", { name, ticker, creatorWallet, clientIP });
+    console.log("[fun-create] Starting:", { name, ticker, clientIP });
 
-    // Upload base64 image to storage if provided
+    // Upload base64 image if provided
     let storedImageUrl = imageUrl;
     if (imageUrl?.startsWith("data:image")) {
       try {
@@ -109,22 +105,15 @@ serve(async (req) => {
         
         const { error: uploadError } = await supabase.storage
           .from("post-images")
-          .upload(fileName, imageBuffer, {
-            contentType: "image/png",
-            upsert: true,
-          });
+          .upload(fileName, imageBuffer, { contentType: "image/png", upsert: true });
 
         if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from("post-images")
-            .getPublicUrl(fileName);
+          const { data: { publicUrl } } = supabase.storage.from("post-images").getPublicUrl(fileName);
           storedImageUrl = publicUrl;
-          console.log("[fun-create] ✅ Image uploaded:", storedImageUrl);
-        } else {
-          console.error("[fun-create] ⚠️ Image upload error:", uploadError);
+          console.log("[fun-create] Image uploaded:", storedImageUrl);
         }
       } catch (uploadErr) {
-        console.error("[fun-create] ⚠️ Image processing error:", uploadErr);
+        console.error("[fun-create] Image upload error:", uploadErr);
       }
     }
 
@@ -141,37 +130,32 @@ serve(async (req) => {
     });
 
     if (jobError || !jobId) {
-      console.error("[fun-create] ❌ Job creation failed:", jobError);
+      console.error("[fun-create] Job creation failed:", jobError);
       throw new Error("Failed to create token job");
     }
 
-    console.log("[fun-create] ✅ Job created:", jobId);
+    console.log("[fun-create] Job created:", jobId);
 
-    // Record rate limit entry (ignore errors)
+    // Record rate limit (ignore errors)
     try {
-      await supabase.from("launch_rate_limits").insert({
-        ip_address: clientIP,
-        token_id: null,
-      });
-    } catch (rlErr) {
-      console.warn("[fun-create] ⚠️ Failed to record rate limit:", rlErr);
+      await supabase.from("launch_rate_limits").insert({ ip_address: clientIP, token_id: null });
+    } catch {
+      // Ignore rate limit recording errors
     }
 
-    // Get Vercel API URL
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
     if (!meteoraApiUrl) {
-      throw new Error("METEORA_API_URL not configured - cannot create on-chain pool");
+      throw new Error("METEORA_API_URL not configured");
     }
 
     // Set job to processing
     await supabase.from("fun_token_jobs").update({ status: "processing" }).eq("id", jobId);
 
-    console.log("[fun-create] 🔥 Calling Vercel API (expecting fast response ~5-10s)...");
+    console.log("[fun-create] Calling Vercel API...");
 
-    // OPTIMIZED: Vercel now sends transactions without waiting for confirmation
-    // This should complete in ~5-10 seconds, but we allow 15s buffer
+    // === KEY FIX: 10-second timeout to match Vercel Hobby limit ===
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
@@ -195,19 +179,18 @@ serve(async (req) => {
 
       if (!vercelResponse.ok) {
         const errorText = await vercelResponse.text();
-        console.error("[fun-create] ❌ Vercel error:", vercelResponse.status, errorText);
+        console.error("[fun-create] Vercel error:", vercelResponse.status, errorText);
         
-        // Mark job as failed
         await supabase.rpc("backend_fail_token_job", {
           p_job_id: jobId,
-          p_error_message: `Vercel API error (${vercelResponse.status}): ${errorText.slice(0, 200)}`,
+          p_error_message: `API error (${vercelResponse.status}): ${errorText.slice(0, 100)}`,
         });
 
-        throw new Error(`Token creation failed: ${errorText.slice(0, 100)}`);
+        throw new Error(`Token creation failed: ${errorText.slice(0, 80)}`);
       }
 
       const result = await vercelResponse.json();
-      console.log("[fun-create] ✅ Vercel response:", result);
+      console.log("[fun-create] Vercel response received:", { success: result.success, mintAddress: result.mintAddress });
 
       if (!result.success) {
         await supabase.rpc("backend_fail_token_job", {
@@ -217,7 +200,7 @@ serve(async (req) => {
         throw new Error(result.error || "Token creation failed");
       }
 
-      // SUCCESS! Create fun_tokens record directly
+      // Success - create fun_tokens record
       const { data: funToken, error: insertError } = await supabase
         .from("fun_tokens")
         .insert({
@@ -237,8 +220,7 @@ serve(async (req) => {
         .single();
 
       if (insertError) {
-        console.error("[fun-create] ❌ Failed to insert fun_tokens:", insertError);
-        // Token was created on-chain, but DB insert failed - still return success
+        console.error("[fun-create] fun_tokens insert error:", insertError);
       }
 
       // Mark job as completed
@@ -249,12 +231,7 @@ serve(async (req) => {
         p_fun_token_id: funToken?.id || null,
       });
 
-      console.log("[fun-create] ✅ Token created successfully:", {
-        id: funToken?.id,
-        name,
-        ticker,
-        mintAddress: result.mintAddress,
-      });
+      console.log("[fun-create] Token created successfully:", { id: funToken?.id, mintAddress: result.mintAddress });
 
       return new Response(
         JSON.stringify({
@@ -273,23 +250,23 @@ serve(async (req) => {
 
       const err = fetchError as Error;
       if (err.name === 'AbortError') {
-        console.error("[fun-create] ❌ Timeout: Vercel took too long (15s)");
+        console.error("[fun-create] Timeout after 10s - Vercel Hobby limit likely exceeded");
         
         await supabase.rpc("backend_fail_token_job", {
           p_job_id: jobId,
-          p_error_message: "Token creation timed out after 15 seconds. Please try again.",
+          p_error_message: "Token creation timed out. The network may be congested. Please try again.",
         });
 
         return new Response(
           JSON.stringify({
             success: false,
-            error: "Token creation timed out. Please try again.",
+            error: "Token creation timed out. Please try again in a moment.",
           }),
           { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      console.error("[fun-create] ❌ Fetch error:", err);
+      console.error("[fun-create] Fetch error:", err);
       
       await supabase.rpc("backend_fail_token_job", {
         p_job_id: jobId,
@@ -300,7 +277,7 @@ serve(async (req) => {
     }
     
   } catch (error) {
-    console.error("[fun-create] ❌ Fatal error:", error);
+    console.error("[fun-create] Fatal error:", error);
     return new Response(
       JSON.stringify({
         success: false,

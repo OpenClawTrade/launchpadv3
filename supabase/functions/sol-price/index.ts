@@ -10,8 +10,9 @@ let cachedPrice: { price: number; change24h: number; timestamp: number } | null 
 const CACHE_TTL = 30000; // 30 seconds
 
 serve(async (req) => {
+  // CORS preflight - must return 200 OK with headers
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
