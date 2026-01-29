@@ -227,7 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Small delay between transactions for ordering
       if (i < transactions.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 

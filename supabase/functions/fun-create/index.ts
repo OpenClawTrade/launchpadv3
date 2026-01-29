@@ -25,7 +25,6 @@ function isBlockedName(name: string): boolean {
 }
 
 serve(async (req) => {
-  // CRITICAL: Always return CORS headers, even on error
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -117,48 +116,21 @@ serve(async (req) => {
       }
     }
 
-    // Create job in database
-    const { data: jobId, error: jobError } = await supabase.rpc("backend_create_token_job", {
-      p_name: name.slice(0, 50),
-      p_ticker: ticker.toUpperCase().slice(0, 10),
-      p_creator_wallet: creatorWallet,
-      p_description: description?.slice(0, 500) || null,
-      p_image_url: storedImageUrl || null,
-      p_website_url: websiteUrl || null,
-      p_twitter_url: twitterUrl || null,
-      p_client_ip: clientIP,
-    });
-
-    if (jobError || !jobId) {
-      console.error("[fun-create] Job creation failed:", jobError);
-      throw new Error("Failed to create token job");
-    }
-
-    console.log("[fun-create] Job created:", jobId);
-
-    // Record rate limit (ignore errors)
-    try {
-      await supabase.from("launch_rate_limits").insert({ ip_address: clientIP, token_id: null });
-    } catch {
-      // Ignore rate limit recording errors
-    }
+    // Record rate limit (fire-and-forget)
+    supabase.from("launch_rate_limits").insert({ ip_address: clientIP, token_id: null }).then(() => {});
 
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
     if (!meteoraApiUrl) {
       throw new Error("METEORA_API_URL not configured");
     }
 
-    // Set job to processing
-    await supabase.from("fun_token_jobs").update({ status: "processing" }).eq("id", jobId);
-
     console.log("[fun-create] Calling Vercel API...");
 
-    // Call Vercel - no abort controller, let it run
+    // Call Vercel API synchronously - this does all the work
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        jobId,
         name: name.slice(0, 32),
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
@@ -170,70 +142,31 @@ serve(async (req) => {
       }),
     });
 
-    if (!vercelResponse.ok) {
-      const errorText = await vercelResponse.text();
-      console.error("[fun-create] Vercel error:", vercelResponse.status, errorText);
-      
-      await supabase.rpc("backend_fail_token_job", {
-        p_job_id: jobId,
-        p_error_message: `API error (${vercelResponse.status}): ${errorText.slice(0, 100)}`,
-      });
-
-      throw new Error(`Token creation failed: ${errorText.slice(0, 80)}`);
-    }
-
     const result = await vercelResponse.json();
-    console.log("[fun-create] Vercel response received:", { success: result.success, mintAddress: result.mintAddress });
+    console.log("[fun-create] Vercel response:", { success: result.success, mintAddress: result.mintAddress, status: vercelResponse.status });
 
-    if (!result.success) {
-      await supabase.rpc("backend_fail_token_job", {
-        p_job_id: jobId,
-        p_error_message: result.error || "Unknown error from Vercel",
-      });
-      throw new Error(result.error || "Token creation failed");
+    if (!vercelResponse.ok || !result.success) {
+      console.error("[fun-create] Vercel error:", result.error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: result.error || `Token creation failed (${vercelResponse.status})`,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Success - create fun_tokens record
-    const { data: funToken, error: insertError } = await supabase
-      .from("fun_tokens")
-      .insert({
-        name: name.slice(0, 50),
-        ticker: ticker.toUpperCase().slice(0, 5),
-        description: description?.slice(0, 500) || null,
-        image_url: storedImageUrl || null,
-        creator_wallet: creatorWallet,
-        mint_address: result.mintAddress,
-        dbc_pool_address: result.dbcPoolAddress,
-        status: "active",
-        price_sol: 0.00000003,
-        website_url: websiteUrl || null,
-        twitter_url: twitterUrl || null,
-      })
-      .select()
-      .single();
+    console.log("[fun-create] Token created successfully:", result.mintAddress);
 
-    if (insertError) {
-      console.error("[fun-create] fun_tokens insert error:", insertError);
-    }
-
-    // Mark job as completed
-    await supabase.rpc("backend_complete_token_job", {
-      p_job_id: jobId,
-      p_mint_address: result.mintAddress,
-      p_dbc_pool_address: result.dbcPoolAddress,
-      p_fun_token_id: funToken?.id || null,
-    });
-
-    console.log("[fun-create] Token created successfully:", { id: funToken?.id, mintAddress: result.mintAddress });
-
+    // Return Vercel's response directly - it has all the data we need
     return new Response(
       JSON.stringify({
         success: true,
-        tokenId: funToken?.id,
+        tokenId: result.tokenId,
         mintAddress: result.mintAddress,
         dbcPoolAddress: result.dbcPoolAddress,
         solscanUrl: `https://solscan.io/token/${result.mintAddress}`,
-        tradeUrl: `/token/${funToken?.id || result.mintAddress}`,
+        tradeUrl: `/token/${result.tokenId || result.mintAddress}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
