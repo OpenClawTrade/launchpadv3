@@ -150,10 +150,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     }
 
     setIsLaunching(true);
-    try {
-      toast({ title: "🔄 Creating Token...", description: "This may take up to 30 seconds..." });
+    
+    // Show progress toast immediately
+    toast({ 
+      title: "🚀 Creating Token...", 
+      description: "Preparing on-chain transactions (5-15 seconds)..." 
+    });
 
-      // Call fun-create - now returns direct result (no polling needed)
+    try {
+      // Call fun-create with timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s max wait
+
       const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
           name: tokenToLaunch.name,
@@ -168,10 +176,21 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         },
       });
 
-      if (error) throw new Error(`Server error: ${error.message}`);
-      if (!data?.success) throw new Error(data?.error || "Launch failed");
+      clearTimeout(timeoutId);
 
-      // Direct response - no polling needed!
+      if (error) {
+        // Check for rate limit
+        if (error.message?.includes('429') || error.message?.includes('rate')) {
+          throw new Error('Rate limited. Please wait a few minutes before launching again.');
+        }
+        throw new Error(`Server error: ${error.message}`);
+      }
+      
+      if (!data?.success) {
+        throw new Error(data?.error || "Launch failed");
+      }
+
+      // Success!
       onShowResult({
         success: true,
         name: tokenToLaunch.name,
@@ -195,7 +214,15 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       setWalletAddress("");
       onLaunchSuccess();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to launch token";
+      let errorMessage = error instanceof Error ? error.message : "Failed to launch token";
+      
+      // Improve error messages for common cases
+      if (errorMessage.includes('AbortError') || errorMessage.includes('timeout')) {
+        errorMessage = 'Request timed out. The network may be congested. Please try again.';
+      } else if (errorMessage.includes('504') || errorMessage.includes('Gateway')) {
+        errorMessage = 'Server timeout. Please try again in a moment.';
+      }
+      
       onShowResult({ success: false, error: errorMessage });
       toast({ title: "Launch Failed", description: errorMessage.slice(0, 100), variant: "destructive" });
     } finally {

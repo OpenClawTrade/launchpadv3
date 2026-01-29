@@ -4,8 +4,6 @@ import {
   Keypair,
   PublicKey,
   Transaction,
-  SystemProgram,
-  ComputeBudgetProgram,
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
@@ -15,7 +13,6 @@ import { getAvailableVanityAddress, markVanityAddressUsed, releaseVanityAddress 
 
 // Configuration
 const INITIAL_VIRTUAL_SOL = 30;
-const SNIPER_BUY_SOL = 0.5;
 
 // CORS headers
 const corsHeaders = {
@@ -32,7 +29,6 @@ function getTreasuryKeypair(): Keypair {
   }
 
   try {
-    // JSON array format: "[1,2,3,...]"
     if (raw.startsWith('[')) {
       const keyArray = JSON.parse(raw);
       const bytes = new Uint8Array(keyArray);
@@ -41,7 +37,6 @@ function getTreasuryKeypair(): Keypair {
       throw new Error(`Invalid key length: ${bytes.length}`);
     }
 
-    // Base58 encoded (either 64-byte secretKey or 32-byte seed)
     const decoded: Uint8Array = bs58.decode(raw);
     if (decoded.length === 64) return Keypair.fromSecretKey(decoded);
     if (decoded.length === 32) return Keypair.fromSeed(decoded);
@@ -62,6 +57,23 @@ function getSupabase() {
   return createClient(url, key);
 }
 
+// Retry blockhash fetch with exponential backoff
+async function getBlockhashWithRetry(connection: Connection, maxRetries = 3): Promise<{ blockhash: string; lastValidBlockHeight: number }> {
+  let lastError: Error | null = null;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await connection.getLatestBlockhash('confirmed');
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error('Unknown error');
+      console.log(`[create-fun] Blockhash attempt ${i + 1} failed:`, lastError.message);
+      if (i < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, 500 * (i + 1)));
+      }
+    }
+  }
+  throw lastError || new Error('Failed to get blockhash');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -72,14 +84,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Track vanity keypair for potential release on error - declared outside try for catch access
   let vanityKeypairId: string | null = null;
+  const startTime = Date.now();
 
   try {
     const { 
       name, ticker, description, imageUrl, websiteUrl, twitterUrl, 
       feeRecipientWallet, serverSideSign, useVanityAddress = true,
-      jobId, callbackUrl // Async job support
+      jobId
     } = req.body;
 
     if (!name || !ticker) {
@@ -90,11 +102,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'This endpoint requires serverSideSign=true' });
     }
 
-    console.log('[create-fun] Creating fun token:', { name, ticker, feeRecipientWallet, useVanityAddress });
+    console.log('[create-fun] Starting token creation:', { name, ticker, elapsed: Date.now() - startTime });
 
     const treasuryKeypair = getTreasuryKeypair();
     const treasuryAddress = treasuryKeypair.publicKey.toBase58();
-    console.log('[create-fun] Treasury wallet derived from key:', treasuryAddress);
     
     const supabase = getSupabase();
     const rpcUrl = process.env.HELIUS_RPC_URL;
@@ -105,6 +116,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const connection = new Connection(rpcUrl, 'confirmed');
 
+    // === PRE-FETCH BLOCKHASH ONCE (saves ~1-2s per tx) ===
+    console.log('[create-fun] Fetching blockhash...', { elapsed: Date.now() - startTime });
+    const latestBlockhash = await getBlockhashWithRetry(connection);
+    console.log('[create-fun] Blockhash fetched:', { elapsed: Date.now() - startTime });
+
     // Try to get a vanity address for the mint
     let vanityKeypair: { id: string; publicKey: string; keypair: Keypair } | null = null;
     
@@ -112,26 +128,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         vanityKeypair = await getAvailableVanityAddress('67x');
         if (vanityKeypair) {
-          vanityKeypairId = vanityKeypair.id; // Store for error release
-          console.log('[create-fun] 🎯 Using vanity mint address:', vanityKeypair.publicKey);
-        } else {
-          console.log('[create-fun] No vanity address available, using random mint');
+          vanityKeypairId = vanityKeypair.id;
+          console.log('[create-fun] Using vanity mint:', vanityKeypair.publicKey, { elapsed: Date.now() - startTime });
         }
       } catch (vanityError) {
-        console.error('[create-fun] Failed to get vanity address:', vanityError);
-        // Continue with random mint
+        console.log('[create-fun] Vanity address unavailable, using random');
       }
     }
 
-    // Create real Meteora pool using the existing SDK integration
-    // Treasury wallet is the "creator" for on-chain purposes
-    console.log('[create-fun] Creating real Meteora DBC pool...', {
-      name: name.slice(0, 32),
-      ticker: ticker.toUpperCase().slice(0, 10),
-      treasuryAddress,
-      useVanityAddress,
-      hasVanityKeypair: !!vanityKeypair,
-    });
+    // Create Meteora pool transactions
+    console.log('[create-fun] Creating pool transactions...', { elapsed: Date.now() - startTime });
     
     let transactions: Transaction[];
     let mintKeypair: Keypair;
@@ -139,11 +145,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let poolAddress: PublicKey;
     
     if (vanityKeypair) {
-      // Use vanity address as mint
       const result = await createMeteoraPoolWithMint({
         creatorWallet: treasuryAddress,
-        // IMPORTANT: for FUN launches, encode leftoverReceiver as the user's fee recipient wallet
-        // so terminals can correctly attribute the pool and show graduation/migration UI.
         leftoverReceiverWallet: feeRecipientWallet || treasuryAddress,
         mintKeypair: vanityKeypair.keypair,
         name: name.slice(0, 32),
@@ -157,7 +160,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       configKeypair = result.configKeypair;
       poolAddress = result.poolAddress;
     } else {
-      // Use random mint (original behavior)
       const result = await createMeteoraPool({
         creatorWallet: treasuryAddress,
         leftoverReceiverWallet: feeRecipientWallet || treasuryAddress,
@@ -176,119 +178,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const mintAddress = mintKeypair.publicKey.toBase58();
     const dbcPoolAddress = poolAddress.toBase58();
     
-    console.log('[create-fun] Pool transactions prepared:', {
-      mintAddress,
-      dbcPoolAddress,
-      txCount: transactions.length,
-      isVanity: !!vanityKeypair,
-    });
+    console.log('[create-fun] Pool prepared:', { mintAddress, dbcPoolAddress, txCount: transactions.length, elapsed: Date.now() - startTime });
 
-    // Sign and send all transactions with treasury keypair (fully server-side)
-    const signatures: string[] = [];
-
-    // Build a map of available keypairs for signing
+    // Build keypair map for signing
     const availableKeypairs: Map<string, Keypair> = new Map([
       [treasuryKeypair.publicKey.toBase58(), treasuryKeypair],
       [mintKeypair.publicKey.toBase58(), mintKeypair],
       [configKeypair.publicKey.toBase58(), configKeypair],
     ]);
 
-    console.log('[create-fun] Available signers:', Array.from(availableKeypairs.keys()));
+    const signatures: string[] = [];
 
+    // Sign and send all transactions using the PRE-FETCHED blockhash
     for (let i = 0; i < transactions.length; i++) {
       const tx = transactions[i];
 
-      // Fresh blockhash to avoid expiration
-      const latest = await connection.getLatestBlockhash('confirmed');
-      tx.recentBlockhash = latest.blockhash;
+      // Use pre-fetched blockhash (no additional RPC call!)
+      tx.recentBlockhash = latestBlockhash.blockhash;
       tx.feePayer = treasuryKeypair.publicKey;
 
-      // Compile message to determine required signers
       const message = tx.compileMessage();
       const requiredSignerPubkeys = message.accountKeys
         .slice(0, message.header.numRequiredSignatures)
         .map((k) => k.toBase58());
 
-      console.log(`[create-fun] Tx ${i + 1}/${transactions.length} requires signers:`, requiredSignerPubkeys);
-
-      // Check for missing signers
       const missingSigners = requiredSignerPubkeys.filter((pk) => !availableKeypairs.has(pk));
       if (missingSigners.length > 0) {
-        throw new Error(
-          `Tx ${i + 1} requires unknown signer(s): ${missingSigners.join(', ')} | we have: ${Array.from(availableKeypairs.keys()).join(', ')}`
-        );
+        throw new Error(`Tx ${i + 1} requires unknown signer(s): ${missingSigners.join(', ')}`);
       }
 
-      // Collect ONLY the keypairs that this transaction actually needs
       const signersForThisTx: Keypair[] = requiredSignerPubkeys
         .map((pk) => availableKeypairs.get(pk))
         .filter((kp): kp is Keypair => kp !== undefined);
 
-      console.log(`[create-fun] Tx ${i + 1} will be signed by:`, signersForThisTx.map(kp => kp.publicKey.toBase58()));
+      tx.sign(...signersForThisTx);
 
-      try {
-        // Sign with ONLY the required keypairs (prevents "unknown signer" error)
-        tx.sign(...signersForThisTx);
+      console.log(`[create-fun] Sending tx ${i + 1}/${transactions.length}...`, { elapsed: Date.now() - startTime });
 
-        console.log(`[create-fun] Sending transaction ${i + 1}/${transactions.length}...`);
+      // Send WITHOUT confirmation - fire and forget
+      const signature = await connection.sendRawTransaction(tx.serialize(), {
+        skipPreflight: true,
+        preflightCommitment: 'processed',
+        maxRetries: 3,
+      });
 
-        // CRITICAL: Send WITHOUT waiting for confirmation to fit within Vercel Hobby 10s limit
-        // Skip preflight to reduce latency - transaction will either succeed or fail on-chain
-        const signature = await connection.sendRawTransaction(tx.serialize(), {
-          skipPreflight: true, // Skip preflight check for speed
-          preflightCommitment: 'processed',
-          maxRetries: 3,
-        });
+      signatures.push(signature);
+      console.log(`[create-fun] Tx ${i + 1} sent:`, signature.slice(0, 16) + '...', { elapsed: Date.now() - startTime });
 
-        signatures.push(signature);
-        console.log(`[create-fun] ✅ Transaction ${i + 1} sent:`, signature);
-
-        // Small delay between transactions to ensure ordering on-chain
-        // This is critical: config tx must be processed before pool tx
-        if (i < transactions.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      } catch (txError) {
-        console.error(`[create-fun] ❌ Transaction ${i + 1} failed:`, txError);
-        const msg = txError instanceof Error ? txError.message : 'Unknown error';
-        throw new Error(`On-chain transaction ${i + 1} failed: ${msg}`);
+      // Small delay between transactions for ordering
+      if (i < transactions.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
 
-    console.log('[create-fun] All pool transactions sent!', { signatures });
+    console.log('[create-fun] All transactions sent!', { signatures, elapsed: Date.now() - startTime });
 
-    // === SNIPER BUY PHASE (fire-and-forget to save time) ===
-    // NOTE: Sniper buy runs asynchronously to not delay the response
-    const sniperResult: { success: boolean; tradeId?: string; signature?: string; error?: string } | null = null;
-
-    // Fire-and-forget sniper (don't await)
-    const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ||
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44';
-
-    const sniperClient = createClient(supabaseUrl, supabaseAnonKey);
-    
-    // Non-blocking - trigger and don't wait
-    sniperClient.functions.invoke('fun-sniper-buy', {
-      body: { poolAddress: dbcPoolAddress, mintAddress, tokenId: null, funTokenId: null },
-    }).catch(err => console.log('[create-fun] Sniper fire-and-forget error (ignored):', err));
-
-    // Calculate initial values
+    // === DATABASE OPERATIONS (fast) ===
     const virtualSol = INITIAL_VIRTUAL_SOL;
     const virtualToken = TOTAL_SUPPLY;
     const initialPrice = virtualSol / virtualToken;
-
-    // Generate a UUID for the token
     const crypto = await import('crypto');
     const tokenId = crypto.randomUUID();
 
-    // Insert token into main tokens table (so it can be traded)
+    // Insert token into database
     const { error: tokenError } = await supabase.rpc('backend_create_token', {
       p_id: tokenId,
       p_mint_address: mintAddress,
       p_name: name.slice(0, 32),
       p_ticker: ticker.toUpperCase().slice(0, 10),
-      p_creator_wallet: treasuryAddress, // Treasury is the on-chain creator
+      p_creator_wallet: treasuryAddress,
       p_dbc_pool_address: dbcPoolAddress,
       p_description: description || `${name} - A fun meme coin!`,
       p_image_url: imageUrl || null,
@@ -300,8 +258,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_price_sol: initialPrice,
       p_market_cap_sol: virtualSol,
       p_graduation_threshold_sol: GRADUATION_THRESHOLD_SOL,
-      p_system_fee_bps: TRADING_FEE_BPS, // 2% platform fee
-      p_creator_fee_bps: 0, // No creator fee (handled separately via fun_distributions)
+      p_system_fee_bps: TRADING_FEE_BPS,
+      p_creator_fee_bps: 0,
     });
 
     if (tokenError) {
@@ -309,60 +267,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error(`Failed to create token: ${tokenError.message}`);
     }
 
-    // Update sniper trade with token ID
-    if (sniperResult?.tradeId) {
-      await supabase.from('sniper_trades')
-        .update({ token_id: tokenId })
-        .eq('id', sniperResult.tradeId);
-    }
+    console.log('[create-fun] Token saved to DB:', { tokenId, elapsed: Date.now() - startTime });
 
-    // Mark vanity address as used if we used one
+    // Mark vanity address as used (fire-and-forget)
     if (vanityKeypair) {
-      try {
-        await markVanityAddressUsed(vanityKeypair.id, tokenId);
-        console.log('[create-fun] 🎯 Marked vanity address as used for token:', tokenId);
-      } catch (vanityError) {
-        console.error('[create-fun] Failed to mark vanity address as used:', vanityError);
-        // Non-critical - don't fail the launch
-      }
+      markVanityAddressUsed(vanityKeypair.id, tokenId).catch(e => 
+        console.log('[create-fun] Failed to mark vanity used:', e)
+      );
     }
 
-    // Create fee earner entry for platform
-    await supabase.rpc('backend_create_fee_earner', {
+    // Create fee earner entry (fire-and-forget)
+    supabase.rpc('backend_create_fee_earner', {
       p_token_id: tokenId,
       p_earner_type: 'system',
-      p_share_bps: 10000, // 100% goes to system (distributed via fun_distributions)
+      p_share_bps: 10000,
       p_wallet_address: PLATFORM_FEE_WALLET,
-    });
+    }).catch(e => console.log('[create-fun] Fee earner creation failed:', e));
 
-    console.log('[create-fun] Token created successfully:', { 
-      tokenId, 
-      mintAddress, 
-      dbcPoolAddress, 
-      sniperSignature: sniperResult?.signature,
-      isVanityMint: !!vanityKeypair,
-    });
+    // Trigger sniper buy (fire-and-forget, non-blocking)
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ||
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44';
+    
+    const sniperClient = createClient(supabaseUrl, supabaseAnonKey);
+    sniperClient.functions.invoke('fun-sniper-buy', {
+      body: { poolAddress: dbcPoolAddress, mintAddress, tokenId, funTokenId: null },
+    }).catch(err => console.log('[create-fun] Sniper fire-and-forget:', err?.message));
 
-    // If this was an async job, call back to Edge Function
-    if (jobId && callbackUrl) {
-      try {
-        console.log('[create-fun] Calling back to Edge Function:', callbackUrl);
-        await fetch(callbackUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jobId,
-            success: true,
-            mintAddress,
-            dbcPoolAddress,
-          }),
-        });
-        console.log('[create-fun] Callback sent successfully');
-      } catch (callbackError) {
-        console.error('[create-fun] Callback failed:', callbackError);
-        // Non-critical - token is created, just callback failed
-      }
-    }
+    console.log('[create-fun] SUCCESS!', { tokenId, elapsed: Date.now() - startTime });
 
     return res.status(200).json({
       success: true,
@@ -373,47 +305,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       creatorWallet: treasuryAddress,
       feeRecipientWallet,
       signatures,
-      vanityMint: vanityKeypair ? {
-        suffix: '67x',
-        address: vanityKeypair.publicKey,
-      } : null,
-      sniperBuy: sniperResult?.success ? {
-        signature: sniperResult.signature,
-        amountSol: SNIPER_BUY_SOL,
-      } : null,
+      vanityMint: vanityKeypair ? { suffix: '67x', address: vanityKeypair.publicKey } : null,
       solscanUrl: `https://solscan.io/token/${mintAddress}`,
       tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}?chain=sol`,
     });
 
   } catch (error) {
-    console.error('[create-fun] Error:', error);
+    console.error('[create-fun] Error:', error, { elapsed: Date.now() - startTime });
     
-    // If we reserved a vanity address but failed, release it back
+    // Release vanity address on error
     if (vanityKeypairId) {
-      try {
-        await releaseVanityAddress(vanityKeypairId);
-        console.log('[create-fun] Released vanity address back to pool due to error:', vanityKeypairId);
-      } catch (releaseError) {
-        console.error('[create-fun] Failed to release vanity address:', releaseError);
-      }
-    }
-
-    // If this was an async job, notify of failure
-    const { jobId: failedJobId, callbackUrl: failedCallbackUrl } = req.body || {};
-    if (failedJobId && failedCallbackUrl) {
-      try {
-        await fetch(failedCallbackUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jobId: failedJobId,
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          }),
-        });
-      } catch (callbackError) {
-        console.error('[create-fun] Failure callback failed:', callbackError);
-      }
+      releaseVanityAddress(vanityKeypairId).catch(e => 
+        console.log('[create-fun] Failed to release vanity:', e)
+      );
     }
     
     return res.status(500).json({
