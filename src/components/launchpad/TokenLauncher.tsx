@@ -8,9 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
-import { useTokenJobPolling } from "@/hooks/useTokenJobPolling";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
-import { Transaction, Connection, VersionedTransaction } from "@solana/web3.js";
+import { Connection, VersionedTransaction } from "@solana/web3.js";
 import {
   Shuffle,
   Rocket,
@@ -62,7 +61,6 @@ interface TokenLauncherProps {
 export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherProps) {
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
-  const { pollJobStatus, isPolling } = useTokenJobPolling();
 
   const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
@@ -153,9 +151,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
 
     setIsLaunching(true);
     try {
-      toast({ title: "🔄 Creating Token...", description: "Starting on-chain transaction..." });
+      toast({ title: "🔄 Creating Token...", description: "This may take up to 30 seconds..." });
 
-      // Call fun-create - returns job ID immediately for polling
+      // Call fun-create - now returns direct result (no polling needed)
       const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
           name: tokenToLaunch.name,
@@ -173,43 +171,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       if (error) throw new Error(`Server error: ${error.message}`);
       if (!data?.success) throw new Error(data?.error || "Launch failed");
 
-      // Async mode - poll for completion
-      if (data.async && data.jobId) {
-        toast({ title: "⏳ Processing...", description: "Waiting for on-chain confirmation (up to 60s)..." });
-        
-        const result = await pollJobStatus(data.jobId, {
-          maxAttempts: 45,
-          intervalMs: 2000,
-          onProgress: (status) => {
-            console.log("[TokenLauncher] Poll progress:", status.status);
-          },
-        });
-
-        onShowResult({
-          success: true,
-          name: tokenToLaunch.name,
-          ticker: tokenToLaunch.ticker,
-          mintAddress: result.mintAddress,
-          imageUrl: tokenToLaunch.imageUrl,
-          onChainSuccess: true,
-          solscanUrl: result.solscanUrl,
-          tradeUrl: result.tradeUrl,
-          message: result.message || "🚀 Token launched successfully!",
-        });
-      } else {
-        // Direct response (shouldn't happen with current flow but handle it)
-        onShowResult({
-          success: true,
-          name: data.name || tokenToLaunch.name,
-          ticker: data.ticker || tokenToLaunch.ticker,
-          mintAddress: data.mintAddress,
-          imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
-          onChainSuccess: true,
-          solscanUrl: data.solscanUrl,
-          tradeUrl: data.tradeUrl,
-          message: data.message || "🚀 Token launched successfully!",
-        });
-      }
+      // Direct response - no polling needed!
+      onShowResult({
+        success: true,
+        name: tokenToLaunch.name,
+        ticker: tokenToLaunch.ticker,
+        mintAddress: data.mintAddress,
+        imageUrl: tokenToLaunch.imageUrl,
+        onChainSuccess: true,
+        solscanUrl: data.solscanUrl,
+        tradeUrl: data.tradeUrl,
+        message: "🚀 Token launched successfully!",
+      });
 
       toast({ title: "🚀 Token Launched!", description: `${tokenToLaunch.name} is now live on Solana!` });
 
@@ -228,7 +201,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     } finally {
       setIsLaunching(false);
     }
-  }, [walletAddress, toast, clearBanner, onLaunchSuccess, onShowResult, pollJobStatus]);
+  }, [walletAddress, toast, clearBanner, onLaunchSuccess, onShowResult]);
 
   const handleLaunch = useCallback(async () => {
     if (!meme) {
