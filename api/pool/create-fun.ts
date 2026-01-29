@@ -11,6 +11,8 @@ import { createMeteoraPool, createMeteoraPoolWithMint } from '../../lib/meteora.
 import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS } from '../../lib/config.js';
 import { getAvailableVanityAddress, markVanityAddressUsed, releaseVanityAddress } from '../../lib/vanityGenerator.js';
 
+const VERSION = "v1.2.0";
+
 // Configuration
 const INITIAL_VIRTUAL_SOL = 30;
 
@@ -90,9 +92,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { 
       name, ticker, description, imageUrl, websiteUrl, twitterUrl, 
-      feeRecipientWallet, serverSideSign, useVanityAddress = true,
+      feeRecipientWallet, serverSideSign, useVanityAddress = false, // DISABLED by default
       jobId
     } = req.body;
+
+    console.log(`[create-fun][${VERSION}] Request received`, { name, ticker, useVanityAddress, elapsed: Date.now() - startTime });
 
     if (!name || !ticker) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
@@ -102,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'This endpoint requires serverSideSign=true' });
     }
 
-    console.log('[create-fun] Starting token creation:', { name, ticker, elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Starting token creation`, { name, ticker, elapsed: Date.now() - startTime });
 
     const treasuryKeypair = getTreasuryKeypair();
     const treasuryAddress = treasuryKeypair.publicKey.toBase58();
@@ -117,27 +121,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const connection = new Connection(rpcUrl, 'confirmed');
 
     // === PRE-FETCH BLOCKHASH ONCE (saves ~1-2s per tx) ===
-    console.log('[create-fun] Fetching blockhash...', { elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Fetching blockhash...`, { elapsed: Date.now() - startTime });
     const latestBlockhash = await getBlockhashWithRetry(connection);
-    console.log('[create-fun] Blockhash fetched:', { elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Blockhash fetched`, { elapsed: Date.now() - startTime });
 
-    // Try to get a vanity address for the mint
+    // Try to get a vanity address for the mint (DISABLED by default now)
     let vanityKeypair: { id: string; publicKey: string; keypair: Keypair } | null = null;
     
     if (useVanityAddress) {
+      console.log(`[create-fun][${VERSION}] Vanity lookup starting...`, { elapsed: Date.now() - startTime });
       try {
         vanityKeypair = await getAvailableVanityAddress('67x');
         if (vanityKeypair) {
           vanityKeypairId = vanityKeypair.id;
-          console.log('[create-fun] Using vanity mint:', vanityKeypair.publicKey, { elapsed: Date.now() - startTime });
+          console.log(`[create-fun][${VERSION}] Using vanity mint`, { publicKey: vanityKeypair.publicKey, elapsed: Date.now() - startTime });
+        } else {
+          console.log(`[create-fun][${VERSION}] No vanity available, using random`, { elapsed: Date.now() - startTime });
         }
       } catch (vanityError) {
-        console.log('[create-fun] Vanity address unavailable, using random');
+        console.log(`[create-fun][${VERSION}] Vanity lookup failed, using random`, { error: vanityError, elapsed: Date.now() - startTime });
       }
+    } else {
+      console.log(`[create-fun][${VERSION}] Vanity DISABLED, using random mint`, { elapsed: Date.now() - startTime });
     }
 
     // Create Meteora pool transactions
-    console.log('[create-fun] Creating pool transactions...', { elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Creating pool transactions...`, { elapsed: Date.now() - startTime });
     
     let transactions: Transaction[];
     let mintKeypair: Keypair;
@@ -178,7 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const mintAddress = mintKeypair.publicKey.toBase58();
     const dbcPoolAddress = poolAddress.toBase58();
     
-    console.log('[create-fun] Pool prepared:', { mintAddress, dbcPoolAddress, txCount: transactions.length, elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Pool prepared`, { mintAddress, dbcPoolAddress, txCount: transactions.length, elapsed: Date.now() - startTime });
 
     // Build keypair map for signing
     const availableKeypairs: Map<string, Keypair> = new Map([
@@ -213,7 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       tx.sign(...signersForThisTx);
 
-      console.log(`[create-fun] Sending tx ${i + 1}/${transactions.length}...`, { elapsed: Date.now() - startTime });
+      console.log(`[create-fun][${VERSION}] Sending tx ${i + 1}/${transactions.length}...`, { elapsed: Date.now() - startTime });
 
       // Send WITHOUT confirmation - fire and forget
       const signature = await connection.sendRawTransaction(tx.serialize(), {
@@ -223,15 +232,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       signatures.push(signature);
-      console.log(`[create-fun] Tx ${i + 1} sent:`, signature.slice(0, 16) + '...', { elapsed: Date.now() - startTime });
+      console.log(`[create-fun][${VERSION}] Tx ${i + 1} sent`, { sig: signature.slice(0, 16), elapsed: Date.now() - startTime });
 
-      // Small delay between transactions for ordering
+      // Small delay between transactions for ordering (reduced from 100ms)
       if (i < transactions.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
 
-    console.log('[create-fun] All transactions sent!', { signatures, elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] All transactions sent`, { count: signatures.length, elapsed: Date.now() - startTime });
 
     // === DATABASE OPERATIONS (fast) ===
     const virtualSol = INITIAL_VIRTUAL_SOL;
@@ -263,11 +272,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (tokenError) {
-      console.error('[create-fun] Token creation error:', tokenError);
+      console.error(`[create-fun][${VERSION}] Token creation error`, { error: tokenError, elapsed: Date.now() - startTime });
       throw new Error(`Failed to create token: ${tokenError.message}`);
     }
 
-    console.log('[create-fun] Token saved to DB:', { tokenId, elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Token saved to DB`, { tokenId, elapsed: Date.now() - startTime });
 
     // Mark vanity address as used (fire-and-forget)
     if (vanityKeypair) {
@@ -294,9 +303,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sniperClient = createClient(supabaseUrl, supabaseAnonKey);
     sniperClient.functions.invoke('fun-sniper-buy', {
       body: { poolAddress: dbcPoolAddress, mintAddress, tokenId, funTokenId: null },
-    }).catch(err => console.log('[create-fun] Sniper fire-and-forget:', err?.message));
+    }).catch(err => console.log(`[create-fun][${VERSION}] Sniper fire-and-forget`, { error: err?.message }));
 
-    console.log('[create-fun] SUCCESS!', { tokenId, elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] SUCCESS`, { tokenId, mintAddress, totalElapsed: Date.now() - startTime });
 
     return res.status(200).json({
       success: true,
@@ -313,12 +322,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error) {
-    console.error('[create-fun] Error:', error, { elapsed: Date.now() - startTime });
+    console.error(`[create-fun][${VERSION}] Error`, { error: error instanceof Error ? error.message : error, elapsed: Date.now() - startTime });
     
     // Release vanity address on error
     if (vanityKeypairId) {
       releaseVanityAddress(vanityKeypairId).catch(e => 
-        console.log('[create-fun] Failed to release vanity:', e)
+        console.log(`[create-fun][${VERSION}] Failed to release vanity`, { error: e })
       );
     }
     
