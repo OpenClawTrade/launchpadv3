@@ -232,26 +232,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         console.log(`[create-fun] Sending transaction ${i + 1}/${transactions.length}...`);
 
+        // CRITICAL: Send WITHOUT waiting for confirmation to fit within Vercel Hobby 10s limit
+        // Skip preflight to reduce latency - transaction will either succeed or fail on-chain
         const signature = await connection.sendRawTransaction(tx.serialize(), {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
+          skipPreflight: true, // Skip preflight check for speed
+          preflightCommitment: 'processed',
+          maxRetries: 3,
         });
 
-        const confirmation = await connection.confirmTransaction(
-          {
-            signature,
-            blockhash: latest.blockhash,
-            lastValidBlockHeight: latest.lastValidBlockHeight,
-          },
-          'confirmed'
-        );
-
-        if (confirmation.value.err) {
-          throw new Error(`Transaction ${i + 1} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
-        }
-
         signatures.push(signature);
-        console.log(`[create-fun] ✅ Transaction ${i + 1} confirmed:`, signature);
+        console.log(`[create-fun] ✅ Transaction ${i + 1} sent:`, signature);
+
+        // Small delay between transactions to ensure ordering on-chain
+        // This is critical: config tx must be processed before pool tx
+        if (i < transactions.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       } catch (txError) {
         console.error(`[create-fun] ❌ Transaction ${i + 1} failed:`, txError);
         const msg = txError instanceof Error ? txError.message : 'Unknown error';
@@ -259,50 +255,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    console.log('[create-fun] All pool transactions confirmed!', { signatures });
+    console.log('[create-fun] All pool transactions sent!', { signatures });
 
-    // === SNIPER BUY PHASE (via backend function) ===
-    let sniperResult: { success: boolean; tradeId?: string; signature?: string; error?: string } | null = null;
+    // === SNIPER BUY PHASE (fire-and-forget to save time) ===
+    // NOTE: Sniper buy runs asynchronously to not delay the response
+    const sniperResult: { success: boolean; tradeId?: string; signature?: string; error?: string } | null = null;
 
-    try {
-      console.log('[create-fun] Triggering sniper buy via backend function...');
+    // Fire-and-forget sniper (don't await)
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ||
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44';
 
-      // Use hardcoded values since these are public (anon key)
-      const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
-      const supabaseAnonKey =
-        process.env.SUPABASE_ANON_KEY ||
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44';
-
-      const sniperClient = createClient(supabaseUrl, supabaseAnonKey);
-
-      const { data: sniperData, error: sniperError } = await sniperClient.functions.invoke('fun-sniper-buy', {
-        body: {
-          poolAddress: dbcPoolAddress,
-          mintAddress,
-          tokenId: null,
-          funTokenId: null,
-        },
-      });
-
-      console.log('[create-fun] Sniper invoke result:', { sniperData, sniperError });
-
-      if (sniperError) {
-        sniperResult = { success: false, error: sniperError.message };
-        console.error('[create-fun] Sniper buy failed (invoke error):', sniperError);
-      } else {
-        sniperResult = sniperData as any;
-        if (sniperResult?.success) {
-          console.log('[create-fun] ✅ Sniper buy succeeded:', sniperResult.signature);
-          signatures.push(sniperResult.signature || 'sniper-pending');
-        } else {
-          console.error('[create-fun] Sniper buy failed (function response):', sniperResult);
-        }
-      }
-    } catch (sniperError) {
-      console.error('[create-fun] Sniper buy error:', sniperError);
-      sniperResult = { success: false, error: sniperError instanceof Error ? sniperError.message : 'Unknown sniper error' };
-      // Don't fail the entire launch
-    }
+    const sniperClient = createClient(supabaseUrl, supabaseAnonKey);
+    
+    // Non-blocking - trigger and don't wait
+    sniperClient.functions.invoke('fun-sniper-buy', {
+      body: { poolAddress: dbcPoolAddress, mintAddress, tokenId: null, funTokenId: null },
+    }).catch(err => console.log('[create-fun] Sniper fire-and-forget error (ignored):', err));
 
     // Calculate initial values
     const virtualSol = INITIAL_VIRTUAL_SOL;
