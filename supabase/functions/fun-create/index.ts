@@ -65,9 +65,11 @@ async function runJobInBackground(args: {
   console.log("[fun-create/bg] Calling Vercel API...", { jobId });
 
   const controller = new AbortController();
-  // Background job can wait a bit longer than the interactive request,
-  // but Vercel Hobby may still hard-stop at ~10s.
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  // IMPORTANT:
+  // We already return 202 immediately to the client and poll job status.
+  // So we can afford a longer timeout here to avoid false negatives.
+  // (If Vercel is slow/congested, a 15s abort will incorrectly mark jobs failed.)
+  const timeoutId = setTimeout(() => controller.abort(), 55000);
 
   try {
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
