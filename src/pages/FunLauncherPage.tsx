@@ -19,7 +19,7 @@ import { StatsCards } from "@/components/launchpad/StatsCards";
 import { TokenTable } from "@/components/launchpad/TokenTable";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
-import { DebugLogPanel } from "@/components/debug/DebugLogPanel";
+
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import {
@@ -648,9 +648,6 @@ export default function FunLauncherPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Debug Log Panel - always available */}
-      <DebugLogPanel />
     </div>
   );
 }
