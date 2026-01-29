@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrivyProviderWrapper } from "@/providers/PrivyProviderWrapper";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
-import { RpcStatusMonitor } from "@/components/debug/RpcStatusMonitor";
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
@@ -58,7 +57,6 @@ const App = () => (
       <TooltipProvider delayDuration={300}>
         <Toaster />
         <Sonner />
-        <RpcStatusMonitor />
         <ErrorBoundary>
           <BrowserRouter>
             <Suspense fallback={<RouteLoader />}>
