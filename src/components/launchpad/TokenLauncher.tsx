@@ -9,7 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
-import { useTokenJobPolling } from "@/hooks/useTokenJobPolling";
 import { Connection, VersionedTransaction } from "@solana/web3.js";
 import {
   Shuffle,
@@ -62,7 +61,6 @@ interface TokenLauncherProps {
 export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherProps) {
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
-  const { pollJobStatus } = useTokenJobPolling();
 
   const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
@@ -186,45 +184,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         throw new Error(data?.error || "Launch failed");
       }
 
-      // New async flow: fun-create returns immediately with a jobId; poll until completed.
-      if (data?.jobId && !data?.mintAddress) {
-        toast({
-          title: "⏳ Token creation started",
-          description: "Waiting for on-chain confirmation...",
-        });
-
-        const status = await pollJobStatus(String(data.jobId), {
-          onProgress: (s) => {
-            // Keep UX simple: avoid spamming toasts; just log progress.
-            console.log('[TokenLauncher] Job progress:', s);
-          },
-        });
-
-        onShowResult({
-          success: true,
-          name: tokenToLaunch.name,
-          ticker: tokenToLaunch.ticker,
-          mintAddress: status.mintAddress,
-          imageUrl: tokenToLaunch.imageUrl,
-          onChainSuccess: true,
-          solscanUrl: status.solscanUrl,
-          tradeUrl: status.tradeUrl,
-          message: status.message || "🚀 Token launched successfully!",
-        });
-
-        toast({ title: "🚀 Token Launched!", description: `${tokenToLaunch.name} is now live on Solana!` });
-
-        // Clear form
-        setMeme(null);
-        clearBanner();
-        setCustomToken({ name: "", ticker: "", description: "", imageUrl: "", websiteUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "" });
-        setCustomImageFile(null);
-        setCustomImagePreview(null);
-        setWalletAddress("");
-        onLaunchSuccess();
-        return;
-      }
-
       // Success!
       onShowResult({
         success: true,
@@ -263,7 +222,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     } finally {
       setIsLaunching(false);
     }
-  }, [walletAddress, toast, pollJobStatus, clearBanner, onLaunchSuccess, onShowResult]);
+  }, [walletAddress, toast, clearBanner, onLaunchSuccess, onShowResult]);
 
   const handleLaunch = useCallback(async () => {
     if (!meme) {
