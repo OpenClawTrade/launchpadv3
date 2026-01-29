@@ -194,15 +194,66 @@ serve(async (req) => {
 
     console.log(`[fun-create][${VERSION}] SUCCESS`, { mintAddress: result.mintAddress, totalElapsed: Date.now() - startTime });
 
+    // Persist token to DB so it appears in the app immediately.
+    // The UI's "Live Tokens" list reads from public.fun_tokens.
+    const mintAddress = result.mintAddress as string | undefined;
+    const dbcPoolAddress = (result.dbcPoolAddress as string | null | undefined) ?? null;
+
+    let funTokenId: string | null = null;
+
+    if (mintAddress) {
+      // Idempotency: reuse existing token if already inserted (e.g. retries)
+      const { data: existing, error: existingErr } = await supabase
+        .from("fun_tokens")
+        .select("id")
+        .eq("mint_address", mintAddress)
+        .maybeSingle();
+
+      if (existingErr) {
+        console.warn(`[fun-create][${VERSION}] Existing token lookup failed`, { error: existingErr.message });
+      }
+
+      if (existing?.id) {
+        funTokenId = existing.id;
+      }
+    }
+
+    if (!funTokenId) {
+      const { data: inserted, error: insertErr } = await supabase
+        .from("fun_tokens")
+        .insert({
+          name: String(name).slice(0, 50),
+          ticker: String(ticker).toUpperCase().slice(0, 10),
+          description: description?.slice(0, 500) || null,
+          image_url: storedImageUrl || null,
+          creator_wallet: creatorWallet,
+          mint_address: mintAddress || null,
+          dbc_pool_address: dbcPoolAddress,
+          status: "active",
+          price_sol: 0.00000003,
+          website_url: websiteUrl || null,
+          twitter_url: twitterUrl || null,
+        })
+        .select("id")
+        .single();
+
+      if (insertErr) {
+        console.error(`[fun-create][${VERSION}] DB insert failed`, { error: insertErr.message, mintAddress });
+        // We still return success because the on-chain launch succeeded.
+      } else {
+        funTokenId = inserted.id;
+      }
+    }
+
     // Return Vercel's response directly - it has all the data we need
     return new Response(
       JSON.stringify({
         success: true,
-        tokenId: result.tokenId,
-        mintAddress: result.mintAddress,
-        dbcPoolAddress: result.dbcPoolAddress,
+        tokenId: funTokenId || result.tokenId,
+        mintAddress: mintAddress,
+        dbcPoolAddress: dbcPoolAddress,
         solscanUrl: `https://solscan.io/token/${result.mintAddress}`,
-        tradeUrl: `/token/${result.tokenId || result.mintAddress}`,
+        tradeUrl: `/token/${funTokenId || result.tokenId || result.mintAddress}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
