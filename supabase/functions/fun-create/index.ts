@@ -1,13 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const VERSION = "v1.2.0";
+const VERSION = "v1.2.1";
 const DEPLOYED_AT = new Date().toISOString();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+function isHeliusMaxUsageError(message: string): boolean {
+  const m = message.toLowerCase();
+  return m.includes("max usage reached") || m.includes("429 too many requests");
+}
 
 // Blocked patterns for spam/exploit names
 const BLOCKED_PATTERNS = [
@@ -31,7 +38,7 @@ serve(async (req) => {
   const startTime = Date.now();
   
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   const clientIP = 
@@ -165,13 +172,23 @@ serve(async (req) => {
     });
 
     if (!vercelResponse.ok || !result.success) {
-      console.error(`[fun-create][${VERSION}] Vercel error`, { error: result.error, elapsed: Date.now() - startTime });
+      const upstreamError = String(result?.error || `Token creation failed (${vercelResponse.status})`);
+      const mappedStatus = isHeliusMaxUsageError(upstreamError) ? 429 : 500;
+
+      console.error(`[fun-create][${VERSION}] Vercel error`, {
+        status: vercelResponse.status,
+        mappedStatus,
+        error: upstreamError,
+        elapsed: Date.now() - startTime,
+      });
+
       return new Response(
         JSON.stringify({
           success: false,
-          error: result.error || `Token creation failed (${vercelResponse.status})`,
+          error: upstreamError,
+          rateLimited: mappedStatus === 429,
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: mappedStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -191,13 +208,22 @@ serve(async (req) => {
     );
     
   } catch (error) {
-    console.error(`[fun-create][${VERSION}] Fatal error`, { error: error instanceof Error ? error.message : error, elapsed: Date.now() - startTime });
+    const message = error instanceof Error ? error.message : String(error);
+    const mappedStatus = isHeliusMaxUsageError(message) ? 429 : 500;
+
+    console.error(`[fun-create][${VERSION}] Fatal error`, {
+      status: mappedStatus,
+      error: message,
+      elapsed: Date.now() - startTime,
+    });
+
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: message || "Unknown error",
+        rateLimited: mappedStatus === 429,
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: mappedStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
