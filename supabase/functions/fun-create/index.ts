@@ -24,6 +24,153 @@ function isBlockedName(name: string): boolean {
   return BLOCKED_PATTERNS.some(pattern => pattern.test(name));
 }
 
+function waitUntil(promise: Promise<unknown>) {
+  // Supabase Edge Runtime supports EdgeRuntime.waitUntil for background tasks.
+  const er = (globalThis as any).EdgeRuntime;
+  if (er?.waitUntil) {
+    er.waitUntil(promise);
+  } else {
+    // Fallback: don't crash if waitUntil isn't available.
+    promise.catch(() => undefined);
+  }
+}
+
+async function runJobInBackground(args: {
+  jobId: string;
+  meteoraApiUrl: string;
+  name: string;
+  ticker: string;
+  description?: string;
+  storedImageUrl?: string;
+  websiteUrl?: string;
+  twitterUrl?: string;
+  creatorWallet: string;
+}) {
+  const {
+    jobId,
+    meteoraApiUrl,
+    name,
+    ticker,
+    description,
+    storedImageUrl,
+    websiteUrl,
+    twitterUrl,
+    creatorWallet,
+  } = args;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  console.log("[fun-create/bg] Calling Vercel API...", { jobId });
+
+  const controller = new AbortController();
+  // Background job can wait a bit longer than the interactive request,
+  // but Vercel Hobby may still hard-stop at ~10s.
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jobId,
+        name: name.slice(0, 32),
+        ticker: ticker.toUpperCase().slice(0, 10),
+        description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
+        imageUrl: storedImageUrl,
+        websiteUrl: websiteUrl || null,
+        twitterUrl: twitterUrl || null,
+        serverSideSign: true,
+        feeRecipientWallet: creatorWallet,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!vercelResponse.ok) {
+      const errorText = await vercelResponse.text();
+      console.error("[fun-create/bg] Vercel error:", vercelResponse.status, errorText);
+      await supabase.rpc("backend_fail_token_job", {
+        p_job_id: jobId,
+        p_error_message: `API error (${vercelResponse.status}): ${errorText.slice(0, 160)}`,
+      });
+      return;
+    }
+
+    const result = await vercelResponse.json();
+    console.log("[fun-create/bg] Vercel response received:", {
+      jobId,
+      success: result?.success,
+      mintAddress: result?.mintAddress,
+    });
+
+    if (!result?.success) {
+      await supabase.rpc("backend_fail_token_job", {
+        p_job_id: jobId,
+        p_error_message: result?.error || "Unknown error from Vercel",
+      });
+      return;
+    }
+
+    // Success - create fun_tokens record
+    const { data: funToken, error: insertError } = await supabase
+      .from("fun_tokens")
+      .insert({
+        name: name.slice(0, 50),
+        ticker: ticker.toUpperCase().slice(0, 5),
+        description: description?.slice(0, 500) || null,
+        image_url: storedImageUrl || null,
+        creator_wallet: creatorWallet,
+        mint_address: result.mintAddress,
+        dbc_pool_address: result.dbcPoolAddress,
+        status: "active",
+        price_sol: 0.00000003,
+        website_url: websiteUrl || null,
+        twitter_url: twitterUrl || null,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("[fun-create/bg] fun_tokens insert error:", insertError);
+      await supabase.rpc("backend_fail_token_job", {
+        p_job_id: jobId,
+        p_error_message: "Failed to create token record: " + insertError.message,
+      });
+      return;
+    }
+
+    await supabase.rpc("backend_complete_token_job", {
+      p_job_id: jobId,
+      p_mint_address: result.mintAddress,
+      p_dbc_pool_address: result.dbcPoolAddress,
+      p_fun_token_id: funToken?.id || null,
+    });
+
+    console.log("[fun-create/bg] ✅ Job completed", { jobId, tokenId: funToken?.id });
+  } catch (fetchError: unknown) {
+    clearTimeout(timeoutId);
+    const err = fetchError as Error;
+
+    if (err?.name === "AbortError") {
+      console.error("[fun-create/bg] Timeout waiting for Vercel", { jobId });
+      await supabase.rpc("backend_fail_token_job", {
+        p_job_id: jobId,
+        p_error_message: "Token creation timed out. Please try again.",
+      });
+      return;
+    }
+
+    console.error("[fun-create/bg] Fatal fetch error:", err);
+    await supabase.rpc("backend_fail_token_job", {
+      p_job_id: jobId,
+      p_error_message: err?.message || "Unknown fetch error",
+    });
+  }
+}
+
 serve(async (req) => {
   // CRITICAL: Always return CORS headers, even on error
   if (req.method === "OPTIONS") {
@@ -151,130 +298,30 @@ serve(async (req) => {
     // Set job to processing
     await supabase.from("fun_token_jobs").update({ status: "processing" }).eq("id", jobId);
 
-    console.log("[fun-create] Calling Vercel API...");
+    // Start the long-running work in the background and respond immediately.
+    waitUntil(
+      runJobInBackground({
+        jobId,
+        meteoraApiUrl,
+        name,
+        ticker,
+        description,
+        storedImageUrl,
+        websiteUrl,
+        twitterUrl,
+        creatorWallet,
+      })
+    );
 
-    // === KEY FIX: 10-second timeout to match Vercel Hobby limit ===
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    try {
-      const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId,
-          name: name.slice(0, 32),
-          ticker: ticker.toUpperCase().slice(0, 10),
-          description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
-          imageUrl: storedImageUrl,
-          websiteUrl: websiteUrl || null,
-          twitterUrl: twitterUrl || null,
-          serverSideSign: true,
-          feeRecipientWallet: creatorWallet,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!vercelResponse.ok) {
-        const errorText = await vercelResponse.text();
-        console.error("[fun-create] Vercel error:", vercelResponse.status, errorText);
-        
-        await supabase.rpc("backend_fail_token_job", {
-          p_job_id: jobId,
-          p_error_message: `API error (${vercelResponse.status}): ${errorText.slice(0, 100)}`,
-        });
-
-        throw new Error(`Token creation failed: ${errorText.slice(0, 80)}`);
-      }
-
-      const result = await vercelResponse.json();
-      console.log("[fun-create] Vercel response received:", { success: result.success, mintAddress: result.mintAddress });
-
-      if (!result.success) {
-        await supabase.rpc("backend_fail_token_job", {
-          p_job_id: jobId,
-          p_error_message: result.error || "Unknown error from Vercel",
-        });
-        throw new Error(result.error || "Token creation failed");
-      }
-
-      // Success - create fun_tokens record
-      const { data: funToken, error: insertError } = await supabase
-        .from("fun_tokens")
-        .insert({
-          name: name.slice(0, 50),
-          ticker: ticker.toUpperCase().slice(0, 5),
-          description: description?.slice(0, 500) || null,
-          image_url: storedImageUrl || null,
-          creator_wallet: creatorWallet,
-          mint_address: result.mintAddress,
-          dbc_pool_address: result.dbcPoolAddress,
-          status: "active",
-          price_sol: 0.00000003,
-          website_url: websiteUrl || null,
-          twitter_url: twitterUrl || null,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error("[fun-create] fun_tokens insert error:", insertError);
-      }
-
-      // Mark job as completed
-      await supabase.rpc("backend_complete_token_job", {
-        p_job_id: jobId,
-        p_mint_address: result.mintAddress,
-        p_dbc_pool_address: result.dbcPoolAddress,
-        p_fun_token_id: funToken?.id || null,
-      });
-
-      console.log("[fun-create] Token created successfully:", { id: funToken?.id, mintAddress: result.mintAddress });
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          tokenId: funToken?.id,
-          mintAddress: result.mintAddress,
-          dbcPoolAddress: result.dbcPoolAddress,
-          solscanUrl: `https://solscan.io/token/${result.mintAddress}`,
-          tradeUrl: `/token/${funToken?.id || result.mintAddress}`,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-
-    } catch (fetchError: unknown) {
-      clearTimeout(timeoutId);
-
-      const err = fetchError as Error;
-      if (err.name === 'AbortError') {
-        console.error("[fun-create] Timeout after 10s - Vercel Hobby limit likely exceeded");
-        
-        await supabase.rpc("backend_fail_token_job", {
-          p_job_id: jobId,
-          p_error_message: "Token creation timed out. The network may be congested. Please try again.",
-        });
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Token creation timed out. Please try again in a moment.",
-          }),
-          { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      console.error("[fun-create] Fetch error:", err);
-      
-      await supabase.rpc("backend_fail_token_job", {
-        p_job_id: jobId,
-        p_error_message: err.message || "Unknown fetch error",
-      });
-
-      throw err;
-    }
+    return new Response(
+      JSON.stringify({
+        success: true,
+        jobId,
+        status: "processing",
+        message: "Token creation started. Polling for completion...",
+      }),
+      { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
     
   } catch (error) {
     console.error("[fun-create] Fatal error:", error);
