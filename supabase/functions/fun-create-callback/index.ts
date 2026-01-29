@@ -42,12 +42,33 @@ serve(async (req) => {
       );
     }
 
-    if (job.status === "completed" || job.status === "failed") {
+    // If already completed, never process again.
+    if (job.status === "completed") {
       console.log("[fun-create-callback] Job already processed:", job.status);
       return new Response(
         JSON.stringify({ success: true, message: "Job already processed" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // IMPORTANT:
+    // Jobs can be marked "failed" due to client/server timeouts even if the on-chain
+    // creation actually succeeds later. If we receive a SUCCESS callback for a job
+    // currently marked failed, we should still finalize it.
+    if (job.status === "failed" && !success) {
+      console.log("[fun-create-callback] Job already failed; ignoring failure callback");
+      return new Response(
+        JSON.stringify({ success: true, message: "Job already failed" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (job.status === "failed" && success) {
+      console.log("[fun-create-callback] ⚠️ Recovering previously failed job via success callback", {
+        jobId,
+        previousError: job.error_message,
+        mintAddress,
+      });
     }
 
     if (!success) {
@@ -64,32 +85,54 @@ serve(async (req) => {
       );
     }
 
-    // Insert into fun_tokens table
-    const { data: funToken, error: insertError } = await supabase
-      .from("fun_tokens")
-      .insert({
-        name: job.name.slice(0, 50),
-        ticker: job.ticker.toUpperCase().slice(0, 5),
-        description: job.description?.slice(0, 500) || null,
-        image_url: job.image_url || null,
-        creator_wallet: job.creator_wallet,
-        mint_address: mintAddress,
-        dbc_pool_address: dbcPoolAddress,
-        status: "active",
-        price_sol: 0.00000003,
-        website_url: job.website_url || null,
-        twitter_url: job.twitter_url || null,
-      })
-      .select()
-      .single();
+    // Idempotency: if we already created the token row for this mint, reuse it.
+    let funTokenId: string | null = null;
+    if (mintAddress) {
+      const { data: existingToken, error: existingErr } = await supabase
+        .from("fun_tokens")
+        .select("id")
+        .eq("mint_address", mintAddress)
+        .maybeSingle();
 
-    if (insertError) {
-      console.error("[fun-create-callback] ❌ Insert error:", insertError);
-      await supabase.rpc("backend_fail_token_job", {
-        p_job_id: jobId,
-        p_error_message: "Failed to create token record: " + insertError.message,
-      });
-      throw new Error("Failed to create token record");
+      if (existingErr) {
+        console.warn("[fun-create-callback] Existing token lookup failed; continuing", existingErr);
+      }
+
+      if (existingToken?.id) {
+        funTokenId = existingToken.id;
+      }
+    }
+
+    if (!funTokenId) {
+      // Insert into fun_tokens table
+      const { data: funToken, error: insertError } = await supabase
+        .from("fun_tokens")
+        .insert({
+          name: job.name.slice(0, 50),
+          ticker: job.ticker.toUpperCase().slice(0, 5),
+          description: job.description?.slice(0, 500) || null,
+          image_url: job.image_url || null,
+          creator_wallet: job.creator_wallet,
+          mint_address: mintAddress,
+          dbc_pool_address: dbcPoolAddress,
+          status: "active",
+          price_sol: 0.00000003,
+          website_url: job.website_url || null,
+          twitter_url: job.twitter_url || null,
+        })
+        .select("id")
+        .single();
+
+      if (insertError) {
+        console.error("[fun-create-callback] ❌ Insert error:", insertError);
+        await supabase.rpc("backend_fail_token_job", {
+          p_job_id: jobId,
+          p_error_message: "Failed to create token record: " + insertError.message,
+        });
+        throw new Error("Failed to create token record");
+      }
+
+      funTokenId = funToken.id;
     }
 
     // Mark job as completed
@@ -97,20 +140,18 @@ serve(async (req) => {
       p_job_id: jobId,
       p_mint_address: mintAddress,
       p_dbc_pool_address: dbcPoolAddress,
-      p_fun_token_id: funToken.id,
+      p_fun_token_id: funTokenId,
     });
 
     console.log("[fun-create-callback] ✅ Token created successfully:", {
-      id: funToken.id,
-      name: funToken.name,
-      ticker: funToken.ticker,
+      id: funTokenId,
       mintAddress,
     });
 
     return new Response(
       JSON.stringify({
         success: true,
-        tokenId: funToken.id,
+        tokenId: funTokenId,
         mintAddress,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
