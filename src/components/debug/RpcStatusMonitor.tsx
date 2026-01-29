@@ -66,12 +66,6 @@ export function RpcStatusMonitor() {
         resolvedSource: source,
       });
 
-      console.log('[RpcStatusMonitor] Checking RPC:', {
-        url: url.substring(0, 60) + '...',
-        source,
-        localStorage: localStorageUrl?.substring(0, 40),
-        windowConfig: windowConfigUrl?.substring(0, 40),
-      });
 
       const connection = new Connection(url, 'confirmed');
       const blockHeight = await connection.getBlockHeight();
@@ -87,11 +81,6 @@ export function RpcStatusMonitor() {
         lastChecked: new Date(),
       });
 
-      console.log('[RpcStatusMonitor] RPC OK:', {
-        latency: `${latency}ms`,
-        blockHeight,
-        source,
-      });
     } catch (error: any) {
       const latency = Date.now() - startTime;
       const { url, source } = getRpcUrl();
@@ -139,7 +128,6 @@ export function RpcStatusMonitor() {
 
   const clearAndRefresh = useCallback(() => {
     localStorage.removeItem('heliusRpcUrl');
-    console.log('[RpcStatusMonitor] Cleared localStorage heliusRpcUrl');
     window.location.reload();
   }, []);
 

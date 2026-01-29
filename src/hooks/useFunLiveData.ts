@@ -97,8 +97,6 @@ export function useFunLiveData(): UseFunLiveDataResult {
           table: "fun_tokens",
         },
         (payload) => {
-          console.log("[useFunLiveData] Realtime update:", payload.eventType);
-          
           if (payload.eventType === "INSERT") {
             const newToken = payload.new as FunToken;
             setTokens((prev) => [

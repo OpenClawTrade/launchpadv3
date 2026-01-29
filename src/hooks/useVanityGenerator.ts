@@ -319,7 +319,6 @@ export function useVanityGenerator(): UseVanityGeneratorResult {
     
     // Create multiple parallel workers
     const workerCount = getWorkerCount();
-    console.log(`[VanityGenerator] Starting ${workerCount} parallel workers for suffix "${suffix}"`);
     
     for (let i = 0; i < workerCount; i++) {
       const worker = createWorker(i, suffix, caseSensitive);

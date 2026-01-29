@@ -49,7 +49,6 @@ export function useTokenLaunch() {
     setIsLaunching(true);
 
     try {
-      console.log('[useTokenLaunch] Launching token:', params);
 
       // Call the Meteora API to create the pool with signing function
       const result = await createPool(
@@ -72,8 +71,6 @@ export function useTokenLaunch() {
       if (!result.success) {
         throw new Error('Failed to create token');
       }
-
-      console.log('[useTokenLaunch] Token created:', result);
 
       toast({
         title: 'Token Created! 🚀',

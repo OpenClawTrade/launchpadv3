@@ -70,7 +70,7 @@ function init() {
       }
     }
   } catch (e) {
-    console.warn('[DebugLogger] Failed to load from storage:', e);
+    // Silent fail - don't log to console
   }
 }
 
@@ -138,13 +138,7 @@ export function debugLog(
   // Persist
   persist();
   
-  // Also log to console with prefix
-  const consoleMethod = level === 'error' ? console.error 
-    : level === 'warn' ? console.warn 
-    : level === 'debug' ? console.debug 
-    : console.log;
-  
-  consoleMethod(`[${entry.elapsed}] [${level.toUpperCase()}] ${message}`, data || '');
+  // Dispatch event for UI updates (no console output in production)
   
   // Dispatch event for UI updates
   if (typeof window !== 'undefined') {

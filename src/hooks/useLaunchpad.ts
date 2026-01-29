@@ -144,7 +144,6 @@ export function useLaunchpad() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tokens' },
         (payload) => {
-          console.log('[useLaunchpad] Token update:', payload);
           queryClient.invalidateQueries({ queryKey: ['launchpad-tokens'] });
           if (payload.new && 'mint_address' in payload.new) {
             queryClient.invalidateQueries({ queryKey: ['launchpad-token', payload.new.mint_address] });
@@ -159,7 +158,6 @@ export function useLaunchpad() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'launchpad_transactions' },
         (payload) => {
-          console.log('[useLaunchpad] New transaction:', payload);
           if (payload.new && 'token_id' in payload.new) {
             queryClient.invalidateQueries({ queryKey: ['launchpad-transactions', payload.new.token_id] });
           }
@@ -173,7 +171,6 @@ export function useLaunchpad() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'token_holdings' },
         (payload) => {
-          console.log('[useLaunchpad] Holdings update:', payload);
           if (payload.new && 'token_id' in payload.new) {
             queryClient.invalidateQueries({ queryKey: ['launchpad-holders', payload.new.token_id] });
           }

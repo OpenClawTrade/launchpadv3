@@ -74,7 +74,6 @@ export default function TokenDetailPage() {
           filter: `id=eq.${token.id}`
         },
         (payload) => {
-          console.log('[TokenDetail] Token updated:', payload);
           refetchToken();
         }
       )
@@ -92,7 +91,6 @@ export default function TokenDetailPage() {
           filter: `token_id=eq.${token.id}`
         },
         (payload) => {
-          console.log('[TokenDetail] New transaction:', payload);
           refetchTxs();
           refetchToken(); // Also refresh token for price updates
         }
@@ -111,7 +109,6 @@ export default function TokenDetailPage() {
           filter: `token_id=eq.${token.id}`
         },
         (payload) => {
-          console.log('[TokenDetail] Holdings updated:', payload);
           refetchHolders();
         }
       )
@@ -139,7 +136,6 @@ export default function TokenDetailPage() {
           filter: `wallet_address=eq.${solanaAddress}`
         },
         (payload) => {
-          console.log('[TokenDetail] User holdings updated:', payload);
           refetchHoldings();
         }
       )
