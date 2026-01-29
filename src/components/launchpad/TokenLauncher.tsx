@@ -10,7 +10,6 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { Transaction, Connection, VersionedTransaction } from "@solana/web3.js";
-import { useTokenJobPolling } from "@/hooks/useTokenJobPolling";
 import {
   Shuffle,
   Rocket,
@@ -62,7 +61,6 @@ interface TokenLauncherProps {
 export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherProps) {
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
-  const { pollJobStatus, isPolling } = useTokenJobPolling();
 
   const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
@@ -153,9 +151,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
 
     setIsLaunching(true);
     try {
-      toast({ title: "🔄 Creating Token...", description: "Starting on-chain transaction..." });
+      toast({ title: "🔄 Creating Token...", description: "This may take up to 30 seconds..." });
 
-      // Call fun-create which returns immediately with jobId
+      // Call fun-create - now waits synchronously for result
       const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
           name: tokenToLaunch.name,
@@ -173,47 +171,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       if (error) throw new Error(`Server error: ${error.message}`);
       if (!data?.success) throw new Error(data?.error || "Launch failed");
 
-      // Check if async response (needs polling)
-      if (data.async && data.jobId) {
-        toast({ title: "⏳ Token Creation In Progress...", description: "Waiting for on-chain confirmation..." });
-        
-        // Poll for completion
-        const result = await pollJobStatus(data.jobId, {
-          maxAttempts: 60, // 2 minutes max
-          intervalMs: 2000,
-          onProgress: (status) => {
-            if (status.status === 'processing') {
-              toast({ title: "⛓️ Processing...", description: status.message || "On-chain transaction processing..." });
-            }
-          },
-        });
-
-        // Show result from polling
-        onShowResult({
-          success: true,
-          name: tokenToLaunch.name,
-          ticker: tokenToLaunch.ticker,
-          mintAddress: result.mintAddress,
-          imageUrl: tokenToLaunch.imageUrl,
-          onChainSuccess: true,
-          solscanUrl: result.solscanUrl,
-          tradeUrl: result.tradeUrl,
-          message: result.message || "🚀 Token launched successfully!",
-        });
-      } else {
-        // Direct synchronous response (shouldn't happen but handle it)
-        onShowResult({
-          success: true,
-          name: data.name || tokenToLaunch.name,
-          ticker: data.ticker || tokenToLaunch.ticker,
-          mintAddress: data.mintAddress,
-          imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
-          onChainSuccess: true,
-          solscanUrl: data.solscanUrl,
-          tradeUrl: data.tradeUrl,
-          message: data.message || "🚀 Token launched successfully!",
-        });
-      }
+      // Direct response with token data
+      onShowResult({
+        success: true,
+        name: data.name || tokenToLaunch.name,
+        ticker: data.ticker || tokenToLaunch.ticker,
+        mintAddress: data.mintAddress,
+        imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
+        onChainSuccess: true,
+        solscanUrl: data.solscanUrl,
+        tradeUrl: data.tradeUrl,
+        message: data.message || "🚀 Token launched successfully!",
+      });
 
       toast({ title: "🚀 Token Launched!", description: `${tokenToLaunch.name} is now live on Solana!` });
 
@@ -232,7 +201,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     } finally {
       setIsLaunching(false);
     }
-  }, [walletAddress, toast, clearBanner, onLaunchSuccess, onShowResult, pollJobStatus]);
+  }, [walletAddress, toast, clearBanner, onLaunchSuccess, onShowResult]);
 
   const handleLaunch = useCallback(async () => {
     if (!meme) {
