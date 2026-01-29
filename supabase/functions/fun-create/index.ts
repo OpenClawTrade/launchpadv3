@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const VERSION = "v1.2.0";
+const DEPLOYED_AT = new Date().toISOString();
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -25,6 +28,8 @@ function isBlockedName(name: string): boolean {
 }
 
 serve(async (req) => {
+  const startTime = Date.now();
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -34,6 +39,8 @@ serve(async (req) => {
     req.headers.get("x-real-ip") ||
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     "unknown";
+
+  console.log(`[fun-create][${VERSION}] Request received`, { clientIP, deployed: DEPLOYED_AT, elapsed: 0 });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -56,7 +63,7 @@ serve(async (req) => {
       const expiresAt = new Date(oldestLaunch.getTime() + RATE_LIMIT_WINDOW_MS);
       const waitSeconds = Math.ceil((expiresAt.getTime() - Date.now()) / 1000);
       
-      console.log(`[fun-create] Rate limit exceeded for IP: ${clientIP}`);
+      console.log(`[fun-create][${VERSION}] Rate limit exceeded`, { clientIP, elapsed: Date.now() - startTime });
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -67,6 +74,8 @@ serve(async (req) => {
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log(`[fun-create][${VERSION}] Rate limit check passed`, { elapsed: Date.now() - startTime });
 
     const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet } = await req.json();
 
@@ -92,11 +101,12 @@ serve(async (req) => {
       );
     }
 
-    console.log("[fun-create] Starting:", { name, ticker, clientIP });
+    console.log(`[fun-create][${VERSION}] Validated inputs`, { name, ticker, elapsed: Date.now() - startTime });
 
     // Upload base64 image if provided
     let storedImageUrl = imageUrl;
     if (imageUrl?.startsWith("data:image")) {
+      console.log(`[fun-create][${VERSION}] Starting image upload...`, { elapsed: Date.now() - startTime });
       try {
         const base64Data = imageUrl.split(",")[1];
         const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
@@ -109,10 +119,12 @@ serve(async (req) => {
         if (!uploadError) {
           const { data: { publicUrl } } = supabase.storage.from("post-images").getPublicUrl(fileName);
           storedImageUrl = publicUrl;
-          console.log("[fun-create] Image uploaded:", storedImageUrl);
+          console.log(`[fun-create][${VERSION}] Image uploaded`, { url: storedImageUrl, elapsed: Date.now() - startTime });
+        } else {
+          console.log(`[fun-create][${VERSION}] Image upload failed`, { error: uploadError.message, elapsed: Date.now() - startTime });
         }
       } catch (uploadErr) {
-        console.error("[fun-create] Image upload error:", uploadErr);
+        console.error(`[fun-create][${VERSION}] Image upload error`, { error: uploadErr, elapsed: Date.now() - startTime });
       }
     }
 
@@ -124,7 +136,7 @@ serve(async (req) => {
       throw new Error("METEORA_API_URL not configured");
     }
 
-    console.log("[fun-create] Calling Vercel API...");
+    console.log(`[fun-create][${VERSION}] Calling Vercel API...`, { url: `${meteoraApiUrl}/api/pool/create-fun`, elapsed: Date.now() - startTime });
 
     // Call Vercel API synchronously - this does all the work
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
@@ -139,14 +151,21 @@ serve(async (req) => {
         twitterUrl: twitterUrl || null,
         serverSideSign: true,
         feeRecipientWallet: creatorWallet,
+        useVanityAddress: false, // DISABLED - vanity pool is empty
       }),
     });
 
+    const vercelElapsed = Date.now() - startTime;
     const result = await vercelResponse.json();
-    console.log("[fun-create] Vercel response:", { success: result.success, mintAddress: result.mintAddress, status: vercelResponse.status });
+    console.log(`[fun-create][${VERSION}] Vercel response received`, { 
+      success: result.success, 
+      mintAddress: result.mintAddress, 
+      status: vercelResponse.status,
+      elapsed: vercelElapsed 
+    });
 
     if (!vercelResponse.ok || !result.success) {
-      console.error("[fun-create] Vercel error:", result.error);
+      console.error(`[fun-create][${VERSION}] Vercel error`, { error: result.error, elapsed: Date.now() - startTime });
       return new Response(
         JSON.stringify({
           success: false,
@@ -156,7 +175,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("[fun-create] Token created successfully:", result.mintAddress);
+    console.log(`[fun-create][${VERSION}] SUCCESS`, { mintAddress: result.mintAddress, totalElapsed: Date.now() - startTime });
 
     // Return Vercel's response directly - it has all the data we need
     return new Response(
@@ -172,7 +191,7 @@ serve(async (req) => {
     );
     
   } catch (error) {
-    console.error("[fun-create] Fatal error:", error);
+    console.error(`[fun-create][${VERSION}] Fatal error`, { error: error instanceof Error ? error.message : error, elapsed: Date.now() - startTime });
     return new Response(
       JSON.stringify({
         success: false,
