@@ -6,10 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Default socials removed per memory - fields should be null when not provided
-// const DEFAULT_WEBSITE = "https://rift.fun";
-// const DEFAULT_TWITTER = "https://x.com/rift_fun";
-
 // Blocked patterns for spam/exploit names
 const BLOCKED_PATTERNS = [
   /exploit/i,
@@ -41,14 +37,14 @@ serve(async (req) => {
     "unknown";
 
   try {
-    // Initialize Supabase client with service role FIRST for rate limiting
+    // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // ===== SERVER-SIDE RATE LIMIT ENFORCEMENT =====
     const MAX_LAUNCHES_PER_HOUR = 2;
-    const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+    const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
     const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
 
     const { data: recentLaunches, error: rlError } = await supabase
@@ -73,7 +69,6 @@ serve(async (req) => {
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    // ===== END RATE LIMIT ENFORCEMENT =====
 
     const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet } = await req.json();
 
@@ -85,7 +80,7 @@ serve(async (req) => {
       );
     }
 
-    // Block spam/exploit names and tickers
+    // Block spam/exploit names
     if (isBlockedName(name) || isBlockedName(ticker) || isBlockedName(description || "")) {
       console.log("[fun-create] ❌ Blocked spam token attempt:", { name, ticker });
       return new Response(
@@ -102,7 +97,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("[fun-create] 🚀 Creating token:", { name, ticker, creatorWallet, clientIP });
+    console.log("[fun-create] 🚀 Creating async job:", { name, ticker, creatorWallet, clientIP });
 
     // Upload base64 image to storage if provided
     let storedImageUrl = imageUrl;
@@ -133,46 +128,47 @@ serve(async (req) => {
       }
     }
 
-    // Call Vercel API to create real on-chain pool with treasury wallet
-    const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
-    
-    if (!meteoraApiUrl) {
-      console.error("[fun-create] ❌ METEORA_API_URL not configured");
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "On-chain pool creation not configured. Please configure METEORA_API_URL." 
-        }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Create job in database (returns immediately)
+    const { data: jobId, error: jobError } = await supabase.rpc("backend_create_token_job", {
+      p_name: name.slice(0, 50),
+      p_ticker: ticker.toUpperCase().slice(0, 10),
+      p_creator_wallet: creatorWallet,
+      p_description: description?.slice(0, 500) || null,
+      p_image_url: storedImageUrl || null,
+      p_website_url: websiteUrl || null,
+      p_twitter_url: twitterUrl || null,
+      p_client_ip: clientIP,
+    });
+
+    if (jobError || !jobId) {
+      console.error("[fun-create] ❌ Job creation failed:", jobError);
+      throw new Error("Failed to create token job");
     }
 
-    // Get treasury wallet address from private key
-    const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
-    if (!treasuryPrivateKey) {
-      console.error("[fun-create] ❌ TREASURY_PRIVATE_KEY not configured");
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Treasury wallet not configured. Please configure TREASURY_PRIVATE_KEY." 
-        }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    console.log("[fun-create] ✅ Job created:", jobId);
 
-    console.log("[fun-create] 📡 Calling Meteora API:", `${meteoraApiUrl}/api/pool/create-fun`);
-
-    let mintAddress: string;
-    let dbcPoolAddress: string | null = null;
-
+    // Record rate limit entry (ignore errors)
     try {
-      // Call the pool creation API with treasury as creator (server-side signing)
-      const poolResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+      await supabase.from("launch_rate_limits").insert({
+        ip_address: clientIP,
+        token_id: null,
+      });
+    } catch (rlErr) {
+      console.warn("[fun-create] ⚠️ Failed to record rate limit:", rlErr);
+    }
+
+    // Fire-and-forget: Trigger the Vercel API to process the job
+    const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
+    if (meteoraApiUrl) {
+      // Don't await - fire and forget with a short timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+      
+      fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          jobId,
           name: name.slice(0, 32),
           ticker: ticker.toUpperCase().slice(0, 10),
           description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
@@ -181,112 +177,28 @@ serve(async (req) => {
           twitterUrl: twitterUrl || null,
           serverSideSign: true,
           feeRecipientWallet: creatorWallet,
+          callbackUrl: `${supabaseUrl}/functions/v1/fun-create-callback`,
         }),
-      });
-
-      if (!poolResponse.ok) {
-        const errorText = await poolResponse.text();
-        console.error("[fun-create] ❌ Pool API error:", poolResponse.status, errorText);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: `On-chain pool creation failed: ${errorText}` 
-          }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const poolData = await poolResponse.json();
+        signal: controller.signal,
+      }).catch(() => {
+        // Ignore - job will be picked up by callback or cron
+      }).finally(() => clearTimeout(timeoutId));
       
-      if (!poolData.success || !poolData.mintAddress) {
-        console.error("[fun-create] ❌ Pool API returned invalid data:", poolData);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: poolData.error || "On-chain pool creation returned invalid data" 
-          }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      mintAddress = poolData.mintAddress;
-      dbcPoolAddress = poolData.dbcPoolAddress || poolData.poolAddress;
-      console.log("[fun-create] ✅ On-chain pool created:", { mintAddress, dbcPoolAddress });
-
-    } catch (fetchError) {
-      console.error("[fun-create] ❌ Pool API fetch error:", fetchError);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Failed to connect to pool creation service: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}` 
-        }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.log("[fun-create] 📡 Triggered Vercel API (fire-and-forget)");
     }
 
-    // Only insert into fun_tokens table if on-chain creation succeeded
-    // Include social URLs so token-metadata can serve them
-    const { data: funToken, error: insertError } = await supabase
-      .from("fun_tokens")
-      .insert({
-        name: name.slice(0, 50),
-        ticker: ticker.toUpperCase().slice(0, 5),
-        description: description?.slice(0, 500) || null,
-        image_url: storedImageUrl || null,
-        creator_wallet: creatorWallet,
-        mint_address: mintAddress,
-        dbc_pool_address: dbcPoolAddress,
-        status: "active",
-        price_sol: 0.00000003,
-        website_url: websiteUrl || null,
-        twitter_url: twitterUrl || null,
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error("[fun-create] ❌ Insert error:", insertError);
-      throw new Error("Failed to create token record");
-    }
-
-    console.log("[fun-create] ✅ Token created successfully:", {
-      id: funToken.id,
-      name: funToken.name,
-      ticker: funToken.ticker,
-      mintAddress,
-      dbcPoolAddress,
-      status: funToken.status,
-    });
-
-    // Record this launch for rate limiting (ignore errors)
-    try {
-      await supabase.from("launch_rate_limits").insert({
-        ip_address: clientIP,
-        token_id: null, // fun_tokens don't have tokens.id reference
-      });
-      console.log("[fun-create] 📊 Rate limit recorded for IP:", clientIP);
-    } catch (rlErr) {
-      console.warn("[fun-create] ⚠️ Failed to record rate limit:", rlErr);
-    }
-
+    // Return immediately with job ID
     return new Response(
       JSON.stringify({
         success: true,
-        tokenId: funToken.id,
-        name: funToken.name,
-        ticker: funToken.ticker,
-        mintAddress,
-        dbcPoolAddress,
-        imageUrl: storedImageUrl,
-        onChainSuccess: true,
-        solscanUrl: `https://solscan.io/token/${mintAddress}`,
-        tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}`,
-        message: "🚀 Token launched successfully! You'll receive 50% of trading fees every few minutes.",
+        async: true,
+        jobId,
+        status: "processing",
+        message: "Token creation started! Poll /functions/v1/fun-create-status?jobId=" + jobId + " for updates.",
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+    
   } catch (error) {
     console.error("[fun-create] ❌ Fatal error:", error);
     return new Response(
@@ -294,10 +206,7 @@ serve(async (req) => {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
