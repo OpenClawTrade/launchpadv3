@@ -282,7 +282,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_earner_type: 'system',
       p_share_bps: 10000,
       p_wallet_address: PLATFORM_FEE_WALLET,
-    }).catch(e => console.log('[create-fun] Fee earner creation failed:', e));
+    }).then(({ error }) => {
+      if (error) console.log('[create-fun] Fee earner creation failed:', error);
+    });
 
     // Trigger sniper buy (fire-and-forget, non-blocking)
     const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
