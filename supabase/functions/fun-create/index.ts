@@ -166,12 +166,12 @@ serve(async (req) => {
     // Set job to processing
     await supabase.from("fun_token_jobs").update({ status: "processing" }).eq("id", jobId);
 
-    console.log("[fun-create] 🔥 Calling Vercel API synchronously (waiting up to 50s)...");
+    console.log("[fun-create] 🔥 Calling Vercel API (expecting fast response ~5-10s)...");
 
-    // SYNCHRONOUS WAIT: Wait for Vercel response with 50s timeout
-    // Supabase Edge Functions can run for 60s, so we use 50s to leave buffer
+    // OPTIMIZED: Vercel now sends transactions without waiting for confirmation
+    // This should complete in ~5-10 seconds, but we allow 15s buffer
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 50000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
@@ -273,11 +273,11 @@ serve(async (req) => {
 
       const err = fetchError as Error;
       if (err.name === 'AbortError') {
-        console.error("[fun-create] ❌ Timeout: Vercel took too long (50s)");
+        console.error("[fun-create] ❌ Timeout: Vercel took too long (15s)");
         
         await supabase.rpc("backend_fail_token_job", {
           p_job_id: jobId,
-          p_error_message: "Token creation timed out after 50 seconds. Please try again.",
+          p_error_message: "Token creation timed out after 15 seconds. Please try again.",
         });
 
         return new Response(
