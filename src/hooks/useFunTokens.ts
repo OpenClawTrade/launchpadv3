@@ -248,50 +248,33 @@ export function useFunTokens(): UseFunTokensResult {
     },
     []
   );
+  // OPTIMIZED: Only fetch live data for a SINGLE token when explicitly requested
+  // The main token list now relies entirely on DB-cached values from the cron job
+  // This eliminates the 500+ RPC calls that were causing rate limiting (429 errors)
   const refreshLiveData = useCallback(
     async (opts?: { onlyTokenId?: string }) => {
+      // Only allow single-token refreshes to prevent mass RPC calls
+      if (!opts?.onlyTokenId) {
+        // Bulk refresh is now disabled - DB cache handles this via cron
+        console.log("[useFunTokens] Skipping bulk live refresh - using DB cache");
+        return;
+      }
+
       const currentSeq = ++liveRefreshSeq.current;
       const base = tokensRef.current;
-      if (base.length === 0) return;
+      const token = base.find((t) => t.id === opts.onlyTokenId);
+      
+      if (!token?.dbc_pool_address || token.dbc_pool_address.length <= 30) return;
 
-      const subset = opts?.onlyTokenId
-        ? base.filter((t) => t.id === opts.onlyTokenId)
-        : base.filter((t) => !!t.dbc_pool_address && t.dbc_pool_address.length > 30);
-
-      if (subset.length === 0) return;
-
-      const allResults: Array<PromiseSettledResult<{ id: string; live: Partial<LiveFields> | null }>> = [];
-
-      for (let i = 0; i < subset.length; i += LIVE_BATCH_SIZE) {
-        const batch = subset.slice(i, i + LIVE_BATCH_SIZE);
-        const batchResults = await Promise.allSettled(
-          batch.map(async (token) => {
-            const live = await fetchLiveForToken(token);
-            return { id: token.id, live };
-          })
-        );
-        allResults.push(...batchResults);
-
-        // Ignore stale refreshes mid-flight
-        if (currentSeq !== liveRefreshSeq.current) return;
-      }
+      const live = await fetchLiveForToken(token);
 
       // Ignore stale refreshes
       if (currentSeq !== liveRefreshSeq.current) return;
 
-      const liveMap = new Map<string, Partial<LiveFields>>();
-      for (const r of allResults) {
-        if (r.status !== "fulfilled") continue;
-        if (r.value.live) liveMap.set(r.value.id, r.value.live);
-      }
-
-      if (liveMap.size === 0) return;
+      if (!live) return;
 
       setTokens((prev) => {
-        const next = prev.map((t) => {
-          const live = liveMap.get(t.id);
-          return live ? mergeLive(t, live) : t;
-        });
+        const next = prev.map((t) => (t.id === token.id ? mergeLive(t, live) : t));
         tokensRef.current = next;
         return next;
       });
