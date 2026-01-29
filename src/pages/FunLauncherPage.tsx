@@ -552,63 +552,97 @@ export default function FunLauncherPage() {
 
       {/* Launch Result Modal */}
       <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
-        <DialogContent className="gate-card max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {launchResult?.success ? (
-                <>
-                  <PartyPopper className="h-5 w-5 text-primary" />
-                  Token Launched!
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-5 w-5 text-destructive" />
-                  Launch Failed
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              {launchResult?.success
-                ? `${launchResult.name} ($${launchResult.ticker}) is now live on Solana!`
-                : launchResult?.error || "Something went wrong"}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="bg-[hsl(160,30%,6%)] border border-primary/30 rounded-2xl max-w-md p-0 overflow-hidden shadow-[0_0_60px_rgba(16,185,129,0.15)]">
+          {/* Header with gradient */}
+          <div className="relative px-6 pt-6 pb-4">
+            <DialogHeader className="text-center">
+              <DialogTitle className="flex items-center justify-center gap-2 text-xl font-bold text-foreground">
+                {launchResult?.success ? (
+                  <>
+                    <PartyPopper className="h-6 w-6 text-primary" />
+                    Token Launched!
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-6 w-6 text-destructive" />
+                    Launch Failed
+                  </>
+                )}
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground mt-1">
+                {launchResult?.success
+                  ? `${launchResult.name} ($${launchResult.ticker}) is now live on Solana!`
+                  : launchResult?.error || "Something went wrong"}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
           {launchResult?.success && (
-            <div className="space-y-4">
+            <div className="px-6 pb-6 space-y-5">
+              {/* Token Image with glow */}
               {launchResult.imageUrl && (
-                <div className="flex justify-center">
-                  <img src={launchResult.imageUrl} alt={launchResult.name} className="w-24 h-24 rounded-full border-4 border-primary/20" />
+                <div className="flex justify-center -mt-2">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl scale-110" />
+                    <img 
+                      src={launchResult.imageUrl} 
+                      alt={launchResult.name} 
+                      className="relative w-28 h-28 rounded-full border-4 border-primary/40 shadow-lg object-cover" 
+                    />
+                  </div>
                 </div>
               )}
 
+              {/* Contract Address Card */}
               {launchResult.mintAddress && (
-                <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Contract Address</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs font-mono text-foreground truncate">{launchResult.mintAddress}</code>
-                    <button onClick={() => copyToClipboard(launchResult.mintAddress!)} className="gate-copy-btn">
-                      {copiedAddress === launchResult.mintAddress ? <CheckCircle className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                <div className="p-4 rounded-xl bg-[hsl(160,20%,10%)] border border-primary/20">
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">Contract Address</p>
+                  <div className="flex items-center gap-3">
+                    <code className="flex-1 text-sm font-mono text-foreground truncate">
+                      {launchResult.mintAddress}
+                    </code>
+                    <button 
+                      onClick={() => copyToClipboard(launchResult.mintAddress!)} 
+                      className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                    >
+                      {copiedAddress === launchResult.mintAddress 
+                        ? <CheckCircle className="h-4 w-4 text-primary" /> 
+                        : <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                      }
                     </button>
                   </div>
                 </div>
               )}
 
-              <div className="flex gap-2">
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
                 {launchResult.solscanUrl && (
                   <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-                    <Button variant="outline" className="w-full gate-btn gate-btn-secondary">
-                      <ExternalLink className="h-4 w-4 mr-2" /> View on Solscan
+                    <Button 
+                      variant="outline" 
+                      className="w-full h-11 bg-transparent border-primary/30 text-foreground hover:bg-primary/10 hover:border-primary/50 rounded-xl font-medium transition-all"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" /> 
+                      View on Solscan
                     </Button>
                   </a>
                 )}
                 {launchResult.tradeUrl && (
                   <a href={launchResult.tradeUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-                    <Button className="w-full gate-btn gate-btn-primary">
+                    <Button className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold shadow-lg shadow-primary/25 transition-all">
                       Trade Now
                     </Button>
                   </a>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Error state content */}
+          {!launchResult?.success && launchResult?.error && (
+            <div className="px-6 pb-6">
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                <p className="text-sm text-destructive">{launchResult.error}</p>
               </div>
             </div>
           )}
