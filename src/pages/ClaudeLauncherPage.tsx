@@ -12,7 +12,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunTokens } from "@/hooks/useFunTokens";
-import { useTokenJobPolling } from "@/hooks/useTokenJobPolling";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
 import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
@@ -94,7 +93,6 @@ export default function ClaudeLauncherPage() {
   const { solPrice } = useSolPrice();
   const isMobile = useIsMobile();
   const { tokens, isLoading: tokensLoading, lastUpdate, refetch } = useFunTokens();
-  const { pollJobStatus } = useTokenJobPolling();
 
   // Main tabs
   const [activeTab, setActiveTab] = useState<MainTab>("tokens");
@@ -279,7 +277,7 @@ export default function ClaudeLauncherPage() {
 
     setIsLaunching(true);
     try {
-      toast({ title: "🔄 Creating Token...", description: "Starting on-chain transaction..." });
+      toast({ title: "🔄 Creating Token...", description: "This may take up to 30 seconds..." });
 
       const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
@@ -298,43 +296,18 @@ export default function ClaudeLauncherPage() {
       if (error) throw new Error(error.message || error.toString());
       if (!data?.success) throw new Error(data?.error || "Launch failed");
 
-      // Async mode - poll for completion
-      if (data.async && data.jobId) {
-        toast({ title: "⏳ Processing...", description: "Waiting for on-chain confirmation (up to 60s)..." });
-        
-        const result = await pollJobStatus(data.jobId, {
-          maxAttempts: 45,
-          intervalMs: 2000,
-          onProgress: (status) => {
-            console.log("[ClaudeLauncher] Poll progress:", status.status);
-          },
-        });
-
-        setLaunchResult({
-          success: true,
-          name: tokenToLaunch.name,
-          ticker: tokenToLaunch.ticker,
-          mintAddress: result.mintAddress,
-          imageUrl: tokenToLaunch.imageUrl,
-          onChainSuccess: true,
-          solscanUrl: result.solscanUrl,
-          tradeUrl: result.tradeUrl,
-          message: result.message || "🚀 Token launched!",
-        });
-      } else {
-        // Direct response (fallback)
-        setLaunchResult({
-          success: true,
-          name: data.name || tokenToLaunch.name,
-          ticker: data.ticker || tokenToLaunch.ticker,
-          mintAddress: data.mintAddress,
-          imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
-          onChainSuccess: true,
-          solscanUrl: data.solscanUrl,
-          tradeUrl: data.tradeUrl,
-          message: data.message || "🚀 Token launched!",
-        });
-      }
+      // Direct response - no polling needed!
+      setLaunchResult({
+        success: true,
+        name: tokenToLaunch.name,
+        ticker: tokenToLaunch.ticker,
+        mintAddress: data.mintAddress,
+        imageUrl: tokenToLaunch.imageUrl,
+        onChainSuccess: true,
+        solscanUrl: data.solscanUrl,
+        tradeUrl: data.tradeUrl,
+        message: "🚀 Token launched!",
+      });
 
       setShowResultModal(true);
       toast({ title: "🚀 Token Launched!", description: `${tokenToLaunch.name} is now live!` });
@@ -353,7 +326,7 @@ export default function ClaudeLauncherPage() {
     } finally {
       setIsLaunching(false);
     }
-  }, [walletAddress, toast, clearBanner, refetch, pollJobStatus]);
+  }, [walletAddress, toast, clearBanner, refetch]);
 
   const handleLaunch = useCallback(async () => {
     if (!meme) {

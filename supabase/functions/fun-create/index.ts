@@ -166,41 +166,138 @@ serve(async (req) => {
     // Set job to processing
     await supabase.from("fun_token_jobs").update({ status: "processing" }).eq("id", jobId);
 
-    console.log("[fun-create] 🔥 Firing async call to Vercel API (fire-and-forget)...");
+    console.log("[fun-create] 🔥 Calling Vercel API synchronously (waiting up to 50s)...");
 
-    // FIRE-AND-FORGET: Don't await this - Vercel will call back when done
-    // This is necessary because Vercel Hobby plan has 10s timeout but on-chain ops take 20-40s
-    fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jobId,
-        name: name.slice(0, 32),
-        ticker: ticker.toUpperCase().slice(0, 10),
-        description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
-        imageUrl: storedImageUrl,
-        websiteUrl: websiteUrl || null,
-        twitterUrl: twitterUrl || null,
-        serverSideSign: true,
-        feeRecipientWallet: creatorWallet,
-        callbackUrl: `${supabaseUrl}/functions/v1/fun-create-callback`,
-      }),
-    }).catch(err => {
-      console.error("[fun-create] ⚠️ Fire-and-forget request failed:", err);
-    });
+    // SYNCHRONOUS WAIT: Wait for Vercel response with 50s timeout
+    // Supabase Edge Functions can run for 60s, so we use 50s to leave buffer
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 50000);
 
-    // Return immediately with job ID - frontend will poll for status
-    console.log("[fun-create] ✅ Returning job ID for polling:", jobId);
-    
-    return new Response(
-      JSON.stringify({
-        success: true,
-        async: true,
-        jobId,
-        message: "Token creation started. Waiting for on-chain confirmation...",
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    try {
+      const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          name: name.slice(0, 32),
+          ticker: ticker.toUpperCase().slice(0, 10),
+          description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
+          imageUrl: storedImageUrl,
+          websiteUrl: websiteUrl || null,
+          twitterUrl: twitterUrl || null,
+          serverSideSign: true,
+          feeRecipientWallet: creatorWallet,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!vercelResponse.ok) {
+        const errorText = await vercelResponse.text();
+        console.error("[fun-create] ❌ Vercel error:", vercelResponse.status, errorText);
+        
+        // Mark job as failed
+        await supabase.rpc("backend_fail_token_job", {
+          p_job_id: jobId,
+          p_error_message: `Vercel API error (${vercelResponse.status}): ${errorText.slice(0, 200)}`,
+        });
+
+        throw new Error(`Token creation failed: ${errorText.slice(0, 100)}`);
+      }
+
+      const result = await vercelResponse.json();
+      console.log("[fun-create] ✅ Vercel response:", result);
+
+      if (!result.success) {
+        await supabase.rpc("backend_fail_token_job", {
+          p_job_id: jobId,
+          p_error_message: result.error || "Unknown error from Vercel",
+        });
+        throw new Error(result.error || "Token creation failed");
+      }
+
+      // SUCCESS! Create fun_tokens record directly
+      const { data: funToken, error: insertError } = await supabase
+        .from("fun_tokens")
+        .insert({
+          name: name.slice(0, 50),
+          ticker: ticker.toUpperCase().slice(0, 5),
+          description: description?.slice(0, 500) || null,
+          image_url: storedImageUrl || null,
+          creator_wallet: creatorWallet,
+          mint_address: result.mintAddress,
+          dbc_pool_address: result.dbcPoolAddress,
+          status: "active",
+          price_sol: 0.00000003,
+          website_url: websiteUrl || null,
+          twitter_url: twitterUrl || null,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("[fun-create] ❌ Failed to insert fun_tokens:", insertError);
+        // Token was created on-chain, but DB insert failed - still return success
+      }
+
+      // Mark job as completed
+      await supabase.rpc("backend_complete_token_job", {
+        p_job_id: jobId,
+        p_mint_address: result.mintAddress,
+        p_dbc_pool_address: result.dbcPoolAddress,
+        p_fun_token_id: funToken?.id || null,
+      });
+
+      console.log("[fun-create] ✅ Token created successfully:", {
+        id: funToken?.id,
+        name,
+        ticker,
+        mintAddress: result.mintAddress,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          tokenId: funToken?.id,
+          mintAddress: result.mintAddress,
+          dbcPoolAddress: result.dbcPoolAddress,
+          solscanUrl: `https://solscan.io/token/${result.mintAddress}`,
+          tradeUrl: `/token/${funToken?.id || result.mintAddress}`,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+
+      const err = fetchError as Error;
+      if (err.name === 'AbortError') {
+        console.error("[fun-create] ❌ Timeout: Vercel took too long (50s)");
+        
+        await supabase.rpc("backend_fail_token_job", {
+          p_job_id: jobId,
+          p_error_message: "Token creation timed out after 50 seconds. Please try again.",
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Token creation timed out. Please try again.",
+          }),
+          { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.error("[fun-create] ❌ Fetch error:", err);
+      
+      await supabase.rpc("backend_fail_token_job", {
+        p_job_id: jobId,
+        p_error_message: err.message || "Unknown fetch error",
+      });
+
+      throw err;
+    }
     
   } catch (error) {
     console.error("[fun-create] ❌ Fatal error:", error);
