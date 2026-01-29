@@ -48,6 +48,12 @@ verify_jwt = false
 [functions.fun-create]
 verify_jwt = false
 
+[functions.fun-create-callback]
+verify_jwt = false
+
+[functions.fun-create-status]
+verify_jwt = false
+
 [functions.fun-phantom-create]
 verify_jwt = false
 

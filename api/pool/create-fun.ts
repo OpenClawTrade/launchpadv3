@@ -76,7 +76,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let vanityKeypairId: string | null = null;
 
   try {
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, feeRecipientWallet, serverSideSign, useVanityAddress = true } = req.body;
+    const { 
+      name, ticker, description, imageUrl, websiteUrl, twitterUrl, 
+      feeRecipientWallet, serverSideSign, useVanityAddress = true,
+      jobId, callbackUrl // Async job support
+    } = req.body;
 
     if (!name || !ticker) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
@@ -370,6 +374,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       isVanityMint: !!vanityKeypair,
     });
 
+    // If this was an async job, call back to Edge Function
+    if (jobId && callbackUrl) {
+      try {
+        console.log('[create-fun] Calling back to Edge Function:', callbackUrl);
+        await fetch(callbackUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobId,
+            success: true,
+            mintAddress,
+            dbcPoolAddress,
+          }),
+        });
+        console.log('[create-fun] Callback sent successfully');
+      } catch (callbackError) {
+        console.error('[create-fun] Callback failed:', callbackError);
+        // Non-critical - token is created, just callback failed
+      }
+    }
+
     return res.status(200).json({
       success: true,
       tokenId,
@@ -401,6 +426,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log('[create-fun] Released vanity address back to pool due to error:', vanityKeypairId);
       } catch (releaseError) {
         console.error('[create-fun] Failed to release vanity address:', releaseError);
+      }
+    }
+
+    // If this was an async job, notify of failure
+    const { jobId: failedJobId, callbackUrl: failedCallbackUrl } = req.body || {};
+    if (failedJobId && failedCallbackUrl) {
+      try {
+        await fetch(failedCallbackUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobId: failedJobId,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }),
+        });
+      } catch (callbackError) {
+        console.error('[create-fun] Failure callback failed:', callbackError);
       }
     }
     

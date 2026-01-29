@@ -870,6 +870,66 @@ export type Database = {
           },
         ]
       }
+      fun_token_jobs: {
+        Row: {
+          client_ip: string | null
+          completed_at: string | null
+          created_at: string | null
+          creator_wallet: string
+          dbc_pool_address: string | null
+          description: string | null
+          error_message: string | null
+          fun_token_id: string | null
+          id: string
+          image_url: string | null
+          mint_address: string | null
+          name: string
+          status: string
+          ticker: string
+          twitter_url: string | null
+          updated_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          client_ip?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          creator_wallet: string
+          dbc_pool_address?: string | null
+          description?: string | null
+          error_message?: string | null
+          fun_token_id?: string | null
+          id?: string
+          image_url?: string | null
+          mint_address?: string | null
+          name: string
+          status?: string
+          ticker: string
+          twitter_url?: string | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          client_ip?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          creator_wallet?: string
+          dbc_pool_address?: string | null
+          description?: string | null
+          error_message?: string | null
+          fun_token_id?: string | null
+          id?: string
+          image_url?: string | null
+          mint_address?: string | null
+          name?: string
+          status?: string
+          ticker?: string
+          twitter_url?: string | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       fun_tokens: {
         Row: {
           bonding_progress: number | null
@@ -2648,6 +2708,15 @@ export type Database = {
         Args: { p_lock_duration_seconds?: number; p_token_id: string }
         Returns: boolean
       }
+      backend_complete_token_job: {
+        Args: {
+          p_dbc_pool_address: string
+          p_fun_token_id: string
+          p_job_id: string
+          p_mint_address: string
+        }
+        Returns: undefined
+      }
       backend_create_api_account: {
         Args: {
           p_api_key_hash: string
@@ -2710,8 +2779,25 @@ export type Database = {
         }
         Returns: string
       }
+      backend_create_token_job: {
+        Args: {
+          p_client_ip?: string
+          p_creator_wallet: string
+          p_description?: string
+          p_image_url?: string
+          p_name: string
+          p_ticker: string
+          p_twitter_url?: string
+          p_website_url?: string
+        }
+        Returns: string
+      }
       backend_fail_sniper_trade: {
         Args: { p_error_message: string; p_id: string }
+        Returns: undefined
+      }
+      backend_fail_token_job: {
+        Args: { p_error_message: string; p_job_id: string }
         Returns: undefined
       }
       backend_get_recent_vanity_keypairs: {
