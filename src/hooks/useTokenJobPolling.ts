@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 interface JobStatus {
   jobId: string;
@@ -40,12 +39,6 @@ export function useTokenJobPolling() {
         
         console.log(`[useTokenJobPolling] Polling attempt ${attempts}/${maxAttempts} for job ${jobId}`);
         
-        const { data, error } = await supabase.functions.invoke("fun-create-status", {
-          body: {},
-          headers: {},
-        }).then(() => null).catch(() => null) as any;
-
-        // Use direct fetch since invoke doesn't support query params well
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fun-create-status?jobId=${jobId}`,
           {
