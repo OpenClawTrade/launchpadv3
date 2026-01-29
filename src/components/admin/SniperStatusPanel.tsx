@@ -78,7 +78,6 @@ export function SniperStatusPanel() {
           table: "sniper_trades",
         },
         (payload) => {
-          console.log("[SniperStatusPanel] Realtime update:", payload);
           fetchTrades();
         }
       )

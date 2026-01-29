@@ -52,22 +52,15 @@ export default function PrivyWalletProvider({
     if (!currentWallet) return null;
 
     return async (txBytes: Uint8Array): Promise<Uint8Array> => {
-      console.log('[PrivyWalletProvider] signTransactionBytes called');
-      console.log('[PrivyWalletProvider] Signing with wallet:', currentWallet.address);
-      
       // Get the standard wallet interface
       const standardWallet = (currentWallet as any).standardWallet;
       if (!standardWallet) {
-        console.error('[PrivyWalletProvider] No standardWallet interface found');
         throw new Error('Wallet does not support standard interface');
       }
-      
-      console.log('[PrivyWalletProvider] Standard wallet name:', standardWallet.name);
       
       // Get the signTransaction feature
       const signFeature = standardWallet.features['solana:signTransaction'];
       if (!signFeature) {
-        console.error('[PrivyWalletProvider] Wallet does not have solana:signTransaction feature');
         throw new Error('Wallet does not support signTransaction');
       }
       
@@ -76,11 +69,8 @@ export default function PrivyWalletProvider({
         (a: any) => a.address === currentWallet.address
       );
       if (!account) {
-        console.error('[PrivyWalletProvider] Could not find account for address:', currentWallet.address);
         throw new Error(`Could not find wallet account for ${currentWallet.address}`);
       }
-      
-      console.log('[PrivyWalletProvider] TX bytes length:', txBytes.length);
       
       // Sign using Wallet Standard - returns actually signed bytes
       const results = await signFeature.signTransaction({
@@ -92,21 +82,15 @@ export default function PrivyWalletProvider({
       // Get the signed transaction bytes
       const signedBytes = results[0]?.signedTransaction || results?.signedTransaction;
       if (!signedBytes) {
-        console.error('[PrivyWalletProvider] No signed transaction in result:', results);
         throw new Error('Wallet did not return signed transaction');
       }
-      
-      console.log('[PrivyWalletProvider] Signed TX bytes length:', signedBytes.length);
       
       // Verify signature is not all zeros
       const sig = signedBytes.slice(0, 64);
       const isAllZeros = sig.every((b: number) => b === 0);
       if (isAllZeros) {
-        console.error('[PrivyWalletProvider] WARNING: Signature is all zeros!');
         throw new Error('Wallet returned invalid (zero) signature');
       }
-      
-      console.log('[PrivyWalletProvider] Signature valid (not all zeros)');
       
       return signedBytes;
     };
@@ -151,20 +135,6 @@ export default function PrivyWalletProvider({
 
     if (walletSig !== prevWalletSigRef.current) {
       prevWalletSigRef.current = walletSig;
-
-      if (import.meta.env.DEV) {
-        console.log(
-          "[PrivyWalletProvider] wallets:",
-          list.map((w: any) => ({
-            address: w?.address,
-            standardWallet: w?.standardWallet?.name,
-            walletClientType: w?.walletClientType,
-            chainType: w?.chainType,
-            hasSignFeature: !!(w?.standardWallet?.features?.['solana:signTransaction']),
-          }))
-        );
-      }
-
       onWalletsChange(list);
     }
 
@@ -181,7 +151,6 @@ export default function PrivyWalletProvider({
     if (prevSigningWalletRef.current !== signingWalletAddress) {
       prevSigningWalletRef.current = signingWalletAddress;
       onSigningWalletChange?.(signingWalletAddress);
-      console.log('[PrivyWalletProvider] Signing wallet changed to:', signingWalletAddress);
     }
   }, [wallets, signer, signTransactionBytes, signingWalletAddress, onWalletsChange, onSignTransactionChange, onSignTransactionBytesChange, onSigningWalletChange]);
 

@@ -29,7 +29,6 @@ export function RuntimeConfigBootstrap() {
     const existingRpcUrl = localStorage.getItem("heliusRpcUrl");
     
     if (existingApiUrl && existingApiUrl.startsWith("https://")) {
-      console.log("[RuntimeConfig] Using cached config from localStorage");
       window.__PUBLIC_CONFIG__ = {
         meteoraApiUrl: existingApiUrl,
         heliusRpcUrl: existingRpcUrl || undefined,
@@ -56,16 +55,13 @@ export function RuntimeConfigBootstrap() {
         // Persist to localStorage for next page load
         if (cfg.meteoraApiUrl) {
           localStorage.setItem("meteoraApiUrl", cfg.meteoraApiUrl);
-          console.log("[RuntimeConfig] Saved meteoraApiUrl:", cfg.meteoraApiUrl);
         }
         if (cfg.heliusRpcUrl) {
           localStorage.setItem("heliusRpcUrl", cfg.heliusRpcUrl);
-          console.log("[RuntimeConfig] Saved heliusRpcUrl:", cfg.heliusRpcUrl.substring(0, 50) + "...");
         }
         
         setLoaded(true);
       } catch (e) {
-        console.warn("[RuntimeConfig] Failed to load public-config", e);
         window.__PUBLIC_CONFIG_LOADED__ = true; // Mark as loaded anyway so app doesn't wait forever
         setLoaded(true);
       }

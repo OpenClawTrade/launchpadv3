@@ -41,7 +41,6 @@ export function useSwap() {
     setIsSwapping(true);
 
     try {
-      console.log('[useSwap] Executing swap:', params);
 
       // For sells, verify balance
       if (!params.isBuy) {
@@ -72,8 +71,6 @@ export function useSwap() {
       if (!result.success) {
         throw new Error('Swap failed');
       }
-
-      console.log('[useSwap] Swap completed:', result);
 
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['launchpad-token', params.mintAddress] });

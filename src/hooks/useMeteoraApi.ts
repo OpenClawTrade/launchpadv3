@@ -31,7 +31,6 @@ const getApiUrl = (): string => {
 
   // 4) Fallback to current origin (will fail on trenches.to but at least shows clear error)
   if (typeof window !== "undefined") {
-    console.warn("[getApiUrl] No API URL configured, falling back to origin:", window.location.origin);
     return window.location.origin;
   }
 
@@ -51,8 +50,6 @@ async function apiRequest<T>(
 ): Promise<T> {
   const apiUrl = getApiUrl();
   const url = `${apiUrl}/api${endpoint}`;
-
-  console.log('[useMeteoraApi] Request:', { url, body });
 
   // Build headers - include x-launchpad-id if set in localStorage
   const headers: Record<string, string> = {
@@ -239,25 +236,10 @@ export function useMeteoraApi() {
     signTransaction?: (tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>
   ): Promise<CreatePoolResponse & { signature?: string; signatures?: string[] }> => {
     setIsLoading(true);
-    console.log('[createPool] Starting pool creation...');
-    console.log('[createPool] Params:', JSON.stringify(params, null, 2));
-    console.log('[createPool] signTransaction provided:', !!signTransaction);
     
     try {
       // Step 1: Get transactions from API
-      console.log('[createPool] Step 1: Calling API /pool/create...');
-      const apiStartTime = Date.now();
       const result = await apiRequest<CreatePoolResponse>('/pool/create', params);
-      console.log('[createPool] API responded in', Date.now() - apiStartTime, 'ms');
-      console.log('[createPool] API result:', {
-        success: result.success,
-        tokenId: result.tokenId,
-        mintAddress: result.mintAddress,
-        dbcPoolAddress: result.dbcPoolAddress,
-        hasTransaction: !!result.transaction,
-        transactionsCount: result.transactions?.length || 0,
-        hasSigners: !!result.signers,
-      });
 
       const txBase64s =
         result.transactions && result.transactions.length > 0
@@ -266,12 +248,9 @@ export function useMeteoraApi() {
             ? [result.transaction]
             : [];
 
-      console.log('[createPool] Transactions to sign:', txBase64s.length);
-
       // Step 2: If transactions need signing by user wallet
       if (txBase64s.length > 0 && signTransaction) {
         const rpcUrl = getRpcUrl();
-        console.log('[createPool] Step 2: Connecting to RPC:', rpcUrl.substring(0, 50) + '...');
         const connection = new Connection(rpcUrl, 'confirmed');
 
         // Get keypairs from backend for re-signing
@@ -282,9 +261,8 @@ export function useMeteoraApi() {
           try {
             mintKeypair = deserializeKeypair(result.signers.mint);
             configKeypair = deserializeKeypair(result.signers.config);
-            console.log('[createPool] Keypairs received from backend');
           } catch (e) {
-            console.warn('[createPool] Failed to deserialize keypairs, will use pre-signed TX:', e);
+            // Will use pre-signed TX
           }
         }
 
@@ -292,85 +270,57 @@ export function useMeteoraApi() {
 
         for (let i = 0; i < txBase64s.length; i++) {
           const txBase64 = txBase64s[i];
-          console.log(`[createPool] Processing transaction ${i + 1}/${txBase64s.length}...`);
           
           // Convert base64 to bytes
           const txBytes = base64ToBytes(txBase64);
-          console.log('[createPool] TX bytes length:', txBytes.length);
           
           // Deserialize to determine type
           const tx = deserializeTransaction(txBase64);
           const isVersioned = tx instanceof VersionedTransaction;
-          console.log(`[createPool] Deserialized as: ${isVersioned ? 'VersionedTransaction' : 'LegacyTransaction'}`);
 
           // Get FRESH blockhash RIGHT BEFORE signing
-          // This is critical - user may take 20+ seconds to approve
-          console.log('[createPool] Getting FRESH blockhash for signing...');
           const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-          console.log('[createPool] Fresh blockhash:', blockhash, 'Height:', lastValidBlockHeight);
 
           let signedBytes: Uint8Array;
           
           if (isVersioned) {
-            // VersionedTransaction - need to rebuild with fresh blockhash if we have keypairs
             const vtx = tx as VersionedTransaction;
             
             if (mintKeypair && configKeypair) {
               // Rebuild transaction with fresh blockhash
-              console.log('[createPool] Rebuilding VersionedTransaction with fresh blockhash...');
-              
-              // Get the message and update blockhash
               const msg = vtx.message;
-              // For V0 messages, we can update the recentBlockhash
               (msg as any).recentBlockhash = blockhash;
               
-              // Create new VersionedTransaction with empty signatures
               const newVtx = new VersionedTransaction(msg);
               
-              // Determine which keypairs are required signers
               const accountKeys = msg.staticAccountKeys || (msg as any).accountKeys || [];
               const numRequiredSignatures = msg.header?.numRequiredSignatures || (msg as any).numRequiredSignatures || 0;
               
               const requiredSigners = accountKeys.slice(0, numRequiredSignatures);
-              console.log('[createPool] Required signers:', requiredSigners.map((k: PublicKey) => k.toBase58()));
               
-              // Sign with mint/config keypairs if they're required
               const mintPubkey = mintKeypair.publicKey.toBase58();
               const configPubkey = configKeypair.publicKey.toBase58();
               
               for (const signer of requiredSigners) {
                 const signerStr = signer.toBase58();
                 if (signerStr === mintPubkey) {
-                  console.log('[createPool] Signing with mint keypair');
                   newVtx.sign([mintKeypair]);
                 } else if (signerStr === configPubkey) {
-                  console.log('[createPool] Signing with config keypair');
                   newVtx.sign([configKeypair]);
                 }
               }
               
-              // Now get user signature
-              console.log('[createPool] Requesting user signature via Privy...');
-              const signStartTime = Date.now();
               const userSignedTx = await signTransaction(newVtx);
-              console.log('[createPool] User signed TX in', Date.now() - signStartTime, 'ms');
-              
               signedBytes = (userSignedTx as VersionedTransaction).serialize();
             } else {
-              // No keypairs - trust backend's pre-signed TX (may fail if blockhash expired)
-              console.log('[createPool] No keypairs - using pre-signed TX, requesting user signature...');
-              const signStartTime = Date.now();
               const userSignedTx = await signTransaction(vtx);
-              console.log('[createPool] User signed TX in', Date.now() - signStartTime, 'ms');
               signedBytes = (userSignedTx as VersionedTransaction).serialize();
             }
           } else {
-            // Legacy Transaction - easier to update blockhash
             const legacyTx = tx as Transaction;
             legacyTx.recentBlockhash = blockhash;
             legacyTx.lastValidBlockHeight = lastValidBlockHeight;
             
-            // Re-sign with keypairs if available
             if (mintKeypair && configKeypair) {
               const mintPubkey = mintKeypair.publicKey.toBase58();
               const configPubkey = configKeypair.publicKey.toBase58();
@@ -378,30 +328,18 @@ export function useMeteoraApi() {
               for (const sig of legacyTx.signatures) {
                 const pubkeyStr = sig.publicKey.toBase58();
                 if (pubkeyStr === mintPubkey) {
-                  console.log('[createPool] Signing legacy TX with mint keypair');
                   legacyTx.partialSign(mintKeypair);
                 } else if (pubkeyStr === configPubkey) {
-                  console.log('[createPool] Signing legacy TX with config keypair');
                   legacyTx.partialSign(configKeypair);
                 }
               }
             }
             
-            // Get user signature
-            console.log('[createPool] Requesting user signature via Privy...');
-            const signStartTime = Date.now();
             const userSignedTx = await signTransaction(legacyTx);
-            console.log('[createPool] User signed TX in', Date.now() - signStartTime, 'ms');
-            
             signedBytes = (userSignedTx as Transaction).serialize();
           }
-          
-          console.log('[createPool] Signed TX bytes:', signedBytes.length);
 
-          // Send to network - use skipPreflight: true as per working flow
-          console.log('[createPool] Sending TX to network...');
-          const sendStartTime = Date.now();
-
+          // Send to network
           let signature: string;
           try {
             signature = await connection.sendRawTransaction(signedBytes, {
@@ -410,23 +348,14 @@ export function useMeteoraApi() {
               maxRetries: 5,
             });
           } catch (sendError: any) {
-            console.error('[createPool] sendRawTransaction error:', sendError);
-            console.error('[createPool] sendRawTransaction logs:', sendError?.logs);
             throw new Error(`Failed to send transaction: ${sendError?.message || sendError}`);
           }
 
-          console.log('[createPool] TX sent in', Date.now() - sendStartTime, 'ms');
-          console.log('[createPool] TX signature:', signature);
-
           if (!signature || signature === '1111111111111111111111111111111111111111111111111111111111111111') {
-            console.error('[createPool] Got null/placeholder signature');
             throw new Error('Transaction failed - RPC returned null signature.');
           }
 
-          // Confirm using blockhash strategy (as per working flow)
-          console.log('[createPool] Confirming TX...');
-          const confirmStartTime = Date.now();
-
+          // Confirm transaction
           try {
             const confirmation = await connection.confirmTransaction({
               signature,
@@ -434,16 +363,10 @@ export function useMeteoraApi() {
               lastValidBlockHeight,
             }, 'confirmed');
             
-            console.log('[createPool] TX confirmed in', Date.now() - confirmStartTime, 'ms');
-            
             if (confirmation.value.err) {
-              console.error('[createPool] TX confirmed but has error:', confirmation.value.err);
               throw new Error(`Transaction failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
             }
           } catch (confirmError: any) {
-            // If confirmation fails, check if tx actually landed
-            console.warn('[createPool] confirmTransaction error:', confirmError?.message);
-            
             // Quick status check
             const statuses = await connection.getSignatureStatuses([signature], {
               searchTransactionHistory: true,
@@ -454,19 +377,13 @@ export function useMeteoraApi() {
               throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
             }
             
-            if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
-              console.log('[createPool] TX confirmed via status check:', status.confirmationStatus);
-            } else {
-              // Re-throw original error if we can't confirm it landed
+            if (status?.confirmationStatus !== 'confirmed' && status?.confirmationStatus !== 'finalized') {
               throw confirmError;
             }
           }
 
           signatures.push(signature);
-          console.log(`[createPool] Transaction ${i + 1} complete!`);
         }
-
-        console.log('[createPool] All transactions complete! Signatures:', signatures);
 
         return {
           ...result,
@@ -475,14 +392,11 @@ export function useMeteoraApi() {
         };
       }
 
-      console.log('[createPool] No transactions to sign, returning API result directly');
       return result;
     } catch (error) {
-      console.error('[createPool] FATAL ERROR:', error);
       throw error;
     } finally {
       setIsLoading(false);
-      console.log('[createPool] Pool creation finished');
     }
   }, []);
 
@@ -534,8 +448,6 @@ export function useMeteoraApi() {
           blockhash,
           lastValidBlockHeight,
         }, 'confirmed');
-        
-        console.log('[useMeteoraApi] Swap executed on-chain:', signature);
         
         return { ...result, signature };
       }

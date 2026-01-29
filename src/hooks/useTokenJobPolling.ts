@@ -37,8 +37,6 @@ export function useTokenJobPolling() {
       while (attempts < maxAttempts && !abortRef.current) {
         attempts++;
         
-        console.log(`[useTokenJobPolling] Polling attempt ${attempts}/${maxAttempts} for job ${jobId}`);
-        
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fun-create-status?jobId=${jobId}`,
           {
@@ -49,7 +47,6 @@ export function useTokenJobPolling() {
         );
 
         if (!response.ok) {
-          console.error('[useTokenJobPolling] Status check failed:', response.status);
           await new Promise(r => setTimeout(r, intervalMs));
           continue;
         }
@@ -61,12 +58,10 @@ export function useTokenJobPolling() {
         }
 
         if (status.status === 'completed') {
-          console.log('[useTokenJobPolling] Job completed:', status);
           return status;
         }
 
         if (status.status === 'failed') {
-          console.error('[useTokenJobPolling] Job failed:', status.error);
           throw new Error(status.error || 'Token creation failed');
         }
 

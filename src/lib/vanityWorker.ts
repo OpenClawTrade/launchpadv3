@@ -120,7 +120,6 @@ async function searchVanity(suffix, caseSensitive, batchSize) {
   try {
     await generateKeypair();
   } catch (e) {
-    console.log('Native Ed25519 not supported, using fallback');
     useNative = false;
   }
   

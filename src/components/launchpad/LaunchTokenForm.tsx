@@ -180,9 +180,6 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
 
       // Use the Privy signing wallet address (not profile wallet) for transaction creation
       const walletToUse = signingWalletAddress || solanaAddress;
-      console.log('[LaunchTokenForm] Using wallet for createPool:', walletToUse);
-      console.log('[LaunchTokenForm] Profile wallet:', solanaAddress);
-      console.log('[LaunchTokenForm] Privy signing wallet:', signingWalletAddress);
 
       // Create pool with optional transaction signing
       const data = await createPool(

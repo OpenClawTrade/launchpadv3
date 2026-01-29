@@ -215,11 +215,8 @@ export function useFunTokens(): UseFunTokensResult {
       .order("created_at", { ascending: false });
 
     if (fetchError) {
-      console.error("[useFunTokens] Supabase error:", fetchError);
       throw fetchError;
     }
-
-    console.log(`[useFunTokens] Fetched ${funTokens?.length || 0} tokens from DB`);
 
     // Map DB rows to FunToken - use cached DB values if available, else defaults
     const mapped = (funTokens || []).map((t) => ({
@@ -256,7 +253,6 @@ export function useFunTokens(): UseFunTokensResult {
       // Only allow single-token refreshes to prevent mass RPC calls
       if (!opts?.onlyTokenId) {
         // Bulk refresh is now disabled - DB cache handles this via cron
-        console.log("[useFunTokens] Skipping bulk live refresh - using DB cache");
         return;
       }
 
