@@ -1,12 +1,17 @@
 import { corsHeaders, GRADUATION_THRESHOLD_SOL, TOTAL_SUPPLY } from './constants.ts';
 import { fetchHolderCount } from './helius.ts';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const INITIAL_VIRTUAL_SOL = 30;
 const REQUEST_TIMEOUT_MS = 8000;
+const POOL_CACHE_TTL_SECONDS = 60; // 60 seconds cache
 
-// Server-side cache to reduce RPC calls - 60 second TTL
-const poolStateCache = new Map<string, { data: any; timestamp: number }>();
-const POOL_CACHE_TTL = 60000; // 60 seconds cache
+// Create Supabase client for database-backed caching
+function getSupabaseClient() {
+  const url = Deno.env.get('SUPABASE_URL') || '';
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  return createClient(url, key);
+}
 
 // Decode Meteora DBC virtualPool account data from on-chain
 // Supports both 6-decimal (legacy) and 9-decimal (new) tokens
@@ -61,6 +66,71 @@ function decodePoolReserves(base64Data: string): {
   } catch (e) {
     console.error('[fun-pool-state] Decode error:', e);
     return null;
+  }
+}
+
+// Check database cache for pool state
+async function getCachedPoolState(poolAddress: string): Promise<any | null> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('pool_state_cache')
+      .select('*')
+      .eq('pool_address', poolAddress)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    // Check if cache is still valid (60 seconds TTL)
+    const updatedAt = new Date(data.updated_at);
+    const ageSeconds = (Date.now() - updatedAt.getTime()) / 1000;
+    
+    if (ageSeconds > POOL_CACHE_TTL_SECONDS) {
+      console.log('[fun-pool-state] Cache expired for pool:', poolAddress, `(${ageSeconds.toFixed(0)}s old)`);
+      return null;
+    }
+
+    console.log('[fun-pool-state] Cache HIT for pool:', poolAddress, `(${ageSeconds.toFixed(0)}s old)`);
+    return {
+      priceSol: Number(data.price_sol),
+      marketCapSol: Number(data.market_cap_sol),
+      holderCount: data.holder_count || 0,
+      bondingProgress: Number(data.bonding_progress),
+      realSolReserves: Number(data.real_sol_reserves),
+      virtualSolReserves: Number(data.virtual_sol_reserves),
+      virtualTokenReserves: Number(data.virtual_token_reserves),
+      isGraduated: data.is_graduated || false,
+    };
+  } catch (e) {
+    console.error('[fun-pool-state] Cache read error:', e);
+    return null;
+  }
+}
+
+// Save pool state to database cache
+async function setCachedPoolState(poolAddress: string, mintAddress: string | null, poolState: any): Promise<void> {
+  try {
+    const supabase = getSupabaseClient();
+    await supabase
+      .from('pool_state_cache')
+      .upsert({
+        pool_address: poolAddress,
+        mint_address: mintAddress,
+        price_sol: poolState.priceSol,
+        market_cap_sol: poolState.marketCapSol,
+        holder_count: poolState.holderCount || 0,
+        bonding_progress: poolState.bondingProgress,
+        real_sol_reserves: poolState.realSolReserves,
+        virtual_sol_reserves: poolState.virtualSolReserves,
+        virtual_token_reserves: poolState.virtualTokenReserves,
+        is_graduated: poolState.isGraduated || false,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'pool_address' });
+    
+    console.log('[fun-pool-state] Cache WRITE for pool:', poolAddress);
+  } catch (e) {
+    console.error('[fun-pool-state] Cache write error:', e);
+    // Don't throw - cache write failure shouldn't break the response
   }
 }
 
@@ -180,12 +250,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check server-side cache first (60s TTL)
-    const cacheKey = `${poolAddress}:${mintAddress || ''}`;
-    const cached = poolStateCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < POOL_CACHE_TTL) {
-      console.log('[fun-pool-state] Returning cached data for pool:', poolAddress);
-      return new Response(JSON.stringify({ ...cached.data, source: 'cache' }), {
+    // Check DATABASE cache first (persists across cold starts)
+    const cached = await getCachedPoolState(poolAddress);
+    if (cached) {
+      return new Response(JSON.stringify({ ...cached, volume24h: 0, source: 'db-cache' }), {
         status: 200,
         headers: {
           ...corsHeaders,
@@ -252,8 +320,8 @@ Deno.serve(async (req) => {
       source: 'helius-rpc',
     };
 
-    // Cache the result for 60 seconds
-    poolStateCache.set(cacheKey, { data: poolState, timestamp: Date.now() });
+    // Save to DATABASE cache (persists across cold starts)
+    await setCachedPoolState(poolAddress, mintAddress, poolState);
 
     console.log('[fun-pool-state] Returning fresh data:', {
       price: poolState.priceSol,
