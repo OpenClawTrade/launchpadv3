@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useTokenJobPolling } from "@/hooks/useTokenJobPolling";
 import { useFunTokens } from "@/hooks/useFunTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions, useFunBuybacks } from "@/hooks/useFunFeeData";
@@ -93,6 +94,7 @@ export default function ClaudeLauncherPage() {
   const { solPrice } = useSolPrice();
   const isMobile = useIsMobile();
   const { tokens, isLoading: tokensLoading, lastUpdate, refetch } = useFunTokens();
+  const { pollJobStatus, isPolling } = useTokenJobPolling();
 
   // Main tabs
   const [activeTab, setActiveTab] = useState<MainTab>("tokens");
@@ -277,8 +279,7 @@ export default function ClaudeLauncherPage() {
 
     setIsLaunching(true);
     try {
-      // Show immediate feedback for the long operation
-      toast({ title: "🔄 Creating Token...", description: "On-chain transaction in progress (may take up to 60 seconds)..." });
+      toast({ title: "🔄 Creating Token...", description: "Starting on-chain transaction..." });
 
       const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
@@ -297,18 +298,46 @@ export default function ClaudeLauncherPage() {
       if (error) throw new Error(error.message || error.toString());
       if (!data?.success) throw new Error(data?.error || "Launch failed");
 
-      // Direct synchronous response - no polling needed
-      setLaunchResult({
-        success: true,
-        name: data.name || tokenToLaunch.name,
-        ticker: data.ticker || tokenToLaunch.ticker,
-        mintAddress: data.mintAddress,
-        imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
-        onChainSuccess: true,
-        solscanUrl: data.solscanUrl,
-        tradeUrl: data.tradeUrl,
-        message: data.message || "🚀 Token launched!",
-      });
+      // Check if async response (needs polling)
+      if (data.async && data.jobId) {
+        toast({ title: "⏳ Token Creation In Progress...", description: "Waiting for on-chain confirmation..." });
+        
+        // Poll for completion
+        const result = await pollJobStatus(data.jobId, {
+          maxAttempts: 60,
+          intervalMs: 2000,
+          onProgress: (status) => {
+            if (status.status === 'processing') {
+              toast({ title: "⛓️ Processing...", description: status.message || "On-chain transaction processing..." });
+            }
+          },
+        });
+
+        setLaunchResult({
+          success: true,
+          name: tokenToLaunch.name,
+          ticker: tokenToLaunch.ticker,
+          mintAddress: result.mintAddress,
+          imageUrl: tokenToLaunch.imageUrl,
+          onChainSuccess: true,
+          solscanUrl: result.solscanUrl,
+          tradeUrl: result.tradeUrl,
+          message: result.message || "🚀 Token launched!",
+        });
+      } else {
+        // Direct synchronous response
+        setLaunchResult({
+          success: true,
+          name: data.name || tokenToLaunch.name,
+          ticker: data.ticker || tokenToLaunch.ticker,
+          mintAddress: data.mintAddress,
+          imageUrl: data.imageUrl || tokenToLaunch.imageUrl,
+          onChainSuccess: true,
+          solscanUrl: data.solscanUrl,
+          tradeUrl: data.tradeUrl,
+          message: data.message || "🚀 Token launched!",
+        });
+      }
 
       setShowResultModal(true);
       toast({ title: "🚀 Token Launched!", description: `${tokenToLaunch.name} is now live!` });
@@ -327,7 +356,7 @@ export default function ClaudeLauncherPage() {
     } finally {
       setIsLaunching(false);
     }
-  }, [walletAddress, toast, clearBanner, refetch]);
+  }, [walletAddress, toast, clearBanner, refetch, pollJobStatus]);
 
   const handleLaunch = useCallback(async () => {
     if (!meme) {
