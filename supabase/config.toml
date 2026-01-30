@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.twitter-mention-launcher]
 verify_jwt = false
+
+[functions.treasury-scan-pools]
+verify_jwt = false
