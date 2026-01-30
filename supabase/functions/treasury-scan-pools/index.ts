@@ -9,11 +9,21 @@ const corsHeaders = {
 // Treasury/deployer wallet that created all the tokens
 const DEPLOYER_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
 
-// WSOL mint for DBC pool derivation
-const WSOL_MINT = "So11111111111111111111111111111111111111112";
-
 // Meteora DBC Program ID
 const DBC_PROGRAM_ID = "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN";
+
+// Meteora API base URL
+const METEORA_API_URL = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
+
+interface PoolData {
+  poolAddress: string;
+  mintAddress?: string;
+  tokenName?: string;
+  isRegistered: boolean;
+  registeredIn?: string;
+  claimableSol?: number;
+  error?: string;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -27,8 +37,8 @@ serve(async (req) => {
     const heliusApiKey = Deno.env.get("HELIUS_API_KEY");
     const heliusRpcUrl = Deno.env.get("HELIUS_RPC_URL") || `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`;
     
-    if (!heliusApiKey && !heliusRpcUrl) {
-      throw new Error("HELIUS_API_KEY or HELIUS_RPC_URL not configured");
+    if (!heliusApiKey) {
+      throw new Error("HELIUS_API_KEY not configured");
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -44,158 +54,291 @@ serve(async (req) => {
       .from("tokens")
       .select("mint_address, dbc_pool_address, name, ticker");
 
-    const registeredMints = new Set<string>();
-    const registeredPools = new Map<string, { name: string; ticker: string; table: string }>();
+    const registeredMints = new Map<string, { name: string; ticker: string; poolAddress: string | null; table: string }>();
+    const registeredPools = new Map<string, { name: string; ticker: string; table: string; mintAddress?: string }>();
 
     (funTokens || []).forEach((t) => {
-      if (t.mint_address) registeredMints.add(t.mint_address);
+      if (t.mint_address) {
+        registeredMints.set(t.mint_address, { 
+          name: t.name, 
+          ticker: t.ticker, 
+          poolAddress: t.dbc_pool_address,
+          table: "fun_tokens" 
+        });
+      }
       if (t.dbc_pool_address) {
         registeredPools.set(t.dbc_pool_address, { 
           name: t.name, 
           ticker: t.ticker, 
-          table: "fun_tokens" 
+          table: "fun_tokens",
+          mintAddress: t.mint_address,
         });
       }
     });
 
     (tokens || []).forEach((t) => {
-      if (t.mint_address) registeredMints.add(t.mint_address);
+      if (t.mint_address) {
+        registeredMints.set(t.mint_address, { 
+          name: t.name, 
+          ticker: t.ticker, 
+          poolAddress: t.dbc_pool_address,
+          table: "tokens" 
+        });
+      }
       if (t.dbc_pool_address) {
         registeredPools.set(t.dbc_pool_address, { 
           name: t.name, 
           ticker: t.ticker, 
-          table: "tokens" 
+          table: "tokens",
+          mintAddress: t.mint_address,
         });
       }
     });
 
     console.log(`[treasury-scan-pools] Found ${registeredMints.size} registered mints, ${registeredPools.size} registered pools`);
 
-    // Use getProgramAccounts to find all DBC pools where feeClaimer matches treasury
-    // This is more reliable than deriving pool addresses since configPubkey varies
-    const poolScanResponse = await fetch(heliusRpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "get-program-accounts",
-        method: "getProgramAccounts",
-        params: [
-          DBC_PROGRAM_ID,
-          {
-            encoding: "base64",
-            filters: [
-              {
-                // Pool account size filter (approximate - DBC pools are ~400-500 bytes)
-                dataSize: 456,
-              },
-            ],
-          },
-        ],
-      }),
-    });
+    // Step 1: Get all transaction signatures for the deployer wallet
+    const allSignatures: string[] = [];
+    let beforeSignature: string | undefined = undefined;
+    const MAX_PAGES = 50;
 
-    if (!poolScanResponse.ok) {
-      const errorText = await poolScanResponse.text();
-      console.error("[treasury-scan-pools] getProgramAccounts failed:", errorText);
-      throw new Error(`RPC error: ${errorText}`);
-    }
+    console.log("[treasury-scan-pools] Fetching transaction signatures...");
 
-    const poolScanData = await poolScanResponse.json();
-    
-    if (poolScanData.error) {
-      console.error("[treasury-scan-pools] RPC error:", poolScanData.error);
-      throw new Error(`RPC error: ${JSON.stringify(poolScanData.error)}`);
-    }
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const sigParams: Record<string, unknown> = { limit: 1000 };
+      if (beforeSignature) {
+        sigParams.before = beforeSignature;
+      }
 
-    const allPools = poolScanData.result || [];
-    console.log(`[treasury-scan-pools] Found ${allPools.length} total DBC pools on-chain`);
+      const sigResponse = await fetch(heliusRpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: `sigs-${page}`,
+          method: "getSignaturesForAddress",
+          params: [DEPLOYER_WALLET, sigParams],
+        }),
+      });
 
-    // Now we need to check each pool's fee metrics to see claimable fees
-    // For efficiency, we'll batch check using Meteora API
-    const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
-    
-    if (!meteoraApiUrl) {
-      console.warn("[treasury-scan-pools] METEORA_API_URL not configured - will only return pool addresses");
-    }
+      if (!sigResponse.ok) {
+        console.error(`[treasury-scan-pools] getSignaturesForAddress failed`);
+        break;
+      }
 
-    const discoveredPools: Array<{
-      poolAddress: string;
-      mintAddress?: string;
-      tokenName?: string;
-      isRegistered: boolean;
-      registeredIn?: string;
-      claimableSol?: number;
-      error?: string;
-    }> = [];
+      const sigData = await sigResponse.json();
+      const signatures = sigData.result || [];
 
-    // Process pools in batches to avoid rate limiting
-    const BATCH_SIZE = 10;
-    const poolAddresses = allPools.map((p: { pubkey: string }) => p.pubkey);
-    
-    for (let i = 0; i < poolAddresses.length; i += BATCH_SIZE) {
-      const batch = poolAddresses.slice(i, i + BATCH_SIZE);
+      if (signatures.length === 0) break;
+
+      for (const sig of signatures) {
+        if (sig.signature && !sig.err) {
+          allSignatures.push(sig.signature);
+        }
+      }
+
+      beforeSignature = signatures[signatures.length - 1]?.signature;
       
-      const batchPromises = batch.map(async (poolAddress: string) => {
-        const poolInfo = registeredPools.get(poolAddress);
-        const isRegistered = !!poolInfo;
-        
-        let claimableSol: number | undefined;
-        let mintAddress: string | undefined;
-        let tokenName: string | undefined = poolInfo?.name;
-        let error: string | undefined;
+      if (signatures.length < 1000) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
 
-        // Check claimable fees via Meteora API if available
-        if (meteoraApiUrl) {
-          try {
-            const feeResponse = await fetch(
-              `${meteoraApiUrl}/api/fees/claim-from-pool?poolAddress=${poolAddress}`,
-              { method: "GET", headers: { "Content-Type": "application/json" } }
-            );
-            
-            if (feeResponse.ok) {
-              const feeData = await feeResponse.json();
-              claimableSol = feeData.claimableSol || 0;
-            } else {
-              const errText = await feeResponse.text();
-              // Pool may not belong to our treasury - that's expected
-              if (errText.includes("Insufficient fees") || errText.includes("not found")) {
-                claimableSol = 0;
-              } else {
-                error = errText.substring(0, 100);
+    console.log(`[treasury-scan-pools] Total signatures: ${allSignatures.length}`);
+
+    // Step 2: Parse transactions in batches to find DBC pool creations
+    // Look for transactions involving the DBC program
+    const allDbcPools = new Set<string>();
+    const allMints = new Set<string>();
+    const BATCH_SIZE = 20;
+
+    console.log("[treasury-scan-pools] Fetching transactions to find DBC pools...");
+
+    for (let i = 0; i < allSignatures.length; i += BATCH_SIZE) {
+      const batch = allSignatures.slice(i, i + BATCH_SIZE);
+      
+      // Fetch transactions with jsonParsed encoding
+      const txPromises = batch.map(async (sig) => {
+        try {
+          const txResponse = await fetch(heliusRpcUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: sig,
+              method: "getTransaction",
+              params: [sig, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }],
+            }),
+          });
+
+          if (!txResponse.ok) return null;
+          const txData = await txResponse.json();
+          return txData.result;
+        } catch {
+          return null;
+        }
+      });
+
+      const txResults = await Promise.all(txPromises);
+
+      for (const tx of txResults) {
+        if (!tx?.transaction?.message) continue;
+
+        const accountKeys = tx.transaction.message.accountKeys || [];
+        const instructions = tx.transaction.message.instructions || [];
+        const innerInstructions = tx.meta?.innerInstructions || [];
+
+        // Check if this transaction involves the DBC program
+        const involvesDbc = accountKeys.some((k: { pubkey?: string } | string) => 
+          (typeof k === 'string' ? k : k.pubkey) === DBC_PROGRAM_ID
+        );
+
+        if (involvesDbc) {
+          // Look for DBC pool address in the accounts
+          // Pool is typically one of the first accounts in a DBC instruction
+          for (const ix of instructions) {
+            if (ix.programId === DBC_PROGRAM_ID || (ix.program && ix.program === DBC_PROGRAM_ID)) {
+              const accounts = ix.accounts || [];
+              // First account is typically the pool
+              if (accounts.length > 0) {
+                const poolAddr = typeof accounts[0] === 'string' ? accounts[0] : accounts[0]?.pubkey;
+                if (poolAddr && poolAddr.length >= 32) {
+                  allDbcPools.add(poolAddr);
+                }
               }
             }
-          } catch (err) {
-            error = err instanceof Error ? err.message.substring(0, 100) : "Unknown error";
+          }
+
+          // Also check inner instructions
+          for (const innerGroup of innerInstructions) {
+            for (const innerIx of innerGroup.instructions || []) {
+              if (innerIx.programId === DBC_PROGRAM_ID) {
+                const accounts = innerIx.accounts || [];
+                if (accounts.length > 0) {
+                  const poolAddr = typeof accounts[0] === 'string' ? accounts[0] : accounts[0]?.pubkey;
+                  if (poolAddr && poolAddr.length >= 32) {
+                    allDbcPools.add(poolAddr);
+                  }
+                }
+              }
+            }
           }
         }
 
-        return {
+        // Look for InitializeMint in log messages to find mints
+        const logs = tx.meta?.logMessages || [];
+        for (const log of logs) {
+          if (log.includes("InitializeMint") || log.includes("Initialize the associated token account")) {
+            // Check account changes for new accounts
+            const postBalances = tx.meta?.postBalances || [];
+            const preBalances = tx.meta?.preBalances || [];
+            
+            for (let idx = 0; idx < accountKeys.length; idx++) {
+              // New account = was 0 before, has balance after
+              if (preBalances[idx] === 0 && postBalances[idx] > 0) {
+                const key = typeof accountKeys[idx] === 'string' ? accountKeys[idx] : accountKeys[idx]?.pubkey;
+                if (key && key.length >= 32) {
+                  // This could be a mint or token account
+                  allMints.add(key);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Progress every 200 signatures
+      if ((i + BATCH_SIZE) % 200 === 0) {
+        console.log(`[treasury-scan-pools] Processed ${i + BATCH_SIZE}/${allSignatures.length}, found ${allDbcPools.size} DBC pools`);
+      }
+
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    // Add registered pools
+    for (const poolAddr of registeredPools.keys()) {
+      allDbcPools.add(poolAddr);
+    }
+
+    console.log(`[treasury-scan-pools] Found ${allDbcPools.size} unique DBC pools`);
+
+    // Step 3: Check each pool for claimable fees
+    const discoveredPools: PoolData[] = [];
+    const poolAddresses = Array.from(allDbcPools);
+
+    if (METEORA_API_URL && poolAddresses.length > 0) {
+      console.log(`[treasury-scan-pools] Checking ${poolAddresses.length} pools for fees...`);
+      const FEE_BATCH_SIZE = 5;
+      
+      for (let i = 0; i < poolAddresses.length; i += FEE_BATCH_SIZE) {
+        const batch = poolAddresses.slice(i, i + FEE_BATCH_SIZE);
+        
+        const batchPromises = batch.map(async (poolAddress) => {
+          const regInfo = registeredPools.get(poolAddress);
+          
+          try {
+            const feeResponse = await fetch(
+              `${METEORA_API_URL}/api/fees/claim-from-pool?poolAddress=${poolAddress}`,
+              { method: "GET", headers: { "Content-Type": "application/json" } }
+            );
+            
+            if (!feeResponse.ok) {
+              return {
+                poolAddress,
+                mintAddress: regInfo?.mintAddress,
+                isRegistered: !!regInfo,
+                registeredIn: regInfo?.table,
+                tokenName: regInfo ? `${regInfo.name} ($${regInfo.ticker})` : undefined,
+                claimableSol: 0,
+              } as PoolData;
+            }
+            
+            const feeData = await feeResponse.json();
+            
+            return {
+              poolAddress,
+              mintAddress: feeData.mintAddress || regInfo?.mintAddress,
+              tokenName: regInfo ? `${regInfo.name} ($${regInfo.ticker})` : feeData.tokenName,
+              isRegistered: !!regInfo,
+              registeredIn: regInfo?.table,
+              claimableSol: feeData.claimableSol || 0,
+            } as PoolData;
+          } catch {
+            return {
+              poolAddress,
+              mintAddress: regInfo?.mintAddress,
+              isRegistered: !!regInfo,
+              registeredIn: regInfo?.table,
+              tokenName: regInfo ? `${regInfo.name} ($${regInfo.ticker})` : undefined,
+              claimableSol: 0,
+            } as PoolData;
+          }
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        discoveredPools.push(...batchResults);
+
+        if (i + FEE_BATCH_SIZE < poolAddresses.length) {
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
+    } else {
+      // Without Meteora API, just list the pools
+      for (const poolAddress of poolAddresses) {
+        const regInfo = registeredPools.get(poolAddress);
+        discoveredPools.push({
           poolAddress,
-          mintAddress,
-          tokenName,
-          isRegistered,
-          registeredIn: poolInfo?.table,
-          claimableSol,
-          error,
-        };
-      });
-
-      const batchResults = await Promise.all(batchPromises);
-      discoveredPools.push(...batchResults);
-
-      // Small delay between batches
-      if (i + BATCH_SIZE < poolAddresses.length) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
+          mintAddress: regInfo?.mintAddress,
+          isRegistered: !!regInfo,
+          registeredIn: regInfo?.table,
+          tokenName: regInfo ? `${regInfo.name} ($${regInfo.ticker})` : undefined,
+        });
       }
     }
 
-    // Filter to only pools with claimable fees (> 0.001 SOL)
-    const claimablePools = discoveredPools.filter(
-      (p) => (p.claimableSol || 0) >= 0.001
-    );
+    // Filter to pools with claimable fees
+    const claimablePools = discoveredPools.filter((p) => (p.claimableSol || 0) >= 0.001);
 
-    // Calculate summary stats
+    // Calculate summary
     const totalPools = discoveredPools.length;
     const registeredCount = discoveredPools.filter((p) => p.isRegistered).length;
     const unregisteredCount = totalPools - registeredCount;
@@ -213,9 +356,12 @@ serve(async (req) => {
           unregisteredCount,
           claimablePoolCount: claimablePools.length,
           totalClaimableSol: totalClaimable,
+          totalMintsDiscovered: allMints.size,
+          totalSignaturesScanned: allSignatures.length,
         },
         pools: claimablePools,
         allPools: discoveredPools,
+        allMints: Array.from(allMints).slice(0, 50),
         deployerWallet: DEPLOYER_WALLET,
         duration,
       }),
