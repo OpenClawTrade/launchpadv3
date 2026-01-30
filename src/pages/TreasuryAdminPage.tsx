@@ -24,12 +24,15 @@ import {
   AlertCircle,
   Lock,
   ExternalLink,
-  Loader2
+  Loader2,
+  Search
 } from "lucide-react";
 
 const VERCEL_API_URL = "https://trenchespost.vercel.app";
 const TREASURY_SECRET = "trenches-treasury-2024";
 const ADMIN_PASSWORD = "trenches2024treasury";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 interface PoolInfo {
   poolAddress: string;
@@ -41,7 +44,7 @@ interface PoolInfo {
   claimedSol?: number;
   signature?: string;
   error?: string;
-  skipped?: boolean;
+  lastCheckedAt?: string;
 }
 
 interface ScanSummary {
@@ -67,10 +70,13 @@ export default function TreasuryAdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [isCheckingFees, setIsCheckingFees] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
-  const [claimProgress, setClaimProgress] = useState(0);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [feeCheckProgress, setFeeCheckProgress] = useState(0);
   const [summary, setSummary] = useState<ScanSummary | null>(null);
   const [pools, setPools] = useState<PoolInfo[]>([]);
+  const [allPoolAddresses, setAllPoolAddresses] = useState<string[]>([]);
   const [claimResults, setClaimResults] = useState<ClaimResult[]>([]);
   const [selectedPools, setSelectedPools] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -80,6 +86,7 @@ export default function TreasuryAdminPage() {
     const storedAuth = localStorage.getItem("treasury_admin_auth");
     if (storedAuth === "true") {
       setIsAuthenticated(true);
+      loadCachedPools();
       loadClaimHistory();
     }
   }, []);
@@ -88,6 +95,7 @@ export default function TreasuryAdminPage() {
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
       localStorage.setItem("treasury_admin_auth", "true");
+      loadCachedPools();
       loadClaimHistory();
       toast({ title: "Authenticated", description: "Welcome to Treasury Admin" });
     } else {
@@ -102,6 +110,35 @@ export default function TreasuryAdminPage() {
     setSummary(null);
   };
 
+  const loadCachedPools = async () => {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/treasury-scan-pools`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ mode: "get-cached" }),
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (data.success) {
+        setPools(data.allPools || []);
+        setSummary({
+          totalPools: data.summary.totalPools,
+          registeredCount: (data.allPools || []).filter((p: PoolInfo) => p.isRegistered).length,
+          unregisteredCount: (data.allPools || []).filter((p: PoolInfo) => !p.isRegistered).length,
+          claimablePoolCount: data.summary.claimablePoolCount,
+          totalClaimableSol: data.summary.totalClaimableSol,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load cached pools:", err);
+    }
+  };
+
   const loadClaimHistory = async () => {
     try {
       const { data, error } = await supabase
@@ -110,54 +147,49 @@ export default function TreasuryAdminPage() {
         .order("claimed_at", { ascending: false })
         .limit(50);
 
-      if (error) {
-        console.error("Error loading claim history:", error);
-        return;
+      if (!error) {
+        setClaimResults(data || []);
       }
-
-      setClaimResults(data || []);
     } catch (err) {
       console.error("Failed to load claim history:", err);
     }
   };
 
+  // Step 1: Scan for all pools
   const handleScan = async () => {
     setIsScanning(true);
-    setPools([]);
-    setSummary(null);
+    setScanProgress(10);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/treasury-scan-pools`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        }
-      );
+      toast({ title: "Scanning...", description: "Discovering DBC pools from transaction history" });
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/treasury-scan-pools`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ mode: "scan" }),
+      });
+
+      setScanProgress(50);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
+        throw new Error(await response.text());
       }
 
       const data = await response.json();
+      setScanProgress(100);
 
       if (data.success) {
-        setSummary(data.summary);
-        setPools(data.pools || []);
-        // Select all pools with claimable fees by default
-        const claimablePools = (data.pools || [])
-          .filter((p: PoolInfo) => (p.claimableSol || 0) >= 0.001)
-          .map((p: PoolInfo) => p.poolAddress);
-        setSelectedPools(new Set(claimablePools));
-        
+        setAllPoolAddresses(data.allPoolAddresses || []);
         toast({
           title: "Scan Complete",
-          description: `Found ${data.summary.claimablePoolCount} pools with ${data.summary.totalClaimableSol.toFixed(4)} SOL claimable`,
+          description: `Discovered ${data.summary.totalPoolsDiscovered} pools. Click "Check Fees" to find claimable fees.`,
         });
+        
+        // Immediately load cached data
+        await loadCachedPools();
       } else {
         throw new Error(data.error || "Scan failed");
       }
@@ -173,18 +205,75 @@ export default function TreasuryAdminPage() {
     }
   };
 
+  // Step 2: Check fees for all pools in batches
+  const handleCheckFees = async () => {
+    const poolsToCheck = allPoolAddresses.length > 0 ? allPoolAddresses : pools.map(p => p.poolAddress);
+    
+    if (poolsToCheck.length === 0) {
+      toast({ title: "No pools to check", description: "Run a scan first", variant: "destructive" });
+      return;
+    }
+
+    setIsCheckingFees(true);
+    setFeeCheckProgress(0);
+
+    const BATCH_SIZE = 10;
+    const totalBatches = Math.ceil(poolsToCheck.length / BATCH_SIZE);
+    let checkedCount = 0;
+
+    try {
+      for (let i = 0; i < poolsToCheck.length; i += BATCH_SIZE) {
+        const batch = poolsToCheck.slice(i, i + BATCH_SIZE);
+        
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/treasury-scan-pools`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ mode: "check-fees", pools: batch }),
+        });
+
+        if (!response.ok) {
+          console.warn(`Batch ${i / BATCH_SIZE + 1} failed`);
+          continue;
+        }
+
+        checkedCount += batch.length;
+        setFeeCheckProgress(Math.round((checkedCount / poolsToCheck.length) * 100));
+      }
+
+      // Reload cached data
+      await loadCachedPools();
+      
+      toast({
+        title: "Fee Check Complete",
+        description: `Checked ${checkedCount} pools for claimable fees`,
+      });
+    } catch (err) {
+      console.error("Fee check error:", err);
+      toast({
+        title: "Fee Check Failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingFees(false);
+      setFeeCheckProgress(100);
+    }
+  };
+
   const handleClaimAll = async () => {
     const poolsToClaim = pools.filter(
       (p) => selectedPools.has(p.poolAddress) && (p.claimableSol || 0) >= 0.001
     );
 
     if (poolsToClaim.length === 0) {
-      toast({ title: "No pools to claim", variant: "destructive" });
+      toast({ title: "No pools selected", variant: "destructive" });
       return;
     }
 
     setIsClaiming(true);
-    setClaimProgress(0);
 
     try {
       const response = await fetch(`${VERCEL_API_URL}/api/treasury/claim-batch`, {
@@ -200,14 +289,12 @@ export default function TreasuryAdminPage() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
+        throw new Error(await response.text());
       }
 
       const data = await response.json();
 
       if (data.success) {
-        // Update pool states with claim results
         const resultMap = new Map<string, PoolInfo>(
           (data.results as PoolInfo[]).map((r) => [r.poolAddress, r])
         );
@@ -221,13 +308,13 @@ export default function TreasuryAdminPage() {
                 claimedSol: result.claimedSol,
                 signature: result.signature,
                 error: result.error,
+                claimableSol: 0, // Reset after claim
               };
             }
             return p;
           })
         );
 
-        // Reload claim history
         await loadClaimHistory();
 
         toast({
@@ -246,7 +333,6 @@ export default function TreasuryAdminPage() {
       });
     } finally {
       setIsClaiming(false);
-      setClaimProgress(100);
     }
   };
 
@@ -262,7 +348,7 @@ export default function TreasuryAdminPage() {
     });
   };
 
-  const selectAllPools = () => {
+  const selectAllClaimable = () => {
     const claimablePools = pools
       .filter((p) => (p.claimableSol || 0) >= 0.001)
       .map((p) => p.poolAddress);
@@ -274,14 +360,14 @@ export default function TreasuryAdminPage() {
   };
 
   const exportCSV = () => {
-    const headers = ["Pool Address", "Token Name", "Registered", "Claimable SOL", "Claimed SOL", "Signature"];
+    const headers = ["Pool Address", "Mint Address", "Token Name", "Registered", "Claimable SOL", "Last Checked"];
     const rows = pools.map((p) => [
       p.poolAddress,
+      p.mintAddress || "",
       p.tokenName || "",
       p.isRegistered ? "Yes" : "No",
       (p.claimableSol || 0).toFixed(6),
-      (p.claimedSol || 0).toFixed(6),
-      p.signature || "",
+      p.lastCheckedAt || "",
     ]);
 
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -294,6 +380,11 @@ export default function TreasuryAdminPage() {
   };
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+
+  const claimablePools = pools.filter((p) => (p.claimableSol || 0) >= 0.001);
+  const totalClaimableSelected = pools
+    .filter((p) => selectedPools.has(p.poolAddress))
+    .reduce((sum, p) => sum + (p.claimableSol || 0), 0);
 
   if (!isAuthenticated) {
     return (
@@ -339,16 +430,14 @@ export default function TreasuryAdminPage() {
               Discover and claim fees from all deployer pools
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              Logout
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            Logout
+          </Button>
         </div>
 
         {/* Summary Cards */}
         {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="text-2xl font-bold">{summary.totalPools}</div>
@@ -357,18 +446,20 @@ export default function TreasuryAdminPage() {
             </Card>
             <Card>
               <CardContent className="pt-4">
-                <div className="text-2xl font-bold text-primary">
-                  {summary.registeredCount}
-                </div>
+                <div className="text-2xl font-bold text-primary">{summary.registeredCount}</div>
                 <p className="text-xs text-muted-foreground">Registered</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
-                <div className="text-2xl font-bold text-muted-foreground">
-                  {summary.unregisteredCount}
-                </div>
+                <div className="text-2xl font-bold text-muted-foreground">{summary.unregisteredCount}</div>
                 <p className="text-xs text-muted-foreground">Unregistered</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold text-primary">{claimablePools.length}</div>
+                <p className="text-xs text-muted-foreground">With Claimable Fees</p>
               </CardContent>
             </Card>
             <Card>
@@ -384,58 +475,77 @@ export default function TreasuryAdminPage() {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleScan} disabled={isScanning}>
+          <Button onClick={handleScan} disabled={isScanning || isCheckingFees}>
             {isScanning ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <RefreshCw className="w-4 h-4 mr-2" />
             )}
-            {isScanning ? "Scanning..." : "Scan All Pools"}
+            {isScanning ? "Scanning..." : "1. Scan Pools"}
           </Button>
 
-          {pools.length > 0 && (
+          <Button onClick={handleCheckFees} disabled={isScanning || isCheckingFees || pools.length === 0} variant="secondary">
+            {isCheckingFees ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Search className="w-4 h-4 mr-2" />
+            )}
+            {isCheckingFees ? `Checking... ${feeCheckProgress}%` : "2. Check Fees"}
+          </Button>
+
+          {claimablePools.length > 0 && (
             <>
-              <Button
-                variant="default"
-                onClick={handleClaimAll}
-                disabled={isClaiming || selectedPools.size === 0}
-              >
+              <Button onClick={handleClaimAll} disabled={isClaiming || selectedPools.size === 0}>
                 {isClaiming ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Play className="w-4 h-4 mr-2" />
                 )}
-                {isClaiming
-                  ? "Claiming..."
-                  : `Claim Selected (${selectedPools.size})`}
+                {isClaiming ? "Claiming..." : `3. Claim Selected (${selectedPools.size}) - ${totalClaimableSelected.toFixed(4)} SOL`}
               </Button>
 
-              <Button variant="outline" onClick={selectAllPools}>
+              <Button variant="outline" onClick={selectAllClaimable}>
                 Select All
               </Button>
 
               <Button variant="outline" onClick={deselectAllPools}>
-                Deselect All
-              </Button>
-
-              <Button variant="outline" onClick={exportCSV}>
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
+                Deselect
               </Button>
             </>
           )}
+
+          {pools.length > 0 && (
+            <Button variant="outline" onClick={exportCSV}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+          )}
         </div>
 
-        {/* Claim Progress */}
-        {isClaiming && (
+        {/* Progress Bars */}
+        {isScanning && (
           <Card>
             <CardContent className="pt-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Processing claims...</span>
-                  <span>{claimProgress}%</span>
+                  <span>Scanning transaction history...</span>
+                  <span>{scanProgress}%</span>
                 </div>
-                <Progress value={claimProgress} />
+                <Progress value={scanProgress} />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {isCheckingFees && (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Checking claimable fees...</span>
+                  <span>{feeCheckProgress}%</span>
+                </div>
+                <Progress value={feeCheckProgress} />
               </div>
             </CardContent>
           </Card>
@@ -446,7 +556,7 @@ export default function TreasuryAdminPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">
-                Claimable Pools ({pools.length})
+                Pools ({pools.length}) - Claimable: {claimablePools.length}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -458,14 +568,12 @@ export default function TreasuryAdminPage() {
                       <TableHead>Pool</TableHead>
                       <TableHead>Token</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Claimable</TableHead>
-                      <TableHead className="text-right">Claimed</TableHead>
-                      <TableHead>TX</TableHead>
+                      <TableHead className="text-right">Claimable SOL</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pools.map((pool) => (
-                      <TableRow key={pool.poolAddress}>
+                    {pools.slice(0, 100).map((pool) => (
+                      <TableRow key={pool.poolAddress} className={(pool.claimableSol || 0) >= 0.001 ? "bg-primary/5" : ""}>
                         <TableCell>
                           <input
                             type="checkbox"
@@ -485,12 +593,12 @@ export default function TreasuryAdminPage() {
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         </TableCell>
-                        <TableCell>{pool.tokenName || "-"}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{pool.tokenName || "-"}</TableCell>
                         <TableCell>
                           {pool.isRegistered ? (
                             <Badge className="bg-primary text-primary-foreground">
                               <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Registered
+                              {pool.registeredIn}
                             </Badge>
                           ) : (
                             <Badge variant="secondary">
@@ -500,29 +608,67 @@ export default function TreasuryAdminPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right font-mono">
-                          {(pool.claimableSol || 0).toFixed(6)} SOL
+                          {(pool.claimableSol || 0) >= 0.001 ? (
+                            <span className="text-primary font-bold">{(pool.claimableSol || 0).toFixed(4)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">{(pool.claimableSol || 0).toFixed(4)}</span>
+                          )}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {pool.claimedSol
-                            ? `${pool.claimedSol.toFixed(6)} SOL`
-                            : "-"}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {pools.length > 100 && (
+                  <p className="text-sm text-muted-foreground mt-2 text-center">
+                    Showing first 100 of {pools.length} pools. Export CSV to see all.
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Claim History */}
+        {claimResults.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Recent Claims</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pool</TableHead>
+                      <TableHead>Token</TableHead>
+                      <TableHead className="text-right">Claimed SOL</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>TX</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {claimResults.slice(0, 20).map((claim) => (
+                      <TableRow key={claim.id}>
+                        <TableCell className="font-mono text-xs">
+                          {shortenAddress(claim.pool_address)}
+                        </TableCell>
+                        <TableCell>{claim.token_name || "-"}</TableCell>
+                        <TableCell className="text-right font-mono text-primary">
+                          {claim.claimed_sol.toFixed(4)}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {new Date(claim.claimed_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          {pool.signature ? (
+                          {claim.signature && (
                             <a
-                              href={`https://solscan.io/tx/${pool.signature}`}
+                              href={`https://solscan.io/tx/${claim.signature}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-primary hover:underline text-xs"
+                              className="hover:underline"
                             >
-                              View TX
+                              <ExternalLink className="w-4 h-4" />
                             </a>
-                          ) : pool.error ? (
-                            <span className="text-destructive text-xs">
-                              {pool.error.substring(0, 20)}...
-                            </span>
-                          ) : (
-                            "-"
                           )}
                         </TableCell>
                       </TableRow>
@@ -533,74 +679,6 @@ export default function TreasuryAdminPage() {
             </CardContent>
           </Card>
         )}
-
-        {/* Claim History */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Recent Claims</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {claimResults.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No claims yet</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Pool</TableHead>
-                      <TableHead>Token</TableHead>
-                      <TableHead>Registered</TableHead>
-                      <TableHead className="text-right">Claimed</TableHead>
-                      <TableHead>TX</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {claimResults.map((claim) => (
-                      <TableRow key={claim.id}>
-                        <TableCell className="text-xs">
-                          {new Date(claim.claimed_at).toLocaleString()}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {shortenAddress(claim.pool_address)}
-                        </TableCell>
-                        <TableCell>{claim.token_name || "-"}</TableCell>
-                        <TableCell>
-                          {claim.is_registered ? (
-                            <Badge className="bg-primary text-primary-foreground text-xs">
-                              Yes
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">
-                              No
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {Number(claim.claimed_sol).toFixed(6)} SOL
-                        </TableCell>
-                        <TableCell>
-                          {claim.signature ? (
-                            <a
-                              href={`https://solscan.io/tx/${claim.signature}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline text-xs"
-                            >
-                              View
-                            </a>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

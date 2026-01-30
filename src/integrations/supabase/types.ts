@@ -2299,6 +2299,39 @@ export type Database = {
         }
         Relationships: []
       }
+      treasury_pool_cache: {
+        Row: {
+          claimable_sol: number | null
+          discovered_at: string | null
+          is_registered: boolean | null
+          last_checked_at: string | null
+          mint_address: string | null
+          pool_address: string
+          registered_in: string | null
+          token_name: string | null
+        }
+        Insert: {
+          claimable_sol?: number | null
+          discovered_at?: string | null
+          is_registered?: boolean | null
+          last_checked_at?: string | null
+          mint_address?: string | null
+          pool_address: string
+          registered_in?: string | null
+          token_name?: string | null
+        }
+        Update: {
+          claimable_sol?: number | null
+          discovered_at?: string | null
+          is_registered?: boolean | null
+          last_checked_at?: string | null
+          mint_address?: string | null
+          pool_address?: string
+          registered_in?: string | null
+          token_name?: string | null
+        }
+        Relationships: []
+      }
       trending_narratives: {
         Row: {
           analyzed_at: string
@@ -2992,6 +3025,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      backend_upsert_pool_cache: {
+        Args: {
+          p_claimable_sol?: number
+          p_is_registered?: boolean
+          p_mint_address?: string
+          p_pool_address: string
+          p_registered_in?: string
+          p_token_name?: string
+        }
+        Returns: undefined
+      }
       backend_upsert_token_holding: {
         Args: {
           p_balance_delta: number
@@ -3045,6 +3089,19 @@ export type Database = {
         Returns: {
           claim_count: number
           total_claimed_sol: number
+        }[]
+      }
+      get_treasury_pool_cache: {
+        Args: never
+        Returns: {
+          claimable_sol: number
+          discovered_at: string
+          is_registered: boolean
+          last_checked_at: string
+          mint_address: string
+          pool_address: string
+          registered_in: string
+          token_name: string
         }[]
       }
       get_user_ips: { Args: { _user_id: string }; Returns: string[] }
