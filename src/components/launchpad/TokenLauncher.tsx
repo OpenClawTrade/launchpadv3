@@ -483,7 +483,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           twitterUrl: phantomToken.twitterUrl || "",
           telegramUrl: phantomToken.telegramUrl || "",
           discordUrl: phantomToken.discordUrl || "",
-          creatorWallet: phantomWallet.address,
+          phantomWallet: phantomWallet.address,
           tradingFeeBps: phantomTradingFee,
         },
       });
