@@ -107,7 +107,10 @@ export default function FunLauncherPage() {
 
   const formatSOL = (amount: number) => {
     if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
-    return amount.toFixed(2);
+    if (amount >= 1) return amount.toFixed(2);
+    if (amount >= 0.01) return amount.toFixed(4);
+    if (amount > 0) return amount.toFixed(5); // Show up to 5 decimals for tiny amounts
+    return "0.00";
   };
 
   const handleLaunchSuccess = useCallback(() => {
