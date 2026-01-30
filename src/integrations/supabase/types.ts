@@ -2266,6 +2266,39 @@ export type Database = {
           },
         ]
       }
+      treasury_fee_claims: {
+        Row: {
+          claimed_at: string | null
+          claimed_sol: number
+          id: string
+          is_registered: boolean | null
+          mint_address: string | null
+          pool_address: string
+          signature: string | null
+          token_name: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_sol?: number
+          id?: string
+          is_registered?: boolean | null
+          mint_address?: string | null
+          pool_address: string
+          signature?: string | null
+          token_name?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_sol?: number
+          id?: string
+          is_registered?: boolean | null
+          mint_address?: string | null
+          pool_address?: string
+          signature?: string | null
+          token_name?: string | null
+        }
+        Relationships: []
+      }
       trending_narratives: {
         Row: {
           analyzed_at: string
@@ -2864,6 +2897,17 @@ export type Database = {
           suffix: string
         }[]
       }
+      backend_insert_treasury_claim: {
+        Args: {
+          p_claimed_sol?: number
+          p_is_registered?: boolean
+          p_mint_address?: string
+          p_pool_address: string
+          p_signature?: string
+          p_token_name?: string
+        }
+        Returns: string
+      }
       backend_insert_vanity_keypair: {
         Args: {
           p_public_key: string
@@ -2994,6 +3038,13 @@ export type Database = {
           suggestion_score: number
           username: string
           verified_type: string
+        }[]
+      }
+      get_treasury_claims_summary: {
+        Args: never
+        Returns: {
+          claim_count: number
+          total_claimed_sol: number
         }[]
       }
       get_user_ips: { Args: { _user_id: string }; Returns: string[] }
