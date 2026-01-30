@@ -9,11 +9,17 @@ import {
   Scales,
   XLogo,
   ChartLine,
-  List
+  List,
+  Copy,
+  Check
 } from "@phosphor-icons/react";
 import { ExternalLink, Menu } from "lucide-react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useState } from "react";
+import { toast } from "sonner";
+
+const RIFT_CA = "AeeP5ebA5R8srQZkkYwfNyvgYWFtxYqFfc6E6qqypump";
 const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
 
 interface AppHeaderProps {
@@ -24,10 +30,18 @@ interface AppHeaderProps {
 
 export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps) {
   const { isAuthenticated, login, logout, solanaAddress } = useAuth();
+  const [copied, setCopied] = useState(false);
 
   const truncateAddress = (addr: string) => {
     if (!addr) return "";
     return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+  };
+
+  const copyCA = () => {
+    navigator.clipboard.writeText(RIFT_CA);
+    setCopied(true);
+    toast.success("CA copied!");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -53,8 +67,22 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
             <SolPriceDisplay />
           </div>
           
+          {/* CA Display */}
+          <button
+            onClick={copyCA}
+            className="flex items-center gap-1.5 px-2 py-1 bg-[#1a1a1f] hover:bg-[#252530] rounded-md text-xs text-gray-400 hover:text-gray-200 transition-colors"
+            title="Click to copy CA"
+          >
+            <span className="font-mono">CA: {RIFT_CA.slice(0, 4)}...{RIFT_CA.slice(-4)}</span>
+            {copied ? (
+              <Check className="h-3 w-3 text-green-400" weight="bold" />
+            ) : (
+              <Copy className="h-3 w-3" weight="bold" />
+            )}
+          </button>
+          
           <a 
-            href="https://dune.com/riftlaunch/stats" 
+            href="https://dune.com/riftlaunch/stats"
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors"
