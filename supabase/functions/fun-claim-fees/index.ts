@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Treasury wallet that receives all fees
-const TREASURY_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
+const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 
 // Minimum SOL to claim (to avoid dust transactions)
 const MIN_CLAIM_SOL = 0.001;

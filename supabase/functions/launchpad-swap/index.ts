@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-launchpad-id",
 };
 
-const PLATFORM_FEE_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
+const PLATFORM_FEE_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 const FEE_BPS = 200; // 2% fee
 const API_USER_FEE_SHARE = 0.75; // 1.5% to API user (75% of 2%)
 const PLATFORM_FEE_SHARE = 0.25; // 0.5% to platform (25% of 2%)
