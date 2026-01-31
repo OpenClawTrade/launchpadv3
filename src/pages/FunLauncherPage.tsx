@@ -18,6 +18,7 @@ import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { StatsCards } from "@/components/launchpad/StatsCards";
 import { TokenTable } from "@/components/launchpad/TokenTable";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
+import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 
 import { formatDistanceToNow } from "date-fns";
@@ -197,6 +198,11 @@ export default function FunLauncherPage() {
       {/* Ticker Bar */}
       <div className="mt-4">
         <TokenTickerBar />
+      </div>
+
+      {/* King of the Hill */}
+      <div className="max-w-[1400px] mx-auto px-4 pt-6">
+        <KingOfTheHill />
       </div>
 
       {/* Main Content */}
