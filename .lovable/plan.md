@@ -1,48 +1,76 @@
 
-# Fix Promote-Generate Edge Function CORS Headers
+
+# Fix Token Ticker Bar - Continuous Marquee Scroll
 
 ## Problem
-The `promote-generate` edge function is returning a 400 error: `"funTokenId and promoterWallet are required"`. This happens because the **CORS headers are incomplete**, causing the browser's preflight (OPTIONS) request to fail, which prevents the actual POST request body from being sent.
+Currently the ticker bar uses JavaScript-based `scrollLeft` manipulation which:
+- Pauses on hover (not desired)
+- May not scroll smoothly
+- Only shows the coin logos rotating (3D flip), but the **entire ticker line doesn't scroll**
 
-## Root Cause
-The current CORS `Access-Control-Allow-Headers` only includes:
-```
-authorization, x-client-info, apikey, content-type
-```
-
-But the Supabase client sends additional headers that are not whitelisted:
-- `x-supabase-client-platform`
-- `x-supabase-client-platform-version`
-- `x-supabase-client-runtime`
-- `x-supabase-client-runtime-version`
-
-When the browser's preflight OPTIONS request doesn't receive permission for these headers, the actual POST request fails or sends an empty body.
+The user wants a **continuous marquee effect** where the entire row of tokens scrolls left infinitely.
 
 ---
 
 ## Solution
 
-Update the CORS headers in `supabase/functions/promote-generate/index.ts` to include all required Supabase client headers:
+Replace the JavaScript scroll animation with a **pure CSS marquee animation** that:
+1. Scrolls the entire ticker line continuously from right to left
+2. Never pauses (runs infinitely)
+3. Duplicates content for seamless looping
+4. Works even with just a few tokens
 
-**File:** `supabase/functions/promote-generate/index.ts`
+---
 
-**Change (line 6-9):**
+## Technical Implementation
 
-From:
-```typescript
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+### 1. Update TokenTickerBar Component
+
+**File:** `src/components/launchpad/TokenTickerBar.tsx`
+
+Changes:
+- Remove the JavaScript `requestAnimationFrame` scroll logic
+- Remove mouse enter/leave pause handlers  
+- Use CSS animation class `animate-ticker` on the inner container
+- Duplicate tokens enough times to fill the screen (multiply by 3-4x for seamless loop)
+
+```tsx
+// Remove the scroll useEffect entirely
+// Change the inner div to use CSS animation:
+<div className="gate-ticker-inner animate-ticker">
+  {/* tokens repeated multiple times */}
+</div>
 ```
 
-To:
-```typescript
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+### 2. Add CSS Marquee Animation
+
+**File:** `src/index.css`
+
+Add new keyframes and animation class:
+
+```css
+/* Continuous ticker marquee animation */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-ticker {
+  display: flex;
+  animation: ticker-scroll 30s linear infinite;
+  width: max-content;
+}
 ```
+
+The animation moves the content left by 50% (since tokens are duplicated), creating a seamless infinite loop.
+
+### 3. Update Ticker CSS Styling  
+
+**File:** `src/styles/gate-theme.css`
+
+Ensure `.gate-ticker-inner` supports the marquee:
+- Remove any conflicting flex/gap that might break the animation
+- Ensure proper overflow handling on parent
 
 ---
 
@@ -50,13 +78,13 @@ const corsHeaders = {
 
 | File | Change |
 |------|--------|
-| `supabase/functions/promote-generate/index.ts` | Update CORS `Access-Control-Allow-Headers` to include all Supabase client headers |
+| `src/components/launchpad/TokenTickerBar.tsx` | Remove JS scroll logic, use CSS animation, multiply token duplicates |
+| `src/index.css` | Add `@keyframes ticker-scroll` and `.animate-ticker` class |
+| `src/styles/gate-theme.css` | Adjust `.gate-ticker-inner` to support CSS marquee |
 
 ---
 
-## After Fix
+## Result
 
-Once deployed, the promote modal will correctly:
-1. Pass the browser's preflight check
-2. Send the `funTokenId` and `promoterWallet` in the POST body
-3. Generate a payment address and QR code for the user
+The ticker bar will continuously scroll left at a steady pace, looping infinitely. Even if there are only 4 tokens, they will cycle around endlessly without any pauses or stops.
+
