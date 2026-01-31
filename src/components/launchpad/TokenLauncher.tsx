@@ -943,6 +943,52 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       maxLength={500}
                     />
 
+                    {/* Social links - collapsible */}
+                    <details className="group">
+                      <summary className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                        <Globe className="h-3 w-3" />
+                        <span>Add Social Links (optional)</span>
+                      </summary>
+                      <div className="mt-2 space-y-2 pl-5">
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            placeholder="Website URL"
+                            value={phantomToken.websiteUrl || ""}
+                            onChange={(e) => setPhantomToken({ ...phantomToken, websiteUrl: e.target.value })}
+                            className="gate-input text-sm"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Twitter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            placeholder="X/Twitter URL"
+                            value={phantomToken.twitterUrl || ""}
+                            onChange={(e) => setPhantomToken({ ...phantomToken, twitterUrl: e.target.value })}
+                            className="gate-input text-sm"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            placeholder="Telegram URL"
+                            value={phantomToken.telegramUrl || ""}
+                            onChange={(e) => setPhantomToken({ ...phantomToken, telegramUrl: e.target.value })}
+                            className="gate-input text-sm"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            placeholder="Discord URL"
+                            value={phantomToken.discordUrl || ""}
+                            onChange={(e) => setPhantomToken({ ...phantomToken, discordUrl: e.target.value })}
+                            className="gate-input text-sm"
+                          />
+                        </div>
+                      </div>
+                    </details>
+
                     <Input type="file" accept="image/*" onChange={handlePhantomImageChange} className="gate-input text-xs" />
 
                     {/* Vanity Address Generator */}
