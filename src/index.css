@@ -225,14 +225,15 @@
     animation: koth-pulse 1.2s ease-in-out;
   }
 
-  /* Token ticker coin rotation */
+  /* Token ticker coin rotation - 3D Y-axis flip */
   @keyframes coin-spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    0% { transform: rotateY(0deg); }
+    100% { transform: rotateY(360deg); }
   }
 
   .animate-coin-spin {
     animation: coin-spin 3s linear infinite;
+    transform-style: preserve-3d;
   }
 
   /* Like animation */
