@@ -49,6 +49,7 @@ interface LaunchResult {
   ticker?: string;
   mintAddress?: string;
   imageUrl?: string;
+  tokenId?: string;
   onChainSuccess?: boolean;
   solscanUrl?: string;
   tradeUrl?: string;
@@ -282,6 +283,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         name: tokenToLaunch.name,
         ticker: tokenToLaunch.ticker,
         mintAddress: data.mintAddress,
+        tokenId: data.tokenId,
         imageUrl: tokenToLaunch.imageUrl,
         onChainSuccess: true,
         solscanUrl: data.solscanUrl,
@@ -601,6 +603,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         name: phantomToken.name,
         ticker: phantomToken.ticker,
         mintAddress: data.mintAddress,
+        tokenId: data.tokenId,
         imageUrl,
         onChainSuccess: true,
         solscanUrl: lastSig ? `https://solscan.io/tx/${lastSig}` : undefined,
