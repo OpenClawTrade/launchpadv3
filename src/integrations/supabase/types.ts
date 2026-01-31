@@ -3282,6 +3282,18 @@ export type Database = {
           wallet_address: string
         }[]
       }
+      get_api_leaderboard: {
+        Args: { p_limit?: number }
+        Returns: {
+          launchpads_count: number
+          member_since: string
+          rank: number
+          tokens_launched: number
+          total_fees_earned: number
+          total_fees_paid_out: number
+          wallet_address: string
+        }[]
+      }
       get_fun_fee_claims_summary: {
         Args: never
         Returns: {
