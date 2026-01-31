@@ -146,16 +146,6 @@ export default function FunLauncherPage() {
                 Narratives
               </Button>
             </Link>
-            <Link to="/api">
-              <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-sm font-medium">
-                API
-              </Button>
-            </Link>
-            <Link to="/governance">
-              <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-sm font-medium">
-                Governance
-              </Button>
-            </Link>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -181,12 +171,6 @@ export default function FunLauncherPage() {
                 <nav className="flex flex-col gap-2 mt-8">
                   <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-primary-foreground text-sm font-medium">Narratives</span>
-                  </Link>
-                  <Link to="/api" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-primary-foreground text-sm font-medium">API</span>
-                  </Link>
-                  <Link to="/governance" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-primary-foreground text-sm font-medium">Governance</span>
                   </Link>
                 </nav>
               </SheetContent>
