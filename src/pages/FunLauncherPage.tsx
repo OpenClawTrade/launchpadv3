@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useFunTokens } from "@/hooks/useFunTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions } from "@/hooks/useFunFeeData";
@@ -69,6 +70,7 @@ interface LaunchResult {
 export default function FunLauncherPage() {
   const { toast } = useToast();
   const { solPrice } = useSolPrice();
+  const { solanaAddress } = useAuth();
   const isMobile = useIsMobile();
   const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
 
@@ -769,7 +771,7 @@ export default function FunLauncherPage() {
           tokenId={promoteTokenId}
           tokenName={promoteTokenName}
           tokenTicker={promoteTokenTicker}
-          promoterWallet=""
+          promoterWallet={solanaAddress || ""}
         />
       )}
     </div>
