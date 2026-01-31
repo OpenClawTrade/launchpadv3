@@ -1,6 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from "https://esm.sh/@solana/web3.js@1.98.0";
+import { 
+  Connection, 
+  PublicKey, 
+  LAMPORTS_PER_SOL, 
+  Keypair, 
+  Transaction, 
+  SystemProgram, 
+  sendAndConfirmTransaction 
+} from "https://esm.sh/@solana/web3.js@1.98.0";
+import bs58 from "https://esm.sh/bs58@5.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +17,56 @@ const corsHeaders = {
 };
 
 const REQUIRED_SOL = 1.0;
+const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
+const RENT_EXEMPT_RESERVE = 0.002; // Keep small amount for rent
+
+// Forward SOL from payment wallet to treasury
+async function forwardToTreasury(
+  connection: Connection,
+  paymentPrivateKey: string,
+  balanceLamports: number
+): Promise<string> {
+  // Decode private key and create keypair
+  const secretKey = bs58.decode(paymentPrivateKey);
+  const keypair = Keypair.fromSecretKey(secretKey);
+  const treasuryPubkey = new PublicKey(TREASURY_WALLET);
+  
+  // Calculate transfer amount (balance minus rent reserve and transaction fee)
+  const rentReserveLamports = Math.floor(RENT_EXEMPT_RESERVE * LAMPORTS_PER_SOL);
+  const txFeeLamports = 5000; // ~0.000005 SOL for tx fee
+  const transferAmount = balanceLamports - rentReserveLamports - txFeeLamports;
+  
+  if (transferAmount <= 0) {
+    throw new Error(`Insufficient balance for transfer: ${balanceLamports} lamports`);
+  }
+
+  console.log(`[promote-check] Forwarding ${transferAmount / LAMPORTS_PER_SOL} SOL to treasury ${TREASURY_WALLET}`);
+  
+  // Create transfer transaction
+  const transaction = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: keypair.publicKey,
+      toPubkey: treasuryPubkey,
+      lamports: transferAmount,
+    })
+  );
+  
+  // Get recent blockhash
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = keypair.publicKey;
+  
+  // Sign and send transaction
+  const signature = await sendAndConfirmTransaction(
+    connection, 
+    transaction, 
+    [keypair],
+    { commitment: "confirmed" }
+  );
+  
+  console.log(`[promote-check] SOL forwarded to treasury. Signature: ${signature}`);
+  return signature;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,13 +88,14 @@ serve(async (req) => {
       );
     }
 
-    // Get promotion record
+    // Get promotion record including private key (service role has access)
     const { data: promotion, error: promotionError } = await supabase
       .from("token_promotions")
       .select(`
         id,
         fun_token_id,
         payment_address,
+        payment_private_key,
         status,
         created_at,
         fun_tokens (
@@ -99,10 +159,27 @@ serve(async (req) => {
     console.log(`[promote-check] Payment address ${promotion.payment_address} balance: ${balanceSol} SOL`);
 
     if (balanceSol >= REQUIRED_SOL) {
-      // Payment received! Update status to paid
+      // Payment received! Forward SOL to treasury
+      let transferSignature: string | null = null;
+      
+      try {
+        transferSignature = await forwardToTreasury(
+          connection,
+          promotion.payment_private_key,
+          balance
+        );
+        console.log(`[promote-check] Treasury transfer successful: ${transferSignature}`);
+      } catch (transferError) {
+        console.error("[promote-check] Failed to forward SOL to treasury:", transferError);
+        // Continue with promotion even if transfer fails - we'll retry later
+        // The important thing is the user paid
+      }
+
+      // Update status to paid with transfer signature
       await supabase.rpc("backend_update_promotion_status", {
         p_promotion_id: promotionId,
         p_status: "paid",
+        p_signature: transferSignature,
       });
 
       console.log(`[promote-check] Payment confirmed for promotion ${promotionId}`);
@@ -129,6 +206,7 @@ serve(async (req) => {
             success: true,
             status: "paid",
             paid: true,
+            transferSignature,
             twitterPosted: postResult.success || false,
             tweetId: postResult.tweetId,
           }),
@@ -142,6 +220,7 @@ serve(async (req) => {
             success: true,
             status: "paid",
             paid: true,
+            transferSignature,
             twitterPosted: false,
             message: "Payment confirmed. Tweet will be posted shortly.",
           }),
