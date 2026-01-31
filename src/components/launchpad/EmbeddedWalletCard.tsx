@@ -95,6 +95,8 @@ function EmbeddedWalletCardInner({ className }: { className: string }) {
   const [showExport, setShowExport] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [depositSuccess, setDepositSuccess] = useState<{ amount: number } | null>(null);
+  const [balanceAtOpen, setBalanceAtOpen] = useState<number | null>(null);
 
   const fetchBalance = async () => {
     if (!isWalletReady) return;
@@ -103,8 +105,10 @@ function EmbeddedWalletCardInner({ className }: { className: string }) {
     try {
       const bal = getBalanceStrict ? await getBalanceStrict() : await getBalance();
       setBalance(bal);
+      return bal;
     } catch (error) {
       console.error("Failed to fetch balance:", error);
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -116,6 +120,59 @@ function EmbeddedWalletCardInner({ className }: { className: string }) {
     const interval = setInterval(fetchBalance, 15000);
     return () => clearInterval(interval);
   }, [isWalletReady]);
+
+  // Poll for deposits when QR modal is open
+  useEffect(() => {
+    if (!showQR || !isWalletReady) return;
+
+    // Store balance when modal opens
+    if (balanceAtOpen === null && balance !== null) {
+      setBalanceAtOpen(balance);
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const currentBal = getBalanceStrict ? await getBalanceStrict() : await getBalance();
+        setBalance(currentBal);
+
+        // Check if balance increased
+        const openingBalance = balanceAtOpen ?? balance ?? 0;
+        if (currentBal > openingBalance + 0.0001) {
+          const depositAmount = currentBal - openingBalance;
+          setDepositSuccess({ amount: depositAmount });
+          
+          // Show success toast
+          toast({
+            title: "🎉 Deposit Received!",
+            description: `+${depositAmount.toFixed(4)} SOL has been added to your wallet`,
+          });
+
+          // Close modal after showing success
+          setTimeout(() => {
+            setShowQR(false);
+            setDepositSuccess(null);
+            setBalanceAtOpen(null);
+          }, 2500);
+        }
+      } catch (error) {
+        console.error("Balance poll error:", error);
+      }
+    }, 3000); // Poll every 3 seconds when modal is open
+
+    return () => clearInterval(pollInterval);
+  }, [showQR, isWalletReady, balanceAtOpen, balance]);
+
+  // Reset state when modal closes
+  const handleQROpenChange = (open: boolean) => {
+    setShowQR(open);
+    if (open) {
+      setDepositSuccess(null);
+      setBalanceAtOpen(balance);
+    } else {
+      setBalanceAtOpen(null);
+      setDepositSuccess(null);
+    }
+  };
 
   const handleCopy = async () => {
     if (!walletAddress) return;
@@ -224,7 +281,7 @@ function EmbeddedWalletCardInner({ className }: { className: string }) {
       {/* Action Buttons */}
       <div className="grid grid-cols-2 gap-2">
         {/* Deposit / QR Code */}
-        <Dialog open={showQR} onOpenChange={setShowQR}>
+        <Dialog open={showQR} onOpenChange={handleQROpenChange}>
           <DialogTrigger asChild>
             <Button variant="outline" className="w-full gap-2">
               <ArrowDownToLine className="h-4 w-4" />
@@ -241,23 +298,43 @@ function EmbeddedWalletCardInner({ className }: { className: string }) {
                 Scan this QR code or copy the address to send SOL
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col items-center gap-4 py-4">
-              <div className="bg-white p-4 rounded-xl">
-                <QRCode value={walletAddress} size={180} />
-              </div>
-              <div className="w-full">
-                <Label className="text-xs text-muted-foreground">Wallet Address</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input value={walletAddress} readOnly className="font-mono text-xs" />
-                  <Button variant="outline" size="icon" onClick={handleCopy}>
-                    {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-                  </Button>
+            
+            {depositSuccess ? (
+              <div className="flex flex-col items-center gap-4 py-8">
+                <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
+                  <Check className="h-10 w-10 text-primary" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-primary mb-2">Deposit Received!</h3>
+                  <p className="text-2xl font-bold">+{depositSuccess.amount.toFixed(4)} SOL</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Your wallet has been updated
+                  </p>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Send SOL from any exchange or wallet to this address
-              </p>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="bg-white p-4 rounded-xl">
+                  <QRCode value={walletAddress} size={180} />
+                </div>
+                <div className="w-full">
+                  <Label className="text-xs text-muted-foreground">Wallet Address</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input value={walletAddress} readOnly className="font-mono text-xs" />
+                    <Button variant="outline" size="icon" onClick={handleCopy}>
+                      {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  <span>Waiting for deposit...</span>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Send SOL from any exchange or wallet to this address
+                </p>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 
