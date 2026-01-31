@@ -9,10 +9,6 @@ const corsHeaders = {
 // Platform fee wallet - receives 50% of trading fees
 const PLATFORM_FEE_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 
-// Default socials for all tokens
-const DEFAULT_WEBSITE = "https://buildtuna.com";
-const DEFAULT_TWITTER = "https://x.com/buildtuna";
-
 // Blocked patterns for spam/exploit names
 const BLOCKED_PATTERNS = [
   /exploit/i,
@@ -194,8 +190,8 @@ serve(async (req) => {
         ticker: ticker.toUpperCase(),
         description: description || null,
         image_url: imageUrl || null,
-        website_url: websiteUrl || DEFAULT_WEBSITE,
-        twitter_url: twitterUrl || DEFAULT_TWITTER,
+        website_url: websiteUrl || null,
+        twitter_url: twitterUrl || null,
         telegram_url: telegramUrl || null,
         discord_url: discordUrl || null,
         creator_wallet: creatorWallet,
