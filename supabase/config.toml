@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.api-webhooks]
 verify_jwt = false
+
+[functions.api-leaderboard]
+verify_jwt = false

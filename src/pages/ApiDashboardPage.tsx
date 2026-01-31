@@ -23,7 +23,8 @@ import {
   Wallet,
   TrendingUp,
   BarChart3,
-  ArrowUpRight
+  ArrowUpRight,
+  Trophy
 } from "lucide-react";
 import {
   Dialog,
@@ -44,6 +45,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ApiLeaderboard } from "@/components/api/ApiLeaderboard";
 
 interface ApiAccount {
   id: string;
@@ -501,6 +503,20 @@ export default function ApiDashboardPage() {
           </Button>
         </div>
 
+        {/* Tabs */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="bg-[#12121a] border border-[#1a1a1f]">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-purple-600">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="leaderboard" className="data-[state=active]:bg-purple-600">
+              <Trophy className="w-4 h-4 mr-2" />
+              Leaderboard
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6 mt-6">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="bg-[#12121a] border-[#1a1a1f]">
@@ -749,6 +765,13 @@ export default function ApiDashboardPage() {
             )}
           </CardContent>
         </Card>
+
+          </TabsContent>
+
+          <TabsContent value="leaderboard" className="mt-6">
+            <ApiLeaderboard currentWallet={walletAddress} />
+          </TabsContent>
+        </Tabs>
 
         {/* New API Key Modal */}
         <Dialog open={!!newApiKey} onOpenChange={() => setNewApiKey(null)}>
