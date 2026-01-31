@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Platform fee wallet - receives 50% of trading fees
-const PLATFORM_FEE_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ";
+const PLATFORM_FEE_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 
 // Default socials for all tokens
 const DEFAULT_WEBSITE = "https://ai67x.fun";
