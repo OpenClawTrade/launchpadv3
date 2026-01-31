@@ -20,12 +20,15 @@ serve(async (req) => {
 
     const { funTokenId, promoterWallet } = await req.json();
 
-    if (!funTokenId || !promoterWallet) {
+    if (!funTokenId) {
       return new Response(
-        JSON.stringify({ error: "funTokenId and promoterWallet are required" }),
+        JSON.stringify({ error: "funTokenId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    // promoterWallet is optional - user can pay from any wallet
+    const walletAddress = promoterWallet || "anonymous";
 
     // Check if token exists
     const { data: token, error: tokenError } = await supabase
@@ -90,7 +93,7 @@ serve(async (req) => {
     const { data: promotionId, error: createError } = await supabase
       .rpc("backend_create_promotion", {
         p_fun_token_id: funTokenId,
-        p_promoter_wallet: promoterWallet,
+        p_promoter_wallet: walletAddress,
         p_payment_address: paymentAddress,
         p_payment_private_key: privateKeyBase58,
       });
