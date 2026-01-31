@@ -7,6 +7,7 @@ import { BondingCurveProgress } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { WalletSettingsModal } from "@/components/launchpad/WalletSettingsModal";
 import { JupiterSwapWidget } from "@/components/launchpad/JupiterSwapWidget";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const HEADER_LOGO_SRC = "/tuna-logo.png";
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD = 85;
 
@@ -77,7 +77,7 @@ export default function FunTokenDetailPage() {
     if (navigator.share && token) {
       navigator.share({
         title: `${token.name} ($${token.ticker})`,
-        text: `Check out ${token.name} on RIFT!`,
+        text: `Check out ${token.name} on TUNA!`,
         url: window.location.href,
       });
     } else {
@@ -100,19 +100,19 @@ export default function FunTokenDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="p-4 space-y-4">
+      <LaunchpadLayout>
+        <div className="space-y-4 max-w-4xl mx-auto">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
-      </div>
+      </LaunchpadLayout>
     );
   }
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-background">
+      <LaunchpadLayout>
         <div className="flex flex-col items-center justify-center py-20">
           <h2 className="text-2xl font-bold">Token not found</h2>
           <p className="text-muted-foreground mt-2">This token doesn't exist or has been removed.</p>
@@ -120,7 +120,7 @@ export default function FunTokenDetailPage() {
             <Button>Back to Launchpad</Button>
           </Link>
         </div>
-      </div>
+      </LaunchpadLayout>
     );
   }
 
@@ -160,70 +160,69 @@ export default function FunTokenDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="flex items-center gap-4 px-4 h-14">
-          <Link to="/" className="flex items-center gap-2">
-            <ArrowLeft className="h-5 w-5" />
-            <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" />
+    <LaunchpadLayout showKingOfTheHill={true}>
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Back Button + Token Header */}
+        <div className="flex items-center gap-4">
+          <Link to="/">
+            <Button variant="ghost" size="icon" className="h-10 w-10">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
           </Link>
           <div className="flex items-center gap-3 flex-1">
-            <Avatar className="h-8 w-8 rounded-lg">
+            <Avatar className="h-10 w-10 rounded-lg">
               <AvatarImage src={token.image_url || undefined} />
-              <AvatarFallback className="rounded-lg text-xs font-bold">
+              <AvatarFallback className="rounded-lg text-sm font-bold">
                 {token.ticker.slice(0, 2)}
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="font-bold">{token.name}</h1>
-              <span className="text-xs text-muted-foreground">${token.ticker}</span>
+              <h1 className="font-bold text-lg">{token.name}</h1>
+              <span className="text-sm text-muted-foreground">${token.ticker}</span>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRefresh}>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleRefresh}>
               <RefreshCw className="h-4 w-4" />
             </Button>
             <WalletSettingsModal walletAddress={solanaAddress || undefined} />
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={copyAddress}>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={copyAddress}>
               <Copy className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={shareToken}>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={shareToken}>
               <Share2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
-      </header>
 
-      <div className="p-4 space-y-4 max-w-4xl mx-auto">
         {/* Token Info Card */}
-        <Card className="p-3 sm:p-4">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <Avatar className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl border-2 border-border mx-auto sm:mx-0">
+        <Card className="gate-card p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Avatar className="h-20 w-20 rounded-xl border-2 border-border mx-auto sm:mx-0">
               <AvatarImage src={token.image_url || undefined} />
-              <AvatarFallback className="text-xl sm:text-2xl font-bold bg-primary/10 text-primary rounded-xl">
+              <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary rounded-xl">
                 {token.ticker.slice(0, 2)}
               </AvatarFallback>
             </Avatar>
 
             <div className="flex-1 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-bold">{token.name}</h2>
+                <h2 className="text-xl font-bold">{token.name}</h2>
                 <Badge variant="secondary" className="text-xs">${token.ticker}</Badge>
                 {isGraduated && (
-                  <Badge className="bg-primary/20 text-primary border-primary/30 text-xs">
+                  <Badge variant="secondary" className="text-xs">
                     🎓 Graduated
                   </Badge>
                 )}
                 {isBonding && (
-                  <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 text-xs">
+                  <Badge variant="outline" className="text-xs border-primary text-primary">
                     📈 Bonding
                   </Badge>
                 )}
               </div>
 
               {/* Creator */}
-              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Created by <span className="font-medium text-foreground">
                   {token.creator_wallet.slice(0, 6)}...{token.creator_wallet.slice(-4)}
                 </span>
@@ -231,32 +230,32 @@ export default function FunTokenDetailPage() {
 
               {/* Description */}
               {token.description && (
-                <p className="text-xs sm:text-sm text-muted-foreground mt-2 line-clamp-2">
+                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                   {token.description}
                 </p>
               )}
 
               {/* Social Links */}
-              <div className="flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 mt-3 flex-wrap">
+              <div className="flex items-center justify-center sm:justify-start gap-2 mt-3 flex-wrap">
                 {token.website_url && (
                   <a href={token.website_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-7 sm:h-8 gap-1 px-2 sm:px-3 text-xs">
-                      <Globe className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 px-3 text-xs">
+                      <Globe className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Website</span>
                     </Button>
                   </a>
                 )}
                 {token.twitter_url && (
                   <a href={token.twitter_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-7 sm:h-8 w-7 sm:w-auto px-0 sm:px-2">
-                      <Twitter className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <Button variant="outline" size="sm" className="h-8 w-8 sm:w-auto px-0 sm:px-2">
+                      <Twitter className="h-3.5 w-3.5" />
                     </Button>
                   </a>
                 )}
                 {token.telegram_url && (
                   <a href={token.telegram_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-7 sm:h-8 w-7 sm:w-auto px-0 sm:px-2">
-                      <MessageCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <Button variant="outline" size="sm" className="h-8 w-8 sm:w-auto px-0 sm:px-2">
+                      <MessageCircle className="h-3.5 w-3.5" />
                     </Button>
                   </a>
                 )}
@@ -266,8 +265,8 @@ export default function FunTokenDetailPage() {
                     target="_blank" 
                     rel="noopener noreferrer"
                   >
-                    <Button variant="outline" size="sm" className="h-7 sm:h-8 gap-1 px-2 sm:px-3 text-xs">
-                      <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 px-3 text-xs">
+                      <ExternalLink className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Solscan</span>
                     </Button>
                   </a>
@@ -276,9 +275,10 @@ export default function FunTokenDetailPage() {
                   href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="inline-flex"
                 >
-                  <Button size="sm" className="h-7 sm:h-8 gap-1 px-2 sm:px-3 text-xs bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white border-0">
-                    <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <Button size="sm" className="h-8 gap-1.5 px-3 text-xs bg-accent hover:bg-accent/90 text-accent-foreground border-0">
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span className="hidden xs:inline">Axiom</span>
@@ -290,28 +290,28 @@ export default function FunTokenDetailPage() {
         </Card>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-          <Card className="p-2 sm:p-3 text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Market Cap</p>
-            <p className="text-sm sm:text-lg font-bold truncate">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="gate-card p-3 text-center">
+            <p className="text-xs text-muted-foreground">Market Cap</p>
+            <p className="text-lg font-bold truncate">
               {formatUsd(token.market_cap_sol || 0)}
             </p>
           </Card>
-          <Card className="p-2 sm:p-3 text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground">24h Volume</p>
-            <p className="text-sm sm:text-lg font-bold truncate">
+          <Card className="gate-card p-3 text-center">
+            <p className="text-xs text-muted-foreground">24h Volume</p>
+            <p className="text-lg font-bold truncate">
               {formatSolAmount(token.volume_24h_sol || 0)}
             </p>
           </Card>
-          <Card className="p-2 sm:p-3 text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Holders</p>
-            <p className="text-sm sm:text-lg font-bold">
+          <Card className="gate-card p-3 text-center">
+            <p className="text-xs text-muted-foreground">Holders</p>
+            <p className="text-lg font-bold">
               {token.holder_count || 0}
             </p>
           </Card>
-          <Card className="p-2 sm:p-3 text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Price</p>
-            <p className="text-sm sm:text-lg font-bold">
+          <Card className="gate-card p-3 text-center">
+            <p className="text-xs text-muted-foreground">Price</p>
+            <p className="text-lg font-bold">
               {(token.price_sol || 0).toFixed(9)}
             </p>
           </Card>
@@ -319,7 +319,7 @@ export default function FunTokenDetailPage() {
 
         {/* Bonding Curve Progress - Only for bonding tokens */}
         {isBonding && (
-          <Card className="p-4">
+          <Card className="gate-card p-4">
             <BondingCurveProgress
               progress={bondingProgress}
               realSolReserves={realSolReserves}
@@ -359,7 +359,7 @@ export default function FunTokenDetailPage() {
 
         {/* Contract Info */}
         {token.mint_address && (
-          <Card className="p-4">
+          <Card className="gate-card p-4">
             <h3 className="font-semibold mb-3">Contract Info</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center">
@@ -393,6 +393,6 @@ export default function FunTokenDetailPage() {
           </Card>
         )}
       </div>
-    </div>
+    </LaunchpadLayout>
   );
 }
