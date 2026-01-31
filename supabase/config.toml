@@ -122,3 +122,12 @@ verify_jwt = false
 
 [functions.treasury-scan-pools]
 verify_jwt = false
+
+[functions.api-launch-token]
+verify_jwt = false
+
+[functions.api-swap]
+verify_jwt = false
+
+[functions.api-webhooks]
+verify_jwt = false

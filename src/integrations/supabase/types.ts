@@ -256,6 +256,53 @@ export type Database = {
           },
         ]
       }
+      api_webhooks: {
+        Row: {
+          api_account_id: string
+          created_at: string | null
+          events: string[]
+          failure_count: number | null
+          id: string
+          is_active: boolean | null
+          last_triggered_at: string | null
+          secret: string
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          api_account_id: string
+          created_at?: string | null
+          events?: string[]
+          failure_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          secret: string
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          api_account_id?: string
+          created_at?: string | null
+          events?: string[]
+          failure_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          secret?: string
+          updated_at?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_webhooks_api_account_id_fkey"
+            columns: ["api_account_id"]
+            isOneToOne: false
+            referencedRelation: "api_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookmarks: {
         Row: {
           created_at: string
@@ -983,6 +1030,7 @@ export type Database = {
       }
       fun_tokens: {
         Row: {
+          api_account_id: string | null
           bonding_progress: number | null
           created_at: string | null
           creator_wallet: string
@@ -1009,6 +1057,7 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          api_account_id?: string | null
           bonding_progress?: number | null
           created_at?: string | null
           creator_wallet: string
@@ -1035,6 +1084,7 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          api_account_id?: string | null
           bonding_progress?: number | null
           created_at?: string | null
           creator_wallet?: string
@@ -1060,7 +1110,15 @@ export type Database = {
           volume_24h_sol?: number | null
           website_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fun_tokens_api_account_id_fkey"
+            columns: ["api_account_id"]
+            isOneToOne: false
+            referencedRelation: "api_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       governance_conversations: {
         Row: {
@@ -2161,6 +2219,7 @@ export type Database = {
       }
       tokens: {
         Row: {
+          api_account_id: string | null
           bonding_curve_progress: number | null
           claim_locked_at: string | null
           created_at: string | null
@@ -2202,6 +2261,7 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          api_account_id?: string | null
           bonding_curve_progress?: number | null
           claim_locked_at?: string | null
           created_at?: string | null
@@ -2243,6 +2303,7 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          api_account_id?: string | null
           bonding_curve_progress?: number | null
           claim_locked_at?: string | null
           created_at?: string | null
@@ -2284,6 +2345,13 @@ export type Database = {
           website_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tokens_api_account_id_fkey"
+            columns: ["api_account_id"]
+            isOneToOne: false
+            referencedRelation: "api_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tokens_creator_id_fkey"
             columns: ["creator_id"]
@@ -2902,6 +2970,10 @@ export type Database = {
         Args: { p_lock_duration_seconds?: number; p_token_id: string }
         Returns: boolean
       }
+      backend_attribute_token_to_api: {
+        Args: { p_api_account_id: string; p_token_id: string }
+        Returns: boolean
+      }
       backend_complete_token_job: {
         Args: {
           p_dbc_pool_address: string
@@ -3061,6 +3133,18 @@ export type Database = {
           p_suffix: string
         }
         Returns: string
+      }
+      backend_manage_webhook: {
+        Args: {
+          p_action: string
+          p_api_account_id: string
+          p_events?: string[]
+          p_is_active?: boolean
+          p_secret?: string
+          p_url?: string
+          p_webhook_id?: string
+        }
+        Returns: Json
       }
       backend_mark_vanity_used: {
         Args: { p_keypair_id: string; p_token_id: string }
