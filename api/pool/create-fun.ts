@@ -99,11 +99,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { 
       name, ticker, description, imageUrl, websiteUrl, twitterUrl, 
+      telegramUrl, discordUrl,
       feeRecipientWallet, serverSideSign, useVanityAddress = false, // DISABLED by default
-      jobId
+      jobId, apiAccountId // API account ID for fee attribution
     } = req.body;
 
-    console.log(`[create-fun][${VERSION}] Request received`, { name, ticker, useVanityAddress, elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Request received`, { name, ticker, useVanityAddress, apiAccountId, elapsed: Date.now() - startTime });
 
     if (!name || !ticker) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
@@ -301,6 +302,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }).then(({ error }) => {
       if (error) console.log('[create-fun] Fee earner creation failed:', error);
     });
+
+    // If launched via API, attribute token to API account for fee distribution
+    if (apiAccountId) {
+      console.log(`[create-fun][${VERSION}] Attributing token to API account`, { apiAccountId, elapsed: Date.now() - startTime });
+      supabase.rpc('backend_attribute_token_to_api', {
+        p_token_id: tokenId,
+        p_api_account_id: apiAccountId,
+      }).then(({ error }) => {
+        if (error) console.log('[create-fun] API attribution failed:', error);
+        else console.log(`[create-fun] Token ${tokenId} attributed to API account ${apiAccountId}`);
+      });
+    }
 
     // Trigger sniper buy (fire-and-forget, non-blocking)
     const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';

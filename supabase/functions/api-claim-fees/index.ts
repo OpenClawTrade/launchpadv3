@@ -11,9 +11,11 @@ const corsHeaders = {
 // Minimum SOL to distribute (avoid micro-transactions)
 const MIN_CLAIM_SOL = 0.01;
 
+// Hash API key using the same method as api-account
 async function hashApiKey(apiKey: string): Promise<string> {
+  const encryptionKey = Deno.env.get("API_ENCRYPTION_KEY") || "";
   const encoder = new TextEncoder();
-  const data = encoder.encode(apiKey);
+  const data = encoder.encode(apiKey + encryptionKey);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");

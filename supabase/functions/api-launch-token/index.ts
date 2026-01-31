@@ -19,6 +19,14 @@ interface LaunchTokenRequest {
   tradingFeeBps?: number;
 }
 
+// Hash API key using the same method as api-account
+async function hashApiKey(apiKey: string, encryptionKey: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(apiKey + encryptionKey);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -42,25 +50,41 @@ serve(async (req) => {
       );
     }
 
+    // Get encryption key for hashing
+    const encryptionKey = Deno.env.get("API_ENCRYPTION_KEY");
+    if (!encryptionKey) {
+      console.error("[api-launch-token] API_ENCRYPTION_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify API key using RPC
-    const { data: verifyData, error: verifyError } = await supabase.rpc("verify_api_key", {
-      p_api_key: apiKey,
-    });
+    // Hash the API key and verify
+    const apiKeyHash = await hashApiKey(apiKey, encryptionKey);
+    
+    // Look up account by hash
+    const { data: account, error: accountError } = await supabase
+      .from("api_accounts")
+      .select("id, wallet_address, fee_wallet_address, status")
+      .eq("api_key_hash", apiKeyHash)
+      .eq("status", "active")
+      .single();
 
-    if (verifyError || !verifyData?.is_valid) {
+    if (accountError || !account) {
       return new Response(
         JSON.stringify({ error: "Invalid API key" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const apiAccountId = verifyData.account_id;
-    const feeWalletAddress = verifyData.fee_wallet_address;
+    const apiAccountId = account.id;
+    const feeWalletAddress = account.fee_wallet_address || account.wallet_address;
 
     // Parse request body
     const body: LaunchTokenRequest = await req.json();
@@ -87,6 +111,8 @@ serve(async (req) => {
     // Call Vercel API to create the token
     const vercelApiUrl = Deno.env.get("VERCEL_API_URL") || "https://tunalaunch.vercel.app";
     
+    console.log(`[api-launch-token] Creating token ${body.name} ($${body.ticker}) for API account ${apiAccountId}`);
+    
     const createResponse = await fetch(`${vercelApiUrl}/api/pool/create-fun`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -97,9 +123,14 @@ serve(async (req) => {
         imageUrl: body.imageUrl,
         websiteUrl: body.websiteUrl,
         twitterUrl: body.twitterUrl,
+        telegramUrl: body.telegramUrl,
+        discordUrl: body.discordUrl,
         feeRecipientWallet: feeWalletAddress,
+        tradingFeeBps,
         serverSideSign: true,
         useVanityAddress: false,
+        // Pass API account ID for attribution
+        apiAccountId,
       }),
     });
 
@@ -121,11 +152,19 @@ serve(async (req) => {
       );
     }
 
-    // Attribute token to API account
-    await supabase.rpc("backend_attribute_token_to_api", {
+    // Attribute token to API account (for fee distribution)
+    // This sets api_account_id on both tokens and fun_tokens tables
+    const { error: attrError } = await supabase.rpc("backend_attribute_token_to_api", {
       p_token_id: createResult.tokenId,
       p_api_account_id: apiAccountId,
     });
+
+    if (attrError) {
+      console.error("[api-launch-token] Failed to attribute token:", attrError);
+      // Don't fail the request, token was still created
+    } else {
+      console.log(`[api-launch-token] Token ${createResult.tokenId} attributed to API account ${apiAccountId}`);
+    }
 
     // Get launchpad for this API account (if exists)
     const { data: launchpad } = await supabase
@@ -159,7 +198,14 @@ serve(async (req) => {
         poolAddress: createResult.dbcPoolAddress || createResult.poolAddress,
         solscanUrl: `https://solscan.io/token/${createResult.mintAddress}`,
         tradeUrl: `https://axiom.trade/meme/${createResult.dbcPoolAddress || createResult.mintAddress}`,
-        launchpadUrl: launchpad ? `https://launchpadv3.lovable.app/launchpad/${createResult.mintAddress}` : null,
+        launchpadUrl: launchpad ? `https://launchpadv3.lovable.app/fun/${createResult.mintAddress}` : null,
+        // Fee info
+        feeInfo: {
+          tradingFeeBps,
+          apiUserShare: "50%", // 1% of 2% total
+          platformShare: "50%", // 1% of 2% total
+          claimThreshold: "0.01 SOL",
+        },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
