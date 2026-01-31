@@ -134,3 +134,12 @@ verify_jwt = false
 
 [functions.api-leaderboard]
 verify_jwt = false
+
+[functions.promote-generate]
+verify_jwt = false
+
+[functions.promote-check]
+verify_jwt = false
+
+[functions.promote-post]
+verify_jwt = false
