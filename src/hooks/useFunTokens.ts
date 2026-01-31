@@ -88,6 +88,17 @@ function readFunTokensCache(): { tokens: FunToken[]; timestamp: number } | null 
   }
 }
 
+// Clear stale cache - call this when DB returns empty but cache has data
+function clearFunTokensCache() {
+  try {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(FUN_TOKENS_CACHE_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function writeFunTokensCache(tokens: FunToken[]) {
   try {
     if (typeof window === "undefined") return;
@@ -285,8 +296,21 @@ export function useFunTokens(): UseFunTokensResult {
     try {
       const base = await fetchBaseTokens();
       
-      // Write to cache immediately after successful fetch
-      writeFunTokensCache(base);
+      // CRITICAL: If DB returns empty but we showed cached data, clear the stale cache
+      // This ensures the UI syncs with DB truth after data wipes
+      if (base.length === 0 && tokensRef.current.length > 0) {
+        clearFunTokensCache();
+        setTokens([]);
+        tokensRef.current = [];
+        setLastUpdate(new Date());
+        setError(null);
+        return;
+      }
+      
+      // Write to cache immediately after successful fetch (only if non-empty)
+      if (base.length > 0) {
+        writeFunTokensCache(base);
+      }
       
       // CRITICAL: Merge base data with existing live data to prevent overwriting
       setTokens((prev) => {
