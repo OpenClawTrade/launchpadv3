@@ -257,7 +257,7 @@ export function VanityAddressGenerator({ onKeypairGenerated, disabled }: VanityA
     worker.postMessage({
       type: "start",
       suffix: targetSuffix,
-      caseSensitive: false,
+      caseSensitive: true, // Exact match: "pump" = lowercase only
       workerId,
     });
 
