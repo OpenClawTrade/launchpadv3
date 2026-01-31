@@ -86,6 +86,10 @@ export function useTokenPromotions() {
       funTokenId: string;
       promoterWallet: string;
     }): Promise<GeneratePromotionResponse> => {
+      if (!funTokenId || !promoterWallet) {
+        throw new Error("Connect your wallet to promote this token.");
+      }
+
       const response = await supabase.functions.invoke("promote-generate", {
         body: { funTokenId, promoterWallet },
       });
