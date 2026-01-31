@@ -118,21 +118,64 @@ export async function getTokenById(tokenId: string): Promise<Token | null> {
   return data as Token;
 }
 
-// Get token by mint address
+// Get token by mint address (checks both tokens and fun_tokens tables)
 export async function getTokenByMint(mintAddress: string): Promise<Token | null> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
+  
+  // Try tokens table first
+  const { data } = await supabase
     .from('tokens')
     .select('*')
     .eq('mint_address', mintAddress)
-    .single();
+    .maybeSingle();
   
-  if (error) {
-    console.error('Error fetching token:', error);
+  if (data) {
+    return data as Token;
+  }
+  
+  // Fallback to fun_tokens table
+  const { data: funToken, error: funError } = await supabase
+    .from('fun_tokens')
+    .select('*')
+    .eq('mint_address', mintAddress)
+    .maybeSingle();
+  
+  if (funError) {
+    console.error('Error fetching token from fun_tokens:', funError);
     return null;
   }
   
-  return data as Token;
+  if (funToken) {
+    // Map fun_tokens fields to Token interface for compatibility
+    return {
+      id: funToken.id,
+      mint_address: funToken.mint_address,
+      name: funToken.name,
+      ticker: funToken.ticker,
+      creator_wallet: funToken.creator_wallet,
+      creator_id: null,
+      dbc_pool_address: funToken.dbc_pool_address,
+      damm_pool_address: null,
+      virtual_sol_reserves: 30,
+      virtual_token_reserves: 1_000_000_000,
+      real_sol_reserves: 0,
+      real_token_reserves: 0,
+      total_supply: 1_000_000_000,
+      bonding_curve_progress: funToken.bonding_progress || 0,
+      graduation_threshold_sol: 85,
+      price_sol: funToken.price_sol || 0,
+      market_cap_sol: funToken.market_cap_sol || 0,
+      volume_24h_sol: funToken.volume_24h_sol || 0,
+      status: funToken.status === 'active' ? 'bonding' : funToken.status,
+      migration_status: 'pending',
+      holder_count: funToken.holder_count || 0,
+      graduated_at: null,
+      created_at: funToken.created_at,
+      updated_at: funToken.updated_at,
+    } as Token;
+  }
+  
+  return null;
 }
 
 // Update token
