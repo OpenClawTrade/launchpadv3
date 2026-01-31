@@ -138,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (useVanityAddress) {
       console.log(`[create-fun][${VERSION}] Vanity lookup starting...`, { elapsed: Date.now() - startTime });
       try {
-        vanityKeypair = await getAvailableVanityAddress('67x');
+        vanityKeypair = await getAvailableVanityAddress('TNA');
         if (vanityKeypair) {
           vanityKeypairId = vanityKeypair.id;
           console.log(`[create-fun][${VERSION}] Using vanity mint`, { publicKey: vanityKeypair.publicKey, elapsed: Date.now() - startTime });
