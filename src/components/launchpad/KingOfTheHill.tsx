@@ -1,0 +1,300 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { Crown, Copy, CheckCircle, Users, Clock, TrendingUp } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { useSolPrice } from "@/hooks/useSolPrice";
+
+interface KingToken {
+  id: string;
+  name: string;
+  ticker: string;
+  image_url: string | null;
+  mint_address: string | null;
+  dbc_pool_address: string | null;
+  real_sol_reserves: number;
+  graduation_threshold_sol: number;
+  bonding_curve_progress: number;
+  holder_count: number;
+  market_cap_sol: number;
+  created_at: string;
+}
+
+function useKingOfTheHill() {
+  return useQuery({
+    queryKey: ["king-of-the-hill"],
+    queryFn: async (): Promise<KingToken[]> => {
+      // Get top 3 bonding tokens closest to graduation
+      const { data, error } = await supabase
+        .from("fun_tokens")
+        .select(`
+          id,
+          name,
+          ticker,
+          image_url,
+          mint_address,
+          dbc_pool_address,
+          bonding_progress,
+          holder_count,
+          market_cap_sol,
+          created_at
+        `)
+        .eq("status", "bonding")
+        .order("bonding_progress", { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+
+      // Map to our interface - fetch real_sol_reserves from pool_state_cache for accuracy
+      const tokens: KingToken[] = [];
+      
+      for (const token of data || []) {
+        // Try to get cached pool state for accurate reserves
+        let realSolReserves = 0;
+        const graduationThreshold = 85; // Default threshold
+        
+        if (token.dbc_pool_address) {
+          const { data: cacheData } = await supabase
+            .from("pool_state_cache")
+            .select("real_sol_reserves")
+            .eq("pool_address", token.dbc_pool_address)
+            .single();
+          
+          if (cacheData?.real_sol_reserves) {
+            realSolReserves = cacheData.real_sol_reserves;
+          }
+        }
+
+        // Calculate progress from reserves if we have them, otherwise use stored progress
+        const progress = realSolReserves > 0 
+          ? (realSolReserves / graduationThreshold) * 100 
+          : token.bonding_progress || 0;
+
+        tokens.push({
+          id: token.id,
+          name: token.name,
+          ticker: token.ticker,
+          image_url: token.image_url,
+          mint_address: token.mint_address,
+          dbc_pool_address: token.dbc_pool_address,
+          real_sol_reserves: realSolReserves,
+          graduation_threshold_sol: graduationThreshold,
+          bonding_curve_progress: progress,
+          holder_count: token.holder_count || 0,
+          market_cap_sol: token.market_cap_sol || 0,
+          created_at: token.created_at,
+        });
+      }
+
+      // Sort by progress descending
+      return tokens.sort((a, b) => b.bonding_curve_progress - a.bonding_curve_progress);
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 20000,
+  });
+}
+
+function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+  const { solPrice } = useSolPrice();
+
+  const copyAddress = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (token.mint_address) {
+      navigator.clipboard.writeText(token.mint_address);
+      setCopied(true);
+      toast({ title: "Copied!", description: "Contract address copied" });
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const progress = token.bonding_curve_progress;
+  const marketCapUsd = token.market_cap_sol * (solPrice || 0);
+
+  const getRankStyles = (r: number) => {
+    if (r === 1) return "border-primary/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-lg shadow-primary/10";
+    if (r === 2) return "border-border/50 bg-card/80";
+    return "border-border/50 bg-card/80";
+  };
+
+  const getRankBadgeStyles = (r: number) => {
+    if (r === 1) return "bg-primary text-primary-foreground";
+    if (r === 2) return "bg-muted-foreground/80 text-background";
+    return "bg-amber-700 text-white";
+  };
+
+  return (
+    <Link
+      to={`/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`}
+      className={cn(
+        "relative flex flex-col p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group min-w-[280px] flex-1",
+        getRankStyles(rank)
+      )}
+    >
+      {/* Rank Badge */}
+      <div 
+        className={cn(
+          "absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg",
+          getRankBadgeStyles(rank)
+        )}
+      >
+        #{rank}
+      </div>
+
+      {/* Header: Image + Name + CA */}
+      <div className="flex items-start gap-3 mb-3">
+        <div className="relative">
+          {token.image_url ? (
+            <img
+              src={token.image_url}
+              alt={token.name}
+              className="w-12 h-12 rounded-lg object-cover border border-border/50"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/placeholder.svg";
+              }}
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+              {token.ticker?.slice(0, 2)}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-foreground truncate group-hover:text-primary transition-colors">
+            {token.name}
+          </h3>
+          <span className="text-xs text-muted-foreground">${token.ticker}</span>
+        </div>
+
+        {/* Copy CA Button */}
+        <button
+          onClick={copyAddress}
+          className="flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors"
+          title="Copy contract address"
+        >
+          {copied ? (
+            <CheckCircle className="w-3.5 h-3.5 text-primary" />
+          ) : (
+            <Copy className="w-3.5 h-3.5" />
+          )}
+          <span>CA</span>
+        </button>
+      </div>
+
+      {/* Stats Row */}
+      <div className="flex items-center gap-4 mb-3 text-sm">
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">$</span>
+          <span className="text-foreground">MC:</span>
+          <span className="font-semibold text-primary">
+            ${marketCapUsd >= 1000 ? `${(marketCapUsd / 1000).toFixed(2)}K` : marketCapUsd.toFixed(2)}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Users className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-foreground">Holders:</span>
+          <span className="font-semibold">{token.holder_count}</span>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div className="mb-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Progress</span>
+          </div>
+          <span className={cn(
+            "text-sm font-bold",
+            progress >= 50 ? "text-primary" : "text-foreground"
+          )}>
+            {progress.toFixed(1)}%
+          </span>
+        </div>
+        <Progress 
+          value={Math.min(progress, 100)} 
+          className={cn(
+            "h-2",
+            progress >= 80 && "shadow-[0_0_8px_hsl(152_69%_41%/0.4)]"
+          )}
+        />
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          <span>{formatDistanceToNow(new Date(token.created_at), { addSuffix: true })}</span>
+        </div>
+        <span className="font-medium tabular-nums">
+          {token.real_sol_reserves.toFixed(2)} / {token.graduation_threshold_sol} SOL
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+export function KingOfTheHill() {
+  const { data: tokens, isLoading, error } = useKingOfTheHill();
+
+  if (error) {
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="w-full">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Crown className="w-5 h-5 text-yellow-500" />
+          <h2 className="text-lg font-bold">King of the Hill</h2>
+          <span className="text-sm text-muted-foreground">— Soon to Graduate</span>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="min-w-[280px] flex-1 p-4 rounded-xl border border-border bg-card">
+              <div className="flex items-start gap-3 mb-3">
+                <Skeleton className="w-12 h-12 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-2 w-full" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!tokens || tokens.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <Crown className="w-5 h-5 text-yellow-500" />
+        <h2 className="text-lg font-bold">King of the Hill</h2>
+        <span className="text-sm text-muted-foreground">— Soon to Graduate</span>
+      </div>
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {tokens.map((token, index) => (
+          <TokenCard key={token.id} token={token} rank={index + 1} />
+        ))}
+      </div>
+    </div>
+  );
+}
