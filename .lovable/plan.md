@@ -1,121 +1,258 @@
-# Vanity Address Pre-Generation for Phantom Launches
+
+# Token Promotion System - Implementation Plan
 
 ## Overview
-Add optional vanity address generation to Phantom launches. Users can either:
-1. **Skip vanity** → Launch immediately with a random mint address
-2. **Generate vanity** → Enter a custom suffix, mine in-browser, then launch with the found address
+This plan outlines a comprehensive token promotion system that allows users to pay 1 SOL to promote their tokens on the @BuildTuna X account. The system includes payment processing, automated Twitter posting, and visual distinction for promoted tokens.
 
-## User Flow
+## System Architecture
 
-### Option A: No Vanity (Default)
-1. Fill in token details
-2. Click "Launch" → Launches immediately with random mint
-
-### Option B: Custom Vanity Address
-1. Fill in token details
-2. Enable "Custom Mint Address" toggle
-3. Enter desired suffix (1-5 Base58 chars)
-4. Click "Generate" to start mining
-5. Progress shows: attempts, rate, elapsed time
-6. Once found → Mint address preview shown
-7. Click "Launch" (now available) → Uses the generated keypair
-
-## Technical Implementation
-
-### Task 1: Create VanityAddressGenerator Component
-**File:** `src/components/launchpad/VanityAddressGenerator.tsx`
-
-A focused component for in-browser vanity address generation:
-- Toggle to enable/disable vanity generation
-- Suffix input field (1-5 chars, Base58 validation)
-- Generate/Stop button
-- Progress indicator (attempts, keys/sec, time elapsed)
-- Result display (found address)
-- Pass generated keypair (hex secret key) to parent
-
-### Task 2: Modify TokenLauncher to Support Vanity Keypair
-**File:** `src/components/launchpad/TokenLauncher.tsx`
-
-Changes:
-- Add state for vanity keypair: `{ address: string, secretKeyHex: string } | null`
-- Add `VanityAddressGenerator` component to Phantom mode UI
-- Disable Launch button until vanity is generated (if enabled)
-- Pass vanity keypair data to `fun-phantom-create` edge function
-
-### Task 3: Update Edge Function to Accept Pre-Generated Keypair
-**File:** `supabase/functions/fun-phantom-create/index.ts`
-
-Changes:
-- Accept optional `vanityKeypair: { publicKey: string, secretKeyHex: string }` in body
-- If provided, pass to Vercel API instead of letting backend generate random mint
-
-### Task 4: Update Vercel API to Use Pre-Generated Mint
-**File:** `api/pool/create-phantom.ts`
-
-Changes:
-- Accept optional `vanitySecretKeyHex` parameter
-- If provided, reconstruct Keypair from hex and use as mintKeypair
-- Skip vanity pool lookup if user already provided their own keypair
-
-## Component Structure
-
-```
-TokenLauncher (Phantom Mode)
-├── Token Name Input
-├── Ticker Input
-├── Description
-├── Image Upload / AI Generate
-├── Social Links (collapsed)
-├── Trading Fee Slider
-├── VanityAddressGenerator  ← NEW
-│   ├── Enable Toggle
-│   ├── Suffix Input
-│   ├── Generate/Stop Button
-│   ├── Progress Display
-│   └── Result (found address)
-└── Launch Button (disabled until ready)
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           TOKEN PROMOTION FLOW                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   User clicks "Promote"  ──►  Generate Payment Address  ──►  User sends 1 SOL
+│          │                                                          │
+│          ▼                                                          ▼
+│   Show Payment Modal    ◄──────────  Monitor for payment  ◄────────┘
+│          │                                                          │
+│          ▼                                                          ▼
+│   Payment Confirmed!    ──►  Post to @BuildTuna X  ──►  Mark token promoted
+│          │                                                          │
+│          ▼                                                          ▼
+│   Gold border on token  ◄──  Show in "Promoted Tokens" tab (24h)  ──┘
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Data Flow
+---
 
+## Database Changes
+
+### 1. New Table: `token_promotions`
+Stores all promotion records with payment tracking and expiration.
+
+**Columns:**
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uuid | Primary key |
+| `fun_token_id` | uuid | FK to fun_tokens |
+| `promoter_wallet` | text | Wallet that initiated promotion |
+| `payment_address` | text | Generated Solana address for payment |
+| `payment_private_key` | text | Encrypted private key (for treasury transfer) |
+| `amount_sol` | numeric | Amount required (1.0 SOL) |
+| `status` | text | pending / paid / posted / expired / failed |
+| `signature` | text | Payment transaction signature |
+| `twitter_post_id` | text | ID of posted tweet |
+| `created_at` | timestamptz | When promotion was requested |
+| `paid_at` | timestamptz | When payment was confirmed |
+| `posted_at` | timestamptz | When tweet was posted |
+| `expires_at` | timestamptz | 24h after posting |
+
+**RLS Policies:**
+- Anyone can SELECT promotions (for displaying promoted status)
+- No direct INSERT/UPDATE/DELETE (handled by backend functions)
+
+---
+
+## New Components
+
+### 2. Frontend Components
+
+#### A. Promote Button Component
+**File:** `src/components/launchpad/PromoteButton.tsx`
+
+A reusable button that appears:
+- In the launch success popup
+- On each token in the token list/table
+- On the token detail page
+
+Features:
+- Shows "Promote" with a megaphone/star icon
+- Disabled state if token is already promoted (within 24h)
+
+#### B. Promote Modal Component
+**File:** `src/components/launchpad/PromoteModal.tsx`
+
+Dialog that shows:
+1. Generated Solana payment address with copy button
+2. QR code for easy mobile payment
+3. "1 SOL" amount clearly displayed
+4. Real-time payment status monitoring
+5. Success state with link to the tweet
+6. "Paid promotion" disclaimer
+
+#### C. Token Detail Page Updates
+Add "Promote This Token" button on the token detail page with the same modal flow.
+
+---
+
+## Backend Implementation
+
+### 3. New Edge Functions
+
+#### A. `promote-generate` - Generate Payment Address
+**File:** `supabase/functions/promote-generate/index.ts`
+
+Endpoint: POST
+- Generates a new Solana keypair for receiving payment
+- Stores promotion record in database with `pending` status
+- Returns the public address to the frontend
+- Sets a 1-hour expiration for the payment window
+
+#### B. `promote-check` - Check Payment Status
+**File:** `supabase/functions/promote-check/index.ts`
+
+Endpoint: POST
+- Called by frontend to check if payment was received
+- Uses Helius RPC to verify SOL balance/transfer to payment address
+- If paid: updates status to `paid`, triggers Twitter post
+
+#### C. `promote-post` - Post to Twitter
+**File:** `supabase/functions/promote-post/index.ts`
+
+Endpoint: Internal (called by promote-check)
+- Uses twitterapi.io to post promotional tweet
+- Includes:
+  - Token image (via image_url)
+  - Token name and ticker
+  - "PAID PROMOTION" disclosure
+  - Link to token page
+  - Relevant hashtags
+- Updates promotion record with `twitter_post_id` and `posted_at`
+- Sets `expires_at` to 24 hours from posting
+
+#### D. `promote-cron` - Cleanup Cron Job
+**File:** `supabase/functions/promote-cron/index.ts`
+
+Runs every 10 minutes:
+- Expires old pending promotions (>1 hour)
+- Marks promotions as expired after 24h
+- Transfers collected payments to treasury wallet
+
+---
+
+## UI Updates
+
+### 4. Launch Success Popup Enhancement
+**File:** `src/pages/FunLauncherPage.tsx`
+
+Add "Promote" button alongside existing Solscan/Trade buttons:
+```text
+┌─────────────────────────────────────┐
+│         Token Launched!             │
+│    [Token Image] Name ($TICKER)     │
+│    Contract: xxx...xxx [copy]       │
+│                                     │
+│  [Solscan]  [Trade Now]  [Promote]  │
+└─────────────────────────────────────┘
 ```
-User enters suffix → startGeneration(suffix)
-                           ↓
-Web Workers mine Ed25519 keypairs in parallel
-                           ↓
-Found match → result: { address, secretKeyHex }
-                           ↓
-User clicks Launch → fun-phantom-create({ vanityKeypair: {...} })
-                           ↓
-Edge function forwards to Vercel API with keypair
-                           ↓
-Vercel reconstructs Keypair and uses as mintKeypair
-                           ↓
-Token minted with custom vanity address!
+
+### 5. Token Table/Card Enhancement
+**Files:** `src/components/launchpad/TokenTable.tsx`, `src/components/launchpad/TokenCard.tsx`
+
+For promoted tokens:
+- Gold border/glow effect
+- "PROMOTED" badge
+- "Promote" button for non-promoted tokens (in actions column)
+
+### 6. New "Promoted Tokens" Tab
+**File:** `src/pages/FunLauncherPage.tsx`
+
+Add new tab in the main navigation:
+- Shows only tokens with active promotions (within 24h of posting)
+- Sorted by most recently promoted
+- Each token shows time remaining until promotion expires
+
+---
+
+## Technical Details
+
+### 7. Twitter Integration (twitterapi.io)
+
+The existing secrets are already configured:
+- `TWITTERAPI_IO_KEY` - API key for twitterapi.io
+- `X_ACCOUNT_USERNAME`, `X_ACCOUNT_EMAIL`, `X_ACCOUNT_PASSWORD` - @buildtuna credentials
+- `TWITTER_PROXY` - Residential proxy to prevent rate limiting
+
+**Tweet Format:**
+```text
+🚀 PROMOTED TOKEN: [Token Name] ($[TICKER])
+
+[Description - first 100 chars]
+
+📈 Trade now: [axiom.trade link]
+📋 CA: [mint_address]
+
+This is a paid promotion. DYOR.
+
+#Solana #Memecoin #TUNA
 ```
+
+With attached image from `token.image_url`
+
+### 8. Payment Flow
+
+1. User clicks "Promote"
+2. Frontend calls `promote-generate` to get payment address
+3. Modal shows address with copy button and QR code
+4. User sends 1 SOL from their wallet
+5. Frontend polls `promote-check` every 5 seconds
+6. Once confirmed:
+   - `promote-check` verifies balance >= 1 SOL
+   - Calls `promote-post` to tweet
+   - Updates promotion status
+   - Returns success to frontend
+7. Modal shows success with link to tweet
+8. Token immediately gets gold border in lists
+
+---
+
+## Data Hook Updates
+
+### 9. New Hook: `useTokenPromotions`
+**File:** `src/hooks/useTokenPromotions.ts`
+
+- Fetches active promotions
+- Real-time subscription for promotion updates
+- Used by TokenTable, TokenCard, and FunLauncherPage
+
+### 10. Update `useFunTokens`
+Modify to include promotion status join or compute it client-side.
+
+---
+
+## Step-by-Step Implementation Order
+
+1. **Database Migration** - Create `token_promotions` table with RLS
+2. **Edge Functions** - Build promote-generate, promote-check, promote-post
+3. **PromoteModal Component** - Payment UI with address display
+4. **PromoteButton Component** - Reusable promote trigger
+5. **Update Success Popup** - Add Promote button after launch
+6. **Update TokenTable/TokenCard** - Gold styling and Promote button
+7. **Add "Promoted Tokens" Tab** - New tab in navigation
+8. **Cron Job** - Expiration and cleanup logic
+9. **Testing & Polish** - End-to-end testing
+
+---
 
 ## Security Considerations
 
-1. **Client-side generation**: Private keys never leave the browser until launch
-2. **Hex encoding**: Secret keys passed as hex, reconstructed on backend
-3. **Single use**: Each generated keypair can only be used once
-4. **No persistence**: Keypairs not stored in database (user generates fresh)
+- Payment addresses are single-use ephemeral keypairs
+- Private keys are encrypted before storage
+- Backend validates payment amount (>= 1 SOL)
+- RLS prevents direct database manipulation
+- Twitter post includes "PAID PROMOTION" disclosure for compliance
 
-## UI States
+---
 
-| State | Generate Button | Launch Button |
-|-------|----------------|---------------|
-| Vanity disabled | Hidden | Enabled |
-| Vanity enabled, no suffix | Disabled | Disabled |
-| Vanity enabled, valid suffix | "Generate" | Disabled |
-| Generating | "Stop" (spinner) | Disabled |
-| Found | Reset available | Enabled ✓ |
+## Estimated Components/Files
 
-## Estimated Complexity
+| Type | Count | Files |
+|------|-------|-------|
+| Database Migration | 1 | token_promotions table |
+| Edge Functions | 4 | promote-generate, promote-check, promote-post, promote-cron |
+| React Components | 2 | PromoteButton, PromoteModal |
+| React Hooks | 1 | useTokenPromotions |
+| Page Updates | 3 | FunLauncherPage, TokenTable, TokenCard |
 
-- VanityAddressGenerator component: ~150 lines
-- TokenLauncher modifications: ~50 lines  
-- Edge function changes: ~30 lines
-- Vercel API changes: ~20 lines
-
-**Total: ~250 lines of new/modified code**
