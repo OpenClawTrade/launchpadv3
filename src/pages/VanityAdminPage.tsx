@@ -97,14 +97,15 @@ const VanityAdminPage = () => {
   const getBackendBaseUrl = () => {
     const normalize = (url: string) => url.replace(/\/+$/, '');
 
-    const fromStorage = localStorage.getItem('meteoraApiUrl');
-    if (fromStorage && fromStorage.startsWith('https://') && !fromStorage.includes('${')) {
-      return normalize(fromStorage);
-    }
-
+    // Prefer runtime config over localStorage to avoid stale cached URLs.
     const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
     if (fromWindow && fromWindow.startsWith('https://') && !fromWindow.includes('${')) {
       return normalize(fromWindow);
+    }
+
+    const fromStorage = localStorage.getItem('meteoraApiUrl');
+    if (fromStorage && fromStorage.startsWith('https://') && !fromStorage.includes('${')) {
+      return normalize(fromStorage);
     }
 
     return null;

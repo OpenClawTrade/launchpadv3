@@ -24,24 +24,51 @@ export function RuntimeConfigBootstrap() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    // If already loaded from localStorage, skip fetch
+    const normalize = (url: string) => url.replace(/\/+$/, "");
+
+    // If we have a cached URL from a previous session, try to use it BUT also
+    // protect against project renames that introduce redirects (redirects break
+    // CORS preflight when we later send custom headers).
     const existingApiUrl = localStorage.getItem("meteoraApiUrl");
     const existingRpcUrl = localStorage.getItem("heliusRpcUrl");
-    
-    if (existingApiUrl && existingApiUrl.startsWith("https://")) {
-      window.__PUBLIC_CONFIG__ = {
-        meteoraApiUrl: existingApiUrl,
-        heliusRpcUrl: existingRpcUrl || undefined,
-      };
-      window.__PUBLIC_CONFIG_LOADED__ = true;
-      setLoaded(true);
-      // Still fetch in background to update if changed
-    }
+
+    const seedFromStorage = async () => {
+      if (!existingApiUrl || !existingApiUrl.startsWith("https://")) return;
+
+      try {
+        // Use a simple GET (no custom headers) to an endpoint that is known to
+        // include CORS headers. This lets us detect redirects safely.
+        const res = await fetch(`${normalize(existingApiUrl)}/api/vanity/status`, {
+          method: "GET",
+        });
+
+        const finalOrigin = normalize(new URL(res.url).origin);
+        const normalizedExisting = normalize(existingApiUrl);
+
+        if (finalOrigin && finalOrigin !== normalizedExisting) {
+          localStorage.setItem("meteoraApiUrl", finalOrigin);
+        }
+
+        window.__PUBLIC_CONFIG__ = {
+          meteoraApiUrl: finalOrigin || normalizedExisting,
+          heliusRpcUrl: existingRpcUrl || undefined,
+        };
+      } catch {
+        // If we can't reach it, fall back to cached values until runtime config loads.
+        window.__PUBLIC_CONFIG__ = {
+          meteoraApiUrl: normalize(existingApiUrl),
+          heliusRpcUrl: existingRpcUrl || undefined,
+        };
+      }
+    };
 
     let cancelled = false;
 
     (async () => {
       try {
+        // Seed runtime config ASAP (safe redirect handling) before asking backend.
+        await seedFromStorage();
+
         const { data, error } = await supabase.functions.invoke("public-config");
         if (cancelled) return;
         if (error) throw error;

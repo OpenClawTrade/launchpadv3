@@ -7,19 +7,19 @@ import { Connection, Transaction, VersionedTransaction, Keypair, ComputeBudgetPr
 const getApiUrl = (): string => {
   const normalize = (url: string) => url.replace(/\/+$/, "");
 
-  // 1) localStorage first (persists across sessions, set by RuntimeConfigBootstrap)
-  if (typeof window !== "undefined") {
-    const fromStorage = localStorage.getItem("meteoraApiUrl");
-    if (fromStorage && fromStorage.startsWith("https://") && !fromStorage.includes("${")) {
-      return normalize(fromStorage);
-    }
-  }
-
-  // 2) Window runtime config (set by RuntimeConfigBootstrap in current session)
+  // 1) Window runtime config (set by RuntimeConfigBootstrap in current session)
   if (typeof window !== "undefined") {
     const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
     if (fromWindow && fromWindow.startsWith("https://") && !fromWindow.includes("${")) {
       return normalize(fromWindow);
+    }
+  }
+
+  // 2) localStorage next (persists across sessions, set by RuntimeConfigBootstrap)
+  if (typeof window !== "undefined") {
+    const fromStorage = localStorage.getItem("meteoraApiUrl");
+    if (fromStorage && fromStorage.startsWith("https://") && !fromStorage.includes("${")) {
+      return normalize(fromStorage);
     }
   }
 
