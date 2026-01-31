@@ -38,6 +38,12 @@ export function PromoteModal({
     if (isOpen && !paymentAddress) {
       setStatus("loading");
       setError(null);
+
+      if (!promoterWallet) {
+        setError("Connect your wallet to promote this token.");
+        setStatus("error");
+        return;
+      }
       
       generatePromotion.mutate(
         { funTokenId: tokenId, promoterWallet },
@@ -59,7 +65,7 @@ export function PromoteModal({
         }
       );
     }
-  }, [isOpen, tokenId, promoterWallet]);
+  }, [isOpen, paymentAddress, tokenId, promoterWallet, generatePromotion]);
 
   // Poll for payment status
   useEffect(() => {
