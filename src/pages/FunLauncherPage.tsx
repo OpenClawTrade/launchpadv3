@@ -541,24 +541,24 @@ export default function FunLauncherPage() {
 
       {/* Launch Result Modal */}
       <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
-        <DialogContent className="bg-[hsl(160,30%,6%)] border border-primary/30 rounded-2xl w-[92vw] max-w-md mx-auto p-0 overflow-hidden shadow-[0_0_60px_rgba(16,185,129,0.15)]">
-          {/* Header with gradient */}
-          <div className="relative px-4 sm:px-6 pt-5 sm:pt-6 pb-3 sm:pb-4">
+        <DialogContent className="bg-[hsl(160,30%,6%)] border border-primary/30 rounded-2xl !w-[calc(100vw-2rem)] !max-w-[420px] !left-1/2 !-translate-x-1/2 p-0 overflow-visible shadow-[0_0_60px_rgba(16,185,129,0.15)]">
+          {/* Header */}
+          <div className="relative px-5 pt-6 pb-4">
             <DialogHeader className="text-center">
-              <DialogTitle className="flex items-center justify-center gap-2 text-lg sm:text-xl font-bold text-foreground">
+              <DialogTitle className="flex items-center justify-center gap-2 text-xl font-bold text-foreground">
                 {launchResult?.success ? (
                   <>
-                    <PartyPopper className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                    <PartyPopper className="h-6 w-6 text-primary" />
                     Token Launched!
                   </>
                 ) : (
                   <>
-                    <XCircle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive" />
+                    <XCircle className="h-6 w-6 text-destructive" />
                     Launch Failed
                   </>
                 )}
               </DialogTitle>
-              <DialogDescription className="text-muted-foreground mt-1 text-sm">
+              <DialogDescription className="text-muted-foreground mt-2 text-sm">
                 {launchResult?.success
                   ? `${launchResult.name} ($${launchResult.ticker}) is now live on Solana!`
                   : launchResult?.error || "Something went wrong"}
@@ -567,32 +567,36 @@ export default function FunLauncherPage() {
           </div>
 
           {launchResult?.success && (
-            <div className="px-4 sm:px-6 pb-5 sm:pb-6 space-y-4 sm:space-y-5">
-              {/* Token Image with glow */}
-              {launchResult.imageUrl && (
-                <div className="flex justify-center -mt-1 sm:-mt-2">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl scale-110" />
+            <div className="px-5 pb-6 space-y-5">
+              {/* Token Info Card */}
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-[hsl(160,20%,10%)] border border-primary/20">
+                {launchResult.imageUrl && (
+                  <div className="relative shrink-0">
+                    <div className="absolute inset-0 bg-primary/20 rounded-xl blur-md" />
                     <img 
                       src={launchResult.imageUrl} 
                       alt={launchResult.name} 
-                      className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-primary/40 shadow-lg object-cover" 
+                      className="relative w-16 h-16 rounded-xl border-2 border-primary/40 shadow-lg object-cover" 
                     />
                   </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-lg text-foreground truncate">{launchResult.name}</p>
+                  <p className="text-primary font-mono text-sm">${launchResult.ticker}</p>
                 </div>
-              )}
+              </div>
 
               {/* Contract Address Card */}
               {launchResult.mintAddress && (
-                <div className="p-3 sm:p-4 rounded-xl bg-[hsl(160,20%,10%)] border border-primary/20 overflow-hidden">
-                  <p className="text-xs text-muted-foreground mb-1.5 sm:mb-2 font-medium">Contract Address</p>
-                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                    <code className="flex-1 text-xs sm:text-sm font-mono text-foreground truncate min-w-0">
+                <div className="p-4 rounded-xl bg-[hsl(160,20%,10%)] border border-primary/20">
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">Contract Address</p>
+                  <div className="flex items-center gap-3">
+                    <code className="flex-1 text-sm font-mono text-foreground break-all leading-relaxed">
                       {launchResult.mintAddress}
                     </code>
                     <button 
                       onClick={() => copyToClipboard(launchResult.mintAddress!)} 
-                      className="p-1.5 sm:p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20 shrink-0"
+                      className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20 shrink-0"
                     >
                       {copiedAddress === launchResult.mintAddress 
                         ? <CheckCircle className="h-4 w-4 text-primary" /> 
@@ -603,22 +607,22 @@ export default function FunLauncherPage() {
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-1 sm:pt-2">
+              {/* Action Buttons - Stack on mobile */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 {launchResult.solscanUrl && (
-                  <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0">
+                  <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer" className="w-full">
                     <Button 
                       variant="outline" 
-                      className="w-full h-10 sm:h-11 bg-transparent border-primary/30 text-foreground hover:bg-primary/10 hover:border-primary/50 rounded-xl font-medium transition-all text-sm"
+                      className="w-full h-11 bg-transparent border-primary/30 text-foreground hover:bg-primary/10 hover:border-primary/50 rounded-xl font-medium transition-all"
                     >
-                      <ExternalLink className="h-4 w-4 mr-2 shrink-0" /> 
-                      View on Solscan
+                      <ExternalLink className="h-4 w-4 mr-2" /> 
+                      Solscan
                     </Button>
                   </a>
                 )}
                 {launchResult.tradeUrl && (
-                  <a href={launchResult.tradeUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0">
-                    <Button className="w-full h-10 sm:h-11 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold shadow-lg shadow-primary/25 transition-all text-sm">
+                  <a href={launchResult.tradeUrl} target="_blank" rel="noopener noreferrer" className="w-full">
+                    <Button className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold shadow-lg shadow-primary/25 transition-all">
                       Trade Now
                     </Button>
                   </a>
@@ -629,9 +633,9 @@ export default function FunLauncherPage() {
 
           {/* Error state content */}
           {!launchResult?.success && launchResult?.error && (
-            <div className="px-4 sm:px-6 pb-5 sm:pb-6">
-              <div className="p-3 sm:p-4 rounded-xl bg-destructive/10 border border-destructive/20">
-                <p className="text-sm text-destructive">{launchResult.error}</p>
+            <div className="px-5 pb-6">
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                <p className="text-sm text-destructive break-words">{launchResult.error}</p>
               </div>
             </div>
           )}
