@@ -150,7 +150,7 @@ export default function FunLauncherPage() {
 
           <div className="flex items-center gap-2">
             <a 
-              href="https://x.com/tikitoken" 
+              href="https://x.com/buildtuna" 
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
