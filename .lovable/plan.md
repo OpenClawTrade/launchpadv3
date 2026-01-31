@@ -1,125 +1,58 @@
 
 
-# Fix 404 Error on Token Buy - Wrong Table Lookup
+# Fix Promote Payment Address Not Generating on tuna.fun
 
 ## Problem
 
-When trying to buy a token on the FunTokenDetailPage, the API returns:
-```
-Error: Token not found
-```
+The "Promote" button shows "Generating payment address..." spinner indefinitely on tuna.fun. The Edge Function returns a 400 error because the promotion-related functions are missing from `supabase/config.toml`.
 
-**Root Cause**: The Vercel API (`api/swap/execute.ts`) calls `getTokenByMint()` which only searches the `tokens` table. However, tokens created via the FUN launcher are stored in the **`fun_tokens`** table.
+## Root Cause
 
-This means trades work for tokens in `tokens`, but fail for FUN-launched tokens in `fun_tokens`.
+The `promote-generate`, `promote-check`, and `promote-post` Edge Functions are **not listed** in `supabase/config.toml` with `verify_jwt = false`. 
+
+By default, Supabase Edge Functions require JWT authentication. On tuna.fun (your production domain), unauthenticated requests are rejected before the function code even runs, causing the error.
+
+In the Lovable preview environment, requests may bypass this due to internal authentication tokens, which is why it works there but fails on tuna.fun.
 
 ---
 
 ## Solution
 
-Update the `lib/supabase.ts` file to add a fallback that checks both tables when looking up a token by mint address.
+Add all three promotion Edge Functions to `supabase/config.toml` with `verify_jwt = false` to allow public access (users pay for promotion without requiring login).
 
 ---
 
-## Technical Implementation
+## Technical Changes
 
-### File: `lib/supabase.ts`
+### File: `supabase/config.toml`
 
-**Current code (lines 121-136):**
-```typescript
-export async function getTokenByMint(mintAddress: string): Promise<Token | null> {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from('tokens')
-    .select('*')
-    .eq('mint_address', mintAddress)
-    .single();
-  
-  if (error) {
-    console.error('Error fetching token:', error);
-    return null;
-  }
-  
-  return data as Token;
-}
-```
+Add the following entries after line 136:
 
-**New code with fallback to `fun_tokens`:**
-```typescript
-export async function getTokenByMint(mintAddress: string): Promise<Token | null> {
-  const supabase = getSupabaseClient();
-  
-  // Try tokens table first
-  const { data, error } = await supabase
-    .from('tokens')
-    .select('*')
-    .eq('mint_address', mintAddress)
-    .maybeSingle();
-  
-  if (data) {
-    return data as Token;
-  }
-  
-  // Fallback to fun_tokens table
-  const { data: funToken, error: funError } = await supabase
-    .from('fun_tokens')
-    .select('*')
-    .eq('mint_address', mintAddress)
-    .maybeSingle();
-  
-  if (funError) {
-    console.error('Error fetching token from fun_tokens:', funError);
-    return null;
-  }
-  
-  if (funToken) {
-    // Map fun_tokens fields to Token interface for compatibility
-    return {
-      id: funToken.id,
-      mint_address: funToken.mint_address,
-      name: funToken.name,
-      ticker: funToken.ticker,
-      creator_wallet: funToken.creator_wallet,
-      creator_id: null,
-      dbc_pool_address: funToken.dbc_pool_address,
-      damm_pool_address: null,
-      virtual_sol_reserves: 30,
-      virtual_token_reserves: 1_000_000_000,
-      real_sol_reserves: 0,
-      real_token_reserves: 0,
-      total_supply: 1_000_000_000,
-      bonding_curve_progress: funToken.bonding_progress || 0,
-      graduation_threshold_sol: 85,
-      price_sol: funToken.price_sol || 0,
-      market_cap_sol: funToken.market_cap_sol || 0,
-      volume_24h_sol: funToken.volume_24h_sol || 0,
-      status: funToken.status === 'active' ? 'bonding' : funToken.status as any,
-      migration_status: 'pending',
-      holder_count: funToken.holder_count || 0,
-      graduated_at: null,
-      created_at: funToken.created_at,
-      updated_at: funToken.updated_at,
-    } as Token;
-  }
-  
-  return null;
-}
+```toml
+[functions.promote-generate]
+verify_jwt = false
+
+[functions.promote-check]
+verify_jwt = false
+
+[functions.promote-post]
+verify_jwt = false
 ```
 
 ---
 
-## Changes Summary
+## Summary
 
 | File | Change |
 |------|--------|
-| `lib/supabase.ts` | Update `getTokenByMint()` to check `fun_tokens` table as fallback when token not found in `tokens` table |
+| `supabase/config.toml` | Add `verify_jwt = false` for `promote-generate`, `promote-check`, and `promote-post` functions |
 
 ---
 
 ## Result
 
 After this fix:
-1. Swap API will first check `tokens` table (existing behavior)
-2. If not found, fallback to `fun_tokens` table (new behavior)
-3. FUN-launched tokens will be tradeable through the swap API
+1. The promotion functions will accept requests without JWT authentication
+2. Users on tuna.fun can click "Promote" and receive a payment address
+3. The payment checking and posting will work correctly
 
