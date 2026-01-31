@@ -49,10 +49,10 @@ serve(async (req) => {
     console.log(`[token-metadata-static] Serving metadata for: ${mintAddress}`);
     console.log(`[token-metadata-static] Name: ${name}, Symbol: ${symbol}, Image: ${image?.substring(0, 50)}...`);
 
-    // Append #RIFT hashtag for Solscan visibility
-    const descriptionWithTag = description.includes("#RIFT")
+    // Append #TUNA hashtag for Solscan visibility
+    const descriptionWithTag = description.includes("#TUNA")
       ? description
-      : `${description} #RIFT`;
+      : `${description} #TUNA`;
 
     // Build Metaplex-standard metadata JSON
     const metadata: Record<string, unknown> = {
@@ -60,10 +60,10 @@ serve(async (req) => {
       symbol: symbol.toUpperCase(),
       description: descriptionWithTag,
       image,
-      external_url: website || `https://rift.fun/token/${mintAddress}`,
-      tags: ["Meme", "RIFT"],
+      external_url: website || `https://buildtuna.com/token/${mintAddress}`,
+      tags: ["Meme", "TUNA"],
       attributes: [
-        { trait_type: "Platform", value: "RIFT" },
+        { trait_type: "Platform", value: "TUNA" },
         { trait_type: "Status", value: "bonding" },
       ],
       properties: {

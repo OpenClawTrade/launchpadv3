@@ -1,4 +1,4 @@
-// TRENCHES Launchpad Configuration
+// TUNA Launchpad Configuration
 // Full Meteora SDK Integration - No Mock Data
 // All operations are real on-chain Solana transactions
 

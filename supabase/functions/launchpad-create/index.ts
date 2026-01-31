@@ -10,8 +10,8 @@ const corsHeaders = {
 const PLATFORM_FEE_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 
 // Default socials for all tokens
-const DEFAULT_WEBSITE = "https://ai67x.fun";
-const DEFAULT_TWITTER = "https://x.com/ai67x_fun";
+const DEFAULT_WEBSITE = "https://buildtuna.com";
+const DEFAULT_TWITTER = "https://x.com/buildtuna";
 
 // Blocked patterns for spam/exploit names
 const BLOCKED_PATTERNS = [

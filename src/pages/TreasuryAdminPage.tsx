@@ -29,8 +29,8 @@ import {
 } from "lucide-react";
 
 const VERCEL_API_URL = "https://trenchespost.vercel.app";
-const TREASURY_SECRET = "trenches-treasury-2024";
-const ADMIN_PASSWORD = "trenches2024treasury";
+const TREASURY_SECRET = "tuna-treasury-2024";
+const ADMIN_PASSWORD = "tuna2024treasury";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 

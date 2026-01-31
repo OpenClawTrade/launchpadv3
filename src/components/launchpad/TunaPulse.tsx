@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 type PulseFilter = 'new' | 'hot' | 'graduating' | 'volume';
 
-export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(function TrenchesPulse(_props, ref) {
+export const TunaPulse = forwardRef<HTMLDivElement, Record<string, never>>(function TunaPulse(_props, ref) {
   const [filter, setFilter] = useState<PulseFilter>('hot');
   const queryClient = useQueryClient();
 
@@ -162,7 +162,7 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
             <Zap className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h2 className="font-bold text-lg">ai67x Pulse</h2>
+            <h2 className="font-bold text-lg">TUNA Pulse</h2>
             <p className="text-xs text-muted-foreground">Real-time token discovery</p>
           </div>
         </div>
@@ -292,4 +292,4 @@ export const TrenchesPulse = forwardRef<HTMLDivElement, Record<string, never>>(f
   );
 });
 
-TrenchesPulse.displayName = "TrenchesPulse";
+TunaPulse.displayName = "TunaPulse";

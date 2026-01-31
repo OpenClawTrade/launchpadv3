@@ -28,8 +28,8 @@ const NAME_SUFFIXES = ["inu", "moon", "coin", "fi", "ai", "punk", "chad", "frog"
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 // Default socials removed per memory - fields should be null when not provided
-// const DEFAULT_WEBSITE = "https://rift.fun";
-// const DEFAULT_TWITTER = "https://x.com/rift_fun";
+// const DEFAULT_WEBSITE = "https://buildtuna.com";
+// const DEFAULT_TWITTER = "https://x.com/buildtuna";
 
 // Image generation models to try in order
 const IMAGE_MODELS = [
