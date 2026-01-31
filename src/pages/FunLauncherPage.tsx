@@ -555,7 +555,7 @@ export default function FunLauncherPage() {
 
       {/* Launch Result Modal */}
       <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
-        <DialogContent className="bg-[hsl(160,30%,6%)] border border-primary/30 rounded-2xl w-[calc(100vw-2rem)] max-w-md p-0 overflow-hidden shadow-[0_0_60px_rgba(16,185,129,0.15)]">
+        <DialogContent className="bg-[hsl(160,30%,6%)] border border-primary/30 rounded-2xl w-[92vw] max-w-md mx-auto p-0 overflow-hidden shadow-[0_0_60px_rgba(16,185,129,0.15)]">
           {/* Header with gradient */}
           <div className="relative px-4 sm:px-6 pt-5 sm:pt-6 pb-3 sm:pb-4">
             <DialogHeader className="text-center">
@@ -598,10 +598,10 @@ export default function FunLauncherPage() {
 
               {/* Contract Address Card */}
               {launchResult.mintAddress && (
-                <div className="p-3 sm:p-4 rounded-xl bg-[hsl(160,20%,10%)] border border-primary/20">
+                <div className="p-3 sm:p-4 rounded-xl bg-[hsl(160,20%,10%)] border border-primary/20 overflow-hidden">
                   <p className="text-xs text-muted-foreground mb-1.5 sm:mb-2 font-medium">Contract Address</p>
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <code className="flex-1 text-xs sm:text-sm font-mono text-foreground truncate">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <code className="flex-1 text-xs sm:text-sm font-mono text-foreground truncate min-w-0">
                       {launchResult.mintAddress}
                     </code>
                     <button 
@@ -620,18 +620,18 @@ export default function FunLauncherPage() {
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-1 sm:pt-2">
                 {launchResult.solscanUrl && (
-                  <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+                  <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0">
                     <Button 
                       variant="outline" 
                       className="w-full h-10 sm:h-11 bg-transparent border-primary/30 text-foreground hover:bg-primary/10 hover:border-primary/50 rounded-xl font-medium transition-all text-sm"
                     >
-                      <ExternalLink className="h-4 w-4 mr-2" /> 
+                      <ExternalLink className="h-4 w-4 mr-2 shrink-0" /> 
                       View on Solscan
                     </Button>
                   </a>
                 )}
                 {launchResult.tradeUrl && (
-                  <a href={launchResult.tradeUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+                  <a href={launchResult.tradeUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0">
                     <Button className="w-full h-10 sm:h-11 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold shadow-lg shadow-primary/25 transition-all text-sm">
                       Trade Now
                     </Button>
