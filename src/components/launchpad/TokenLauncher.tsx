@@ -571,8 +571,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       }
 
       // Phase 2: record token in DB after on-chain confirmation
+      let recordedTokenId: string | undefined;
       try {
-        await supabase.functions.invoke("fun-phantom-create", {
+        const { data: recordData } = await supabase.functions.invoke("fun-phantom-create", {
           body: {
             name: phantomToken.name.slice(0, 32),
             ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
@@ -589,6 +590,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             dbcPoolAddress: data.dbcPoolAddress,
           },
         });
+        recordedTokenId = recordData?.tokenId;
       } catch (recordErr) {
         // Non-fatal: token is already live on-chain.
         debugLog("warn", "[Phantom Launch] Token confirmed but failed to record in DB", {
@@ -603,11 +605,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         name: phantomToken.name,
         ticker: phantomToken.ticker,
         mintAddress: data.mintAddress,
-        tokenId: data.tokenId,
+        tokenId: recordedTokenId,
         imageUrl,
         onChainSuccess: true,
         solscanUrl: lastSig ? `https://solscan.io/tx/${lastSig}` : undefined,
-        tradeUrl: data.mintAddress ? `https://jup.ag/swap/SOL-${data.mintAddress}` : undefined,
+        tradeUrl: data.dbcPoolAddress 
+          ? `https://axiom.trade/meme/${data.dbcPoolAddress}` 
+          : (data.mintAddress ? `https://jup.ag/swap/SOL-${data.mintAddress}` : undefined),
         message: "Token launched successfully via Phantom!",
       });
 
