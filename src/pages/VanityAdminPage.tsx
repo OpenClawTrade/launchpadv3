@@ -66,9 +66,9 @@ const VanityAdminPage = () => {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 500;
   });
 
-  // Configurable suffix - defaults to 'tuna' (case-insensitive matching)
+  // Configurable suffix - defaults to 'TNA' (case-sensitive matching)
   const [targetSuffix, setTargetSuffix] = useState<string>(() => {
-    return localStorage.getItem('vanity_target_suffix') || 'tuna';
+    return localStorage.getItem('vanity_target_suffix') || 'TNA';
   });
 
   const MAX_AUTO_RUNS = 30;
@@ -369,7 +369,7 @@ const VanityAdminPage = () => {
                   Vanity Generator Admin
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Server-side vanity address generation (case-insensitive)
+                  Server-side vanity address generation (case-sensitive)
                 </p>
               </div>
             </div>
@@ -448,11 +448,11 @@ const VanityAdminPage = () => {
                   maxLength={5}
                   value={targetSuffix}
                   onChange={(e) => setTargetSuffix(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
-                  placeholder="tuna"
-                  className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground font-mono uppercase"
+                  placeholder="TNA"
+                  className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground font-mono"
                 />
                 <p className="text-xs text-muted-foreground">
-                  1-5 chars (case-insensitive)
+                  1-5 chars (CASE-SENSITIVE)
                 </p>
               </div>
               <div className="grid gap-2">
