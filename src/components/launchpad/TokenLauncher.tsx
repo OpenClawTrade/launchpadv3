@@ -1052,9 +1052,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                     </Button>
 
                     {isPhantomGenerating && (
-                      <div className="flex flex-col items-center py-6">
-                        <MemeLoadingAnimation />
-                        <MemeLoadingText />
+                      <div className="gate-token-preview">
+                        <div className="gate-token-preview-avatar">
+                          <MemeLoadingAnimation />
+                        </div>
+                        <div className="gate-token-preview-info">
+                          <MemeLoadingText />
+                        </div>
                       </div>
                     )}
                   </>
@@ -1075,9 +1079,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                     </Button>
 
                     {isPhantomGenerating && (
-                      <div className="flex flex-col items-center py-6">
-                        <MemeLoadingAnimation />
-                        <MemeLoadingText />
+                      <div className="gate-token-preview">
+                        <div className="gate-token-preview-avatar">
+                          <MemeLoadingAnimation />
+                        </div>
+                        <div className="gate-token-preview-info">
+                          <MemeLoadingText />
+                        </div>
                       </div>
                     )}
                   </>
