@@ -67,7 +67,7 @@ This document provides complete technical specifications for the fee system acro
 ### Environment Config (api/lib/config.ts)
 
 ```typescript
-PLATFORM_FEE_WALLET = "CHrrxJbF7N3A622z6ajftMgAjkcNpGqTo1vtFhkf4hmQ"  // Treasury wallet
+PLATFORM_FEE_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r"  // Treasury wallet
 TRADING_FEE_BPS = 200                                                // 2%
 GRADUATION_THRESHOLD_SOL = 85                                        // SOL to graduate
 MIGRATED_POOL_FEE_BPS = 200                                         // 2% post-graduation
