@@ -399,7 +399,7 @@ export default function ApiDashboardPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <ExternalLink className="w-4 h-4 text-cyan-400" />
-                    Free subdomain (*.rift.fun) or your own custom domain
+                    Free subdomain (*.tuna.fun) or your own custom domain
                   </li>
                   <li className="flex items-center gap-2">
                     <Activity className="w-4 h-4 text-blue-500" />
@@ -689,12 +689,12 @@ export default function ApiDashboardPage() {
                       </div>
                       {lp.subdomain && (
                         <a 
-                          href={`https://${lp.subdomain}.rift.fun`}
+                          href={`https://${lp.subdomain}.tuna.fun`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-purple-400 hover:underline flex items-center gap-1"
                         >
-                          {lp.subdomain}.rift.fun
+                          {lp.subdomain}.tuna.fun
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       )}

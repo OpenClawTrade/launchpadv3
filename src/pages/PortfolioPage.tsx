@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import { Wallet, TrendingUp, Coins, ArrowRight, Plus } from "lucide-react";
 import { useMemo } from "react";
 
-const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
+const HEADER_LOGO_SRC = "/tuna-logo.png";
 
 interface HoldingWithToken {
   id: string;
@@ -73,8 +73,8 @@ export default function PortfolioPage() {
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <Link to="/" className="flex items-center gap-2">
-            <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" />
-            <span className="text-lg font-bold">RIFT</span>
+            <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" />
+            <span className="text-lg font-bold">TUNA</span>
           </Link>
           <h1 className="text-xl font-bold">Portfolio</h1>
         </div>

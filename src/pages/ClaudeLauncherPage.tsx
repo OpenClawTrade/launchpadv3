@@ -922,7 +922,7 @@ export default function ClaudeLauncherPage() {
               <div className="gate-logo-icon">
                 <Rocket className="h-4 w-4 text-white" />
               </div>
-              <span className="text-lg font-bold">RIFT</span>
+              <span className="text-lg font-bold">TUNA</span>
             </Link>
             <div className="flex items-center gap-2">
               <SolPriceDisplay />
@@ -941,7 +941,7 @@ export default function ClaudeLauncherPage() {
                       <div className="gate-logo-icon">
                         <Rocket className="h-4 w-4 text-white" />
                       </div>
-                      <span className="text-lg font-bold">RIFT</span>
+                      <span className="text-lg font-bold">TUNA</span>
                     </div>
                     <nav className="flex-1 p-4 space-y-2">
                       <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary hover:bg-muted transition-colors">
@@ -961,12 +961,12 @@ export default function ClaudeLauncherPage() {
                         <span className="font-medium">Governance</span>
                       </Link>
                       <div className="pt-4 border-t border-border space-y-2">
-                        <a href="https://dune.com/riftlaunch/stats" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
+                        <a href="https://dune.com/tunalaunch/stats" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
                           <BarChart3 className="h-5 w-5 text-orange-500" />
                           <span className="text-muted-foreground">Analytics</span>
                           <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
                         </a>
-                        <a href="https://x.com/rift_fun" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
+                        <a href="https://x.com/tikitoken" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
                           <Twitter className="h-5 w-5 text-muted-foreground" />
                           <span className="text-muted-foreground">Follow on X</span>
                           <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
@@ -986,7 +986,7 @@ export default function ClaudeLauncherPage() {
                 <Rocket className="h-5 w-5 text-white" />
               </div>
               <div>
-                <span className="text-xl font-bold">RIFT</span>
+                <span className="text-xl font-bold">TUNA</span>
                 <span className="text-xs text-muted-foreground ml-2">Meme Launchpad</span>
               </div>
             </Link>
@@ -995,7 +995,7 @@ export default function ClaudeLauncherPage() {
               <Link to="/trending" className="gate-nav-link">Narratives</Link>
               <Link to="/api" className="gate-nav-link">API</Link>
               <Link to="/governance" className="gate-nav-link">Governance</Link>
-              <a href="https://dune.com/riftlaunch/stats" target="_blank" rel="noopener noreferrer" className="gate-nav-link">Analytics</a>
+              <a href="https://dune.com/tunalaunch/stats" target="_blank" rel="noopener noreferrer" className="gate-nav-link">Analytics</a>
             </nav>
 
             <div className="flex items-center gap-4">
@@ -1004,7 +1004,7 @@ export default function ClaudeLauncherPage() {
                 <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                 {lastUpdate ? formatDistanceToNow(lastUpdate, { addSuffix: true }) : "Live"}
               </div>
-              <a href="https://x.com/rift_fun" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+              <a href="https://x.com/tikitoken" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
                 <Twitter className="h-5 w-5" />
               </a>
               <Button onClick={() => refetch()} variant="ghost" size="sm" className="gate-btn-ghost">

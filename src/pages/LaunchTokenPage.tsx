@@ -21,7 +21,7 @@ export default function LaunchTokenPage() {
 
       {/* Hero Section */}
       <div className="text-center py-8 px-4">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-2">Launch on RIFT</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2">Launch on TUNA</h1>
         <p className="text-muted-foreground">
           Create a coin, raise money, and share with friends.
         </p>

@@ -43,7 +43,7 @@ import {
 import { XLogo } from "@phosphor-icons/react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
+const HEADER_LOGO_SRC = "/tuna-logo.png";
 
 interface LaunchResult {
   success: boolean;
@@ -129,14 +129,14 @@ export default function FunLauncherPage() {
       <header className="gate-header">
         <div className="gate-header-inner">
 
-            <Link to="/" className="gate-logo" aria-label="RIFT">
+            <Link to="/" className="gate-logo" aria-label="TUNA">
               <img
                 src={HEADER_LOGO_SRC}
-                alt="RIFT"
+                alt="TUNA"
                 className="h-8 w-8 rounded-lg object-cover"
                 loading="eager"
               />
-              <span className="text-lg font-bold">RIFT</span>
+              <span className="text-lg font-bold">TUNA</span>
             </Link>
 
           {/* Desktop Nav */}
@@ -150,8 +150,8 @@ export default function FunLauncherPage() {
 
           <div className="flex items-center gap-2">
             <a 
-              href="https://x.com/Rift_privacy" 
-              target="_blank" 
+              href="https://x.com/tikitoken" 
+              target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
               title="Follow us on X"

@@ -19,8 +19,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 import { toast } from "sonner";
 
-const RIFT_CA = "AeeP5ebA5R8srQZkkYwfNyvgYWFtxYqFfc6E6qqypump";
-const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
+const TUNA_CA = "AeeP5ebA5R8srQZkkYwfNyvgYWFtxYqFfc6E6qqypump";
+const HEADER_LOGO_SRC = "/tuna-logo.png";
 
 interface AppHeaderProps {
   showBack?: boolean;
@@ -38,7 +38,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
   };
 
   const copyCA = () => {
-    navigator.clipboard.writeText(RIFT_CA);
+    navigator.clipboard.writeText(TUNA_CA);
     setCopied(true);
     toast.success("CA copied!");
     setTimeout(() => setCopied(false), 2000);
@@ -50,8 +50,8 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         {/* Logo section */}
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <Link to="/" className="flex items-center gap-2">
-            <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" loading="eager" />
-            <span className="text-lg font-bold">RIFT</span>
+            <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" loading="eager" />
+            <span className="text-lg font-bold">TUNA</span>
           </Link>
           {showBack && backLabel && (
             <div className="hidden sm:flex items-center gap-2 text-muted-foreground">
@@ -73,7 +73,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
             className="flex items-center gap-1.5 px-2 py-1 bg-[#1a1a1f] hover:bg-[#252530] rounded-md text-xs text-gray-400 hover:text-gray-200 transition-colors"
             title="Click to copy CA"
           >
-            <span className="font-mono">CA: {RIFT_CA.slice(0, 4)}...{RIFT_CA.slice(-4)}</span>
+            <span className="font-mono">CA: {TUNA_CA.slice(0, 4)}...{TUNA_CA.slice(-4)}</span>
             {copied ? (
               <Check className="h-3 w-3 text-green-400" weight="bold" />
             ) : (
@@ -82,7 +82,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           </button>
           
           <a 
-            href="https://dune.com/riftlaunch/stats"
+            href="https://dune.com/tunalaunch/stats"
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-orange-500/10 transition-colors"
@@ -92,7 +92,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           </a>
           
           <a 
-            href="https://x.com/Rift_privacy" 
+            href="https://x.com/tikitoken" 
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
@@ -175,8 +175,8 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
               <div className="flex flex-col h-full">
                 {/* Menu header */}
                 <div className="flex items-center gap-3 p-4 border-b border-border">
-                  <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" loading="eager" />
-                  <span className="text-lg font-bold">RIFT</span>
+                  <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" loading="eager" />
+                  <span className="text-lg font-bold">TUNA</span>
                 </div>
                 
                 {/* Auth section */}
@@ -227,7 +227,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                   
                   <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
                     <a 
-                      href="https://dune.com/riftlaunch/stats" 
+                      href="https://dune.com/tunalaunch/stats" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
@@ -238,7 +238,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                     </a>
                     
                     <a 
-                      href="https://x.com/rift_fun" 
+                      href="https://x.com/tikitoken" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"

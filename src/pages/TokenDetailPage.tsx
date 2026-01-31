@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
+const HEADER_LOGO_SRC = "/tuna-logo.png";
 
 export default function TokenDetailPage() {
   const { mintAddress } = useParams<{ mintAddress: string }>();
@@ -159,7 +159,7 @@ export default function TokenDetailPage() {
     if (navigator.share && token) {
       navigator.share({
         title: `${token.name} ($${token.ticker})`,
-        text: `Check out ${token.name} on RIFT!`,
+        text: `Check out ${token.name} on TUNA!`,
         url: window.location.href,
       });
     } else {
@@ -214,8 +214,8 @@ export default function TokenDetailPage() {
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-4 px-4 h-14">
           <Link to="/" className="flex items-center gap-2">
-            <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" />
-            <span className="text-lg font-bold">RIFT</span>
+            <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" />
+            <span className="text-lg font-bold">TUNA</span>
           </Link>
           <div className="flex items-center gap-3 flex-1">
             <Avatar className="h-8 w-8 rounded-lg">
