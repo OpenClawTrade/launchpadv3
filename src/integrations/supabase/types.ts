@@ -2734,6 +2734,27 @@ export type Database = {
           },
         ]
       }
+      visitor_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          last_seen_at: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
       wallet_trades: {
         Row: {
           copied_by_count: number | null
@@ -3151,6 +3172,7 @@ export type Database = {
       cleanup_old_bot_replies: { Args: never; Returns: undefined }
       cleanup_old_debug_logs: { Args: never; Returns: undefined }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
+      cleanup_old_visitor_sessions: { Args: never; Returns: undefined }
       generate_short_id: { Args: never; Returns: string }
       get_active_promotion: {
         Args: { p_fun_token_id: string }
@@ -3162,6 +3184,7 @@ export type Database = {
           twitter_post_id: string
         }[]
       }
+      get_active_visitors_count: { Args: never; Returns: number }
       get_api_account_by_wallet: {
         Args: { p_wallet_address: string }
         Returns: {
