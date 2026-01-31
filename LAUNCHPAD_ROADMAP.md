@@ -1,6 +1,6 @@
-# ai67x Launchpad - Technical Roadmap
+# TUNA Launchpad - Technical Roadmap
 
-> Comprehensive roadmap integrating ai67x autonomous trading platform with advanced features inspired by axiom.trade
+> Comprehensive roadmap integrating TUNA autonomous trading platform with advanced features inspired by axiom.trade
 
 ---
 
@@ -23,7 +23,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        ai67x Platform                            │
+│                        TUNA Platform                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Frontend (React/Vite)                                              │
 │  ├── LaunchpadPage.tsx      → Token discovery & filtering          │
@@ -119,7 +119,7 @@ interface LimitOrder {
 
 ### Phase 2: Discovery & Analytics (Q1-Q2 2026)
 
-#### 2.1 TRENCHES Pulse (Token Discovery - Axiom-Inspired)
+#### 2.1 TUNA Pulse (Token Discovery - Axiom-Inspired)
 **Priority: HIGH | Effort: High**
 
 Real-time token lifecycle tracking:
@@ -180,10 +180,10 @@ interface TrackedWallet {
 }
 ```
 
-#### 2.3 Social Integration (TRENCHES Unique Advantage)
+#### 2.3 Social Integration (TUNA Unique Advantage)
 **Priority: HIGH | Effort: Medium**
 
-Leverage existing TRENCHES social features:
+Leverage existing TUNA social features:
 
 | Feature | Description |
 |---------|-------------|
@@ -324,7 +324,7 @@ Leverage trading via Hyperliquid or similar:
 
 ---
 
-## 🔌 TRENCHES Social Integration Matrix
+## 🔌 TUNA Social Integration Matrix
 
 Unique advantage: Full social platform integration
 
@@ -404,7 +404,7 @@ FIREBASE_SERVER_KEY=
 Q1 2026
 ├── Jan: Quick Buy/Sell UI, Slippage Controls
 ├── Feb: Limit Orders, Stop-Loss/Take-Profit
-└── Mar: TRENCHES Pulse v1, Basic Wallet Tracking
+└── Mar: TUNA Pulse v1, Basic Wallet Tracking
 
 Q2 2026
 ├── Apr: Sniper/Bundler Detection, Migration Tools
@@ -421,7 +421,7 @@ Q3 2026
 
 ## 📝 Notes
 
-- **TRENCHES Unique Value**: Unlike axiom.trade which is trading-only, TRENCHES combines social media with token trading, enabling viral loops and organic discovery
+- **TUNA Unique Value**: Unlike axiom.trade which is trading-only, TUNA combines social media with token trading, enabling viral loops and organic discovery
 - **bags.fm Inspiration**: Minimal launch UI, collapsible sections, fee sharing capability
 - **axiom.trade Inspiration**: Pulse discovery, wallet tracking, quick trade buttons, MEV protection
 - **Competitive Advantage**: Existing social graph, verified profiles, trending algorithm, AI assistant

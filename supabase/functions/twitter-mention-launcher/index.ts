@@ -110,15 +110,15 @@ serve(async (req) => {
       }
     }
 
-    console.log("[mention-launcher] 🔍 Searching for @ai67x_fun mentions...");
+    console.log("[mention-launcher] 🔍 Searching for @buildtuna mentions...");
 
-    // Search for mentions of @ai67x_fun using multiple queries to catch more
+    // Search for mentions of @buildtuna using multiple queries to catch more
     // Include quote tweets and various mention formats
     const searchQueries = [
-      "@ai67x_fun",
-      "to:ai67x_fun", 
-      "\"ai67x_fun\"",
-      "ai67x_fun -from:ai67x_fun",
+      "@buildtuna",
+      "to:buildtuna", 
+      "\"buildtuna\"",
+      "buildtuna -from:buildtuna",
     ];
     
     let allTweets: Tweet[] = [];
@@ -156,7 +156,7 @@ serve(async (req) => {
     // Also try to get mentions via user mentions endpoint (more reliable than search)
     try {
       const mentionsUrl = new URL(`${TWITTERAPI_BASE}/twitter/user/mentions`);
-      mentionsUrl.searchParams.set("userName", "ai67x_fun");
+      mentionsUrl.searchParams.set("userName", "buildtuna");
       mentionsUrl.searchParams.set("count", "50");
       
       const mentionsResponse = await fetch(mentionsUrl.toString(), {
@@ -233,7 +233,7 @@ serve(async (req) => {
         console.log(`[mention-launcher] ⏭️ Skipping ${t.id} - already processed/replied`);
         return false;
       }
-      if (t.author?.userName?.toLowerCase() === "ai67x_fun") return false;
+      if (t.author?.userName?.toLowerCase() === "buildtuna") return false;
       if (!t.text || t.text.length < 10) return false;
       
       // Check if tweet is recent enough
@@ -585,7 +585,7 @@ async function createToken(params: {
         description: params.description,
         imageUrl: params.imageUrl,
         twitterUrl: params.twitterUrl,
-        websiteUrl: "https://ai67x.fun",
+        websiteUrl: "https://buildtuna.com",
         feeRecipientWallet: params.creatorWallet,
         serverSideSign: true,
       }),

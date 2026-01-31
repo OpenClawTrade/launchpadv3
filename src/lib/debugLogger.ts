@@ -21,8 +21,8 @@ interface DebugLoggerState {
   maxLogs: number;
 }
 
-const STORAGE_KEY = 'rift_debug_logs';
-const SESSION_KEY = 'rift_debug_session';
+const STORAGE_KEY = 'tuna_debug_logs';
+const SESSION_KEY = 'tuna_debug_session';
 const MAX_LOGS = 500;
 
 // Generate unique session ID

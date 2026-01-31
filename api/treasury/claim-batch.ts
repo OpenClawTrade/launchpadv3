@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Basic auth check - require a header to prevent unauthorized access
   const treasurySecret = req.headers['x-treasury-secret'];
-  const expectedSecret = process.env.TREASURY_CLAIM_SECRET || 'trenches-treasury-2024';
+  const expectedSecret = process.env.TREASURY_CLAIM_SECRET || 'tuna-treasury-2024';
   
   if (treasurySecret !== expectedSecret) {
     console.warn('[treasury/claim-batch] Unauthorized access attempt');

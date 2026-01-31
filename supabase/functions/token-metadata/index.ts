@@ -106,12 +106,12 @@ Deno.serve(async (req) => {
       const fallbackMetadata = {
         name: 'New Token',
         symbol: 'TOKEN',
-        description: 'Token launching on RIFT #RIFT',
+        description: 'Token launching on TUNA #TUNA',
         image: '',
-        external_url: `https://rift.fun/token/${mintAddress}`,
-        tags: ['Meme', 'RIFT'],
+        external_url: `https://buildtuna.com/token/${mintAddress}`,
+        tags: ['Meme', 'TUNA'],
         attributes: [
-          { trait_type: 'Platform', value: 'RIFT' },
+          { trait_type: 'Platform', value: 'TUNA' },
           { trait_type: 'Status', value: 'launching' },
         ],
         properties: {
@@ -137,24 +137,24 @@ Deno.serve(async (req) => {
 
     // Build Metaplex-standard metadata JSON
     // See: https://docs.metaplex.com/programs/token-metadata/token-standard
-    // Append #RIFT hashtag for Solscan visibility
+    // Append #TUNA hashtag for Solscan visibility
     const baseDescription = token.description || `${token.name} token`;
-    const descriptionWithTag = baseDescription.includes('#RIFT') 
+    const descriptionWithTag = baseDescription.includes('#TUNA') 
       ? baseDescription 
-      : `${baseDescription} #RIFT`;
+      : `${baseDescription} #TUNA`;
 
     const metadata: Record<string, unknown> = {
       name: token.name,
       symbol: token.ticker?.toUpperCase() || '',
       description: descriptionWithTag,
       image: token.image_url || '',
-      external_url: token.website_url || `https://rift.fun/token/${mintAddress}`,
+      external_url: token.website_url || `https://buildtuna.com/token/${mintAddress}`,
       // Tags array for Solscan tag chips
-      tags: ['Meme', 'RIFT'],
+      tags: ['Meme', 'TUNA'],
       attributes: [
         {
           trait_type: 'Platform',
-          value: 'RIFT',
+          value: 'TUNA',
         },
         {
           trait_type: 'Status',

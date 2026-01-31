@@ -29,7 +29,7 @@ const getApiUrl = (): string => {
     return normalize(meteoraUrl.trim());
   }
 
-  // 4) Fallback to current origin (will fail on trenches.to but at least shows clear error)
+  // 4) Fallback to current origin (will fail on buildtuna.com but at least shows clear error)
   if (typeof window !== "undefined") {
     return window.location.origin;
   }

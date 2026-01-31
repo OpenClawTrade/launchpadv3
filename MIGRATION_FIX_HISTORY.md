@@ -1,7 +1,7 @@
 # Axiom Migration Display Fix - Progress History
 
 ## Problem
-Tokens launched on ai67x.fun do not show "Migration Market Cap" or graduation progress on Axiom/DEXTools/Birdeye terminals.
+Tokens launched on buildtuna.com do not show "Migration Market Cap" or graduation progress on Axiom/DEXTools/Birdeye terminals.
 
 ## Reference Working Pool
 - **Pool Address**: `AhTyeJiNbFK72KCZn6GTDCs6iEDLwYBdTagSrfHi8BLx`

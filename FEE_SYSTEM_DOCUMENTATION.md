@@ -1,4 +1,4 @@
-# ai67x Launchpad - Meteora Fee System Documentation
+# TUNA Launchpad - Meteora Fee System Documentation
 
 ## Overview
 

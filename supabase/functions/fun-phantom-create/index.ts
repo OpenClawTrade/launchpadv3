@@ -8,8 +8,8 @@ const corsHeaders = {
 };
 
 // Default socials removed per memory - fields should be null when not provided
-// const DEFAULT_WEBSITE = "https://rift.fun";
-// const DEFAULT_TWITTER = "https://x.com/rift_fun";
+// const DEFAULT_WEBSITE = "https://buildtuna.com";
+// const DEFAULT_TWITTER = "https://x.com/buildtuna";
 
 // Blocked patterns for spam/exploit names
 const BLOCKED_PATTERNS = [

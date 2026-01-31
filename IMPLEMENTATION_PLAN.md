@@ -1,4 +1,4 @@
-# ai67x Implementation Plan
+# TUNA Implementation Plan
 
 ## ✅ ALL FEATURES COMPLETE
 
@@ -55,7 +55,7 @@
 - [x] Role-based access control
 
 ### AI Features
-- [x] ai67x Governance AI chat assistant (Platform improvement suggestions)
+- [x] TUNA Governance AI chat assistant (Platform improvement suggestions)
 
 ### ComposePost Features
 - [x] Image upload with preview
@@ -87,7 +87,7 @@
 
 ## 🎯 X.com Feature Parity
 
-| X.com Feature | TRENCHES Status |
+| X.com Feature | TUNA Status |
 |---------------|-----------------|
 | Post with text/images | ✅ |
 | Like posts | ✅ |
