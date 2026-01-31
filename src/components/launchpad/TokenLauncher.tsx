@@ -9,8 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
-import { Connection, VersionedTransaction } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { debugLog } from "@/lib/debugLogger";
+import { getRpcUrl } from "@/hooks/useSolanaWallet";
 import {
   Shuffle,
   Rocket,
@@ -489,24 +490,74 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       });
 
       if (error) throw new Error(error.message);
-      if (!data?.success || !data?.serializedTransaction) throw new Error(data?.error || "Failed to create transaction");
+      if (!data?.success) throw new Error(data?.error || "Failed to prepare Phantom transactions");
 
-      // Sign and send
-      const txBytes = Uint8Array.from(atob(data.serializedTransaction), (c) => c.charCodeAt(0));
-      const transaction = VersionedTransaction.deserialize(txBytes);
+      // fun-phantom-create returns `unsignedTransactions` (preferred) but keep compatibility
+      const txBase64s: string[] =
+        Array.isArray(data?.unsignedTransactions) && data.unsignedTransactions.length > 0
+          ? data.unsignedTransactions
+          : data?.serializedTransaction
+            ? [data.serializedTransaction]
+            : [];
 
-      const rpcUrl = localStorage.getItem("heliusRpcUrl") || "https://api.mainnet-beta.solana.com";
+      if (txBase64s.length === 0) throw new Error(data?.error || "Failed to create transaction");
+
+      const { url: rpcUrl } = getRpcUrl();
       const connection = new Connection(rpcUrl, "confirmed");
 
-      const signResult: unknown = await phantomWallet.signAndSendTransaction(transaction as any);
-      if (!signResult) throw new Error("Transaction signing failed");
-      let signature: string;
-      if (typeof signResult === 'object' && signResult !== null && 'signature' in signResult) {
-        signature = (signResult as { signature: string }).signature;
-      } else {
-        signature = String(signResult);
+      const deserializeAnyTx = (base64: string): Transaction | VersionedTransaction => {
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        try {
+          return VersionedTransaction.deserialize(bytes);
+        } catch {
+          return Transaction.from(bytes);
+        }
+      };
+
+      const signatures: string[] = [];
+      for (const txBase64 of txBase64s) {
+        const tx = deserializeAnyTx(txBase64);
+        const signResult: unknown = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signResult) throw new Error("Transaction signing failed");
+
+        let signature: string;
+        if (typeof signResult === "object" && signResult !== null && "signature" in signResult) {
+          signature = (signResult as { signature: string }).signature;
+        } else {
+          signature = String(signResult);
+        }
+
+        signatures.push(signature);
+        await connection.confirmTransaction(signature, "confirmed");
       }
-      await connection.confirmTransaction(signature, "confirmed");
+
+      // Phase 2: record token in DB after on-chain confirmation
+      try {
+        await supabase.functions.invoke("fun-phantom-create", {
+          body: {
+            name: phantomToken.name.slice(0, 32),
+            ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+            description: phantomToken.description || "",
+            imageUrl,
+            websiteUrl: phantomToken.websiteUrl || "",
+            twitterUrl: phantomToken.twitterUrl || "",
+            telegramUrl: phantomToken.telegramUrl || "",
+            discordUrl: phantomToken.discordUrl || "",
+            phantomWallet: phantomWallet.address,
+            tradingFeeBps: phantomTradingFee,
+            confirmed: true,
+            mintAddress: data.mintAddress,
+            dbcPoolAddress: data.dbcPoolAddress,
+          },
+        });
+      } catch (recordErr) {
+        // Non-fatal: token is already live on-chain.
+        debugLog("warn", "[Phantom Launch] Token confirmed but failed to record in DB", {
+          message: recordErr instanceof Error ? recordErr.message : String(recordErr),
+        });
+      }
+
+      const lastSig = signatures[signatures.length - 1];
 
       onShowResult({
         success: true,
@@ -515,7 +566,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         mintAddress: data.mintAddress,
         imageUrl,
         onChainSuccess: true,
-        solscanUrl: `https://solscan.io/tx/${signature}`,
+        solscanUrl: lastSig ? `https://solscan.io/tx/${lastSig}` : undefined,
         tradeUrl: data.mintAddress ? `https://jup.ag/swap/SOL-${data.mintAddress}` : undefined,
         message: "Token launched successfully via Phantom!",
       });
