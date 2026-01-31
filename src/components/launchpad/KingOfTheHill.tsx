@@ -120,14 +120,14 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
     <Link
       to={`/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`}
       className={cn(
-        "relative flex flex-col p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group",
+        "relative flex flex-col p-2 sm:p-4 rounded-lg sm:rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group",
         getRankStyles(rank)
       )}
     >
       {/* Rank Badge - positioned inside card */}
       <div 
         className={cn(
-          "absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md z-10",
+          "absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold shadow-md z-10",
           getRankBadgeStyles(rank)
         )}
       >
@@ -135,35 +135,35 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
       </div>
 
       {/* Header: Image + Name + CA */}
-      <div className="flex items-start gap-3 mb-3">
-        <div className="relative">
+      <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
+        <div className="relative flex-shrink-0">
           {token.image_url ? (
             <img
               src={token.image_url}
               alt={token.name}
-              className="w-12 h-12 rounded-lg object-cover border border-border/50"
+              className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg object-cover border border-border/50"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "/placeholder.svg";
               }}
             />
           ) : (
-            <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+            <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg bg-primary/20 flex items-center justify-center text-xs sm:text-sm font-bold text-primary">
               {token.ticker?.slice(0, 2)}
             </div>
           )}
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-foreground truncate group-hover:text-primary transition-colors">
+          <h3 className="font-bold text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors">
             {token.name}
           </h3>
-          <span className="text-xs text-muted-foreground">${token.ticker}</span>
+          <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>
         </div>
 
-        {/* Copy CA Button */}
+        {/* Copy CA Button - hidden on very small screens */}
         <button
           onClick={copyAddress}
-          className="flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
           title="Copy contract address"
         >
           {copied ? (
@@ -176,30 +176,25 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
       </div>
 
       {/* Stats Row */}
-      <div className="flex items-center gap-4 mb-3 text-sm">
-        <div className="flex items-center gap-1.5">
-          <span className="text-muted-foreground">$</span>
-          <span className="text-foreground">MC:</span>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mb-2 sm:mb-3 text-[10px] sm:text-sm">
+        <div className="flex items-center gap-1">
+          <span className="text-muted-foreground">MC:</span>
           <span className="font-semibold text-primary">
-            ${marketCapUsd >= 1000 ? `${(marketCapUsd / 1000).toFixed(2)}K` : marketCapUsd.toFixed(2)}
+            ${marketCapUsd >= 1000 ? `${(marketCapUsd / 1000).toFixed(1)}K` : marketCapUsd.toFixed(0)}
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Users className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-foreground">Holders:</span>
+        <div className="flex items-center gap-1">
+          <Users className="w-3 h-3 text-muted-foreground" />
           <span className="font-semibold">{token.holder_count}</span>
         </div>
       </div>
 
       {/* Progress */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>Progress</span>
-          </div>
+      <div className="mb-2 sm:mb-3">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] sm:text-xs text-muted-foreground">Progress</span>
           <span className={cn(
-            "text-sm font-bold",
+            "text-[10px] sm:text-sm font-bold",
             progress >= 50 ? "text-primary" : "text-foreground"
           )}>
             {progress.toFixed(1)}%
@@ -208,19 +203,19 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
         <Progress 
           value={Math.min(progress, 100)} 
           className={cn(
-            "h-2",
-            progress >= 80 && "shadow-[0_0_8px_hsl(152_69%_41%/0.4)]"
+            "h-1.5 sm:h-2",
+            progress >= 80 && "shadow-[0_0_8px_hsl(var(--primary)/0.4)]"
           )}
         />
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex items-center justify-between text-[9px] sm:text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          <span>{formatDistanceToNow(new Date(token.created_at), { addSuffix: true })}</span>
+          <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+          <span className="truncate">{formatDistanceToNow(new Date(token.created_at), { addSuffix: true })}</span>
         </div>
-        <span className="font-medium tabular-nums">
+        <span className="font-medium tabular-nums hidden sm:inline">
           {token.real_sol_reserves.toFixed(2)} / {token.graduation_threshold_sol} SOL
         </span>
       </div>
@@ -243,20 +238,20 @@ export function KingOfTheHill() {
           <h2 className="text-lg font-bold">King of the Hill</h2>
           <span className="text-sm text-muted-foreground hidden sm:inline">— Soon to Graduate</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="p-4 rounded-xl border border-border bg-card">
-              <div className="flex items-start gap-3 mb-3">
-                <Skeleton className="w-12 h-12 rounded-lg flex-shrink-0" />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-16" />
+            <div key={i} className="p-2 sm:p-4 rounded-xl border border-border bg-card">
+              <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <Skeleton className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg flex-shrink-0" />
+                <div className="flex-1 min-w-0 space-y-1 sm:space-y-2">
+                  <Skeleton className="h-3 sm:h-4 w-16 sm:w-24" />
+                  <Skeleton className="h-2 sm:h-3 w-10 sm:w-16" />
                 </div>
               </div>
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-3 w-32" />
+              <div className="space-y-2 sm:space-y-3">
+                <Skeleton className="h-3 sm:h-4 w-full" />
+                <Skeleton className="h-1.5 sm:h-2 w-full" />
+                <Skeleton className="h-2 sm:h-3 w-20 sm:w-32" />
               </div>
             </div>
           ))}
@@ -276,7 +271,7 @@ export function KingOfTheHill() {
         <h2 className="text-lg font-bold">King of the Hill</h2>
         <span className="text-sm text-muted-foreground hidden sm:inline">— Soon to Graduate</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {tokens.map((token, index) => (
           <TokenCard key={token.id} token={token} rank={index + 1} />
         ))}
