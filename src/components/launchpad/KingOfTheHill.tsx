@@ -1,91 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Crown, Copy, CheckCircle, Users, Clock, TrendingUp } from "lucide-react";
+import { Crown, Copy, CheckCircle, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSolPrice } from "@/hooks/useSolPrice";
+import { useFunTokens } from "@/hooks/useFunTokens";
 
-interface KingToken {
-  id: string;
-  name: string;
-  ticker: string;
-  image_url: string | null;
-  mint_address: string | null;
-  dbc_pool_address: string | null;
-  real_sol_reserves: number;
-  graduation_threshold_sol: number;
-  bonding_curve_progress: number;
-  holder_count: number;
-  market_cap_sol: number;
-  created_at: string;
-}
+const GRADUATION_THRESHOLD = 85;
 
-function useKingOfTheHill() {
-  return useQuery({
-    queryKey: ["king-of-the-hill"],
-    queryFn: async (): Promise<KingToken[]> => {
-      // Get top 3 active tokens with highest bonding progress (closest to graduation)
-      const { data, error } = await supabase
-        .from("fun_tokens")
-        .select(`
-          id,
-          name,
-          ticker,
-          image_url,
-          mint_address,
-          dbc_pool_address,
-          bonding_progress,
-          holder_count,
-          market_cap_sol,
-          created_at
-        `)
-        .eq("status", "active")
-        .order("bonding_progress", { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-      if (!data || data.length === 0) return [];
-
-      const graduationThreshold = 85; // Default threshold in SOL
-      
-      // Map to our interface
-      const tokens: KingToken[] = data.map((token) => {
-        // bonding_progress in DB is stored as a decimal (0-1 range representing percentage/100)
-        // Convert to percentage for display
-        const progressPercent = (token.bonding_progress || 0) * 100;
-        
-        // Calculate real SOL reserves from progress
-        const realSolReserves = (token.bonding_progress || 0) * graduationThreshold;
-
-        return {
-          id: token.id,
-          name: token.name,
-          ticker: token.ticker,
-          image_url: token.image_url,
-          mint_address: token.mint_address,
-          dbc_pool_address: token.dbc_pool_address,
-          real_sol_reserves: realSolReserves,
-          graduation_threshold_sol: graduationThreshold,
-          bonding_curve_progress: progressPercent,
-          holder_count: token.holder_count || 0,
-          market_cap_sol: token.market_cap_sol || 0,
-          created_at: token.created_at || new Date().toISOString(),
-        };
-      });
-
-      return tokens;
-    },
-    refetchInterval: 30000, // Refresh every 30 seconds
-    staleTime: 20000,
-  });
-}
-
-function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
+function TokenCard({ token, rank }: { token: any; rank: number }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { solPrice } = useSolPrice();
@@ -101,8 +27,12 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
     }
   };
 
-  const progress = token.bonding_curve_progress;
-  const marketCapUsd = token.market_cap_sol * (solPrice || 0);
+  // Use bonding_progress directly from the hook (already 0-100 range)
+  const progress = token.bonding_progress ?? 0;
+  const marketCapUsd = (token.market_cap_sol ?? 0) * (solPrice || 0);
+  
+  // Calculate real SOL reserves from progress percentage
+  const realSolReserves = (progress / 100) * GRADUATION_THRESHOLD;
 
   const getRankStyles = (r: number) => {
     if (r === 1) return "border-primary/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-lg shadow-primary/10";
@@ -124,7 +54,7 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
         getRankStyles(rank)
       )}
     >
-      {/* Rank Badge - positioned top-left to avoid CA button overlap */}
+      {/* Rank Badge */}
       <div 
         className={cn(
           "absolute -top-1.5 -left-1.5 sm:-top-2 sm:-left-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold shadow-md z-10",
@@ -160,7 +90,7 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
           <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>
         </div>
 
-        {/* Copy CA Button - hidden on very small screens */}
+        {/* Copy CA Button */}
         <button
           onClick={copyAddress}
           className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
@@ -185,7 +115,7 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
         </div>
         <div className="flex items-center gap-1">
           <Users className="w-3 h-3 text-muted-foreground" />
-          <span className="font-semibold">{token.holder_count}</span>
+          <span className="font-semibold">{token.holder_count ?? 0}</span>
         </div>
       </div>
 
@@ -216,7 +146,7 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
           <span className="truncate">{formatDistanceToNow(new Date(token.created_at), { addSuffix: true })}</span>
         </div>
         <span className="font-medium tabular-nums hidden sm:inline">
-          {token.real_sol_reserves.toFixed(2)} / {token.graduation_threshold_sol} SOL
+          {realSolReserves.toFixed(2)} / {GRADUATION_THRESHOLD} SOL
         </span>
       </div>
     </Link>
@@ -224,7 +154,17 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
 }
 
 export function KingOfTheHill() {
-  const { data: tokens, isLoading, error } = useKingOfTheHill();
+  const { tokens: allTokens, isLoading, error } = useFunTokens();
+
+  // Filter to active tokens and sort by bonding_progress (highest first), take top 3
+  const tokens = useMemo(() => {
+    if (!allTokens || allTokens.length === 0) return [];
+    
+    return allTokens
+      .filter(t => t.status === "active")
+      .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0))
+      .slice(0, 3);
+  }, [allTokens]);
 
   if (error) {
     return null;
@@ -234,7 +174,7 @@ export function KingOfTheHill() {
     return (
       <div className="w-full">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <Crown className="w-5 h-5 text-yellow-500" />
+          <Crown className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-bold">King of the Hill</h2>
           <span className="text-sm text-muted-foreground hidden sm:inline">— Soon to Graduate</span>
         </div>
@@ -267,7 +207,7 @@ export function KingOfTheHill() {
   return (
     <div className="w-full">
       <div className="flex items-center justify-center gap-2 mb-4">
-        <Crown className="w-5 h-5 text-yellow-500" />
+        <Crown className="w-5 h-5 text-accent" />
         <h2 className="text-lg font-bold">King of the Hill</h2>
         <span className="text-sm text-muted-foreground hidden sm:inline">— Soon to Graduate</span>
       </div>
