@@ -32,7 +32,7 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
               className="h-8 w-8 rounded-lg object-cover"
               loading="eager"
             />
-            <span className="text-lg font-bold">TUNA</span>
+            <span className="text-lg font-bold">TUNA <span className="text-xs text-muted-foreground font-normal">v3</span></span>
           </Link>
 
           {/* Desktop Nav */}

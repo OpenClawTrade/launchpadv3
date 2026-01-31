@@ -51,7 +51,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <Link to="/" className="flex items-center gap-2">
             <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" loading="eager" />
-            <span className="text-lg font-bold">TUNA</span>
+            <span className="text-lg font-bold">TUNA <span className="text-xs text-muted-foreground font-normal">v3</span></span>
           </Link>
           {showBack && backLabel && (
             <div className="hidden sm:flex items-center gap-2 text-muted-foreground">
@@ -176,7 +176,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                 {/* Menu header */}
                 <div className="flex items-center gap-3 p-4 border-b border-border">
                   <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" loading="eager" />
-                  <span className="text-lg font-bold">TUNA</span>
+                  <span className="text-lg font-bold">TUNA <span className="text-xs text-muted-foreground font-normal">v3</span></span>
                 </div>
                 
                 {/* Auth section */}
