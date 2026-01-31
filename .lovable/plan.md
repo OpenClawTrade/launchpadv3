@@ -1,51 +1,62 @@
 
-# Fix Token Ticker Bar Coin Rotation Animation
+# Fix Promote-Generate Edge Function CORS Headers
 
 ## Problem
-The current `animate-coin-spin` animation uses a 2D rotation (`rotate(0deg)` to `rotate(360deg)`), which is **visually invisible** for circular images. A circle rotating in 2D looks exactly the same at all angles - the user sees no movement.
+The `promote-generate` edge function is returning a 400 error: `"funTokenId and promoterWallet are required"`. This happens because the **CORS headers are incomplete**, causing the browser's preflight (OPTIONS) request to fail, which prevents the actual POST request body from being sent.
+
+## Root Cause
+The current CORS `Access-Control-Allow-Headers` only includes:
+```
+authorization, x-client-info, apikey, content-type
+```
+
+But the Supabase client sends additional headers that are not whitelisted:
+- `x-supabase-client-platform`
+- `x-supabase-client-platform-version`
+- `x-supabase-client-runtime`
+- `x-supabase-client-runtime-version`
+
+When the browser's preflight OPTIONS request doesn't receive permission for these headers, the actual POST request fails or sends an empty body.
+
+---
 
 ## Solution
-Change the animation to a **3D Y-axis rotation** that creates a coin-flip effect. This makes the rotation clearly visible as the coin appears to flip/spin like a real coin.
 
----
+Update the CORS headers in `supabase/functions/promote-generate/index.ts` to include all required Supabase client headers:
 
-## Technical Implementation
+**File:** `supabase/functions/promote-generate/index.ts`
 
-### File: `src/index.css`
+**Change (line 6-9):**
 
-Update the `coin-spin` keyframes animation (lines 229-236):
-
-**Current (broken):**
-```css
-@keyframes coin-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.animate-coin-spin {
-  animation: coin-spin 3s linear infinite;
-}
+From:
+```typescript
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 ```
 
-**New (working 3D flip):**
-```css
-@keyframes coin-spin {
-  0% { transform: rotateY(0deg); }
-  100% { transform: rotateY(360deg); }
-}
-
-.animate-coin-spin {
-  animation: coin-spin 3s linear infinite;
-  transform-style: preserve-3d;
-}
+To:
+```typescript
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 ```
 
 ---
 
-## Changes Summary
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/index.css` | Update `coin-spin` keyframes to use `rotateY()` for 3D Y-axis rotation and add `transform-style: preserve-3d` |
+| `supabase/functions/promote-generate/index.ts` | Update CORS `Access-Control-Allow-Headers` to include all Supabase client headers |
 
-This creates a continuous coin-flip animation that is clearly visible to users, making the ticker bar feel more dynamic and engaging.
+---
+
+## After Fix
+
+Once deployed, the promote modal will correctly:
+1. Pass the browser's preflight check
+2. Send the `funTokenId` and `promoterWallet` in the POST body
+3. Generate a payment address and QR code for the user
