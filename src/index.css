@@ -225,15 +225,20 @@
     animation: koth-pulse 1.2s ease-in-out;
   }
 
-  /* Token ticker coin rotation - 3D Y-axis flip */
-  @keyframes coin-spin {
-    0% { transform: rotateY(0deg); }
-    100% { transform: rotateY(360deg); }
+  /* Continuous ticker marquee animation */
+  @keyframes ticker-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
   }
 
-  .animate-coin-spin {
-    animation: coin-spin 3s linear infinite;
-    transform-style: preserve-3d;
+  .animate-ticker {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 16px;
+    white-space: nowrap;
+    width: max-content;
+    animation: ticker-scroll 40s linear infinite;
   }
 
   /* Like animation */

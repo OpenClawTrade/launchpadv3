@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 
@@ -14,7 +14,6 @@ interface TickerToken {
 export function TokenTickerBar() {
   const [tokens, setTokens] = useState<TickerToken[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchTokens() {
@@ -42,56 +41,16 @@ export function TokenTickerBar() {
     return () => clearInterval(interval);
   }, []);
 
-  // Continuous scroll animation
-  useEffect(() => {
-    const scroll = scrollRef.current;
-    if (!scroll || tokens.length === 0) return;
-
-    let animationId: number;
-    let scrollPos = 0;
-    const speed = 0.5; // pixels per frame
-
-    const animate = () => {
-      scrollPos += speed;
-      if (scrollPos >= scroll.scrollWidth / 2) {
-        scrollPos = 0;
-      }
-      scroll.scrollLeft = scrollPos;
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animationId = requestAnimationFrame(animate);
-    
-    // Pause on hover
-    const handleMouseEnter = () => cancelAnimationFrame(animationId);
-    const handleMouseLeave = () => {
-      animationId = requestAnimationFrame(animate);
-    };
-    
-    scroll.addEventListener("mouseenter", handleMouseEnter);
-    scroll.addEventListener("mouseleave", handleMouseLeave);
-
-    return () => {
-      cancelAnimationFrame(animationId);
-      scroll.removeEventListener("mouseenter", handleMouseEnter);
-      scroll.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, [tokens]);
-
   if (isLoading || tokens.length === 0) {
     return null;
   }
 
-  // Duplicate tokens for seamless loop
-  const displayTokens = [...tokens, ...tokens];
+  // Duplicate tokens 4x for seamless infinite loop
+  const displayTokens = [...tokens, ...tokens, ...tokens, ...tokens];
 
   return (
     <div className="gate-ticker-bar w-full overflow-hidden">
-      <div
-        ref={scrollRef}
-        className="gate-ticker-inner overflow-hidden whitespace-nowrap no-scrollbar"
-        style={{ scrollBehavior: "auto" }}
-      >
+      <div className="animate-ticker">
         {displayTokens.map((token, index) => {
           const priceChange = token.price_change_24h || 0;
           return (
@@ -104,13 +63,13 @@ export function TokenTickerBar() {
                 <img
                   src={token.image_url}
                   alt={token.ticker}
-                  className="w-5 h-5 rounded-full object-cover animate-coin-spin"
+                  className="w-5 h-5 rounded-full object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "/placeholder.svg";
                   }}
                 />
               ) : (
-                <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground animate-coin-spin">
+                <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
                   {token.ticker?.[0] || "?"}
                 </div>
               )}

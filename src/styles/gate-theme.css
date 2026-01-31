@@ -578,13 +578,7 @@
   overflow: hidden;
 }
 
-.gate-ticker-inner {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 8px 16px;
-  white-space: nowrap;
-}
+/* .gate-ticker-inner replaced by .animate-ticker in index.css */
 
 .gate-ticker-item {
   display: flex;
