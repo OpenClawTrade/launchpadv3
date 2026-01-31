@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 // Configuration
-const TARGET_SUFFIX = '67x';
+const TARGET_SUFFIX = 'tuna'; // Case-insensitive matching (TuNa, TUNA, tuna all work)
 const TARGET_AVAILABLE = 500; // Keep at least 500 available
 const MAX_DURATION_MS = 3000; // 3 seconds max (very conservative)
 const BATCH_SIZE = 20; // Very small batches
