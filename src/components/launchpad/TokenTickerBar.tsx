@@ -104,13 +104,14 @@ export function TokenTickerBar() {
                 <img
                   src={token.image_url}
                   alt={token.ticker}
-                  className="w-5 h-5 rounded-full object-cover"
+                  className="w-5 h-5 rounded-full object-cover animate-spin"
+                  style={{ animationDuration: '3s' }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "/placeholder.svg";
                   }}
                 />
               ) : (
-                <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground animate-spin" style={{ animationDuration: '3s' }}>
                   {token.ticker?.[0] || "?"}
                 </div>
               )}
