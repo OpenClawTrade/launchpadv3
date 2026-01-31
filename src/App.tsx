@@ -28,6 +28,7 @@ const TwitterBotAdminPage = lazy(() => import("./pages/TwitterBotAdminPage"));
 const InvestigateTokenPage = lazy(() => import("./pages/InvestigateTokenPage"));
 const ClaudeLauncherPage = lazy(() => import("./pages/ClaudeLauncherPage"));
 const TreasuryAdminPage = lazy(() => import("./pages/TreasuryAdminPage"));
+const TradePage = lazy(() => import("./pages/TradePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -78,6 +79,7 @@ const App = () => (
                 <Route path="/site" element={<LaunchpadTemplatePage />} />
                 <Route path="/admin/twitter" element={<TwitterBotAdminPage />} />
                 <Route path="/admin/treasury" element={<TreasuryAdminPage />} />
+                <Route path="/trade" element={<TradePage />} />
                 <Route path="/investigate-token" element={<InvestigateTokenPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

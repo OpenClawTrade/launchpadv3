@@ -487,6 +487,33 @@ export type Database = {
           },
         ]
       }
+      countdown_timers: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          target_time: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          target_time: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          target_time?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cron_locks: {
         Row: {
           acquired_at: string
