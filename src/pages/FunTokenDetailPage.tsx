@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { BondingCurveProgress } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
-import { JupiterSwapWidget } from "@/components/launchpad/JupiterSwapWidget";
+import { UniversalTradePanel } from "@/components/launchpad/UniversalTradePanel";
 import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -348,12 +348,16 @@ export default function FunTokenDetailPage() {
               />
             )}
 
-            {/* For graduated tokens - show Jupiter Plugin */}
+            {/* For graduated tokens - use UniversalTradePanel (Jupiter-powered) */}
             {isGraduated && token.mint_address && (
-              <JupiterSwapWidget 
-                outputMint={token.mint_address}
-                tokenName={token.name}
-                tokenTicker={token.ticker}
+              <UniversalTradePanel 
+                token={{
+                  mint_address: token.mint_address,
+                  ticker: token.ticker,
+                  name: token.name,
+                  decimals: 9,
+                }}
+                userTokenBalance={0}
               />
             )}
           </div>
