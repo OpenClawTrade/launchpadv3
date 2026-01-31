@@ -59,7 +59,14 @@ serve(async (req) => {
     // Rate limiting removed per user request
 
     const body = await req.json();
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps } = body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps } = body;
+    
+    // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
+    const MIN_FEE_BPS = 10;
+    const MAX_FEE_BPS = 1000;
+    const DEFAULT_FEE_BPS = 200;
+    const tradingFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(Number(rawFeeBps) || DEFAULT_FEE_BPS)));
+    console.log("[fun-phantom-create] Validated tradingFeeBps:", tradingFeeBps, "from raw:", rawFeeBps);
 
     // ===== PHASE 2: Record token after confirmation =====
     if (confirmed === true && confirmedMintAddress && confirmedPoolAddress) {

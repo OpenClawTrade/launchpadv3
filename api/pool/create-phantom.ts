@@ -104,8 +104,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       phantomWallet,
       feeRecipientWallet,
       useVanityAddress = true,
-      tradingFeeBps = 200, // Default 2%, range 10-1000 (0.1%-10%)
+      tradingFeeBps: rawFeeBps = 200, // Default 2%, range 10-1000 (0.1%-10%)
     } = req.body;
+
+    // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
+    const MIN_FEE_BPS = 10;
+    const MAX_FEE_BPS = 1000;
+    const DEFAULT_FEE_BPS = 200;
+    const tradingFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(Number(rawFeeBps) || DEFAULT_FEE_BPS)));
+    console.log('[create-phantom] Validated tradingFeeBps:', tradingFeeBps, 'from raw:', rawFeeBps);
 
     if (!name || !ticker || !phantomWallet) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker, phantomWallet' });
