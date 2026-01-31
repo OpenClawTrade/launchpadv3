@@ -9,10 +9,11 @@ const corsHeaders = {
 };
 
 // Configuration
-const TARGET_SUFFIX = 'tuna'; // Case-insensitive matching (TuNa, TUNA, tuna all work)
+const TARGET_SUFFIX = 'TNA'; // Case-SENSITIVE matching (must be exact: TNA)
 const TARGET_AVAILABLE = 500; // Keep at least 500 available
 const MAX_DURATION_MS = 3000; // 3 seconds max (very conservative)
 const BATCH_SIZE = 20; // Very small batches
+const CASE_SENSITIVE = true; // Enable case-sensitive matching
 const YIELD_EVERY = 5; // Yield CPU every 5 attempts
 
 // XOR encryption for secret key storage
@@ -70,8 +71,11 @@ async function generateKeypair(): Promise<{ address: string; secretKeyHex: strin
   }
 }
 
-// Check if address matches suffix (case-insensitive)
-function matchesSuffix(address: string, suffix: string): boolean {
+// Check if address matches suffix (case-sensitive or insensitive based on config)
+function matchesSuffix(address: string, suffix: string, caseSensitive: boolean): boolean {
+  if (caseSensitive) {
+    return address.endsWith(suffix);
+  }
   return address.toLowerCase().endsWith(suffix.toLowerCase());
 }
 
@@ -140,7 +144,7 @@ Deno.serve(async (req) => {
         const keypair = await generateKeypair();
         if (!keypair) continue;
         
-        if (matchesSuffix(keypair.address, TARGET_SUFFIX)) {
+        if (matchesSuffix(keypair.address, TARGET_SUFFIX, CASE_SENSITIVE)) {
           // Found a match! Save to database
           const encryptedSecretKey = encryptSecretKey(keypair.secretKeyHex, encryptionKey);
           
