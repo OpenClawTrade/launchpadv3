@@ -59,7 +59,7 @@ serve(async (req) => {
     // Rate limiting removed per user request
 
     const body = await req.json();
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, vanityKeypair } = body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, vanityKeypair } = body;
     
     // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
     const MIN_FEE_BPS = 10;
@@ -113,6 +113,8 @@ serve(async (req) => {
           price_sol: 0.00000003,
           website_url: websiteUrl || null,
           twitter_url: twitterUrl || null,
+          telegram_url: telegramUrl || null,
+          discord_url: discordUrl || null,
         })
         .select()
         .single();
@@ -244,6 +246,8 @@ serve(async (req) => {
           imageUrl: storedImageUrl,
           websiteUrl: websiteUrl || null,
           twitterUrl: twitterUrl || null,
+          telegramUrl: telegramUrl || null,
+          discordUrl: discordUrl || null,
           phantomWallet, // User's Phantom wallet as fee payer
           feeRecipientWallet: phantomWallet, // All fees go to Phantom wallet
           tradingFeeBps: tradingFeeBps || 200, // Default 2%, allow 0.1%-10%
