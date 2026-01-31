@@ -21,7 +21,7 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   useEffect(() => {
     const triggerAnimation = () => {
       setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 600);
+      setTimeout(() => setIsAnimating(false), 1200);
     };
 
     // Initial random delay between 1-4 seconds based on rank
