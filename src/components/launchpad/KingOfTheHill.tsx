@@ -4,7 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Crown, Copy, CheckCircle, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunTokens } from "@/hooks/useFunTokens";
@@ -13,8 +13,32 @@ const GRADUATION_THRESHOLD = 85;
 
 function TokenCard({ token, rank }: { token: any; rank: number }) {
   const [copied, setCopied] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const { toast } = useToast();
   const { solPrice } = useSolPrice();
+
+  // Random blink/shake animation at random intervals
+  useEffect(() => {
+    const triggerAnimation = () => {
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 600);
+    };
+
+    // Initial random delay between 1-4 seconds based on rank
+    const initialDelay = 1000 + (rank * 800) + Math.random() * 2000;
+    const initialTimeout = setTimeout(triggerAnimation, initialDelay);
+
+    // Set up recurring animation with random intervals (3-8 seconds)
+    const interval = setInterval(() => {
+      const randomDelay = Math.random() * 3000;
+      setTimeout(triggerAnimation, randomDelay);
+    }, 5000 + Math.random() * 3000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [rank]);
 
   const copyAddress = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -51,7 +75,8 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
       to={`/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`}
       className={cn(
         "relative flex flex-col p-2 sm:p-4 rounded-lg sm:rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group",
-        getRankStyles(rank)
+        getRankStyles(rank),
+        isAnimating && "animate-koth-pulse"
       )}
     >
       {/* Rank Badge */}
