@@ -12,6 +12,7 @@ import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
+import { VanityAddressGenerator } from "@/components/launchpad/VanityAddressGenerator";
 import {
   Shuffle,
   Rocket,
@@ -102,6 +103,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const [phantomImagePreview, setPhantomImagePreview] = useState<string | null>(null);
   const [phantomMeme, setPhantomMeme] = useState<MemeToken | null>(null);
   const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
+  
+  // Vanity address state for Phantom
+  const [phantomVanityKeypair, setPhantomVanityKeypair] = useState<{ address: string; secretKeyHex: string } | null>(null);
 
   // Banner generation
   const { generateBanner, downloadBanner, clearBanner, isGenerating: isBannerGenerating, bannerUrl } = useBannerGenerator();
@@ -486,6 +490,11 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           discordUrl: phantomToken.discordUrl || "",
           phantomWallet: phantomWallet.address,
           tradingFeeBps: phantomTradingFee,
+          // Pass vanity keypair if user generated one
+          vanityKeypair: phantomVanityKeypair ? {
+            publicKey: phantomVanityKeypair.address,
+            secretKeyHex: phantomVanityKeypair.secretKeyHex,
+          } : undefined,
         },
       });
 
@@ -578,6 +587,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       setPhantomMeme(null);
       setPhantomImageFile(null);
       setPhantomImagePreview(null);
+      setPhantomVanityKeypair(null);
       onLaunchSuccess();
     } catch (error: any) {
       onShowResult({ success: false, error: error.message || "Phantom launch failed" });
@@ -585,7 +595,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     } finally {
       setIsPhantomLaunching(false);
     }
-  }, [phantomWallet, phantomToken, phantomMeme, phantomImagePreview, phantomTradingFee, toast, uploadPhantomImageIfNeeded, onLaunchSuccess, onShowResult]);
+  }, [phantomWallet, phantomToken, phantomMeme, phantomImagePreview, phantomTradingFee, phantomVanityKeypair, toast, uploadPhantomImageIfNeeded, onLaunchSuccess, onShowResult]);
 
   const modes = [
     { id: "random" as const, label: "Random", icon: Shuffle },
@@ -934,6 +944,12 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                     />
 
                     <Input type="file" accept="image/*" onChange={handlePhantomImageChange} className="gate-input text-xs" />
+
+                    {/* Vanity Address Generator */}
+                    <VanityAddressGenerator
+                      onKeypairGenerated={setPhantomVanityKeypair}
+                      disabled={isPhantomLaunching}
+                    />
 
                     <Button
                       onClick={handlePhantomLaunch}

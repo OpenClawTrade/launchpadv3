@@ -105,6 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       feeRecipientWallet,
       useVanityAddress = true,
       tradingFeeBps: rawFeeBps = 200, // Default 2%, range 10-1000 (0.1%-10%)
+      vanityKeypair: userVanityKeypair, // User-generated vanity keypair from browser
     } = req.body;
 
     // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
@@ -125,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Invalid phantomWallet address' });
     }
 
-    console.log('[create-phantom] Creating Phantom-signed token:', { name, ticker, phantomWallet, useVanityAddress });
+    console.log('[create-phantom] Creating Phantom-signed token:', { name, ticker, phantomWallet, useVanityAddress, hasUserVanity: !!userVanityKeypair });
 
     const treasuryKeypair = getTreasuryKeypair();
     const supabase = getSupabase();
@@ -137,15 +138,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const connection = new Connection(rpcUrl, 'confirmed');
 
-    // Try to get a vanity address for the mint
+    // Priority: User-generated vanity keypair > Pool vanity address > Random
     let vanityKeypair: { id: string; publicKey: string; keypair: Keypair } | null = null;
+    let userProvidedMintKeypair: Keypair | null = null;
     
-    if (useVanityAddress) {
+    // Check if user provided their own vanity keypair from browser mining
+    if (userVanityKeypair?.publicKey && userVanityKeypair?.secretKeyHex) {
+      try {
+        // Reconstruct Keypair from hex secret key
+        const secretKeyBytes = new Uint8Array(
+          userVanityKeypair.secretKeyHex.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16))
+        );
+        userProvidedMintKeypair = Keypair.fromSecretKey(secretKeyBytes);
+        
+        // Verify the public key matches
+        if (userProvidedMintKeypair.publicKey.toBase58() !== userVanityKeypair.publicKey) {
+          console.error('[create-phantom] User vanity keypair mismatch');
+          userProvidedMintKeypair = null;
+        } else {
+          console.log('[create-phantom] 🎯 Using user-generated vanity mint:', userVanityKeypair.publicKey);
+        }
+      } catch (err) {
+        console.error('[create-phantom] Failed to parse user vanity keypair:', err);
+        userProvidedMintKeypair = null;
+      }
+    }
+    
+    // Fallback to pool vanity address if no user-provided keypair
+    if (!userProvidedMintKeypair && useVanityAddress) {
       try {
         vanityKeypair = await getAvailableVanityAddress('67x');
         if (vanityKeypair) {
           vanityKeypairId = vanityKeypair.id;
-          console.log('[create-phantom] 🎯 Using vanity mint address:', vanityKeypair.publicKey);
+          console.log('[create-phantom] 🎯 Using pool vanity mint address:', vanityKeypair.publicKey);
         } else {
           console.log('[create-phantom] No vanity address available, using random mint');
         }
@@ -165,7 +190,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       feeRecipientWallet: effectiveFeeRecipient,
       tradingFeeBps,
       useVanityAddress,
-      hasVanityKeypair: !!vanityKeypair,
+      hasUserVanityKeypair: !!userProvidedMintKeypair,
+      hasPoolVanityKeypair: !!vanityKeypair,
     });
     
     let transactions: Transaction[];
@@ -173,11 +199,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let configKeypair: Keypair;
     let poolAddress: PublicKey;
     
-    if (vanityKeypair) {
+    // Priority: User-generated vanity > Pool vanity > Random
+    const effectiveMintKeypair = userProvidedMintKeypair || vanityKeypair?.keypair || null;
+    
+    if (effectiveMintKeypair) {
       const result = await createMeteoraPoolWithMint({
         creatorWallet: phantomWallet, // Phantom wallet is the creator
         leftoverReceiverWallet: effectiveFeeRecipient,
-        mintKeypair: vanityKeypair.keypair,
+        mintKeypair: effectiveMintKeypair,
         name: name.slice(0, 32),
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description || `${name} - A fun meme coin!`,
@@ -186,7 +215,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tradingFeeBps, // Pass custom fee
       });
       transactions = result.transactions;
-      mintKeypair = vanityKeypair.keypair;
+      mintKeypair = effectiveMintKeypair;
       configKeypair = result.configKeypair;
       poolAddress = result.poolAddress;
     } else {
@@ -213,7 +242,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       mintAddress,
       dbcPoolAddress,
       txCount: transactions.length,
-      isVanity: !!vanityKeypair,
+      isUserVanity: !!userProvidedMintKeypair,
+      isPoolVanity: !!vanityKeypair,
     });
 
     // For Phantom launches, we need to:
