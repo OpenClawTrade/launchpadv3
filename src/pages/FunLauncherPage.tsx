@@ -251,7 +251,7 @@ export default function FunLauncherPage() {
                   <BarChart3 className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Tokens</span>
                 </TabsTrigger>
-                <TabsTrigger value="promoted" className="data-[state=active]:bg-warning data-[state=active]:text-warning-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                <TabsTrigger value="promoted" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
                   <Crown className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Promoted</span>
                 </TabsTrigger>
