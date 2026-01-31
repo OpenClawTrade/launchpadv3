@@ -13,6 +13,7 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions } from "@/hooks/useFunFeeData";
 import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useTokenPromotions } from "@/hooks/useTokenPromotions";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
 import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { StatsCards } from "@/components/launchpad/StatsCards";
@@ -21,6 +22,8 @@ import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { FeeDistributionPie } from "@/components/launchpad/FeeDistributionPie";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
+import { PromoteButton } from "@/components/launchpad/PromoteButton";
+import { PromoteModal } from "@/components/launchpad/PromoteModal";
 
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
@@ -40,6 +43,8 @@ import {
   PartyPopper,
   Menu,
   XCircle,
+  Megaphone,
+  Crown,
 } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -52,6 +57,7 @@ interface LaunchResult {
   ticker?: string;
   mintAddress?: string;
   imageUrl?: string;
+  tokenId?: string;
   onChainSuccess?: boolean;
   solscanUrl?: string;
   tradeUrl?: string;
@@ -84,10 +90,19 @@ export default function FunLauncherPage() {
   const [showResultModal, setShowResultModal] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Promote modal state
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [promoteTokenId, setPromoteTokenId] = useState<string | null>(null);
+  const [promoteTokenName, setPromoteTokenName] = useState("");
+  const [promoteTokenTicker, setPromoteTokenTicker] = useState("");
 
   // Admin check
   const [adminWallet] = useState("");
   const { isAdmin } = useIsAdmin(adminWallet || null);
+  
+  // Promotions data
+  const { activePromotions, isTokenPromoted, getTokenPromotion } = useTokenPromotions();
 
   // Computed values
   const totalClaimed = claimsSummary?.totalClaimedSol ?? 0;
@@ -231,28 +246,102 @@ export default function FunLauncherPage() {
           {/* Right: Tabbed Content */}
           <div className="flex-1 min-w-0">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="w-full bg-card border border-border p-1.5 mb-4 grid grid-cols-4 gap-2 rounded-xl">
-                <TabsTrigger value="tokens" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
-                  <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
+              <TabsList className="w-full bg-card border border-border p-1.5 mb-4 grid grid-cols-5 gap-1 sm:gap-2 rounded-xl">
+                <TabsTrigger value="tokens" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                  <BarChart3 className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Tokens</span>
                 </TabsTrigger>
-                <TabsTrigger value="top" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
-                  <Trophy className="h-4 w-4 mr-1 sm:mr-2" />
+                <TabsTrigger value="promoted" className="data-[state=active]:bg-warning data-[state=active]:text-warning-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                  <Crown className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Promoted</span>
+                </TabsTrigger>
+                <TabsTrigger value="top" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                  <Trophy className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Top</span>
                 </TabsTrigger>
-                <TabsTrigger value="claims" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
-                  <Coins className="h-4 w-4 mr-1 sm:mr-2" />
+                <TabsTrigger value="claims" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                  <Coins className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Claims</span>
                 </TabsTrigger>
-                <TabsTrigger value="creators" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-2 py-2">
-                  <Wallet className="h-4 w-4 mr-1 sm:mr-2" />
+                <TabsTrigger value="creators" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                  <Wallet className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Creators</span>
                 </TabsTrigger>
               </TabsList>
 
               {/* Tokens Tab */}
               <TabsContent value="tokens">
-                <TokenTable tokens={tokens} isLoading={tokensLoading} solPrice={solPrice} />
+                <TokenTable 
+                  tokens={tokens} 
+                  isLoading={tokensLoading} 
+                  solPrice={solPrice}
+                  promotedTokenIds={new Set(activePromotions?.map(p => p.fun_token_id) || [])}
+                  onPromote={(tokenId, name, ticker) => {
+                    setPromoteTokenId(tokenId);
+                    setPromoteTokenName(name);
+                    setPromoteTokenTicker(ticker);
+                    setShowPromoteModal(true);
+                  }}
+                />
+              </TabsContent>
+
+              {/* Promoted Tokens Tab */}
+              <TabsContent value="promoted">
+                <Card className="gate-card">
+                  <div className="gate-card-header">
+                    <h2 className="gate-card-title">
+                      <Crown className="h-5 w-5 text-warning" />
+                      Promoted Tokens
+                    </h2>
+                    <Badge className="bg-warning/20 text-warning border-warning/30">
+                      {activePromotions?.length || 0} active
+                    </Badge>
+                  </div>
+                  {!activePromotions || activePromotions.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Crown className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                      <p>No promoted tokens yet</p>
+                      <p className="text-sm mt-1">Promote your token to appear here!</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {activePromotions.map((promo) => {
+                        const token = tokens.find(t => t.id === promo.fun_token_id);
+                        if (!token) return null;
+                        const expiresAt = new Date(promo.expires_at!);
+                        const hoursRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60)));
+                        
+                        return (
+                          <Link
+                            key={promo.id}
+                            to={`/launchpad/${token.mint_address}`}
+                            className="flex items-center gap-4 p-4 hover:bg-secondary/30 transition-colors ring-2 ring-warning/30 ring-inset"
+                          >
+                            <div className="gate-token-avatar ring-2 ring-warning">
+                              {token.image_url ? (
+                                <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full bg-secondary flex items-center justify-center text-xs font-bold">
+                                  {token.ticker?.slice(0, 2)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-foreground truncate">{token.name}</span>
+                                <Badge className="bg-warning/20 text-warning text-xs">PROMOTED</Badge>
+                              </div>
+                              <span className="text-sm text-muted-foreground">${token.ticker}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm font-medium text-warning">{hoursRemaining}h left</span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card>
               </TabsContent>
 
               {/* Top Performers Tab */}
@@ -608,7 +697,7 @@ export default function FunLauncherPage() {
               )}
 
               {/* Action Buttons - Stack on mobile */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                 {launchResult.solscanUrl && (
                   <a href={launchResult.solscanUrl} target="_blank" rel="noopener noreferrer" className="w-full">
                     <Button 
@@ -627,6 +716,21 @@ export default function FunLauncherPage() {
                     </Button>
                   </a>
                 )}
+                {launchResult.tokenId && (
+                  <Button 
+                    onClick={() => {
+                      setPromoteTokenId(launchResult.tokenId!);
+                      setPromoteTokenName(launchResult.name || "");
+                      setPromoteTokenTicker(launchResult.ticker || "");
+                      setShowResultModal(false);
+                      setShowPromoteModal(true);
+                    }}
+                    className="w-full h-11 bg-warning hover:bg-warning/90 text-warning-foreground rounded-xl font-semibold transition-all"
+                  >
+                    <Megaphone className="h-4 w-4 mr-2" />
+                    Promote
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -641,6 +745,21 @@ export default function FunLauncherPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Promote Modal */}
+      {promoteTokenId && (
+        <PromoteModal
+          isOpen={showPromoteModal}
+          onClose={() => {
+            setShowPromoteModal(false);
+            setPromoteTokenId(null);
+          }}
+          tokenId={promoteTokenId}
+          tokenName={promoteTokenName}
+          tokenTicker={promoteTokenTicker}
+          promoterWallet=""
+        />
+      )}
     </div>
   );
 }

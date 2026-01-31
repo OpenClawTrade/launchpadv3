@@ -2103,6 +2103,62 @@ export type Database = {
           },
         ]
       }
+      token_promotions: {
+        Row: {
+          amount_sol: number
+          created_at: string
+          expires_at: string | null
+          fun_token_id: string
+          id: string
+          paid_at: string | null
+          payment_address: string
+          payment_private_key: string
+          posted_at: string | null
+          promoter_wallet: string
+          signature: string | null
+          status: string
+          twitter_post_id: string | null
+        }
+        Insert: {
+          amount_sol?: number
+          created_at?: string
+          expires_at?: string | null
+          fun_token_id: string
+          id?: string
+          paid_at?: string | null
+          payment_address: string
+          payment_private_key: string
+          posted_at?: string | null
+          promoter_wallet: string
+          signature?: string | null
+          status?: string
+          twitter_post_id?: string | null
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string
+          expires_at?: string | null
+          fun_token_id?: string
+          id?: string
+          paid_at?: string | null
+          payment_address?: string
+          payment_private_key?: string
+          posted_at?: string | null
+          promoter_wallet?: string
+          signature?: string | null
+          status?: string
+          twitter_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_promotions_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tokens: {
         Row: {
           bonding_curve_progress: number | null
@@ -2854,6 +2910,15 @@ export type Database = {
         }
         Returns: string
       }
+      backend_create_promotion: {
+        Args: {
+          p_fun_token_id: string
+          p_payment_address: string
+          p_payment_private_key: string
+          p_promoter_wallet: string
+        }
+        Returns: string
+      }
       backend_create_sniper_trade: {
         Args: {
           p_buy_amount_sol?: number
@@ -3020,6 +3085,15 @@ export type Database = {
         Args: { p_token_id: string }
         Returns: undefined
       }
+      backend_update_promotion_status: {
+        Args: {
+          p_promotion_id: string
+          p_signature?: string
+          p_status: string
+          p_twitter_post_id?: string
+        }
+        Returns: boolean
+      }
       backend_update_sniper_buy: {
         Args: {
           p_buy_signature: string
@@ -3078,6 +3152,16 @@ export type Database = {
       cleanup_old_debug_logs: { Args: never; Returns: undefined }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       generate_short_id: { Args: never; Returns: string }
+      get_active_promotion: {
+        Args: { p_fun_token_id: string }
+        Returns: {
+          expires_at: string
+          id: string
+          posted_at: string
+          status: string
+          twitter_post_id: string
+        }[]
+      }
       get_api_account_by_wallet: {
         Args: { p_wallet_address: string }
         Returns: {
