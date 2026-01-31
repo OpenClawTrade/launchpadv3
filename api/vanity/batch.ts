@@ -15,7 +15,7 @@ function applyCors(res: VercelResponse) {
 }
 
 // Configuration for batch generation
-const DEFAULT_SUFFIX = '67x';
+const DEFAULT_SUFFIX = 'tuna'; // Case-insensitive matching (TuNa, TUNA, tuna all work)
 const MAX_DURATION_MS = 55000;
 const BATCH_SIZE = 3000; // Higher batch size for maximum throughput
 

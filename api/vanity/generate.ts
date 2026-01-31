@@ -15,7 +15,7 @@ function applyCors(res: VercelResponse) {
 }
 
 // Default suffix to generate
-const DEFAULT_SUFFIX = '67x';
+const DEFAULT_SUFFIX = 'tuna'; // Case-insensitive matching (TuNa, TUNA, tuna all work)
 
 // Maximum duration per invocation (55s to leave buffer for Vercel 60s limit)
 const MAX_DURATION_MS = 55000;
