@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
-const HEADER_LOGO_SRC = "/rift-logo.png?v=2";
+const HEADER_LOGO_SRC = "/tuna-logo.png";
 
 interface TrendingToken {
   id: string;
@@ -132,8 +132,8 @@ const TrendingPage = () => {
         <div className="max-w-7xl mx-auto px-2 sm:px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4">
             <Link to="/" className="flex items-center gap-2">
-              <img src={HEADER_LOGO_SRC} alt="RIFT" className="h-8 w-8 rounded-lg object-cover" />
-              <span className="text-lg font-bold">RIFT</span>
+              <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" />
+              <span className="text-lg font-bold">TUNA</span>
             </Link>
             <div className="hidden xs:flex items-center gap-2 text-muted-foreground">
               <ArrowLeft className="h-4 w-4" />
