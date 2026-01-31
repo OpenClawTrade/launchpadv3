@@ -66,11 +66,20 @@ const VanityAdminPage = () => {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 500;
   });
 
+  // Configurable suffix - defaults to 'tuna' (case-insensitive matching)
+  const [targetSuffix, setTargetSuffix] = useState<string>(() => {
+    return localStorage.getItem('vanity_target_suffix') || 'tuna';
+  });
+
   const MAX_AUTO_RUNS = 30;
 
   useEffect(() => {
     localStorage.setItem('vanity_target_available', String(targetAvailable));
   }, [targetAvailable]);
+
+  useEffect(() => {
+    localStorage.setItem('vanity_target_suffix', targetSuffix);
+  }, [targetSuffix]);
 
   // Get auth secret from localStorage or prompt
   useEffect(() => {
@@ -111,7 +120,7 @@ const VanityAdminPage = () => {
     }
 
     try {
-      const response = await fetch(`${backendBaseUrl}/api/vanity/status?suffix=67x`, {
+      const response = await fetch(`${backendBaseUrl}/api/vanity/status?suffix=${encodeURIComponent(targetSuffix)}`, {
         headers: {
           'x-vanity-secret': authSecret,
         },
@@ -135,7 +144,7 @@ const VanityAdminPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [authSecret]);
+  }, [authSecret, targetSuffix]);
 
   useEffect(() => {
     if (authSecret) {
@@ -179,7 +188,7 @@ const VanityAdminPage = () => {
       
       // Fetch real count from database
       try {
-        const progressRes = await fetch(`${backendBaseUrl}/api/vanity/progress?suffix=67x`, {
+        const progressRes = await fetch(`${backendBaseUrl}/api/vanity/progress?suffix=${encodeURIComponent(targetSuffix)}`, {
           headers: { 'x-vanity-secret': authSecret },
         });
         const progressData = await progressRes.json();
@@ -218,7 +227,7 @@ const VanityAdminPage = () => {
           'x-vanity-secret': authSecret,
         },
         body: JSON.stringify({
-          suffix: '67x',
+          suffix: targetSuffix.toLowerCase(),
           ...(typeof targetCount === 'number' && targetCount > 0 ? { targetCount } : {}),
           ...(ignoreTarget ? { ignoreTarget: true } : {}),
         }),
@@ -264,7 +273,7 @@ const VanityAdminPage = () => {
       setIsGenerating(false);
       setLiveProgress(null);
     }
-  }, [authSecret, stats?.available]);
+  }, [authSecret, stats?.available, targetSuffix]);
 
   const stopAutoRun = useCallback(() => {
     autoRunRef.current = false;
@@ -360,7 +369,7 @@ const VanityAdminPage = () => {
                   Vanity Generator Admin
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Server-side 67x address generation
+                  Server-side vanity address generation (case-insensitive)
                 </p>
               </div>
             </div>
@@ -427,22 +436,38 @@ const VanityAdminPage = () => {
             </CardTitle>
             <CardDescription>
               Run server-side generation to build up the vanity address pool.
-              Each run takes ~55 seconds and generates addresses ending in "67x".
+              Each run takes ~55 seconds. 4-char suffixes are ~256x harder than 3-char.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <label className="text-xs text-muted-foreground">Auto-Run target (available)</label>
-              <input
-                type="number"
-                min={0}
-                value={targetAvailable}
-                onChange={(e) => setTargetAvailable(Math.max(0, Number(e.target.value || 0)))}
-                className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground"
-              />
-              <p className="text-xs text-muted-foreground">
-                Set to 0 for no target (runs until you stop).
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <label className="text-xs text-muted-foreground">Target Suffix</label>
+                <input
+                  type="text"
+                  maxLength={5}
+                  value={targetSuffix}
+                  onChange={(e) => setTargetSuffix(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
+                  placeholder="tuna"
+                  className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground font-mono uppercase"
+                />
+                <p className="text-xs text-muted-foreground">
+                  1-5 chars (case-insensitive)
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-xs text-muted-foreground">Target Available Count</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={targetAvailable}
+                  onChange={(e) => setTargetAvailable(Math.max(0, Number(e.target.value || 0)))}
+                  className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set to 0 for no target.
+                </p>
+              </div>
             </div>
 
             <div className="flex gap-2">
