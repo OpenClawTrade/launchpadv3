@@ -149,7 +149,7 @@ export default function FunLauncherPage() {
             </Link>
             <Link to="/trending">
               <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium">
-                Narratives
+                Trending Narratives
               </Button>
             </Link>
           </nav>
@@ -179,7 +179,7 @@ export default function FunLauncherPage() {
                     <span className="text-primary-foreground text-sm font-medium">Trade</span>
                   </Link>
                   <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-foreground text-sm font-medium">Narratives</span>
+                    <span className="text-foreground text-sm font-medium">Trending Narratives</span>
                   </Link>
                 </nav>
               </SheetContent>
