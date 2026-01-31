@@ -3337,9 +3337,11 @@ export type Database = {
       snapshot_fun_token_prices: { Args: never; Returns: undefined }
       update_token_24h_stats: { Args: never; Returns: undefined }
       verify_api_key: {
-        Args: { p_api_key_hash: string }
+        Args: { p_api_key: string }
         Returns: {
-          id: string
+          account_id: string
+          fee_wallet_address: string
+          is_valid: boolean
           status: string
           wallet_address: string
         }[]
