@@ -89,6 +89,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   // Phantom specific state
   const [isPhantomLaunching, setIsPhantomLaunching] = useState(false);
   const [phantomTradingFee, setPhantomTradingFee] = useState(200);
+  const [phantomSubMode, setPhantomSubMode] = useState<"random" | "describe" | "custom">("random");
   const [phantomToken, setPhantomToken] = useState<MemeToken>({
     name: "",
     ticker: "",
@@ -103,6 +104,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const [phantomImagePreview, setPhantomImagePreview] = useState<string | null>(null);
   const [phantomMeme, setPhantomMeme] = useState<MemeToken | null>(null);
   const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
+  const [phantomDescribePrompt, setPhantomDescribePrompt] = useState("");
   
   // Vanity address state for Phantom
   const [phantomVanityKeypair, setPhantomVanityKeypair] = useState<{ address: string; secretKeyHex: string } | null>(null);
@@ -437,6 +439,39 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       setIsPhantomGenerating(false);
     }
   }, [toast]);
+
+  const handlePhantomDescribeGenerate = useCallback(async () => {
+    if (!phantomDescribePrompt.trim()) {
+      toast({ title: "Enter a description", description: "Describe the meme character you want", variant: "destructive" });
+      return;
+    }
+    setIsPhantomGenerating(true);
+    setPhantomMeme(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("fun-generate", { body: { description: phantomDescribePrompt } });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || "Generation failed");
+      if (data?.meme) {
+        setPhantomMeme(data.meme);
+        setPhantomToken({
+          name: data.meme.name,
+          ticker: data.meme.ticker,
+          description: data.meme.description || "",
+          imageUrl: data.meme.imageUrl,
+          websiteUrl: data.meme.websiteUrl || "",
+          twitterUrl: data.meme.twitterUrl || "",
+          telegramUrl: "",
+          discordUrl: "",
+        });
+        toast({ title: "Meme Generated! 🎨", description: `${data.meme.name} created from your description!` });
+      }
+    } catch (error) {
+      toast({ title: "Generation failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
+    } finally {
+      setIsPhantomGenerating(false);
+    }
+  }, [phantomDescribePrompt, toast]);
 
   const uploadPhantomImageIfNeeded = useCallback(async (): Promise<string> => {
     if (!phantomImageFile) return phantomMeme?.imageUrl || phantomToken.imageUrl;
@@ -967,18 +1002,69 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                   </div>
                 </div>
 
-                <Button onClick={handlePhantomRandomize} disabled={isPhantomGenerating} className="gate-btn gate-btn-secondary w-full">
-                  {isPhantomGenerating ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4 mr-2" /> AI Randomize</>}
-                </Button>
+                {/* Sub-mode selector for Phantom */}
+                <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
+                  {[
+                    { id: "random" as const, label: "Random", icon: Shuffle },
+                    { id: "describe" as const, label: "Describe", icon: Sparkles },
+                    { id: "custom" as const, label: "Custom", icon: Pencil },
+                  ].map((subMode) => (
+                    <button
+                      key={subMode.id}
+                      onClick={() => setPhantomSubMode(subMode.id)}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-2 text-xs rounded-md transition-all ${
+                        phantomSubMode === subMode.id
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      <subMode.icon className="h-3 w-3" />
+                      {subMode.label}
+                    </button>
+                  ))}
+                </div>
 
-                {isPhantomGenerating && (
-                  <div className="flex flex-col items-center py-6">
-                    <MemeLoadingAnimation />
-                    <MemeLoadingText />
-                  </div>
+                {/* Random Sub-Mode */}
+                {phantomSubMode === "random" && (
+                  <>
+                    <Button onClick={handlePhantomRandomize} disabled={isPhantomGenerating} className="gate-btn gate-btn-secondary w-full">
+                      {isPhantomGenerating ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4 mr-2" /> AI Randomize</>}
+                    </Button>
+
+                    {isPhantomGenerating && (
+                      <div className="flex flex-col items-center py-6">
+                        <MemeLoadingAnimation />
+                        <MemeLoadingText />
+                      </div>
+                    )}
+                  </>
                 )}
 
-                {!isPhantomGenerating && (
+                {/* Describe Sub-Mode */}
+                {phantomSubMode === "describe" && (
+                  <>
+                    <Textarea
+                      value={phantomDescribePrompt}
+                      onChange={(e) => setPhantomDescribePrompt(e.target.value)}
+                      placeholder="e.g., A smug frog wearing sunglasses..."
+                      className="gate-input gate-textarea"
+                      maxLength={500}
+                    />
+                    <Button onClick={handlePhantomDescribeGenerate} disabled={isPhantomGenerating || !phantomDescribePrompt.trim()} className="gate-btn gate-btn-secondary w-full">
+                      {isPhantomGenerating ? <><Sparkles className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4 mr-2" /> Generate from Description</>}
+                    </Button>
+
+                    {isPhantomGenerating && (
+                      <div className="flex flex-col items-center py-6">
+                        <MemeLoadingAnimation />
+                        <MemeLoadingText />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Token Preview & Form (shown for all sub-modes after generation or for custom) */}
+                {!isPhantomGenerating && (phantomSubMode === "custom" || phantomMeme || phantomToken.name) && (
                   <>
                     <div className="gate-token-preview">
                       <div className="gate-token-preview-avatar">
