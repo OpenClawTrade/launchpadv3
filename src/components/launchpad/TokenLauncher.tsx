@@ -783,6 +783,43 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                   </div>
                 </div>
 
+                {/* Social links - collapsible */}
+                <details className="group">
+                  <summary className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    <Globe className="h-3 w-3" />
+                    <span>Add Social Links (optional)</span>
+                  </summary>
+                  <div className="mt-2 space-y-2 pl-5">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        placeholder="Website URL"
+                        value={describedToken.websiteUrl || ""}
+                        onChange={(e) => setDescribedToken({ ...describedToken, websiteUrl: e.target.value })}
+                        className="gate-input text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Twitter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        placeholder="X/Twitter URL"
+                        value={describedToken.twitterUrl || ""}
+                        onChange={(e) => setDescribedToken({ ...describedToken, twitterUrl: e.target.value })}
+                        className="gate-input text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        placeholder="Telegram URL"
+                        value={describedToken.telegramUrl || ""}
+                        onChange={(e) => setDescribedToken({ ...describedToken, telegramUrl: e.target.value })}
+                        className="gate-input text-sm"
+                      />
+                    </div>
+                  </div>
+                </details>
+
                 {bannerUrl && (
                   <div className="p-3 rounded-lg border border-border space-y-2">
                     <img src={bannerUrl} alt="Banner" className="w-full rounded" />
@@ -846,6 +883,43 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             />
 
             <Input type="file" accept="image/*" onChange={handleCustomImageChange} className="gate-input" />
+
+            {/* Social links - collapsible */}
+            <details className="group">
+              <summary className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                <Globe className="h-3 w-3" />
+                <span>Add Social Links (optional)</span>
+              </summary>
+              <div className="mt-2 space-y-2 pl-5">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Input
+                    placeholder="Website URL"
+                    value={customToken.websiteUrl || ""}
+                    onChange={(e) => setCustomToken({ ...customToken, websiteUrl: e.target.value })}
+                    className="gate-input text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Twitter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Input
+                    placeholder="X/Twitter URL"
+                    value={customToken.twitterUrl || ""}
+                    onChange={(e) => setCustomToken({ ...customToken, twitterUrl: e.target.value })}
+                    className="gate-input text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Input
+                    placeholder="Telegram URL"
+                    value={customToken.telegramUrl || ""}
+                    onChange={(e) => setCustomToken({ ...customToken, telegramUrl: e.target.value })}
+                    className="gate-input text-sm"
+                  />
+                </div>
+              </div>
+            </details>
 
             <div className="space-y-3 pt-3 border-t border-border">
               <Input
