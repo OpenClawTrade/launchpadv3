@@ -158,7 +158,7 @@ serve(async (req) => {
         twitterUrl: twitterUrl || null,
         serverSideSign: true,
         feeRecipientWallet: creatorWallet,
-        useVanityAddress: false, // DISABLED - vanity pool is empty
+        useVanityAddress: true, // Use pre-generated TNA vanity addresses from pool
       }),
     });
 
