@@ -29,7 +29,7 @@ function useKingOfTheHill() {
   return useQuery({
     queryKey: ["king-of-the-hill"],
     queryFn: async (): Promise<KingToken[]> => {
-      // Get top 3 bonding tokens closest to graduation
+      // Get top 3 active tokens with highest bonding progress (closest to graduation)
       const { data, error } = await supabase
         .from("fun_tokens")
         .select(`
@@ -44,38 +44,25 @@ function useKingOfTheHill() {
           market_cap_sol,
           created_at
         `)
-        .eq("status", "bonding")
+        .eq("status", "active")
         .order("bonding_progress", { ascending: false })
         .limit(3);
 
       if (error) throw error;
+      if (!data || data.length === 0) return [];
 
-      // Map to our interface - fetch real_sol_reserves from pool_state_cache for accuracy
-      const tokens: KingToken[] = [];
+      const graduationThreshold = 85; // Default threshold in SOL
       
-      for (const token of data || []) {
-        // Try to get cached pool state for accurate reserves
-        let realSolReserves = 0;
-        const graduationThreshold = 85; // Default threshold
+      // Map to our interface
+      const tokens: KingToken[] = data.map((token) => {
+        // bonding_progress in DB is stored as a decimal (0-1 range representing percentage/100)
+        // Convert to percentage for display
+        const progressPercent = (token.bonding_progress || 0) * 100;
         
-        if (token.dbc_pool_address) {
-          const { data: cacheData } = await supabase
-            .from("pool_state_cache")
-            .select("real_sol_reserves")
-            .eq("pool_address", token.dbc_pool_address)
-            .single();
-          
-          if (cacheData?.real_sol_reserves) {
-            realSolReserves = cacheData.real_sol_reserves;
-          }
-        }
+        // Calculate real SOL reserves from progress
+        const realSolReserves = (token.bonding_progress || 0) * graduationThreshold;
 
-        // Calculate progress from reserves if we have them, otherwise use stored progress
-        const progress = realSolReserves > 0 
-          ? (realSolReserves / graduationThreshold) * 100 
-          : token.bonding_progress || 0;
-
-        tokens.push({
+        return {
           id: token.id,
           name: token.name,
           ticker: token.ticker,
@@ -84,15 +71,14 @@ function useKingOfTheHill() {
           dbc_pool_address: token.dbc_pool_address,
           real_sol_reserves: realSolReserves,
           graduation_threshold_sol: graduationThreshold,
-          bonding_curve_progress: progress,
+          bonding_curve_progress: progressPercent,
           holder_count: token.holder_count || 0,
           market_cap_sol: token.market_cap_sol || 0,
-          created_at: token.created_at,
-        });
-      }
+          created_at: token.created_at || new Date().toISOString(),
+        };
+      });
 
-      // Sort by progress descending
-      return tokens.sort((a, b) => b.bonding_curve_progress - a.bonding_curve_progress);
+      return tokens;
     },
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 20000,
