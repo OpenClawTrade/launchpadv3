@@ -216,7 +216,7 @@ export default function FunLauncherPage() {
                       <span className="text-primary font-semibold">50%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Buybacks</span>
+                      <span className="text-muted-foreground">Marketing</span>
                       <span className="text-blue-500 font-semibold">30%</span>
                     </div>
                     <div className="flex justify-between">
