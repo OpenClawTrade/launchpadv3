@@ -124,10 +124,10 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
         getRankStyles(rank)
       )}
     >
-      {/* Rank Badge - positioned inside card */}
+      {/* Rank Badge - positioned top-left to avoid CA button overlap */}
       <div 
         className={cn(
-          "absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold shadow-md z-10",
+          "absolute -top-1.5 -left-1.5 sm:-top-2 sm:-left-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold shadow-md z-10",
           getRankBadgeStyles(rank)
         )}
       >
