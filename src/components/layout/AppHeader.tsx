@@ -92,8 +92,8 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           </a>
           
           <a 
-            href="https://x.com/tikitoken" 
-            target="_blank" 
+            href="https://x.com/buildtuna" 
+            target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
             title="Follow us on X"
@@ -238,8 +238,8 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                     </a>
                     
                     <a 
-                      href="https://x.com/tikitoken" 
-                      target="_blank" 
+                      href="https://x.com/buildtuna" 
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
                     >
