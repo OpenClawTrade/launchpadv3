@@ -19,6 +19,7 @@ import { StatsCards } from "@/components/launchpad/StatsCards";
 import { TokenTable } from "@/components/launchpad/TokenTable";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
+import { FeeDistributionPie } from "@/components/launchpad/FeeDistributionPie";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 
 import { formatDistanceToNow } from "date-fns";
@@ -210,20 +211,7 @@ export default function FunLauncherPage() {
               <Card className="gate-card mt-4">
                 <div className="gate-card-body">
                   <h3 className="text-sm font-semibold text-foreground mb-3">Fee Distribution</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Creator Share</span>
-                      <span className="text-primary font-semibold">50%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Marketing</span>
-                      <span className="text-blue-500 font-semibold">30%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">System</span>
-                      <span className="text-muted-foreground font-semibold">20%</span>
-                    </div>
-                  </div>
+                  <FeeDistributionPie />
                 </div>
               </Card>
 
