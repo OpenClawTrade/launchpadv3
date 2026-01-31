@@ -49,6 +49,7 @@ const VanityAdminPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastResult, setLastResult] = useState<GenerationResult | null>(null);
   const [authSecret, setAuthSecret] = useState('');
+  const [backendBaseUrl, setBackendBaseUrl] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const autoRunRef = useRef(false);
@@ -94,27 +95,55 @@ const VanityAdminPage = () => {
     setAuthSecret(secret);
   };
 
-  const getBackendBaseUrl = () => {
+  // Resolve the backend URL. IMPORTANT: do NOT use localStorage until runtime config
+  // has finished loading, otherwise we might hit an old domain and fail CORS preflight
+  // (redirects are not allowed for preflight requests).
+  useEffect(() => {
     const normalize = (url: string) => url.replace(/\/+$/, '');
 
-    // Prefer runtime config over localStorage to avoid stale cached URLs.
-    const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
-    if (fromWindow && fromWindow.startsWith('https://') && !fromWindow.includes('${')) {
-      return normalize(fromWindow);
+    const resolve = () => {
+      const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
+      if (fromWindow && fromWindow.startsWith('https://') && !fromWindow.includes('${')) {
+        return { url: normalize(fromWindow), source: 'window' as const };
+      }
+
+      // Only trust localStorage after runtime config has finished attempting to load.
+      if ((window as any)?.__PUBLIC_CONFIG_LOADED__) {
+        const fromStorage = localStorage.getItem('meteoraApiUrl');
+        if (fromStorage && fromStorage.startsWith('https://') && !fromStorage.includes('${')) {
+          return { url: normalize(fromStorage), source: 'storage' as const };
+        }
+      }
+
+      return { url: null, source: null };
+    };
+
+    const first = resolve();
+    if (first.url) {
+      setBackendBaseUrl(first.url);
+      if (first.source === 'window') {
+        localStorage.setItem('meteoraApiUrl', first.url);
+      }
+      return;
     }
 
-    const fromStorage = localStorage.getItem('meteoraApiUrl');
-    if (fromStorage && fromStorage.startsWith('https://') && !fromStorage.includes('${')) {
-      return normalize(fromStorage);
-    }
+    const id = window.setInterval(() => {
+      const next = resolve();
+      if (next.url) {
+        setBackendBaseUrl(next.url);
+        if (next.source === 'window') {
+          localStorage.setItem('meteoraApiUrl', next.url);
+        }
+        window.clearInterval(id);
+      }
+    }, 250);
 
-    return null;
-  };
+    return () => window.clearInterval(id);
+  }, []);
 
   const fetchStatus = useCallback(async () => {
     if (!authSecret) return;
 
-    const backendBaseUrl = getBackendBaseUrl();
     if (!backendBaseUrl) {
       toast.error('Backend URL not configured yet — refresh the page');
       return;
@@ -145,15 +174,17 @@ const VanityAdminPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [authSecret, targetSuffix]);
+  }, [authSecret, backendBaseUrl, targetSuffix]);
 
   useEffect(() => {
-    if (authSecret) {
-      fetchStatus();
-    } else {
+    if (!authSecret) {
       setIsLoading(false);
+      return;
     }
-  }, [authSecret, fetchStatus]);
+    if (backendBaseUrl) {
+      fetchStatus();
+    }
+  }, [authSecret, backendBaseUrl, fetchStatus]);
 
   const triggerGenerationOnce = useCallback(async (opts?: { targetCount?: number; ignoreTarget?: boolean }) => {
     if (!authSecret) return null;
@@ -173,7 +204,6 @@ const VanityAdminPage = () => {
     const ESTIMATED_RATE = 3300;
     const MAX_DURATION = 55000;
 
-    const backendBaseUrl = getBackendBaseUrl();
     if (!backendBaseUrl) {
       toast.error('Backend URL not configured yet — refresh the page');
       setIsGenerating(false);
