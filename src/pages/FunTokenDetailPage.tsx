@@ -5,8 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { BondingCurveProgress } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
-import { WalletSettingsModal } from "@/components/launchpad/WalletSettingsModal";
 import { JupiterSwapWidget } from "@/components/launchpad/JupiterSwapWidget";
+import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -185,7 +185,6 @@ export default function FunTokenDetailPage() {
             <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleRefresh}>
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <WalletSettingsModal walletAddress={solanaAddress || undefined} />
             <Button variant="ghost" size="icon" className="h-9 w-9" onClick={copyAddress}>
               <Copy className="h-4 w-4" />
             </Button>
@@ -333,28 +332,36 @@ export default function FunTokenDetailPage() {
           </Card>
         )}
 
-        {/* Trading Section */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            🚀 Trade {token.ticker}
-          </h3>
-          
-          {/* For bonding tokens - use existing TradePanelWithSwap */}
-          {isBonding && (
-            <TradePanelWithSwap
-              token={tokenForTradePanel}
-              userBalance={0}
-            />
-          )}
+        {/* Trading Section - Two Column on Desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Trade Panel */}
+          <div className="lg:col-span-2 space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              🚀 Trade {token.ticker}
+            </h3>
+            
+            {/* For bonding tokens - use existing TradePanelWithSwap */}
+            {isBonding && (
+              <TradePanelWithSwap
+                token={tokenForTradePanel}
+                userBalance={0}
+              />
+            )}
 
-          {/* For graduated tokens - show Jupiter Plugin */}
-          {isGraduated && token.mint_address && (
-            <JupiterSwapWidget 
-              outputMint={token.mint_address}
-              tokenName={token.name}
-              tokenTicker={token.ticker}
-            />
-          )}
+            {/* For graduated tokens - show Jupiter Plugin */}
+            {isGraduated && token.mint_address && (
+              <JupiterSwapWidget 
+                outputMint={token.mint_address}
+                tokenName={token.name}
+                tokenTicker={token.ticker}
+              />
+            )}
+          </div>
+
+          {/* Wallet Card - Sidebar on Desktop */}
+          <div className="lg:col-span-1">
+            <EmbeddedWalletCard />
+          </div>
         </div>
 
         {/* Contract Info */}
