@@ -12,7 +12,7 @@ import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 import FunLauncherPage from "./pages/FunLauncherPage";
 
 // Lazy load other pages
-const TokenDetailPage = lazy(() => import("./pages/TokenDetailPage"));
+const FunTokenDetailPage = lazy(() => import("./pages/FunTokenDetailPage"));
 const TrendingPage = lazy(() => import("./pages/TrendingPage"));
 const VanityAdminPage = lazy(() => import("./pages/VanityAdminPage"));
 const LaunchpadTemplatePage = lazy(() => import("./pages/LaunchpadTemplatePage"));
@@ -55,7 +55,7 @@ const App = () => (
             <Suspense fallback={<RouteLoader />}>
               <Routes>
                 <Route path="/" element={<FunLauncherPage />} />
-                <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
+                <Route path="/launchpad/:mintAddress" element={<FunTokenDetailPage />} />
                 <Route path="/trending" element={<TrendingPage />} />
                 <Route path="/vanity-admin" element={<VanityAdminPage />} />
                 <Route path="/site" element={<LaunchpadTemplatePage />} />
