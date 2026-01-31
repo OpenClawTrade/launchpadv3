@@ -1,173 +1,382 @@
 
-# Token Promotion System - Complete Implementation
+# TUNA API Platform - Complete Third-Party Integration System
 
 ## Overview
-Implement a fully automated token promotion system where:
-1. Each token gets a unique Solana wallet address for payment
-2. Users send 1 SOL to promote their token
-3. System auto-detects the payment and forwards SOL to treasury wallet
-4. Token is promoted on X (Twitter) automatically
-5. Token appears in the "Promoted" section for 24 hours
+Build a comprehensive API platform that allows any developer to create their own token launchpad using TUNA's infrastructure. The system will provide:
+1. **Embeddable Widgets** - Drop-in iframe components
+2. **Direct REST API** - Full programmatic control
+3. **SDK/Code Snippets** - Copy-paste integration examples
+4. **Documentation Page** - Interactive API reference
 
-The treasury wallet for all promotion payments: `FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r`
+Revenue Model: API users earn **1.5% of trading fees**, platform keeps **0.5%** (from the 2% total trading fee).
+
+---
 
 ## Current State Analysis
-The promotion system already has:
-- `token_promotions` table with payment address storage
-- `promote-generate` function that creates payment wallets
-- `promote-check` function that monitors balance
-- `promote-post` function that posts to Twitter
-- Frontend UI with promote modal and promoted tokens tab
 
-## Missing Functionality
-1. **SOL forwarding** - Payment not being forwarded to treasury after detection
-2. **Treasury wallet configuration** - Need to ensure consistent wallet usage
+### ✅ Already Implemented:
+- `api_accounts` table - API key management with wallet binding
+- `api_launchpads` table - Custom launchpad configurations
+- `api_usage_logs` table - Request tracking
+- `api_fee_distributions` table - Fee split tracking
+- `api-account` edge function - Account creation, key regeneration, verification
+- `api-launchpad` edge function - Launchpad CRUD with Cloudflare DNS
+- `api-tokens` edge function - Token linking to launchpads
+- `api-analytics` edge function - Usage statistics
+- `api-claim-fees` edge function - Fee withdrawal
+- `api-design-generate` edge function - AI design generation
+- Dashboard UI (`/api`) and Builder UI (`/api/builder`)
+
+### ❌ Missing for Third-Party Integration:
+1. **Token Launch API Endpoint** - Direct API endpoint for launching tokens programmatically
+2. **Embeddable Widget System** - Iframe-based components for websites
+3. **API Documentation Page** - Developer-facing docs with code examples
+4. **Swap/Trade API** - Execute trades via API
+5. **Webhook Support** - Notify external systems of events
+6. **CORS Configuration** - Allow API calls from external domains
+
+---
 
 ## Implementation Plan
 
-### 1. Update `promote-check` Edge Function
-**File:** `supabase/functions/promote-check/index.ts`
+### Phase 1: Core API Endpoints
 
-Add SOL forwarding logic after payment is confirmed:
+#### 1.1 Create `api-launch-token` Edge Function
+**File:** `supabase/functions/api-launch-token/index.ts`
+
+Purpose: Allow API users to launch tokens directly via API with their key.
 
 ```text
-When payment detected (balance >= 1 SOL):
-1. Get private key from token_promotions record
-2. Create transfer transaction from payment wallet to treasury
-3. Sign and send transaction
-4. Store signature in database
-5. Trigger Twitter post
-```
+POST /api-launch-token
+Headers: x-api-key: <api_key>
+Body: {
+  "name": "MyToken",
+  "ticker": "MTK",
+  "description": "A fun meme coin",
+  "imageUrl": "https://...",
+  "websiteUrl": "https://...",
+  "twitterUrl": "https://...",
+  "telegramUrl": "https://...",
+  "discordUrl": "https://...",
+  "tradingFeeBps": 200  // 0.1%-10% range
+}
 
-Changes:
-- Add import for `Keypair`, `Transaction`, `SystemProgram`, `sendAndConfirmTransaction`
-- Query `payment_private_key` from the promotion record (using service role key)
-- Create SOL transfer to treasury: `FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r`
-- Handle rent-exempt balance (keep ~0.002 SOL for account)
-- Update promotion record with transfer signature
-
-### 2. Update Database Query for Private Key
-**File:** `supabase/functions/promote-check/index.ts`
-
-Modify the select query to include the `payment_private_key` column (only accessible via service role):
-```typescript
-.select(`
-  id,
-  fun_token_id,
-  payment_address,
-  payment_private_key,  // Add this
-  status,
-  created_at,
-  fun_tokens (...)
-`)
-```
-
-### 3. Create SOL Transfer Logic
-Add function to forward SOL from payment wallet to treasury:
-
-```typescript
-async function forwardToTreasury(
-  connection: Connection,
-  paymentPrivateKey: string,
-  balance: number
-): Promise<string> {
-  const keypair = Keypair.fromSecretKey(bs58.decode(paymentPrivateKey));
-  const treasuryPubkey = new PublicKey("FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r");
-  
-  // Keep 0.002 SOL for rent-exempt
-  const transferAmount = Math.floor((balance - 0.002) * LAMPORTS_PER_SOL);
-  
-  const transaction = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: keypair.publicKey,
-      toPubkey: treasuryPubkey,
-      lamports: transferAmount,
-    })
-  );
-  
-  // Send with confirmation
-  const signature = await sendAndConfirmTransaction(connection, transaction, [keypair]);
-  return signature;
+Response: {
+  "success": true,
+  "tokenId": "uuid",
+  "mintAddress": "base58...",
+  "poolAddress": "base58...",
+  "solscanUrl": "https://solscan.io/token/...",
+  "tradeUrl": "https://axiom.trade/meme/..."
 }
 ```
 
-### 4. Update Promotion Status with Signature
-Modify the `backend_update_promotion_status` RPC call to include the transfer signature:
+Implementation:
+- Verify API key via `verify_api_key` RPC
+- Call existing Vercel `/api/pool/create-fun` with `serverSideSign=true`
+- Link token to API account's launchpad
+- Track fee attribution to API account
 
-```typescript
-await supabase.rpc("backend_update_promotion_status", {
-  p_promotion_id: promotionId,
-  p_status: "paid",
-  p_signature: transferSignature,
-});
-```
+#### 1.2 Create `api-swap` Edge Function
+**File:** `supabase/functions/api-swap/index.ts`
 
-## Flow Diagram
+Purpose: Get swap quotes and generate transactions for trading.
 
 ```text
-User clicks "Promote" on token
-        ↓
-Frontend calls promote-generate
-        ↓
-Generate new Solana keypair
-Store pubkey + private key in DB
-        ↓
-Show payment QR + address to user
-        ↓
-User sends 1 SOL to payment address
-        ↓
-Frontend polls promote-check every 5s
-        ↓
-promote-check detects balance >= 1 SOL
-        ↓
-Forward SOL to treasury wallet
-Store transfer signature
-        ↓
-Call promote-post to tweet
-        ↓
-Token appears in "Promoted" tab for 24h
+POST /api-swap/quote
+Headers: x-api-key: <api_key>
+Body: {
+  "poolAddress": "base58...",
+  "inputMint": "So11111111111111111111111111111111111111112", // SOL
+  "outputMint": "base58...", // Token mint
+  "amount": "1000000000", // lamports
+  "slippageBps": 100 // 1%
+}
+
+Response: {
+  "inputAmount": "1000000000",
+  "outputAmount": "50000000000000",
+  "priceImpact": 0.5,
+  "fee": "20000000", // 2% fee in lamports
+  "unsignedTransaction": "base64..." // For external signing
+}
 ```
+
+#### 1.3 Create `api-webhooks` Edge Function
+**File:** `supabase/functions/api-webhooks/index.ts`
+
+Purpose: Manage webhook endpoints for event notifications.
+
+Events supported:
+- `token.created` - New token launched
+- `token.graduated` - Token migrated to Raydium
+- `trade.executed` - Swap completed
+- `fees.accumulated` - Threshold reached for claiming
+
+---
+
+### Phase 2: Embeddable Widget System
+
+#### 2.1 Create Widget Host Page
+**File:** `src/pages/WidgetPage.tsx`
+
+A standalone page that renders embeddable components based on URL parameters.
+
+URL Structure:
+```
+/widget/launcher?apiKey=xxx&theme=dark&accentColor=%238B5CF6
+/widget/trade?mintAddress=xxx&apiKey=xxx&theme=dark
+/widget/token-list?launchpadId=xxx&limit=10
+```
+
+Features:
+- Minimal bundle size (lazy load only needed components)
+- PostMessage API for parent page communication
+- Responsive sizing based on parent container
+- Theme customization via URL params
+
+#### 2.2 Create Widget Components
+
+**TokenLauncherWidget** - Complete token launch form
+- File upload or URL input for image
+- Name, ticker, description fields
+- Optional social links
+- Trading fee slider (0.1% - 10%)
+- Wallet connection via Phantom/Solflare
+
+**TradePanelWidget** - Buy/sell interface for a token
+- SOL input amount
+- Token balance display
+- Slippage settings
+- Wallet integration
+
+**TokenListWidget** - Display tokens from a launchpad
+- Grid or list view
+- Sorting options
+- Click to trade integration
+
+#### 2.3 Create Embed Code Generator
+**File:** Update `src/pages/ApiDashboardPage.tsx`
+
+Add new tab "Embed & Integrate" showing:
+- iframe code snippets for each widget
+- Customization options (theme, colors, size)
+- Live preview panel
+
+---
+
+### Phase 3: API Documentation Page
+
+#### 3.1 Create Documentation Page
+**File:** `src/pages/ApiDocsPage.tsx`
+
+Sections:
+1. **Getting Started**
+   - Create API account
+   - Get API key
+   - Authentication
+
+2. **Endpoints Reference**
+   - Token Launch
+   - Swap/Trade
+   - Token List
+   - Fee Claims
+   - Webhooks
+
+3. **Widget Integration**
+   - iframe Embed (simplest)
+   - JavaScript SDK (advanced)
+   - React Component (for React apps)
+
+4. **Code Examples**
+   - HTML/JavaScript
+   - Python
+   - Node.js
+   - cURL
+
+5. **Fee Structure**
+   - Trading fees (2% total: 1.5% to API user, 0.5% to platform)
+   - No upfront costs
+   - Claiming thresholds
+
+#### 3.2 Interactive API Playground
+Within the docs page:
+- Request builder with live execution
+- Response viewer
+- API key input (for testing)
+
+---
+
+### Phase 4: Database Updates
+
+#### 4.1 Add Webhook Configuration Table
+```sql
+CREATE TABLE api_webhooks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  api_account_id UUID REFERENCES api_accounts(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  events TEXT[] NOT NULL DEFAULT '{}',
+  secret TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  last_triggered_at TIMESTAMPTZ,
+  failure_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS: Only service role can access
+ALTER TABLE api_webhooks ENABLE ROW LEVEL SECURITY;
+```
+
+#### 4.2 Add Token Attribution to API Account
+Update token creation to track which API account launched it:
+```sql
+ALTER TABLE tokens ADD COLUMN api_account_id UUID REFERENCES api_accounts(id);
+ALTER TABLE fun_tokens ADD COLUMN api_account_id UUID REFERENCES api_accounts(id);
+```
+
+---
+
+### Phase 5: Configuration Updates
+
+#### 5.1 Update `supabase/config.toml`
+Add new edge functions:
+```toml
+[functions.api-launch-token]
+verify_jwt = false
+
+[functions.api-swap]
+verify_jwt = false
+
+[functions.api-webhooks]
+verify_jwt = false
+```
+
+#### 5.2 Add Route for Docs and Widget Pages
+Update `src/App.tsx`:
+```tsx
+<Route path="/api/docs" element={<ApiDocsPage />} />
+<Route path="/widget/:type" element={<WidgetPage />} />
+```
+
+---
 
 ## Technical Details
 
-### Treasury Wallet
-- Address: `FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r`
-- Already configured as `PLATFORM_FEE_WALLET` in lib/config.ts
+### Widget iframe Integration Example
 
-### Edge Function Changes
+For API users to embed on their website:
 
-**promote-check/index.ts updates:**
-1. Add imports: `Keypair`, `Transaction`, `SystemProgram`, `sendAndConfirmTransaction`
-2. Add `bs58` import for private key decoding
-3. Query `payment_private_key` in promotion select
-4. After balance check passes:
-   - Reconstruct keypair from private key
-   - Create transfer transaction to treasury
-   - Send and confirm transaction
-   - Store signature in DB
-   - Proceed with Twitter post
+```html
+<!-- Token Launcher Widget -->
+<iframe 
+  src="https://tuna.fun/widget/launcher?apiKey=YOUR_API_KEY&theme=dark"
+  width="100%" 
+  height="600"
+  frameborder="0"
+  allow="clipboard-write"
+></iframe>
 
-### Error Handling
-- If SOL transfer fails, mark promotion as "failed" with error details
-- Log all transfer attempts for debugging
-- Retry logic: if transfer fails, keep promotion in "pending" state for retry
+<!-- Trade Panel Widget -->
+<iframe 
+  src="https://tuna.fun/widget/trade?mintAddress=TOKEN_MINT&apiKey=YOUR_API_KEY"
+  width="400" 
+  height="500"
+  frameborder="0"
+></iframe>
+```
 
-### Security Considerations
-- Private keys are stored encrypted in DB (payment_private_key column)
-- Only service role key can access private keys
-- Keys are only used once to forward funds, then become unused
-- Treasury wallet is the same as platform fee wallet for consistency
+### JavaScript SDK (Future)
 
-## Files to Modify
+```javascript
+import { TunaSDK } from '@tuna/sdk';
 
-| File | Changes |
-|------|---------|
-| `supabase/functions/promote-check/index.ts` | Add SOL forwarding logic, import bs58 and additional web3.js classes |
+const tuna = new TunaSDK({ apiKey: 'YOUR_API_KEY' });
+
+// Launch a token
+const result = await tuna.launchToken({
+  name: 'MyToken',
+  ticker: 'MTK',
+  image: fileInput.files[0],
+});
+
+console.log(result.mintAddress);
+```
+
+### REST API Flow
+```text
+1. Developer signs up at tuna.fun/api
+2. Connects wallet, gets API key
+3. Uses API key in x-api-key header
+4. Calls endpoints to launch tokens, execute trades
+5. Fees accumulate in their account
+6. Claims fees when threshold reached (>0.01 SOL)
+```
+
+---
+
+## Files to Create/Modify
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `supabase/functions/api-launch-token/index.ts` | Create | Direct token launch endpoint |
+| `supabase/functions/api-swap/index.ts` | Create | Swap quote and transaction builder |
+| `supabase/functions/api-webhooks/index.ts` | Create | Webhook management |
+| `src/pages/ApiDocsPage.tsx` | Create | Developer documentation |
+| `src/pages/WidgetPage.tsx` | Create | Widget host for iframes |
+| `src/components/widgets/TokenLauncherWidget.tsx` | Create | Embeddable launcher |
+| `src/components/widgets/TradePanelWidget.tsx` | Create | Embeddable trade panel |
+| `src/components/widgets/TokenListWidget.tsx` | Create | Embeddable token list |
+| `src/pages/ApiDashboardPage.tsx` | Modify | Add embed code generator tab |
+| `src/App.tsx` | Modify | Add routes for docs and widgets |
+| `supabase/config.toml` | Modify | Register new edge functions |
+| Migration | Create | Add webhooks table and token attribution columns |
+
+---
+
+## User Flow Example
+
+### For a Non-Technical User (HTML Website):
+1. Go to `tuna.fun/api`, connect wallet
+2. Get API key (copy and save)
+3. Go to "Embed & Integrate" tab
+4. Select "Token Launcher Widget"
+5. Customize colors to match their site
+6. Copy the `<iframe>` code
+7. Paste into their HTML website
+8. Users visiting their site can now launch tokens
+9. API owner earns 1.5% of all trading fees
+
+### For a Developer (REST API):
+1. Create account, get API key
+2. Read docs at `tuna.fun/api/docs`
+3. Integrate API calls into their app:
+   - `POST /api-launch-token` to create tokens
+   - `POST /api-swap/quote` to get quotes
+   - `POST /api-swap/execute` to build transactions
+4. Handle webhooks for real-time updates
+5. Claim fees via dashboard or API
+
+---
+
+## Security Considerations
+
+1. **API Key Validation** - All endpoints verify key hash before processing
+2. **Rate Limiting** - Implement per-key rate limits (100 requests/min default)
+3. **CORS** - Allow requests from any origin (public API)
+4. **Webhook Secrets** - HMAC signature verification for webhook payloads
+5. **Input Validation** - Strict validation on all user inputs
+6. **Fee Attribution** - Cryptographic binding of tokens to API accounts
+
+---
 
 ## Summary
-This implementation completes the token promotion flow by:
-1. Forwarding 1 SOL payments to the treasury wallet automatically
-2. Recording transfer signatures for auditing
-3. Triggering X/Twitter posts upon successful payment
-4. Displaying promoted tokens in the dedicated "Promoted" tab with 24h countdown
 
+This plan creates a complete self-serve platform where anyone can:
+1. Sign up and get an API key (free)
+2. Embed widgets OR use REST API
+3. Launch tokens on their own site/app
+4. Earn 1.5% of all trading fees
+5. Claim earnings to their wallet
+
+The implementation leverages existing infrastructure (Vercel pool creation, Meteora SDK) while adding the API abstraction layer and embeddable widgets for maximum flexibility.
