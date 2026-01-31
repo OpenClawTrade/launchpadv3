@@ -14,6 +14,7 @@ import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions } from "@/
 import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useTokenPromotions } from "@/hooks/useTokenPromotions";
+import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
 import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { StatsCards } from "@/components/launchpad/StatsCards";
@@ -103,6 +104,9 @@ export default function FunLauncherPage() {
   
   // Promotions data
   const { activePromotions, isTokenPromoted, getTokenPromotion } = useTokenPromotions();
+  
+  // Visitor tracking
+  const { onlineCount } = useVisitorTracking();
 
   // Computed values
   const totalClaimed = claimsSummary?.totalClaimedSol ?? 0;
@@ -167,6 +171,14 @@ export default function FunLauncherPage() {
                 Trending Narratives
               </Button>
             </Link>
+            
+            {/* Visitors Online */}
+            <div className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-secondary/50 border border-border">
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{onlineCount ?? '—'}</span> Online
+              </span>
+            </div>
           </nav>
 
           <div className="flex items-center gap-2">
