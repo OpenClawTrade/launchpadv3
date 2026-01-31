@@ -12,21 +12,12 @@ import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 import FunLauncherPage from "./pages/FunLauncherPage";
 
 // Lazy load other pages
-const LaunchpadPage = lazy(() => import("./pages/LaunchpadPage"));
-const LaunchTokenPage = lazy(() => import("./pages/LaunchTokenPage"));
 const TokenDetailPage = lazy(() => import("./pages/TokenDetailPage"));
-const EarningsPage = lazy(() => import("./pages/EarningsPage"));
-const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const TrendingPage = lazy(() => import("./pages/TrendingPage"));
-const VanityGeneratorPage = lazy(() => import("./pages/VanityGeneratorPage"));
 const VanityAdminPage = lazy(() => import("./pages/VanityAdminPage"));
-const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
-const ApiBuilderPage = lazy(() => import("./pages/ApiBuilderPage"));
-const GovernancePage = lazy(() => import("./pages/GovernancePage"));
 const LaunchpadTemplatePage = lazy(() => import("./pages/LaunchpadTemplatePage"));
 const TwitterBotAdminPage = lazy(() => import("./pages/TwitterBotAdminPage"));
 const InvestigateTokenPage = lazy(() => import("./pages/InvestigateTokenPage"));
-const ClaudeLauncherPage = lazy(() => import("./pages/ClaudeLauncherPage"));
 const TreasuryAdminPage = lazy(() => import("./pages/TreasuryAdminPage"));
 const TradePage = lazy(() => import("./pages/TradePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -64,18 +55,9 @@ const App = () => (
             <Suspense fallback={<RouteLoader />}>
               <Routes>
                 <Route path="/" element={<FunLauncherPage />} />
-                <Route path="/claude" element={<ClaudeLauncherPage />} />
-                <Route path="/launchpad" element={<LaunchpadPage />} />
-                <Route path="/launch" element={<LaunchTokenPage />} />
                 <Route path="/launchpad/:mintAddress" element={<TokenDetailPage />} />
-                <Route path="/earnings" element={<EarningsPage />} />
-                <Route path="/portfolio" element={<PortfolioPage />} />
                 <Route path="/trending" element={<TrendingPage />} />
-                <Route path="/vanity" element={<VanityGeneratorPage />} />
                 <Route path="/vanity-admin" element={<VanityAdminPage />} />
-                <Route path="/api" element={<ApiDashboardPage />} />
-                <Route path="/api/builder" element={<ApiBuilderPage />} />
-                <Route path="/governance" element={<GovernancePage />} />
                 <Route path="/site" element={<LaunchpadTemplatePage />} />
                 <Route path="/admin/twitter" element={<TwitterBotAdminPage />} />
                 <Route path="/admin/treasury" element={<TreasuryAdminPage />} />
