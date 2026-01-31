@@ -11,12 +11,19 @@ const corsHeaders = {
 // Treasury wallet
 const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 
-// Fee distribution splits
+// Fee distribution splits for REGULAR tokens (non-API)
 const CREATOR_FEE_SHARE = 0.5;    // 50% to creator
 const BUYBACK_FEE_SHARE = 0.3;   // 30% for buybacks
 const SYSTEM_FEE_SHARE = 0.2;    // 20% kept for system expenses
 
-// Minimum SOL to distribute to creators (avoid micro-transactions that eat gas)
+// Fee distribution splits for API-LAUNCHED tokens
+// Total trading fee is 2%, split 50/50:
+// - API users get 50% = 1% of total trade volume
+// - Platform keeps 50% = 1% of total trade volume (stays in treasury)
+const API_USER_FEE_SHARE = 0.5;   // 50% to API account owner (1% of 2%)
+const API_PLATFORM_FEE_SHARE = 0.5; // 50% to platform (1% of 2%)
+
+// Minimum SOL to distribute (avoid micro-transactions that eat gas)
 const MIN_DISTRIBUTION_SOL = 0.05;
 
 // Maximum retries for transaction
@@ -79,12 +86,13 @@ serve(async (req) => {
       );
     }
 
-    // STEP 1: Find all fee claims that haven't been distributed to creators yet
+    // STEP 1: Find all fee claims that haven't been distributed yet
+    // Include api_account_id to check if token was launched via API
     const { data: undistributedClaims, error: claimsError } = await supabase
       .from("fun_fee_claims")
       .select(`
         *,
-        fun_token:fun_tokens(id, name, ticker, creator_wallet, status)
+        fun_token:fun_tokens(id, name, ticker, creator_wallet, status, api_account_id)
       `)
       .eq("creator_distributed", false)
       .order("claimed_at", { ascending: true });
@@ -109,9 +117,11 @@ serve(async (req) => {
     const results: Array<{
       claimIds: string[];
       tokenName: string;
-      creatorWallet: string;
+      recipientWallet: string;
+      recipientType: "creator" | "api_user";
       claimedSol: number;
-      creatorAmount: number;
+      recipientAmount: number;
+      platformAmount: number;
       success: boolean;
       signature?: string;
       error?: string;
@@ -120,15 +130,17 @@ serve(async (req) => {
     let totalDistributed = 0;
     let successCount = 0;
     let failureCount = 0;
+    let apiFeesRecorded = 0;
 
-    // STEP 2: Batch claims per token+creator and only pay once the accumulated
-    // creator share reaches MIN_DISTRIBUTION_SOL. This prevents "lost" payouts
-    // where small claims were previously marked distributed without paying.
+    // STEP 2: Batch claims per token and only pay once the accumulated
+    // share reaches MIN_DISTRIBUTION_SOL.
     const groups = new Map<
       string,
       {
         token: any;
-        creatorWallet: string;
+        recipientWallet: string;
+        recipientType: "creator" | "api_user";
+        apiAccountId: string | null;
         claims: any[];
         claimedSol: number;
       }
@@ -137,8 +149,8 @@ serve(async (req) => {
     for (const claim of undistributedClaims) {
       const token = claim.fun_token;
 
-      if (!token || !token.creator_wallet) {
-        console.warn(`[fun-distribute] Skipping claim ${claim.id}: no token or creator wallet`);
+      if (!token) {
+        console.warn(`[fun-distribute] Skipping claim ${claim.id}: no token found`);
         continue;
       }
 
@@ -150,20 +162,64 @@ serve(async (req) => {
       const claimedSol = Number(claim.claimed_sol) || 0;
       if (claimedSol <= 0) continue;
 
-      const creatorWallet = String(token.creator_wallet);
-      const key = `${token.id}:${creatorWallet}`;
+      // Determine if this is an API-launched token
+      const isApiToken = !!token.api_account_id;
+      
+      if (isApiToken) {
+        // API tokens: fees go to API account owner (will be recorded in api_fee_distributions)
+        // We need to fetch the API account's fee wallet
+        const { data: apiAccount } = await supabase
+          .from("api_accounts")
+          .select("id, fee_wallet_address, wallet_address")
+          .eq("id", token.api_account_id)
+          .single();
 
-      const existing = groups.get(key);
-      if (existing) {
-        existing.claims.push(claim);
-        existing.claimedSol += claimedSol;
+        if (!apiAccount) {
+          console.warn(`[fun-distribute] Skipping claim ${claim.id}: API account ${token.api_account_id} not found`);
+          continue;
+        }
+
+        const feeWallet = apiAccount.fee_wallet_address || apiAccount.wallet_address;
+        const key = `api:${token.api_account_id}`;
+
+        const existing = groups.get(key);
+        if (existing) {
+          existing.claims.push(claim);
+          existing.claimedSol += claimedSol;
+        } else {
+          groups.set(key, {
+            token,
+            recipientWallet: feeWallet,
+            recipientType: "api_user",
+            apiAccountId: token.api_account_id,
+            claims: [claim],
+            claimedSol,
+          });
+        }
       } else {
-        groups.set(key, {
-          token,
-          creatorWallet,
-          claims: [claim],
-          claimedSol,
-        });
+        // Regular tokens: fees go to creator
+        if (!token.creator_wallet) {
+          console.warn(`[fun-distribute] Skipping claim ${claim.id}: no creator wallet`);
+          continue;
+        }
+
+        const creatorWallet = String(token.creator_wallet);
+        const key = `creator:${token.id}:${creatorWallet}`;
+
+        const existing = groups.get(key);
+        if (existing) {
+          existing.claims.push(claim);
+          existing.claimedSol += claimedSol;
+        } else {
+          groups.set(key, {
+            token,
+            recipientWallet: creatorWallet,
+            recipientType: "creator",
+            apiAccountId: null,
+            claims: [claim],
+            claimedSol,
+          });
+        }
       }
     }
 
@@ -172,22 +228,103 @@ serve(async (req) => {
     for (const group of groups.values()) {
       const token = group.token;
       const claimedSol = group.claimedSol;
+      const isApiToken = group.recipientType === "api_user";
 
-      const creatorAmount = claimedSol * CREATOR_FEE_SHARE;
-      const buybackAmount = claimedSol * BUYBACK_FEE_SHARE;
-      const systemAmount = claimedSol * SYSTEM_FEE_SHARE;
+      // Calculate fee splits based on token type
+      let recipientAmount: number;
+      let platformAmount: number;
 
-      console.log(
-        `[fun-distribute] Processing batch ${token.ticker}: ${claimedSol} SOL (${group.claims.length} claims) → Creator ${creatorAmount}, Buyback ${buybackAmount}, System ${systemAmount}`
-      );
-
-      // Skip if accumulated creator amount is too small; keep claims undistributed
-      // so they can accumulate and be paid later.
-      if (creatorAmount < MIN_DISTRIBUTION_SOL) {
+      if (isApiToken) {
+        // API tokens: 50/50 split between API user and platform
+        recipientAmount = claimedSol * API_USER_FEE_SHARE;
+        platformAmount = claimedSol * API_PLATFORM_FEE_SHARE;
         console.log(
-          `[fun-distribute] Deferring ${token.ticker}: accumulated creator amount ${creatorAmount.toFixed(
-            6
-          )} < ${MIN_DISTRIBUTION_SOL} SOL (will accumulate)`
+          `[fun-distribute] API Token ${token.ticker}: ${claimedSol} SOL → API User ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}`
+        );
+      } else {
+        // Regular tokens: creator gets 50%, rest for buyback/system
+        recipientAmount = claimedSol * CREATOR_FEE_SHARE;
+        platformAmount = claimedSol * (BUYBACK_FEE_SHARE + SYSTEM_FEE_SHARE);
+        console.log(
+          `[fun-distribute] Regular Token ${token.ticker}: ${claimedSol} SOL → Creator ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}`
+        );
+      }
+
+      // For API tokens, we record in api_fee_distributions but DON'T send immediately
+      // API users claim manually via api-claim-fees when they want
+      if (isApiToken && group.apiAccountId) {
+        // Record the fee distribution for the API user (pending - they claim when ready)
+        const { error: apiDistError } = await supabase
+          .from("api_fee_distributions")
+          .insert({
+            api_account_id: group.apiAccountId,
+            token_id: token.id,
+            total_fee_sol: claimedSol,
+            api_user_share: recipientAmount,
+            platform_share: platformAmount,
+            status: "pending",
+          });
+
+        if (apiDistError) {
+          console.error(`[fun-distribute] Failed to record API fee distribution:`, apiDistError);
+          results.push({
+            claimIds: group.claims.map((c) => c.id),
+            tokenName: token.name,
+            recipientWallet: group.recipientWallet,
+            recipientType: "api_user",
+            claimedSol,
+            recipientAmount,
+            platformAmount,
+            success: false,
+            error: `DB error: ${apiDistError.message}`,
+          });
+          failureCount++;
+          continue;
+        }
+
+        // Update API account's total fees earned
+        const { data: currentAccount } = await supabase
+          .from("api_accounts")
+          .select("total_fees_earned")
+          .eq("id", group.apiAccountId)
+          .single();
+
+        await supabase
+          .from("api_accounts")
+          .update({
+            total_fees_earned: (currentAccount?.total_fees_earned || 0) + recipientAmount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", group.apiAccountId);
+
+        // Mark claims as distributed (API user can claim anytime)
+        const claimIds = group.claims.map((c) => c.id);
+        await supabase
+          .from("fun_fee_claims")
+          .update({ creator_distributed: true })
+          .in("id", claimIds);
+
+        results.push({
+          claimIds,
+          tokenName: token.name,
+          recipientWallet: group.recipientWallet,
+          recipientType: "api_user",
+          claimedSol,
+          recipientAmount,
+          platformAmount,
+          success: true,
+        });
+
+        apiFeesRecorded++;
+        successCount++;
+        console.log(`[fun-distribute] ✅ Recorded ${recipientAmount.toFixed(6)} SOL for API user ${group.apiAccountId} (claimable)`);
+        continue;
+      }
+
+      // For regular tokens, skip if below minimum
+      if (recipientAmount < MIN_DISTRIBUTION_SOL) {
+        console.log(
+          `[fun-distribute] Deferring ${token.ticker}: accumulated amount ${recipientAmount.toFixed(6)} < ${MIN_DISTRIBUTION_SOL} SOL`
         );
         continue;
       }
@@ -197,8 +334,8 @@ serve(async (req) => {
         .from("fun_distributions")
         .insert({
           fun_token_id: token.id,
-          creator_wallet: group.creatorWallet,
-          amount_sol: creatorAmount,
+          creator_wallet: group.recipientWallet,
+          amount_sol: recipientAmount,
           distribution_type: "creator",
           status: "pending",
         })
@@ -210,9 +347,11 @@ serve(async (req) => {
         results.push({
           claimIds: group.claims.map((c) => c.id),
           tokenName: token.name,
-          creatorWallet: group.creatorWallet,
+          recipientWallet: group.recipientWallet,
+          recipientType: "creator",
           claimedSol,
-          creatorAmount,
+          recipientAmount,
+          platformAmount,
           success: false,
           error: `DB error: ${distError.message}`,
         });
@@ -228,11 +367,11 @@ serve(async (req) => {
       for (let attempt = 1; attempt <= MAX_TX_RETRIES; attempt++) {
         try {
           console.log(
-            `[fun-distribute] Sending ${creatorAmount.toFixed(6)} SOL to ${group.creatorWallet} (attempt ${attempt})`
+            `[fun-distribute] Sending ${recipientAmount.toFixed(6)} SOL to ${group.recipientWallet} (attempt ${attempt})`
           );
 
-          const recipientPubkey = new PublicKey(group.creatorWallet);
-          const lamports = Math.floor(creatorAmount * 1e9);
+          const recipientPubkey = new PublicKey(group.recipientWallet);
+          const lamports = Math.floor(recipientAmount * 1e9);
 
           const transaction = new Transaction().add(
             SystemProgram.transfer({
@@ -251,7 +390,7 @@ serve(async (req) => {
             maxRetries: 3,
           });
 
-          console.log(`[fun-distribute] ✅ Sent ${creatorAmount} SOL to ${group.creatorWallet}, sig: ${txSignature}`);
+          console.log(`[fun-distribute] ✅ Sent ${recipientAmount} SOL to ${group.recipientWallet}, sig: ${txSignature}`);
           txSuccess = true;
           break;
         } catch (e) {
@@ -283,35 +422,36 @@ serve(async (req) => {
           })
           .in("id", claimIds);
 
-        // NOTE: Buyback and system fee recording is disabled until buyback execution is implemented
-        // The 50% creator share is distributed, remaining 50% stays in treasury for future buybacks/expenses
         console.log(
-          `[fun-distribute] Reserved for buyback: ${buybackAmount.toFixed(6)} SOL, system: ${systemAmount.toFixed(6)} SOL`
+          `[fun-distribute] Reserved for platform: ${platformAmount.toFixed(6)} SOL`
         );
 
         results.push({
           claimIds,
           tokenName: token.name,
-          creatorWallet: group.creatorWallet,
+          recipientWallet: group.recipientWallet,
+          recipientType: "creator",
           claimedSol,
-          creatorAmount,
+          recipientAmount,
+          platformAmount,
           success: true,
           signature: txSignature,
         });
 
-        totalDistributed += creatorAmount;
+        totalDistributed += recipientAmount;
         successCount++;
       } else {
         // Transaction failed - mark distribution as failed but DON'T mark claims as distributed
-        // This allows retry on next cron run
         await supabase.from("fun_distributions").update({ status: "failed" }).eq("id", distribution.id);
 
         results.push({
           claimIds: group.claims.map((c) => c.id),
           tokenName: token.name,
-          creatorWallet: group.creatorWallet,
+          recipientWallet: group.recipientWallet,
+          recipientType: "creator",
           claimedSol,
-          creatorAmount,
+          recipientAmount,
+          platformAmount,
           success: false,
           error: txError || "Transaction failed after retries",
         });
@@ -321,7 +461,7 @@ serve(async (req) => {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[fun-distribute] ✅ Complete: ${successCount} successful, ${failureCount} failed, ${totalDistributed.toFixed(4)} SOL distributed in ${duration}ms`);
+    console.log(`[fun-distribute] ✅ Complete: ${successCount} successful (${apiFeesRecorded} API fees recorded), ${failureCount} failed, ${totalDistributed.toFixed(4)} SOL distributed in ${duration}ms`);
 
     return new Response(
       JSON.stringify({
@@ -329,6 +469,7 @@ serve(async (req) => {
         processed: results.length,
         successful: successCount,
         failed: failureCount,
+        apiFeesRecorded,
         totalDistributedSol: totalDistributed,
         durationMs: duration,
         results,
