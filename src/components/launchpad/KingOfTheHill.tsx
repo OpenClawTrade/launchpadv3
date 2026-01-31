@@ -120,14 +120,14 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
     <Link
       to={`/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`}
       className={cn(
-        "relative flex flex-col p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group min-w-[280px] flex-1",
+        "relative flex flex-col p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group",
         getRankStyles(rank)
       )}
     >
-      {/* Rank Badge */}
+      {/* Rank Badge - positioned inside card */}
       <div 
         className={cn(
-          "absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg",
+          "absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md z-10",
           getRankBadgeStyles(rank)
         )}
       >
@@ -241,14 +241,14 @@ export function KingOfTheHill() {
         <div className="flex items-center justify-center gap-2 mb-4">
           <Crown className="w-5 h-5 text-yellow-500" />
           <h2 className="text-lg font-bold">King of the Hill</h2>
-          <span className="text-sm text-muted-foreground">— Soon to Graduate</span>
+          <span className="text-sm text-muted-foreground hidden sm:inline">— Soon to Graduate</span>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="min-w-[280px] flex-1 p-4 rounded-xl border border-border bg-card">
+            <div key={i} className="p-4 rounded-xl border border-border bg-card">
               <div className="flex items-start gap-3 mb-3">
-                <Skeleton className="w-12 h-12 rounded-lg" />
-                <div className="flex-1 space-y-2">
+                <Skeleton className="w-12 h-12 rounded-lg flex-shrink-0" />
+                <div className="flex-1 min-w-0 space-y-2">
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-3 w-16" />
                 </div>
@@ -274,9 +274,9 @@ export function KingOfTheHill() {
       <div className="flex items-center justify-center gap-2 mb-4">
         <Crown className="w-5 h-5 text-yellow-500" />
         <h2 className="text-lg font-bold">King of the Hill</h2>
-        <span className="text-sm text-muted-foreground">— Soon to Graduate</span>
+        <span className="text-sm text-muted-foreground hidden sm:inline">— Soon to Graduate</span>
       </div>
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {tokens.map((token, index) => (
           <TokenCard key={token.id} token={token} rank={index + 1} />
         ))}
