@@ -804,11 +804,36 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                   <div className="gate-token-preview-avatar">
                     <img src={describedToken.imageUrl} alt={describedToken.name} className="w-full h-full object-cover" />
                   </div>
-                  <div className="gate-token-preview-info">
-                    <p className="font-semibold text-foreground">{describedToken.name}</p>
-                    <p className="text-sm text-primary font-mono">${describedToken.ticker}</p>
+                  <div className="gate-token-preview-info space-y-2">
+                    <Input
+                      value={describedToken.name}
+                      onChange={(e) => setDescribedToken({ ...describedToken, name: e.target.value.slice(0, 20) })}
+                      className="gate-input h-8"
+                      placeholder="Token name"
+                      maxLength={20}
+                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-primary text-sm">$</span>
+                      <Input
+                        value={describedToken.ticker}
+                        onChange={(e) => setDescribedToken({ ...describedToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })}
+                        className="gate-input h-7 w-24 font-mono"
+                        placeholder="TICKER"
+                        maxLength={6}
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Editable Description */}
+                <Textarea
+                  value={describedToken.description || ""}
+                  onChange={(e) => setDescribedToken({ ...describedToken, description: e.target.value.slice(0, 200) })}
+                  placeholder="Token description..."
+                  className="gate-input gate-textarea text-sm"
+                  maxLength={200}
+                  rows={2}
+                />
 
                 {/* Social links - collapsible */}
                 <details className="group">
