@@ -9,7 +9,7 @@ import {
   lazy,
   Suspense,
 } from "react";
-import riftLogo from "@/assets/rift-logo.png";
+import tunaLogo from "@/assets/tuna-logo.png";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 
@@ -199,7 +199,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             appearance: {
               theme: "dark",
               accentColor: "#22c55e", // RIFT green
-              logo: riftLogo,
+              logo: tunaLogo,
               showWalletLoginFirst: true,
               walletChainType: "solana-only",
               walletList: ["phantom", "solflare", "backpack", "detected_wallets"],
