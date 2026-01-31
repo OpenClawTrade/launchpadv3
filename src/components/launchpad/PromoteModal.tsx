@@ -33,17 +33,11 @@ export function PromoteModal({
 
   const { generatePromotion, checkPromotion } = useTokenPromotions();
 
-  // Generate payment address on open
+  // Generate payment address on open (no wallet connection required)
   useEffect(() => {
     if (isOpen && !paymentAddress) {
       setStatus("loading");
       setError(null);
-
-      if (!promoterWallet) {
-        setError("Connect your wallet to promote this token.");
-        setStatus("error");
-        return;
-      }
       
       generatePromotion.mutate(
         { funTokenId: tokenId, promoterWallet },

@@ -77,21 +77,21 @@ export function useTokenPromotions() {
     return activePromotions?.find((p) => p.fun_token_id === tokenId);
   };
 
-  // Generate promotion payment address
+  // Generate promotion payment address (no wallet required - user pays externally)
   const generatePromotion = useMutation({
     mutationFn: async ({
       funTokenId,
       promoterWallet,
     }: {
       funTokenId: string;
-      promoterWallet: string;
+      promoterWallet?: string;
     }): Promise<GeneratePromotionResponse> => {
-      if (!funTokenId || !promoterWallet) {
-        throw new Error("Connect your wallet to promote this token.");
+      if (!funTokenId) {
+        throw new Error("Token ID is required");
       }
 
       const response = await supabase.functions.invoke("promote-generate", {
-        body: { funTokenId, promoterWallet },
+        body: { funTokenId, promoterWallet: promoterWallet || "" },
       });
 
       if (response.error) {
