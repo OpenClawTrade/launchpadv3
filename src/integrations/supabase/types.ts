@@ -62,6 +62,90 @@ export type Database = {
           },
         ]
       }
+      agent_social_posts: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          error_message: string | null
+          fun_token_id: string | null
+          id: string
+          parsed_description: string | null
+          parsed_image_url: string | null
+          parsed_name: string | null
+          parsed_symbol: string | null
+          parsed_twitter: string | null
+          parsed_website: string | null
+          platform: string
+          post_author: string | null
+          post_author_id: string | null
+          post_id: string
+          post_url: string | null
+          processed_at: string | null
+          raw_content: string | null
+          status: string
+          wallet_address: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          fun_token_id?: string | null
+          id?: string
+          parsed_description?: string | null
+          parsed_image_url?: string | null
+          parsed_name?: string | null
+          parsed_symbol?: string | null
+          parsed_twitter?: string | null
+          parsed_website?: string | null
+          platform: string
+          post_author?: string | null
+          post_author_id?: string | null
+          post_id: string
+          post_url?: string | null
+          processed_at?: string | null
+          raw_content?: string | null
+          status?: string
+          wallet_address: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          fun_token_id?: string | null
+          id?: string
+          parsed_description?: string | null
+          parsed_image_url?: string | null
+          parsed_name?: string | null
+          parsed_symbol?: string | null
+          parsed_twitter?: string | null
+          parsed_website?: string | null
+          platform?: string
+          post_author?: string | null
+          post_author_id?: string | null
+          post_id?: string
+          post_url?: string | null
+          processed_at?: string | null
+          raw_content?: string | null
+          status?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_social_posts_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_social_posts_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_tokens: {
         Row: {
           agent_id: string
