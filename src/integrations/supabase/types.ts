@@ -243,12 +243,15 @@ export type Database = {
           name: string
           post_count: number | null
           status: string | null
+          style_learned_at: string | null
+          style_source_username: string | null
           total_fees_claimed_sol: number | null
           total_fees_earned_sol: number | null
           total_tokens_launched: number | null
           twitter_handle: string | null
           updated_at: string | null
           wallet_address: string
+          writing_style: Json | null
         }
         Insert: {
           api_key_hash: string
@@ -266,12 +269,15 @@ export type Database = {
           name: string
           post_count?: number | null
           status?: string | null
+          style_learned_at?: string | null
+          style_source_username?: string | null
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
           total_tokens_launched?: number | null
           twitter_handle?: string | null
           updated_at?: string | null
           wallet_address: string
+          writing_style?: Json | null
         }
         Update: {
           api_key_hash?: string
@@ -289,12 +295,15 @@ export type Database = {
           name?: string
           post_count?: number | null
           status?: string | null
+          style_learned_at?: string | null
+          style_source_username?: string | null
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
           total_tokens_launched?: number | null
           twitter_handle?: string | null
           updated_at?: string | null
           wallet_address?: string
+          writing_style?: Json | null
         }
         Relationships: []
       }
