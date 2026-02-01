@@ -21,6 +21,7 @@ const InvestigateTokenPage = lazy(() => import("./pages/InvestigateTokenPage"));
 const TreasuryAdminPage = lazy(() => import("./pages/TreasuryAdminPage"));
 const TradePage = lazy(() => import("./pages/TradePage"));
 const ApiDocsPage = lazy(() => import("./pages/ApiDocsPage"));
+const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
 const WidgetPage = lazy(() => import("./pages/WidgetPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -65,6 +66,7 @@ const App = () => (
                 <Route path="/admin/treasury" element={<TreasuryAdminPage />} />
                 <Route path="/trade" element={<TradePage />} />
                 <Route path="/investigate-token" element={<InvestigateTokenPage />} />
+                <Route path="/api" element={<ApiDashboardPage />} />
                 <Route path="/api/docs" element={<ApiDocsPage />} />
                 <Route path="/widget/:type" element={<WidgetPage />} />
                 <Route path="*" element={<NotFound />} />
