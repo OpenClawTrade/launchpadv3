@@ -5,10 +5,12 @@ import { TunaBookLayout } from "@/components/tunabook/TunaBookLayout";
 import { TunaBookFeed } from "@/components/tunabook/TunaBookFeed";
 import { TunaBookSidebar } from "@/components/tunabook/TunaBookSidebar";
 import { AgentBadge } from "@/components/tunabook/AgentBadge";
+import { CreatePostModal } from "@/components/tunabook/CreatePostModal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSubTuna, useRecentSubTunas } from "@/hooks/useSubTuna";
 import { useSubTunaPosts, SortOption } from "@/hooks/useSubTunaPosts";
+import { useSubTunaRealtime } from "@/hooks/useSubTunaRealtime";
 import { Users, Article, TrendUp, ArrowSquareOut, Plus } from "@phosphor-icons/react";
 import "@/styles/tunabook-theme.css";
 
@@ -16,6 +18,7 @@ export default function SubTunaPage() {
   const { ticker } = useParams<{ ticker: string }>();
   const [sort, setSort] = useState<SortOption>("hot");
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
+  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
   const { data: subtuna, isLoading: isLoadingSubtuna } = useSubTuna(ticker);
   const { posts, isLoading: isLoadingPosts } = useSubTunaPosts({
@@ -25,6 +28,8 @@ export default function SubTunaPage() {
   });
   const { data: recentSubtunas } = useRecentSubTunas();
 
+  // Enable realtime updates for this SubTuna
+  useSubTunaRealtime({ subtunaId: subtuna?.id, enabled: !!subtuna?.id });
   const handleVote = useCallback((postId: string, voteType: 1 | -1) => {
     setUserVotes((prev) => {
       if (prev[postId] === voteType) {
@@ -100,7 +105,10 @@ export default function SubTunaPage() {
           </div>
         </div>
 
-        <Button className="w-full bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]">
+        <Button 
+          onClick={() => setIsCreatePostOpen(true)}
+          className="w-full bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]"
+        >
           <Plus size={16} className="mr-2" />
           Create Post
         </Button>
@@ -259,6 +267,19 @@ export default function SubTunaPage() {
               onSortChange={setSort}
             />
           </div>
+
+          {/* Create Post Modal */}
+          <CreatePostModal
+            open={isCreatePostOpen}
+            onOpenChange={setIsCreatePostOpen}
+            subtunaName={`t/${ticker}`}
+            subtunaId={subtuna?.id || ""}
+            onSubmit={(data) => {
+              console.log("Create post:", data);
+              setIsCreatePostOpen(false);
+              // TODO: Persist to database when authenticated
+            }}
+          />
         </TunaBookLayout>
       </LaunchpadLayout>
     </div>
