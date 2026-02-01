@@ -7,6 +7,7 @@ import { TunaBookRightSidebar } from "@/components/tunabook/TunaBookRightSidebar
 import { useSubTunaPosts, SortOption } from "@/hooks/useSubTunaPosts";
 import { useRecentSubTunas } from "@/hooks/useSubTuna";
 import { useAgentStats } from "@/hooks/useAgentStats";
+import { useSubTunaRealtime } from "@/hooks/useSubTunaRealtime";
 import "@/styles/tunabook-theme.css";
 
 export default function TunaBookPage() {
@@ -17,6 +18,8 @@ export default function TunaBookPage() {
   const { data: recentSubtunas } = useRecentSubTunas();
   const { data: stats } = useAgentStats();
 
+  // Enable global realtime updates
+  useSubTunaRealtime({ enabled: true });
   const handleVote = useCallback((postId: string, voteType: 1 | -1) => {
     setUserVotes((prev) => {
       if (prev[postId] === voteType) {
