@@ -22,7 +22,7 @@ function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
 }
 
 interface TokenCardProps {
-  token: Token;
+  token: Token & { trading_fee_bps?: number };
 }
 
 export function TokenCard({ token }: TokenCardProps) {
@@ -32,6 +32,7 @@ export function TokenCard({ token }: TokenCardProps) {
   const isPositive = priceChange >= 0;
   const isHot = token.volume_24h_sol > 1;
   const isNew = Date.now() - new Date(token.created_at).getTime() < 24 * 60 * 60 * 1000;
+  const tradingFeePct = ((token as any).trading_fee_bps || 200) / 100; // Convert bps to %
 
   return (
     <Link to={`/launchpad/${token.mint_address}`}>
@@ -96,6 +97,13 @@ export function TokenCard({ token }: TokenCardProps) {
                   🔥 HOT
                 </Badge>
               )}
+              {/* Trading fee badge - show if not default 2% */}
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] px-1.5 py-0 ${tradingFeePct !== 2 ? 'border-primary/50 text-primary' : 'border-border text-muted-foreground'}`}
+              >
+                {tradingFeePct}% fee
+              </Badge>
             </div>
 
             {/* Creator */}

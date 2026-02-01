@@ -11,6 +11,10 @@ import { getSupabaseClient, getTokenByMint } from '../../lib/supabase.js';
 import { getConnection } from '../../lib/solana.js';
 import { executeMeteoraSwap, getPoolState, migratePool, serializeTransaction } from '../../lib/meteora.js';
 
+// API fee split (for tokens created via API)
+const API_USER_FEE_SHARE = 0.75; // 1.5% to API user (75% of 2%)
+const PLATFORM_FEE_SHARE = 0.25; // 0.5% to platform (25% of 2%)
+
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,6 +62,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Token not found' });
     }
 
+    // Check if this token was launched via API (has api_account_id)
+    // We need to query the original table to get api_account_id
+    let apiAccountId: string | null = null;
+    let apiUserFeeWallet: string | null = null;
+    
+    // Check fun_tokens first (most common for API launches)
+    const { data: funToken } = await supabase
+      .from('fun_tokens')
+      .select('api_account_id')
+      .eq('mint_address', mintAddress)
+      .maybeSingle();
+    
+    if (funToken?.api_account_id) {
+      apiAccountId = funToken.api_account_id;
+      // Get the API user's fee wallet
+      const { data: apiAccount } = await supabase
+        .from('api_accounts')
+        .select('fee_wallet_address')
+        .eq('id', apiAccountId)
+        .single();
+      apiUserFeeWallet = apiAccount?.fee_wallet_address || null;
+    } else {
+      // Check tokens table
+      const { data: regularToken } = await supabase
+        .from('tokens')
+        .select('api_account_id')
+        .eq('mint_address', mintAddress)
+        .maybeSingle();
+      
+      if (regularToken?.api_account_id) {
+        apiAccountId = regularToken.api_account_id;
+        const { data: apiAccount } = await supabase
+          .from('api_accounts')
+          .select('fee_wallet_address')
+          .eq('id', apiAccountId)
+          .single();
+        apiUserFeeWallet = apiAccount?.fee_wallet_address || null;
+      }
+    }
+
+    console.log('[swap/execute] API context:', { apiAccountId, hasApiWallet: !!apiUserFeeWallet });
+
     if (token.status === 'graduated') {
       return res.status(400).json({ 
         error: 'Token has graduated. Trade on DEX.',
@@ -101,10 +147,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error('Failed to get pool state');
     }
 
-    // Calculate fees - 100% of 2% goes to treasury
+    // Calculate fees - split between API user and platform if API-launched token
     const solAmount = isBuy ? amount : estimatedOutput;
     const totalFee = (solAmount * TRADING_FEE_BPS) / 10000;
-    const systemFee = totalFee * SYSTEM_FEE_SHARE; // 100% of fee
+    
+    let systemFee: number;
+    let apiUserFee = 0;
+    let platformFee: number;
+    
+    if (apiAccountId) {
+      // API-launched token: split fee 75/25
+      apiUserFee = totalFee * API_USER_FEE_SHARE; // 1.5% to API user
+      platformFee = totalFee * PLATFORM_FEE_SHARE; // 0.5% to platform
+      systemFee = platformFee; // For backward compatibility with fee_earners table
+    } else {
+      // Regular token: 100% to platform
+      systemFee = totalFee * SYSTEM_FEE_SHARE;
+      platformFee = systemFee;
+    }
     const creatorFee = totalFee * CREATOR_FEE_SHARE; // 0% (kept for DB compatibility)
 
     const tokensOut = isBuy ? estimatedOutput : 0;
@@ -203,7 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('[swap/execute] Holdings update error:', holdingsError);
     }
 
-    // Update system/platform fees using RPC function - receives 100% of 2%
+    // Update system/platform fees using RPC function
     if (systemFee > 0) {
       const { error: feeError } = await supabase.rpc('backend_update_fee_earner', {
         p_token_id: token.id,
@@ -213,6 +273,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (feeError) {
         console.error('[swap/execute] Fee earner update error:', feeError);
+      }
+    }
+
+    // Record API fee distribution if this is an API-launched token
+    if (apiAccountId && apiUserFee > 0) {
+      console.log('[swap/execute] Recording API fee distribution:', { apiAccountId, apiUserFee, platformFee });
+      
+      const { error: feeDistError } = await supabase.from('api_fee_distributions').insert({
+        api_account_id: apiAccountId,
+        token_id: token.id,
+        total_fee_sol: apiUserFee + platformFee,
+        api_user_share: apiUserFee,
+        platform_share: platformFee,
+        status: 'pending',
+      });
+
+      if (feeDistError) {
+        console.error('[swap/execute] API fee distribution insert error:', feeDistError);
+      } else {
+        // Update API account total fees earned
+        const { data: currentAcc } = await supabase
+          .from('api_accounts')
+          .select('total_fees_earned')
+          .eq('id', apiAccountId)
+          .single();
+
+        if (currentAcc) {
+          await supabase
+            .from('api_accounts')
+            .update({
+              total_fees_earned: (currentAcc.total_fees_earned || 0) + apiUserFee,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', apiAccountId);
+        }
       }
     }
 

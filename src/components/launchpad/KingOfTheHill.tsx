@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { Crown, Copy, CheckCircle, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -57,6 +58,9 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   
   // Calculate real SOL reserves from progress percentage
   const realSolReserves = (progress / 100) * GRADUATION_THRESHOLD;
+  
+  // Trading fee percentage (default 2%)
+  const tradingFeePct = (token.trading_fee_bps ?? 200) / 100;
 
   const getRankStyles = (r: number) => {
     if (r === 1) return "border-primary/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-lg shadow-primary/10";
@@ -142,6 +146,16 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
           <Users className="w-3 h-3 text-muted-foreground" />
           <span className="font-semibold">{token.holder_count ?? 0}</span>
         </div>
+        {/* Trading fee badge */}
+        <Badge 
+          variant="outline" 
+          className={cn(
+            "text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0",
+            tradingFeePct !== 2 ? "border-primary/50 text-primary" : "border-border text-muted-foreground"
+          )}
+        >
+          {tradingFeePct}%
+        </Badge>
       </div>
 
       {/* Progress */}
