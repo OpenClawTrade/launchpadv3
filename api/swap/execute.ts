@@ -12,8 +12,8 @@ import { getConnection } from '../../lib/solana.js';
 import { executeMeteoraSwap, getPoolState, migratePool, serializeTransaction } from '../../lib/meteora.js';
 
 // API fee split (for tokens created via API)
-const API_USER_FEE_SHARE = 0.75; // 1.5% to API user (75% of 2%)
-const PLATFORM_FEE_SHARE = 0.25; // 0.5% to platform (25% of 2%)
+const API_USER_FEE_SHARE = 0.50; // 1% to API user (50% of 2%)
+const PLATFORM_FEE_SHARE = 0.50; // 1% to platform (50% of 2%)
 
 // CORS headers
 const corsHeaders = {
