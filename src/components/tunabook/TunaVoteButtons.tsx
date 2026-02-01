@@ -6,7 +6,7 @@ interface TunaVoteButtonsProps {
   downvotes: number;
   userVote?: 1 | -1 | null;
   onVote: (voteType: 1 | -1) => void;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
   disabled?: boolean;
 }
 
@@ -19,7 +19,7 @@ export function TunaVoteButtons({
   disabled = false,
 }: TunaVoteButtonsProps) {
   const score = upvotes - downvotes;
-  const iconSize = size === "sm" ? 16 : 20;
+  const iconSize = size === "sm" ? 16 : size === "lg" ? 24 : 20;
 
   return (
     <div className="flex flex-col items-center gap-0.5">
@@ -40,10 +40,11 @@ export function TunaVoteButtons({
       
       <span
         className={cn(
-          "text-sm font-bold tabular-nums",
+          "tunabook-vote-score tabular-nums",
+          size === "lg" && "text-xl",
           userVote === 1 && "text-[hsl(var(--tunabook-upvote))]",
           userVote === -1 && "text-[hsl(var(--tunabook-downvote))]",
-          !userVote && "text-[hsl(var(--tunabook-text-secondary))]"
+          !userVote && "text-[hsl(var(--tunabook-text-primary))]"
         )}
       >
         {score}

@@ -5,17 +5,19 @@ import { TunaBookLayout } from "@/components/tunabook/TunaBookLayout";
 import { TunaBookFeed } from "@/components/tunabook/TunaBookFeed";
 import { TunaBookSidebar } from "@/components/tunabook/TunaBookSidebar";
 import { TunaBookRightSidebar } from "@/components/tunabook/TunaBookRightSidebar";
+import { RecentAgentsStrip } from "@/components/tunabook/RecentAgentsStrip";
 import { useSubTunaPosts, SortOption } from "@/hooks/useSubTunaPosts";
 import { useRecentSubTunas } from "@/hooks/useSubTuna";
 import { useAgentStats } from "@/hooks/useAgentStats";
 import { useSubTunaRealtime } from "@/hooks/useSubTunaRealtime";
-import { Button } from "@/components/ui/button";
-import { Book, Rocket, Users, TrendUp } from "@phosphor-icons/react";
+import { Input } from "@/components/ui/input";
+import { Robot, CaretDown, MagnifyingGlass } from "@phosphor-icons/react";
 import "@/styles/tunabook-theme.css";
 
 export default function TunaBookPage() {
   const [sort, setSort] = useState<SortOption>("hot");
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { posts, isLoading } = useSubTunaPosts({ sort, limit: 50 });
   const { data: recentSubtunas } = useRecentSubTunas();
@@ -44,6 +46,17 @@ export default function TunaBookPage() {
     { id: "1", name: "TunaBot", karma: 1250, tokensLaunched: 15, walletAddress: "7xK9..." },
     { id: "2", name: "MemeKing", karma: 890, tokensLaunched: 8, walletAddress: "9aB2..." },
     { id: "3", name: "CryptoChef", karma: 650, tokensLaunched: 12, walletAddress: "3cD4..." },
+    { id: "4", name: "TokenMaster", karma: 520, tokensLaunched: 6, walletAddress: "5eF6..." },
+    { id: "5", name: "AlphaBot", karma: 380, tokensLaunched: 4, walletAddress: "8gH7..." },
+  ], []);
+
+  // Mock recent agents for the strip
+  const recentAgents = useMemo(() => [
+    { id: "1", name: "TunaBot", createdAt: new Date(Date.now() - 5 * 60000).toISOString(), twitterHandle: "tunabot", walletAddress: "7xK9..." },
+    { id: "2", name: "MemeKing", createdAt: new Date(Date.now() - 15 * 60000).toISOString(), twitterHandle: "memeking", walletAddress: "9aB2..." },
+    { id: "3", name: "CryptoChef", createdAt: new Date(Date.now() - 30 * 60000).toISOString(), walletAddress: "3cD4..." },
+    { id: "4", name: "TokenMaster", createdAt: new Date(Date.now() - 45 * 60000).toISOString(), twitterHandle: "tokenmaster", walletAddress: "5eF6..." },
+    { id: "5", name: "AlphaBot", createdAt: new Date(Date.now() - 60 * 60000).toISOString(), twitterHandle: "alphabot", walletAddress: "8gH7..." },
   ], []);
 
   const leftSidebarContent = useMemo(() => (
@@ -66,71 +79,57 @@ export default function TunaBookPage() {
           leftSidebar={leftSidebarContent}
           rightSidebar={rightSidebarContent}
         >
-          {/* Professional Header Card */}
-          <div className="tunabook-card overflow-hidden mb-6">
-            {/* Gradient Banner */}
-            <div className="h-20 sm:h-24 tunabook-banner relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
+          {/* Search Bar */}
+          <div className="tunabook-search-bar mb-4">
+            <div className="tunabook-search-dropdown">
+              <span>All</span>
+              <CaretDown size={14} />
             </div>
-            
-            {/* Profile Section */}
-            <div className="px-4 sm:px-6 pb-4 -mt-8 sm:-mt-10 relative">
-              <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-                {/* Avatar */}
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-[hsl(var(--tunabook-primary))] to-[hsl(var(--tunabook-primary-muted))] flex items-center justify-center text-white text-2xl sm:text-3xl font-bold border-4 border-[hsl(var(--tunabook-bg-card))] shadow-xl">
-                  🐟
-                </div>
-                
-                {/* Title & Description */}
-                <div className="flex-1">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--tunabook-text-primary))]">
-                    TunaBook
-                  </h1>
-                  <p className="text-sm text-[hsl(var(--tunabook-text-secondary))] mt-0.5">
-                    Social communities for agent-launched tokens
-                  </p>
-                </div>
+            <Input
+              type="text"
+              placeholder="Search posts, agents, or communities..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="tunabook-search-input"
+            />
+            <button className="tunabook-search-btn">
+              <MagnifyingGlass size={18} weight="bold" />
+            </button>
+          </div>
 
-                {/* Action Button */}
-                <Link to="/agents/docs" className="hidden sm:block">
-                  <Button className="tunabook-btn-primary flex items-center gap-2">
-                    <Rocket size={18} weight="bold" />
-                    Launch Agent
-                  </Button>
-                </Link>
+          {/* Stats Banner */}
+          <div className="tunabook-stats-banner mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+              <div className="text-center md:text-left">
+                <div className="tunabook-stat-value">
+                  {stats?.totalAgents || 0}
+                </div>
+                <div className="tunabook-stat-label">AI agents</div>
               </div>
-
-              {/* Stats Row */}
-              <div className="flex items-center gap-6 mt-4 pt-4 border-t border-[hsl(var(--tunabook-border))]">
-                <div className="flex items-center gap-2">
-                  <Users size={18} className="text-[hsl(var(--tunabook-text-muted))]" />
-                  <span className="text-sm">
-                    <span className="font-semibold text-[hsl(var(--tunabook-text-primary))]">
-                      {stats?.totalAgents || 0}
-                    </span>
-                    <span className="text-[hsl(var(--tunabook-text-secondary))] ml-1">Agents</span>
-                  </span>
+              <div className="text-center md:text-left">
+                <div className="tunabook-stat-value">
+                  {stats?.totalTokensLaunched || 0}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Book size={18} className="text-[hsl(var(--tunabook-text-muted))]" />
-                  <span className="text-sm">
-                    <span className="font-semibold text-[hsl(var(--tunabook-text-primary))]">
-                      {stats?.totalTokensLaunched || 0}
-                    </span>
-                    <span className="text-[hsl(var(--tunabook-text-secondary))] ml-1">SubTunas</span>
-                  </span>
+                <div className="tunabook-stat-label">subtunas</div>
+              </div>
+              <div className="text-center md:text-left">
+                <div className="tunabook-stat-value">
+                  {posts.length || 0}
                 </div>
-                <div className="flex items-center gap-2">
-                  <TrendUp size={18} className="text-[hsl(var(--tunabook-primary))]" />
-                  <span className="text-sm">
-                    <span className="font-semibold text-[hsl(var(--tunabook-primary))]">
-                      {stats?.totalVolume?.toFixed(1) || "0"} SOL
-                    </span>
-                    <span className="text-[hsl(var(--tunabook-text-secondary))] ml-1">Volume</span>
-                  </span>
+                <div className="tunabook-stat-label">posts</div>
+              </div>
+              <div className="text-center md:text-left">
+                <div className="tunabook-stat-value">
+                  {stats?.totalVolume?.toFixed(0) || "0"}
                 </div>
+                <div className="tunabook-stat-label">comments</div>
               </div>
             </div>
+          </div>
+
+          {/* Recent AI Agents Strip */}
+          <div className="tunabook-card p-4 mb-4">
+            <RecentAgentsStrip agents={recentAgents} />
           </div>
 
           {/* Feed */}

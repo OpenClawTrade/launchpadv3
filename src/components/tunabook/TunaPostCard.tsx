@@ -1,7 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
-import { ChatCircle, Share, Bookmark, DotsThree } from "@phosphor-icons/react";
+import { ChatCircle, Share, Bookmark, DotsThree, ArrowFatUp, ArrowFatDown } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
-import { TunaVoteButtons } from "./TunaVoteButtons";
 import { AgentBadge } from "./AgentBadge";
 import { cn } from "@/lib/utils";
 
@@ -56,31 +55,66 @@ export function TunaPostCard({
   showSubtuna = true,
 }: TunaPostCardProps) {
   const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: true });
+  const score = upvotes - downvotes;
 
   return (
     <article
       className={cn(
-        "tunabook-card flex gap-3 p-3",
+        "tunabook-card flex gap-4 p-4",
         isPinned && "tunabook-pinned"
       )}
     >
-      {/* Vote buttons */}
-      <TunaVoteButtons
-        upvotes={upvotes}
-        downvotes={downvotes}
-        userVote={userVote}
-        onVote={(voteType) => onVote(id, voteType)}
-      />
+      {/* Vote buttons - Larger style */}
+      <div className="flex flex-col items-center gap-1">
+        <button
+          onClick={() => onVote(id, 1)}
+          className={cn(
+            "tunabook-vote-btn p-1.5",
+            userVote === 1 && "upvoted"
+          )}
+          aria-label="Upvote"
+        >
+          <ArrowFatUp
+            size={22}
+            weight={userVote === 1 ? "fill" : "regular"}
+          />
+        </button>
+        
+        <span
+          className={cn(
+            "tunabook-vote-score tabular-nums",
+            userVote === 1 && "text-[hsl(var(--tunabook-upvote))]",
+            userVote === -1 && "text-[hsl(var(--tunabook-downvote))]",
+            !userVote && "text-[hsl(var(--tunabook-text-primary))]"
+          )}
+        >
+          {score}
+        </span>
+        
+        <button
+          onClick={() => onVote(id, -1)}
+          className={cn(
+            "tunabook-vote-btn p-1.5",
+            userVote === -1 && "downvoted"
+          )}
+          aria-label="Downvote"
+        >
+          <ArrowFatDown
+            size={22}
+            weight={userVote === -1 ? "fill" : "regular"}
+          />
+        </button>
+      </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         {/* Meta line */}
-        <div className="flex items-center gap-2 text-xs text-[hsl(var(--tunabook-text-secondary))] mb-1 flex-wrap">
+        <div className="flex items-center gap-2 text-xs text-[hsl(var(--tunabook-text-secondary))] mb-1.5 flex-wrap">
           {showSubtuna && (
             <>
               <Link
                 to={`/t/${subtuna.ticker}`}
-                className="flex items-center gap-1 font-medium text-[hsl(var(--tunabook-text-primary))] hover:underline"
+                className="tunabook-community-link flex items-center gap-1"
               >
                 {subtuna.iconUrl && (
                   <img
@@ -89,9 +123,9 @@ export function TunaPostCard({
                     className="w-4 h-4 rounded-full"
                   />
                 )}
-                <span>{subtuna.name}</span>
+                <span>t/{subtuna.ticker}</span>
               </Link>
-              <span>•</span>
+              <span className="text-[hsl(var(--tunabook-text-muted))]">•</span>
             </>
           )}
           
@@ -109,20 +143,20 @@ export function TunaPostCard({
           ) : author ? (
             <Link
               to={`/u/${author.username}`}
-              className="font-medium hover:underline"
+              className="font-medium hover:underline text-[hsl(var(--tunabook-text-primary))]"
             >
               u/{author.username}
             </Link>
           ) : (
-            <span>[deleted]</span>
+            <span className="text-[hsl(var(--tunabook-text-muted))]">[deleted]</span>
           )}
           
-          <span>•</span>
+          <span className="text-[hsl(var(--tunabook-text-muted))]">•</span>
           <span>{timeAgo}</span>
           
           {isPinned && (
             <>
-              <span>•</span>
+              <span className="text-[hsl(var(--tunabook-text-muted))]">•</span>
               <span className="text-[hsl(var(--tunabook-primary))] font-medium">
                 📌 Pinned
               </span>
@@ -132,14 +166,14 @@ export function TunaPostCard({
 
         {/* Title */}
         <Link to={`/t/${subtuna.ticker}/post/${id}`}>
-          <h3 className="text-lg font-medium text-[hsl(var(--tunabook-text-primary))] hover:text-[hsl(var(--tunabook-primary))] transition-colors mb-1">
+          <h3 className="text-base font-semibold text-[hsl(var(--tunabook-text-primary))] hover:text-[hsl(var(--tunabook-primary))] transition-colors mb-1.5 leading-snug">
             {title}
           </h3>
         </Link>
 
         {/* Content preview */}
         {content && (
-          <p className="text-sm text-[hsl(var(--tunabook-text-secondary))] line-clamp-3 mb-2">
+          <p className="text-sm text-[hsl(var(--tunabook-text-secondary))] line-clamp-2 mb-2">
             {content}
           </p>
         )}
@@ -150,33 +184,33 @@ export function TunaPostCard({
             <img
               src={imageUrl}
               alt=""
-              className="rounded-lg max-h-96 object-cover"
+              className="rounded-lg max-h-80 object-cover"
             />
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-4 mt-2">
+        <div className="flex items-center gap-1 mt-2">
           <Link
             to={`/t/${subtuna.ticker}/post/${id}`}
-            className="flex items-center gap-1 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2 py-1 rounded"
+            className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium"
           >
-            <ChatCircle size={18} />
+            <ChatCircle size={16} />
             <span>{commentCount} Comments</span>
           </Link>
           
-          <button className="flex items-center gap-1 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2 py-1 rounded">
-            <Share size={18} />
+          <button className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium">
+            <Share size={16} />
             <span>Share</span>
           </button>
           
-          <button className="flex items-center gap-1 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2 py-1 rounded">
-            <Bookmark size={18} />
+          <button className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium">
+            <Bookmark size={16} />
             <span>Save</span>
           </button>
           
-          <button className="flex items-center text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] p-1 rounded">
-            <DotsThree size={18} />
+          <button className="flex items-center text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] p-1.5 rounded-md">
+            <DotsThree size={16} weight="bold" />
           </button>
         </div>
       </div>
