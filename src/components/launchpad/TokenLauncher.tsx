@@ -111,6 +111,24 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
   const [phantomDescribePrompt, setPhantomDescribePrompt] = useState("");
 
+  // Holders mode state (mirrors Phantom)
+  const [holdersSubMode, setHoldersSubMode] = useState<"random" | "describe" | "custom">("random");
+  const [holdersDescribePrompt, setHoldersDescribePrompt] = useState("");
+  const [holdersMeme, setHoldersMeme] = useState<MemeToken | null>(null);
+  const [isHoldersGenerating, setIsHoldersGenerating] = useState(false);
+  const [holdersToken, setHoldersToken] = useState<MemeToken>({
+    name: "",
+    ticker: "",
+    description: "",
+    imageUrl: "",
+    websiteUrl: "",
+    twitterUrl: "",
+    telegramUrl: "",
+    discordUrl: "",
+  });
+  const [holdersImageFile, setHoldersImageFile] = useState<File | null>(null);
+  const [holdersImagePreview, setHoldersImagePreview] = useState<string | null>(null);
+
   // Banner generation
   const { generateBanner, downloadBanner, clearBanner, isGenerating: isBannerGenerating, bannerUrl } = useBannerGenerator();
   const [bannerTextName, setBannerTextName] = useState("");
@@ -497,6 +515,226 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     setPhantomImageFile(file);
     setPhantomImagePreview(URL.createObjectURL(file));
   }, [toast]);
+
+  // Holders mode handlers
+  const handleHoldersRandomize = useCallback(async () => {
+    setIsHoldersGenerating(true);
+    setHoldersMeme(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("fun-generate", { body: {} });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || "Generation failed");
+      if (data?.meme) {
+        setHoldersMeme(data.meme);
+        setHoldersToken({
+          name: data.meme.name,
+          ticker: data.meme.ticker,
+          description: data.meme.description || "",
+          imageUrl: data.meme.imageUrl,
+          websiteUrl: data.meme.websiteUrl || "",
+          twitterUrl: data.meme.twitterUrl || "",
+          telegramUrl: "",
+          discordUrl: "",
+        });
+        toast({ title: "AI Token Generated! 🤖", description: `${data.meme.name} ready for Holders launch!` });
+      }
+    } catch (error) {
+      toast({ title: "Generation failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
+    } finally {
+      setIsHoldersGenerating(false);
+    }
+  }, [toast]);
+
+  const handleHoldersDescribeGenerate = useCallback(async () => {
+    if (!holdersDescribePrompt.trim()) {
+      toast({ title: "Enter a description", description: "Describe the meme character you want", variant: "destructive" });
+      return;
+    }
+    setIsHoldersGenerating(true);
+    setHoldersMeme(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("fun-generate", { body: { description: holdersDescribePrompt } });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || "Generation failed");
+      if (data?.meme) {
+        setHoldersMeme(data.meme);
+        setHoldersToken({
+          name: data.meme.name,
+          ticker: data.meme.ticker,
+          description: data.meme.description || "",
+          imageUrl: data.meme.imageUrl,
+          websiteUrl: data.meme.websiteUrl || "",
+          twitterUrl: data.meme.twitterUrl || "",
+          telegramUrl: "",
+          discordUrl: "",
+        });
+        toast({ title: "Meme Generated! 🎨", description: `${data.meme.name} created from your description!` });
+      }
+    } catch (error) {
+      toast({ title: "Generation failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
+    } finally {
+      setIsHoldersGenerating(false);
+    }
+  }, [holdersDescribePrompt, toast]);
+
+  const uploadHoldersImageIfNeeded = useCallback(async (): Promise<string> => {
+    if (!holdersImageFile) return holdersMeme?.imageUrl || holdersToken.imageUrl;
+    const fileExt = holdersImageFile.name.split('.').pop() || 'png';
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `token-images/${fileName}`;
+    const { error: uploadError } = await supabase.storage.from('post-images').upload(filePath, holdersImageFile);
+    if (uploadError) throw uploadError;
+    const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(filePath);
+    return urlData.publicUrl;
+  }, [holdersImageFile, holdersMeme?.imageUrl, holdersToken.imageUrl]);
+
+  const handleHoldersImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Max 5MB allowed", variant: "destructive" });
+      return;
+    }
+    setHoldersImageFile(file);
+    setHoldersImagePreview(URL.createObjectURL(file));
+  }, [toast]);
+
+  const handleHoldersLaunch = useCallback(async () => {
+    if (!phantomWallet.isConnected || !phantomWallet.address) {
+      toast({ title: "Wallet not connected", description: "Connect Phantom first", variant: "destructive" });
+      return;
+    }
+    if (!holdersToken.name.trim() || !holdersToken.ticker.trim()) {
+      toast({ title: "Missing token info", description: "Name and ticker required", variant: "destructive" });
+      return;
+    }
+    if (!holdersImagePreview && !holdersMeme?.imageUrl && !holdersToken.imageUrl) {
+      toast({ title: "Image required", description: "Click AI Randomize or upload an image", variant: "destructive" });
+      return;
+    }
+
+    setIsPhantomLaunching(true);
+
+    try {
+      const imageUrl = await uploadHoldersImageIfNeeded();
+      const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
+        body: {
+          name: holdersToken.name.slice(0, 32),
+          ticker: holdersToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+          description: holdersToken.description || "",
+          imageUrl,
+          websiteUrl: holdersToken.websiteUrl || "",
+          twitterUrl: holdersToken.twitterUrl || "",
+          telegramUrl: holdersToken.telegramUrl || "",
+          discordUrl: holdersToken.discordUrl || "",
+          phantomWallet: phantomWallet.address,
+          tradingFeeBps: 200, // Fixed 2% for holders mode
+          feeMode: 'holders',
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Failed to prepare transactions");
+
+      const txBase64s: string[] =
+        Array.isArray(data?.unsignedTransactions) && data.unsignedTransactions.length > 0
+          ? data.unsignedTransactions
+          : data?.serializedTransaction
+            ? [data.serializedTransaction]
+            : [];
+
+      if (txBase64s.length === 0) throw new Error(data?.error || "Failed to create transaction");
+
+      const { url: rpcUrl } = getRpcUrl();
+      const connection = new Connection(rpcUrl, "confirmed");
+
+      const deserializeAnyTx = (base64: string): Transaction | VersionedTransaction => {
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        try {
+          return VersionedTransaction.deserialize(bytes);
+        } catch {
+          return Transaction.from(bytes);
+        }
+      };
+
+      const signatures: string[] = [];
+      for (const txBase64 of txBase64s) {
+        const tx = deserializeAnyTx(txBase64);
+        const signResult: unknown = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signResult) throw new Error("Transaction signing failed");
+
+        let signature: string;
+        if (typeof signResult === "object" && signResult !== null && "signature" in signResult) {
+          signature = (signResult as { signature: string }).signature;
+        } else {
+          signature = String(signResult);
+        }
+
+        signatures.push(signature);
+        await connection.confirmTransaction(signature, "confirmed");
+      }
+
+      // Phase 2: record token in DB
+      let recordedTokenId: string | undefined;
+      try {
+        const { data: recordData } = await supabase.functions.invoke("fun-phantom-create", {
+          body: {
+            name: holdersToken.name.slice(0, 32),
+            ticker: holdersToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+            description: holdersToken.description || "",
+            imageUrl,
+            websiteUrl: holdersToken.websiteUrl || "",
+            twitterUrl: holdersToken.twitterUrl || "",
+            telegramUrl: holdersToken.telegramUrl || "",
+            discordUrl: holdersToken.discordUrl || "",
+            phantomWallet: phantomWallet.address,
+            tradingFeeBps: 200,
+            confirmed: true,
+            mintAddress: data.mintAddress,
+            dbcPoolAddress: data.dbcPoolAddress,
+          },
+        });
+        recordedTokenId = recordData?.tokenId;
+      } catch (recordErr) {
+        debugLog("warn", "[Holders Launch] Token confirmed but failed to record in DB", {
+          message: recordErr instanceof Error ? recordErr.message : String(recordErr),
+        });
+      }
+
+      const lastSig = signatures[signatures.length - 1];
+
+      onShowResult({
+        success: true,
+        name: holdersToken.name,
+        ticker: holdersToken.ticker,
+        mintAddress: data.mintAddress,
+        tokenId: recordedTokenId,
+        imageUrl,
+        onChainSuccess: true,
+        solscanUrl: lastSig ? `https://solscan.io/tx/${lastSig}` : undefined,
+        tradeUrl: data.dbcPoolAddress 
+          ? `https://axiom.trade/meme/${data.dbcPoolAddress}` 
+          : (data.mintAddress ? `https://jup.ag/swap/SOL-${data.mintAddress}` : undefined),
+        message: "Holder Rewards Token launched successfully!",
+      });
+
+      toast({ title: "🚀 Holder Rewards Token Launched!", description: `${holdersToken.name} is live with holder rewards!` });
+
+      // Clear form
+      setHoldersToken({ name: "", ticker: "", description: "", imageUrl: "", websiteUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "" });
+      setHoldersMeme(null);
+      setHoldersImageFile(null);
+      setHoldersImagePreview(null);
+      onLaunchSuccess();
+    } catch (error: any) {
+      onShowResult({ success: false, error: error.message || "Holders launch failed" });
+      toast({ title: "Launch Failed", description: error.message || "Transaction failed", variant: "destructive" });
+    } finally {
+      setIsPhantomLaunching(false);
+    }
+  }, [phantomWallet, holdersToken, holdersMeme, holdersImagePreview, toast, uploadHoldersImageIfNeeded, onLaunchSuccess, onShowResult]);
 
   const handlePhantomLaunch = useCallback(async (feeMode?: 'standard' | 'holders') => {
     if (!phantomWallet.isConnected || !phantomWallet.address) {
@@ -1235,37 +1473,20 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         {/* Holders Mode - Uses Phantom wallet with holders fee distribution */}
         {generatorMode === "holders" && (
           <div className="space-y-4">
-            <div className="p-4 rounded-lg border border-primary/30 bg-primary/5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm">Holder Rewards Token</h4>
-                  <p className="text-xs text-muted-foreground">50% of fees distributed to all token holders</p>
-                </div>
+            {/* Info Banner */}
+            <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-xs font-semibold">Holder Rewards Token</span>
               </div>
-              
-              <div className="space-y-2 text-xs">
-                <div className="flex items-start gap-2 p-2 rounded bg-background/50">
-                  <span className="text-primary font-bold">✓</span>
-                  <span>Trading fees automatically distributed to holders proportionally</span>
-                </div>
-                <div className="flex items-start gap-2 p-2 rounded bg-background/50">
-                  <span className="text-primary font-bold">✓</span>
-                  <span>Incentivizes holding over selling</span>
-                </div>
-                <div className="flex items-start gap-2 p-2 rounded bg-background/50">
-                  <span className="text-primary font-bold">✓</span>
-                  <span>Passive income for your community</span>
-                </div>
-              </div>
+              <p className="text-xs text-muted-foreground">50% of trading fees are automatically distributed to all token holders proportionally.</p>
             </div>
 
+            {/* Fee Distribution */}
             <div className="p-3 rounded-lg border border-border bg-muted/30">
               <div className="flex items-center gap-2 mb-2">
                 <Coins className="h-4 w-4 text-primary" />
-                <span className="text-xs font-semibold">Fee Distribution (Holders Mode)</span>
+                <span className="text-xs font-semibold">Fee Distribution</span>
               </div>
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
@@ -1283,143 +1504,199 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
               </div>
             </div>
 
-            {/* Token Details Form - Same as Phantom mode */}
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Token Name *</Label>
-                <Input
-                  value={phantomToken.name}
-                  onChange={(e) => setPhantomToken((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Moon Cat"
-                  className="h-9 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Ticker Symbol *</Label>
-                <Input
-                  value={phantomToken.ticker}
-                  onChange={(e) => setPhantomToken((prev) => ({ ...prev, ticker: e.target.value.toUpperCase() }))}
-                  placeholder="e.g., MCAT"
-                  className="h-9 text-sm uppercase"
-                  maxLength={10}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Description</Label>
-                <Textarea
-                  value={phantomToken.description}
-                  onChange={(e) => setPhantomToken((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Describe your token..."
-                  className="min-h-[60px] text-sm resize-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Image URL</Label>
-                <Input
-                  value={phantomToken.imageUrl}
-                  onChange={(e) => setPhantomToken((prev) => ({ ...prev, imageUrl: e.target.value }))}
-                  placeholder="https://..."
-                  className="h-9 text-sm"
-                />
-              </div>
-
-              {/* Social Links */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Website</Label>
-                  <Input
-                    value={phantomToken.websiteUrl}
-                    onChange={(e) => setPhantomToken((prev) => ({ ...prev, websiteUrl: e.target.value }))}
-                    placeholder="https://..."
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Twitter/X</Label>
-                  <Input
-                    value={phantomToken.twitterUrl}
-                    onChange={(e) => setPhantomToken((prev) => ({ ...prev, twitterUrl: e.target.value }))}
-                    placeholder="https://x.com/..."
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Telegram</Label>
-                  <Input
-                    value={phantomToken.telegramUrl}
-                    onChange={(e) => setPhantomToken((prev) => ({ ...prev, telegramUrl: e.target.value }))}
-                    placeholder="https://t.me/..."
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Discord</Label>
-                  <Input
-                    value={phantomToken.discordUrl}
-                    onChange={(e) => setPhantomToken((prev) => ({ ...prev, discordUrl: e.target.value }))}
-                    placeholder="https://discord.gg/..."
-                    className="h-8 text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Wallet Connection */}
+            {/* Wallet Connection First */}
             {!phantomWallet.isConnected ? (
-              <Button
-                onClick={phantomWallet.connect}
-                disabled={phantomWallet.isConnecting}
-                className="gate-btn gate-btn-primary w-full"
-              >
-                {phantomWallet.isConnecting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Connect Phantom Wallet
-                  </>
-                )}
+              <Button onClick={phantomWallet.connect} disabled={phantomWallet.isConnecting} className="gate-btn gate-btn-primary w-full">
+                {phantomWallet.isConnecting ? "Connecting..." : <><Wallet className="h-4 w-4 mr-2" /> Connect Phantom</>}
               </Button>
             ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-2 rounded-lg border border-primary/30 bg-primary/5">
+              <>
+                {/* Connected Wallet Display */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                      <Wallet className="h-3 w-3 text-primary" />
-                    </div>
-                    <span className="text-xs font-mono">
-                      {phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}
-                    </span>
+                    <div className="w-2 h-2 bg-primary rounded-full" />
+                    <span className="text-sm font-mono text-foreground">{phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}</span>
+                    {phantomWallet.balance !== null && <span className="text-xs text-muted-foreground">{phantomWallet.balance.toFixed(3)} SOL</span>}
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    {phantomWallet.balance?.toFixed(4) ?? "..."} SOL
-                  </Badge>
+                  <Button variant="ghost" size="sm" onClick={phantomWallet.disconnect} className="text-muted-foreground hover:text-foreground">
+                    Disconnect
+                  </Button>
                 </div>
 
-                <Button
-                  onClick={() => handlePhantomLaunch('holders')}
-                  disabled={isPhantomLaunching || !phantomToken.name || !phantomToken.ticker}
-                  className="gate-btn gate-btn-primary w-full"
-                >
-                  {isPhantomLaunching ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Launching...
-                    </>
-                  ) : (
-                    <>
-                      <Users className="h-4 w-4 mr-2" />
-                      Launch Holder Rewards Token
-                    </>
-                  )}
-                </Button>
-              </div>
+                {/* Sub-mode selector */}
+                <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
+                  {[
+                    { id: "random" as const, label: "Random", icon: Shuffle },
+                    { id: "describe" as const, label: "Describe", icon: Sparkles },
+                    { id: "custom" as const, label: "Custom", icon: Pencil },
+                  ].map((subMode) => (
+                    <button
+                      key={subMode.id}
+                      onClick={() => setHoldersSubMode(subMode.id)}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-2 text-xs rounded-md transition-all ${
+                        holdersSubMode === subMode.id
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      <subMode.icon className="h-3 w-3" />
+                      {subMode.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Random Sub-Mode */}
+                {holdersSubMode === "random" && (
+                  <>
+                    <Button onClick={handleHoldersRandomize} disabled={isHoldersGenerating} className="gate-btn gate-btn-secondary w-full">
+                      {isHoldersGenerating ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4 mr-2" /> AI Randomize</>}
+                    </Button>
+
+                    {isHoldersGenerating && (
+                      <div className="gate-token-preview">
+                        <div className="gate-token-preview-avatar">
+                          <MemeLoadingAnimation />
+                        </div>
+                        <div className="gate-token-preview-info">
+                          <MemeLoadingText />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Describe Sub-Mode */}
+                {holdersSubMode === "describe" && (
+                  <>
+                    <Textarea
+                      value={holdersDescribePrompt}
+                      onChange={(e) => setHoldersDescribePrompt(e.target.value)}
+                      placeholder="e.g., A smug frog wearing sunglasses..."
+                      className="gate-input gate-textarea"
+                      maxLength={500}
+                    />
+                    <Button onClick={handleHoldersDescribeGenerate} disabled={isHoldersGenerating || !holdersDescribePrompt.trim()} className="gate-btn gate-btn-secondary w-full">
+                      {isHoldersGenerating ? <><Sparkles className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4 mr-2" /> Generate from Description</>}
+                    </Button>
+
+                    {isHoldersGenerating && (
+                      <div className="gate-token-preview">
+                        <div className="gate-token-preview-avatar">
+                          <MemeLoadingAnimation />
+                        </div>
+                        <div className="gate-token-preview-info">
+                          <MemeLoadingText />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Token Preview & Form (shown for all sub-modes after generation or for custom) */}
+                {!isHoldersGenerating && (holdersSubMode === "custom" || holdersMeme || holdersToken.name) && (
+                  <>
+                    <div className="gate-token-preview">
+                      <div className="gate-token-preview-avatar">
+                        {holdersImagePreview || holdersMeme?.imageUrl || holdersToken.imageUrl ? (
+                          <img src={holdersImagePreview || holdersMeme?.imageUrl || holdersToken.imageUrl} alt="Token" className="w-full h-full object-cover" />
+                        ) : (
+                          <Bot className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="gate-token-preview-info space-y-2">
+                        <Input
+                          value={holdersToken.name}
+                          onChange={(e) => setHoldersToken({ ...holdersToken, name: e.target.value.slice(0, 32) })}
+                          className="gate-input h-8"
+                          placeholder="Token name"
+                          maxLength={32}
+                        />
+                        <div className="flex items-center gap-1">
+                          <span className="text-primary text-sm">$</span>
+                          <Input
+                            value={holdersToken.ticker}
+                            onChange={(e) => setHoldersToken({ ...holdersToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) })}
+                            className="gate-input h-7 w-28 font-mono"
+                            placeholder="TICKER"
+                            maxLength={10}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Textarea
+                      value={holdersToken.description}
+                      onChange={(e) => setHoldersToken({ ...holdersToken, description: e.target.value })}
+                      placeholder="Description (optional)"
+                      className="gate-input gate-textarea"
+                      maxLength={500}
+                    />
+
+                    {/* Social links - collapsible */}
+                    <details className="group">
+                      <summary className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                        <Globe className="h-3 w-3" />
+                        <span>Add Social Links (optional)</span>
+                      </summary>
+                      <div className="mt-2 space-y-2 pl-5">
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            placeholder="Website URL"
+                            value={holdersToken.websiteUrl || ""}
+                            onChange={(e) => setHoldersToken({ ...holdersToken, websiteUrl: e.target.value })}
+                            className="gate-input text-sm"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Twitter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            placeholder="X/Twitter URL"
+                            value={holdersToken.twitterUrl || ""}
+                            onChange={(e) => setHoldersToken({ ...holdersToken, twitterUrl: e.target.value })}
+                            className="gate-input text-sm"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            placeholder="Telegram URL"
+                            value={holdersToken.telegramUrl || ""}
+                            onChange={(e) => setHoldersToken({ ...holdersToken, telegramUrl: e.target.value })}
+                            className="gate-input text-sm"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            placeholder="Discord URL"
+                            value={holdersToken.discordUrl || ""}
+                            onChange={(e) => setHoldersToken({ ...holdersToken, discordUrl: e.target.value })}
+                            className="gate-input text-sm"
+                          />
+                        </div>
+                      </div>
+                    </details>
+
+                    <Input type="file" accept="image/*" onChange={handleHoldersImageChange} className="gate-input text-xs" />
+
+                    <Button
+                      onClick={handleHoldersLaunch}
+                      disabled={isPhantomLaunching || !holdersToken.name.trim() || !holdersToken.ticker.trim() || (!holdersImagePreview && !holdersMeme?.imageUrl && !holdersToken.imageUrl) || (phantomWallet.balance !== null && phantomWallet.balance < 0.02)}
+                      className="gate-btn gate-btn-primary w-full"
+                    >
+                      {isPhantomLaunching ? <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</> : <><Users className="h-4 w-4 mr-2" /> Launch Holder Rewards Token (~0.02 SOL)</>}
+                    </Button>
+
+                    {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Insufficient balance. Need at least 0.02 SOL.
+                      </p>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </div>
         )}
