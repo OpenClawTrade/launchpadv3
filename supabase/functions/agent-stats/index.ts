@@ -1,0 +1,104 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get aggregate stats for all agent-launched tokens
+    const { data: agentTokens, error: tokensError } = await supabase
+      .from("agent_tokens")
+      .select(`
+        id,
+        agent_id,
+        fun_token_id,
+        source_platform,
+        created_at,
+        fun_tokens (
+          id,
+          name,
+          ticker,
+          mint_address,
+          market_cap_sol,
+          volume_24h_sol,
+          price_change_24h,
+          image_url,
+          created_at
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (tokensError) {
+      throw new Error(`Failed to fetch agent tokens: ${tokensError.message}`);
+    }
+
+    // Get agent stats
+    const { data: agents, error: agentsError } = await supabase
+      .from("agents")
+      .select("id, name, total_fees_earned_sol, total_tokens_launched")
+      .eq("status", "active");
+
+    if (agentsError) {
+      throw new Error(`Failed to fetch agents: ${agentsError.message}`);
+    }
+
+    // Calculate totals
+    const totalTokensLaunched = agentTokens?.length || 0;
+    const totalAgentFeesEarned = agents?.reduce(
+      (sum, a) => sum + Number(a.total_fees_earned_sol || 0),
+      0
+    ) || 0;
+
+    const totalMarketCap = agentTokens?.reduce((sum, at) => {
+      const token = at.fun_tokens as any;
+      return sum + Number(token?.market_cap_sol || 0);
+    }, 0) || 0;
+
+    const totalVolume = agentTokens?.reduce((sum, at) => {
+      const token = at.fun_tokens as any;
+      return sum + Number(token?.volume_24h_sol || 0);
+    }, 0) || 0;
+
+    const totalAgents = agents?.length || 0;
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        stats: {
+          totalMarketCap,
+          totalAgentFeesEarned,
+          totalTokensLaunched,
+          totalVolume,
+          totalAgents,
+        },
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.error("agent-stats error:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      }
+    );
+  }
+});

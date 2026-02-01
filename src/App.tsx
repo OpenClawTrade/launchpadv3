@@ -25,6 +25,8 @@ const TradePage = lazy(() => import("./pages/TradePage"));
 const ApiDocsPage = lazy(() => import("./pages/ApiDocsPage"));
 const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
 const WidgetPage = lazy(() => import("./pages/WidgetPage"));
+const AgentsPage = lazy(() => import("./pages/AgentsPage"));
+const AgentDocsPage = lazy(() => import("./pages/AgentDocsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -79,6 +81,8 @@ const App = () => (
                     <Route path="/api" element={<ApiDashboardPage />} />
                     <Route path="/api/docs" element={<ApiDocsPage />} />
                     <Route path="/widget/:type" element={<WidgetPage />} />
+                    <Route path="/agents" element={<AgentsPage />} />
+                    <Route path="/agents/docs" element={<AgentDocsPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

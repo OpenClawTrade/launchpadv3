@@ -1,0 +1,60 @@
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
+
+const TUNA_TOKEN = {
+  name: "$TUNA",
+  description: "The TUNA platform token. Earn fees from all agent-launched tokens.",
+  mintAddress: "TUNAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", // Replace with actual
+  dexScreenerUrl: "https://dexscreener.com/solana/tuna",
+  solscanUrl: "https://solscan.io/token/tuna",
+};
+
+export function AgentPlatformToken() {
+  return (
+    <Card className="gate-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+      <div className="gate-card-body">
+        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
+          {/* Token Info */}
+          <div className="flex items-center gap-4">
+            <img
+              src="/tuna-logo.png"
+              alt="TUNA"
+              className="w-16 h-16 rounded-xl object-cover"
+            />
+            <div>
+              <h3 className="text-xl font-bold text-foreground">{TUNA_TOKEN.name}</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                {TUNA_TOKEN.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 md:ml-auto">
+            <a
+              href={TUNA_TOKEN.dexScreenerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ExternalLink className="h-4 w-4" />
+                DexScreener
+              </Button>
+            </a>
+            <a
+              href={TUNA_TOKEN.solscanUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ExternalLink className="h-4 w-4" />
+                Solscan
+              </Button>
+            </a>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
