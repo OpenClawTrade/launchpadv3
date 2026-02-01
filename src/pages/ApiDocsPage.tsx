@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const BASE_URL = "https://api.tuna.fun/v1";
+// API endpoints - edge functions hosted on Lovable Cloud
+const BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 const APP_URL = "https://tuna.fun";
 
 export default function ApiDocsPage() {
