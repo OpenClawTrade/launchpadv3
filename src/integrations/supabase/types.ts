@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      agents: {
+        Row: {
+          api_key_hash: string
+          api_key_prefix: string
+          created_at: string | null
+          id: string
+          last_launch_at: string | null
+          launches_today: number | null
+          name: string
+          status: string | null
+          total_fees_claimed_sol: number | null
+          total_fees_earned_sol: number | null
+          total_tokens_launched: number | null
+          updated_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          api_key_hash: string
+          api_key_prefix: string
+          created_at?: string | null
+          id?: string
+          last_launch_at?: string | null
+          launches_today?: number | null
+          name: string
+          status?: string | null
+          total_fees_claimed_sol?: number | null
+          total_fees_earned_sol?: number | null
+          total_tokens_launched?: number | null
+          updated_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          api_key_hash?: string
+          api_key_prefix?: string
+          created_at?: string | null
+          id?: string
+          last_launch_at?: string | null
+          launches_today?: number | null
+          name?: string
+          status?: string | null
+          total_fees_claimed_sol?: number | null
+          total_fees_earned_sol?: number | null
+          total_tokens_launched?: number | null
+          updated_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       api_accounts: {
         Row: {
           api_key_hash: string
