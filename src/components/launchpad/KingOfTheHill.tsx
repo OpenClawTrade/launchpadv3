@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Copy, CheckCircle, Users, Clock } from "lucide-react";
+import { Crown, Copy, CheckCircle, Users, Clock, Gem } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { useState, useMemo, useEffect } from "react";
@@ -61,6 +61,9 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   
   // Trading fee percentage (default 2%)
   const tradingFeePct = (token.trading_fee_bps ?? 200) / 100;
+  
+  // Check if token has holder rewards
+  const isHolderRewards = token.fee_mode === 'holders';
 
   const getRankStyles = (r: number) => {
     if (r === 1) return "border-primary/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-lg shadow-primary/10";
@@ -113,8 +116,9 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors">
+          <h3 className="font-bold text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1">
             {token.name}
+            {isHolderRewards && <span title="Holder Rewards"><Gem className="w-3 h-3 text-green-500 flex-shrink-0" /></span>}
           </h3>
           <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>
         </div>
