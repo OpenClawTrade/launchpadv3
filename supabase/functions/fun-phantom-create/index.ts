@@ -59,7 +59,7 @@ serve(async (req) => {
     // Rate limiting removed per user request
 
     const body = await req.json();
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps } = body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, feeMode } = body;
     
     // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
     const MIN_FEE_BPS = 10;
@@ -98,6 +98,10 @@ serve(async (req) => {
         }
       }
 
+      // Validate fee mode
+      const validFeeModes = ['creator', 'holder_rewards'];
+      const tokenFeeMode = validFeeModes.includes(feeMode) ? feeMode : 'creator';
+
       // Insert into fun_tokens after confirmation
       const { data: funToken, error: insertError } = await supabase
         .from("fun_tokens")
@@ -115,6 +119,7 @@ serve(async (req) => {
           twitter_url: twitterUrl || null,
           telegram_url: telegramUrl || null,
           discord_url: discordUrl || null,
+          fee_mode: tokenFeeMode,
         })
         .select()
         .single();
@@ -124,9 +129,17 @@ serve(async (req) => {
         throw new Error("Failed to create token record");
       }
 
-      // Rate limit recording removed
+      // If holder_rewards mode, initialize the pool
+      if (tokenFeeMode === 'holder_rewards') {
+        await supabase.from("holder_reward_pool").insert({
+          fun_token_id: funToken.id,
+          accumulated_sol: 0,
+        }).then(({ error }) => {
+          if (error) console.warn("[fun-phantom-create] Failed to init holder pool:", error.message);
+        });
+      }
 
-      console.log("[fun-phantom-create] ✅ Token recorded:", { id: funToken.id, name: funToken.name });
+      console.log("[fun-phantom-create] ✅ Token recorded:", { id: funToken.id, name: funToken.name, feeMode: tokenFeeMode });
       
       return new Response(
         JSON.stringify({

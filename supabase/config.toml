@@ -143,3 +143,6 @@ verify_jwt = false
 
 [functions.promote-post]
 verify_jwt = false
+
+[functions.fun-holder-distribute]
+verify_jwt = false

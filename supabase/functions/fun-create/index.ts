@@ -84,7 +84,7 @@ serve(async (req) => {
 
     console.log(`[fun-create][${VERSION}] Rate limit check passed`, { elapsed: Date.now() - startTime });
 
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet } = await req.json();
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet, feeMode } = await req.json();
 
     if (!name || !ticker || !creatorWallet) {
       return new Response(
@@ -218,6 +218,10 @@ serve(async (req) => {
       }
     }
 
+    // Validate fee mode
+    const validFeeModes = ['creator', 'holder_rewards'];
+    const tokenFeeMode = validFeeModes.includes(feeMode) ? feeMode : 'creator';
+
     if (!funTokenId) {
       const { data: inserted, error: insertErr } = await supabase
         .from("fun_tokens")
@@ -233,6 +237,7 @@ serve(async (req) => {
           price_sol: 0.00000003,
           website_url: websiteUrl || null,
           twitter_url: twitterUrl || null,
+          fee_mode: tokenFeeMode,
         })
         .select("id")
         .single();
@@ -242,6 +247,16 @@ serve(async (req) => {
         // We still return success because the on-chain launch succeeded.
       } else {
         funTokenId = inserted.id;
+        
+        // If holder_rewards mode, initialize the pool
+        if (tokenFeeMode === 'holder_rewards') {
+          await supabase.from("holder_reward_pool").insert({
+            fun_token_id: funTokenId,
+            accumulated_sol: 0,
+          }).then(({ error }) => {
+            if (error) console.warn(`[fun-create] Failed to init holder pool:`, error.message);
+          });
+        }
       }
     }
 

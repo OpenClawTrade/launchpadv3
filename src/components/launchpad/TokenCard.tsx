@@ -22,7 +22,7 @@ function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
 }
 
 interface TokenCardProps {
-  token: Token & { trading_fee_bps?: number };
+  token: Token & { trading_fee_bps?: number; fee_mode?: 'creator' | 'holder_rewards' };
 }
 
 export function TokenCard({ token }: TokenCardProps) {
@@ -33,6 +33,7 @@ export function TokenCard({ token }: TokenCardProps) {
   const isHot = token.volume_24h_sol > 1;
   const isNew = Date.now() - new Date(token.created_at).getTime() < 24 * 60 * 60 * 1000;
   const tradingFeePct = ((token as any).trading_fee_bps || 200) / 100; // Convert bps to %
+  const isHolderRewards = token.fee_mode === 'holder_rewards';
 
   return (
     <Link to={`/launchpad/${token.mint_address}`}>
@@ -95,6 +96,12 @@ export function TokenCard({ token }: TokenCardProps) {
               {isHot && !isGraduated && (
                 <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] px-1.5 py-0">
                   🔥 HOT
+                </Badge>
+              )}
+              {/* Holder Rewards badge */}
+              {isHolderRewards && (
+                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px] px-1.5 py-0">
+                  💎 HOLDER
                 </Badge>
               )}
               {/* Trading fee badge - show if not default 2% */}

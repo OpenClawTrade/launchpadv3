@@ -2,6 +2,7 @@ import { useState, lazy, Suspense, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +10,7 @@ import { useMeteoraApi } from "@/hooks/useMeteoraApi";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useLaunchRateLimit } from "@/hooks/useLaunchRateLimit";
-import { Loader2, ImageIcon, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { Loader2, ImageIcon, ChevronDown, ChevronUp, Clock, Users, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
@@ -61,11 +62,13 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
     telegramUrl: '',
     discordUrl: '',
     initialBuySol: 0,
+    feeMode: 'creator' as 'creator' | 'holder_rewards',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSocialLinks, setShowSocialLinks] = useState(false);
+  const [showFeeOptions, setShowFeeOptions] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,6 +198,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
           telegramUrl: formData.telegramUrl || undefined,
           discordUrl: formData.discordUrl || undefined,
           initialBuySol: formData.initialBuySol,
+          feeMode: formData.feeMode,
         },
         signTransaction // Pass signing function for on-chain creation
       );
@@ -332,6 +336,76 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
               onChange={(e) => setFormData({ ...formData, discordUrl: e.target.value })}
               className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
             />
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Fee Distribution Mode */}
+        <Collapsible open={showFeeOptions} onOpenChange={setShowFeeOptions}>
+          <CollapsibleTrigger className="flex items-center gap-2 mt-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+            Fee Distribution
+            {showFeeOptions ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 mt-3">
+            {/* Creator Rewards Option */}
+            <label 
+              className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all border-2 ${
+                formData.feeMode === 'creator' 
+                  ? "bg-primary/10 border-primary" 
+                  : "bg-secondary/30 border-transparent hover:bg-secondary/50"
+              }`}
+            >
+              <input 
+                type="radio" 
+                name="feeMode" 
+                value="creator" 
+                checked={formData.feeMode === 'creator'}
+                onChange={() => setFormData({ ...formData, feeMode: 'creator' })}
+                className="sr-only"
+              />
+              <div className="mt-0.5">
+                <Coins className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">Creator Rewards</div>
+                <div className="text-sm text-muted-foreground">
+                  You receive 50% of all trading fees directly
+                </div>
+              </div>
+            </label>
+            
+            {/* Holder Rewards Option */}
+            <label 
+              className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all border-2 ${
+                formData.feeMode === 'holder_rewards' 
+                  ? "bg-primary/10 border-primary" 
+                  : "bg-secondary/30 border-transparent hover:bg-secondary/50"
+              }`}
+            >
+              <input 
+                type="radio" 
+                name="feeMode" 
+                value="holder_rewards" 
+                checked={formData.feeMode === 'holder_rewards'}
+                onChange={() => setFormData({ ...formData, feeMode: 'holder_rewards' })}
+                className="sr-only"
+              />
+              <div className="mt-0.5">
+                <Users className="h-5 w-5 text-green-500" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium flex items-center gap-2">
+                  Holder Rewards 
+                  <Badge variant="secondary" className="bg-green-500/20 text-green-400 text-[10px]">NEW</Badge>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Top 50 holders (min 0.3% balance) split 50% of fees every 5 min
+                </div>
+              </div>
+            </label>
           </CollapsibleContent>
         </Collapsible>
       </div>

@@ -22,7 +22,9 @@ import {
   Twitter, 
   MessageCircle,
   RefreshCw,
-  ArrowLeft
+  ArrowLeft,
+  Users,
+  Timer
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -218,6 +220,11 @@ export default function FunTokenDetailPage() {
                     📈 Bonding
                   </Badge>
                 )}
+                {(token as any).fee_mode === 'holder_rewards' && (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                    💎 Holder Rewards
+                  </Badge>
+                )}
               </div>
 
               {/* Creator */}
@@ -329,6 +336,47 @@ export default function FunTokenDetailPage() {
                 🔴 Live from Meteora
               </p>
             )}
+          </Card>
+        )}
+
+        {/* Holder Rewards Info - Only for holder_rewards tokens */}
+        {(token as any).fee_mode === 'holder_rewards' && (
+          <Card className="gate-card p-4">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Users className="h-4 w-4 text-green-400" />
+              Holder Rewards
+              <Badge className="bg-green-500/20 text-green-400 text-[10px]">ACTIVE</Badge>
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-secondary/30 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1">
+                  <Timer className="h-3 w-3" />
+                  Distribution
+                </div>
+                <div className="text-lg font-bold text-green-400">Every 5 min</div>
+              </div>
+              <div className="bg-secondary/30 rounded-lg p-3">
+                <div className="text-muted-foreground text-xs mb-1">Min. Holding</div>
+                <div className="text-lg font-bold">0.3%</div>
+                <div className="text-xs text-muted-foreground">of supply</div>
+              </div>
+            </div>
+            
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                Top 50 holders share 50% of trading fees
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                Proportional to token balance
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                Automatic SOL payouts every 5 minutes
+              </p>
+            </div>
           </Card>
         )}
 
