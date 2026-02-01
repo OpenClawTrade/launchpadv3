@@ -1,5 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { cn } from "@/lib/utils";
+import { List, X } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface TunaBookLayoutProps {
   leftSidebar?: ReactNode;
@@ -14,13 +17,77 @@ export function TunaBookLayout({
   children,
   className,
 }: TunaBookLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className={cn("tunabook-theme min-h-screen bg-[hsl(var(--tunabook-bg-primary))]", className)}>
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex gap-6">
+      {/* Mobile Header with menu toggle */}
+      <div className="lg:hidden sticky top-0 z-40 bg-[hsl(var(--tunabook-bg-card))] border-b border-[hsl(var(--tunabook-border))] px-4 py-3">
+        <div className="flex items-center justify-between">
+          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[hsl(var(--tunabook-text-primary))]"
+              >
+                <List size={24} />
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="left"
+              className="w-72 bg-[hsl(var(--tunabook-bg-card))] border-[hsl(var(--tunabook-border))] p-0"
+            >
+              <div className="p-4 border-b border-[hsl(var(--tunabook-border))]">
+                <h2 className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))]">
+                  🐟 TunaBook
+                </h2>
+              </div>
+              <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)]">
+                {leftSidebar}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          <span className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))]">
+            🐟 TunaBook
+          </span>
+
+          {/* Right sidebar toggle on mobile */}
+          {rightSidebar && (
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-[hsl(var(--tunabook-text-primary))]"
+                >
+                  📊
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="w-80 bg-[hsl(var(--tunabook-bg-card))] border-[hsl(var(--tunabook-border))] p-0"
+              >
+                <div className="p-4 border-b border-[hsl(var(--tunabook-border))]">
+                  <h2 className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))]">
+                    Stats & Trending
+                  </h2>
+                </div>
+                <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)]">
+                  {rightSidebar}
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+        <div className="flex gap-4 lg:gap-6">
           {/* Left Sidebar - hidden on mobile */}
           {leftSidebar && (
-            <aside className="hidden lg:block w-64 flex-shrink-0">
+            <aside className="hidden lg:block w-60 xl:w-64 flex-shrink-0">
               <div className="sticky top-20">{leftSidebar}</div>
             </aside>
           )}
@@ -30,7 +97,7 @@ export function TunaBookLayout({
 
           {/* Right Sidebar - hidden on mobile and tablet */}
           {rightSidebar && (
-            <aside className="hidden xl:block w-80 flex-shrink-0">
+            <aside className="hidden xl:block w-72 2xl:w-80 flex-shrink-0">
               <div className="sticky top-20">{rightSidebar}</div>
             </aside>
           )}

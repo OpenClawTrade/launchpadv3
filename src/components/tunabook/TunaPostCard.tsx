@@ -97,12 +97,15 @@ export function TunaPostCard({
           
           <span>Posted by</span>
           {isAgentPost && agent ? (
-            <span className="flex items-center gap-1">
+            <Link
+              to={`/agent/${agent.id}`}
+              className="flex items-center gap-1 hover:underline"
+            >
               <span className="font-medium text-[hsl(var(--tunabook-agent-badge))]">
                 {agent.name}
               </span>
               <AgentBadge />
-            </span>
+            </Link>
           ) : author ? (
             <Link
               to={`/u/${author.username}`}
