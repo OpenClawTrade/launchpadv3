@@ -8,6 +8,7 @@ import { PrivyProviderWrapper } from "@/providers/PrivyProviderWrapper";
 import { ChainProvider } from "@/contexts/ChainContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
+import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
@@ -50,41 +51,43 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <RuntimeConfigBootstrap />
-    <PrivyProviderWrapper>
-      <ChainProvider>
-        <TooltipProvider delayDuration={300}>
-          <Toaster />
-          <Sonner />
-          <ErrorBoundary>
-            <BrowserRouter>
-              <Suspense fallback={<RouteLoader />}>
-                <Routes>
-                  <Route path="/" element={<FunLauncherPage />} />
-                  {/* Chain-specific launch routes */}
-                  <Route path="/launch" element={<Navigate to="/launch/solana" replace />} />
-                  <Route path="/launch/solana" element={<FunLauncherPage />} />
-                  <Route path="/launch/base" element={<FunLauncherPage />} />
-                  <Route path="/launch/ethereum" element={<FunLauncherPage />} />
-                  <Route path="/launch/bnb" element={<FunLauncherPage />} />
-                  <Route path="/launchpad/:mintAddress" element={<FunTokenDetailPage />} />
-                  <Route path="/trending" element={<TrendingPage />} />
-                  <Route path="/vanity-admin" element={<VanityAdminPage />} />
-                  <Route path="/site" element={<LaunchpadTemplatePage />} />
-                  <Route path="/admin/twitter" element={<TwitterBotAdminPage />} />
-                  <Route path="/admin/treasury" element={<TreasuryAdminPage />} />
-                  <Route path="/trade" element={<TradePage />} />
-                  <Route path="/investigate-token" element={<InvestigateTokenPage />} />
-                  <Route path="/api" element={<ApiDashboardPage />} />
-                  <Route path="/api/docs" element={<ApiDocsPage />} />
-                  <Route path="/widget/:type" element={<WidgetPage />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </ErrorBoundary>
-        </TooltipProvider>
-      </ChainProvider>
-    </PrivyProviderWrapper>
+    <EvmWalletProvider>
+      <PrivyProviderWrapper>
+        <ChainProvider>
+          <TooltipProvider delayDuration={300}>
+            <Toaster />
+            <Sonner />
+            <ErrorBoundary>
+              <BrowserRouter>
+                <Suspense fallback={<RouteLoader />}>
+                  <Routes>
+                    <Route path="/" element={<FunLauncherPage />} />
+                    {/* Chain-specific launch routes */}
+                    <Route path="/launch" element={<Navigate to="/launch/solana" replace />} />
+                    <Route path="/launch/solana" element={<FunLauncherPage />} />
+                    <Route path="/launch/base" element={<FunLauncherPage />} />
+                    <Route path="/launch/ethereum" element={<FunLauncherPage />} />
+                    <Route path="/launch/bnb" element={<FunLauncherPage />} />
+                    <Route path="/launchpad/:mintAddress" element={<FunTokenDetailPage />} />
+                    <Route path="/trending" element={<TrendingPage />} />
+                    <Route path="/vanity-admin" element={<VanityAdminPage />} />
+                    <Route path="/site" element={<LaunchpadTemplatePage />} />
+                    <Route path="/admin/twitter" element={<TwitterBotAdminPage />} />
+                    <Route path="/admin/treasury" element={<TreasuryAdminPage />} />
+                    <Route path="/trade" element={<TradePage />} />
+                    <Route path="/investigate-token" element={<InvestigateTokenPage />} />
+                    <Route path="/api" element={<ApiDashboardPage />} />
+                    <Route path="/api/docs" element={<ApiDocsPage />} />
+                    <Route path="/widget/:type" element={<WidgetPage />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </ErrorBoundary>
+          </TooltipProvider>
+        </ChainProvider>
+      </PrivyProviderWrapper>
+    </EvmWalletProvider>
   </QueryClientProvider>
 );
 

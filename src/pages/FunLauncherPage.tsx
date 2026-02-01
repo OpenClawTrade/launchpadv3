@@ -29,6 +29,7 @@ import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { PromoteButton } from "@/components/launchpad/PromoteButton";
 import { PromoteModal } from "@/components/launchpad/PromoteModal";
+import { BaseLauncher } from "@/components/launchpad/BaseLauncher";
 
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
@@ -271,8 +272,13 @@ export default function FunLauncherPage() {
 
       {/* Main Content */}
       <main className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
-        {/* Coming Soon State for non-Solana chains */}
-        {!isSolana && (
+        {/* Base Chain Launcher */}
+        {chain === 'base' && (
+          <BaseLauncher />
+        )}
+
+        {/* Coming Soon State for other non-Solana chains (not Base) */}
+        {!isSolana && chain !== 'base' && (
           <div className="text-center py-16 space-y-4">
             <div className="mx-auto w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
               <AlertCircle className="h-12 w-12 text-primary" />
