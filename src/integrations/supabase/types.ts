@@ -303,6 +303,79 @@ export type Database = {
           },
         ]
       }
+      base_buybacks: {
+        Row: {
+          created_at: string | null
+          eth_amount: number
+          fun_token_id: string | null
+          id: string
+          tokens_bought: number | null
+          tx_hash: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          eth_amount: number
+          fun_token_id?: string | null
+          id?: string
+          tokens_bought?: number | null
+          tx_hash?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          eth_amount?: number
+          fun_token_id?: string | null
+          id?: string
+          tokens_bought?: number | null
+          tx_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "base_buybacks_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      base_creator_claims: {
+        Row: {
+          claimed_at: string | null
+          claimed_eth: number
+          created_at: string | null
+          creator_wallet: string
+          fun_token_id: string | null
+          id: string
+          tx_hash: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_eth?: number
+          created_at?: string | null
+          creator_wallet: string
+          fun_token_id?: string | null
+          id?: string
+          tx_hash?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_eth?: number
+          created_at?: string | null
+          creator_wallet?: string
+          fun_token_id?: string | null
+          id?: string
+          tx_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "base_creator_claims_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookmarks: {
         Row: {
           created_at: string
@@ -1032,11 +1105,19 @@ export type Database = {
         Row: {
           api_account_id: string | null
           bonding_progress: number | null
+          chain: string | null
+          chain_id: number | null
           created_at: string | null
+          creator_fee_bps: number | null
           creator_wallet: string
           dbc_pool_address: string | null
           description: string | null
           discord_url: string | null
+          evm_factory_tx_hash: string | null
+          evm_pool_address: string | null
+          evm_token_address: string | null
+          fair_launch_duration_mins: number | null
+          fair_launch_ends_at: string | null
           fee_mode: string | null
           holder_count: number | null
           id: string
@@ -1048,6 +1129,7 @@ export type Database = {
           price_24h_ago: number | null
           price_change_24h: number | null
           price_sol: number | null
+          starting_mcap_usd: number | null
           status: string | null
           telegram_url: string | null
           ticker: string
@@ -1061,11 +1143,19 @@ export type Database = {
         Insert: {
           api_account_id?: string | null
           bonding_progress?: number | null
+          chain?: string | null
+          chain_id?: number | null
           created_at?: string | null
+          creator_fee_bps?: number | null
           creator_wallet: string
           dbc_pool_address?: string | null
           description?: string | null
           discord_url?: string | null
+          evm_factory_tx_hash?: string | null
+          evm_pool_address?: string | null
+          evm_token_address?: string | null
+          fair_launch_duration_mins?: number | null
+          fair_launch_ends_at?: string | null
           fee_mode?: string | null
           holder_count?: number | null
           id?: string
@@ -1077,6 +1167,7 @@ export type Database = {
           price_24h_ago?: number | null
           price_change_24h?: number | null
           price_sol?: number | null
+          starting_mcap_usd?: number | null
           status?: string | null
           telegram_url?: string | null
           ticker: string
@@ -1090,11 +1181,19 @@ export type Database = {
         Update: {
           api_account_id?: string | null
           bonding_progress?: number | null
+          chain?: string | null
+          chain_id?: number | null
           created_at?: string | null
+          creator_fee_bps?: number | null
           creator_wallet?: string
           dbc_pool_address?: string | null
           description?: string | null
           discord_url?: string | null
+          evm_factory_tx_hash?: string | null
+          evm_pool_address?: string | null
+          evm_token_address?: string | null
+          fair_launch_duration_mins?: number | null
+          fair_launch_ends_at?: string | null
           fee_mode?: string | null
           holder_count?: number | null
           id?: string
@@ -1106,6 +1205,7 @@ export type Database = {
           price_24h_ago?: number | null
           price_change_24h?: number | null
           price_sol?: number | null
+          starting_mcap_usd?: number | null
           status?: string | null
           telegram_url?: string | null
           ticker?: string
@@ -3143,6 +3243,24 @@ export type Database = {
         }
         Returns: string
       }
+      backend_create_base_token: {
+        Args: {
+          p_creator_fee_bps?: number
+          p_creator_wallet: string
+          p_description?: string
+          p_evm_factory_tx_hash: string
+          p_evm_pool_address: string
+          p_evm_token_address: string
+          p_fair_launch_duration_mins?: number
+          p_image_url?: string
+          p_name: string
+          p_starting_mcap_usd?: number
+          p_ticker: string
+          p_twitter_url?: string
+          p_website_url?: string
+        }
+        Returns: string
+      }
       backend_create_fee_earner: {
         Args: {
           p_earner_type: string
@@ -3300,6 +3418,24 @@ export type Database = {
       backend_mark_vanity_used: {
         Args: { p_keypair_id: string; p_token_id: string }
         Returns: undefined
+      }
+      backend_record_base_buyback: {
+        Args: {
+          p_eth_amount: number
+          p_fun_token_id: string
+          p_tokens_bought: number
+          p_tx_hash: string
+        }
+        Returns: string
+      }
+      backend_record_base_claim: {
+        Args: {
+          p_claimed_eth: number
+          p_creator_wallet: string
+          p_fun_token_id: string
+          p_tx_hash: string
+        }
+        Returns: string
       }
       backend_record_transaction: {
         Args: {

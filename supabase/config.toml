@@ -146,3 +146,15 @@ verify_jwt = false
 
 [functions.fun-holder-distribute]
 verify_jwt = false
+
+[functions.base-create-token]
+verify_jwt = false
+
+[functions.base-pool-state]
+verify_jwt = false
+
+[functions.base-claim-fees]
+verify_jwt = false
+
+[functions.base-eth-price]
+verify_jwt = false
