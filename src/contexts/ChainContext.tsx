@@ -32,7 +32,7 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     explorerUrl: 'https://basescan.org',
     chainId: 8453,
-    isEnabled: true,
+    isEnabled: false, // Coming soon - EVM launch infrastructure not yet implemented
   },
   ethereum: {
     id: 'ethereum',

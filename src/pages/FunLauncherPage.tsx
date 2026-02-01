@@ -17,6 +17,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useTokenPromotions } from "@/hooks/useTokenPromotions";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { useChainRoute } from "@/hooks/useChainRoute";
+import { useChain } from "@/contexts/ChainContext";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
 import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { StatsCards } from "@/components/launchpad/StatsCards";
@@ -77,6 +78,7 @@ export default function FunLauncherPage() {
   const isMobile = useIsMobile();
   const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
   const { chain, chainConfig, isSolana, isChainEnabled } = useChainRoute();
+  const { setChain } = useChain();
 
   // Pagination states
   const [claimsPage, setClaimsPage] = useState(1);
@@ -269,15 +271,37 @@ export default function FunLauncherPage() {
 
       {/* Main Content */}
       <main className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
-        {/* Stats Row */}
-        <StatsCards
-          totalTokens={tokens.length}
-          totalClaimed={totalClaimed}
-          totalPayouts={totalPayouts}
-          solPrice={solPrice}
-        />
+        {/* Coming Soon State for non-Solana chains */}
+        {!isSolana && (
+          <div className="text-center py-16 space-y-4">
+            <div className="mx-auto w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
+              <AlertCircle className="h-12 w-12 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold">{chainConfig.name} Coming Soon</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              We're working on bringing token launches to {chainConfig.name}. Switch to Solana to launch tokens now!
+            </p>
+            <Button 
+              onClick={() => setChain('solana')}
+              className="mt-4"
+            >
+              Switch to Solana
+            </Button>
+          </div>
+        )}
 
-        {/* Two Column Layout: Launcher + Content */}
+        {/* Stats Row - only show for Solana */}
+        {isSolana && (
+          <StatsCards
+            totalTokens={tokens.length}
+            totalClaimed={totalClaimed}
+            totalPayouts={totalPayouts}
+            solPrice={solPrice}
+          />
+        )}
+
+        {/* Two Column Layout: Launcher + Content - only show for Solana */}
+        {isSolana && (
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left: Token Launcher (Sticky on Desktop) */}
           <div className="lg:w-[360px] lg:flex-shrink-0">
@@ -680,6 +704,7 @@ export default function FunLauncherPage() {
             </Tabs>
           </div>
         </div>
+        )}
       </main>
 
       {/* Launch Result Modal */}
