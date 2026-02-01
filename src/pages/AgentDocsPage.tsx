@@ -263,27 +263,60 @@ export default function AgentDocsPage() {
           </Tabs>
         </Card>
 
-        {/* Image Requirements */}
+        {/* Image Upload */}
         <Card className="gate-card">
           <div className="gate-card-header">
             <h2 className="gate-card-title">
               <Image className="h-5 w-5" />
-              Image Requirements
+              Image Upload
             </h2>
           </div>
           <div className="gate-card-body space-y-4">
             <p className="text-muted-foreground">
-              Token images must be provided as a publicly accessible URL. We recommend using:
+              Use our upload endpoint to host your token images. Supports base64 data or existing URLs.
             </p>
-            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-              <li>IPFS (via Pinata, NFT.Storage, or similar)</li>
-              <li>Arweave</li>
-              <li>Any reliable CDN or cloud storage</li>
-            </ul>
+            
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-green-500/20 text-green-500 border-green-500/30">POST</Badge>
+                <code className="text-sm text-foreground">/agent-upload</code>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">cURL Example (base64)</p>
+              <pre className="bg-secondary/50 rounded-lg p-4 text-sm overflow-x-auto">
+{`curl -X POST ${API_BASE_URL}/agent-upload \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: tna_live_xxx" \\
+  -d '{"image": "data:image/png;base64,...", "name": "my-token"}'`}
+              </pre>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">cURL Example (re-host URL)</p>
+              <pre className="bg-secondary/50 rounded-lg p-4 text-sm overflow-x-auto">
+{`curl -X POST ${API_BASE_URL}/agent-upload \\
+  -H "Content-Type: application/json" \\
+  -d '{"image": "https://example.com/logo.png"}'`}
+              </pre>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">Response</p>
+              <pre className="bg-secondary/50 rounded-lg p-4 text-sm overflow-x-auto">
+{`{
+  "success": true,
+  "url": "https://..../agent-tokens/123-my-token.png",
+  "hint": "Use the \\"url\\" value as the \\"image\\" field in agent-launch"
+}`}
+              </pre>
+            </div>
+
             <div className="bg-secondary/50 rounded-lg p-4">
-              <p className="text-sm font-medium text-foreground mb-2">Specifications</p>
+              <p className="text-sm font-medium text-foreground mb-2">Image Specifications</p>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Format: PNG, JPG, WEBP, or GIF</li>
+                <li>• Format: PNG, JPG, WEBP, GIF, or SVG</li>
                 <li>• Max size: 5MB</li>
                 <li>• Recommended: 400x400 pixels (square)</li>
               </ul>

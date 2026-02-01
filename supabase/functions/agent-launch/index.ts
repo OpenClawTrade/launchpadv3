@@ -34,10 +34,56 @@ function isWithin24Hours(lastLaunchAt: string | null): boolean {
   return hoursDiff < 24;
 }
 
+// Send Telegram alert for new token launch
+async function sendTelegramAlert(token: {
+  name: string;
+  symbol: string;
+  mintAddress: string;
+  agentName: string;
+  imageUrl?: string;
+}) {
+  try {
+    const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const chatId = Deno.env.get("TELEGRAM_CHANNEL_ID");
+    
+    if (!botToken || !chatId) {
+      console.log("[agent-launch] Telegram not configured, skipping alert");
+      return;
+    }
+
+    const message = `🐟 <b>New Agent Token Launch!</b>
+
+<b>${token.name}</b> ($${token.symbol})
+👤 Launched by: <b>${token.agentName}</b>
+
+🔗 <a href="https://tuna.fun/launchpad/${token.mintAddress}">Trade on TUNA</a>
+🔍 <a href="https://solscan.io/token/${token.mintAddress}">View on Solscan</a>
+
+<i>Powered by TUNA Agents - Agents earn 80% of trading fees!</i>`;
+
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: "HTML",
+        disable_web_page_preview: false,
+      }),
+    });
+
+    console.log("[agent-launch] Telegram alert sent for", token.symbol);
+  } catch (error) {
+    console.error("[agent-launch] Failed to send Telegram alert:", error);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const startTime = Date.now();
 
   try {
     if (req.method !== "POST") {
@@ -74,9 +120,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!image || typeof image !== "string" || !image.startsWith("http")) {
+    if (!image || typeof image !== "string" || (!image.startsWith("http") && !image.startsWith("data:image"))) {
       return new Response(
-        JSON.stringify({ success: false, error: "Valid image URL is required" }),
+        JSON.stringify({ success: false, error: "Valid image URL or base64 data is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -84,10 +130,18 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const apiEncryptionKey = Deno.env.get("API_ENCRYPTION_KEY");
+    const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
 
     if (!apiEncryptionKey) {
       return new Response(
         JSON.stringify({ success: false, error: "Server configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!meteoraApiUrl) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Token creation service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -127,47 +181,125 @@ Deno.serve(async (req) => {
 
     console.log(`[agent-launch] Agent ${agent.name} launching token: ${name} (${symbol})`);
 
-    // Create the token in fun_tokens with agent attribution
-    const { data: token, error: tokenError } = await supabase
-      .from("fun_tokens")
-      .insert({
-        name: name.trim(),
-        ticker: symbol.trim().toUpperCase(),
-        description: description?.substring(0, 500) || null,
-        image_url: image,
-        website_url: website || null,
-        twitter_url: twitter || null,
-        telegram_url: telegram || null,
-        discord_url: discord || null,
-        creator_wallet: agent.wallet_address,
-        agent_id: agent.id,
-        agent_fee_share_bps: 8000, // 80% to agent
-        status: "pending", // Will be activated after on-chain creation
-        chain: "solana",
-      })
-      .select()
-      .single();
+    // Upload base64 image if provided
+    let storedImageUrl = image;
+    if (image?.startsWith("data:image")) {
+      console.log(`[agent-launch] Uploading base64 image...`);
+      try {
+        const base64Data = image.split(",")[1];
+        const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        const fileName = `agent-tokens/${Date.now()}-${symbol.toLowerCase()}.png`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, imageBuffer, { contentType: "image/png", upsert: true });
 
-    if (tokenError) {
-      console.error("[agent-launch] Failed to create token:", tokenError);
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from("post-images").getPublicUrl(fileName);
+          storedImageUrl = publicUrl;
+          console.log(`[agent-launch] Image uploaded: ${storedImageUrl}`);
+        } else {
+          console.log(`[agent-launch] Image upload failed:`, uploadError.message);
+        }
+      } catch (uploadErr) {
+        console.error(`[agent-launch] Image upload error:`, uploadErr);
+      }
+    }
+
+    // Call the Vercel API to create the token on-chain
+    console.log(`[agent-launch] Calling Vercel API to create on-chain token...`);
+    
+    const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.slice(0, 32),
+        ticker: symbol.toUpperCase().slice(0, 10),
+        description: description?.slice(0, 500) || `${name} - Launched by ${agent.name} via TUNA Agents`,
+        imageUrl: storedImageUrl,
+        websiteUrl: website || null,
+        twitterUrl: twitter || null,
+        serverSideSign: true,
+        feeRecipientWallet: agent.wallet_address,
+        useVanityAddress: true,
+      }),
+    });
+
+    const result = await vercelResponse.json();
+    console.log(`[agent-launch] Vercel response:`, { success: result.success, mintAddress: result.mintAddress, status: vercelResponse.status });
+
+    if (!vercelResponse.ok || !result.success) {
+      console.error(`[agent-launch] Token creation failed:`, result.error);
       return new Response(
-        JSON.stringify({ success: false, error: "Failed to create token record" }),
+        JSON.stringify({ success: false, error: result.error || "Token creation failed" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create agent_tokens link
-    const { error: linkError } = await supabase
-      .from("agent_tokens")
-      .insert({
-        agent_id: agent.id,
-        fun_token_id: token.id,
-        source_platform: sourcePlatform || "api",
-        source_post_url: sourcePostUrl || null,
-      });
+    const mintAddress = result.mintAddress as string;
+    const dbcPoolAddress = result.dbcPoolAddress as string | null;
 
-    if (linkError) {
-      console.error("[agent-launch] Failed to link agent token:", linkError);
+    // Insert or get the token record
+    let funTokenId: string | null = null;
+
+    const { data: existing } = await supabase
+      .from("fun_tokens")
+      .select("id")
+      .eq("mint_address", mintAddress)
+      .maybeSingle();
+
+    if (existing?.id) {
+      funTokenId = existing.id;
+      // Update with agent attribution
+      await supabase
+        .from("fun_tokens")
+        .update({
+          agent_id: agent.id,
+          agent_fee_share_bps: 8000,
+        })
+        .eq("id", funTokenId);
+    } else {
+      // Create new token with agent attribution
+      const { data: inserted, error: insertErr } = await supabase
+        .from("fun_tokens")
+        .insert({
+          name: name.slice(0, 50),
+          ticker: symbol.toUpperCase().slice(0, 10),
+          description: description?.slice(0, 500) || null,
+          image_url: storedImageUrl || null,
+          creator_wallet: agent.wallet_address,
+          mint_address: mintAddress,
+          dbc_pool_address: dbcPoolAddress,
+          status: "active",
+          price_sol: 0.00000003,
+          website_url: website || null,
+          twitter_url: twitter || null,
+          telegram_url: telegram || null,
+          discord_url: discord || null,
+          agent_id: agent.id,
+          agent_fee_share_bps: 8000,
+          chain: "solana",
+        })
+        .select("id")
+        .single();
+
+      if (insertErr) {
+        console.error("[agent-launch] DB insert failed:", insertErr.message);
+      } else {
+        funTokenId = inserted.id;
+      }
+    }
+
+    // Create agent_tokens link
+    if (funTokenId) {
+      await supabase
+        .from("agent_tokens")
+        .insert({
+          agent_id: agent.id,
+          fun_token_id: funTokenId,
+          source_platform: sourcePlatform || "api",
+          source_post_url: sourcePostUrl || null,
+        });
     }
 
     // Update agent stats
@@ -181,40 +313,26 @@ Deno.serve(async (req) => {
       })
       .eq("id", agent.id);
 
-    // Create a job for the backend to process the actual on-chain creation
-    const { data: job, error: jobError } = await supabase
-      .from("fun_token_jobs")
-      .insert({
-        name: name.trim(),
-        ticker: symbol.trim().toUpperCase(),
-        description: description?.substring(0, 500) || null,
-        image_url: image,
-        website_url: website || null,
-        twitter_url: twitter || null,
-        creator_wallet: agent.wallet_address,
-        fun_token_id: token.id,
-        status: "pending",
-      })
-      .select()
-      .single();
+    // Send Telegram alert (fire and forget)
+    sendTelegramAlert({
+      name,
+      symbol: symbol.toUpperCase(),
+      mintAddress,
+      agentName: agent.name,
+      imageUrl: storedImageUrl,
+    });
 
-    if (jobError) {
-      console.error("[agent-launch] Failed to create job:", jobError);
-    }
-
-    console.log(`[agent-launch] ✅ Token created: ${token.id} for agent ${agent.name}`);
+    console.log(`[agent-launch] ✅ Token created successfully: ${mintAddress} in ${Date.now() - startTime}ms`);
 
     return new Response(
       JSON.stringify({
         success: true,
         agent: agent.name,
-        tokenId: token.id,
-        jobId: job?.id,
-        name: token.name,
-        symbol: token.ticker,
-        status: "pending",
-        message: "Token is being created on-chain. Poll /agent-me or check the trade URL in ~30 seconds.",
-        tradeUrl: `https://tuna.fun/launchpad/${token.id}`,
+        tokenId: funTokenId,
+        mintAddress,
+        poolAddress: dbcPoolAddress,
+        tradeUrl: `https://tuna.fun/launchpad/${mintAddress}`,
+        solscanUrl: `https://solscan.io/token/${mintAddress}`,
         rewards: {
           agentShare: "80%",
           platformShare: "20%",
@@ -223,7 +341,7 @@ Deno.serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 202,
+        status: 201,
       }
     );
   } catch (error) {
