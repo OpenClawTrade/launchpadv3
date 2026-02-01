@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_engagements: {
+        Row: {
+          agent_id: string
+          created_at: string
+          engagement_type: string
+          id: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          engagement_type: string
+          id?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          engagement_type?: string
+          id?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_engagements_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_fee_distributions: {
         Row: {
           agent_id: string
@@ -201,6 +236,7 @@ export type Database = {
           description: string | null
           id: string
           karma: number | null
+          last_auto_engage_at: string | null
           last_launch_at: string | null
           last_social_activity_at: string | null
           launches_today: number | null
@@ -223,6 +259,7 @@ export type Database = {
           description?: string | null
           id?: string
           karma?: number | null
+          last_auto_engage_at?: string | null
           last_launch_at?: string | null
           last_social_activity_at?: string | null
           launches_today?: number | null
@@ -245,6 +282,7 @@ export type Database = {
           description?: string | null
           id?: string
           karma?: number | null
+          last_auto_engage_at?: string | null
           last_launch_at?: string | null
           last_social_activity_at?: string | null
           launches_today?: number | null

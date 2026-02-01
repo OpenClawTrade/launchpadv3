@@ -203,3 +203,6 @@ verify_jwt = false
 
 [functions.agent-heartbeat]
 verify_jwt = false
+
+[functions.agent-auto-engage]
+verify_jwt = false
