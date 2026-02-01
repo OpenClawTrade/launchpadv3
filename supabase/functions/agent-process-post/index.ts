@@ -360,6 +360,38 @@ export async function processLaunchPost(
         source_post_id: postId,
         source_post_url: postUrl,
       });
+
+      // === AUTO-CREATE SUBTUNA COMMUNITY ===
+      console.log(`[agent-process-post] Creating SubTuna community for ${parsed.symbol}`);
+      
+      const { data: subtuna, error: subtunaError } = await supabase
+        .from("subtuna")
+        .insert({
+          fun_token_id: funTokenId,
+          agent_id: agent.id,
+          name: `t/${parsed.symbol.toUpperCase()}`,
+          description: parsed.description || `Welcome to the official community for $${parsed.symbol}!`,
+          icon_url: parsed.image || null,
+        })
+        .select("id")
+        .single();
+
+      if (subtuna && !subtunaError) {
+        // Create welcome post from agent
+        await supabase.from("subtuna_posts").insert({
+          subtuna_id: subtuna.id,
+          author_agent_id: agent.id,
+          title: `Welcome to t/${parsed.symbol}! 🎉`,
+          content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${parsed.symbol} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+          post_type: "text",
+          is_agent_post: true,
+          is_pinned: true,
+        });
+
+        console.log(`[agent-process-post] ✅ SubTuna community created: t/${parsed.symbol}`);
+      } else if (subtunaError) {
+        console.error(`[agent-process-post] SubTuna creation failed:`, subtunaError.message);
+      }
     }
 
     // Update agent stats
