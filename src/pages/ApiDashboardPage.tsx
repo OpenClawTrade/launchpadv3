@@ -406,33 +406,190 @@ export default function ApiDashboardPage() {
     </header>
   );
 
-  // Not authenticated - show connect prompt
+  // Not authenticated - show public API info with connect option
   if (!isAuthenticated) {
     return (
       <div className="gate-theme dark min-h-screen">
         <ApiHeader />
-        <div className="flex items-center justify-center p-4 pt-20">
-          <Card className="max-w-md w-full gate-card">
-            <CardHeader className="text-center">
-              <Key className="w-12 h-12 mx-auto mb-4 text-primary" />
-              <CardTitle className="text-foreground">API Developer Dashboard</CardTitle>
-              <CardDescription>
-                Connect your wallet to access the API platform
-              </CardDescription>
+        <div className="max-w-6xl mx-auto p-4 pt-8 space-y-8">
+          {/* Hero Section */}
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold text-foreground">🐟 TUNA API Platform</h1>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Build your own token launchpad and earn 1% of every trade
+            </p>
+          </div>
+
+          {/* Key Features */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="gate-card">
+              <CardHeader className="pb-2">
+                <DollarSign className="w-8 h-8 text-primary mb-2" />
+                <CardTitle className="text-lg text-foreground">Earn Revenue</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Get 1% of all trading fees on tokens launched through your API or launchpad.
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="gate-card">
+              <CardHeader className="pb-2">
+                <Rocket className="w-8 h-8 text-primary mb-2" />
+                <CardTitle className="text-lg text-foreground">Quick Launch</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Launch tokens with a single API call. Fully on-chain via Meteora bonding curves.
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="gate-card">
+              <CardHeader className="pb-2">
+                <Activity className="w-8 h-8 text-primary mb-2" />
+                <CardTitle className="text-lg text-foreground">Full Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Track volume, fees earned, and claim payouts directly to your wallet.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Fee Structure */}
+          <Card className="gate-card">
+            <CardHeader>
+              <CardTitle className="text-foreground">Fee Structure</CardTitle>
+              <CardDescription>How revenue sharing works</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-center text-muted-foreground text-sm">
-                Build custom launchpads and earn 1% on every trade
-              </p>
-              <Button 
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                onClick={() => login()}
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                Connect Wallet
-              </Button>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 text-center">
+                  <p className="text-3xl font-bold text-primary">2%</p>
+                  <p className="text-sm text-muted-foreground">Total Trading Fee</p>
+                </div>
+                <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 text-center">
+                  <p className="text-3xl font-bold text-primary">1%</p>
+                  <p className="text-sm text-muted-foreground">Your Share</p>
+                </div>
+                <div className="bg-secondary/50 p-4 rounded-lg border border-border text-center">
+                  <p className="text-3xl font-bold text-muted-foreground">1%</p>
+                  <p className="text-sm text-muted-foreground">Platform Share</p>
+                </div>
+                <div className="bg-secondary/50 p-4 rounded-lg border border-border text-center">
+                  <p className="text-3xl font-bold text-muted-foreground">0.01</p>
+                  <p className="text-sm text-muted-foreground">SOL Min Claim</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
+
+          {/* Quick Links */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="gate-card">
+              <CardHeader>
+                <CardTitle className="text-foreground flex items-center gap-2">
+                  <Key className="w-5 h-5 text-primary" />
+                  Get Started
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Connect your wallet to create an API account and get your key instantly.
+                </p>
+                <Button 
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={() => login()}
+                >
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Connect Wallet to Start
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="gate-card">
+              <CardHeader>
+                <CardTitle className="text-foreground flex items-center gap-2">
+                  <ExternalLink className="w-5 h-5 text-primary" />
+                  Documentation
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Complete API documentation with examples in TypeScript, Python, and cURL.
+                </p>
+                <Link to="/api/docs">
+                  <Button variant="outline" className="w-full border-primary/30 text-primary hover:bg-primary/10">
+                    View Full Documentation →
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* API Endpoints Preview */}
+          <Card className="gate-card">
+            <CardHeader>
+              <CardTitle className="text-foreground">Available Endpoints</CardTitle>
+              <CardDescription>Core API capabilities</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+                  <Badge className="bg-primary text-primary-foreground">POST</Badge>
+                  <code className="text-sm text-foreground font-mono">/api-launch-token</code>
+                  <span className="text-sm text-muted-foreground">— Launch a new token with automatic pool creation</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+                  <Badge className="bg-primary text-primary-foreground">POST</Badge>
+                  <code className="text-sm text-foreground font-mono">/api-swap</code>
+                  <span className="text-sm text-muted-foreground">— Get swap quotes for trading</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+                  <Badge variant="secondary" className="bg-accent text-accent-foreground">GET</Badge>
+                  <code className="text-sm text-foreground font-mono">/api-swap/pools</code>
+                  <span className="text-sm text-muted-foreground">— List all active trading pools</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+                  <Badge variant="secondary" className="bg-accent text-accent-foreground">GET</Badge>
+                  <code className="text-sm text-foreground font-mono">/api-swap/pool</code>
+                  <span className="text-sm text-muted-foreground">— Get detailed pool information</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Leaderboard */}
+          <Card className="gate-card">
+            <CardHeader>
+              <CardTitle className="text-foreground flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-primary" />
+                Top API Integrators
+              </CardTitle>
+              <CardDescription>Developers earning the most from the API</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ApiLeaderboard />
+            </CardContent>
+          </Card>
+
+          {/* CTA */}
+          <div className="text-center py-8">
+            <Button 
+              size="lg"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-8"
+              onClick={() => login()}
+            >
+              <Wallet className="w-5 h-5 mr-2" />
+              Create Your API Account
+            </Button>
+            <p className="text-sm text-muted-foreground mt-3">
+              Free to create • Start earning immediately
+            </p>
+          </div>
         </div>
       </div>
     );
