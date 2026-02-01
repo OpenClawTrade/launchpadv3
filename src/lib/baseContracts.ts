@@ -1,7 +1,7 @@
-// Contract ABIs for Base chain integration
-// These are simplified ABIs for frontend interaction
+// Contract ABIs for Base chain integration - Consolidated TunaLaunchpad
+// All functionality in single contract for simpler deployment
 
-export const TUNA_FACTORY_ABI = [
+export const TUNA_LAUNCHPAD_ABI = [
   // Read functions
   {
     name: 'tokenCount',
@@ -18,22 +18,6 @@ export const TUNA_FACTORY_ABI = [
     outputs: [{ type: 'uint256' }],
   },
   {
-    name: 'tokens',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    outputs: [
-      { name: 'tokenAddress', type: 'address' },
-      { name: 'poolAddress', type: 'address' },
-      { name: 'creator', type: 'address' },
-      { name: 'creatorFeeBps', type: 'uint256' },
-      { name: 'fairLaunchEnd', type: 'uint256' },
-      { name: 'fairLaunchPrice', type: 'uint256' },
-      { name: 'totalFeesEarned', type: 'uint256' },
-      { name: 'isActive', type: 'bool' },
-    ],
-  },
-  {
     name: 'getTokenInfo',
     type: 'function',
     stateMutability: 'view',
@@ -45,10 +29,15 @@ export const TUNA_FACTORY_ABI = [
           { name: 'tokenAddress', type: 'address' },
           { name: 'poolAddress', type: 'address' },
           { name: 'creator', type: 'address' },
+          { name: 'name', type: 'string' },
+          { name: 'symbol', type: 'string' },
+          { name: 'imageUrl', type: 'string' },
           { name: 'creatorFeeBps', type: 'uint256' },
           { name: 'fairLaunchEnd', type: 'uint256' },
-          { name: 'fairLaunchPrice', type: 'uint256' },
           { name: 'totalFeesEarned', type: 'uint256' },
+          { name: 'creatorFeesPending', type: 'uint256' },
+          { name: 'buybackPool', type: 'uint256' },
+          { name: 'lpTokenId', type: 'uint256' },
           { name: 'isActive', type: 'bool' },
         ],
       },
@@ -69,6 +58,23 @@ export const TUNA_FACTORY_ABI = [
     outputs: [{ type: 'uint256' }],
   },
   {
+    name: 'getBuybackPool',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'getFairLaunchAllowance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'tokenId', type: 'uint256' },
+      { name: 'wallet', type: 'address' },
+    ],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
     name: 'ownerOf',
     type: 'function',
     stateMutability: 'view',
@@ -83,10 +89,10 @@ export const TUNA_FACTORY_ABI = [
     inputs: [
       { name: 'name', type: 'string' },
       { name: 'symbol', type: 'string' },
-      { name: 'description', type: 'string' },
       { name: 'imageUrl', type: 'string' },
       { name: 'creatorFeeBps', type: 'uint256' },
-      { name: 'fairLaunchDuration', type: 'uint256' },
+      { name: 'fairLaunchMins', type: 'uint256' },
+      { name: 'maxBuyEth', type: 'uint256' },
     ],
     outputs: [{ name: 'tokenId', type: 'uint256' }],
   },
@@ -98,10 +104,20 @@ export const TUNA_FACTORY_ABI = [
     outputs: [],
   },
   {
-    name: 'claimFees',
+    name: 'claimCreatorFees',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    name: 'executeBuyback',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'tokenId', type: 'uint256' },
+      { name: 'minTokensOut', type: 'uint256' },
+    ],
     outputs: [],
   },
   // Events
@@ -115,7 +131,6 @@ export const TUNA_FACTORY_ABI = [
       { name: 'name', type: 'string', indexed: false },
       { name: 'symbol', type: 'string', indexed: false },
       { name: 'creatorFeeBps', type: 'uint256', indexed: false },
-      { name: 'fairLaunchDuration', type: 'uint256', indexed: false },
     ],
   },
   {
@@ -124,7 +139,8 @@ export const TUNA_FACTORY_ABI = [
     inputs: [
       { name: 'tokenId', type: 'uint256', indexed: true },
       { name: 'poolAddress', type: 'address', indexed: true },
-      { name: 'initialLiquidity', type: 'uint256', indexed: false },
+      { name: 'lpTokenId', type: 'uint256', indexed: false },
+      { name: 'initialEth', type: 'uint256', indexed: false },
     ],
   },
   {
@@ -132,77 +148,32 @@ export const TUNA_FACTORY_ABI = [
     type: 'event',
     inputs: [
       { name: 'tokenId', type: 'uint256', indexed: true },
-      { name: 'creator', type: 'address', indexed: true },
+      { name: 'recipient', type: 'address', indexed: true },
       { name: 'amount', type: 'uint256', indexed: false },
     ],
   },
-] as const;
-
-export const TUNA_FEE_VAULT_ABI = [
   {
-    name: 'getBalance',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    outputs: [{ type: 'uint256' }],
-  },
-  {
-    name: 'getTotalClaimed',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    outputs: [{ type: 'uint256' }],
-  },
-] as const;
-
-export const TUNA_BID_WALL_ABI = [
-  {
-    name: 'getAccumulatedEth',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    outputs: [{ type: 'uint256' }],
-  },
-  {
-    name: 'getBuybackStats',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    outputs: [
-      { name: 'accumulated', type: 'uint256' },
-      { name: 'bought', type: 'uint256' },
-      { name: 'burned', type: 'uint256' },
-      { name: 'count', type: 'uint256' },
+    name: 'BuybackExecuted',
+    type: 'event',
+    inputs: [
+      { name: 'tokenId', type: 'uint256', indexed: true },
+      { name: 'ethSpent', type: 'uint256', indexed: false },
+      { name: 'tokensBought', type: 'uint256', indexed: false },
+      { name: 'tokensBurned', type: 'uint256', indexed: false },
     ],
-  },
-  {
-    name: 'canTriggerBuyback',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    outputs: [{ type: 'bool' }],
-  },
-  {
-    name: 'triggerBuyback',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    outputs: [],
   },
 ] as const;
 
 // Contract addresses on Base (to be updated after deployment)
 export const BASE_CONTRACTS = {
-  FACTORY: '0x0000000000000000000000000000000000000000', // Deploy and update
-  FEE_VAULT: '0x0000000000000000000000000000000000000000',
-  BID_WALL: '0x0000000000000000000000000000000000000000',
-  FAIR_LAUNCH: '0x0000000000000000000000000000000000000000',
-  SWAP_HOOK: '0x0000000000000000000000000000000000000000',
+  // Single consolidated contract
+  TUNA_LAUNCHPAD: '0x0000000000000000000000000000000000000000', // Deploy and update
 } as const;
 
-// Uniswap V3/V4 addresses on Base
-export const BASE_UNISWAP = {
-  V3_ROUTER: '0x2626664c2603336E57B271c5C0b26F421741e481',
-  V4_POOL_MANAGER: '0x498581fF718922c3f8e6A244956aF099B2652b2b', // Same as Flaunch uses
+// Standard addresses on Base mainnet
+export const BASE_ADDRESSES = {
   WETH: '0x4200000000000000000000000000000000000006',
+  UNISWAP_V3_FACTORY: '0x33128a8fC17869897dcE68Ed026d694621f6FDfD',
+  UNISWAP_V3_ROUTER: '0x2626664c2603336E57B271c5C0b26F421741e481',
+  UNISWAP_POSITION_MANAGER: '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1',
 } as const;
