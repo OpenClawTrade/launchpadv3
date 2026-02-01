@@ -9,11 +9,22 @@
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Phase 1: EVM Wallet Integration | ✅ Complete | wagmi, viem, rainbowkit installed; EvmWalletProvider, useEvmWallet hook created |
-| Phase 2: Smart Contracts | ⏳ Pending | Requires external Solidity development & deployment |
+| Phase 2: Smart Contracts | ✅ Complete | TunaFactory, TunaToken, TunaFeeVault, TunaBidWall, TunaFairLaunch, TunaSwapHook drafted |
 | Phase 3: Database Schema | ✅ Complete | Multi-chain columns added to fun_tokens; base_creator_claims, base_buybacks tables created |
 | Phase 4: Edge Functions | ✅ Complete | base-create-token, base-pool-state, base-claim-fees, base-eth-price deployed |
 | Phase 5: Base Launch UI | ✅ Complete | BaseLauncher, FeeSlider, EvmWalletCard components created |
-| Phase 6: Buyback Engine | ⏳ Pending | Requires on-chain contract |
+| Phase 6: Contract Deployment | ⏳ Pending | Deploy contracts to Base mainnet, update addresses in src/lib/baseContracts.ts |
+
+## Contract Files Created
+
+| Contract | Purpose | Location |
+|----------|---------|----------|
+| TunaFactory.sol | Main factory, NFT minting, token lifecycle | contracts/TunaFactory.sol |
+| TunaToken.sol | ERC20 token template with burn | contracts/TunaToken.sol |
+| TunaFeeVault.sol | Creator fee accumulation & claims | contracts/TunaFeeVault.sol |
+| TunaBidWall.sol | Auto-buyback engine (like Flaunch BidWall) | contracts/TunaBidWall.sol |
+| TunaFairLaunch.sol | Fixed price launch period | contracts/TunaFairLaunch.sol |
+| TunaSwapHook.sol | Uniswap V4 fee collection hook | contracts/TunaSwapHook.sol |
 
 ---
 
