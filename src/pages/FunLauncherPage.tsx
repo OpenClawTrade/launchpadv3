@@ -191,6 +191,11 @@ export default function FunLauncherPage() {
                 API
               </Button>
             </Link>
+            <Link to="/agents">
+              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium">
+                TUNA Agents
+              </Button>
+            </Link>
             
             {/* Visitors Online */}
             <div className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-secondary/50 border border-border">
@@ -236,6 +241,9 @@ export default function FunLauncherPage() {
                   </Link>
                   <Link to="/api" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-foreground text-sm font-medium">API</span>
+                  </Link>
+                  <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <span className="text-foreground text-sm font-medium">TUNA Agents</span>
                   </Link>
                 </nav>
               </SheetContent>

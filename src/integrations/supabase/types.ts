@@ -14,6 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_fee_distributions: {
+        Row: {
+          agent_id: string
+          amount_sol: number
+          completed_at: string | null
+          created_at: string | null
+          fun_token_id: string
+          id: string
+          signature: string | null
+          status: string | null
+        }
+        Insert: {
+          agent_id: string
+          amount_sol: number
+          completed_at?: string | null
+          created_at?: string | null
+          fun_token_id: string
+          id?: string
+          signature?: string | null
+          status?: string | null
+        }
+        Update: {
+          agent_id?: string
+          amount_sol?: number
+          completed_at?: string | null
+          created_at?: string | null
+          fun_token_id?: string
+          id?: string
+          signature?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_fee_distributions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_fee_distributions_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_tokens: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          fun_token_id: string
+          id: string
+          source_platform: string | null
+          source_post_id: string | null
+          source_post_url: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          fun_token_id: string
+          id?: string
+          source_platform?: string | null
+          source_post_id?: string | null
+          source_post_url?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          fun_token_id?: string
+          id?: string
+          source_platform?: string | null
+          source_post_id?: string | null
+          source_post_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tokens_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tokens_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agents: {
         Row: {
           api_key_hash: string
@@ -1151,6 +1244,8 @@ export type Database = {
       }
       fun_tokens: {
         Row: {
+          agent_fee_share_bps: number | null
+          agent_id: string | null
           api_account_id: string | null
           bonding_progress: number | null
           chain: string | null
@@ -1189,6 +1284,8 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          agent_fee_share_bps?: number | null
+          agent_id?: string | null
           api_account_id?: string | null
           bonding_progress?: number | null
           chain?: string | null
@@ -1227,6 +1324,8 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          agent_fee_share_bps?: number | null
+          agent_id?: string | null
           api_account_id?: string | null
           bonding_progress?: number | null
           chain?: string | null
@@ -1265,6 +1364,13 @@ export type Database = {
           website_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fun_tokens_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fun_tokens_api_account_id_fkey"
             columns: ["api_account_id"]
