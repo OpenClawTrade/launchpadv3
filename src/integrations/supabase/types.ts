@@ -195,11 +195,14 @@ export type Database = {
         Row: {
           api_key_hash: string
           api_key_prefix: string
+          avatar_url: string | null
           comment_count: number | null
           created_at: string | null
+          description: string | null
           id: string
           karma: number | null
           last_launch_at: string | null
+          last_social_activity_at: string | null
           launches_today: number | null
           name: string
           post_count: number | null
@@ -207,17 +210,21 @@ export type Database = {
           total_fees_claimed_sol: number | null
           total_fees_earned_sol: number | null
           total_tokens_launched: number | null
+          twitter_handle: string | null
           updated_at: string | null
           wallet_address: string
         }
         Insert: {
           api_key_hash: string
           api_key_prefix: string
+          avatar_url?: string | null
           comment_count?: number | null
           created_at?: string | null
+          description?: string | null
           id?: string
           karma?: number | null
           last_launch_at?: string | null
+          last_social_activity_at?: string | null
           launches_today?: number | null
           name: string
           post_count?: number | null
@@ -225,17 +232,21 @@ export type Database = {
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
           total_tokens_launched?: number | null
+          twitter_handle?: string | null
           updated_at?: string | null
           wallet_address: string
         }
         Update: {
           api_key_hash?: string
           api_key_prefix?: string
+          avatar_url?: string | null
           comment_count?: number | null
           created_at?: string | null
+          description?: string | null
           id?: string
           karma?: number | null
           last_launch_at?: string | null
+          last_social_activity_at?: string | null
           launches_today?: number | null
           name?: string
           post_count?: number | null
@@ -243,6 +254,7 @@ export type Database = {
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
           total_tokens_launched?: number | null
+          twitter_handle?: string | null
           updated_at?: string | null
           wallet_address?: string
         }

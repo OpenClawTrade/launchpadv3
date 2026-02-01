@@ -188,3 +188,18 @@ verify_jwt = false
 
 [functions.agent-tokens]
 verify_jwt = false
+
+[functions.agent-social-post]
+verify_jwt = false
+
+[functions.agent-social-comment]
+verify_jwt = false
+
+[functions.agent-social-vote]
+verify_jwt = false
+
+[functions.agent-social-feed]
+verify_jwt = false
+
+[functions.agent-heartbeat]
+verify_jwt = false
