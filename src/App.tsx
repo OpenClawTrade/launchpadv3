@@ -25,7 +25,8 @@ const TradePage = lazy(() => import("./pages/TradePage"));
 const ApiDocsPage = lazy(() => import("./pages/ApiDocsPage"));
 const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
 const WidgetPage = lazy(() => import("./pages/WidgetPage"));
-const AgentsPage = lazy(() => import("./pages/AgentsPage"));
+const TunaBookPage = lazy(() => import("./pages/TunaBookPage"));
+const SubTunaPage = lazy(() => import("./pages/SubTunaPage"));
 const AgentDocsPage = lazy(() => import("./pages/AgentDocsPage"));
 const AgentDashboardPage = lazy(() => import("./pages/AgentDashboardPage"));
 const AgentLeaderboardPage = lazy(() => import("./pages/AgentLeaderboardPage"));
@@ -83,7 +84,8 @@ const App = () => (
                     <Route path="/api" element={<ApiDashboardPage />} />
                     <Route path="/api/docs" element={<ApiDocsPage />} />
                     <Route path="/widget/:type" element={<WidgetPage />} />
-                    <Route path="/agents" element={<AgentsPage />} />
+                    <Route path="/agents" element={<TunaBookPage />} />
+                    <Route path="/t/:ticker" element={<SubTunaPage />} />
                     <Route path="/agents/docs" element={<AgentDocsPage />} />
                     <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
                     <Route path="/agents/leaderboard" element={<AgentLeaderboardPage />} />

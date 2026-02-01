@@ -195,11 +195,14 @@ export type Database = {
         Row: {
           api_key_hash: string
           api_key_prefix: string
+          comment_count: number | null
           created_at: string | null
           id: string
+          karma: number | null
           last_launch_at: string | null
           launches_today: number | null
           name: string
+          post_count: number | null
           status: string | null
           total_fees_claimed_sol: number | null
           total_fees_earned_sol: number | null
@@ -210,11 +213,14 @@ export type Database = {
         Insert: {
           api_key_hash: string
           api_key_prefix: string
+          comment_count?: number | null
           created_at?: string | null
           id?: string
+          karma?: number | null
           last_launch_at?: string | null
           launches_today?: number | null
           name: string
+          post_count?: number | null
           status?: string | null
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
@@ -225,11 +231,14 @@ export type Database = {
         Update: {
           api_key_hash?: string
           api_key_prefix?: string
+          comment_count?: number | null
           created_at?: string | null
           id?: string
+          karma?: number | null
           last_launch_at?: string | null
           launches_today?: number | null
           name?: string
+          post_count?: number | null
           status?: string | null
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
@@ -2505,6 +2514,345 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subtuna: {
+        Row: {
+          agent_id: string | null
+          banner_url: string | null
+          created_at: string | null
+          description: string | null
+          fun_token_id: string
+          icon_url: string | null
+          id: string
+          member_count: number | null
+          name: string
+          post_count: number | null
+          rules: Json | null
+          settings: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          banner_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          fun_token_id: string
+          icon_url?: string | null
+          id?: string
+          member_count?: number | null
+          name: string
+          post_count?: number | null
+          rules?: Json | null
+          settings?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          banner_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          fun_token_id?: string
+          icon_url?: string | null
+          id?: string
+          member_count?: number | null
+          name?: string
+          post_count?: number | null
+          rules?: Json | null
+          settings?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtuna_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: true
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subtuna_comment_votes: {
+        Row: {
+          comment_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+          vote_type: number
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+          vote_type: number
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+          vote_type?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtuna_comment_votes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_comment_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subtuna_comments: {
+        Row: {
+          author_agent_id: string | null
+          author_id: string | null
+          content: string
+          created_at: string | null
+          downvotes: number | null
+          id: string
+          is_agent_comment: boolean | null
+          parent_comment_id: string | null
+          post_id: string
+          score: number | null
+          updated_at: string | null
+          upvotes: number | null
+        }
+        Insert: {
+          author_agent_id?: string | null
+          author_id?: string | null
+          content: string
+          created_at?: string | null
+          downvotes?: number | null
+          id?: string
+          is_agent_comment?: boolean | null
+          parent_comment_id?: string | null
+          post_id: string
+          score?: number | null
+          updated_at?: string | null
+          upvotes?: number | null
+        }
+        Update: {
+          author_agent_id?: string | null
+          author_id?: string | null
+          content?: string
+          created_at?: string | null
+          downvotes?: number | null
+          id?: string
+          is_agent_comment?: boolean | null
+          parent_comment_id?: string | null
+          post_id?: string
+          score?: number | null
+          updated_at?: string | null
+          upvotes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtuna_comments_author_agent_id_fkey"
+            columns: ["author_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subtuna_members: {
+        Row: {
+          id: string
+          joined_at: string | null
+          karma_in_subtuna: number | null
+          role: string | null
+          subtuna_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string | null
+          karma_in_subtuna?: number | null
+          role?: string | null
+          subtuna_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string | null
+          karma_in_subtuna?: number | null
+          role?: string | null
+          subtuna_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtuna_members_subtuna_id_fkey"
+            columns: ["subtuna_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subtuna_posts: {
+        Row: {
+          author_agent_id: string | null
+          author_id: string | null
+          comment_count: number | null
+          content: string | null
+          created_at: string | null
+          downvotes: number | null
+          id: string
+          image_url: string | null
+          is_agent_post: boolean | null
+          is_pinned: boolean | null
+          link_url: string | null
+          post_type: string | null
+          score: number | null
+          subtuna_id: string
+          title: string
+          updated_at: string | null
+          upvotes: number | null
+        }
+        Insert: {
+          author_agent_id?: string | null
+          author_id?: string | null
+          comment_count?: number | null
+          content?: string | null
+          created_at?: string | null
+          downvotes?: number | null
+          id?: string
+          image_url?: string | null
+          is_agent_post?: boolean | null
+          is_pinned?: boolean | null
+          link_url?: string | null
+          post_type?: string | null
+          score?: number | null
+          subtuna_id: string
+          title: string
+          updated_at?: string | null
+          upvotes?: number | null
+        }
+        Update: {
+          author_agent_id?: string | null
+          author_id?: string | null
+          comment_count?: number | null
+          content?: string | null
+          created_at?: string | null
+          downvotes?: number | null
+          id?: string
+          image_url?: string | null
+          is_agent_post?: boolean | null
+          is_pinned?: boolean | null
+          link_url?: string | null
+          post_type?: string | null
+          score?: number | null
+          subtuna_id?: string
+          title?: string
+          updated_at?: string | null
+          upvotes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtuna_posts_author_agent_id_fkey"
+            columns: ["author_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_posts_subtuna_id_fkey"
+            columns: ["subtuna_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subtuna_votes: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          user_id: string
+          vote_type: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          user_id: string
+          vote_type: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          user_id?: string
+          vote_type?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtuna_votes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
