@@ -98,7 +98,11 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                 {token.name}
                 {isNearGraduation && <Flame className="h-3 w-3 text-orange-500 flex-shrink-0" />}
                 {isPromoted && <Crown className="h-3 w-3 text-warning flex-shrink-0" />}
-                {isHolderRewards && <span title="Holder Rewards"><Gem className="h-3 w-3 text-green-500 flex-shrink-0" /></span>}
+                {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
+                  <span title="Holder Rewards" aria-label="Holder Rewards">
+                    <Gem className="h-3 w-3 text-accent flex-shrink-0" />
+                  </span>
+                )}
               </span>
               <span className="text-xs text-muted-foreground">${token.ticker}</span>
             </div>
@@ -216,7 +220,16 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                             {token.image_url ? <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">{token.ticker?.slice(0, 2)}</div>}
                           </div>
                           <div className="gate-token-info">
-                            <span className="gate-token-name flex items-center gap-1">{token.name}{isNearGraduation && <Flame className="h-3 w-3 text-orange-500" />}{isPromoted && <Crown className="h-3 w-3 text-warning" />}{isHolderRewards && <span title="Holder Rewards"><Gem className="h-3 w-3 text-green-500" /></span>}</span>
+                            <span className="gate-token-name flex items-center gap-1">
+                              {token.name}
+                              {isNearGraduation && <Flame className="h-3 w-3 text-orange-500" />}
+                              {isPromoted && <Crown className="h-3 w-3 text-warning" />}
+                              {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
+                                <span title="Holder Rewards" aria-label="Holder Rewards">
+                                  <Gem className="h-3 w-3 text-accent" />
+                                </span>
+                              )}
+                            </span>
                             <span className="gate-token-ticker">${token.ticker}</span>
                           </div>
                         </Link>
