@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBannerGenerator } from "@/hooks/useBannerGenerator";
@@ -29,7 +31,8 @@ import {
   Pencil,
   Bot,
   Coins,
-  Users
+  Users,
+  Loader2
 } from "lucide-react";
 
 interface MemeToken {
@@ -495,7 +498,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     setPhantomImagePreview(URL.createObjectURL(file));
   }, [toast]);
 
-  const handlePhantomLaunch = useCallback(async () => {
+  const handlePhantomLaunch = useCallback(async (feeMode?: 'standard' | 'holders') => {
     if (!phantomWallet.isConnected || !phantomWallet.address) {
       toast({ title: "Wallet not connected", description: "Connect Phantom first", variant: "destructive" });
       return;
@@ -525,6 +528,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           discordUrl: phantomToken.discordUrl || "",
           phantomWallet: phantomWallet.address,
           tradingFeeBps: phantomTradingFee,
+          feeMode: feeMode || 'standard',
           // Server will use pre-generated vanity addresses from pool
         },
       });
@@ -1187,7 +1191,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
 
 
                     <Button
-                      onClick={handlePhantomLaunch}
+                      onClick={() => handlePhantomLaunch()}
                       disabled={isPhantomLaunching || !phantomToken.name.trim() || !phantomToken.ticker.trim() || (!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl) || (phantomWallet.balance !== null && phantomWallet.balance < 0.02)}
                       className="gate-btn gate-btn-primary w-full"
                     >
@@ -1228,7 +1232,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           </div>
         )}
 
-        {/* Holders Mode */}
+        {/* Holders Mode - Uses Phantom wallet with holders fee distribution */}
         {generatorMode === "holders" && (
           <div className="space-y-4">
             <div className="p-4 rounded-lg border border-primary/30 bg-primary/5">
@@ -1258,19 +1262,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
               </div>
             </div>
 
-            <div className="p-3 rounded-lg border border-warning/30 bg-warning/5">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
-                <div className="text-xs">
-                  <p className="font-semibold text-warning mb-1">Coming Soon</p>
-                  <p className="text-muted-foreground">
-                    Holder reward distribution requires Phantom wallet integration. 
-                    This feature is currently in development.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="p-3 rounded-lg border border-border bg-muted/30">
               <div className="flex items-center gap-2 mb-2">
                 <Coins className="h-4 w-4 text-primary" />
@@ -1292,10 +1283,144 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
               </div>
             </div>
 
-            <Button disabled className="gate-btn gate-btn-primary w-full opacity-50">
-              <Users className="h-4 w-4 mr-2" />
-              Launch Holder Rewards Token (Soon)
-            </Button>
+            {/* Token Details Form - Same as Phantom mode */}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Token Name *</Label>
+                <Input
+                  value={phantomToken.name}
+                  onChange={(e) => setPhantomToken((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Moon Cat"
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Ticker Symbol *</Label>
+                <Input
+                  value={phantomToken.ticker}
+                  onChange={(e) => setPhantomToken((prev) => ({ ...prev, ticker: e.target.value.toUpperCase() }))}
+                  placeholder="e.g., MCAT"
+                  className="h-9 text-sm uppercase"
+                  maxLength={10}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Description</Label>
+                <Textarea
+                  value={phantomToken.description}
+                  onChange={(e) => setPhantomToken((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe your token..."
+                  className="min-h-[60px] text-sm resize-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Image URL</Label>
+                <Input
+                  value={phantomToken.imageUrl}
+                  onChange={(e) => setPhantomToken((prev) => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="https://..."
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              {/* Social Links */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Website</Label>
+                  <Input
+                    value={phantomToken.websiteUrl}
+                    onChange={(e) => setPhantomToken((prev) => ({ ...prev, websiteUrl: e.target.value }))}
+                    placeholder="https://..."
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Twitter/X</Label>
+                  <Input
+                    value={phantomToken.twitterUrl}
+                    onChange={(e) => setPhantomToken((prev) => ({ ...prev, twitterUrl: e.target.value }))}
+                    placeholder="https://x.com/..."
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Telegram</Label>
+                  <Input
+                    value={phantomToken.telegramUrl}
+                    onChange={(e) => setPhantomToken((prev) => ({ ...prev, telegramUrl: e.target.value }))}
+                    placeholder="https://t.me/..."
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Discord</Label>
+                  <Input
+                    value={phantomToken.discordUrl}
+                    onChange={(e) => setPhantomToken((prev) => ({ ...prev, discordUrl: e.target.value }))}
+                    placeholder="https://discord.gg/..."
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Wallet Connection */}
+            {!phantomWallet.isConnected ? (
+              <Button
+                onClick={phantomWallet.connect}
+                disabled={phantomWallet.isConnecting}
+                className="gate-btn gate-btn-primary w-full"
+              >
+                {phantomWallet.isConnecting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="h-4 w-4 mr-2" />
+                    Connect Phantom Wallet
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-2 rounded-lg border border-primary/30 bg-primary/5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                      <Wallet className="h-3 w-3 text-primary" />
+                    </div>
+                    <span className="text-xs font-mono">
+                      {phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {phantomWallet.balance?.toFixed(4) ?? "..."} SOL
+                  </Badge>
+                </div>
+
+                <Button
+                  onClick={() => handlePhantomLaunch('holders')}
+                  disabled={isPhantomLaunching || !phantomToken.name || !phantomToken.ticker}
+                  className="gate-btn gate-btn-primary w-full"
+                >
+                  {isPhantomLaunching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Launching...
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-4 w-4 mr-2" />
+                      Launch Holder Rewards Token
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
