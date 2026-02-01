@@ -37,6 +37,7 @@ interface FunToken {
   holder_count?: number;
   market_cap_sol?: number;
   bonding_progress?: number;
+  trading_fee_bps?: number; // Custom trading fee in basis points
   last_distribution_at: string | null;
   created_at: string;
   updated_at: string;

@@ -1051,6 +1051,7 @@ export type Database = {
           telegram_url: string | null
           ticker: string
           total_fees_earned: number | null
+          trading_fee_bps: number | null
           twitter_url: string | null
           updated_at: string | null
           volume_24h_sol: number | null
@@ -1078,6 +1079,7 @@ export type Database = {
           telegram_url?: string | null
           ticker: string
           total_fees_earned?: number | null
+          trading_fee_bps?: number | null
           twitter_url?: string | null
           updated_at?: string | null
           volume_24h_sol?: number | null
@@ -1105,6 +1107,7 @@ export type Database = {
           telegram_url?: string | null
           ticker?: string
           total_fees_earned?: number | null
+          trading_fee_bps?: number | null
           twitter_url?: string | null
           updated_at?: string | null
           volume_24h_sol?: number | null

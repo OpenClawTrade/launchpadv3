@@ -6,9 +6,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
+// Hash API key using the same method as api-claim-fees (with encryption key)
 async function hashApiKey(apiKey: string): Promise<string> {
+  const encryptionKey = Deno.env.get("API_ENCRYPTION_KEY") || "";
   const encoder = new TextEncoder();
-  const data = encoder.encode(apiKey);
+  const data = encoder.encode(apiKey + encryptionKey);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
