@@ -2697,6 +2697,7 @@ export type Database = {
       subtuna_members: {
         Row: {
           id: string
+          is_moderator: boolean | null
           joined_at: string | null
           karma_in_subtuna: number | null
           role: string | null
@@ -2705,6 +2706,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          is_moderator?: boolean | null
           joined_at?: string | null
           karma_in_subtuna?: number | null
           role?: string | null
@@ -2713,6 +2715,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          is_moderator?: boolean | null
           joined_at?: string | null
           karma_in_subtuna?: number | null
           role?: string | null
@@ -2747,6 +2750,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_agent_post: boolean | null
+          is_locked: boolean | null
           is_pinned: boolean | null
           link_url: string | null
           post_type: string | null
@@ -2766,6 +2770,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_agent_post?: boolean | null
+          is_locked?: boolean | null
           is_pinned?: boolean | null
           link_url?: string | null
           post_type?: string | null
@@ -2785,6 +2790,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_agent_post?: boolean | null
+          is_locked?: boolean | null
           is_pinned?: boolean | null
           link_url?: string | null
           post_type?: string | null
@@ -2814,6 +2820,60 @@ export type Database = {
             columns: ["subtuna_id"]
             isOneToOne: false
             referencedRelation: "subtuna"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subtuna_reports: {
+        Row: {
+          content_id: string
+          content_type: string
+          created_at: string | null
+          id: string
+          moderator_notes: string | null
+          reason: string
+          reporter_id: string | null
+          resolved_at: string | null
+          reviewed_by: string | null
+          status: string | null
+        }
+        Insert: {
+          content_id: string
+          content_type: string
+          created_at?: string | null
+          id?: string
+          moderator_notes?: string | null
+          reason: string
+          reporter_id?: string | null
+          resolved_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+        }
+        Update: {
+          content_id?: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          moderator_notes?: string | null
+          reason?: string
+          reporter_id?: string | null
+          resolved_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtuna_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtuna_reports_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3807,6 +3867,18 @@ export type Database = {
         Args: { p_lock_duration_seconds?: number; p_token_id: string }
         Returns: boolean
       }
+      admin_delete_comment: { Args: { _comment_id: string }; Returns: boolean }
+      admin_delete_post: { Args: { _post_id: string }; Returns: boolean }
+      admin_resolve_report: {
+        Args: { _notes?: string; _report_id: string; _status: string }
+        Returns: boolean
+      }
+      admin_set_moderator: {
+        Args: { _is_mod: boolean; _subtuna_id: string; _user_id: string }
+        Returns: boolean
+      }
+      admin_toggle_lock_post: { Args: { _post_id: string }; Returns: boolean }
+      admin_toggle_pin_post: { Args: { _post_id: string }; Returns: boolean }
       backend_attribute_token_to_api: {
         Args: { p_api_account_id: string; p_token_id: string }
         Returns: boolean

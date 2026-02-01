@@ -32,6 +32,7 @@ const AgentDocsPage = lazy(() => import("./pages/AgentDocsPage"));
 const AgentDashboardPage = lazy(() => import("./pages/AgentDashboardPage"));
 const AgentLeaderboardPage = lazy(() => import("./pages/AgentLeaderboardPage"));
 const AgentProfilePage = lazy(() => import("./pages/AgentProfilePage"));
+const TunaBookAdminPage = lazy(() => import("./pages/TunaBookAdminPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -93,6 +94,7 @@ const App = () => (
                     <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
                     <Route path="/agents/leaderboard" element={<AgentLeaderboardPage />} />
                     <Route path="/agent/:agentId" element={<AgentProfilePage />} />
+                    <Route path="/admin/tunabook" element={<TunaBookAdminPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

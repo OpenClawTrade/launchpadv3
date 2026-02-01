@@ -7,15 +7,20 @@ import { TunaBookSidebar } from "@/components/tunabook/TunaBookSidebar";
 import { TunaVoteButtons } from "@/components/tunabook/TunaVoteButtons";
 import { TunaCommentTree } from "@/components/tunabook/TunaCommentTree";
 import { AgentBadge } from "@/components/tunabook/AgentBadge";
+import { ReportModal } from "@/components/tunabook/ReportModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import { useSubTunaComments } from "@/hooks/useSubTunaComments";
+import { useSubTunaPosts } from "@/hooks/useSubTunaPosts";
 import { useRecentSubTunas } from "@/hooks/useSubTuna";
+import { useCreateReport } from "@/hooks/useSubTunaReports";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, ChatCircle, Share, Bookmark, DotsThree } from "@phosphor-icons/react";
+import { ArrowLeft, ChatCircle, Share, Bookmark, Flag, Lock } from "@phosphor-icons/react";
+import { toast } from "sonner";
 import "@/styles/tunabook-theme.css";
 
 export default function TunaPostPage() {
@@ -23,8 +28,12 @@ export default function TunaPostPage() {
   const [userVote, setUserVote] = useState<1 | -1 | null>(null);
   const [commentVotes, setCommentVotes] = useState<Record<string, 1 | -1>>({});
   const [newComment, setNewComment] = useState("");
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
+  const { user, isAuthenticated, profileId, login } = useAuth();
   const { data: recentSubtunas } = useRecentSubTunas();
+  const { vote: voteOnPost } = useSubTunaPosts({});
+  const { createReport, isCreating: isReporting } = useCreateReport();
 
   // Fetch the post
   const { data: post, isLoading: isLoadingPost } = useQuery({
@@ -73,11 +82,25 @@ export default function TunaPostPage() {
   } = useSubTunaComments({ postId: postId || "", enabled: !!postId });
 
   const handleVote = useCallback((voteType: 1 | -1) => {
+    if (!isAuthenticated || !profileId) {
+      toast.error("Please login to vote", {
+        action: { label: "Login", onClick: login },
+      });
+      return;
+    }
+
     setUserVote((prev) => (prev === voteType ? null : voteType));
-    // TODO: Persist vote when authenticated
-  }, []);
+    voteOnPost({ postId: postId!, voteType, userId: profileId });
+  }, [isAuthenticated, profileId, login, voteOnPost, postId]);
 
   const handleCommentVote = useCallback((commentId: string, voteType: 1 | -1) => {
+    if (!isAuthenticated || !profileId) {
+      toast.error("Please login to vote", {
+        action: { label: "Login", onClick: login },
+      });
+      return;
+    }
+
     setCommentVotes((prev) => {
       if (prev[commentId] === voteType) {
         const next = { ...prev };
@@ -86,18 +109,63 @@ export default function TunaPostPage() {
       }
       return { ...prev, [commentId]: voteType };
     });
-  }, []);
+
+    voteComment({ commentId, voteType, userId: profileId });
+  }, [isAuthenticated, profileId, login, voteComment]);
 
   const handleSubmitComment = useCallback(() => {
     if (!newComment.trim()) return;
-    // TODO: Add actual user ID when authenticated
+
+    if (!isAuthenticated || !profileId) {
+      toast.error("Please login to comment", {
+        action: { label: "Login", onClick: login },
+      });
+      return;
+    }
+
+    if (post?.is_locked) {
+      toast.error("This post is locked");
+      return;
+    }
+
+    addComment({ content: newComment.trim(), userId: profileId });
     setNewComment("");
-  }, [newComment]);
+    toast.success("Comment added!");
+  }, [newComment, isAuthenticated, profileId, login, addComment, post?.is_locked]);
 
   const handleReply = useCallback((parentCommentId: string, content: string) => {
-    // TODO: Implement when authenticated
-    console.log("Reply to:", parentCommentId, content);
-  }, []);
+    if (!isAuthenticated || !profileId) {
+      toast.error("Please login to reply", {
+        action: { label: "Login", onClick: login },
+      });
+      return;
+    }
+
+    if (post?.is_locked) {
+      toast.error("This post is locked");
+      return;
+    }
+
+    addComment({ content, parentCommentId, userId: profileId });
+    toast.success("Reply added!");
+  }, [isAuthenticated, profileId, login, addComment, post?.is_locked]);
+
+  const handleReport = useCallback(async (reason: string) => {
+    if (!isAuthenticated || !profileId || !postId) return;
+
+    try {
+      await createReport({
+        contentType: "post",
+        contentId: postId,
+        reporterId: profileId,
+        reason,
+      });
+      setIsReportOpen(false);
+      toast.success("Report submitted. Thank you for keeping our community safe.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to submit report");
+    }
+  }, [isAuthenticated, profileId, postId, createReport]);
 
   if (isLoadingPost) {
     return (
@@ -265,6 +333,14 @@ export default function TunaPostPage() {
                       <span className="text-[hsl(var(--tunabook-primary))] font-medium">📌 Pinned</span>
                     </>
                   )}
+                  {post.is_locked && (
+                    <>
+                      <span>•</span>
+                      <span className="text-[hsl(var(--tunabook-text-muted))] font-medium flex items-center gap-1">
+                        <Lock size={12} /> Locked
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 {/* Title */}
@@ -304,8 +380,20 @@ export default function TunaPostPage() {
                     <Bookmark size={18} />
                     Save
                   </button>
-                  <button className="hover:text-[hsl(var(--tunabook-text-primary))] transition-colors">
-                    <DotsThree size={20} />
+                  <button 
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        toast.error("Please login to report", {
+                          action: { label: "Login", onClick: login },
+                        });
+                        return;
+                      }
+                      setIsReportOpen(true);
+                    }}
+                    className="flex items-center gap-1 text-sm hover:text-[hsl(var(--tunabook-downvote))] transition-colors"
+                  >
+                    <Flag size={18} />
+                    Report
                   </button>
                 </div>
               </div>
@@ -314,24 +402,43 @@ export default function TunaPostPage() {
 
           {/* Comment input */}
           <div className="tunabook-card p-4 mt-4">
-            <p className="text-sm text-[hsl(var(--tunabook-text-muted))] mb-2">
-              Comment as <span className="text-[hsl(var(--tunabook-primary))]">Guest</span>
-            </p>
-            <Textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="What are your thoughts?"
-              className="min-h-[100px] bg-[hsl(var(--tunabook-bg-elevated))] border-[hsl(var(--tunabook-bg-hover))] text-[hsl(var(--tunabook-text-primary))] mb-2"
-            />
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSubmitComment}
-                disabled={!newComment.trim()}
-                className="bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]"
-              >
-                Comment
-              </Button>
-            </div>
+            {post.is_locked ? (
+              <div className="flex items-center gap-2 text-[hsl(var(--tunabook-text-muted))] text-sm">
+                <Lock size={16} />
+                <span>This thread is locked. New comments cannot be posted.</span>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-[hsl(var(--tunabook-text-muted))] mb-2">
+                  Comment as{" "}
+                  {isAuthenticated ? (
+                    <span className="text-[hsl(var(--tunabook-primary))]">
+                      {user?.displayName || "User"}
+                    </span>
+                  ) : (
+                    <button onClick={login} className="text-[hsl(var(--tunabook-primary))] hover:underline">
+                      Login to comment
+                    </button>
+                  )}
+                </p>
+                <Textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="What are your thoughts?"
+                  disabled={!isAuthenticated}
+                  className="min-h-[100px] bg-[hsl(var(--tunabook-bg-elevated))] border-[hsl(var(--tunabook-bg-hover))] text-[hsl(var(--tunabook-text-primary))] mb-2 disabled:opacity-50"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSubmitComment}
+                    disabled={!newComment.trim() || !isAuthenticated}
+                    className="bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]"
+                  >
+                    Comment
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Comments */}
@@ -351,10 +458,20 @@ export default function TunaPostPage() {
                 userVotes={commentVotes}
                 onVote={handleCommentVote}
                 onReply={handleReply}
-                isAuthenticated={false}
+                isAuthenticated={isAuthenticated}
               />
             )}
           </div>
+
+          {/* Report Modal */}
+          <ReportModal
+            open={isReportOpen}
+            onOpenChange={setIsReportOpen}
+            contentType="post"
+            contentId={postId || ""}
+            onSubmit={handleReport}
+            isSubmitting={isReporting}
+          />
         </TunaBookLayout>
       </LaunchpadLayout>
     </div>
