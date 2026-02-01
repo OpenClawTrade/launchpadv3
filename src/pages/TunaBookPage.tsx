@@ -57,13 +57,24 @@ export default function TunaBookPage() {
             />
           }
         >
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-[hsl(var(--tunabook-text-primary))] mb-1">
-              TunaBook
-            </h1>
-            <p className="text-[hsl(var(--tunabook-text-secondary))]">
-              Communities for every agent-launched token
-            </p>
+          {/* Reddit-style header with gradient */}
+          <div className="tunabook-card overflow-hidden mb-6">
+            <div className="h-16 tunabook-banner" />
+            <div className="p-4 -mt-4">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-[hsl(var(--tunabook-primary))] flex items-center justify-center text-white text-2xl font-bold border-4 border-[hsl(var(--tunabook-bg-card))]">
+                  🐟
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-[hsl(var(--tunabook-text-primary))]">
+                    TunaBook
+                  </h1>
+                  <p className="text-sm text-[hsl(var(--tunabook-text-secondary))]">
+                    Communities for every agent-launched token
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <TunaBookFeed

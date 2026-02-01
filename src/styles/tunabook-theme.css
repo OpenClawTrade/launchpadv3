@@ -1,113 +1,182 @@
-/* TunaBook Reddit-style theme */
+/* TunaBook Reddit-style theme - Coral/Orange-Red Palette */
 .tunabook-theme {
-  /* Primary: Reddit orange-red */
+  /* Primary: Reddit orange-red #FF4500 */
   --tunabook-primary: 16 100% 50%;
-  --tunabook-primary-hover: 16 100% 45%;
-  --tunabook-primary-muted: 16 80% 35%;
+  --tunabook-primary-hover: 16 100% 42%;
+  --tunabook-primary-muted: 16 70% 30%;
+  --tunabook-primary-light: 16 100% 60%;
   
-  /* Voting colors */
-  --tunabook-upvote: 16 100% 50%;
-  --tunabook-downvote: 240 60% 60%;
-  --tunabook-upvote-hover: 16 100% 55%;
-  --tunabook-downvote-hover: 240 60% 65%;
+  /* Secondary: Coral accents */
+  --tunabook-secondary: 16 80% 65%;
+  --tunabook-accent: 25 100% 55%;
   
-  /* Background - warm dark */
-  --tunabook-bg-primary: 0 0% 7%;
-  --tunabook-bg-card: 0 0% 10%;
-  --tunabook-bg-elevated: 0 0% 13%;
-  --tunabook-bg-hover: 0 0% 15%;
+  /* Voting colors - Reddit style */
+  --tunabook-upvote: 16 100% 50%;        /* Orange-red */
+  --tunabook-downvote: 240 60% 60%;      /* Periwinkle blue */
+  --tunabook-upvote-hover: 16 100% 58%;
+  --tunabook-downvote-hover: 240 60% 68%;
   
-  /* Accent colors for agents */
-  --tunabook-agent-badge: 280 100% 70%;
-  --tunabook-human-badge: 210 100% 60%;
-  --tunabook-creator-badge: 45 100% 50%;
+  /* Background - warm dark charcoal */
+  --tunabook-bg-primary: 20 5% 6%;        /* Slightly warm black */
+  --tunabook-bg-card: 20 4% 10%;          /* #1A1A1B with warmth */
+  --tunabook-bg-elevated: 20 4% 14%;
+  --tunabook-bg-hover: 20 4% 18%;
+  --tunabook-bg-input: 20 4% 8%;
   
-  /* Text */
-  --tunabook-text-primary: 0 0% 93%;
-  --tunabook-text-secondary: 0 0% 60%;
-  --tunabook-text-muted: 0 0% 45%;
+  /* Accent colors for badges */
+  --tunabook-agent-badge: 280 100% 70%;   /* Purple for AI agents */
+  --tunabook-human-badge: 210 100% 60%;   /* Blue for humans */
+  --tunabook-creator-badge: 45 100% 50%;  /* Gold for creators */
+  --tunabook-mod-badge: 152 69% 41%;      /* Green for mods */
+  --tunabook-holder-badge: 200 100% 55%;  /* Cyan for verified holders */
   
-  /* Borders */
-  --tunabook-border: 0 0% 18%;
-  --tunabook-border-hover: 0 0% 25%;
+  /* Text - warm whites */
+  --tunabook-text-primary: 20 10% 94%;
+  --tunabook-text-secondary: 20 5% 65%;
+  --tunabook-text-muted: 20 5% 45%;
+  --tunabook-text-link: 16 100% 55%;
   
-  /* Semantic overrides */
+  /* Borders - subtle warmth */
+  --tunabook-border: 20 4% 18%;
+  --tunabook-border-hover: 20 4% 28%;
+  --tunabook-border-focus: 16 100% 50%;
+  
+  /* Semantic color overrides for shadcn */
   --primary: var(--tunabook-primary);
   --primary-foreground: 0 0% 100%;
   --background: var(--tunabook-bg-primary);
+  --foreground: var(--tunabook-text-primary);
   --card: var(--tunabook-bg-card);
   --card-foreground: var(--tunabook-text-primary);
   --muted: var(--tunabook-bg-elevated);
   --muted-foreground: var(--tunabook-text-secondary);
   --border: var(--tunabook-border);
+  --input: var(--tunabook-bg-input);
+  --ring: var(--tunabook-primary);
   --accent: var(--tunabook-bg-hover);
   --accent-foreground: var(--tunabook-text-primary);
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
 }
 
-/* TunaBook specific component styles */
+/* === Card Styles === */
 .tunabook-theme .tunabook-card {
   background: hsl(var(--tunabook-bg-card));
   border: 1px solid hsl(var(--tunabook-border));
   border-radius: 0.5rem;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .tunabook-theme .tunabook-card:hover {
   border-color: hsl(var(--tunabook-border-hover));
 }
 
+.tunabook-theme .tunabook-card.interactive:hover {
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.3);
+}
+
+/* === Voting Buttons === */
 .tunabook-theme .tunabook-vote-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0.25rem;
   border-radius: 0.25rem;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color 0.15s, color 0.15s, transform 0.1s;
   color: hsl(var(--tunabook-text-secondary));
+  cursor: pointer;
 }
 
 .tunabook-theme .tunabook-vote-btn:hover {
   background: hsl(var(--tunabook-bg-hover));
+  transform: scale(1.1);
+}
+
+.tunabook-theme .tunabook-vote-btn:active {
+  transform: scale(0.95);
 }
 
 .tunabook-theme .tunabook-vote-btn.upvoted {
   color: hsl(var(--tunabook-upvote));
 }
 
+.tunabook-theme .tunabook-vote-btn.upvoted:hover {
+  color: hsl(var(--tunabook-upvote-hover));
+  background: hsl(var(--tunabook-upvote) / 0.15);
+}
+
 .tunabook-theme .tunabook-vote-btn.downvoted {
   color: hsl(var(--tunabook-downvote));
 }
 
+.tunabook-theme .tunabook-vote-btn.downvoted:hover {
+  color: hsl(var(--tunabook-downvote-hover));
+  background: hsl(var(--tunabook-downvote) / 0.15);
+}
+
+/* === Badge Styles === */
 .tunabook-theme .tunabook-agent-badge {
   background: hsl(var(--tunabook-agent-badge) / 0.2);
   color: hsl(var(--tunabook-agent-badge));
   border: 1px solid hsl(var(--tunabook-agent-badge) / 0.4);
-  font-size: 0.7rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-  font-weight: 500;
+  font-size: 0.65rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .tunabook-theme .tunabook-creator-badge {
   background: hsl(var(--tunabook-creator-badge) / 0.2);
   color: hsl(var(--tunabook-creator-badge));
   border: 1px solid hsl(var(--tunabook-creator-badge) / 0.4);
-  font-size: 0.7rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-  font-weight: 500;
+  font-size: 0.65rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
+.tunabook-theme .tunabook-holder-badge {
+  background: hsl(var(--tunabook-holder-badge) / 0.2);
+  color: hsl(var(--tunabook-holder-badge));
+  border: 1px solid hsl(var(--tunabook-holder-badge) / 0.4);
+  font-size: 0.65rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+/* === Pinned Posts === */
 .tunabook-theme .tunabook-pinned {
   border-left: 3px solid hsl(var(--tunabook-primary));
+  background: linear-gradient(
+    90deg,
+    hsl(var(--tunabook-primary) / 0.08) 0%,
+    hsl(var(--tunabook-bg-card)) 100%
+  );
 }
 
+/* === Sidebar === */
 .tunabook-theme .tunabook-sidebar {
   background: hsl(var(--tunabook-bg-card));
   border: 1px solid hsl(var(--tunabook-border));
   border-radius: 0.5rem;
 }
 
+.tunabook-theme .tunabook-sidebar-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--tunabook-border));
+  background: linear-gradient(
+    180deg,
+    hsl(var(--tunabook-primary) / 0.1) 0%,
+    transparent 100%
+  );
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+/* === Sort Tabs === */
 .tunabook-theme .tunabook-sort-tab {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
@@ -115,6 +184,7 @@
   color: hsl(var(--tunabook-text-secondary));
   border-radius: 9999px;
   transition: all 0.15s;
+  cursor: pointer;
 }
 
 .tunabook-theme .tunabook-sort-tab:hover {
@@ -125,4 +195,120 @@
 .tunabook-theme .tunabook-sort-tab.active {
   background: hsl(var(--tunabook-primary));
   color: white;
+}
+
+/* === Links === */
+.tunabook-theme a {
+  color: hsl(var(--tunabook-text-link));
+  transition: color 0.15s;
+}
+
+.tunabook-theme a:hover {
+  color: hsl(var(--tunabook-primary-light));
+}
+
+/* === Buttons === */
+.tunabook-theme .tunabook-btn-primary {
+  background: hsl(var(--tunabook-primary));
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.tunabook-theme .tunabook-btn-primary:hover {
+  background: hsl(var(--tunabook-primary-hover));
+}
+
+.tunabook-theme .tunabook-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.tunabook-theme .tunabook-btn-outline {
+  background: transparent;
+  color: hsl(var(--tunabook-primary));
+  border: 1px solid hsl(var(--tunabook-primary));
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.tunabook-theme .tunabook-btn-outline:hover {
+  background: hsl(var(--tunabook-primary) / 0.1);
+}
+
+/* === Input Fields === */
+.tunabook-theme input,
+.tunabook-theme textarea {
+  background: hsl(var(--tunabook-bg-input)) !important;
+  border-color: hsl(var(--tunabook-border)) !important;
+  color: hsl(var(--tunabook-text-primary)) !important;
+}
+
+.tunabook-theme input:focus,
+.tunabook-theme textarea:focus {
+  border-color: hsl(var(--tunabook-border-focus)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--tunabook-primary) / 0.2) !important;
+}
+
+.tunabook-theme input::placeholder,
+.tunabook-theme textarea::placeholder {
+  color: hsl(var(--tunabook-text-muted)) !important;
+}
+
+/* === Scrollbar === */
+.tunabook-theme ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tunabook-theme ::-webkit-scrollbar-track {
+  background: hsl(var(--tunabook-bg-primary));
+}
+
+.tunabook-theme ::-webkit-scrollbar-thumb {
+  background: hsl(var(--tunabook-border-hover));
+  border-radius: 4px;
+}
+
+.tunabook-theme ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--tunabook-text-muted));
+}
+
+/* === Karma Display === */
+.tunabook-theme .tunabook-karma {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: hsl(var(--tunabook-primary));
+  font-weight: 600;
+}
+
+.tunabook-theme .tunabook-karma-icon {
+  color: hsl(var(--tunabook-primary));
+}
+
+/* === Community Banner === */
+.tunabook-theme .tunabook-banner {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--tunabook-primary)) 0%,
+    hsl(var(--tunabook-primary-muted)) 100%
+  );
+}
+
+/* === Animations === */
+@keyframes tunabook-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.tunabook-theme .tunabook-loading {
+  animation: tunabook-pulse 1.5s ease-in-out infinite;
 }
