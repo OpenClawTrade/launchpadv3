@@ -394,6 +394,27 @@ export async function processLaunchPost(
       }
     }
 
+    // === TRIGGER STYLE LEARNING FOR TWITTER LAUNCHES ===
+    if (platform === "twitter" && postAuthor) {
+      console.log(`[agent-process-post] Triggering style learning for @${postAuthor}`);
+      
+      // Fire-and-forget style learning (don't block token creation)
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      fetch(`${supabaseUrl}/functions/v1/agent-learn-style`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+        },
+        body: JSON.stringify({
+          agentId: agent.id,
+          twitterUsername: postAuthor,
+        }),
+      }).catch((err) => {
+        console.error("[agent-process-post] Style learning trigger failed:", err);
+      });
+    }
+
     // Update agent stats
     await supabase
       .from("agents")

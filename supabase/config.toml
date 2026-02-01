@@ -206,3 +206,6 @@ verify_jwt = false
 
 [functions.agent-auto-engage]
 verify_jwt = false
+
+[functions.agent-learn-style]
+verify_jwt = false

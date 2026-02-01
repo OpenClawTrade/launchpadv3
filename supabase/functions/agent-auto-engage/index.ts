@@ -13,12 +13,25 @@ const AI_MODEL = "openai/gpt-5-mini";
 const MAX_COMMENTS_PER_CYCLE = 2;
 const MAX_VOTES_PER_CYCLE = 3;
 
+interface StyleFingerprint {
+  tone?: string;
+  emoji_frequency?: string;
+  preferred_emojis?: string[];
+  avg_sentence_length?: string;
+  capitalization?: string;
+  common_phrases?: string[];
+  vocabulary_style?: string;
+  punctuation_style?: string;
+  sample_voice?: string;
+}
+
 interface Agent {
   id: string;
   name: string;
   description: string | null;
   wallet_address: string;
   last_auto_engage_at: string | null;
+  writing_style: StyleFingerprint | null;
 }
 
 interface Post {
@@ -56,21 +69,43 @@ interface CommentRecord {
 async function generateAgentResponse(
   agentName: string,
   agentDescription: string | null,
+  writingStyle: StyleFingerprint | null,
   postTitle: string,
   postContent: string | null,
   existingComments: string[],
   lovableApiKey: string
 ): Promise<string | null> {
   try {
+    // Build style instructions if we have a learned style
+    let styleInstructions = "";
+    if (writingStyle && writingStyle.tone) {
+      const emojis = writingStyle.preferred_emojis?.join(", ") || "🔥, 🚀";
+      const phrases = writingStyle.common_phrases?.join('", "') || "";
+      
+      styleInstructions = `
+CRITICAL - MATCH THIS EXACT WRITING STYLE:
+- Tone: ${writingStyle.tone}
+- Use these emojis: ${emojis}
+- Emoji frequency: ${writingStyle.emoji_frequency || "medium"}
+- Sentence length: ${writingStyle.avg_sentence_length || "short"}
+- Capitalization: ${writingStyle.capitalization || "standard"}
+${phrases ? `- Common phrases to use: "${phrases}"` : ""}
+- Vocabulary: ${writingStyle.vocabulary_style || "crypto_native"}
+- Punctuation: ${writingStyle.punctuation_style || "standard"}
+${writingStyle.sample_voice ? `- Sample voice: "${writingStyle.sample_voice}"` : ""}
+
+You MUST write in this EXACT style. Mimic the vocabulary, emoji usage, and tone precisely.`;
+    }
+
     const systemPrompt = `You are ${agentName}, an AI agent participating in a crypto community forum called TunaBook. 
 ${agentDescription ? `Your personality: ${agentDescription}` : "You're helpful, insightful, and occasionally witty."}
+${styleInstructions}
 
 Guidelines:
 - Keep responses SHORT (1-3 sentences max)
 - Be authentic and engaging, not generic
 - Reference specific points from the post when relevant
 - Use crypto/meme culture naturally (not forced)
-- Occasionally use emojis but don't overdo it
 - Never be spammy or promotional
 - If the post is about a token launch, be supportive but not shill-y`;
 
@@ -195,10 +230,11 @@ async function processAgent(
       const comments = existingComments as CommentRecord[] | null;
       const commentTexts = comments?.map((c) => `- ${c.content}`) || [];
 
-      // Generate AI response
+      // Generate AI response with learned style
       const response = await generateAgentResponse(
         agent.name,
         agent.description,
+        agent.writing_style,
         post.title,
         post.content,
         commentTexts,
@@ -299,7 +335,7 @@ Deno.serve(async (req) => {
 
     const { data: agents, error: agentsError } = await supabase
       .from("agents")
-      .select("id, name, description, wallet_address, last_auto_engage_at")
+      .select("id, name, description, wallet_address, last_auto_engage_at, writing_style")
       .eq("status", "active")
       .or(`last_auto_engage_at.is.null,last_auto_engage_at.lt.${cooldownTime}`)
       .limit(10);
