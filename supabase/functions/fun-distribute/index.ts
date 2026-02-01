@@ -11,7 +11,7 @@ const corsHeaders = {
 // Treasury wallet
 const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 
-// Fee distribution splits for REGULAR tokens (non-API)
+// Fee distribution splits for REGULAR tokens (non-API, non-Agent)
 const CREATOR_FEE_SHARE = 0.5;    // 50% to creator
 const BUYBACK_FEE_SHARE = 0.3;   // 30% for buybacks
 const SYSTEM_FEE_SHARE = 0.2;    // 20% kept for system expenses
@@ -22,6 +22,11 @@ const SYSTEM_FEE_SHARE = 0.2;    // 20% kept for system expenses
 // - Platform keeps 50% = 1% of total trade volume (stays in treasury)
 const API_USER_FEE_SHARE = 0.5;   // 50% to API account owner (1% of 2%)
 const API_PLATFORM_FEE_SHARE = 0.5; // 50% to platform (1% of 2%)
+
+// Fee distribution splits for AGENT-LAUNCHED tokens
+// Agents earn 80%, platform keeps 20%
+const AGENT_FEE_SHARE = 0.8;      // 80% to agent
+const AGENT_PLATFORM_FEE_SHARE = 0.2; // 20% to platform
 
 // Minimum SOL to distribute (avoid micro-transactions that eat gas)
 const MIN_DISTRIBUTION_SOL = 0.05;
@@ -87,12 +92,12 @@ serve(async (req) => {
     }
 
     // STEP 1: Find all fee claims that haven't been distributed yet
-    // Include api_account_id and fee_mode to check token type
+    // Include api_account_id, agent_id, and fee_mode to check token type
     const { data: undistributedClaims, error: claimsError } = await supabase
       .from("fun_fee_claims")
       .select(`
         *,
-        fun_token:fun_tokens(id, name, ticker, creator_wallet, status, api_account_id, fee_mode)
+        fun_token:fun_tokens(id, name, ticker, creator_wallet, status, api_account_id, agent_id, fee_mode, agent_fee_share_bps)
       `)
       .eq("creator_distributed", false)
       .order("claimed_at", { ascending: true });
@@ -118,7 +123,7 @@ serve(async (req) => {
       claimIds: string[];
       tokenName: string;
       recipientWallet: string;
-      recipientType: "creator" | "api_user";
+      recipientType: "creator" | "api_user" | "agent";
       claimedSol: number;
       recipientAmount: number;
       platformAmount: number;
@@ -139,8 +144,9 @@ serve(async (req) => {
       {
         token: any;
         recipientWallet: string;
-        recipientType: "creator" | "api_user";
+        recipientType: "creator" | "api_user" | "agent";
         apiAccountId: string | null;
+        agentId: string | null;
         claims: any[];
         claimedSol: number;
       }
@@ -162,9 +168,10 @@ serve(async (req) => {
       const claimedSol = Number(claim.claimed_sol) || 0;
       if (claimedSol <= 0) continue;
 
-      // Determine token type: API, holder_rewards, or regular creator
-      const isApiToken = !!token.api_account_id;
-      const isHolderRewards = token.fee_mode === 'holder_rewards';
+      // Determine token type: Agent, API, holder_rewards, or regular creator
+      const isAgentToken = !!token.agent_id;
+      const isApiToken = !!token.api_account_id && !isAgentToken; // Agent takes priority
+      const isHolderRewards = token.fee_mode === 'holder_rewards' || token.fee_mode === 'holders';
       
       if (isHolderRewards) {
         // HOLDER REWARDS MODE: Route 50% to holder_reward_pool instead of creator
@@ -205,7 +212,37 @@ serve(async (req) => {
         continue;
       }
       
-      if (isApiToken) {
+      if (isAgentToken) {
+        // AGENT tokens: 80% goes to agent, 20% to platform
+        const { data: agentData } = await supabase
+          .from("agents")
+          .select("id, wallet_address, name")
+          .eq("id", token.agent_id)
+          .single();
+
+        if (!agentData) {
+          console.warn(`[fun-distribute] Skipping claim ${claim.id}: Agent ${token.agent_id} not found`);
+          continue;
+        }
+
+        const key = `agent:${token.agent_id}`;
+
+        const existing = groups.get(key);
+        if (existing) {
+          existing.claims.push(claim);
+          existing.claimedSol += claimedSol;
+        } else {
+          groups.set(key, {
+            token,
+            recipientWallet: agentData.wallet_address,
+            recipientType: "agent",
+            apiAccountId: null,
+            agentId: token.agent_id,
+            claims: [claim],
+            claimedSol,
+          });
+        }
+      } else if (isApiToken) {
         // API tokens: fees go to API account owner (will be recorded in api_fee_distributions)
         // We need to fetch the API account's fee wallet
         const { data: apiAccount } = await supabase
@@ -232,6 +269,7 @@ serve(async (req) => {
             recipientWallet: feeWallet,
             recipientType: "api_user",
             apiAccountId: token.api_account_id,
+            agentId: null,
             claims: [claim],
             claimedSol,
           });
@@ -256,6 +294,7 @@ serve(async (req) => {
             recipientWallet: creatorWallet,
             recipientType: "creator",
             apiAccountId: null,
+            agentId: null,
             claims: [claim],
             claimedSol,
           });
@@ -268,13 +307,22 @@ serve(async (req) => {
     for (const group of groups.values()) {
       const token = group.token;
       const claimedSol = group.claimedSol;
+      const isAgentToken = group.recipientType === "agent";
       const isApiToken = group.recipientType === "api_user";
 
       // Calculate fee splits based on token type
       let recipientAmount: number;
       let platformAmount: number;
 
-      if (isApiToken) {
+      if (isAgentToken) {
+        // Agent tokens: 80/20 split between agent and platform
+        const agentShare = (token.agent_fee_share_bps || 8000) / 10000; // Default 80%
+        recipientAmount = claimedSol * agentShare;
+        platformAmount = claimedSol * (1 - agentShare);
+        console.log(
+          `[fun-distribute] Agent Token ${token.ticker}: ${claimedSol} SOL → Agent ${recipientAmount.toFixed(6)} (${agentShare * 100}%), Platform ${platformAmount.toFixed(6)}`
+        );
+      } else if (isApiToken) {
         // API tokens: 50/50 split between API user and platform
         recipientAmount = claimedSol * API_USER_FEE_SHARE;
         platformAmount = claimedSol * API_PLATFORM_FEE_SHARE;
@@ -288,6 +336,72 @@ serve(async (req) => {
         console.log(
           `[fun-distribute] Regular Token ${token.ticker}: ${claimedSol} SOL → Creator ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}`
         );
+      }
+
+      // AGENT tokens: record in agent_fee_distributions (pending - they claim when ready)
+      if (isAgentToken && group.agentId) {
+        const { error: agentDistError } = await supabase
+          .from("agent_fee_distributions")
+          .insert({
+            agent_id: group.agentId,
+            fun_token_id: token.id,
+            amount_sol: recipientAmount,
+            status: "pending",
+          });
+
+        if (agentDistError) {
+          console.error(`[fun-distribute] Failed to record agent fee distribution:`, agentDistError);
+          results.push({
+            claimIds: group.claims.map((c) => c.id),
+            tokenName: token.name,
+            recipientWallet: group.recipientWallet,
+            recipientType: "agent",
+            claimedSol,
+            recipientAmount,
+            platformAmount,
+            success: false,
+            error: `DB error: ${agentDistError.message}`,
+          });
+          failureCount++;
+          continue;
+        }
+
+        // Update agent's total fees earned
+        const { data: currentAgent } = await supabase
+          .from("agents")
+          .select("total_fees_earned_sol")
+          .eq("id", group.agentId)
+          .single();
+
+        await supabase
+          .from("agents")
+          .update({
+            total_fees_earned_sol: (currentAgent?.total_fees_earned_sol || 0) + recipientAmount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", group.agentId);
+
+        // Mark claims as distributed (agent can claim anytime)
+        const claimIds = group.claims.map((c) => c.id);
+        await supabase
+          .from("fun_fee_claims")
+          .update({ creator_distributed: true })
+          .in("id", claimIds);
+
+        results.push({
+          claimIds,
+          tokenName: token.name,
+          recipientWallet: group.recipientWallet,
+          recipientType: "agent",
+          claimedSol,
+          recipientAmount,
+          platformAmount,
+          success: true,
+        });
+
+        successCount++;
+        console.log(`[fun-distribute] ✅ Recorded ${recipientAmount.toFixed(6)} SOL for agent ${group.agentId} (claimable)`);
+        continue;
       }
 
       // For API tokens, we record in api_fee_distributions but DON'T send immediately

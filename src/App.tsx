@@ -27,6 +27,7 @@ const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
 const WidgetPage = lazy(() => import("./pages/WidgetPage"));
 const AgentsPage = lazy(() => import("./pages/AgentsPage"));
 const AgentDocsPage = lazy(() => import("./pages/AgentDocsPage"));
+const AgentDashboardPage = lazy(() => import("./pages/AgentDashboardPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -83,6 +84,7 @@ const App = () => (
                     <Route path="/widget/:type" element={<WidgetPage />} />
                     <Route path="/agents" element={<AgentsPage />} />
                     <Route path="/agents/docs" element={<AgentDocsPage />} />
+                    <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
