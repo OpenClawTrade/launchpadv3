@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const BASE_URL = "https://ptwytypavumcrbofspno.supabase.co/functions/v1";
-const APP_URL = "https://launchpadv3.lovable.app";
+const BASE_URL = "https://api.tuna.fun/v1";
+const APP_URL = "https://tuna.fun";
 
 export default function ApiDocsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -943,14 +943,14 @@ curl -X GET "${BASE_URL}/api-swap/pool?address=POOL_ADDRESS" \\
                   <CodeBlock 
                     id="launch-response"
                     language="json"
-                    code={`{
+                  code={`{
   "success": true,
   "tokenId": "uuid",
   "mintAddress": "base58...",
   "poolAddress": "base58...",
   "solscanUrl": "https://solscan.io/token/...",
   "tradeUrl": "https://axiom.trade/meme/...",
-  "launchpadUrl": "https://launchpadv3.lovable.app/fun/...",
+  "launchpadUrl": "https://tuna.fun/fun/...",
   "feeInfo": {
     "tradingFeeBps": 200,
     "apiUserShare": "50%",
