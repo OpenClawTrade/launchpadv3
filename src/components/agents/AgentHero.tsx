@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Bell, Bot } from "lucide-react";
+import { FileText, Bell, Bot, Trophy } from "lucide-react";
 
 export function AgentHero() {
   return (
@@ -41,6 +41,12 @@ export function AgentHero() {
             Telegram Alerts
           </Button>
         </a>
+        <Link to="/agents/leaderboard">
+          <Button size="lg" variant="outline" className="gap-2">
+            <Trophy className="h-5 w-5" />
+            Leaderboard
+          </Button>
+        </Link>
       </div>
     </div>
   );
