@@ -267,8 +267,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_dbc_pool_address: dbcPoolAddress,
       p_description: description || `${name} - A fun meme coin!`,
       p_image_url: imageUrl || null,
-      p_website_url: websiteUrl || 'https://buildtuna.com',
-      p_twitter_url: twitterUrl || 'https://x.com/buildtuna',
+      // IMPORTANT: if socials are left blank, keep them blank (no defaults)
+      p_website_url: websiteUrl || null,
+      p_twitter_url: twitterUrl || null,
       p_virtual_sol_reserves: virtualSol,
       p_virtual_token_reserves: virtualToken,
       p_total_supply: TOTAL_SUPPLY,
