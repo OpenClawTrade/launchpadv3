@@ -20,6 +20,7 @@ import {
   Flame,
   Megaphone,
   Crown,
+  Gem,
 } from "lucide-react";
 
 interface Token {
@@ -35,6 +36,7 @@ interface Token {
   holder_count?: number | null;
   bonding_progress?: number | null;
   created_at?: string | null;
+  fee_mode?: string | null; // 'standard' or 'holders'
 }
 
 interface TokenTableProps {
@@ -73,6 +75,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
   const MobileTokenCard = ({ token, index }: { token: Token; index: number }) => {
     const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
     const isPromoted = promotedTokenIds?.has(token.id) || false;
+    const isHolderRewards = token.fee_mode === 'holders';
 
     return (
       <Link
@@ -95,6 +98,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                 {token.name}
                 {isNearGraduation && <Flame className="h-3 w-3 text-orange-500 flex-shrink-0" />}
                 {isPromoted && <Crown className="h-3 w-3 text-warning flex-shrink-0" />}
+                {isHolderRewards && <span title="Holder Rewards"><Gem className="h-3 w-3 text-green-500 flex-shrink-0" /></span>}
               </span>
               <span className="text-xs text-muted-foreground">${token.ticker}</span>
             </div>
@@ -202,6 +206,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                 paginatedTokens.map((token, index) => {
                   const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
                   const isPromoted = promotedTokenIds?.has(token.id) || false;
+                  const isHolderRewards = token.fee_mode === 'holders';
                   return (
                     <tr key={token.id} className={isPromoted ? "ring-2 ring-warning/30 ring-inset bg-warning/5" : ""}>
                       <td className="text-muted-foreground font-medium">{(page - 1) * pageSize + index + 1}</td>
@@ -211,7 +216,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                             {token.image_url ? <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">{token.ticker?.slice(0, 2)}</div>}
                           </div>
                           <div className="gate-token-info">
-                            <span className="gate-token-name flex items-center gap-1">{token.name}{isNearGraduation && <Flame className="h-3 w-3 text-orange-500" />}{isPromoted && <Crown className="h-3 w-3 text-warning" />}</span>
+                            <span className="gate-token-name flex items-center gap-1">{token.name}{isNearGraduation && <Flame className="h-3 w-3 text-orange-500" />}{isPromoted && <Crown className="h-3 w-3 text-warning" />}{isHolderRewards && <span title="Holder Rewards"><Gem className="h-3 w-3 text-green-500" /></span>}</span>
                             <span className="gate-token-ticker">${token.ticker}</span>
                           </div>
                         </Link>
