@@ -1037,6 +1037,7 @@ export type Database = {
           dbc_pool_address: string | null
           description: string | null
           discord_url: string | null
+          fee_mode: string | null
           holder_count: number | null
           id: string
           image_url: string | null
@@ -1065,6 +1066,7 @@ export type Database = {
           dbc_pool_address?: string | null
           description?: string | null
           discord_url?: string | null
+          fee_mode?: string | null
           holder_count?: number | null
           id?: string
           image_url?: string | null
@@ -1093,6 +1095,7 @@ export type Database = {
           dbc_pool_address?: string | null
           description?: string | null
           discord_url?: string | null
+          fee_mode?: string | null
           holder_count?: number | null
           id?: string
           image_url?: string | null
@@ -1283,6 +1286,151 @@ export type Database = {
           post_count?: number | null
         }
         Relationships: []
+      }
+      holder_reward_payouts: {
+        Row: {
+          balance_share: number
+          created_at: string | null
+          error_message: string | null
+          fun_token_id: string
+          id: string
+          payout_sol: number
+          signature: string | null
+          snapshot_id: string
+          status: string | null
+          token_balance: number
+          wallet_address: string
+        }
+        Insert: {
+          balance_share: number
+          created_at?: string | null
+          error_message?: string | null
+          fun_token_id: string
+          id?: string
+          payout_sol: number
+          signature?: string | null
+          snapshot_id: string
+          status?: string | null
+          token_balance: number
+          wallet_address: string
+        }
+        Update: {
+          balance_share?: number
+          created_at?: string | null
+          error_message?: string | null
+          fun_token_id?: string
+          id?: string
+          payout_sol?: number
+          signature?: string | null
+          snapshot_id?: string
+          status?: string | null
+          token_balance?: number
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holder_reward_payouts_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holder_reward_payouts_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "holder_reward_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      holder_reward_pool: {
+        Row: {
+          accumulated_sol: number
+          created_at: string | null
+          distribution_count: number | null
+          fun_token_id: string
+          id: string
+          last_distribution_at: string | null
+          total_distributed_sol: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          accumulated_sol?: number
+          created_at?: string | null
+          distribution_count?: number | null
+          fun_token_id: string
+          id?: string
+          last_distribution_at?: string | null
+          total_distributed_sol?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          accumulated_sol?: number
+          created_at?: string | null
+          distribution_count?: number | null
+          fun_token_id?: string
+          id?: string
+          last_distribution_at?: string | null
+          total_distributed_sol?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holder_reward_pool_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: true
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      holder_reward_snapshots: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          fun_token_id: string
+          id: string
+          min_balance_required: number
+          pool_sol: number
+          qualified_holders: number
+          snapshot_at: string
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          fun_token_id: string
+          id?: string
+          min_balance_required: number
+          pool_sol: number
+          qualified_holders?: number
+          snapshot_at?: string
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          fun_token_id?: string
+          id?: string
+          min_balance_required?: number
+          pool_sol?: number
+          qualified_holders?: number
+          snapshot_at?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holder_reward_snapshots_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ip_bans: {
         Row: {

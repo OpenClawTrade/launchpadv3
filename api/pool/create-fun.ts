@@ -101,10 +101,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       name, ticker, description, imageUrl, websiteUrl, twitterUrl, 
       telegramUrl, discordUrl,
       feeRecipientWallet, serverSideSign, useVanityAddress = false, // DISABLED by default
-      jobId, apiAccountId // API account ID for fee attribution
+      jobId, apiAccountId, // API account ID for fee attribution
+      feeMode // Fee distribution mode: 'creator' or 'holder_rewards'
     } = req.body;
 
-    console.log(`[create-fun][${VERSION}] Request received`, { name, ticker, useVanityAddress, apiAccountId, elapsed: Date.now() - startTime });
+    // Validate fee mode
+    const validFeeModes = ['creator', 'holder_rewards'];
+    const tokenFeeMode = validFeeModes.includes(feeMode) ? feeMode : 'creator';
+
+    console.log(`[create-fun][${VERSION}] Request received`, { name, ticker, useVanityAddress, apiAccountId, feeMode: tokenFeeMode, elapsed: Date.now() - startTime });
 
     if (!name || !ticker) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });

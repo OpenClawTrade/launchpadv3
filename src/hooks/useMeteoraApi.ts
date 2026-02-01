@@ -232,6 +232,7 @@ export function useMeteoraApi() {
       telegramUrl?: string;
       discordUrl?: string;
       initialBuySol?: number;
+      feeMode?: 'creator' | 'holder_rewards';
     },
     signTransaction?: (tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>
   ): Promise<CreatePoolResponse & { signature?: string; signatures?: string[] }> => {

@@ -87,12 +87,12 @@ serve(async (req) => {
     }
 
     // STEP 1: Find all fee claims that haven't been distributed yet
-    // Include api_account_id to check if token was launched via API
+    // Include api_account_id and fee_mode to check token type
     const { data: undistributedClaims, error: claimsError } = await supabase
       .from("fun_fee_claims")
       .select(`
         *,
-        fun_token:fun_tokens(id, name, ticker, creator_wallet, status, api_account_id)
+        fun_token:fun_tokens(id, name, ticker, creator_wallet, status, api_account_id, fee_mode)
       `)
       .eq("creator_distributed", false)
       .order("claimed_at", { ascending: true });
@@ -162,8 +162,48 @@ serve(async (req) => {
       const claimedSol = Number(claim.claimed_sol) || 0;
       if (claimedSol <= 0) continue;
 
-      // Determine if this is an API-launched token
+      // Determine token type: API, holder_rewards, or regular creator
       const isApiToken = !!token.api_account_id;
+      const isHolderRewards = token.fee_mode === 'holder_rewards';
+      
+      if (isHolderRewards) {
+        // HOLDER REWARDS MODE: Route 50% to holder_reward_pool instead of creator
+        // The fun-holder-distribute cron will distribute to holders every 5 minutes
+        const holderAmount = claimedSol * CREATOR_FEE_SHARE; // 50% goes to holder pool
+        
+        // Upsert into holder_reward_pool
+        const { data: existingPool } = await supabase
+          .from("holder_reward_pool")
+          .select("id, accumulated_sol")
+          .eq("fun_token_id", token.id)
+          .maybeSingle();
+
+        if (existingPool) {
+          await supabase
+            .from("holder_reward_pool")
+            .update({
+              accumulated_sol: (existingPool.accumulated_sol || 0) + holderAmount,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existingPool.id);
+        } else {
+          await supabase
+            .from("holder_reward_pool")
+            .insert({
+              fun_token_id: token.id,
+              accumulated_sol: holderAmount,
+            });
+        }
+
+        // Mark claim as distributed (holders will be paid by separate cron)
+        await supabase
+          .from("fun_fee_claims")
+          .update({ creator_distributed: true })
+          .eq("id", claim.id);
+
+        console.log(`[fun-distribute] Holder rewards token ${token.ticker}: accumulated ${holderAmount.toFixed(6)} SOL for holders`);
+        continue;
+      }
       
       if (isApiToken) {
         // API tokens: fees go to API account owner (will be recorded in api_fee_distributions)
