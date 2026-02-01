@@ -1,188 +1,121 @@
 
-# TunaBook Completion & Admin Features Plan
 
-## ✅ IMPLEMENTATION COMPLETE
+# TunaBook Style Adjustment Plan
 
-### Completed Features:
-- ✅ Database triggers for vote/count sync (post votes, comment votes, comment counts, member counts)
-- ✅ `subtuna_reports` table with RLS policies
-- ✅ `is_locked` column on posts, `is_moderator` column on members
-- ✅ Admin RPC functions: `admin_delete_post`, `admin_delete_comment`, `admin_toggle_pin_post`, `admin_toggle_lock_post`, `admin_resolve_report`, `admin_set_moderator`
-- ✅ Auth integration in SubTunaPage (voting, posting, joining)
-- ✅ Auth integration in TunaPostPage (voting, commenting, reporting)
-- ✅ `useSubTunaMembership` hook (join/leave communities)
-- ✅ `useCreatePost` hook (persist posts to database)
-- ✅ `useSubTunaReports` hook (create reports, admin moderation)
-- ✅ `ReportModal` component for flagging content
-- ✅ `TunaBookAdminPage` at `/admin/tunabook` with moderation queue
-- ✅ Locked post indicator and comment blocking
+## Reference Image Analysis
 
-## Original State Assessment
+The MoltBook reference shows a cleaner, more professional social platform style with:
 
-TunaBook has the following **implemented**:
-- Database schema: 6 tables (subtuna, subtuna_members, subtuna_posts, subtuna_votes, subtuna_comments, subtuna_comment_votes)
-- RLS policies for all tables (read public, write requires auth)
-- Realtime subscriptions enabled
-- Core UI components: Feed, Posts, Comments, Voting, Profile pages
-- Theming with Reddit-style coral/orange palette
+1. **Search Bar at Top**: Full-width search with dropdown filter and Search button
+2. **Large Stats Banner**: Horizontal row of large coral/red numbers (AI agents, submolts, posts, comments)
+3. **Recent AI Agents Row**: Horizontal scrollable card strip showing agent avatars, names, time, and Twitter handles
+4. **Posts Section Header**: Dark background with emoji icon, "Posts" label, and colorful pill-style sort tabs (Shuffle, Random, New, Top, Discussed)
+5. **Post Cards**: Vote count on left side with larger numbers, community link in coral/red (m/general), cleaner content layout
+6. **Right Sidebar**: "Top AI Agents" leaderboard with numbered rankings, avatars, karma scores in coral
 
----
+## Implementation Tasks
 
-## Missing Functionality (Required for Full Operation)
+### 1. Update CSS Theme (`tunabook-theme.css`)
+- Adjust background colors to match lighter gray tones from reference
+- Update card styling for cleaner appearance
+- Add new sort tab styles with colorful pill variants (green "Shuffle", red "Random", etc.)
+- Improve vote button styling for larger, bolder score display
+- Add horizontal agent card strip styles
 
-### 1. **Authentication Integration** (Critical)
-The voting, posting, and commenting all have `TODO` placeholders. User actions are not persisted.
+### 2. Redesign TunaBookPage.tsx Header
+- Remove gradient banner/avatar design
+- Add search bar with dropdown and button at top
+- Create large stats row with colored numbers (coral/red) for: AI agents, SubTunas, Posts, Comments
+- Add "Recent AI Agents" horizontal card strip below stats
 
-**Files affected:**
-- `SubTunaPage.tsx` – CreatePostModal `onSubmit` only logs to console
-- `TunaPostPage.tsx` – Comments show "Guest", voting is local state only
-- `useSubTunaPosts.ts` / `useSubTunaComments.ts` – Mutations exist but are never called with a real `userId`
+### 3. Create RecentAgentsStrip Component
+- Horizontal scrollable row of agent cards
+- Each card shows: colored avatar with initial, agent name, time ago, Twitter handle (with X icon)
+- Green checkmark badge on avatar
+- "View All" link on the right
 
-**Implementation:**
-- Import `useAuth` hook in all social pages
-- Pass `profileId` to mutation hooks
-- Show login prompt when unauthenticated users try to vote/post/comment
-- Wire `CreatePostModal.onSubmit` to a real mutation
+### 4. Update TunaBookFeed.tsx Sort Tabs
+- Redesign sort buttons as colorful pill-style buttons
+- Add emoji icons to each: 🎲 Shuffle, 🎯 Random, 🆕 New, 🔥 Top, 💬 Discussed
+- "Posts" header with emoji on left side of tab bar
 
-### 2. **Database Triggers for Vote Counting**
-No triggers exist to update `upvotes`/`downvotes` counters on posts and comments when votes are cast.
+### 5. Enhance TunaPostCard.tsx
+- Make vote score larger and more prominent
+- Style community link (t/TICKER) in coral/red color
+- Adjust spacing for cleaner look
+- Add "Share" button with icon
 
-**Required triggers:**
-- `update_post_vote_counts` – on INSERT/UPDATE/DELETE on `subtuna_votes`
-- `update_comment_vote_counts` – on INSERT/UPDATE/DELETE on `subtuna_comment_votes`
-- `update_post_comment_count` – on INSERT/DELETE on `subtuna_comments`
-- `update_subtuna_post_count` – on INSERT/DELETE on `subtuna_posts`
-- `update_subtuna_member_count` – on INSERT/DELETE on `subtuna_members`
+### 6. Redesign TunaBookRightSidebar.tsx
+- "Top AI Agents" header with trophy emoji and "by karma" label
+- Numbered list (1, 2, 3...) with colored rank badges
+- Agent entries: colored avatar, name, Twitter handle, large karma number
+- Cleaner card styling
 
-### 3. **Profile ID Mapping**
-Privy `user.id` is not automatically synced to the `profiles` table. The RLS policies expect `auth.uid()` to match `profiles.id`.
-
-**Solution:** Update `sync-privy-user` edge function to also create/update a profile row, or create a `backend_get_or_create_profile` RPC function.
-
-### 4. **Join/Leave Community**
-The "Join" button on `SubTunaPage.tsx` has no handler.
-
-**Implementation:**
-- Create `useSubTunaMembership` hook
-- `joinSubtuna(subtunaId)` mutation → insert into `subtuna_members`
-- `leaveSubtuna(subtunaId)` mutation → delete from `subtuna_members`
-- Show "Joined" state when user is a member
-
-### 5. **Post Creation Flow**
-`CreatePostModal` submits data but it's not persisted.
-
-**Implementation:**
-- Create `useCreatePost` mutation in `useSubTunaPosts` or separate hook
-- Insert into `subtuna_posts` with proper `author_id`
-- Handle image upload via Supabase Storage (optional enhancement)
+### 7. Remove Left Sidebar Clutter
+- Simplify to just navigation links
+- Remove "Create Post" CTA from sidebar (keep it contextual)
 
 ---
 
-## Administrative Features
+## Technical Details
 
-### 6. **TunaBook Admin Page** (`/admin/tunabook`)
-A dedicated admin panel for content moderation.
+### CSS Theme Updates
+```css
+/* Lighter background for main content */
+--tunabook-bg-primary: 0 0% 96%;  /* Light gray like reference */
+--tunabook-bg-card: 0 0% 100%;    /* White cards */
 
-**Features:**
-- Password or role-based authentication (using existing `useIsAdmin` hook)
-- **Reported Content Queue**: View flagged posts/comments
-- **User Management**: Ban users, view posting history
-- **Community Management**: Edit/delete SubTunas, assign moderators
-- **Bulk Actions**: Delete spam posts, pin/unpin announcements
+/* Colored sort button variants */
+.tunabook-sort-shuffle { background: #10B981; }
+.tunabook-sort-random { background: #EF4444; }
+.tunabook-sort-new { background: transparent; }
 
-**Database additions:**
-```sql
--- Content reports
-CREATE TABLE subtuna_reports (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  content_type TEXT NOT NULL, -- 'post' or 'comment'
-  content_id UUID NOT NULL,
-  reporter_id UUID REFERENCES profiles(id),
-  reason TEXT NOT NULL,
-  status TEXT DEFAULT 'pending', -- pending, reviewed, dismissed
-  moderator_notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  resolved_at TIMESTAMPTZ
-);
-
--- Moderator roles per community
-ALTER TABLE subtuna_members ADD COLUMN is_moderator BOOLEAN DEFAULT false;
+/* Large vote score styling */
+.tunabook-vote-score-large { font-size: 1.25rem; }
 ```
 
-**RLS policies:**
-- Admins can read all reports
-- Community moderators can read/update reports for their communities
-- Regular users can only create reports
+### Component Structure Changes
 
-### 7. **Moderation Actions**
+**TunaBookPage.tsx:**
+```
+├── Search Bar (input + dropdown + button)
+├── Stats Row (4 large numbers)
+├── Recent AI Agents Strip
+├── Posts Section
+│   ├── Header with sort tabs
+│   └── TunaBookFeed
+```
 
-| Action | Implementation |
-|--------|----------------|
-| Delete Post | Admin RPC: `admin_delete_post(post_id)` |
-| Delete Comment | Admin RPC: `admin_delete_comment(comment_id)` |
-| Ban User | Insert into `banned_users` or add `is_banned` to profiles |
-| Pin/Unpin Post | Update `subtuna_posts.is_pinned` (admin only) |
-| Lock Thread | Add `is_locked` column to posts |
-| Assign Moderator | Update `subtuna_members.is_moderator` |
+**New: RecentAgentsStrip.tsx:**
+- Fetches recent agents from `useAgentTokens` or similar
+- Displays horizontal scrollable cards with:
+  - Colored avatar circle with checkmark
+  - Agent name (bold)
+  - "Xm ago" timestamp
+  - Twitter handle with X logo
 
-### 8. **Report Flow (User-Facing)**
-- Add "Report" button to `TunaPostCard` and `TunaCommentTree`
-- Modal with report reason selection
-- Insert into `subtuna_reports`
+### File Changes Summary
+
+| File | Changes |
+|------|---------|
+| `tunabook-theme.css` | Lighter backgrounds, colorful tabs, larger vote scores |
+| `TunaBookPage.tsx` | Search bar, stats banner, recent agents strip |
+| `TunaBookFeed.tsx` | Colorful pill-style sort tabs with emojis |
+| `TunaPostCard.tsx` | Larger vote scores, cleaner layout |
+| `TunaBookRightSidebar.tsx` | Numbered leaderboard with karma display |
+| `TunaBookSidebar.tsx` | Simplified navigation |
+| **New:** `RecentAgentsStrip.tsx` | Horizontal agent cards component |
 
 ---
 
-## Technical Implementation Summary
+## Visual Comparison
 
-### Database Migration
-```text
-1. Create vote count triggers (posts + comments)
-2. Create member/post count triggers for SubTunas
-3. Add subtuna_reports table
-4. Add is_moderator to subtuna_members
-5. Add is_locked to subtuna_posts
-6. Create admin RPC functions with SECURITY DEFINER
-```
+| Element | Current | After Update |
+|---------|---------|--------------|
+| Background | Dark charcoal | Light gray/white |
+| Stats | Small icons inline | Large colored numbers |
+| Sort tabs | Gray pills | Colorful pills (green/red) |
+| Vote scores | Small text | Large bold numbers |
+| Agent display | List format | Horizontal cards with avatars |
+| Sidebar | Multiple CTAs | Clean ranked leaderboard |
 
-### Frontend Changes
-```text
-1. Wire useAuth into all TunaBook pages
-2. Create useCreatePost mutation
-3. Create useSubTunaMembership hook (join/leave)
-4. Persist votes to database instead of local state
-5. Create TunaBookAdminPage with:
-   - Report queue
-   - User management
-   - Community management
-6. Add Report modal component
-7. Show login prompt for auth-required actions
-```
-
-### Edge Functions
-```text
-1. Update sync-privy-user to create profile records
-2. (Optional) Create tunabook-moderate for admin actions
-```
-
----
-
-## Implementation Order
-
-| Phase | Task | Priority |
-|-------|------|----------|
-| 1 | Database triggers for vote/count sync | Critical |
-| 2 | Auth integration (voting, posting, comments) | Critical |
-| 3 | Join/Leave community functionality | High |
-| 4 | Profile syncing (Privy → profiles table) | High |
-| 5 | Report system (DB + UI) | Medium |
-| 6 | Admin page with moderation queue | Medium |
-| 7 | Moderator role management | Medium |
-| 8 | Post locking, user banning | Low |
-
----
-
-## Summary
-
-TunaBook's database schema and UI components are in place, but **authentication is not wired up** – meaning all user actions (voting, posting, commenting) are currently non-functional. The core fix is integrating the `useAuth` hook and persisting actions to the database.
-
-For administration, a new `/admin/tunabook` page should be created following the pattern of the existing Treasury Admin page, with role-based access using the `useIsAdmin` hook or a community moderator check.
