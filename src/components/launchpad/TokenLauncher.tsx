@@ -28,7 +28,8 @@ import {
   Download,
   Pencil,
   Bot,
-  Coins
+  Coins,
+  Users
 } from "lucide-react";
 
 interface MemeToken {
@@ -66,7 +67,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
 
-  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom">("random");
+  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom" | "holders">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
     name: "",
@@ -636,6 +637,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     { id: "describe" as const, label: "Describe", icon: Sparkles },
     { id: "custom" as const, label: "Custom", icon: Pencil },
     { id: "phantom" as const, label: "Phantom", icon: Wallet },
+    { id: "holders" as const, label: "Holders", icon: Users },
   ];
 
   return (
@@ -1223,6 +1225,77 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Holders Mode */}
+        {generatorMode === "holders" && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg border border-primary/30 bg-primary/5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Holder Rewards Token</h4>
+                  <p className="text-xs text-muted-foreground">50% of fees distributed to all token holders</p>
+                </div>
+              </div>
+              
+              <div className="space-y-2 text-xs">
+                <div className="flex items-start gap-2 p-2 rounded bg-background/50">
+                  <span className="text-primary font-bold">✓</span>
+                  <span>Trading fees automatically distributed to holders proportionally</span>
+                </div>
+                <div className="flex items-start gap-2 p-2 rounded bg-background/50">
+                  <span className="text-primary font-bold">✓</span>
+                  <span>Incentivizes holding over selling</span>
+                </div>
+                <div className="flex items-start gap-2 p-2 rounded bg-background/50">
+                  <span className="text-primary font-bold">✓</span>
+                  <span>Passive income for your community</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg border border-warning/30 bg-warning/5">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-semibold text-warning mb-1">Coming Soon</p>
+                  <p className="text-muted-foreground">
+                    Holder reward distribution requires Phantom wallet integration. 
+                    This feature is currently in development.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Coins className="h-4 w-4 text-primary" />
+                <span className="text-xs font-semibold">Fee Distribution (Holders Mode)</span>
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Holder Share</span>
+                  <span className="text-primary font-bold">50%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Marketing</span>
+                  <span className="text-muted-foreground">30%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Platform</span>
+                  <span className="text-muted-foreground">20%</span>
+                </div>
+              </div>
+            </div>
+
+            <Button disabled className="gate-btn gate-btn-primary w-full opacity-50">
+              <Users className="h-4 w-4 mr-2" />
+              Launch Holder Rewards Token (Soon)
+            </Button>
           </div>
         )}
       </div>
