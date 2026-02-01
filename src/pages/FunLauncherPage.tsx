@@ -16,6 +16,7 @@ import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useTokenPromotions } from "@/hooks/useTokenPromotions";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
+import { useChainRoute } from "@/hooks/useChainRoute";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
 import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { StatsCards } from "@/components/launchpad/StatsCards";
@@ -24,6 +25,7 @@ import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { FeeDistributionPie } from "@/components/launchpad/FeeDistributionPie";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
+import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { PromoteButton } from "@/components/launchpad/PromoteButton";
 import { PromoteModal } from "@/components/launchpad/PromoteModal";
 
@@ -47,6 +49,7 @@ import {
   XCircle,
   Megaphone,
   Crown,
+  AlertCircle,
 } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -73,6 +76,7 @@ export default function FunLauncherPage() {
   const { solanaAddress } = useAuth();
   const isMobile = useIsMobile();
   const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
+  const { chain, chainConfig, isSolana, isChainEnabled } = useChainRoute();
 
   // Pagination states
   const [claimsPage, setClaimsPage] = useState(1);
@@ -150,7 +154,7 @@ export default function FunLauncherPage() {
       {/* Header */}
       <header className="gate-header">
         <div className="gate-header-inner">
-
+          <div className="flex items-center gap-3">
             <Link to="/" className="gate-logo" aria-label="TUNA">
               <img
                 src={HEADER_LOGO_SRC}
@@ -160,6 +164,12 @@ export default function FunLauncherPage() {
               />
               <span className="text-lg font-bold">TUNA</span>
             </Link>
+            
+            {/* Chain Switcher */}
+            <div className="hidden sm:block">
+              <ChainSwitcher />
+            </div>
+          </div>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-2">
@@ -193,7 +203,7 @@ export default function FunLauncherPage() {
               href="https://x.com/buildtuna" 
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-secondary transition-colors"
               title="Follow us on X"
             >
               <XLogo className="h-4 w-4 text-muted-foreground hover:text-foreground" weight="fill" />
@@ -209,6 +219,12 @@ export default function FunLauncherPage() {
               </SheetTrigger>
               <SheetContent side="right" className="bg-card border-border">
                 <nav className="flex flex-col gap-2 mt-8">
+                  {/* Mobile Chain Switcher */}
+                  <div className="px-4 py-2 border-b border-border mb-2">
+                    <p className="text-xs text-muted-foreground mb-2">Select Chain</p>
+                    <ChainSwitcher variant="default" />
+                  </div>
+                  
                   <Link to="/trade" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-primary-foreground text-sm font-medium">Trade</span>
                   </Link>
@@ -225,15 +241,31 @@ export default function FunLauncherPage() {
         </div>
       </header>
 
-      {/* Ticker Bar */}
-      <div className="mt-4">
-        <TokenTickerBar />
-      </div>
+      {/* Chain Not Enabled Banner */}
+      {!isChainEnabled && (
+        <div className="bg-warning/10 border-b border-warning/30 px-4 py-3">
+          <div className="max-w-[1400px] mx-auto flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-warning flex-shrink-0" />
+            <p className="text-sm text-warning">
+              <span className="font-semibold">{chainConfig.name}</span> launch is coming soon! Check back later or switch to Solana to launch now.
+            </p>
+          </div>
+        </div>
+      )}
 
-      {/* King of the Hill */}
-      <div className="max-w-[1400px] mx-auto px-4 pt-6">
-        <KingOfTheHill />
-      </div>
+      {/* Ticker Bar - only show for Solana */}
+      {isSolana && (
+        <div className="mt-4">
+          <TokenTickerBar />
+        </div>
+      )}
+
+      {/* King of the Hill - only show for Solana */}
+      {isSolana && (
+        <div className="max-w-[1400px] mx-auto px-4 pt-6">
+          <KingOfTheHill />
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">

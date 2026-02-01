@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
+import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { Menu } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
@@ -25,6 +26,7 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
       {/* Header */}
       <header className="gate-header">
         <div className="gate-header-inner">
+        <div className="flex items-center gap-3">
           <Link to="/" className="gate-logo" aria-label="TUNA">
             <img
               src={HEADER_LOGO_SRC}
@@ -34,6 +36,12 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
             />
             <span className="text-lg font-bold">TUNA <span className="text-xs text-muted-foreground font-normal">v3</span></span>
           </Link>
+          
+          {/* Chain Switcher */}
+          <div className="hidden sm:block">
+            <ChainSwitcher />
+          </div>
+        </div>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-2">
@@ -78,6 +86,12 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
               </SheetTrigger>
               <SheetContent side="right" className="bg-card border-border">
                 <nav className="flex flex-col gap-2 mt-8">
+                  {/* Mobile Chain Switcher */}
+                  <div className="px-4 py-2 border-b border-border mb-2">
+                    <p className="text-xs text-muted-foreground mb-2">Select Chain</p>
+                    <ChainSwitcher variant="default" />
+                  </div>
+                  
                   <Link to="/trade" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-primary-foreground text-sm font-medium">Trade</span>
                   </Link>

@@ -19,3 +19,4 @@ export { TokenAssociationManager } from './TokenAssociationManager';
 export { LaunchpadTokenCreator } from './LaunchpadTokenCreator';
 export { JupiterSwapWidget } from './JupiterSwapWidget';
 export { EmbeddedWalletCard } from './EmbeddedWalletCard';
+export { ChainSwitcher } from './ChainSwitcher';
