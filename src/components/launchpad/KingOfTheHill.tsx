@@ -118,7 +118,11 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1">
             {token.name}
-            {isHolderRewards && <span title="Holder Rewards"><Gem className="w-3 h-3 text-green-500 flex-shrink-0" /></span>}
+            {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
+              <span title="Holder Rewards" aria-label="Holder Rewards">
+                <Gem className="w-3 h-3 text-accent flex-shrink-0" />
+              </span>
+            )}
           </h3>
           <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>
         </div>
