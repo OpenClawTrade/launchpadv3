@@ -36,10 +36,10 @@ serve(async (req) => {
     const symbol = url.searchParams.get("symbol") || "???";
     const description = url.searchParams.get("description") || `${name} token`;
     const image = url.searchParams.get("image") || "";
-    const website = url.searchParams.get("website") || "";
-    const twitter = url.searchParams.get("twitter") || "";
-    const telegram = url.searchParams.get("telegram") || "";
-    const discord = url.searchParams.get("discord") || "";
+    const website = (url.searchParams.get("website") || "").trim();
+    const twitter = (url.searchParams.get("twitter") || "").trim();
+    const telegram = (url.searchParams.get("telegram") || "").trim();
+    const discord = (url.searchParams.get("discord") || "").trim();
     const creator = url.searchParams.get("creator") || "";
 
     // Get mint from path for logging
@@ -60,7 +60,8 @@ serve(async (req) => {
       symbol: symbol.toUpperCase(),
       description: descriptionWithTag,
       image,
-      external_url: website || `https://buildtuna.com/token/${mintAddress}`,
+      // IMPORTANT: if website is blank, omit external_url entirely (no defaults)
+      external_url: website || undefined,
       tags: ["Meme", "TUNA"],
       attributes: [
         { trait_type: "Platform", value: "TUNA" },

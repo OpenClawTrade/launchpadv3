@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
         );
 
         // Add custom subdomain
-        const customDomain = `${launchpad.subdomain}.buildtuna.com`;
+        const customDomain = `${launchpad.subdomain}.tuna.fun`;
         try {
           await addDomainToProject(projectId, customDomain);
         } catch (e) {
@@ -251,7 +251,7 @@ Deno.serve(async (req) => {
           JSON.stringify({
             status: isReady ? "live" : latestDeployment?.state?.toLowerCase() || "unknown",
             url: launchpad.vercel_deployment_url,
-            customDomain: launchpad.custom_domain || `${launchpad.subdomain}.buildtuna.com`,
+            customDomain: launchpad.custom_domain || `${launchpad.subdomain}.tuna.fun`,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

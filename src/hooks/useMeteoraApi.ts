@@ -29,7 +29,7 @@ const getApiUrl = (): string => {
     return normalize(meteoraUrl.trim());
   }
 
-  // 4) Fallback to current origin (will fail on buildtuna.com but at least shows clear error)
+  // 4) Fallback to current origin (useful for preview/debug; might fail if /api isn't deployed there)
   if (typeof window !== "undefined") {
     return window.location.origin;
   }

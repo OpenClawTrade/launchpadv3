@@ -108,7 +108,6 @@ Deno.serve(async (req) => {
         symbol: 'TOKEN',
         description: 'Token launching on TUNA #TUNA',
         image: '',
-        external_url: `https://buildtuna.com/token/${mintAddress}`,
         tags: ['Meme', 'TUNA'],
         attributes: [
           { trait_type: 'Platform', value: 'TUNA' },
@@ -143,12 +142,19 @@ Deno.serve(async (req) => {
       ? baseDescription 
       : `${baseDescription} #TUNA`;
 
+    // IMPORTANT: if socials are blank, keep them blank (no defaults)
+    const website = typeof token.website_url === 'string' ? token.website_url.trim() : '';
+    const twitter = typeof token.twitter_url === 'string' ? token.twitter_url.trim() : '';
+    const telegram = typeof token.telegram_url === 'string' ? token.telegram_url.trim() : '';
+    const discord = typeof token.discord_url === 'string' ? token.discord_url.trim() : '';
+
     const metadata: Record<string, unknown> = {
       name: token.name,
       symbol: token.ticker?.toUpperCase() || '',
       description: descriptionWithTag,
       image: token.image_url || '',
-      external_url: token.website_url || `https://buildtuna.com/token/${mintAddress}`,
+      // NOTE: JSON.stringify omits undefined values, so this disappears when website is blank.
+      external_url: website || undefined,
       // Tags array for Solscan tag chips
       tags: ['Meme', 'TUNA'],
       attributes: [
@@ -180,19 +186,11 @@ Deno.serve(async (req) => {
 
     // Add social links as extensions (following common patterns)
     const extensions: Record<string, string> = {};
-    
-    if (token.website_url) {
-      extensions.website = token.website_url;
-    }
-    if (token.twitter_url) {
-      extensions.twitter = token.twitter_url;
-    }
-    if (token.telegram_url) {
-      extensions.telegram = token.telegram_url;
-    }
-    if (token.discord_url) {
-      extensions.discord = token.discord_url;
-    }
+
+    if (website) extensions.website = website;
+    if (twitter) extensions.twitter = twitter;
+    if (telegram) extensions.telegram = telegram;
+    if (discord) extensions.discord = discord;
 
     if (Object.keys(extensions).length > 0) {
       metadata.extensions = extensions;
@@ -200,10 +198,10 @@ Deno.serve(async (req) => {
 
     // Also add to properties.links for better compatibility
     const links: Record<string, string> = {};
-    if (token.website_url) links.website = token.website_url;
-    if (token.twitter_url) links.twitter = token.twitter_url;
-    if (token.telegram_url) links.telegram = token.telegram_url;
-    if (token.discord_url) links.discord = token.discord_url;
+    if (website) links.website = website;
+    if (twitter) links.twitter = twitter;
+    if (telegram) links.telegram = telegram;
+    if (discord) links.discord = discord;
     
     if (Object.keys(links).length > 0) {
       (metadata.properties as Record<string, unknown>).links = links;

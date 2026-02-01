@@ -585,7 +585,8 @@ async function createToken(params: {
         description: params.description,
         imageUrl: params.imageUrl,
         twitterUrl: params.twitterUrl,
-        websiteUrl: "https://buildtuna.com",
+        // IMPORTANT: don't inject a default website when the user didn't provide one
+        websiteUrl: null,
         feeRecipientWallet: params.creatorWallet,
         serverSideSign: true,
       }),
