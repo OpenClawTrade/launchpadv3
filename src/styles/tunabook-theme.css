@@ -1,28 +1,28 @@
-/* TunaBook MoltBook-style theme - Light gray with coral accents */
+/* TunaBook Theme - Dark theme matching main site */
 .tunabook-theme {
-  /* Primary: Coral/Red #FF4D4D */
-  --tunabook-primary: 0 100% 65%;
-  --tunabook-primary-hover: 0 100% 55%;
-  --tunabook-primary-muted: 0 70% 45%;
-  --tunabook-primary-light: 0 100% 70%;
+  /* Primary: Gate.io green (matching main site) */
+  --tunabook-primary: 152 69% 41%;
+  --tunabook-primary-hover: 152 69% 35%;
+  --tunabook-primary-muted: 152 50% 30%;
+  --tunabook-primary-light: 152 69% 50%;
   
-  /* Secondary: Orange accents */
-  --tunabook-secondary: 25 100% 60%;
-  --tunabook-accent: 30 100% 55%;
+  /* Secondary/Accent colors */
+  --tunabook-secondary: 220 13% 18%;
+  --tunabook-accent: 152 50% 15%;
   
   /* Voting colors */
-  --tunabook-upvote: 0 100% 65%;
-  --tunabook-downvote: 240 60% 60%;
-  --tunabook-upvote-hover: 0 100% 70%;
-  --tunabook-downvote-hover: 240 60% 68%;
+  --tunabook-upvote: 152 69% 45%;
+  --tunabook-downvote: 0 72% 51%;
+  --tunabook-upvote-hover: 152 69% 55%;
+  --tunabook-downvote-hover: 0 72% 60%;
   
-  /* Background - Light gray like MoltBook */
-  --tunabook-bg-primary: 0 0% 94%;
-  --tunabook-bg-card: 0 0% 100%;
-  --tunabook-bg-elevated: 0 0% 98%;
-  --tunabook-bg-hover: 0 0% 95%;
-  --tunabook-bg-input: 0 0% 100%;
-  --tunabook-bg-dark: 220 15% 18%;
+  /* Background - Dark matching main site */
+  --tunabook-bg-primary: 220 13% 6%;
+  --tunabook-bg-card: 220 13% 9%;
+  --tunabook-bg-elevated: 220 13% 12%;
+  --tunabook-bg-hover: 220 13% 14%;
+  --tunabook-bg-input: 220 13% 12%;
+  --tunabook-bg-dark: 220 13% 4%;
   
   /* Accent colors for badges */
   --tunabook-agent-badge: 280 100% 70%;
@@ -38,16 +38,22 @@
   --tunabook-sort-top: 45 100% 50%;
   --tunabook-sort-discussed: 280 70% 60%;
   
-  /* Text - Dark for light background */
-  --tunabook-text-primary: 220 15% 15%;
-  --tunabook-text-secondary: 220 10% 45%;
-  --tunabook-text-muted: 220 10% 60%;
-  --tunabook-text-link: 0 100% 60%;
+  /* Stats colors (matching reference image) */
+  --tunabook-stat-marketcap: 173 50% 60%;
+  --tunabook-stat-fees: 220 10% 65%;
+  --tunabook-stat-tokens: 16 60% 55%;
+  --tunabook-stat-volume: 195 60% 55%;
   
-  /* Borders - Light gray */
-  --tunabook-border: 0 0% 88%;
-  --tunabook-border-hover: 0 0% 80%;
-  --tunabook-border-focus: 0 100% 65%;
+  /* Text - Light for dark background */
+  --tunabook-text-primary: 0 0% 98%;
+  --tunabook-text-secondary: 220 9% 60%;
+  --tunabook-text-muted: 220 9% 45%;
+  --tunabook-text-link: 152 69% 50%;
+  
+  /* Borders - Dark */
+  --tunabook-border: 220 13% 18%;
+  --tunabook-border-hover: 220 13% 25%;
+  --tunabook-border-focus: 152 69% 41%;
   
   /* Semantic color overrides for shadcn */
   --primary: var(--tunabook-primary);
@@ -80,7 +86,7 @@
 }
 
 .tunabook-theme .tunabook-card.interactive:hover {
-  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.08);
+  box-shadow: 0 2px 12px hsl(0 0% 0% / 0.3);
 }
 
 /* === Stats Section === */
@@ -92,16 +98,35 @@
 }
 
 .tunabook-theme .tunabook-stat-value {
-  font-size: 2rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.75rem;
   font-weight: 700;
-  color: hsl(var(--tunabook-primary));
   line-height: 1;
 }
 
+.tunabook-theme .tunabook-stat-value.marketcap {
+  color: hsl(var(--tunabook-stat-marketcap));
+}
+
+.tunabook-theme .tunabook-stat-value.fees {
+  color: hsl(var(--tunabook-stat-fees));
+}
+
+.tunabook-theme .tunabook-stat-value.tokens {
+  color: hsl(var(--tunabook-stat-tokens));
+}
+
+.tunabook-theme .tunabook-stat-value.volume {
+  color: hsl(var(--tunabook-stat-volume));
+}
+
 .tunabook-theme .tunabook-stat-label {
-  font-size: 0.875rem;
-  color: hsl(var(--tunabook-text-secondary));
-  margin-top: 0.25rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: hsl(var(--tunabook-text-muted));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
 }
 
 /* === Search Bar === */
@@ -130,6 +155,7 @@
   border: none !important;
   background: transparent !important;
   padding: 0.75rem 1rem;
+  color: hsl(var(--tunabook-text-primary)) !important;
 }
 
 .tunabook-theme .tunabook-search-btn {
@@ -174,7 +200,7 @@
 
 .tunabook-theme .tunabook-agent-card:hover {
   border-color: hsl(var(--tunabook-border-hover));
-  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.06);
+  box-shadow: 0 2px 12px hsl(0 0% 0% / 0.2);
 }
 
 .tunabook-theme .tunabook-agent-avatar {
@@ -191,10 +217,10 @@
 }
 
 .tunabook-theme .tunabook-agent-avatar.green { background: hsl(152 69% 41%); }
-.tunabook-theme .tunabook-agent-avatar.blue { background: hsl(210 100% 60%); }
-.tunabook-theme .tunabook-agent-avatar.purple { background: hsl(280 70% 60%); }
-.tunabook-theme .tunabook-agent-avatar.orange { background: hsl(25 100% 55%); }
-.tunabook-theme .tunabook-agent-avatar.pink { background: hsl(330 80% 60%); }
+.tunabook-theme .tunabook-agent-avatar.blue { background: hsl(210 100% 50%); }
+.tunabook-theme .tunabook-agent-avatar.purple { background: hsl(280 70% 50%); }
+.tunabook-theme .tunabook-agent-avatar.orange { background: hsl(25 100% 50%); }
+.tunabook-theme .tunabook-agent-avatar.pink { background: hsl(330 80% 55%); }
 
 .tunabook-theme .tunabook-agent-checkmark {
   position: absolute;
@@ -204,7 +230,7 @@
   height: 16px;
   background: hsl(152 69% 41%);
   border-radius: 50%;
-  border: 2px solid white;
+  border: 2px solid hsl(var(--tunabook-bg-card));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -243,7 +269,7 @@
 
 .tunabook-theme .tunabook-vote-btn.upvoted:hover {
   color: hsl(var(--tunabook-upvote-hover));
-  background: hsl(var(--tunabook-upvote) / 0.1);
+  background: hsl(var(--tunabook-upvote) / 0.15);
 }
 
 .tunabook-theme .tunabook-vote-btn.downvoted {
@@ -252,7 +278,7 @@
 
 .tunabook-theme .tunabook-vote-btn.downvoted:hover {
   color: hsl(var(--tunabook-downvote-hover));
-  background: hsl(var(--tunabook-downvote) / 0.1);
+  background: hsl(var(--tunabook-downvote) / 0.15);
 }
 
 .tunabook-theme .tunabook-vote-score {
@@ -260,6 +286,7 @@
   font-weight: 700;
   min-width: 2.5rem;
   text-align: center;
+  color: hsl(var(--tunabook-text-primary));
 }
 
 /* === Badge Styles === */
@@ -301,7 +328,7 @@
   border-left: 3px solid hsl(var(--tunabook-primary));
   background: linear-gradient(
     90deg,
-    hsl(var(--tunabook-primary) / 0.05) 0%,
+    hsl(var(--tunabook-primary) / 0.08) 0%,
     hsl(var(--tunabook-bg-card)) 100%
   );
 }
@@ -321,9 +348,10 @@
   gap: 0.5rem;
 }
 
-/* === Sort Tabs - Colorful Pills === */
+/* === Sort Tabs === */
 .tunabook-theme .tunabook-posts-header {
-  background: hsl(var(--tunabook-bg-dark));
+  background: hsl(var(--tunabook-bg-elevated));
+  border: 1px solid hsl(var(--tunabook-border));
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
   display: flex;
@@ -336,7 +364,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: white;
+  color: hsl(var(--tunabook-text-primary));
   font-weight: 600;
   font-size: 1rem;
 }
@@ -359,7 +387,7 @@
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  background: hsl(var(--tunabook-bg-elevated));
+  background: hsl(var(--tunabook-bg-card));
   border: 1px solid hsl(var(--tunabook-border));
 }
 
@@ -401,7 +429,7 @@
 }
 
 .tunabook-theme .tunabook-community-link:hover {
-  color: hsl(var(--tunabook-primary-hover));
+  color: hsl(var(--tunabook-primary-light));
 }
 
 /* === Buttons === */
@@ -447,7 +475,7 @@
 .tunabook-theme input:focus,
 .tunabook-theme textarea:focus {
   border-color: hsl(var(--tunabook-border-focus)) !important;
-  box-shadow: 0 0 0 2px hsl(var(--tunabook-primary) / 0.15) !important;
+  box-shadow: 0 0 0 2px hsl(var(--tunabook-primary) / 0.2) !important;
 }
 
 .tunabook-theme input::placeholder,
@@ -483,9 +511,9 @@
 }
 
 .tunabook-theme .tunabook-rank-badge.gold { background: hsl(45 100% 50%); }
-.tunabook-theme .tunabook-rank-badge.silver { background: hsl(0 0% 65%); }
-.tunabook-theme .tunabook-rank-badge.bronze { background: hsl(25 70% 50%); }
-.tunabook-theme .tunabook-rank-badge.default { background: hsl(220 10% 50%); }
+.tunabook-theme .tunabook-rank-badge.silver { background: hsl(0 0% 55%); }
+.tunabook-theme .tunabook-rank-badge.bronze { background: hsl(25 70% 45%); }
+.tunabook-theme .tunabook-rank-badge.default { background: hsl(220 13% 35%); }
 
 .tunabook-theme .tunabook-karma-large {
   font-size: 1.125rem;
@@ -504,150 +532,36 @@
 }
 
 .tunabook-theme ::-webkit-scrollbar-thumb {
-  background: hsl(var(--tunabook-border-hover));
+  background: hsl(var(--tunabook-border));
   border-radius: 4px;
 }
 
 .tunabook-theme ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--tunabook-text-muted));
+  background: hsl(var(--tunabook-border-hover));
 }
 
-/* === Karma Display === */
-.tunabook-theme .tunabook-karma {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: hsl(var(--tunabook-primary));
-  font-weight: 600;
-}
-
-.tunabook-theme .tunabook-karma-icon {
-  color: hsl(var(--tunabook-primary));
-}
-
-/* === Community Banner === */
-.tunabook-theme .tunabook-banner {
-  background: linear-gradient(
-    135deg,
-    hsl(var(--tunabook-primary)) 0%,
-    hsl(var(--tunabook-primary-muted)) 100%
-  );
-}
-
-/* === Animations === */
-@keyframes tunabook-pulse {
-  0%, 100% {
-    opacity: 1;
+/* === Responsive === */
+@media (max-width: 768px) {
+  .tunabook-theme .tunabook-stats-banner {
+    padding: 1rem;
   }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.tunabook-theme .tunabook-loading {
-  animation: tunabook-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes tunabook-vote-pop {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.3);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.tunabook-theme .tunabook-vote-btn.upvoted,
-.tunabook-theme .tunabook-vote-btn.downvoted {
-  animation: tunabook-vote-pop 0.2s ease-out;
-}
-
-/* === Mobile Responsive Adjustments === */
-@media (max-width: 640px) {
-  .tunabook-theme .tunabook-card {
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-  }
-
-  .tunabook-theme .tunabook-card.tunabook-pinned {
-    border-left: 3px solid hsl(var(--tunabook-primary));
-  }
-
-  .tunabook-theme .tunabook-sort-tab {
-    padding: 0.3rem 0.625rem;
-    font-size: 0.75rem;
-  }
-
+  
   .tunabook-theme .tunabook-stat-value {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
-
-  .tunabook-theme .tunabook-posts-header {
-    flex-direction: column;
-    align-items: flex-start;
+  
+  .tunabook-theme .tunabook-stat-label {
+    font-size: 0.65rem;
   }
-}
-
-/* === Post Card Mobile === */
-@media (max-width: 480px) {
-  .tunabook-theme article.tunabook-card {
-    padding: 0.75rem;
-    gap: 0.5rem;
+  
+  .tunabook-theme .tunabook-agent-card {
+    min-width: 160px;
+    padding: 0.5rem 0.75rem;
   }
-
-  .tunabook-theme article.tunabook-card h3 {
-    font-size: 1rem;
-  }
-}
-
-/* === Focus States for Accessibility === */
-.tunabook-theme .tunabook-vote-btn:focus-visible {
-  outline: 2px solid hsl(var(--tunabook-primary));
-  outline-offset: 2px;
-}
-
-.tunabook-theme .tunabook-btn-primary:focus-visible,
-.tunabook-theme .tunabook-btn-outline:focus-visible {
-  outline: 2px solid hsl(var(--tunabook-primary));
-  outline-offset: 2px;
-}
-
-/* === New Post Highlight === */
-@keyframes tunabook-new-post {
-  0% {
-    background-color: hsl(var(--tunabook-primary) / 0.1);
-  }
-  100% {
-    background-color: hsl(var(--tunabook-bg-card));
-  }
-}
-
-.tunabook-theme .tunabook-card.new-post {
-  animation: tunabook-new-post 2s ease-out forwards;
-}
-
-/* === Skeleton Loading === */
-.tunabook-theme .tunabook-skeleton {
-  background: linear-gradient(
-    90deg,
-    hsl(var(--tunabook-bg-elevated)) 25%,
-    hsl(var(--tunabook-bg-hover)) 50%,
-    hsl(var(--tunabook-bg-elevated)) 75%
-  );
-  background-size: 200% 100%;
-  animation: tunabook-shimmer 1.5s infinite;
-  border-radius: 0.25rem;
-}
-
-@keyframes tunabook-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
+  
+  .tunabook-theme .tunabook-agent-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
   }
 }

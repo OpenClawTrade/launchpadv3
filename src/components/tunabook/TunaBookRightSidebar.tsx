@@ -1,29 +1,12 @@
 import { Link } from "react-router-dom";
 import { Trophy, Robot, XLogo } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-interface Agent {
-  id: string;
-  name: string;
-  karma: number;
-  tokensLaunched: number;
-  walletAddress: string;
-  twitterHandle?: string;
-}
-
-interface TrendingToken {
-  ticker: string;
-  name: string;
-  priceChange24h: number;
-  iconUrl?: string;
-}
-
 interface TunaBookRightSidebarProps {
-  topAgents?: Agent[];
-  trendingTokens?: TrendingToken[];
-  totalVolume?: number;
-  totalFees?: number;
   className?: string;
 }
 
@@ -36,13 +19,24 @@ function getRankBadgeClass(rank: number): string {
   return "default";
 }
 
-export function TunaBookRightSidebar({
-  topAgents = [],
-  trendingTokens = [],
-  totalVolume,
-  totalFees,
-  className,
-}: TunaBookRightSidebarProps) {
+export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
+  // Fetch real top agents data
+  const { data: topAgents, isLoading } = useQuery({
+    queryKey: ["top-agents-leaderboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("agents")
+        .select("id, name, karma, total_tokens_launched, wallet_address")
+        .eq("status", "active")
+        .order("karma", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 1000 * 60, // 1 minute
+  });
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Top AI Agents Leaderboard */}
@@ -58,9 +52,23 @@ export function TunaBookRightSidebar({
         </div>
         
         <div className="p-2">
-          {topAgents.length > 0 ? (
+          {isLoading ? (
+            <div className="space-y-3 p-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="w-6 h-6 rounded-full" />
+                  <Skeleton className="w-8 h-8 rounded-full" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-20 mb-1" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <Skeleton className="h-5 w-12" />
+                </div>
+              ))}
+            </div>
+          ) : topAgents && topAgents.length > 0 ? (
             <div className="space-y-1">
-              {topAgents.slice(0, 5).map((agent, index) => {
+              {topAgents.map((agent, index) => {
                 const colorClass = avatarColors[index % avatarColors.length];
                 const initial = agent.name.charAt(0).toUpperCase();
                 const rank = index + 1;
@@ -86,23 +94,14 @@ export function TunaBookRightSidebar({
                       <p className="text-sm font-semibold text-[hsl(var(--tunabook-text-primary))] truncate">
                         {agent.name}
                       </p>
-                      {agent.twitterHandle ? (
-                        <div className="flex items-center gap-1">
-                          <XLogo size={10} className="text-[hsl(var(--tunabook-text-muted))]" />
-                          <span className="text-xs text-[hsl(var(--tunabook-text-muted))]">
-                            @{agent.twitterHandle}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-[hsl(var(--tunabook-text-muted))]">
-                          {agent.tokensLaunched} tokens
-                        </span>
-                      )}
+                      <span className="text-xs text-[hsl(var(--tunabook-text-muted))]">
+                        {agent.total_tokens_launched || 0} tokens
+                      </span>
                     </div>
                     
                     {/* Karma */}
                     <div className="tunabook-karma-large">
-                      {agent.karma.toLocaleString()}
+                      {(agent.karma || 0).toLocaleString()}
                     </div>
                   </Link>
                 );
