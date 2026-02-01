@@ -11,7 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSubTuna, useRecentSubTunas } from "@/hooks/useSubTuna";
 import { useSubTunaPosts, SortOption } from "@/hooks/useSubTunaPosts";
 import { useSubTunaRealtime } from "@/hooks/useSubTunaRealtime";
-import { Users, Article, TrendUp, ArrowSquareOut, Plus } from "@phosphor-icons/react";
+import { useSubTunaMembership } from "@/hooks/useSubTunaMembership";
+import { useCreatePost } from "@/hooks/useCreatePost";
+import { useAuth } from "@/hooks/useAuth";
+import { Users, Article, TrendUp, ArrowSquareOut, Plus, SignIn } from "@phosphor-icons/react";
+import { toast } from "sonner";
 import "@/styles/tunabook-theme.css";
 
 export default function SubTunaPage() {
@@ -20,17 +24,41 @@ export default function SubTunaPage() {
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
+  const { user, isAuthenticated, profileId, login } = useAuth();
   const { data: subtuna, isLoading: isLoadingSubtuna } = useSubTuna(ticker);
-  const { posts, isLoading: isLoadingPosts } = useSubTunaPosts({
+  const { posts, isLoading: isLoadingPosts, vote } = useSubTunaPosts({
     subtunaId: subtuna?.id,
     ticker,
     sort,
   });
   const { data: recentSubtunas } = useRecentSubTunas();
+  const { createPost, isCreating } = useCreatePost();
+  const { 
+    isMember, 
+    join, 
+    leave, 
+    isJoining, 
+    isLeaving 
+  } = useSubTunaMembership({
+    subtunaId: subtuna?.id,
+    userId: profileId || undefined,
+  });
 
   // Enable realtime updates for this SubTuna
   useSubTunaRealtime({ subtunaId: subtuna?.id, enabled: !!subtuna?.id });
+
   const handleVote = useCallback((postId: string, voteType: 1 | -1) => {
+    if (!isAuthenticated || !profileId) {
+      toast.error("Please login to vote", {
+        action: {
+          label: "Login",
+          onClick: login,
+        },
+      });
+      return;
+    }
+
+    // Optimistic update
     setUserVotes((prev) => {
       if (prev[postId] === voteType) {
         const next = { ...prev };
@@ -39,7 +67,77 @@ export default function SubTunaPage() {
       }
       return { ...prev, [postId]: voteType };
     });
-  }, []);
+
+    // Persist to database
+    vote({ postId, voteType, userId: profileId });
+  }, [isAuthenticated, profileId, login, vote]);
+
+  const handleJoinLeave = useCallback(() => {
+    if (!isAuthenticated) {
+      toast.error("Please login to join communities", {
+        action: {
+          label: "Login",
+          onClick: login,
+        },
+      });
+      return;
+    }
+
+    if (isMember) {
+      leave();
+      toast.success("Left community");
+    } else {
+      join();
+      toast.success("Joined community!");
+    }
+  }, [isAuthenticated, isMember, join, leave, login]);
+
+  const handleCreatePost = useCallback(async (data: {
+    title: string;
+    content?: string;
+    imageUrl?: string;
+    linkUrl?: string;
+    postType: "text" | "image" | "link";
+  }) => {
+    if (!isAuthenticated || !profileId || !subtuna?.id) {
+      toast.error("Please login to create posts", {
+        action: {
+          label: "Login",
+          onClick: login,
+        },
+      });
+      return;
+    }
+
+    try {
+      await createPost({
+        subtunaId: subtuna.id,
+        authorId: profileId,
+        title: data.title,
+        content: data.content,
+        imageUrl: data.imageUrl,
+        linkUrl: data.linkUrl,
+        postType: data.postType,
+      });
+      setIsCreatePostOpen(false);
+      toast.success("Post created!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create post");
+    }
+  }, [isAuthenticated, profileId, subtuna?.id, createPost, login]);
+
+  const handleOpenCreatePost = useCallback(() => {
+    if (!isAuthenticated) {
+      toast.error("Please login to create posts", {
+        action: {
+          label: "Login",
+          onClick: login,
+        },
+      });
+      return;
+    }
+    setIsCreatePostOpen(true);
+  }, [isAuthenticated, login]);
 
   if (isLoadingSubtuna) {
     return (
@@ -106,7 +204,7 @@ export default function SubTunaPage() {
         </div>
 
         <Button 
-          onClick={() => setIsCreatePostOpen(true)}
+          onClick={handleOpenCreatePost}
           className="w-full bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]"
         >
           <Plus size={16} className="mr-2" />
@@ -232,8 +330,16 @@ export default function SubTunaPage() {
                 </p>
               </div>
 
-              <Button className="bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]">
-                Join
+              <Button 
+                onClick={handleJoinLeave}
+                disabled={isJoining || isLeaving}
+                variant={isMember ? "outline" : "default"}
+                className={isMember 
+                  ? "border-[hsl(var(--tunabook-primary))] text-[hsl(var(--tunabook-primary))]" 
+                  : "bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]"
+                }
+              >
+                {isJoining || isLeaving ? "..." : isMember ? "Joined" : "Join"}
               </Button>
             </div>
 
@@ -274,11 +380,8 @@ export default function SubTunaPage() {
             onOpenChange={setIsCreatePostOpen}
             subtunaName={`t/${ticker}`}
             subtunaId={subtuna?.id || ""}
-            onSubmit={(data) => {
-              console.log("Create post:", data);
-              setIsCreatePostOpen(false);
-              // TODO: Persist to database when authenticated
-            }}
+            onSubmit={handleCreatePost}
+            isSubmitting={isCreating}
           />
         </TunaBookLayout>
       </LaunchpadLayout>
