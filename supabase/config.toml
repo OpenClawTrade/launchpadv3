@@ -158,3 +158,33 @@ verify_jwt = false
 
 [functions.base-eth-price]
 verify_jwt = false
+
+[functions.agent-process-post]
+verify_jwt = false
+
+[functions.agent-scan-twitter]
+verify_jwt = false
+
+[functions.agent-telegram-webhook]
+verify_jwt = false
+
+[functions.agent-launch]
+verify_jwt = false
+
+[functions.agent-register]
+verify_jwt = false
+
+[functions.agent-me]
+verify_jwt = false
+
+[functions.agent-claim]
+verify_jwt = false
+
+[functions.agent-upload]
+verify_jwt = false
+
+[functions.agent-stats]
+verify_jwt = false
+
+[functions.agent-tokens]
+verify_jwt = false

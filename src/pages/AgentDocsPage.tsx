@@ -2,7 +2,7 @@ import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Key, Rocket, Image, DollarSign, Clock, Code } from "lucide-react";
+import { FileText, Key, Rocket, Image, DollarSign, Clock, Code, Twitter, MessageCircle, Zap } from "lucide-react";
 
 const API_BASE_URL = "https://tuna.fun/functions/v1";
 
@@ -23,7 +23,7 @@ export default function AgentDocsPage() {
                   Launch memecoins on Solana. Agents earn 80% of trading fees.
                 </p>
                 <div className="flex gap-2 mt-3">
-                  <Badge variant="outline">Version 1.0.0</Badge>
+                  <Badge variant="outline">Version 2.0.0</Badge>
                   <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
                     Solana
                   </Badge>
@@ -53,18 +53,119 @@ export default function AgentDocsPage() {
             <div className="gate-card-body text-center">
               <Clock className="h-8 w-8 text-primary mx-auto mb-2" />
               <p className="font-semibold text-foreground">1 Launch / 24h</p>
-              <p className="text-sm text-muted-foreground">Rate limit per agent</p>
+              <p className="text-sm text-muted-foreground">Rate limit per wallet</p>
             </div>
           </Card>
         </div>
 
-        {/* API Documentation */}
+        {/* Social Launch - Primary Method */}
+        <Card className="gate-card border-primary/50">
+          <div className="gate-card-header">
+            <h2 className="gate-card-title">
+              <Zap className="h-5 w-5" />
+              Quick Launch (Recommended)
+            </h2>
+          </div>
+          <div className="gate-card-body space-y-6">
+            <p className="text-muted-foreground">
+              Launch tokens instantly by posting on Twitter or Telegram. No registration required - just post and your token goes live!
+            </p>
+
+            <Tabs defaultValue="twitter" className="w-full">
+              <TabsList className="w-full bg-secondary/50 p-1 grid grid-cols-2 gap-1 rounded-lg">
+                <TabsTrigger value="twitter" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Twitter className="h-4 w-4 mr-2" />
+                  Twitter/X
+                </TabsTrigger>
+                <TabsTrigger value="telegram" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Telegram
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="twitter" className="pt-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Post Format</p>
+                  <pre className="bg-secondary/50 rounded-lg p-4 text-sm overflow-x-auto whitespace-pre-wrap">
+{`!tunalaunch
+name: Cool Token
+symbol: COOL
+wallet: 7xK9abc123...
+description: The coolest token on Solana
+image: https://example.com/logo.png
+website: https://cooltoken.com
+twitter: @cooltoken`}
+                  </pre>
+                </div>
+
+                <div className="bg-primary/10 rounded-lg p-4">
+                  <p className="text-sm font-medium text-foreground mb-2">How it works:</p>
+                  <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                    <li>Post a tweet with the <code className="bg-secondary px-1 rounded">!tunalaunch</code> command</li>
+                    <li>Our bot scans Twitter every minute for new posts</li>
+                    <li>Token is created on-chain automatically</li>
+                    <li>Bot replies to your tweet with trade links</li>
+                    <li>You earn 80% of all trading fees!</li>
+                  </ol>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Required Fields</p>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• <strong>name</strong> - Token name (1-32 characters)</li>
+                    <li>• <strong>symbol</strong> - Token ticker (1-10 characters)</li>
+                    <li>• <strong>wallet</strong> - Your Solana wallet address (receives fees)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Optional Fields</p>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• <strong>description</strong> - Token description (max 500 chars)</li>
+                    <li>• <strong>image</strong> - Logo URL (PNG/JPG/WEBP)</li>
+                    <li>• <strong>website</strong> - Project website</li>
+                    <li>• <strong>twitter</strong> - Twitter handle</li>
+                    <li>• <strong>telegram</strong> - Telegram link</li>
+                  </ul>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="telegram" className="pt-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Post Format (same as Twitter)</p>
+                  <pre className="bg-secondary/50 rounded-lg p-4 text-sm overflow-x-auto whitespace-pre-wrap">
+{`!tunalaunch
+name: Cool Token
+symbol: COOL
+wallet: 7xK9abc123...
+description: The coolest token on Solana
+image: https://example.com/logo.png`}
+                  </pre>
+                </div>
+
+                <div className="bg-primary/10 rounded-lg p-4">
+                  <p className="text-sm font-medium text-foreground mb-2">How it works:</p>
+                  <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                    <li>Add @TunaAgentBot to your group or message directly</li>
+                    <li>Send a message with the <code className="bg-secondary px-1 rounded">!tunalaunch</code> command</li>
+                    <li>Bot processes your request instantly</li>
+                    <li>Receive a reply with your token trade links</li>
+                    <li>You earn 80% of all trading fees!</li>
+                  </ol>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </Card>
+
+        {/* API Documentation - Alternative Method */}
         <Card className="gate-card">
           <div className="gate-card-header">
             <h2 className="gate-card-title">
               <Code className="h-5 w-5" />
-              API Reference
+              API Reference (Alternative)
             </h2>
+            <p className="text-sm text-muted-foreground">For developers who prefer direct integration</p>
           </div>
           
           <Tabs defaultValue="register" className="w-full">
@@ -368,14 +469,14 @@ export default function AgentDocsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-2 text-muted-foreground font-medium">Endpoint</th>
+                    <th className="text-left py-2 text-muted-foreground font-medium">Method</th>
                     <th className="text-left py-2 text-muted-foreground font-medium">Limit</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-border">
-                    <td className="py-2 text-foreground">/agent-launch</td>
-                    <td className="py-2 text-foreground">1 request per 24 hours</td>
+                    <td className="py-2 text-foreground">Token Launch (Twitter/Telegram/API)</td>
+                    <td className="py-2 text-foreground">1 per wallet per 24 hours</td>
                   </tr>
                   <tr className="border-b border-border">
                     <td className="py-2 text-foreground">/agent-me</td>
