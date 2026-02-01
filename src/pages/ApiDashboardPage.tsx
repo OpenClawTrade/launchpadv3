@@ -346,7 +346,7 @@ export default function ApiDashboardPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-center text-gray-400 text-sm">
-                Build custom launchpads and earn 1.5% on every trade
+                Build custom launchpads and earn 1% on every trade
               </p>
               <Button 
                 className="w-full bg-purple-600 hover:bg-purple-700"
@@ -384,7 +384,7 @@ export default function ApiDashboardPage() {
               <Rocket className="w-16 h-16 mx-auto mb-4 text-purple-400" />
               <CardTitle className="text-2xl text-white">Create Your API Account</CardTitle>
               <CardDescription className="text-base">
-                Build custom launchpads and earn 1.5% on every trade
+                Build custom launchpads and earn 1% on every trade
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -393,7 +393,7 @@ export default function ApiDashboardPage() {
                 <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-green-500" />
-                    1.5% of all trading fees on your launchpads
+                    1% of all trading fees on tokens launched via your API
                   </li>
                   <li className="flex items-center gap-2">
                     <Rocket className="w-4 h-4 text-purple-400" />
