@@ -15,9 +15,11 @@ import {
 } from "@phosphor-icons/react";
 import { ExternalLink, Menu } from "lucide-react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
+import { EthPriceDisplay } from "./EthPriceDisplay";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useChain } from "@/contexts/ChainContext";
 
 const TUNA_CA = "AeeP5ebA5R8srQZkkYwfNyvgYWFtxYqFfc6E6qqypump";
 const HEADER_LOGO_SRC = "/tuna-logo.png";
@@ -30,6 +32,7 @@ interface AppHeaderProps {
 
 export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps) {
   const { isAuthenticated, login, logout, solanaAddress } = useAuth();
+  const { chain } = useChain();
   const [copied, setCopied] = useState(false);
 
   const truncateAddress = (addr: string) => {
@@ -64,7 +67,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         {/* Desktop navigation */}
         <div className="hidden sm:flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <SolPriceDisplay />
+            {chain === 'base' ? <EthPriceDisplay /> : <SolPriceDisplay />}
           </div>
           
           {/* CA Display */}
@@ -162,7 +165,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
         {/* Mobile navigation */}
         <div className="flex sm:hidden items-center gap-2">
           <div className="flex items-center gap-0.5">
-            <SolPriceDisplay />
+            {chain === 'base' ? <EthPriceDisplay /> : <SolPriceDisplay />}
           </div>
           
           <Sheet>
