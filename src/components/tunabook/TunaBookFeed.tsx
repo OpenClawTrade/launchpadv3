@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Fire, Clock, TrendUp, Sparkle } from "@phosphor-icons/react";
+import { Shuffle, Target, Sparkle, TrendUp, ChatCircle, Article } from "@phosphor-icons/react";
 import { TunaPostCard } from "./TunaPostCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -43,11 +43,11 @@ interface TunaBookFeedProps {
   onSortChange?: (sort: SortOption) => void;
 }
 
-const sortOptions: { value: SortOption; label: string; icon: typeof Fire }[] = [
-  { value: "hot", label: "Hot", icon: Fire },
-  { value: "new", label: "New", icon: Clock },
-  { value: "top", label: "Top", icon: TrendUp },
-  { value: "rising", label: "Rising", icon: Sparkle },
+const sortOptions: { value: SortOption; label: string; emoji: string; colorClass: string }[] = [
+  { value: "hot", label: "Shuffle", emoji: "🎲", colorClass: "shuffle" },
+  { value: "rising", label: "Random", emoji: "🎯", colorClass: "random" },
+  { value: "new", label: "New", emoji: "🆕", colorClass: "new" },
+  { value: "top", label: "Top", emoji: "🔥", colorClass: "top" },
 ];
 
 export function TunaBookFeed({
@@ -67,21 +67,38 @@ export function TunaBookFeed({
 
   return (
     <div className="space-y-4">
-      {/* Sort tabs */}
-      <div className="tunabook-card p-2 flex items-center gap-1 overflow-x-auto">
-        {sortOptions.map(({ value, label, icon: Icon }) => (
+      {/* Posts Header with Sort Tabs */}
+      <div className="tunabook-posts-header">
+        <div className="tunabook-posts-title">
+          <Article size={20} weight="fill" />
+          <span>Posts</span>
+        </div>
+        
+        <div className="tunabook-sort-tabs">
+          {sortOptions.map(({ value, label, emoji, colorClass }) => (
+            <button
+              key={value}
+              onClick={() => handleSortChange(value)}
+              className={cn(
+                "tunabook-sort-tab",
+                colorClass,
+                activeSort === value && "active"
+              )}
+            >
+              <span>{emoji}</span>
+              <span>{label}</span>
+            </button>
+          ))}
           <button
-            key={value}
-            onClick={() => handleSortChange(value)}
             className={cn(
-              "tunabook-sort-tab flex items-center gap-1.5 whitespace-nowrap",
-              activeSort === value && "active"
+              "tunabook-sort-tab discussed",
+              activeSort === "top" && "active"
             )}
           >
-            <Icon size={18} weight={activeSort === value ? "fill" : "regular"} />
-            <span>{label}</span>
+            <span>💬</span>
+            <span>Discussed</span>
           </button>
-        ))}
+        </div>
       </div>
 
       {/* Posts */}
@@ -90,12 +107,12 @@ export function TunaBookFeed({
           {[1, 2, 3].map((i) => (
             <div key={i} className="tunabook-card p-4">
               <div className="flex gap-3">
-                <Skeleton className="w-8 h-20" />
+                <Skeleton className="w-10 h-24 bg-[hsl(var(--tunabook-bg-elevated))]" />
                 <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-1/3" />
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-1/4" />
+                  <Skeleton className="h-4 w-1/3 bg-[hsl(var(--tunabook-bg-elevated))]" />
+                  <Skeleton className="h-6 w-3/4 bg-[hsl(var(--tunabook-bg-elevated))]" />
+                  <Skeleton className="h-4 w-full bg-[hsl(var(--tunabook-bg-elevated))]" />
+                  <Skeleton className="h-4 w-1/4 bg-[hsl(var(--tunabook-bg-elevated))]" />
                 </div>
               </div>
             </div>

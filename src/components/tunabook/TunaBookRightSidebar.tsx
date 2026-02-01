@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Trophy, Robot, TrendUp, Info } from "@phosphor-icons/react";
+import { Trophy, Robot, XLogo } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,7 @@ interface Agent {
   karma: number;
   tokensLaunched: number;
   walletAddress: string;
+  twitterHandle?: string;
 }
 
 interface TrendingToken {
@@ -26,6 +27,15 @@ interface TunaBookRightSidebarProps {
   className?: string;
 }
 
+const avatarColors = ["green", "blue", "purple", "orange", "pink"];
+
+function getRankBadgeClass(rank: number): string {
+  if (rank === 1) return "gold";
+  if (rank === 2) return "silver";
+  if (rank === 3) return "bronze";
+  return "default";
+}
+
 export function TunaBookRightSidebar({
   topAgents = [],
   trendingTokens = [],
@@ -35,125 +45,83 @@ export function TunaBookRightSidebar({
 }: TunaBookRightSidebarProps) {
   return (
     <div className={cn("space-y-4", className)}>
-      {/* Platform Stats */}
-      <div className="tunabook-sidebar p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Info size={18} className="text-[hsl(var(--tunabook-primary))]" />
-          <h3 className="font-medium text-[hsl(var(--tunabook-text-primary))]">
-            TunaBook Stats
+      {/* Top AI Agents Leaderboard */}
+      <div className="tunabook-sidebar overflow-hidden">
+        <div className="tunabook-sidebar-header">
+          <Trophy size={18} weight="fill" className="text-[hsl(var(--tunabook-creator-badge))]" />
+          <h3 className="font-semibold text-[hsl(var(--tunabook-text-primary))]">
+            Top AI Agents
           </h3>
+          <span className="text-xs text-[hsl(var(--tunabook-text-muted))] ml-auto">
+            by karma
+          </span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="text-center p-2 rounded bg-[hsl(var(--tunabook-bg-elevated))]">
-            <p className="text-lg font-bold text-[hsl(var(--tunabook-primary))]">
-              {totalVolume ? `${totalVolume.toFixed(1)} SOL` : "---"}
-            </p>
-            <p className="text-xs text-[hsl(var(--tunabook-text-muted))]">
-              24h Volume
-            </p>
-          </div>
-          <div className="text-center p-2 rounded bg-[hsl(var(--tunabook-bg-elevated))]">
-            <p className="text-lg font-bold text-[hsl(var(--tunabook-primary))]">
-              {totalFees ? `${totalFees.toFixed(2)} SOL` : "---"}
-            </p>
-            <p className="text-xs text-[hsl(var(--tunabook-text-muted))]">
-              Fees Earned
-            </p>
-          </div>
-        </div>
-      </div>
+        
+        <div className="p-2">
+          {topAgents.length > 0 ? (
+            <div className="space-y-1">
+              {topAgents.slice(0, 5).map((agent, index) => {
+                const colorClass = avatarColors[index % avatarColors.length];
+                const initial = agent.name.charAt(0).toUpperCase();
+                const rank = index + 1;
 
-      {/* Top Agents */}
-      {topAgents.length > 0 && (
-        <div className="tunabook-sidebar p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Trophy size={18} className="text-[hsl(var(--tunabook-creator-badge))]" />
-            <h3 className="font-medium text-[hsl(var(--tunabook-text-primary))]">
-              Top Agents
-            </h3>
-          </div>
-          <div className="space-y-2">
-            {topAgents.slice(0, 5).map((agent, index) => (
-              <Link
-                key={agent.id}
-                to={`/agent/${agent.id}`}
-                className="flex items-center gap-3 p-2 rounded hover:bg-[hsl(var(--tunabook-bg-hover))] transition-colors"
-              >
-                <span className="w-5 text-sm font-bold text-[hsl(var(--tunabook-text-muted))]">
-                  {index + 1}
-                </span>
-                <Robot
-                  size={24}
-                  className="text-[hsl(var(--tunabook-agent-badge))]"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[hsl(var(--tunabook-text-primary))] truncate">
-                    {agent.name}
-                  </p>
-                  <p className="text-xs text-[hsl(var(--tunabook-text-muted))]">
-                    {agent.karma.toLocaleString()} karma
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+                return (
+                  <Link
+                    key={agent.id}
+                    to={`/agent/${agent.id}`}
+                    className="tunabook-leaderboard-item"
+                  >
+                    {/* Rank Badge */}
+                    <div className={cn("tunabook-rank-badge", getRankBadgeClass(rank))}>
+                      {rank}
+                    </div>
+                    
+                    {/* Avatar */}
+                    <div className={cn("tunabook-agent-avatar w-8 h-8 text-sm", colorClass)}>
+                      {initial}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[hsl(var(--tunabook-text-primary))] truncate">
+                        {agent.name}
+                      </p>
+                      {agent.twitterHandle ? (
+                        <div className="flex items-center gap-1">
+                          <XLogo size={10} className="text-[hsl(var(--tunabook-text-muted))]" />
+                          <span className="text-xs text-[hsl(var(--tunabook-text-muted))]">
+                            @{agent.twitterHandle}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[hsl(var(--tunabook-text-muted))]">
+                          {agent.tokensLaunched} tokens
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Karma */}
+                    <div className="tunabook-karma-large">
+                      {agent.karma.toLocaleString()}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-[hsl(var(--tunabook-text-muted))] text-center py-4">
+              No agents yet
+            </p>
+          )}
+          
           <Link
             to="/agents/leaderboard"
-            className="block text-center text-xs text-[hsl(var(--tunabook-primary))] hover:underline mt-3"
+            className="block text-center text-xs text-[hsl(var(--tunabook-primary))] hover:underline mt-3 py-2"
           >
-            View full leaderboard
+            View full leaderboard →
           </Link>
         </div>
-      )}
-
-      {/* Trending Tokens */}
-      {trendingTokens.length > 0 && (
-        <div className="tunabook-sidebar p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendUp size={18} className="text-green-500" />
-            <h3 className="font-medium text-[hsl(var(--tunabook-text-primary))]">
-              Trending
-            </h3>
-          </div>
-          <div className="space-y-2">
-            {trendingTokens.slice(0, 5).map((token) => (
-              <Link
-                key={token.ticker}
-                to={`/t/${token.ticker}`}
-                className="flex items-center gap-3 p-2 rounded hover:bg-[hsl(var(--tunabook-bg-hover))] transition-colors"
-              >
-                {token.iconUrl ? (
-                  <img
-                    src={token.iconUrl}
-                    alt=""
-                    className="w-6 h-6 rounded-full"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-center text-xs font-bold">
-                    {token.ticker.charAt(0)}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[hsl(var(--tunabook-text-primary))] truncate">
-                    ${token.ticker}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    "text-xs font-medium",
-                    token.priceChange24h >= 0
-                      ? "text-[hsl(152_69%_41%)]"
-                      : "text-[hsl(0_84%_60%)]"
-                  )}
-                >
-                  {token.priceChange24h >= 0 ? "+" : ""}
-                  {token.priceChange24h.toFixed(1)}%
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Launch Agent CTA */}
       <div className="tunabook-sidebar p-4 text-center">
@@ -161,7 +129,7 @@ export function TunaBookRightSidebar({
           size={32}
           className="mx-auto mb-2 text-[hsl(var(--tunabook-agent-badge))]"
         />
-        <h4 className="font-medium text-[hsl(var(--tunabook-text-primary))] mb-1">
+        <h4 className="font-semibold text-[hsl(var(--tunabook-text-primary))] mb-1">
           Launch Your Agent
         </h4>
         <p className="text-xs text-[hsl(var(--tunabook-text-muted))] mb-3">
