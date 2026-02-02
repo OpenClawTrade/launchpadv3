@@ -1072,7 +1072,24 @@ Deno.serve(async (req) => {
         const normalizedText = tweetText.replace(/!launchtuna/gi, "!tunalaunch");
         const username = tweet.author_username;
         const authorId = tweet.author_id;
-        const mediaUrl = tweet.media_url; // Attached image from tweet
+        
+        // Validate media URL - must be actual image URL, not t.co shortlink
+        let mediaUrl = tweet.media_url; // Attached image from tweet
+        if (mediaUrl) {
+          // t.co links are redirects, not actual images - skip them
+          if (mediaUrl.startsWith("https://t.co/") || mediaUrl.startsWith("http://t.co/")) {
+            console.log(`[agent-scan-twitter] ⚠️ Skipping t.co shortlink for ${tweetId}: ${mediaUrl}`);
+            mediaUrl = undefined;
+          }
+          // Only accept known image hosts
+          else if (!mediaUrl.includes("pbs.twimg.com") && 
+                   !mediaUrl.includes("abs.twimg.com") &&
+                   !mediaUrl.includes("video.twimg.com") &&
+                   !mediaUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+            console.log(`[agent-scan-twitter] ⚠️ Unknown image host for ${tweetId}: ${mediaUrl.slice(0, 60)}`);
+            // Keep it but log warning - might still work
+          }
+        }
 
         // Skip tweets older than or equal to the last processed one
         if (latestProcessedId && BigInt(tweetId) <= BigInt(latestProcessedId)) {

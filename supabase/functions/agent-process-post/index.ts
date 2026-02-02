@@ -10,6 +10,81 @@ const corsHeaders = {
 // deno-lint-ignore no-explicit-any
 type AnySupabase = SupabaseClient<any, any, any>;
 
+// Generate token image using Lovable AI when no image is provided
+async function generateTokenImageWithAI(
+  tokenName: string,
+  tokenSymbol: string,
+  description: string | undefined,
+  lovableApiKey: string,
+  supabase: AnySupabase
+): Promise<string | null> {
+  try {
+    const prompt = `Create a colorful, professional cryptocurrency token logo for a memecoin called "${tokenName}" ($${tokenSymbol}). ${description ? `Theme: ${description.slice(0, 100)}` : ""}. Style: vibrant, modern, crypto aesthetic with bold colors. Circle or rounded design. No text, just the icon.`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "flux.schnell",
+        prompt,
+        n: 1,
+        size: "512x512",
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[generateTokenImageWithAI] Image generation failed: ${response.status}`);
+      return null;
+    }
+
+    const result = await response.json();
+    const imageData = result.data?.[0];
+    
+    if (!imageData) {
+      console.error(`[generateTokenImageWithAI] No image data in response`);
+      return null;
+    }
+
+    // If base64, upload to Supabase storage
+    if (imageData.b64_json) {
+      const imageBuffer = Uint8Array.from(atob(imageData.b64_json), c => c.charCodeAt(0));
+      const fileName = `${Date.now()}-${tokenSymbol.toLowerCase()}-${crypto.randomUUID()}.png`;
+      const filePath = `fun-tokens/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("post-images")
+        .upload(filePath, imageBuffer, {
+          contentType: "image/png",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error(`[generateTokenImageWithAI] Upload failed:`, uploadError);
+        return null;
+      }
+
+      const { data: publicUrl } = supabase.storage
+        .from("post-images")
+        .getPublicUrl(filePath);
+
+      return publicUrl.publicUrl;
+    }
+
+    // If URL returned directly
+    if (imageData.url) {
+      return imageData.url;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`[generateTokenImageWithAI] Error:`, error);
+    return null;
+  }
+}
+
 interface ParsedLaunchData {
   name: string;
   symbol: string;
@@ -354,9 +429,44 @@ export async function processLaunchPost(
   }
 
   // Determine final image URL: prefer parsed.image from text, fallback to attached media
-  const finalImageUrl = parsed.image || attachedMediaUrl || null;
-  if (finalImageUrl && !parsed.image) {
-    console.log(`[agent-process-post] 📷 Using attached media as token image: ${finalImageUrl.slice(0, 60)}...`);
+  // Validate that the URL is an actual image, not a t.co shortlink or invalid URL
+  let finalImageUrl = parsed.image || attachedMediaUrl || null;
+  
+  if (finalImageUrl) {
+    // Skip t.co shortlinks - they're redirects, not images
+    if (finalImageUrl.startsWith("https://t.co/") || finalImageUrl.startsWith("http://t.co/")) {
+      console.log(`[agent-process-post] ⚠️ Skipping t.co shortlink: ${finalImageUrl}`);
+      finalImageUrl = null;
+    }
+    // Log the valid image URL source
+    else if (!parsed.image && attachedMediaUrl) {
+      console.log(`[agent-process-post] 📷 Using attached media as token image: ${finalImageUrl.slice(0, 60)}...`);
+    }
+  }
+  
+  // If no valid image URL, generate one using AI
+  if (!finalImageUrl) {
+    console.log(`[agent-process-post] 🎨 No valid image URL, generating AI image for ${parsed.name}...`);
+    try {
+      const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+      if (lovableApiKey) {
+        finalImageUrl = await generateTokenImageWithAI(
+          parsed.name, 
+          parsed.symbol, 
+          parsed.description, 
+          lovableApiKey,
+          supabase
+        );
+        if (finalImageUrl) {
+          console.log(`[agent-process-post] ✅ Generated AI image: ${finalImageUrl.slice(0, 60)}...`);
+        }
+      } else {
+        console.warn(`[agent-process-post] ⚠️ No LOVABLE_API_KEY, skipping AI image generation`);
+      }
+    } catch (imgErr) {
+      console.error(`[agent-process-post] ⚠️ AI image generation failed:`, imgErr);
+      // Continue without image - not a fatal error
+    }
   }
 
   // Insert pending record
