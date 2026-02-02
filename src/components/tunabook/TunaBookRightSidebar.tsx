@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { Trophy, Robot } from "@phosphor-icons/react";
+import { Trophy, Robot, CurrencyDollar } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+import { useSolPrice } from "@/hooks/useSolPrice";
 
 interface TunaBookRightSidebarProps {
   className?: string;
@@ -21,15 +22,17 @@ function getRankBadgeClass(rank: number): string {
 }
 
 export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
+  const { solPrice } = useSolPrice();
+
   // Fetch real top agents data with their first launched token info
   const { data: topAgents, isLoading } = useQuery({
-    queryKey: ["top-agents-leaderboard-v3"],
+    queryKey: ["top-agents-leaderboard-v4"],
     queryFn: async () => {
       // Get agents with their first launched token for display name/avatar
       const { data: agents, error } = await supabase
         .from("agents")
         .select(`
-          id, name, karma, total_tokens_launched, wallet_address, avatar_url,
+          id, name, karma, total_tokens_launched, total_fees_claimed_sol, wallet_address, avatar_url,
           agent_tokens (
             fun_token_id,
             fun_tokens:fun_token_id (
@@ -55,6 +58,7 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
             ? agent.name 
             : (firstToken?.name || agent.name),
           tokenImage: firstToken?.image_url || null,
+          feesClaimed: Number(agent.total_fees_claimed_sol || 0),
         };
       });
     },
@@ -134,9 +138,17 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
                       </span>
                     </div>
                     
-                    {/* Karma */}
-                    <div className="tunabook-karma-large">
-                      {(agent.karma || 0).toLocaleString()}
+                    {/* Stats: Karma + Fees */}
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="tunabook-karma-large">
+                        {(agent.karma || 0).toLocaleString()}
+                      </div>
+                      <div className="flex items-center gap-0.5 text-xs text-emerald-500">
+                        <CurrencyDollar size={12} weight="bold" />
+                        <span className="font-medium">
+                          {(agent.feesClaimed * solPrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
                     </div>
                   </Link>
                 );
