@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { tweet_id } = await req.json();
+    const { tweet_id, skip_login } = await req.json();
     
     if (!tweet_id) {
       return new Response(
@@ -104,7 +104,9 @@ Deno.serve(async (req) => {
     const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
     const totpCode = xTotpSecret ? await generateTotpCode(xTotpSecret) : undefined;
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
-
+    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
+    const xCt0Token = Deno.env.get("X_CT0_TOKEN");
+    
     if (!twitterApiIoKey || !proxyUrl) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing TWITTERAPI_IO_KEY or TWITTER_PROXY" }),
@@ -114,100 +116,100 @@ Deno.serve(async (req) => {
 
     const testText = `🐟 TUNA test ${new Date().toISOString().slice(11, 19)} UTC`;
     const results: Record<string, any> = {};
+    let loginCookies: string | null = null;
 
-    // Step 1: Login
-    console.log("[test] Logging in with username:", xAccountUsername);
-    const loginBody: Record<string, string> = {
-      user_name: xAccountUsername!,
-      email: xAccountEmail!,
-      password: xAccountPassword!,
-      proxy: proxyUrl,
-    };
-    if (totpCode) {
-      loginBody.totp_code = totpCode;
-      console.log("[test] TOTP code generated:", totpCode);
+    // Step 1: Login (unless skipped)
+    if (!skip_login) {
+      console.log("[test] Logging in with username:", xAccountUsername);
+      const loginBody: Record<string, string> = {
+        user_name: xAccountUsername!,
+        email: xAccountEmail!,
+        password: xAccountPassword!,
+        proxy: proxyUrl,
+      };
+      if (totpCode) {
+        loginBody.totp_code = totpCode;
+      }
+
+      const loginRes = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": twitterApiIoKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginBody),
+      });
+
+      const loginText = await loginRes.text();
+      const loginData = safeJsonParse(loginText);
+      results.login = {
+        status: loginRes.status,
+        success: loginData?.status === "success",
+        has_cookies: !!loginData?.login_cookies,
+      };
+
+      loginCookies = loginData?.login_cookies;
+      if (!loginCookies) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Login failed - no cookies returned", results, loginData }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
-    const loginRes = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
-      method: "POST",
-      headers: {
-        "X-API-Key": twitterApiIoKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(loginBody),
-    });
-
-    const loginText = await loginRes.text();
-    console.log("[test] Login response:", loginRes.status, loginText.slice(0, 500));
-    
-    const loginData = safeJsonParse(loginText);
-    results.login = {
-      status: loginRes.status,
-      success: loginData?.status === "success",
-      raw_response: loginText.slice(0, 300),
-      has_cookies: !!loginData?.login_cookies,
-      user_info: loginData?.user_info || loginData?.user || null,
-    };
-
-    const loginCookies = loginData?.login_cookies;
-    if (!loginCookies) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Login failed - no cookies returned", results, loginData }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Test different endpoint variations with both "text" and "tweet_text" field names
+    // Comprehensive endpoint test - test ALL variations
     const endpoints = [
+      // Group 1: create_tweet_v2 variations
       {
-        name: "post_tweets (text field)",
-        url: "/twitter/tweets/post_tweets",
-        body: {
-          text: testText,
-          login_cookies: loginCookies,
-          proxy: proxyUrl,
-        },
-      },
-      {
-        name: "create_tweet_v2 (text field)",
+        name: "create_tweet_v2 + tweet_text + reply_to_tweet_id",
         url: "/twitter/create_tweet_v2",
-        body: {
-          text: testText,
-          login_cookies: loginCookies,
-          proxy: proxyUrl,
-        },
+        body: { tweet_text: testText, reply_to_tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
       },
       {
-        name: "create_tweet_v2 (tweet_text field)",
+        name: "create_tweet_v2 + tweet_text + in_reply_to_tweet_id",
         url: "/twitter/create_tweet_v2",
-        body: {
-          tweet_text: testText,
-          login_cookies: loginCookies,
-          proxy: proxyUrl,
-        },
+        body: { tweet_text: testText, in_reply_to_tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
       },
       {
-        name: "reply format (nested reply object)",
+        name: "create_tweet_v2 + tweet_text + reply object",
         url: "/twitter/create_tweet_v2",
-        body: {
-          text: testText + " [reply test]",
-          reply: { in_reply_to_tweet_id: tweet_id },
-          login_cookies: loginCookies,
-          proxy: proxyUrl,
-        },
+        body: { tweet_text: testText, reply: { in_reply_to_tweet_id: tweet_id }, login_cookies: loginCookies, proxy: proxyUrl },
       },
+      
+      // Group 2: reply_tweet endpoint (if exists)
       {
-        name: "post_tweet endpoint",
-        url: "/twitter/post_tweet",
-        body: {
-          text: testText,
-          login_cookies: loginCookies,
-          proxy: proxyUrl,
-        },
+        name: "reply_tweet",
+        url: "/twitter/reply_tweet",
+        body: { tweet_text: testText, in_reply_to_tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
+      },
+      
+      // Group 3: tweet_reply endpoint (if exists)
+      {
+        name: "tweet_reply",
+        url: "/twitter/tweet_reply",
+        body: { text: testText, tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
+      },
+      
+      // Group 4: post_reply endpoint (if exists)
+      {
+        name: "post_reply",
+        url: "/twitter/post_reply",
+        body: { text: testText, reply_to: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
+      },
+      
+      // Group 5: Using tweets/create for reply
+      {
+        name: "tweets/create + reply_to_tweet_id",
+        url: "/twitter/tweets/create",
+        body: { text: testText, reply_to_tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
       },
     ];
 
+    let foundWorking = false;
+
     for (const ep of endpoints) {
+      if (foundWorking) break;
+      
       console.log(`[test] Trying ${ep.name}...`);
       try {
         const response = await fetch(`${TWITTERAPI_BASE}${ep.url}`, {
@@ -220,7 +222,7 @@ Deno.serve(async (req) => {
         });
 
         const responseText = await response.text();
-        console.log(`[test] ${ep.name}: ${response.status} - ${responseText}`);
+        console.log(`[test] ${ep.name}: ${response.status} - ${responseText.slice(0, 200)}`);
 
         const parsed = safeJsonParse(responseText);
         results[ep.name] = {
@@ -228,10 +230,21 @@ Deno.serve(async (req) => {
           response: parsed || responseText.slice(0, 300),
         };
 
-        // Check if any succeeded
-        if (response.status === 200 && parsed?.status === "success") {
+        // Check for success
+        const replyId = parsed?.tweet_id || parsed?.id || parsed?.data?.id || parsed?.data?.rest_id || 
+                       parsed?.data?.create_tweet?.tweet_results?.result?.rest_id;
+        
+        // Success conditions: 
+        // 1. Got a tweet ID back
+        // 2. Status 200 without error indicators
+        const isError = parsed?.status === "error" || parsed?.success === false;
+        
+        if (response.status === 200 && replyId && !isError) {
           results.success = true;
           results.working_endpoint = ep.name;
+          results.reply_id = replyId;
+          foundWorking = true;
+          console.log(`[test] ✅ SUCCESS with ${ep.name}, reply_id: ${replyId}`);
         }
       } catch (e) {
         results[ep.name] = { error: e instanceof Error ? e.message : "Unknown error" };
@@ -243,6 +256,9 @@ Deno.serve(async (req) => {
         success: results.success || false,
         tweet_id,
         test_text: testText,
+        working_endpoint: results.working_endpoint || null,
+        reply_id: results.reply_id || null,
+        endpoints_tested: endpoints.length,
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
