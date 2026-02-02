@@ -1,0 +1,417 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createHmac } from "node:crypto";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+// OAuth 1.0a signing for official X.com API
+function generateOAuthSignature(
+  method: string,
+  url: string,
+  params: Record<string, string>,
+  consumerSecret: string,
+  tokenSecret: string
+): string {
+  const sortedParams = Object.keys(params)
+    .sort()
+    .map(
+      (key) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`
+    )
+    .join("&");
+
+  const signatureBase = [
+    method.toUpperCase(),
+    encodeURIComponent(url),
+    encodeURIComponent(sortedParams),
+  ].join("&");
+
+  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
+
+  const hmac = createHmac("sha1", signingKey);
+  hmac.update(signatureBase);
+  return hmac.digest("base64");
+}
+
+function generateOAuthHeader(
+  method: string,
+  url: string,
+  consumerKey: string,
+  consumerSecret: string,
+  accessToken: string,
+  accessTokenSecret: string
+): string {
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: consumerKey,
+    oauth_nonce: crypto.randomUUID().replace(/-/g, ""),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: accessToken,
+    oauth_version: "1.0",
+  };
+
+  const signature = generateOAuthSignature(
+    method,
+    url,
+    oauthParams,
+    consumerSecret,
+    accessTokenSecret
+  );
+
+  oauthParams.oauth_signature = signature;
+
+  const headerParts = Object.keys(oauthParams)
+    .sort()
+    .map(
+      (key) =>
+        `${encodeURIComponent(key)}="${encodeURIComponent(oauthParams[key])}"`
+    )
+    .join(", ");
+
+  return `OAuth ${headerParts}`;
+}
+
+// Get authenticated user ID
+async function getAuthenticatedUserId(
+  consumerKey: string,
+  consumerSecret: string,
+  accessToken: string,
+  accessTokenSecret: string
+): Promise<string | null> {
+  const url = "https://api.x.com/2/users/me";
+  
+  const oauthHeader = generateOAuthHeader(
+    "GET",
+    url,
+    consumerKey,
+    consumerSecret,
+    accessToken,
+    accessTokenSecret
+  );
+
+  const response = await fetch(url, {
+    headers: { Authorization: oauthHeader },
+  });
+
+  if (!response.ok) {
+    console.error("[agent-scan-mentions] Failed to get user ID:", await response.text());
+    return null;
+  }
+
+  const data = await response.json();
+  return data.data?.id || null;
+}
+
+// Fetch mentions of @TunaLaunch using official X.com API
+async function fetchMentions(
+  userId: string,
+  consumerKey: string,
+  consumerSecret: string,
+  accessToken: string,
+  accessTokenSecret: string,
+  sinceId?: string
+): Promise<Array<{
+  id: string;
+  text: string;
+  author_id: string;
+  author_username?: string;
+}>> {
+  const baseUrl = `https://api.x.com/2/users/${userId}/mentions`;
+  const params = new URLSearchParams({
+    max_results: "100",
+    "tweet.fields": "author_id,created_at,text",
+    expansions: "author_id",
+    "user.fields": "username",
+  });
+  
+  if (sinceId) {
+    params.set("since_id", sinceId);
+  }
+
+  const url = `${baseUrl}?${params.toString()}`;
+  
+  const oauthHeader = generateOAuthHeader(
+    "GET",
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    accessToken,
+    accessTokenSecret
+  );
+
+  const response = await fetch(url, {
+    headers: { Authorization: oauthHeader },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("[agent-scan-mentions] Mentions fetch failed:", error);
+    return [];
+  }
+
+  const data = await response.json();
+  const tweets = data.data || [];
+  const users = data.includes?.users || [];
+
+  return tweets.map((tweet: { id: string; text: string; author_id: string }) => {
+    const author = users.find((u: { id: string }) => u.id === tweet.author_id);
+    return {
+      id: tweet.id,
+      text: tweet.text,
+      author_id: tweet.author_id,
+      author_username: author?.username,
+    };
+  });
+}
+
+// Reply to a tweet
+async function replyToTweet(
+  tweetId: string,
+  text: string,
+  consumerKey: string,
+  consumerSecret: string,
+  accessToken: string,
+  accessTokenSecret: string
+): Promise<{ success: boolean; replyId?: string; error?: string }> {
+  const url = "https://api.x.com/2/tweets";
+
+  const body = JSON.stringify({
+    text,
+    reply: { in_reply_to_tweet_id: tweetId },
+  });
+
+  const oauthHeader = generateOAuthHeader(
+    "POST",
+    url,
+    consumerKey,
+    consumerSecret,
+    accessToken,
+    accessTokenSecret
+  );
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: oauthHeader,
+        "Content-Type": "application/json",
+      },
+      body,
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      return { success: false, error };
+    }
+
+    const data = await response.json();
+    return { success: true, replyId: data.data?.id };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const startTime = Date.now();
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    // Official X.com API credentials
+    const consumerKey = Deno.env.get("TWITTER_CONSUMER_KEY");
+    const consumerSecret = Deno.env.get("TWITTER_CONSUMER_SECRET");
+    const accessToken = Deno.env.get("TWITTER_ACCESS_TOKEN");
+    const accessTokenSecret = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET");
+
+    if (!consumerKey || !consumerSecret || !accessToken || !accessTokenSecret) {
+      console.log("[agent-scan-mentions] Twitter credentials not configured");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Twitter credentials not configured",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Acquire lock to prevent concurrent runs
+    const lockName = "agent-scan-mentions-lock";
+    const lockExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
+
+    // Clean up expired locks
+    await supabase.from("cron_locks").delete().lt("expires_at", new Date().toISOString());
+
+    const { error: lockError } = await supabase.from("cron_locks").insert({
+      lock_name: lockName,
+      expires_at: lockExpiry,
+    });
+
+    if (lockError) {
+      console.log("[agent-scan-mentions] Another instance running, skipping");
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "lock held" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    try {
+      // Get our bot's user ID
+      const userId = await getAuthenticatedUserId(
+        consumerKey,
+        consumerSecret,
+        accessToken,
+        accessTokenSecret
+      );
+
+      if (!userId) {
+        throw new Error("Failed to get authenticated user ID");
+      }
+
+      console.log(`[agent-scan-mentions] Fetching mentions for user ${userId}`);
+
+      // Fetch recent mentions
+      const mentions = await fetchMentions(
+        userId,
+        consumerKey,
+        consumerSecret,
+        accessToken,
+        accessTokenSecret
+      );
+
+      console.log(`[agent-scan-mentions] Found ${mentions.length} mentions`);
+
+      const results: Array<{
+        tweetId: string;
+        status: string;
+        mintAddress?: string;
+        error?: string;
+      }> = [];
+
+      for (const mention of mentions) {
+        // Check if contains !tunalaunch command
+        if (!mention.text.toLowerCase().includes("!tunalaunch")) {
+          continue;
+        }
+
+        const tweetId = mention.id;
+        const tweetText = mention.text;
+        const username = mention.author_username;
+        const authorId = mention.author_id;
+
+        // Check if already processed (deduplication with primary scanner)
+        const { data: existing } = await supabase
+          .from("agent_social_posts")
+          .select("id, status")
+          .eq("platform", "twitter")
+          .eq("post_id", tweetId)
+          .maybeSingle();
+
+        if (existing) {
+          results.push({ tweetId, status: "already_processed" });
+          continue;
+        }
+
+        console.log(`[agent-scan-mentions] Processing mention ${tweetId} (backup catch)`);
+
+        // Process the tweet
+        const processResponse = await fetch(
+          `${supabaseUrl}/functions/v1/agent-process-post`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              platform: "twitter",
+              postId: tweetId,
+              postUrl: `https://x.com/${username || "i"}/status/${tweetId}`,
+              postAuthor: username,
+              postAuthorId: authorId,
+              content: tweetText,
+              source: "mentions_backup",
+            }),
+          }
+        );
+
+        const processResult = await processResponse.json();
+
+        if (processResult.success && processResult.mintAddress) {
+          // Reply to the tweet with token info
+          const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
+
+          const replyResult = await replyToTweet(
+            tweetId,
+            replyText,
+            consumerKey,
+            consumerSecret,
+            accessToken,
+            accessTokenSecret
+          );
+
+          results.push({
+            tweetId,
+            status: "launched_via_backup",
+            mintAddress: processResult.mintAddress,
+          });
+
+          if (!replyResult.success) {
+            console.warn(
+              `[agent-scan-mentions] Failed to reply to ${tweetId}:`,
+              replyResult.error
+            );
+          }
+        } else if (processResult.error) {
+          results.push({
+            tweetId,
+            status: "failed",
+            error: processResult.error,
+          });
+        }
+      }
+
+      const launchCount = results.filter(r => r.status === "launched_via_backup").length;
+      console.log(
+        `[agent-scan-mentions] Completed in ${Date.now() - startTime}ms. Backup catches: ${launchCount}`
+      );
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mentionsFound: mentions.length,
+          tunalaunchMentions: results.length,
+          backupLaunches: launchCount,
+          results,
+          durationMs: Date.now() - startTime,
+          mode: "backup_mentions_api",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } finally {
+      // Release lock
+      await supabase.from("cron_locks").delete().eq("lock_name", lockName);
+    }
+  } catch (error) {
+    console.error("[agent-scan-mentions] Error:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
