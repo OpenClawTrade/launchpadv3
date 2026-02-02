@@ -67,6 +67,12 @@ interface ClaimResult {
   dashboardUrl: string;
 }
 
+interface ClaimCooldown {
+  walletAddress: string;
+  nextClaimAt: Date;
+  remainingSeconds: number;
+}
+
 export default function AgentClaimPage() {
   const { authenticated, user, ready } = usePrivy();
   const { login } = useLogin({
@@ -90,6 +96,35 @@ export default function AgentClaimPage() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [copied, setCopied] = useState(false);
   const [summary, setSummary] = useState<{ totalAgents: number; totalTokens: number; totalFeesEarned: number; totalUnclaimedFees: number } | null>(null);
+  const [claimCooldowns, setClaimCooldowns] = useState<Map<string, ClaimCooldown>>(new Map());
+
+  // Timer effect for cooldowns
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setClaimCooldowns(prev => {
+        const updated = new Map(prev);
+        let hasChanges = false;
+        
+        for (const [wallet, cooldown] of updated.entries()) {
+          const now = Date.now();
+          const remaining = Math.max(0, Math.ceil((cooldown.nextClaimAt.getTime() - now) / 1000));
+          
+          if (remaining !== cooldown.remainingSeconds) {
+            hasChanges = true;
+            if (remaining <= 0) {
+              updated.delete(wallet);
+            } else {
+              updated.set(wallet, { ...cooldown, remainingSeconds: remaining });
+            }
+          }
+        }
+        
+        return hasChanges ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Extract Twitter username from Privy user
   useEffect(() => {
@@ -143,6 +178,17 @@ export default function AgentClaimPage() {
   const handleClaimFees = async (agent: ClaimableAgent) => {
     if (!twitterUsername || agent.unclaimedFees < 0.01) return;
 
+    // Check if on cooldown
+    const cooldown = claimCooldowns.get(agent.walletAddress);
+    if (cooldown && cooldown.remainingSeconds > 0) {
+      toast({
+        title: "Cooldown Active",
+        description: `Please wait ${formatCooldown(cooldown.remainingSeconds)} before claiming again.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsClaiming(true);
     try {
       const { data, error } = await supabase.functions.invoke("agent-creator-claim", {
@@ -160,8 +206,34 @@ export default function AgentClaimPage() {
           title: "🎉 Fees Claimed!",
           description: `${data.claimedAmount.toFixed(4)} SOL sent to your wallet`,
         });
+        
+        // Set cooldown for this wallet
+        if (data.nextClaimAt) {
+          setClaimCooldowns(prev => {
+            const updated = new Map(prev);
+            updated.set(agent.walletAddress, {
+              walletAddress: agent.walletAddress,
+              nextClaimAt: new Date(data.nextClaimAt),
+              remainingSeconds: data.cooldownSeconds || 3600,
+            });
+            return updated;
+          });
+        }
+        
         // Refresh the data
         fetchClaimableAgents(twitterUsername);
+      } else if (data.rateLimited) {
+        // Handle rate limit response
+        setClaimCooldowns(prev => {
+          const updated = new Map(prev);
+          updated.set(agent.walletAddress, {
+            walletAddress: agent.walletAddress,
+            nextClaimAt: new Date(data.nextClaimAt),
+            remainingSeconds: data.remainingSeconds,
+          });
+          return updated;
+        });
+        throw new Error(data.error);
       } else {
         throw new Error(data.error);
       }
@@ -175,6 +247,19 @@ export default function AgentClaimPage() {
     } finally {
       setIsClaiming(false);
     }
+  };
+
+  const formatCooldown = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0) {
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
+  };
+
+  const getCooldownForAgent = (agent: ClaimableAgent): ClaimCooldown | undefined => {
+    return claimCooldowns.get(agent.walletAddress);
   };
 
   const handleSelectAgent = (agent: ClaimableAgent) => {
@@ -440,23 +525,47 @@ export default function AgentClaimPage() {
                           Verify Ownership
                         </Button>
                       )}
-                      {agent.unclaimedFees >= 0.01 && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleClaimFees(agent)}
-                          disabled={isClaiming}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          {isClaiming ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <DollarSign className="w-4 h-4 mr-1" />
-                              Claim {formatSol(agent.unclaimedFees)} SOL
-                            </>
-                          )}
-                        </Button>
-                      )}
+                      {(() => {
+                        const cooldown = getCooldownForAgent(agent);
+                        const isOnCooldown = cooldown && cooldown.remainingSeconds > 0;
+                        
+                        if (isOnCooldown) {
+                          return (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
+                              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                              <span className="text-sm text-muted-foreground">
+                                Next claim in {formatCooldown(cooldown.remainingSeconds)}
+                              </span>
+                            </div>
+                          );
+                        }
+                        
+                        if (agent.unclaimedFees >= 0.01) {
+                          return (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleClaimFees(agent)}
+                              disabled={isClaiming}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              {isClaiming ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <DollarSign className="w-4 h-4 mr-1" />
+                                  Claim {formatSol(agent.unclaimedFees)} SOL
+                                </>
+                              )}
+                            </Button>
+                          );
+                        }
+                        
+                        return (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            No fees to claim
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
                 </CardHeader>
