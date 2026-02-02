@@ -124,9 +124,12 @@ async function replyToTweet(
   text: string,
   apiKey: string,
   authToken: string,
-  ct0Token: string
+  ct0Token: string,
+  username?: string
 ): Promise<{ success: boolean; replyId?: string; error?: string }> {
   try {
+    console.log(`[agent-scan-twitter] 📤 Attempting reply to @${username || "unknown"} (tweet ${tweetId})`);
+    
     const response = await fetch(
       "https://api.twitterapi.io/twitter/tweet/create",
       {
@@ -146,19 +149,48 @@ async function replyToTweet(
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("[agent-scan-twitter] Reply failed:", error);
+      console.error(`[agent-scan-twitter] ❌ REPLY FAILED to @${username || "unknown"} (tweet ${tweetId}):`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: error.slice(0, 500),
+      });
       return { success: false, error };
     }
 
     const data = await response.json();
-    return { success: true, replyId: data.data?.id || data.id };
+    const replyId = data.data?.id || data.id;
+    console.log(`[agent-scan-twitter] ✅ Reply sent to @${username || "unknown"}: ${replyId}`);
+    return { success: true, replyId };
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[agent-scan-twitter] ❌ REPLY EXCEPTION to @${username || "unknown"} (tweet ${tweetId}):`, errorMsg);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: errorMsg,
     };
   }
 }
+
+// Check how many launches an X author has done in last 24 hours
+// deno-lint-ignore no-explicit-any
+async function getAuthorLaunchesToday(
+  supabase: any,
+  postAuthorId: string
+): Promise<number> {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  
+  const { count } = await supabase
+    .from("agent_social_posts")
+    .select("id", { count: "exact", head: true })
+    .eq("platform", "twitter")
+    .eq("post_author_id", postAuthorId)
+    .eq("status", "completed")
+    .gte("processed_at", oneDayAgo);
+  
+  return count || 0;
+}
+
+const DAILY_LAUNCH_LIMIT_PER_AUTHOR = 3;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -310,9 +342,23 @@ Deno.serve(async (req) => {
         console.warn("[agent-scan-twitter] Rate limited, cooldown set until", cooldownUntil);
       }
 
+      // Get the latest processed tweet timestamp to skip older ones
+      const { data: latestProcessed } = await supabase
+        .from("agent_social_posts")
+        .select("post_id, created_at")
+        .eq("platform", "twitter")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const latestProcessedId = latestProcessed?.post_id;
+      
       if (tweets.length > 0) {
         const tweetIds = tweets.map((t) => t.id).slice(0, 5);
         console.log(`[agent-scan-twitter] Latest tweet IDs: ${tweetIds.join(", ")}`);
+        if (latestProcessedId) {
+          console.log(`[agent-scan-twitter] Last processed tweet ID: ${latestProcessedId}`);
+        }
       }
 
       const results: Array<{
@@ -322,12 +368,25 @@ Deno.serve(async (req) => {
         error?: string;
       }> = [];
 
-      for (const tweet of tweets) {
+      // Sort tweets by ID descending (newest first) to process in order
+      const sortedTweets = [...tweets].sort((a, b) => {
+        // Tweet IDs are snowflake IDs - larger = newer
+        return BigInt(b.id) > BigInt(a.id) ? 1 : -1;
+      });
+
+      for (const tweet of sortedTweets) {
         const tweetId = tweet.id;
         const tweetText = tweet.text;
         const normalizedText = tweetText.replace(/!launchtuna/gi, "!tunalaunch");
         const username = tweet.author_username;
         const authorId = tweet.author_id;
+
+        // Skip tweets older than or equal to the last processed one
+        if (latestProcessedId && BigInt(tweetId) <= BigInt(latestProcessedId)) {
+          console.log(`[agent-scan-twitter] Skipping ${tweetId} - older than last processed`);
+          results.push({ tweetId, status: "skipped_already_seen" });
+          continue;
+        }
 
         // Validate command presence
         if (!normalizedText.toLowerCase().includes("!tunalaunch")) {
@@ -336,7 +395,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Check if already processed
+        // Check if already processed (double-check)
         const { data: existing } = await supabase
           .from("agent_social_posts")
           .select("id, status")
@@ -347,6 +406,49 @@ Deno.serve(async (req) => {
         if (existing) {
           results.push({ tweetId, status: "already_processed" });
           continue;
+        }
+
+        // Check daily launch limit per X author (3 per day)
+        if (authorId) {
+          const launchesToday = await getAuthorLaunchesToday(supabase, authorId);
+          if (launchesToday >= DAILY_LAUNCH_LIMIT_PER_AUTHOR) {
+            console.log(`[agent-scan-twitter] @${username} (${authorId}) hit daily limit: ${launchesToday}/${DAILY_LAUNCH_LIMIT_PER_AUTHOR}`);
+            
+            // Record the attempt as rate-limited
+            await supabase.from("agent_social_posts").insert({
+              platform: "twitter",
+              post_id: tweetId,
+              post_url: `https://x.com/${username || "i"}/status/${tweetId}`,
+              post_author: username,
+              post_author_id: authorId,
+              wallet_address: "unknown",
+              raw_content: normalizedText.slice(0, 1000),
+              status: "failed",
+              error_message: "Daily limit of 3 Agent launches per X account reached",
+              processed_at: new Date().toISOString(),
+            });
+
+            results.push({ tweetId, status: "rate_limited", error: "Daily limit reached" });
+
+            // Reply with rate limit message
+            if (canPostReplies) {
+              const rateLimitText = `🐟 Hey @${username}! There is a daily limit of 3 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
+              
+              const rateLimitReply = await replyToTweet(
+                tweetId,
+                rateLimitText,
+                twitterApiIoKey!,
+                xAuthToken!,
+                xCt0Token!,
+                username
+              );
+
+              if (!rateLimitReply.success) {
+                console.error(`[agent-scan-twitter] ❌ FAILED to send rate limit reply to @${username}:`, rateLimitReply.error);
+              }
+            }
+            continue;
+          }
         }
 
         // Process the tweet
@@ -387,11 +489,12 @@ Deno.serve(async (req) => {
               replyText,
               twitterApiIoKey!,
               xAuthToken!,
-              xCt0Token!
+              xCt0Token!,
+              username
             );
 
             if (!replyResult.success) {
-              console.warn(`[agent-scan-twitter] Failed to reply to ${tweetId}:`, replyResult.error);
+              console.error(`[agent-scan-twitter] ❌ FAILED to send launch success reply to @${username}:`, replyResult.error);
             }
           }
         } else {
@@ -410,11 +513,14 @@ Deno.serve(async (req) => {
               formatHelpText,
               twitterApiIoKey!,
               xAuthToken!,
-              xCt0Token!
+              xCt0Token!,
+              username
             );
 
-            if (helpReplyResult.success) {
-              console.log(`[agent-scan-twitter] Sent format help reply to ${tweetId}`);
+            if (!helpReplyResult.success) {
+              console.error(`[agent-scan-twitter] ❌ FAILED to send format help reply to @${username}:`, helpReplyResult.error);
+            } else {
+              console.log(`[agent-scan-twitter] ✅ Sent format help reply to @${username}`);
             }
           }
         }
