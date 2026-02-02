@@ -61,6 +61,9 @@ serve(async (req) => {
     // Extract price info from pairs
     let price = 0;
     let change24h = 0;
+    let marketCap = 0;
+    let liquidity = 0;
+    let volume24h = 0;
 
     if (data.pairs && data.pairs.length > 0) {
       // Get the most liquid pair
@@ -70,14 +73,17 @@ serve(async (req) => {
 
       price = parseFloat(pair.priceUsd) || 0;
       change24h = parseFloat(pair.priceChange?.h24) || 0;
+      marketCap = pair.marketCap || pair.fdv || 0;
+      liquidity = pair.liquidity?.usd || 0;
+      volume24h = pair.volume?.h24 || 0;
     }
 
-    const result = { price, change24h, timestamp: Date.now() };
+    const result = { price, change24h, marketCap, liquidity, volume24h, timestamp: Date.now() };
 
     // Update cache
     cache = { data: result, timestamp: Date.now() };
 
-    console.log(`[dexscreener-proxy] Returning price: $${price}, change: ${change24h}%`);
+    console.log(`[dexscreener-proxy] Returning price: $${price}, mcap: $${marketCap}, change: ${change24h}%`);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

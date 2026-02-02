@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { TunaBookLayout } from "@/components/tunabook/TunaBookLayout";
@@ -14,6 +14,8 @@ import { useSubTunaRealtime } from "@/hooks/useSubTunaRealtime";
 import { useSubTunaMembership } from "@/hooks/useSubTunaMembership";
 import { useCreatePost } from "@/hooks/useCreatePost";
 import { useAuth } from "@/hooks/useAuth";
+import { useTunaTokenData, TUNA_TOKEN_CA } from "@/hooks/useTunaTokenData";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { Users, Article, TrendUp, ArrowSquareOut, Plus, SignIn } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import "@/styles/tunabook-theme.css";
@@ -33,7 +35,35 @@ export default function SubTunaPage() {
   });
   const { data: recentSubtunas } = useRecentSubTunas();
   const { createPost, isCreating } = useCreatePost();
-  const { 
+  
+  // Fetch live TUNA token data for the /t/TUNA community
+  const isTunaPage = ticker?.toUpperCase() === "TUNA";
+  const { data: tunaLiveData } = useTunaTokenData({ enabled: isTunaPage });
+  const { solPrice } = useSolPrice();
+
+  // Compute effective token data - use live DexScreener data for TUNA
+  const effectiveTokenData = useMemo(() => {
+    if (!subtuna?.funToken) return null;
+    
+    if (isTunaPage && tunaLiveData) {
+      // Convert USD price to SOL if we have SOL price
+      const priceSol = solPrice ? tunaLiveData.price / solPrice : undefined;
+      const marketCapSol = solPrice ? tunaLiveData.marketCap / solPrice : undefined;
+      
+      return {
+        ...subtuna.funToken,
+        priceSol,
+        marketCapSol,
+        priceChange24h: tunaLiveData.change24h,
+        priceUsd: tunaLiveData.price,
+        marketCapUsd: tunaLiveData.marketCap,
+      };
+    }
+    
+    return subtuna.funToken;
+  }, [subtuna?.funToken, isTunaPage, tunaLiveData, solPrice]);
+
+  const {
     isMember, 
     join, 
     leave, 
@@ -213,7 +243,7 @@ export default function SubTunaPage() {
       </div>
 
       {/* Token Info */}
-      {subtuna.funToken && (
+      {effectiveTokenData && (
         <div className="tunabook-sidebar p-4">
           <h3 className="font-medium text-[hsl(var(--tunabook-text-primary))] mb-3 flex items-center gap-2">
             <TrendUp size={18} className="text-[hsl(var(--tunabook-primary))]" />
@@ -223,33 +253,46 @@ export default function SubTunaPage() {
             <div className="flex justify-between">
               <span className="text-[hsl(var(--tunabook-text-muted))]">Price</span>
               <span className="text-[hsl(var(--tunabook-text-primary))]">
-                {subtuna.funToken.priceSol?.toFixed(8) || "---"} SOL
+                {effectiveTokenData.priceSol?.toFixed(8) || "---"} SOL
               </span>
             </div>
+            {(effectiveTokenData as any).priceUsd && (
+              <div className="flex justify-between">
+                <span className="text-[hsl(var(--tunabook-text-muted))]">Price (USD)</span>
+                <span className="text-[hsl(var(--tunabook-text-primary))]">
+                  ${(effectiveTokenData as any).priceUsd?.toFixed(6) || "---"}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-[hsl(var(--tunabook-text-muted))]">Market Cap</span>
               <span className="text-[hsl(var(--tunabook-text-primary))]">
-                {subtuna.funToken.marketCapSol?.toFixed(2) || "---"} SOL
+                {(effectiveTokenData as any).marketCapUsd 
+                  ? `$${((effectiveTokenData as any).marketCapUsd / 1000000).toFixed(2)}M`
+                  : effectiveTokenData.marketCapSol 
+                    ? `${effectiveTokenData.marketCapSol.toFixed(2)} SOL`
+                    : "---"
+                }
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-[hsl(var(--tunabook-text-muted))]">24h Change</span>
               <span
                 className={
-                  (subtuna.funToken.priceChange24h || 0) >= 0
+                  (effectiveTokenData.priceChange24h || 0) >= 0
                     ? "text-[hsl(152_69%_41%)]"
                     : "text-[hsl(0_84%_60%)]"
                 }
               >
-                {(subtuna.funToken.priceChange24h || 0) >= 0 ? "+" : ""}
-                {subtuna.funToken.priceChange24h?.toFixed(1) || "0"}%
+                {(effectiveTokenData.priceChange24h || 0) >= 0 ? "+" : ""}
+                {effectiveTokenData.priceChange24h?.toFixed(1) || "0"}%
               </span>
             </div>
           </div>
           
-          {subtuna.funToken.mintAddress && (
+          {effectiveTokenData.mintAddress && (
             <Link
-              to={`/launchpad/${subtuna.funToken.mintAddress}`}
+              to={`/launchpad/${effectiveTokenData.mintAddress}`}
               className="flex items-center justify-center gap-2 mt-4 text-sm text-[hsl(var(--tunabook-primary))] hover:underline"
             >
               <span>Trade ${ticker}</span>
@@ -375,10 +418,16 @@ export default function SubTunaPage() {
                 <Article size={16} />
                 {subtuna.postCount} posts
               </span>
-              {subtuna.funToken?.marketCapSol && (
+              {effectiveTokenData?.marketCapSol && (
                 <span className="flex items-center gap-1 text-[hsl(var(--tunabook-primary))]">
                   <TrendUp size={16} />
-                  {subtuna.funToken.marketCapSol.toFixed(2)} SOL mcap
+                  {effectiveTokenData.marketCapSol.toFixed(2)} SOL mcap
+                </span>
+              )}
+              {isTunaPage && tunaLiveData?.marketCap && (
+                <span className="flex items-center gap-1 text-[hsl(var(--tunabook-primary))]">
+                  <TrendUp size={16} />
+                  ${(tunaLiveData.marketCap / 1000000).toFixed(2)}M mcap
                 </span>
               )}
             </div>
