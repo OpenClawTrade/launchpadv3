@@ -221,3 +221,6 @@ verify_jwt = false
 
 [functions.agent-twitter-test]
 verify_jwt = false
+
+[functions.agent-scan-mentions]
+verify_jwt = false
