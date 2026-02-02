@@ -25,17 +25,13 @@ export function EvmWalletCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {!isConnected ? (
-          <ConnectButton.Custom>
-            {({ openConnectModal }) => (
-              <Button 
-                onClick={openConnectModal} 
-                className="w-full bg-primary hover:bg-primary/90"
-              >
-                <Wallet className="mr-2 h-4 w-4" />
-                Connect Wallet
-              </Button>
-            )}
-          </ConnectButton.Custom>
+          <Button 
+            disabled
+            className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+          >
+            <Wallet className="mr-2 h-4 w-4" />
+            Base Launchpad Goes Live Soon
+          </Button>
         ) : (
           <>
             {/* Connected Address */}
