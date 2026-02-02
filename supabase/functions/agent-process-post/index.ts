@@ -225,14 +225,26 @@ async function getOrCreateAgent(
   return newAgent;
 }
 
-// Check if agent has launched in last 24 hours
-function isWithin24Hours(lastLaunchAt: string | null): boolean {
-  if (!lastLaunchAt) return false;
-  const lastLaunch = new Date(lastLaunchAt);
-  const now = new Date();
-  const hoursDiff = (now.getTime() - lastLaunch.getTime()) / (1000 * 60 * 60);
-  return hoursDiff < 24;
+// Check how many launches an agent/wallet has done in last 24 hours
+// Note: The main rate limit (3 per X author) is handled in agent-scan-twitter
+// This is a secondary safety check per wallet
+async function getWalletLaunchesToday(
+  supabase: AnySupabase,
+  agentId: string
+): Promise<number> {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  
+  const { count } = await supabase
+    .from("agent_social_posts")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", agentId)
+    .eq("status", "completed")
+    .gte("processed_at", oneDayAgo);
+  
+  return count || 0;
 }
+
+const DAILY_LAUNCH_LIMIT = 3;
 
 // Process a social post and launch token
 export async function processLaunchPost(
@@ -349,8 +361,10 @@ export async function processLaunchPost(
       .eq("id", agent.id)
       .single();
 
-    if (agentData && isWithin24Hours(agentData.last_launch_at)) {
-      throw new Error("Rate limit: 1 launch per 24 hours");
+    // Check daily launch limit (secondary check - primary is in agent-scan-twitter)
+    const launchesToday = await getWalletLaunchesToday(supabase, agent.id);
+    if (launchesToday >= DAILY_LAUNCH_LIMIT) {
+      throw new Error("Daily limit of 3 Agent launches per X account reached");
     }
 
     // Update social post with agent ID
