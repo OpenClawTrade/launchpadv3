@@ -74,10 +74,8 @@ Deno.serve(async (req) => {
 
     // Calculate totals
     const totalTokensLaunched = agentTokens?.length || 0;
-    const totalAgentFeesEarned = agents?.reduce(
-      (sum, a) => sum + Number(a.total_fees_earned_sol || 0),
-      0
-    ) || 0;
+    // totalAgentFeesEarned is calculated dynamically from fun_fee_claims (same as totalAgentPayouts)
+    // This ensures accurate data even if the agents.total_fees_earned_sol column becomes stale
 
     const totalMarketCap = agentTokens?.reduce((sum, at) => {
       const token = at.fun_tokens as any;
@@ -114,7 +112,7 @@ Deno.serve(async (req) => {
         success: true,
         stats: {
           totalMarketCap,
-          totalAgentFeesEarned,
+          totalAgentFeesEarned: totalAgentPayouts, // Use same source-of-truth calculation
           totalTokensLaunched,
           totalVolume,
           totalAgents,
