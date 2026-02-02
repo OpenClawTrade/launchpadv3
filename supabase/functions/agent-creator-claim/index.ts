@@ -10,11 +10,13 @@ const corsHeaders = {
 
 const MIN_CLAIM_SOL = 0.01; // Minimum SOL to claim
 const CREATOR_SHARE = 0.8; // 80% goes to creator
+const CLAIM_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour in milliseconds
 
 interface ClaimRequest {
   twitterUsername: string;
   walletAddress: string;
   tokenIds?: string[];
+  checkOnly?: boolean; // If true, just check status without claiming
 }
 
 /**
@@ -25,6 +27,7 @@ interface ClaimRequest {
  * 2. Verify the wallet matches the creator_wallet on the token
  * 3. Only distribute fees that have been collected to treasury
  * 4. Track all claims to prevent double-spending
+ * 5. Rate limit: 1 claim per hour per wallet
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -40,7 +43,7 @@ Deno.serve(async (req) => {
     }
 
     const body: ClaimRequest = await req.json();
-    const { twitterUsername, walletAddress, tokenIds } = body;
+    const { twitterUsername, walletAddress, tokenIds, checkOnly } = body;
 
     if (!twitterUsername || !walletAddress) {
       return new Response(
@@ -75,6 +78,33 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Check rate limit - get last claim for this wallet
+    const { data: lastClaim } = await supabase
+      .from("fun_distributions")
+      .select("created_at")
+      .eq("creator_wallet", walletAddress)
+      .eq("distribution_type", "creator_claim")
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const now = Date.now();
+    let nextClaimAt: string | null = null;
+    let canClaim = true;
+    let remainingSeconds = 0;
+
+    if (lastClaim) {
+      const lastClaimTime = new Date(lastClaim.created_at).getTime();
+      const timeSinceLastClaim = now - lastClaimTime;
+      
+      if (timeSinceLastClaim < CLAIM_COOLDOWN_MS) {
+        canClaim = false;
+        remainingSeconds = Math.ceil((CLAIM_COOLDOWN_MS - timeSinceLastClaim) / 1000);
+        nextClaimAt = new Date(lastClaimTime + CLAIM_COOLDOWN_MS).toISOString();
+      }
+    }
+
     // Step 1: Find all tokens launched by this Twitter user
     const { data: socialPosts, error: postsError } = await supabase
       .from("agent_social_posts")
@@ -101,7 +131,6 @@ Deno.serve(async (req) => {
     // Step 2: Verify wallet ownership - wallet must match what was used in launch
     const validTokenIds = socialPosts
       .filter(p => {
-        // Wallet must match what was specified in the launch
         return p.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
       })
       .map(p => p.fun_token_id)
@@ -130,7 +159,6 @@ Deno.serve(async (req) => {
     }
 
     // Step 3: Calculate claimable fees
-    // Get total fees collected for these tokens
     const { data: feeClaims, error: feeError } = await supabase
       .from("fun_fee_claims")
       .select("id, fun_token_id, claimed_sol, creator_distributed")
@@ -141,20 +169,53 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to fetch fee claims: ${feeError.message}`);
     }
 
-    if (!feeClaims || feeClaims.length === 0) {
+    const totalCollected = (feeClaims || []).reduce((sum, f) => sum + (f.claimed_sol || 0), 0);
+    const creatorShare = totalCollected * CREATOR_SHARE;
+
+    // If checkOnly, return status without claiming
+    if (checkOnly) {
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          claimedAmount: 0,
-          message: "No unclaimed fees available" 
+        JSON.stringify({
+          success: true,
+          canClaim,
+          remainingSeconds,
+          nextClaimAt,
+          pendingAmount: creatorShare,
+          minClaimAmount: MIN_CLAIM_SOL,
+          meetsMinimum: creatorShare >= MIN_CLAIM_SOL,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Calculate creator's share (80% of collected fees)
-    const totalCollected = feeClaims.reduce((sum, f) => sum + (f.claimed_sol || 0), 0);
-    const creatorShare = totalCollected * CREATOR_SHARE;
+    // Check rate limit before proceeding with claim
+    if (!canClaim) {
+      const minutes = Math.floor(remainingSeconds / 60);
+      const seconds = remainingSeconds % 60;
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Rate limited. Next claim available in ${minutes}m ${seconds}s`,
+          rateLimited: true,
+          remainingSeconds,
+          nextClaimAt,
+          pendingAmount: creatorShare,
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!feeClaims || feeClaims.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          claimedAmount: 0,
+          message: "No unclaimed fees available",
+          nextClaimAt: null,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (creatorShare < MIN_CLAIM_SOL) {
       return new Response(
@@ -251,6 +312,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Calculate next claim time
+    const newNextClaimAt = new Date(Date.now() + CLAIM_COOLDOWN_MS).toISOString();
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -259,6 +323,8 @@ Deno.serve(async (req) => {
         solscanUrl: `https://solscan.io/tx/${signature}`,
         tokensClaimed: targetTokenIds.length,
         feeClaimsClosed: feeClaimIds.length,
+        nextClaimAt: newNextClaimAt,
+        cooldownSeconds: CLAIM_COOLDOWN_MS / 1000,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
