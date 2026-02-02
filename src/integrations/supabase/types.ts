@@ -408,6 +408,53 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_request_log: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          error_code: number | null
+          id: string
+          latency_ms: number | null
+          model: string
+          request_type: string
+          success: boolean
+          tokens_input: number | null
+          tokens_output: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          error_code?: number | null
+          id?: string
+          latency_ms?: number | null
+          model?: string
+          request_type: string
+          success?: boolean
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          error_code?: number | null
+          id?: string
+          latency_ms?: number | null
+          model?: string
+          request_type?: string
+          success?: boolean
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_request_log_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_accounts: {
         Row: {
           api_key_hash: string
@@ -4059,6 +4106,28 @@ export type Database = {
           updated_at: string | null
         }
         Relationships: []
+      }
+      ai_usage_daily: {
+        Row: {
+          agent_id: string | null
+          avg_latency_ms: number | null
+          day: string | null
+          rate_limit_count: number | null
+          request_count: number | null
+          request_type: string | null
+          success_count: number | null
+          total_input_tokens: number | null
+          total_output_tokens: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_request_log_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
