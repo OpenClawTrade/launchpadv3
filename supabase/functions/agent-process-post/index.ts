@@ -10,7 +10,66 @@ const corsHeaders = {
 // deno-lint-ignore no-explicit-any
 type AnySupabase = SupabaseClient<any, any, any>;
 
+// Image generation models to try in order (matching fun-generate pattern)
+const IMAGE_MODELS = [
+  "google/gemini-2.5-flash-image-preview",
+  "google/gemini-3-pro-image-preview",
+];
+
+// Helper function to try generating image with a specific model
+async function tryGenerateImageWithModel(
+  model: string,
+  prompt: string,
+  lovableApiKey: string
+): Promise<string | null> {
+  try {
+    console.log(`[generateTokenImageWithAI] Trying model: ${model}`);
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[generateTokenImageWithAI] Model ${model} HTTP error: ${response.status}`, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log(`[generateTokenImageWithAI] Model ${model} response structure:`, JSON.stringify({
+      hasChoices: !!data.choices,
+      choicesLength: data.choices?.length,
+      hasMessage: !!data.choices?.[0]?.message,
+      hasImages: !!data.choices?.[0]?.message?.images,
+      imagesLength: data.choices?.[0]?.message?.images?.length,
+    }));
+    
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    if (imageUrl) {
+      console.log(`[generateTokenImageWithAI] Successfully generated image with ${model}`);
+      return imageUrl;
+    }
+    
+    console.warn(`[generateTokenImageWithAI] Model ${model} returned no image URL`);
+    return null;
+  } catch (err) {
+    console.error(`[generateTokenImageWithAI] Model ${model} exception:`, err);
+    return null;
+  }
+}
+
 // Generate token image using Lovable AI when no image is provided
+// Uses retry logic with multiple models for reliability
 async function generateTokenImageWithAI(
   tokenName: string,
   tokenSymbol: string,
@@ -18,39 +77,43 @@ async function generateTokenImageWithAI(
   lovableApiKey: string,
   supabase: AnySupabase
 ): Promise<string | null> {
-  try {
-    const prompt = `Create a colorful, professional cryptocurrency token logo for a memecoin called "${tokenName}" ($${tokenSymbol}). ${description ? `Theme: ${description.slice(0, 100)}` : ""}. Style: vibrant, modern, crypto aesthetic with bold colors. Circle or rounded design. No text, just the icon.`;
+  const prompt = `Create a colorful, professional cryptocurrency token logo for a memecoin called "${tokenName}" ($${tokenSymbol}). ${description ? `Theme: ${description.slice(0, 100)}` : ""}. Style: vibrant, modern, crypto aesthetic with bold colors. Cartoon mascot style with expressive face. No text, just the character/icon.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "flux.schnell",
-        prompt,
-        n: 1,
-        size: "512x512",
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(`[generateTokenImageWithAI] Image generation failed: ${response.status}`);
-      return null;
-    }
-
-    const result = await response.json();
-    const imageData = result.data?.[0];
+  let imageUrl: string | null = null;
+  
+  // Try each model with retry logic
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const model = IMAGE_MODELS[attempt % IMAGE_MODELS.length];
+    console.log(`[generateTokenImageWithAI] Attempt ${attempt + 1}/3 using ${model}`);
     
-    if (!imageData) {
-      console.error(`[generateTokenImageWithAI] No image data in response`);
-      return null;
+    imageUrl = await tryGenerateImageWithModel(model, prompt, lovableApiKey);
+    
+    if (imageUrl) {
+      break;
     }
-
-    // If base64, upload to Supabase storage
-    if (imageData.b64_json) {
-      const imageBuffer = Uint8Array.from(atob(imageData.b64_json), c => c.charCodeAt(0));
+    
+    // Small delay between retries
+    if (attempt < 2) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  
+  if (!imageUrl) {
+    console.error(`[generateTokenImageWithAI] All image generation attempts failed`);
+    return null;
+  }
+  
+  // If the image is base64, upload to Supabase storage
+  if (imageUrl.startsWith("data:image")) {
+    try {
+      // Extract base64 data from data URL
+      const base64Match = imageUrl.match(/^data:image\/\w+;base64,(.+)$/);
+      if (!base64Match) {
+        console.error(`[generateTokenImageWithAI] Invalid base64 data URL format`);
+        return null;
+      }
+      
+      const imageBuffer = Uint8Array.from(atob(base64Match[1]), c => c.charCodeAt(0));
       const fileName = `${Date.now()}-${tokenSymbol.toLowerCase()}-${crypto.randomUUID()}.png`;
       const filePath = `fun-tokens/${fileName}`;
 
@@ -70,19 +133,16 @@ async function generateTokenImageWithAI(
         .from("post-images")
         .getPublicUrl(filePath);
 
+      console.log(`[generateTokenImageWithAI] Uploaded to storage: ${publicUrl.publicUrl}`);
       return publicUrl.publicUrl;
+    } catch (uploadErr) {
+      console.error(`[generateTokenImageWithAI] Upload exception:`, uploadErr);
+      return null;
     }
-
-    // If URL returned directly
-    if (imageData.url) {
-      return imageData.url;
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`[generateTokenImageWithAI] Error:`, error);
-    return null;
   }
+  
+  // If it's already a URL, return it directly
+  return imageUrl;
 }
 
 interface ParsedLaunchData {
@@ -447,26 +507,57 @@ export async function processLaunchPost(
   // If no valid image URL, generate one using AI
   if (!finalImageUrl) {
     console.log(`[agent-process-post] 🎨 No valid image URL, generating AI image for ${parsed.name}...`);
-    try {
-      const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-      if (lovableApiKey) {
-        finalImageUrl = await generateTokenImageWithAI(
-          parsed.name, 
-          parsed.symbol, 
-          parsed.description, 
-          lovableApiKey,
-          supabase
-        );
-        if (finalImageUrl) {
-          console.log(`[agent-process-post] ✅ Generated AI image: ${finalImageUrl.slice(0, 60)}...`);
-        }
-      } else {
-        console.warn(`[agent-process-post] ⚠️ No LOVABLE_API_KEY, skipping AI image generation`);
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (lovableApiKey) {
+      finalImageUrl = await generateTokenImageWithAI(
+        parsed.name, 
+        parsed.symbol, 
+        parsed.description, 
+        lovableApiKey,
+        supabase
+      );
+      if (finalImageUrl) {
+        console.log(`[agent-process-post] ✅ Generated AI image: ${finalImageUrl.slice(0, 60)}...`);
       }
-    } catch (imgErr) {
-      console.error(`[agent-process-post] ⚠️ AI image generation failed:`, imgErr);
-      // Continue without image - not a fatal error
+    } else {
+      console.error(`[agent-process-post] ❌ No LOVABLE_API_KEY configured, cannot generate image`);
     }
+  }
+
+  // CRITICAL: Block token launch if no image URL - prevents financial loss from launching without image
+  if (!finalImageUrl) {
+    const errorMsg = "Failed to obtain token image - cannot launch without image (AI generation failed)";
+    console.error(`[agent-process-post] ❌ ${errorMsg}`);
+    
+    // Insert as failed record
+    const { data: failedPost } = await supabase
+      .from("agent_social_posts")
+      .insert({
+        platform,
+        post_id: postId,
+        post_url: postUrl,
+        post_author: postAuthor,
+        post_author_id: postAuthorId,
+        wallet_address: parsed.wallet,
+        raw_content: rawContent.slice(0, 1000),
+        parsed_name: parsed.name,
+        parsed_symbol: parsed.symbol,
+        parsed_description: parsed.description,
+        parsed_image_url: null,
+        parsed_website: parsed.website,
+        parsed_twitter: parsed.twitter,
+        status: "failed",
+        error_message: errorMsg,
+        processed_at: new Date().toISOString(),
+      })
+      .select("id")
+      .maybeSingle();
+
+    return {
+      success: false,
+      error: errorMsg,
+      socialPostId: failedPost?.id,
+    };
   }
 
   // Insert pending record
