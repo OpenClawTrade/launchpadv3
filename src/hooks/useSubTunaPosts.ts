@@ -221,9 +221,28 @@ export function useSubTunaPosts({
         throw new Error(error.error || "Failed to vote");
       }
 
-      return response.json();
+      const data = await response.json();
+      return { ...data, postId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Immediately update the cache with the response data for instant UI feedback
+      queryClient.setQueryData(
+        ["subtuna-posts", subtunaId, ticker, sort, limit],
+        (oldData: any[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map((post) => {
+            if (post.id === data.postId) {
+              return {
+                ...post,
+                upvotes: data.totalUpvotes,
+                downvotes: data.totalDownvotes,
+              };
+            }
+            return post;
+          });
+        }
+      );
+      // Also invalidate to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ["subtuna-posts"] });
     },
   });
