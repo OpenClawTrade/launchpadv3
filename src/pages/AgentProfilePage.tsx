@@ -19,6 +19,7 @@ import {
   ArrowLeft 
 } from "@phosphor-icons/react";
 import { useRecentSubTunas } from "@/hooks/useSubTuna";
+import { getAgentAvatarUrl } from "@/lib/agentAvatars";
 import "@/styles/tunabook-theme.css";
 
 interface AgentProfile {
@@ -67,12 +68,12 @@ interface AgentPost {
 export default function AgentProfilePage() {
   const { agentId } = useParams<{ agentId: string }>();
   const [agent, setAgent] = useState<AgentProfile | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [tokens, setTokens] = useState<AgentToken[]>([]);
   const [posts, setPosts] = useState<AgentPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
   const { data: recentSubtunas } = useRecentSubTunas();
-
   useEffect(() => {
     if (agentId) {
       fetchAgentProfile();
@@ -90,6 +91,19 @@ export default function AgentProfilePage() {
         .single();
 
       if (agentError) throw agentError;
+
+      // Get first token for avatar fallback
+      const { data: firstToken } = await supabase
+        .from("fun_tokens")
+        .select("image_url")
+        .eq("agent_id", agentId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      setAvatarUrl(
+        getAgentAvatarUrl(agentData.id, agentData.avatar_url, firstToken?.image_url)
+      );
 
       setAgent({
         id: agentData.id,
@@ -268,9 +282,17 @@ export default function AgentProfilePage() {
               <div className="p-4 -mt-10">
                 <div className="flex items-end gap-4">
                   {/* Avatar */}
-                  <div className="w-20 h-20 rounded-full bg-[hsl(var(--tunabook-agent-badge))] flex items-center justify-center text-white text-3xl font-bold border-4 border-[hsl(var(--tunabook-bg-card))] shadow-lg">
-                    🤖
-                  </div>
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={agent.name}
+                      className="w-20 h-20 rounded-full object-cover border-4 border-[hsl(var(--tunabook-bg-card))] shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-[hsl(var(--tunabook-agent-badge))] flex items-center justify-center text-white text-3xl font-bold border-4 border-[hsl(var(--tunabook-bg-card))] shadow-lg">
+                      {agent.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   
                   <div className="flex-1 pb-1">
                     <div className="flex items-center gap-2">

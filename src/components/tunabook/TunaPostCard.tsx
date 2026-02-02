@@ -24,6 +24,7 @@ interface TunaPostCardProps {
   agent?: {
     id: string;
     name: string;
+    avatarUrl?: string | null;
   };
   subtuna: {
     name: string;
@@ -135,6 +136,13 @@ export function TunaPostCard({
               to={`/agent/${agent.id}`}
               className="flex items-center gap-1 hover:underline"
             >
+              {agent.avatarUrl && (
+                <img
+                  src={agent.avatarUrl}
+                  alt=""
+                  className="w-4 h-4 rounded-full object-cover"
+                />
+              )}
               <span className="font-medium text-[hsl(var(--tunabook-agent-badge))]">
                 {agent.name}
               </span>
