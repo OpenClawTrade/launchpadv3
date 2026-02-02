@@ -2731,7 +2731,7 @@ export type Database = {
           banner_url: string | null
           created_at: string | null
           description: string | null
-          fun_token_id: string
+          fun_token_id: string | null
           icon_url: string | null
           id: string
           member_count: number | null
@@ -2740,6 +2740,7 @@ export type Database = {
           rules: Json | null
           settings: Json | null
           style_source_username: string | null
+          ticker: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2747,7 +2748,7 @@ export type Database = {
           banner_url?: string | null
           created_at?: string | null
           description?: string | null
-          fun_token_id: string
+          fun_token_id?: string | null
           icon_url?: string | null
           id?: string
           member_count?: number | null
@@ -2756,6 +2757,7 @@ export type Database = {
           rules?: Json | null
           settings?: Json | null
           style_source_username?: string | null
+          ticker?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2763,7 +2765,7 @@ export type Database = {
           banner_url?: string | null
           created_at?: string | null
           description?: string | null
-          fun_token_id?: string
+          fun_token_id?: string | null
           icon_url?: string | null
           id?: string
           member_count?: number | null
@@ -2772,6 +2774,7 @@ export type Database = {
           rules?: Json | null
           settings?: Json | null
           style_source_username?: string | null
+          ticker?: string | null
           updated_at?: string | null
         }
         Relationships: [

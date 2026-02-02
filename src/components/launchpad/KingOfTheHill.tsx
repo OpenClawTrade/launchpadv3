@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Copy, CheckCircle, Users, Clock, Gem } from "lucide-react";
+import { Crown, Copy, CheckCircle, Users, Clock, Gem, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { useState, useMemo, useEffect } from "react";
@@ -122,6 +122,16 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
               <span title="Holder Rewards" aria-label="Holder Rewards">
                 <Gem className="w-3 h-3 text-accent flex-shrink-0" />
               </span>
+            )}
+            {token.agent_id && (
+              <Link 
+                to={`/t/${token.ticker}`}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                className="flex-shrink-0"
+                title="AI Agent Token"
+              >
+                <Bot className="w-3 h-3 text-purple-400 hover:text-purple-300" />
+              </Link>
             )}
           </h3>
           <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>

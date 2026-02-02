@@ -21,6 +21,7 @@ import {
   Megaphone,
   Crown,
   Gem,
+  Bot,
 } from "lucide-react";
 
 interface Token {
@@ -37,6 +38,7 @@ interface Token {
   bonding_progress?: number | null;
   created_at?: string | null;
   fee_mode?: string | null; // 'standard' or 'holders'
+  agent_id?: string | null;
 }
 
 interface TokenTableProps {
@@ -98,12 +100,22 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                 {token.name}
                 {isNearGraduation && <Flame className="h-3 w-3 text-orange-500 flex-shrink-0" />}
                 {isPromoted && <Crown className="h-3 w-3 text-warning flex-shrink-0" />}
-                {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
-                  <span title="Holder Rewards" aria-label="Holder Rewards">
-                    <Gem className="h-3 w-3 text-accent flex-shrink-0" />
-                  </span>
-                )}
-              </span>
+                                {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
+                                  <span title="Holder Rewards" aria-label="Holder Rewards">
+                                    <Gem className="h-3 w-3 text-accent flex-shrink-0" />
+                                  </span>
+                                )}
+                                {token.agent_id && (
+                                  <Link 
+                                    to={`/t/${token.ticker}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="AI Agent Token"
+                                    className="flex-shrink-0"
+                                  >
+                                    <Bot className="h-3 w-3 text-purple-400 hover:text-purple-300" />
+                                  </Link>
+                                )}
+                              </span>
               <span className="text-xs text-muted-foreground">${token.ticker}</span>
             </div>
             <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
@@ -228,6 +240,15 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                                 <span title="Holder Rewards" aria-label="Holder Rewards">
                                   <Gem className="h-3 w-3 text-accent" />
                                 </span>
+                              )}
+                              {token.agent_id && (
+                                <Link 
+                                  to={`/t/${token.ticker}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  title="AI Agent Token"
+                                >
+                                  <Bot className="h-3 w-3 text-purple-400 hover:text-purple-300" />
+                                </Link>
                               )}
                             </span>
                             <span className="gate-token-ticker">${token.ticker}</span>
