@@ -1,15 +1,16 @@
 import { Card } from "@/components/ui/card";
-import { Coins, Wallet, BarChart3, Bot } from "lucide-react";
+import { Coins, Wallet, BarChart3, Bot, Send } from "lucide-react";
 
 interface StatsCardsProps {
   totalTokens: number;
   totalAgents: number;
   totalClaimed: number;
   totalPayouts: number;
+  totalAgentPayouts: number;
   solPrice: number | null;
 }
 
-export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalPayouts, solPrice }: StatsCardsProps) {
+export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalPayouts, totalAgentPayouts, solPrice }: StatsCardsProps) {
   const formatSOL = (amount: number) => {
     if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
     return amount.toFixed(2);
@@ -51,15 +52,22 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalPayout
       icon: Wallet,
       color: "text-primary",
     },
+    {
+      label: "Agent Payouts",
+      value: `${formatSOL(totalAgentPayouts)} SOL`,
+      sub: formatUSD(totalAgentPayouts),
+      icon: Send,
+      color: "text-cyan-400",
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {stats.map((stat) => (
         <Card key={stat.label} className="gate-stat-card">
           <div className="gate-stat-label">
             <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            {stat.label}
+            <span className="truncate">{stat.label}</span>
           </div>
           <div className="gate-stat-value">{stat.value}</div>
           {stat.sub && <div className="gate-stat-sub">{stat.sub}</div>}
