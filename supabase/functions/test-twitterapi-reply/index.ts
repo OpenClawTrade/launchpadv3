@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { tweet_id, no_proxy } = await req.json();
+    const { tweet_id } = await req.json();
     
     if (!tweet_id) {
       return new Response(
@@ -59,138 +59,138 @@ Deno.serve(async (req) => {
     const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
 
-    if (!twitterApiIoKey) {
+    if (!twitterApiIoKey || !proxyUrl) {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing TWITTERAPI_IO_KEY" }),
+        JSON.stringify({ success: false, error: "Missing TWITTERAPI_IO_KEY or TWITTER_PROXY" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const testText = `🐟 TUNA test ${new Date().toISOString().slice(11, 19)} UTC`;
-    const results: Record<string, any> = {
-      proxy_url: proxyUrl ? proxyUrl.replace(/:[^:@]+@/, ':***@') : "NOT SET",
-      no_proxy_mode: !!no_proxy,
+    const results: Record<string, any> = {};
+
+    // Step 1: Login
+    console.log("[test] Logging in...");
+    const loginBody: Record<string, string> = {
+      user_name: xAccountUsername!,
+      email: xAccountEmail!,
+      password: xAccountPassword!,
+      proxy: proxyUrl,
     };
-
-    // Login WITH proxy
-    if (!no_proxy && proxyUrl && xAccountUsername && xAccountEmail && xAccountPassword) {
-      console.log("[test] Login WITH proxy...");
-      
-      const loginBody: Record<string, string> = {
-        user_name: xAccountUsername,
-        email: xAccountEmail,
-        password: xAccountPassword,
-        proxy: proxyUrl,
-      };
-      if (xTotpSecret) {
-        loginBody.totp_secret = xTotpSecret;
-      }
-
-      const loginRes = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
-        method: "POST",
-        headers: {
-          "X-API-Key": twitterApiIoKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(loginBody),
-      });
-
-      const loginText = await loginRes.text();
-      const loginData = safeJsonParse(loginText);
-      results.login_with_proxy = {
-        status: loginRes.status,
-        success: loginData?.status === "success",
-        message: loginData?.message,
-      };
-
-      const loginCookies = loginData?.login_cookies;
-      
-      if (loginCookies) {
-        // Try posting WITH proxy
-        const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": twitterApiIoKey,
-          },
-          body: JSON.stringify({
-            tweet_text: testText + " [with-proxy]",
-            reply_to_tweet_id: tweet_id,
-            login_cookies: loginCookies,
-            proxy: proxyUrl,
-          }),
-        });
-
-        const responseText = await response.text();
-        console.log(`[test] Post with proxy: ${response.status} - ${responseText}`);
-        
-        results.post_with_proxy = {
-          status: response.status,
-          response: safeJsonParse(responseText) || responseText,
-        };
-      }
+    if (xTotpSecret) {
+      loginBody.totp_secret = xTotpSecret;
     }
 
-    // Login WITHOUT proxy (if requested)
-    if (no_proxy && xAccountUsername && xAccountEmail && xAccountPassword) {
-      console.log("[test] Login WITHOUT proxy...");
-      
-      const loginBody: Record<string, string> = {
-        user_name: xAccountUsername,
-        email: xAccountEmail,
-        password: xAccountPassword,
-      };
-      if (xTotpSecret) {
-        loginBody.totp_secret = xTotpSecret;
-      }
+    const loginRes = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
+      method: "POST",
+      headers: {
+        "X-API-Key": twitterApiIoKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(loginBody),
+    });
 
-      const loginRes = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
-        method: "POST",
-        headers: {
-          "X-API-Key": twitterApiIoKey,
-          "Content-Type": "application/json",
+    const loginText = await loginRes.text();
+    const loginData = safeJsonParse(loginText);
+    results.login = {
+      status: loginRes.status,
+      success: loginData?.status === "success",
+    };
+
+    const loginCookies = loginData?.login_cookies;
+    if (!loginCookies) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Login failed", results }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Test different endpoint variations
+    const endpoints = [
+      {
+        name: "create_tweet_v2 (tweet_text + reply_to_tweet_id)",
+        url: "/twitter/create_tweet_v2",
+        body: {
+          tweet_text: testText,
+          reply_to_tweet_id: tweet_id,
+          login_cookies: loginCookies,
+          proxy: proxyUrl,
         },
-        body: JSON.stringify(loginBody),
-      });
+      },
+      {
+        name: "create_tweet_v2 (text only)",
+        url: "/twitter/create_tweet_v2",
+        body: {
+          tweet_text: testText + " [standalone]",
+          login_cookies: loginCookies,
+          proxy: proxyUrl,
+        },
+      },
+      {
+        name: "create_tweet (if exists)",
+        url: "/twitter/create_tweet",
+        body: {
+          tweet_text: testText,
+          reply_to_tweet_id: tweet_id,
+          login_cookies: loginCookies,
+          proxy: proxyUrl,
+        },
+      },
+      {
+        name: "tweet/reply",
+        url: "/twitter/tweet/reply",
+        body: {
+          text: testText,
+          tweet_id: tweet_id,
+          login_cookies: loginCookies,
+          proxy: proxyUrl,
+        },
+      },
+      {
+        name: "tweet/post",
+        url: "/twitter/tweet/post",
+        body: {
+          text: testText,
+          login_cookies: loginCookies,
+          proxy: proxyUrl,
+        },
+      },
+    ];
 
-      const loginText = await loginRes.text();
-      const loginData = safeJsonParse(loginText);
-      results.login_no_proxy = {
-        status: loginRes.status,
-        success: loginData?.status === "success",
-        message: loginData?.message,
-      };
-
-      const loginCookies = loginData?.login_cookies;
-      
-      if (loginCookies) {
-        // Try posting WITHOUT proxy
-        const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+    for (const ep of endpoints) {
+      console.log(`[test] Trying ${ep.name}...`);
+      try {
+        const response = await fetch(`${TWITTERAPI_BASE}${ep.url}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-API-Key": twitterApiIoKey,
           },
-          body: JSON.stringify({
-            tweet_text: testText + " [no-proxy]",
-            reply_to_tweet_id: tweet_id,
-            login_cookies: loginCookies,
-          }),
+          body: JSON.stringify(ep.body),
         });
 
         const responseText = await response.text();
-        console.log(`[test] Post without proxy: ${response.status} - ${responseText}`);
-        
-        results.post_no_proxy = {
+        console.log(`[test] ${ep.name}: ${response.status} - ${responseText}`);
+
+        const parsed = safeJsonParse(responseText);
+        results[ep.name] = {
           status: response.status,
-          response: safeJsonParse(responseText) || responseText,
+          response: parsed || responseText.slice(0, 300),
         };
+
+        // Check if any succeeded
+        if (response.status === 200 && parsed?.status === "success") {
+          results.success = true;
+          results.working_endpoint = ep.name;
+        }
+      } catch (e) {
+        results[ep.name] = { error: e instanceof Error ? e.message : "Unknown error" };
       }
     }
 
     return new Response(
       JSON.stringify({
-        success: false,
+        success: results.success || false,
         tweet_id,
         test_text: testText,
         results,
