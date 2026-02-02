@@ -92,9 +92,9 @@ Deno.serve(async (req) => {
       0
     ) || 0;
 
-    // Sum up all agent payouts (claimed fees)
+    // Sum up all agent payouts (earned fees - what agents are entitled to)
     const totalAgentPayouts = agents?.reduce(
-      (sum, a) => sum + Number(a.total_fees_claimed_sol || 0),
+      (sum, a) => sum + Number(a.total_fees_earned_sol || 0),
       0
     ) || 0;
 
