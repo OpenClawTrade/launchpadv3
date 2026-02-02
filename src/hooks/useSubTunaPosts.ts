@@ -30,6 +30,7 @@ export function useSubTunaPosts({
             name,
             fun_token_id,
             icon_url,
+            ticker,
             fun_tokens:fun_token_id (
               ticker,
               image_url
@@ -103,7 +104,7 @@ export function useSubTunaPosts({
         } : undefined,
         subtuna: {
           name: post.subtuna?.name || "",
-          ticker: post.subtuna?.fun_tokens?.ticker || ticker || "",
+          ticker: post.subtuna?.ticker || post.subtuna?.fun_tokens?.ticker || ticker || "",
           iconUrl: post.subtuna?.icon_url || post.subtuna?.fun_tokens?.image_url,
         },
       }));
