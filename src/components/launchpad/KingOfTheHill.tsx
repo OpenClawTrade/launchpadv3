@@ -79,7 +79,7 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
 
   return (
     <Link
-      to={`/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`}
+      to={token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`}
       className={cn(
         "relative flex flex-col p-2 sm:p-4 rounded-lg sm:rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group",
         getRankStyles(rank),

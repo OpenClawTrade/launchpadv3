@@ -36,7 +36,7 @@ export function TokenCard({ token }: TokenCardProps) {
   const isHolderRewards = token.fee_mode === 'holder_rewards';
 
   return (
-    <Link to={`/launchpad/${token.mint_address}`}>
+    <Link to={token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address}`}>
       <Card className="relative overflow-hidden p-4 hover:bg-secondary/50 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer group">
         {/* Hot indicator glow */}
         {isHot && !isGraduated && (
