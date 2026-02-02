@@ -1,78 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { createHmac } from "node:crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
-// OAuth 1.0a signing for official X.com API (used ONLY for posting)
-function generateOAuthSignature(
-  method: string,
-  url: string,
-  params: Record<string, string>,
-  consumerSecret: string,
-  tokenSecret: string
-): string {
-  const sortedParams = Object.keys(params)
-    .sort()
-    .map(
-      (key) =>
-        `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`
-    )
-    .join("&");
-
-  const signatureBase = [
-    method.toUpperCase(),
-    encodeURIComponent(url),
-    encodeURIComponent(sortedParams),
-  ].join("&");
-
-  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-
-  const hmac = createHmac("sha1", signingKey);
-  hmac.update(signatureBase);
-  return hmac.digest("base64");
-}
-
-function generateOAuthHeader(
-  method: string,
-  url: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): string {
-  const oauthParams: Record<string, string> = {
-    oauth_consumer_key: consumerKey,
-    oauth_nonce: crypto.randomUUID().replace(/-/g, ""),
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: accessToken,
-    oauth_version: "1.0",
-  };
-
-  const signature = generateOAuthSignature(
-    method,
-    url,
-    oauthParams,
-    consumerSecret,
-    accessTokenSecret
-  );
-
-  oauthParams.oauth_signature = signature;
-
-  const headerParts = Object.keys(oauthParams)
-    .sort()
-    .map(
-      (key) =>
-        `${encodeURIComponent(key)}="${encodeURIComponent(oauthParams[key])}"`
-    )
-    .join(", ");
-
-  return `OAuth ${headerParts}`;
-}
 
 // Search for mentions using twitterapi.io (cheap reads)
 async function searchMentionsViaTwitterApiIo(
@@ -119,40 +51,31 @@ async function searchMentionsViaTwitterApiIo(
   }));
 }
 
-// Send reply using official X.com API (requires OAuth 1.0a)
+// Send reply using twitterapi.io (session-based posting)
 async function replyToTweet(
   tweetId: string,
   text: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
+  apiKey: string,
+  authToken: string,
+  ct0Token: string
 ): Promise<{ success: boolean; replyId?: string; error?: string }> {
-  const url = "https://api.x.com/2/tweets";
-
-  const body = JSON.stringify({
-    text,
-    reply: { in_reply_to_tweet_id: tweetId },
-  });
-
-  const oauthHeader = generateOAuthHeader(
-    "POST",
-    url,
-    consumerKey,
-    consumerSecret,
-    accessToken,
-    accessTokenSecret
-  );
-
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: oauthHeader,
-        "Content-Type": "application/json",
-      },
-      body,
-    });
+    const response = await fetch(
+      "https://api.twitterapi.io/twitter/tweet/create",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({
+          auth_token: authToken,
+          ct0: ct0Token,
+          text: text,
+          reply_to_tweet_id: tweetId,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.text();
@@ -161,7 +84,7 @@ async function replyToTweet(
     }
 
     const data = await response.json();
-    return { success: true, replyId: data.data?.id };
+    return { success: true, replyId: data.data?.id || data.id };
   } catch (error) {
     return {
       success: false,
@@ -181,18 +104,10 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    // twitterapi.io for cheap mention monitoring
+    // twitterapi.io for both reading and posting
     const twitterApiIoKey = Deno.env.get("TWITTERAPI_IO_KEY");
-    
-    // Official X.com API only for posting replies
-    const consumerKey = Deno.env.get("TWITTER_CONSUMER_KEY");
-    const consumerSecret = Deno.env.get("TWITTER_CONSUMER_SECRET");
-    const accessToken = Deno.env.get("TWITTER_ACCESS_TOKEN");
-    const accessTokenSecret = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET");
-    const meteoraApiUrl =
-      Deno.env.get("METEORA_API_URL") ||
-      Deno.env.get("VITE_METEORA_API_URL") ||
-      "https://tunalaunch.vercel.app";
+    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
+    const xCt0Token = Deno.env.get("X_CT0_TOKEN");
 
     if (!twitterApiIoKey) {
       console.log("[agent-scan-twitter] TWITTERAPI_IO_KEY not configured");
@@ -205,10 +120,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if we have official API credentials for posting replies
-    const canPostReplies = consumerKey && consumerSecret && accessToken && accessTokenSecret;
+    // Check if we have session tokens for posting replies
+    const canPostReplies = xAuthToken && xCt0Token;
     if (!canPostReplies) {
-      console.log("[agent-scan-twitter] Official X.com API not configured - will process but skip replies");
+      console.log("[agent-scan-twitter] X session tokens not configured - will process but skip replies");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -298,17 +213,16 @@ Deno.serve(async (req) => {
             mintAddress: processResult.mintAddress,
           });
 
-          // Only post reply if we have official X.com API credentials
+          // Only post reply if we have session tokens
           if (canPostReplies) {
             const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
 
             const replyResult = await replyToTweet(
               tweetId,
               replyText,
-              consumerKey!,
-              consumerSecret!,
-              accessToken!,
-              accessTokenSecret!
+              twitterApiIoKey,
+              xAuthToken!,
+              xCt0Token!
             );
 
             if (!replyResult.success) {
@@ -332,10 +246,9 @@ Deno.serve(async (req) => {
             const helpReplyResult = await replyToTweet(
               tweetId,
               formatHelpText,
-              consumerKey!,
-              consumerSecret!,
-              accessToken!,
-              accessTokenSecret!
+              twitterApiIoKey,
+              xAuthToken!,
+              xCt0Token!
             );
 
             if (helpReplyResult.success) {
