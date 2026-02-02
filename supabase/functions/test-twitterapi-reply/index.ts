@@ -58,6 +58,8 @@ Deno.serve(async (req) => {
     const xTotpSecretRaw = Deno.env.get("X_TOTP_SECRET");
     const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
+    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
+    const xCt0Token = Deno.env.get("X_CT0_TOKEN");
 
     if (!twitterApiIoKey || !proxyUrl) {
       return new Response(
@@ -111,9 +113,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 2: Try create_tweet_v2 with login_cookies
+    // Step 2: Try create_tweet_v2 with login_cookies (original format)
     if (loginCookies) {
-      console.log("[twitterapi-test] Trying create_tweet_v2...");
+      console.log("[twitterapi-test] Trying create_tweet_v2 (tweet_text field)...");
       
       const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
         method: "POST",
@@ -130,28 +132,17 @@ Deno.serve(async (req) => {
       });
 
       const responseText = await response.text();
-      console.log(`[twitterapi-test] create_tweet_v2: ${response.status} - ${responseText}`);
+      console.log(`[twitterapi-test] create_tweet_v2 (tweet_text): ${response.status} - ${responseText}`);
       
-      results.create_tweet_v2 = {
+      results.method1_create_tweet_v2_tweet_text = {
         status: response.status,
         response: safeJsonParse(responseText) || responseText,
       };
-
-      // Check if successful
-      const data = safeJsonParse(responseText);
-      const tweetId = data?.data?.id || 
-                      data?.data?.rest_id || 
-                      data?.data?.create_tweet?.tweet_results?.result?.rest_id;
-      
-      if (tweetId) {
-        results.success = true;
-        results.reply_id = tweetId;
-      }
     }
 
-    // Step 3: Try standalone tweet (not reply) to test if posting works at all
-    if (loginCookies && !results.success) {
-      console.log("[twitterapi-test] Trying standalone tweet...");
+    // Step 3: Try with X_AUTH_TOKEN + X_CT0_TOKEN directly (auth_session object)
+    if (xAuthToken && xCt0Token) {
+      console.log("[twitterapi-test] Trying create_tweet_v2 with auth_session tokens...");
       
       const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
         method: "POST",
@@ -160,16 +151,104 @@ Deno.serve(async (req) => {
           "X-API-Key": twitterApiIoKey,
         },
         body: JSON.stringify({
-          tweet_text: `🐟 TUNA standalone test at ${new Date().toISOString().slice(11, 19)} UTC`,
+          tweet_text: testText + " [auth_session]",
+          reply_to_tweet_id: tweet_id,
+          auth_session: {
+            auth_token: xAuthToken,
+            ct0: xCt0Token,
+          },
+          proxy: proxyUrl,
+        }),
+      });
+
+      const responseText = await response.text();
+      console.log(`[twitterapi-test] auth_session: ${response.status} - ${responseText}`);
+      
+      results.method2_auth_session = {
+        status: response.status,
+        response: safeJsonParse(responseText) || responseText,
+      };
+    }
+
+    // Step 4: Try with cookies string format (auth_token=xxx; ct0=xxx)
+    if (xAuthToken && xCt0Token) {
+      console.log("[twitterapi-test] Trying create_tweet_v2 with cookie string...");
+      
+      const cookieString = `auth_token=${xAuthToken}; ct0=${xCt0Token}`;
+      
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": twitterApiIoKey,
+        },
+        body: JSON.stringify({
+          tweet_text: testText + " [cookie_string]",
+          reply_to_tweet_id: tweet_id,
+          login_cookies: cookieString,
+          proxy: proxyUrl,
+        }),
+      });
+
+      const responseText = await response.text();
+      console.log(`[twitterapi-test] cookie_string: ${response.status} - ${responseText}`);
+      
+      results.method3_cookie_string = {
+        status: response.status,
+        response: safeJsonParse(responseText) || responseText,
+      };
+    }
+
+    // Step 5: Try standalone with auth_session (no reply) to isolate if posting works at all
+    if (xAuthToken && xCt0Token) {
+      console.log("[twitterapi-test] Trying standalone with auth_session...");
+      
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": twitterApiIoKey,
+        },
+        body: JSON.stringify({
+          tweet_text: `🐟 TUNA standalone ${new Date().toISOString().slice(11, 19)} UTC`,
+          auth_session: {
+            auth_token: xAuthToken,
+            ct0: xCt0Token,
+          },
+          proxy: proxyUrl,
+        }),
+      });
+
+      const responseText = await response.text();
+      console.log(`[twitterapi-test] standalone_auth_session: ${response.status} - ${responseText}`);
+      
+      results.method4_standalone_auth_session = {
+        status: response.status,
+        response: safeJsonParse(responseText) || responseText,
+      };
+    }
+
+    // Step 6: Try standalone with login_cookies
+    if (loginCookies) {
+      console.log("[twitterapi-test] Trying standalone with login_cookies...");
+      
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": twitterApiIoKey,
+        },
+        body: JSON.stringify({
+          tweet_text: `🐟 TUNA standalone ${new Date().toISOString().slice(11, 19)} UTC [login_cookies]`,
           login_cookies: loginCookies,
           proxy: proxyUrl,
         }),
       });
 
       const responseText = await response.text();
-      console.log(`[twitterapi-test] standalone tweet: ${response.status} - ${responseText}`);
+      console.log(`[twitterapi-test] standalone_login_cookies: ${response.status} - ${responseText}`);
       
-      results.standalone_tweet = {
+      results.method5_standalone_login_cookies = {
         status: response.status,
         response: safeJsonParse(responseText) || responseText,
       };
@@ -177,10 +256,12 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        success: results.success || false,
+        success: false,
         tweet_id,
         test_text: testText,
         results,
+        has_auth_tokens: !!(xAuthToken && xCt0Token),
+        has_login_cookies: !!loginCookies,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
