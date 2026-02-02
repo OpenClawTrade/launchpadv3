@@ -1223,9 +1223,28 @@ Deno.serve(async (req) => {
             error: processResult.error,
           });
 
-          // Reply with format help if parsing failed
-          if (canPostReplies && processResult.error?.includes("parse")) {
-            const formatHelpText = `🐟 Hey @${username}! To launch your token, please use this format:\n\n!tunalaunch\nName: YourTokenName\nSymbol: $TICKER\nWallet: YourSolanaWallet\n\nAttach an image and run the command again!`;
+          // Reply to user when launch is blocked (missing image, parse error, etc.)
+          if (canPostReplies && processResult.shouldReply && processResult.replyText) {
+            // Use the specific reply text from agent-process-post (e.g., missing image)
+            const replyResult = await replyToTweet(
+              tweetId,
+              processResult.replyText,
+              twitterApiIoKey || "",
+              loginCookies || "",
+              proxyUrl || "",
+              username,
+              replyAuthSession,
+              oauthCreds
+            );
+
+            if (!replyResult.success) {
+              console.error(`[agent-scan-twitter] ❌ FAILED to send blocked launch reply to @${username}:`, replyResult.error);
+            } else {
+              console.log(`[agent-scan-twitter] ✅ Sent blocked launch reply to @${username}`);
+            }
+          } else if (canPostReplies && processResult.error?.includes("parse")) {
+            // Fallback: format help for parsing errors
+            const formatHelpText = `🐟 Hey @${username}! To launch your token, please use this format:\n\n!tunalaunch\nName: YourTokenName\nSymbol: $TICKER\n\nDon't forget to attach an image!`;
 
             const helpReplyResult = await replyToTweet(
               tweetId,

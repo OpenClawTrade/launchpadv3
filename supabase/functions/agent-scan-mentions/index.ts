@@ -380,6 +380,27 @@ Deno.serve(async (req) => {
             status: "failed",
             error: processResult.error,
           });
+
+          // Reply to user when launch is blocked (e.g., missing image)
+          if (processResult.shouldReply && processResult.replyText) {
+            const blockedReply = await replyToTweet(
+              tweetId,
+              processResult.replyText,
+              consumerKey,
+              consumerSecret,
+              accessToken,
+              accessTokenSecret
+            );
+
+            if (!blockedReply.success) {
+              console.warn(
+                `[agent-scan-mentions] Failed to send blocked launch reply to ${tweetId}:`,
+                blockedReply.error
+              );
+            } else {
+              console.log(`[agent-scan-mentions] ✅ Sent blocked launch reply to ${tweetId}`);
+            }
+          }
         }
       }
 
