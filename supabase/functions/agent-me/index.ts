@@ -85,12 +85,33 @@ Deno.serve(async (req) => {
           image_url,
           market_cap_sol,
           volume_24h_sol,
-          total_fees_earned,
           created_at
         )
       `)
       .eq("agent_id", agent.id)
       .order("created_at", { ascending: false });
+
+    // Get token IDs for fee calculation
+    const tokenIds = (agentTokens || [])
+      .map(at => (at.fun_tokens as any)?.id)
+      .filter(Boolean);
+
+    // Calculate fees dynamically from fun_fee_claims (source of truth)
+    let calculatedFeesEarned = 0;
+    const tokenFeesMap: Record<string, number> = {};
+    if (tokenIds.length > 0) {
+      const { data: feeClaims } = await supabase
+        .from("fun_fee_claims")
+        .select("fun_token_id, claimed_sol")
+        .in("fun_token_id", tokenIds);
+      
+      (feeClaims || []).forEach(claim => {
+        if (claim.fun_token_id) {
+          tokenFeesMap[claim.fun_token_id] = (tokenFeesMap[claim.fun_token_id] || 0) + Number(claim.claimed_sol || 0);
+        }
+      });
+      calculatedFeesEarned = Object.values(tokenFeesMap).reduce((sum, v) => sum + v, 0) * 0.8;
+    }
 
     // Calculate pending fees
     const { data: pendingFees } = await supabase
@@ -112,7 +133,7 @@ Deno.serve(async (req) => {
         imageUrl: token.image_url,
         marketCapSol: Number(token.market_cap_sol || 0),
         volume24hSol: Number(token.volume_24h_sol || 0),
-        feesGenerated: Number(token.total_fees_earned || 0) * 0.8, // 80% agent share
+        feesGenerated: (tokenFeesMap[token.id] || 0) * 0.8, // 80% agent share from actual claims
         launchedAt: token.created_at,
         sourcePlatform: at.source_platform,
       } : null;
@@ -127,9 +148,9 @@ Deno.serve(async (req) => {
           walletAddress: agent.wallet_address,
           apiKeyPrefix: agent.api_key_prefix,
           totalTokensLaunched: agent.total_tokens_launched || 0,
-          totalFeesEarned: Number(agent.total_fees_earned_sol || 0),
+          totalFeesEarned: calculatedFeesEarned,
           totalFeesClaimed: Number(agent.total_fees_claimed_sol || 0),
-          pendingFees: pendingAmount,
+          pendingFees: Math.max(0, calculatedFeesEarned - Number(agent.total_fees_claimed_sol || 0)),
           launchesToday: agent.launches_today || 0,
           lastLaunchAt: agent.last_launch_at,
           status: agent.status,
