@@ -113,6 +113,7 @@ function assignParsedField(data: Partial<ParsedLaunchData>, key: string, value: 
 }
 
 // Parse single-line format: "!tunalaunch name: X symbol: Y wallet: Z description: ..."
+// Also auto-detects bare Solana wallet addresses without the wallet: prefix
 function parseSingleLine(content: string, data: Partial<ParsedLaunchData>): void {
   // Define field patterns - order matters, longer keys first
   const fieldKeys = [
@@ -176,6 +177,29 @@ function parseSingleLine(content: string, data: Partial<ParsedLaunchData>): void
     
     if (value) {
       assignParsedField(data, current.key, value);
+    }
+  }
+
+  // === AUTO-DETECT BARE SOLANA WALLET ADDRESS ===
+  // If wallet still not found, scan for any base58 string that looks like a Solana address
+  if (!data.wallet) {
+    // Solana addresses are base58, 32-44 characters
+    // Base58 chars: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+    const solanaAddressPattern = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g;
+    const matches = content.match(solanaAddressPattern);
+    
+    if (matches && matches.length > 0) {
+      // Take the FIRST valid Solana address found (most likely the wallet)
+      // Validate it's actually a plausible Solana address (starts with common prefixes)
+      for (const candidate of matches) {
+        // Most Solana addresses start with digits 1-9 or letters like B, C, D, etc.
+        // Filter out things that are clearly not addresses (like long random strings)
+        if (candidate.length >= 32 && candidate.length <= 44) {
+          data.wallet = candidate;
+          console.log(`[parseSingleLine] Auto-detected bare wallet address: ${candidate.slice(0, 8)}...`);
+          break;
+        }
+      }
     }
   }
 }
