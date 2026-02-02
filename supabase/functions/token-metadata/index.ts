@@ -134,6 +134,13 @@ Deno.serve(async (req) => {
 
     console.log(`[token-metadata] Found token in ${tokenSource}:`, token.name, 'website:', token.website_url, 'twitter:', token.twitter_url);
 
+    // Validate image URL - skip t.co shortlinks (they're redirects, not images)
+    let validImageUrl = token.image_url || '';
+    if (validImageUrl.startsWith('https://t.co/') || validImageUrl.startsWith('http://t.co/')) {
+      console.log(`[token-metadata] ⚠️ Skipping invalid t.co image URL: ${validImageUrl}`);
+      validImageUrl = '';
+    }
+
     // Build Metaplex-standard metadata JSON
     // See: https://docs.metaplex.com/programs/token-metadata/token-standard
     // Append #TUNA hashtag for Solscan visibility
@@ -152,7 +159,7 @@ Deno.serve(async (req) => {
       name: token.name,
       symbol: token.ticker?.toUpperCase() || '',
       description: descriptionWithTag,
-      image: token.image_url || '',
+      image: validImageUrl,
       // NOTE: JSON.stringify omits undefined values, so this disappears when website is blank.
       external_url: website || undefined,
       // Tags array for Solscan tag chips
@@ -168,9 +175,9 @@ Deno.serve(async (req) => {
         },
       ],
       properties: {
-        files: token.image_url ? [
+        files: validImageUrl ? [
           {
-            uri: token.image_url,
+            uri: validImageUrl,
             type: 'image/png',
           },
         ] : [],
