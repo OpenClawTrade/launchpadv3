@@ -22,7 +22,7 @@ import "@/styles/tunabook-theme.css";
 
 export default function SubTunaPage() {
   const { ticker } = useParams<{ ticker: string }>();
-  const [sort, setSort] = useState<SortOption>("hot");
+  const [sort, setSort] = useState<SortOption>("new");
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
