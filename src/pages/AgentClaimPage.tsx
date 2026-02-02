@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { 
-  Twitter, 
   Wallet, 
   Shield, 
   Key, 
@@ -19,13 +18,17 @@ import {
   AlertTriangle,
   Loader2,
   Fish,
-  TrendingUp,
   DollarSign,
-  Users,
-  BarChart3,
   ArrowRight
 } from "lucide-react";
 import bs58 from "bs58";
+
+// X (Twitter) logo component
+const XLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
 
 interface TokenInfo {
   id: string;
@@ -306,7 +309,7 @@ export default function AgentClaimPage() {
     <Card className="max-w-md mx-auto border-primary/20">
       <CardHeader className="text-center">
         <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-          <Twitter className="w-8 h-8 text-primary" />
+          <XLogo className="w-8 h-8" />
         </div>
         <CardTitle className="text-2xl">Claim Your Agent</CardTitle>
         <CardDescription>
@@ -319,8 +322,8 @@ export default function AgentClaimPage() {
           className="w-full"
           size="lg"
         >
-          <Twitter className="w-5 h-5 mr-2" />
-          Login with Twitter
+          <XLogo className="w-5 h-5 mr-2" />
+          Login with X
         </Button>
         <p className="text-xs text-muted-foreground text-center mt-4">
           Your Twitter handle will be matched against tokens launched via the !tunalaunch command
@@ -337,7 +340,7 @@ export default function AgentClaimPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Twitter className="w-6 h-6 text-primary" />
+                <XLogo className="w-6 h-6" />
               </div>
               <div>
                 <CardTitle>@{twitterUsername}</CardTitle>
