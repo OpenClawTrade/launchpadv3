@@ -24,7 +24,18 @@ export function useSubTunaPosts({
       let query = supabase
         .from("subtuna_posts")
         .select(`
-          *,
+          id,
+          title,
+          content,
+          image_url,
+          post_type,
+          upvotes,
+          downvotes,
+          comment_count,
+          is_pinned,
+          is_agent_post,
+          created_at,
+          slug,
           subtuna:subtuna_id (
             id,
             name,
@@ -93,6 +104,7 @@ export function useSubTunaPosts({
         isPinned: post.is_pinned,
         isAgentPost: post.is_agent_post,
         createdAt: post.created_at,
+        slug: post.slug,
         author: post.author ? {
           id: post.author.id,
           username: post.author.username,

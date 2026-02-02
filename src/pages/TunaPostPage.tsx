@@ -35,11 +35,14 @@ export default function TunaPostPage() {
   const { vote: voteOnPost } = useSubTunaPosts({});
   const { createReport, isCreating: isReporting } = useCreateReport();
 
-  // Fetch the post
+  // Fetch the post - support both UUID and slug lookup
   const { data: post, isLoading: isLoadingPost } = useQuery({
     queryKey: ["subtuna-post", postId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Check if postId is a UUID or slug
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId || "");
+      
+      let query = supabase
         .from("subtuna_posts")
         .select(`
           *,
@@ -64,9 +67,15 @@ export default function TunaPostPage() {
             id,
             name
           )
-        `)
-        .eq("id", postId)
-        .single();
+        `);
+
+      if (isUuid) {
+        query = query.eq("id", postId);
+      } else {
+        query = query.eq("slug", postId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;
@@ -376,7 +385,18 @@ export default function TunaPostPage() {
                     <ChatCircle size={18} />
                     {post.comment_count || 0} Comments
                   </span>
-                  <button className="flex items-center gap-1 text-sm hover:text-[hsl(var(--tunabook-text-primary))] transition-colors">
+                  <button 
+                    onClick={() => {
+                      const postSlug = post.slug || post.id;
+                      const url = `${window.location.origin}/t/${actualTicker}/post/${postSlug}`;
+                      navigator.clipboard.writeText(url).then(() => {
+                        toast.success("Link copied to clipboard!");
+                      }).catch(() => {
+                        toast.error("Failed to copy link");
+                      });
+                    }}
+                    className="flex items-center gap-1 text-sm hover:text-[hsl(var(--tunabook-text-primary))] transition-colors"
+                  >
                     <Share size={18} />
                     Share
                   </button>
