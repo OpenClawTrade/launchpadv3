@@ -1,194 +1,178 @@
 
-# New Fee Claim Flow: X Verification + User-Selected Payout Wallet
 
-## Overview
+# Fix: Token Metadata Missing Images and Socials
 
-Simplify the agent claim process by removing wallet requirements from both launching and claiming. The new flow:
+## Problem Summary
 
-1. **Launch via X** - No wallet needed in tweet (wallet becomes optional)
-2. **Claim fees via X login** - User logs in with X, proving ownership
-3. **Select payout wallet** - User picks any wallet to receive fees
+Multiple tokens are being launched with missing metadata:
+1. **Missing images** - e.g., CRAMER, CR1K, HBB have `image_url: NULL`
+2. **Missing socials** - Many tokens have `twitter_url` and `website_url` as NULL
+3. **On-chain metadata is broken** - Axiom/Birdeye/Solscan show empty data
 
----
+## Root Causes Identified
 
-## Current Problems
+### Issue 1: AI Image Generation Failures Not Blocking Launch
 
-### 1. Wallet Required at Launch
-Users must include a Solana wallet in their tweet to launch tokens. This adds friction and locks fees to that specific wallet forever.
+The blocking logic at `agent-process-post:532-566` SHOULD stop launches when image generation fails, but there's a race condition:
 
-### 2. Display Bug in `agent-find-by-twitter`
-The function queries `fun_distributions` (already-paid fees) and labels them as "unclaimed" - this is backwards. Should query `fun_fee_claims` where `creator_distributed = false`.
+1. `agent-process-post` calls Vercel API at line 681
+2. Vercel API (`create-fun.ts`) creates token in DB with `imageUrl: null`
+3. Even if `agent-process-post` tries to block, the token is already created on-chain
 
-### 3. Backend Wallet Matching in `agent-creator-claim`
-Lines 131-147 require the claim wallet to match the launch wallet. Since X login already proves ownership, this restriction prevents users from receiving fees if they can't access their original wallet.
+The fundamental issue: **Vercel API creates the token before agent-process-post can block it**.
 
----
+### Issue 2: Update Path Doesn't Include Image/Socials
 
-## New Flow
-
-```text
-LAUNCH FLOW (Updated)
-─────────────────────
-@user tweets: "!tunalaunch @BuildTuna
-Name: MyToken
-Symbol: MTK
-(no wallet required)"
-
-→ System generates token
-→ Links token to X handle "user" (not to a wallet)
-
-CLAIM FLOW (Updated)
-────────────────────
-1. User logs in with X on /agents/claim
-2. System finds all tokens launched by that X handle
-3. User sees: "You have 0.5 SOL unclaimed across 3 tokens"
-4. User enters/selects destination wallet
-5. User clicks "Claim to [wallet]"
-6. System sends SOL to specified wallet
-```
-
----
-
-## Technical Changes
-
-### Phase 1: Fix Display Bug
-
-**File: `supabase/functions/agent-find-by-twitter/index.ts`**
-
-Replace the broken unclaimed fee calculation (lines 165-180):
-
+When a token already exists (created by Vercel API), lines 747-755 only update:
 ```typescript
-// BEFORE (wrong):
-const { data: distributions } = await supabase
-  .from("fun_distributions")  // ← Wrong table
-  .eq("distribution_type", "creator");
-
-// AFTER (correct):
-const { data: unclaimedFeeClaims } = await supabase
-  .from("fun_fee_claims")
-  .select("fun_token_id, claimed_sol")
-  .in("fun_token_id", tokenIds)
-  .eq("creator_distributed", false);  // Only pending fees
+.update({
+  agent_id: agent.id,
+  agent_fee_share_bps: 8000,
+})
 ```
 
-Update the pseudo-agent unclaimed calculation (lines 276-291) to use the corrected map.
+It does NOT update: `image_url`, `website_url`, `twitter_url`, etc.
 
----
+### Issue 3: t.co Shortlinks Rejected But No Media Fallback
 
-### Phase 2: Allow User-Selected Payout Wallet
+When users include `Image: https://t.co/xxx` in their tweet:
+- The t.co shortlink is correctly rejected (line 502-504)
+- But the attached media from the tweet may not be extracted by X API
+- AI generation may fail silently
+- Token gets created without image
 
-**File: `supabase/functions/agent-creator-claim/index.ts`**
+## Solution
 
-Changes:
-1. Remove wallet matching validation (lines 131-147)
-2. Accept user-provided `payoutWallet` in request
-3. Send fees to user's chosen wallet instead of launch wallet
-
-New request interface:
-```typescript
-interface ClaimRequest {
-  twitterUsername: string;
-  payoutWallet: string;  // User-selected destination
-  tokenIds?: string[];
-  checkOnly?: boolean;
-}
-```
-
-Security: X login proves ownership. The payout wallet is user's choice.
-
----
-
-### Phase 3: Make Wallet Optional in Launch
+### Phase 1: Fix the Update Path (Critical)
 
 **File: `supabase/functions/agent-process-post/index.ts`**
 
-Changes:
-1. Make wallet field optional in `ParsedLaunchData`
-2. Update `parseLaunchPost()` to not require wallet
-3. Use placeholder or null for `creator_wallet` in tokens table
+Update lines 749-755 to include ALL metadata fields when updating an existing token:
 
 ```typescript
-// BEFORE:
-if (!data.name || !data.symbol || !data.wallet) {
-  return null;  // Rejected without wallet
-}
-
-// AFTER:
-if (!data.name || !data.symbol) {
-  return null;  // Wallet is optional
+if (existing?.id) {
+  funTokenId = existing.id;
+  await supabase
+    .from("fun_tokens")
+    .update({
+      // Always update agent attribution
+      agent_id: agent.id,
+      agent_fee_share_bps: 8000,
+      // Update image if we have one (don't overwrite with null)
+      ...(finalImageUrl && { image_url: finalImageUrl }),
+      // Update socials if we have them
+      ...(parsed.website && { website_url: parsed.website }),
+      ...((postUrl || parsed.twitter) && { twitter_url: postUrl || parsed.twitter }),
+      ...(parsed.telegram && { telegram_url: parsed.telegram }),
+      ...(parsed.discord && { discord_url: parsed.discord }),
+      // Always set description if we have it
+      ...(parsed.description && { description: parsed.description }),
+    })
+    .eq("id", funTokenId);
 }
 ```
 
-**File: `supabase/functions/agent-social-posts` (and related)**
-- Store the X handle as the primary identifier for fee ownership
-- `post_author` becomes the authoritative link (already stored)
+### Phase 2: Move Image Validation Before API Call (Critical)
 
----
+**File: `supabase/functions/agent-process-post/index.ts`**
 
-### Phase 4: Update Claim Page UI
+The blocking logic at line 532-566 is correct, but we need to ensure it executes BEFORE calling the Vercel API. The current flow is:
 
-**File: `src/pages/AgentClaimPage.tsx`**
-
-Changes:
-1. Add wallet input field where user can enter/paste destination wallet
-2. Remove wallet matching requirement for fee claims (already done in backend)
-3. Show clear messaging: "Where should we send your fees?"
-
-New UI section:
-```text
-┌─────────────────────────────────────┐
-│  Claim Fees                         │
-│                                     │
-│  You have 0.52 SOL unclaimed        │
-│                                     │
-│  Send to: [_________________________]│
-│           ↑ Paste any Solana wallet │
-│                                     │
-│  [Claim 0.52 SOL]                   │
-└─────────────────────────────────────┘
+```
+1. Parse post
+2. Validate image (block if null) ← Line 532
+3. Insert "processing" record ← Line 569
+4. Call Vercel API ← Line 681
 ```
 
----
+This should work, but add additional logging to confirm the flow:
 
-## Database Considerations
+```typescript
+// Line 532 - Add explicit confirmation
+if (!finalImageUrl) {
+  const errorMsg = "BLOCKED: Cannot launch without image";
+  console.error(`[agent-process-post] ❌ ${errorMsg} - token: ${parsed.name}`);
+  // ... existing error handling
+  return { success: false, error: errorMsg };
+}
 
-The `agent_social_posts` table already stores:
-- `post_author` - X handle (the ownership proof)
-- `wallet_address` - Was used as payout destination
+console.log(`[agent-process-post] ✅ Image validation passed: ${finalImageUrl.slice(0, 50)}...`);
+```
 
-With this change:
-- `post_author` remains the source of truth for ownership
-- Payout destination is provided at claim time (not stored permanently)
+### Phase 3: Improve AI Image Generation Reliability
 
----
+**File: `supabase/functions/agent-process-post/index.ts`**
 
-## Security Model
+Add more robust error handling and logging in `generateTokenImageWithAI`:
 
-| Check | How It Works |
-|-------|--------------|
-| Ownership proof | X OAuth login verifies user controls the X account |
-| Token linkage | `agent_social_posts.post_author` matches X handle |
-| Payout destination | User provides any valid Solana wallet at claim time |
-| Double-spend prevention | `fun_fee_claims.creator_distributed` flag |
-| Rate limiting | 1 claim per hour per X handle (not per wallet) |
+```typescript
+// Lines 73-146 - Add detailed error logging
+async function generateTokenImageWithAI(...) {
+  console.log(`[generateTokenImageWithAI] Starting for ${tokenName} (${tokenSymbol})`);
+  
+  // ... existing retry logic ...
+  
+  if (!imageUrl) {
+    console.error(`[generateTokenImageWithAI] ❌ FAILED: All ${IMAGE_MODELS.length} models failed`);
+    console.error(`[generateTokenImageWithAI] Token: ${tokenName}, Symbol: ${tokenSymbol}`);
+    return null;
+  }
+  
+  // ... rest of function
+}
+```
 
----
+### Phase 4: Fix the Mint Address Discrepancy
 
-## Migration Notes
+The user linked to `895WtPwn6NnWh5uW9o23kSUZx13K5gjuPVuXJFr6qNtR` which doesn't exist in our database. This indicates either:
+- Token created through external means
+- Database insert failed after on-chain creation
 
-For existing tokens with wallets specified:
-- No migration needed
-- System will still find them via `post_author`
-- Users can claim to any wallet regardless of what was in their original tweet
+**File: `api/pool/create-fun.ts`**
 
----
+Add a safety check: If database insert fails after on-chain confirmation, log the mint address for recovery:
 
-## Summary of File Changes
+```typescript
+// After line 425
+if (tokenError) {
+  console.error(`[create-fun][${VERSION}] CRITICAL: Token created on-chain but DB insert failed!`);
+  console.error(`[create-fun][${VERSION}] Mint: ${mintAddress}, Pool: ${dbcPoolAddress}`);
+  console.error(`[create-fun][${VERSION}] Metadata: ${JSON.stringify({ name, ticker, imageUrl })}`);
+  throw new Error(`Failed to create token record: ${tokenError.message}`);
+}
+```
 
-| File | Change |
-|------|--------|
-| `agent-find-by-twitter/index.ts` | Fix unclaimed fee calculation |
-| `agent-creator-claim/index.ts` | Accept user payout wallet, remove matching requirement |
-| `agent-process-post/index.ts` | Make wallet optional in launch parsing |
-| `AgentClaimPage.tsx` | Add wallet input for payout destination |
+### Phase 5: Backfill Missing Images (Data Fix)
+
+For tokens already created with `image_url: NULL`, create a one-time fix script:
+
+```sql
+-- Identify affected tokens
+SELECT id, name, ticker, mint_address, created_at 
+FROM fun_tokens 
+WHERE image_url IS NULL 
+ORDER BY created_at DESC;
+
+-- These need manual image generation/upload
+```
+
+The agent owners would need to manually upload images, or we could run AI generation for them.
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `supabase/functions/agent-process-post/index.ts` | Fix update path to include image/socials; Add logging |
+| `api/pool/create-fun.ts` | Add error logging for DB failures |
+
+## Testing Plan
+
+1. Deploy edge function changes
+2. Attempt a test launch with a t.co shortlink image (should generate AI fallback)
+3. Verify the token has correct image and socials in database
+4. Check Axiom/Solscan for correct metadata display
+
+## Summary
+
+The main fix is updating lines 749-755 in `agent-process-post` to include image and social URLs when updating an existing token. This ensures that even if the Vercel API creates the token first, the metadata gets populated correctly from the parsed tweet data.
 
