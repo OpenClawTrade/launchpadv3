@@ -1,8 +1,15 @@
 import { ReactNode, useState } from "react";
 import { cn } from "@/lib/utils";
-import { List, ChartBar } from "@phosphor-icons/react";
+import { List, ChartBar, X } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetPortal,
+  SheetOverlay,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import * as SheetPrimitive from "@radix-ui/react-dialog";
 
 interface TunaBookLayoutProps {
   leftSidebar?: ReactNode;
@@ -23,7 +30,7 @@ export function TunaBookLayout({
   return (
     <div className={cn("min-h-screen bg-[hsl(var(--tunabook-bg-primary))]", className)}>
       {/* Mobile Header with menu toggle */}
-      <div className="lg:hidden sticky top-0 z-40 bg-[hsl(var(--tunabook-bg-card))/95] backdrop-blur-sm border-b border-[hsl(var(--tunabook-border))] px-4 py-3">
+      <div className="lg:hidden sticky top-0 z-40 bg-[hsl(var(--tunabook-bg-card))] border-b border-[hsl(var(--tunabook-border))] px-4 py-3">
         <div className="flex items-center justify-between">
           {leftSidebar && (
             <Sheet open={leftOpen} onOpenChange={setLeftOpen}>
@@ -36,19 +43,30 @@ export function TunaBookLayout({
                   <List size={22} weight="bold" />
                 </Button>
               </SheetTrigger>
-              <SheetContent
-                side="left"
-                className="w-72 bg-[hsl(var(--tunabook-bg-card))] border-[hsl(var(--tunabook-border))] p-0"
-              >
-                <div className="p-4 border-b border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-elevated))]">
-                  <h2 className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))] flex items-center gap-2">
-                    <span className="text-xl">🐟</span> TunaBook
-                  </h2>
-                </div>
-                <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)]">
-                  {leftSidebar}
-                </div>
-              </SheetContent>
+              <SheetPortal>
+                <SheetOverlay className="bg-black/80" />
+                <SheetPrimitive.Content
+                  className="fixed inset-y-0 left-0 z-50 h-full w-72 border-r border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-primary))] shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left"
+                >
+                  <div className="p-4 border-b border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))] flex items-center gap-2">
+                      <span className="text-xl">🐟</span> TunaBook
+                    </h2>
+                    <SheetClose asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-[hsl(var(--tunabook-text-muted))] hover:text-[hsl(var(--tunabook-text-primary))] hover:bg-[hsl(var(--tunabook-bg-hover))]"
+                      >
+                        <X size={18} />
+                      </Button>
+                    </SheetClose>
+                  </div>
+                  <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)]">
+                    {leftSidebar}
+                  </div>
+                </SheetPrimitive.Content>
+              </SheetPortal>
             </Sheet>
           )}
 
@@ -67,19 +85,30 @@ export function TunaBookLayout({
                   <ChartBar size={22} weight="bold" />
                 </Button>
               </SheetTrigger>
-              <SheetContent
-                side="right"
-                className="w-80 bg-[hsl(var(--tunabook-bg-card))] border-[hsl(var(--tunabook-border))] p-0"
-              >
-                <div className="p-4 border-b border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-elevated))]">
-                  <h2 className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))]">
-                    Stats & Trending
-                  </h2>
-                </div>
-                <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)]">
-                  {rightSidebar}
-                </div>
-              </SheetContent>
+              <SheetPortal>
+                <SheetOverlay className="bg-black/80" />
+                <SheetPrimitive.Content
+                  className="fixed inset-y-0 right-0 z-50 h-full w-80 border-l border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-primary))] shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
+                >
+                  <div className="p-4 border-b border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))]">
+                      Stats & Trending
+                    </h2>
+                    <SheetClose asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-[hsl(var(--tunabook-text-muted))] hover:text-[hsl(var(--tunabook-text-primary))] hover:bg-[hsl(var(--tunabook-bg-hover))]"
+                      >
+                        <X size={18} />
+                      </Button>
+                    </SheetClose>
+                  </div>
+                  <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)]">
+                    {rightSidebar}
+                  </div>
+                </SheetPrimitive.Content>
+              </SheetPortal>
             </Sheet>
           )}
           
