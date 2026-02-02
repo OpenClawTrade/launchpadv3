@@ -1,146 +1,80 @@
 
+# Fix: Remove Trailing Punctuation from Parsed Symbol/Ticker
 
-# Fix: Token Image Generation Failure for Agent Launches
+## Problem
+When launching the **Inverse Cramer Bitcoin ($CRAMER)** token, the SubTuna community URL was created as `https://tuna.fun/t/CRAMER,` with a trailing comma. This happened because the symbol parsing logic does not strip punctuation.
 
-## Problem Summary
-
-The **Inverse Cramer Bitcoin ($CRAMER)** token was launched without an image because the AI image generation failed with a **400 error**. This happened because:
-
-1. The `agent-process-post` edge function uses the **wrong API endpoint and model** for image generation
-2. When image generation fails, the token still launches with a `null` image URL
-3. Both the on-chain metadata and database store no image, causing financial loss
-
-## Root Cause Analysis
-
-### Evidence from Logs
+### Evidence
+User posted something like:
 ```
-2026-02-02T19:38:11Z INFO  [agent-process-post] 🎨 No valid image URL, generating AI image for Inverse Cramer Bitcoin,...
-2026-02-02T19:38:11Z ERROR [generateTokenImageWithAI] Image generation failed: 400
-2026-02-02T19:38:12Z INFO  [agent-process-post] Calling create-fun API for Inverse Cramer Bitcoin,...
+!tunalaunch
+name: Inverse Cramer Bitcoin,
+symbol: CRAMER,
+wallet: ...
 ```
 
-### Database Evidence
-```sql
--- Both tables show image_url = NULL
-SELECT image_url FROM fun_tokens WHERE ticker ILIKE '%CRAMER%';  -- NULL
-SELECT image_url FROM tokens WHERE ticker ILIKE '%CRAMER%';      -- NULL
+The parser captured `CRAMER,` (with comma) because it only trims whitespace, not punctuation.
+
+## Root Cause
+
+In `supabase/functions/agent-process-post/index.ts`, line 215:
+```typescript
+data.symbol = trimmedValue.toUpperCase().slice(0, 10);
 ```
 
-### Code Issue
-The `generateTokenImageWithAI` function in `agent-process-post/index.ts` uses:
-- **Wrong endpoint**: `/v1/images/generations` 
-- **Wrong model**: `flux.schnell`
+This only:
+1. Trims whitespace (via `trimmedValue`)
+2. Converts to uppercase
+3. Limits to 10 characters
 
-But the **working** implementation in `twitter-mention-launcher/index.ts` uses:
-- **Correct endpoint**: `/v1/chat/completions`
-- **Correct model**: `google/gemini-2.5-flash-image`
-
----
+It does NOT remove trailing punctuation like `,`, `.`, `!`, etc.
 
 ## Solution
 
-### 1. Fix the Image Generation Function
-
-Update `supabase/functions/agent-process-post/index.ts` to use the correct Lovable AI gateway format:
-
-**Before (broken):**
-```typescript
-const response = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-  body: JSON.stringify({
-    model: "flux.schnell",
-    prompt,
-    n: 1,
-    size: "512x512",
-  }),
-});
-```
-
-**After (fixed):**
-```typescript
-const response = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-  body: JSON.stringify({
-    model: "google/gemini-3-pro-image-preview",
-    prompt,
-  }),
-});
-```
-
-### 2. Add Fallback Retry with Alternative Model
-
-If the first model fails, try an alternative model before giving up:
+Add punctuation cleanup for the symbol/ticker field before storing:
 
 ```typescript
-// Primary attempt
-let imageUrl = await tryGenerateImage("google/gemini-3-pro-image-preview", prompt);
-
-// Fallback if primary fails
-if (!imageUrl) {
-  console.log("[agent-process-post] Retrying image generation with fallback model...");
-  imageUrl = await tryGenerateImage("google/gemini-2.5-flash", prompt);
-}
+case "symbol":
+case "ticker":
+  // Remove any non-alphanumeric characters (ticker should only be letters/numbers)
+  const cleanSymbol = trimmedValue.replace(/[^a-zA-Z0-9]/g, "");
+  data.symbol = cleanSymbol.toUpperCase().slice(0, 10);
+  break;
 ```
 
-### 3. Add Failure Prevention: Block Token Launch Without Image
-
-To prevent financial loss from tokens launching without images:
-
-```typescript
-// In processLaunchPost function
-if (!finalImageUrl) {
-  console.log(`[agent-process-post] 🎨 No valid image URL, generating AI image for ${parsed.name}...`);
-  
-  finalImageUrl = await generateTokenImageWithAI(...);
-  
-  // CRITICAL: If no image, abort the launch
-  if (!finalImageUrl) {
-    throw new Error("Failed to generate token image - cannot launch without image");
-  }
-}
-```
-
-### 4. Fix Existing CRAMER Token (Immediate Action)
-
-Run a database update to fix the $CRAMER token image:
-
-```sql
--- Generate and upload an image for CRAMER, then update:
-UPDATE fun_tokens 
-SET image_url = '[uploaded_image_url]'
-WHERE mint_address = 'HWzFtWfTFcgHLrxQ7Exd3PrZ17Mw82rdHXxvA9mCQtna';
-
-UPDATE tokens 
-SET image_url = '[uploaded_image_url]'
-WHERE mint_address = 'HWzFtWfTFcgHLrxQ7Exd3PrZ17Mw82rdHXxvA9mCQtna';
-```
-
----
+This regex removes **all non-alphanumeric characters** from the ticker, ensuring:
+- `CRAMER,` → `CRAMER`
+- `$CRAMER` → `CRAMER`  
+- `CRAMER.` → `CRAMER`
+- `!CRAMER!` → `CRAMER`
 
 ## Files to Modify
 
 1. **`supabase/functions/agent-process-post/index.ts`**
-   - Update `generateTokenImageWithAI` function with correct API endpoint/model
-   - Add fallback model retry
-   - Add error handling to block launch if image generation fails
+   - Update the `assignParsedField` function to clean the symbol/ticker
 
-2. **Database migration** (optional)
-   - Add a manual image for the CRAMER token
+2. **`supabase/functions/agent-launch/index.ts`** (optional)
+   - Add same validation for API-based launches (already uses `.slice(0, 10)` at line 244, could add same cleanup)
 
----
+## Additional Improvements
 
-## Prevention Measures
+### Also clean the name field
+Apply similar cleanup to remove trailing commas from token names:
+```typescript
+case "name":
+case "token":
+  // Remove trailing punctuation from name
+  const cleanName = trimmedValue.replace(/[,.:;!?]+$/, "");
+  data.name = cleanName.slice(0, 32);
+  break;
+```
 
-1. **Unified Image Generation**: Create a shared utility function used by both `agent-process-post` and `twitter-mention-launcher` to prevent future inconsistencies
+This would turn `Inverse Cramer Bitcoin,` → `Inverse Cramer Bitcoin`
 
-2. **Mandatory Image Validation**: Never allow token launch if `image_url` is null for agent-created tokens
+## Summary
+| Field | Before | After |
+|-------|--------|-------|
+| symbol | `trimmedValue.toUpperCase().slice(0, 10)` | `trimmedValue.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10)` |
+| name | `trimmedValue.slice(0, 32)` | `trimmedValue.replace(/[,.:;!?]+$/, "").slice(0, 32)` |
 
-3. **Logging Enhancement**: Log the full error response body (not just status code) for debugging
-
----
-
-## Testing After Fix
-
-1. Trigger a test token launch via Twitter/X mention
-2. Verify the image is generated and uploaded to storage
-3. Confirm the image URL is stored in both `fun_tokens` and `tokens` tables
-4. Verify the on-chain metadata shows the correct image
-
+This ensures cleaner, more reliable parsing of social media posts where users often add trailing punctuation.
