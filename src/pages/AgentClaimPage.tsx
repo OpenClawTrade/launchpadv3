@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePrivy, useLogin } from "@privy-io/react-auth";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
+import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { 
   Wallet, 
   Shield, 
@@ -75,6 +74,39 @@ interface ClaimCooldown {
 }
 
 export default function AgentClaimPage() {
+  const privyAvailable = usePrivyAvailable();
+
+  // Prevent crashes when Privy isn't mounted yet (runtime config not ready).
+  if (!privyAvailable) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container max-w-4xl py-12 px-4">
+          <div className="text-center mb-12">
+            <h1 className="text-3xl font-bold mb-3">Claim Your TUNA Agent</h1>
+            <p className="text-muted-foreground max-w-lg mx-auto">Loading wallet services…</p>
+          </div>
+          <Card className="max-w-md mx-auto">
+            <CardHeader>
+              <CardTitle>Initializing</CardTitle>
+              <CardDescription>
+                Please wait a moment. If this doesn’t resolve, refresh the page.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" variant="outline" onClick={() => window.location.reload()}>
+                Refresh
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return <AgentClaimPageInner />;
+}
+
+function AgentClaimPageInner() {
   const { authenticated, user, ready, exportWallet } = usePrivy();
   const { login } = useLogin({
     onComplete: () => {
@@ -94,8 +126,6 @@ export default function AgentClaimPage() {
   const [twitterUsername, setTwitterUsername] = useState<string | null>(null);
   const [claimableAgents, setClaimableAgents] = useState<ClaimableAgent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<ClaimableAgent | null>(null);
-  const [customWallet, setCustomWallet] = useState("");
-  const [useEmbeddedWallet, setUseEmbeddedWallet] = useState(true);
   const [challenge, setChallenge] = useState<{ message: string; nonce: string } | null>(null);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -303,11 +333,6 @@ export default function AgentClaimPage() {
 
     setIsLoading(true);
     try {
-      // Only embedded wallets are supported in this project.
-      if (!useEmbeddedWallet) {
-        throw new Error("Only the embedded wallet is supported for verification right now.");
-      }
-
       const targetWallet = walletAddress;
 
       if (!targetWallet) {
@@ -358,11 +383,6 @@ export default function AgentClaimPage() {
       // Safety check - wallet must be ready before signing
       if (!isWalletReady || !walletAddress) {
         throw new Error("Wallet not ready. Please wait for wallet to connect.");
-      }
-
-      // Only embedded wallets are supported in this project.
-      if (!useEmbeddedWallet) {
-        throw new Error("Only the embedded wallet is supported for verification right now.");
       }
 
       const wallet = getSolanaWallet();

@@ -154,8 +154,10 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
     []
   );
 
-  const heliusRpcUrl = getHeliusRpcUrlFromRuntime();
-  const solanaWsUrl = heliusRpcUrl ? toWebsocketUrl(heliusRpcUrl) : null;
+  // Privy embedded Solana wallets require Solana RPC config.
+  // Use Helius when available; otherwise fall back to the public Solana endpoint.
+  const solanaHttpRpcUrl = getHeliusRpcUrlFromRuntime() ?? "https://api.mainnet-beta.solana.com";
+  const solanaWsUrl = toWebsocketUrl(solanaHttpRpcUrl);
 
   if (!privyAvailable) {
     return (
@@ -184,18 +186,15 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
               },
             },
             // Required for Privy's embedded wallet transaction UIs.
-            solana:
-              heliusRpcUrl && solanaWsUrl
-                ? {
-                    rpcs: {
-                      "solana:mainnet": {
-                        rpc: createSolanaRpc(heliusRpcUrl),
-                        rpcSubscriptions: createSolanaRpcSubscriptions(solanaWsUrl),
-                        blockExplorerUrl: "https://solscan.io",
-                      },
-                    },
-                  }
-                : undefined,
+            solana: {
+              rpcs: {
+                "solana:mainnet": {
+                  rpc: createSolanaRpc(solanaHttpRpcUrl),
+                  rpcSubscriptions: createSolanaRpcSubscriptions(solanaWsUrl),
+                  blockExplorerUrl: "https://solscan.io",
+                },
+              },
+            },
             appearance: {
               theme: "dark",
               accentColor: "#22c55e", // RIFT green
