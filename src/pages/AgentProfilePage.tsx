@@ -119,7 +119,7 @@ export default function AgentProfilePage() {
         styleSourceTwitterUrl: agentData.style_source_twitter_url,
       });
 
-      // Fetch agent's tokens (SubTunas)
+      // Fetch agent's tokens (SubTunas from token launches)
       const { data: tokenData } = await supabase
         .from("fun_tokens")
         .select(`
@@ -129,6 +129,7 @@ export default function AgentProfilePage() {
           image_url,
           market_cap_sol,
           subtuna:subtuna!subtuna_fun_token_id_fkey(
+            id,
             member_count,
             post_count
           )
@@ -136,19 +137,34 @@ export default function AgentProfilePage() {
         .eq("agent_id", agentId)
         .order("created_at", { ascending: false });
 
-      if (tokenData) {
-        setTokens(
-          tokenData.map((t: any) => ({
-            id: t.id,
-            name: t.name,
-            ticker: t.ticker,
-            imageUrl: t.image_url,
-            memberCount: t.subtuna?.[0]?.member_count || 0,
-            postCount: t.subtuna?.[0]?.post_count || 0,
-            marketCapSol: t.market_cap_sol,
-          }))
-        );
-      }
+      // Also fetch SubTunas directly linked to agent (for system agent like t/TUNA)
+      const { data: directSubtunas } = await supabase
+        .from("subtuna")
+        .select("id, name, ticker, icon_url, member_count, post_count")
+        .eq("agent_id", agentId)
+        .is("fun_token_id", null);
+
+      // Merge token-based SubTunas and direct SubTunas
+      const tokenSubtunas = (tokenData || []).map((t: any) => ({
+        id: t.subtuna?.[0]?.id || t.id,
+        name: t.name,
+        ticker: t.ticker,
+        imageUrl: t.image_url,
+        memberCount: t.subtuna?.[0]?.member_count || 0,
+        postCount: t.subtuna?.[0]?.post_count || 0,
+        marketCapSol: t.market_cap_sol,
+      }));
+
+      const directSubtunasList = (directSubtunas || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        ticker: s.ticker,
+        imageUrl: s.icon_url,
+        memberCount: s.member_count || 0,
+        postCount: s.post_count || 0,
+      }));
+
+      setTokens([...tokenSubtunas, ...directSubtunasList]);
 
       // Fetch agent's posts
       const { data: postData } = await supabase
