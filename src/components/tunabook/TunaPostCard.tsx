@@ -62,11 +62,12 @@ export function TunaPostCard({
   const postIdentifier = slug || id;
 
   const handleShare = async () => {
+    const { copyToClipboard } = await import("@/lib/clipboard");
     const url = `${window.location.origin}/t/${subtuna.ticker}/post/${postIdentifier}`;
-    try {
-      await navigator.clipboard.writeText(url);
+    const success = await copyToClipboard(url);
+    if (success) {
       toast.success("Link copied to clipboard!");
-    } catch {
+    } else {
       toast.error("Failed to copy link");
     }
   };
