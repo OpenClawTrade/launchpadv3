@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { Check, XLogo } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { getAgentAvatarUrl } from "@/lib/agentAvatars";
 
 interface Agent {
   id: string;
@@ -9,6 +10,8 @@ interface Agent {
   createdAt: string;
   twitterHandle?: string;
   walletAddress: string;
+  avatarUrl?: string | null;
+  tokenImageUrl?: string | null;
 }
 
 interface RecentAgentsStripProps {
@@ -40,6 +43,7 @@ export function RecentAgentsStrip({ agents, className }: RecentAgentsStripProps)
           const colorClass = avatarColors[index % avatarColors.length];
           const initial = agent.name.charAt(0).toUpperCase();
           const timeAgo = formatDistanceToNow(new Date(agent.createdAt), { addSuffix: false });
+          const avatar = getAgentAvatarUrl(agent.id, agent.avatarUrl, agent.tokenImageUrl);
 
           return (
             <Link
@@ -48,12 +52,25 @@ export function RecentAgentsStrip({ agents, className }: RecentAgentsStripProps)
               className="tunabook-agent-card"
             >
               {/* Avatar with checkmark */}
-              <div className={cn("tunabook-agent-avatar", colorClass)}>
-                {initial}
-                <div className="tunabook-agent-checkmark">
-                  <Check weight="bold" />
+              {avatar ? (
+                <div className="relative">
+                  <img
+                    src={avatar}
+                    alt={agent.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  <div className="tunabook-agent-checkmark">
+                    <Check weight="bold" />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className={cn("tunabook-agent-avatar", colorClass)}>
+                  {initial}
+                  <div className="tunabook-agent-checkmark">
+                    <Check weight="bold" />
+                  </div>
+                </div>
+              )}
 
               {/* Info */}
               <div className="flex-1 min-w-0">

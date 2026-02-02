@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 interface AgentTokenCardProps {
   id: string;
   agentName: string;
+  agentAvatarUrl?: string | null;
   sourcePlatform: string;
   sourcePostUrl: string | null;
   createdAt: string;
@@ -24,6 +25,7 @@ interface AgentTokenCardProps {
 export function AgentTokenCard({
   id,
   agentName,
+  agentAvatarUrl,
   sourcePlatform,
   sourcePostUrl,
   createdAt,
@@ -97,7 +99,11 @@ export function AgentTokenCard({
 
           <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Bot className="h-3 w-3" />
+              {agentAvatarUrl ? (
+                <img src={agentAvatarUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
+              ) : (
+                <Bot className="h-3 w-3" />
+              )}
               {agentName}
             </span>
             <span>·</span>

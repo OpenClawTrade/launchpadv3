@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getAgentAvatarUrl } from "@/lib/agentAvatars";
 import {
   ArrowLeft,
   Trophy,
@@ -27,6 +28,7 @@ interface LeaderboardAgent {
   totalFeesEarned: number;
   totalVolume: number;
   rank: number;
+  avatarUrl: string | null;
 }
 
 type SortKey = "fees" | "tokens" | "volume";
@@ -44,6 +46,7 @@ export default function AgentLeaderboardPage() {
           id,
           name,
           wallet_address,
+          avatar_url,
           total_tokens_launched,
           total_fees_earned_sol
         `)
@@ -53,19 +56,24 @@ export default function AgentLeaderboardPage() {
 
       if (error) throw error;
 
-      // Get volume data for each agent's tokens
+      // Get volume data and first token image for each agent's tokens
       const agentIds = agentsData?.map(a => a.id) || [];
       
       const { data: tokensData } = await supabase
         .from("fun_tokens")
-        .select("agent_id, volume_24h_sol, market_cap_sol")
-        .in("agent_id", agentIds);
+        .select("agent_id, volume_24h_sol, market_cap_sol, image_url, created_at")
+        .in("agent_id", agentIds)
+        .order("created_at", { ascending: true });
 
-      // Aggregate volume per agent
+      // Aggregate volume per agent and get first token image
       const volumeByAgent: Record<string, number> = {};
+      const firstTokenImageByAgent: Record<string, string> = {};
       (tokensData || []).forEach(t => {
         if (t.agent_id) {
           volumeByAgent[t.agent_id] = (volumeByAgent[t.agent_id] || 0) + Number(t.volume_24h_sol || 0);
+          if (t.image_url && !firstTokenImageByAgent[t.agent_id]) {
+            firstTokenImageByAgent[t.agent_id] = t.image_url;
+          }
         }
       });
 
@@ -77,6 +85,7 @@ export default function AgentLeaderboardPage() {
         totalFeesEarned: Number(agent.total_fees_earned_sol || 0),
         totalVolume: volumeByAgent[agent.id] || 0,
         rank: index + 1,
+        avatarUrl: getAgentAvatarUrl(agent.id, agent.avatar_url, firstTokenImageByAgent[agent.id]),
       }));
 
       // Re-sort based on selected criteria
@@ -189,6 +198,19 @@ export default function AgentLeaderboardPage() {
                   <div className="w-10 flex items-center justify-center">
                     {getRankIcon(agent.rank)}
                   </div>
+
+                  {/* Agent Avatar */}
+                  {agent.avatarUrl ? (
+                    <img
+                      src={agent.avatarUrl}
+                      alt={agent.name}
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-primary">{agent.name.charAt(0)}</span>
+                    </div>
+                  )}
 
                   {/* Agent Info */}
                   <div className="flex-1 min-w-0">
