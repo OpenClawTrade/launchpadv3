@@ -190,7 +190,8 @@ export function useRecentSubTunas(limit = 10) {
           post_count,
           fun_tokens:fun_token_id (
             ticker,
-            market_cap_sol
+            market_cap_sol,
+            image_url
           )
         `)
         .order("created_at", { ascending: false })
@@ -209,7 +210,8 @@ export function useRecentSubTunas(limit = 10) {
           name: s.name,
           ticker,
           description: s.description,
-          iconUrl: s.icon_url,
+          // Use icon_url if set, otherwise fallback to the token's image
+          iconUrl: s.icon_url || s.fun_tokens?.image_url,
           memberCount: s.member_count || 0,
           postCount: s.post_count || 0,
           marketCapSol: s.fun_tokens?.market_cap_sol,
