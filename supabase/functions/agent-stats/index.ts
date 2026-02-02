@@ -92,11 +92,22 @@ Deno.serve(async (req) => {
       0
     ) || 0;
 
-    // Sum up all agent payouts (earned fees - what agents are entitled to)
-    const totalAgentPayouts = agents?.reduce(
-      (sum, a) => sum + Number(a.total_fees_earned_sol || 0),
-      0
-    ) || 0;
+    // Calculate agent payouts from source of truth (fun_fee_claims)
+    // Agent share = 80% of claimed fees for agent-launched tokens
+    let totalAgentPayouts = 0;
+    if (agentTokenIds.length > 0) {
+      const { data: agentFeeClaims } = await supabase
+        .from("fun_fee_claims")
+        .select("claimed_sol")
+        .in("fun_token_id", agentTokenIds);
+
+      const agentTokenFees = agentFeeClaims?.reduce(
+        (sum, fc) => sum + Number(fc.claimed_sol || 0), 0
+      ) || 0;
+
+      // Agents get 80% of fees from their tokens
+      totalAgentPayouts = agentTokenFees * 0.8;
+    }
 
     return new Response(
       JSON.stringify({
