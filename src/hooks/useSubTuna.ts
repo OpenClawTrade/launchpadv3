@@ -38,12 +38,15 @@ export function useSubTuna(ticker?: string) {
     queryFn: async (): Promise<SubTuna | null> => {
       if (!ticker) return null;
 
-      // First try to find the fun_token by ticker
-      const { data: funToken, error: tokenError } = await supabase
+      // First try to find the fun_token by ticker (get most recent if duplicates)
+      const { data: funTokens, error: tokenError } = await supabase
         .from("fun_tokens")
-        .select("id, ticker, name, image_url, market_cap_sol, price_sol, price_change_24h, mint_address")
+        .select("id, ticker, name, image_url, market_cap_sol, price_sol, price_change_24h, mint_address, created_at")
         .ilike("ticker", ticker)
-        .maybeSingle();
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      const funToken = funTokens?.[0] || null;
 
       // If no token found, try to find a system SubTuna directly by ticker (e.g., t/TUNA)
       if (tokenError || !funToken) {
