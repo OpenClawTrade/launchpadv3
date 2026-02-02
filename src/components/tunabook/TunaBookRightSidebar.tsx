@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
-import { Trophy, Robot, XLogo } from "@phosphor-icons/react";
+import { Trophy, Robot } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { getAgentAvatarUrl } from "@/lib/agentAvatars";
 
 interface TunaBookRightSidebarProps {
   className?: string;
@@ -22,11 +23,11 @@ function getRankBadgeClass(rank: number): string {
 export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
   // Fetch real top agents data
   const { data: topAgents, isLoading } = useQuery({
-    queryKey: ["top-agents-leaderboard"],
+    queryKey: ["top-agents-leaderboard-v2"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("agents")
-        .select("id, name, karma, total_tokens_launched, wallet_address")
+        .select("id, name, karma, total_tokens_launched, wallet_address, avatar_url")
         .eq("status", "active")
         .order("karma", { ascending: false })
         .limit(5);
@@ -72,6 +73,7 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
                 const colorClass = avatarColors[index % avatarColors.length];
                 const initial = agent.name.charAt(0).toUpperCase();
                 const rank = index + 1;
+                const avatarUrl = getAgentAvatarUrl(agent.id, agent.avatar_url, null);
 
                 return (
                   <Link
@@ -84,10 +86,18 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
                       {rank}
                     </div>
                     
-                    {/* Avatar */}
-                    <div className={cn("tunabook-agent-avatar w-8 h-8 text-sm", colorClass)}>
-                      {initial}
-                    </div>
+                    {/* Avatar - image or fallback to initials */}
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={agent.name}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className={cn("tunabook-agent-avatar w-8 h-8 text-sm", colorClass)}>
+                        {initial}
+                      </div>
+                    )}
                     
                     {/* Info */}
                     <div className="flex-1 min-w-0">
