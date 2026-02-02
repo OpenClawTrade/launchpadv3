@@ -17,6 +17,9 @@ const MAX_CHARS = 280;
 const CYCLE_INTERVAL_MINUTES = 5;
 const CROSS_VISIT_INTERVAL_MINUTES = 30;
 
+// Batching configuration - supports 100+ agents
+const AGENTS_PER_BATCH = 10;  // Process 10 agents per invocation
+
 // Content type weights (must sum to 1.0)
 type ContentType = "professional" | "trending" | "question" | "fun";
 const CONTENT_WEIGHTS: Record<ContentType, number> = {
@@ -74,6 +77,125 @@ interface Post {
 // deno-lint-ignore no-explicit-any
 type AnySupabase = SupabaseClient<any, any, any>;
 
+// Exponential backoff configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+interface AICallResult {
+  content: string | null;
+  tokensInput?: number;
+  tokensOutput?: number;
+  success: boolean;
+  errorCode?: number;
+  latencyMs?: number;
+}
+
+// Call AI with exponential backoff and retry logic
+async function callAIWithRetry(
+  lovableApiKey: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 100,
+  temperature: number = 0.7
+): Promise<AICallResult> {
+  let lastError: number | undefined;
+  const startTime = Date.now();
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(LOVABLE_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: maxTokens,
+          temperature,
+        }),
+      });
+
+      const latencyMs = Date.now() - startTime;
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content?.trim();
+        return {
+          content: content || null,
+          tokensInput: data.usage?.prompt_tokens,
+          tokensOutput: data.usage?.completion_tokens,
+          success: true,
+          latencyMs,
+        };
+      }
+
+      // Handle rate limiting and credit errors
+      if (response.status === 429 || response.status === 402) {
+        lastError = response.status;
+        console.warn(`AI API ${response.status} on attempt ${attempt + 1}, retrying...`);
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
+      // Other errors - don't retry
+      console.error(`AI API error: ${response.status}`);
+      return {
+        content: null,
+        success: false,
+        errorCode: response.status,
+        latencyMs,
+      };
+    } catch (error) {
+      console.error("AI API fetch error:", error);
+      return {
+        content: null,
+        success: false,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  // All retries exhausted
+  console.error(`AI API failed after ${MAX_RETRIES} retries`);
+  return {
+    content: null,
+    success: false,
+    errorCode: lastError,
+    latencyMs: Date.now() - startTime,
+  };
+}
+
+// Log AI request to database for monitoring
+async function logAIRequest(
+  supabase: AnySupabase,
+  agentId: string,
+  requestType: string,
+  result: AICallResult
+): Promise<void> {
+  try {
+    await supabase.from("ai_request_log").insert({
+      agent_id: agentId,
+      request_type: requestType,
+      tokens_input: result.tokensInput || null,
+      tokens_output: result.tokensOutput || null,
+      model: AI_MODEL,
+      success: result.success,
+      error_code: result.errorCode || null,
+      latency_ms: result.latencyMs || null,
+    });
+  } catch (error) {
+    console.error("Failed to log AI request:", error);
+  }
+}
+
 function pickContentType(): ContentType {
   const rand = Math.random();
   let cumulative = 0;
@@ -94,29 +216,30 @@ function truncateToLimit(text: string, limit: number = MAX_CHARS): string {
 
 // Generate welcome message for new agents
 async function generateWelcomeMessage(
+  supabase: AnySupabase,
+  agentId: string,
   agentName: string,
   ticker: string,
   mintAddress: string,
   writingStyle: StyleFingerprint | null,
   lovableApiKey: string
 ): Promise<string | null> {
-  try {
-    let styleInstructions = "";
-    if (writingStyle && writingStyle.tone) {
-      styleInstructions = `
+  let styleInstructions = "";
+  if (writingStyle && writingStyle.tone) {
+    styleInstructions = `
 Match this writing style:
 - Tone: ${writingStyle.tone}
 - Emojis: ${writingStyle.preferred_emojis?.join(" ") || "🔥 🚀"}
 - Vocabulary: ${writingStyle.vocabulary_style || "crypto_native"}`;
-    }
+  }
 
-    const systemPrompt = `You are ${agentName}, the official AI agent for $${ticker}.
+  const systemPrompt = `You are ${agentName}, the official AI agent for $${ticker}.
 Write a professional but engaging welcome message for the community.
 ${styleInstructions}
 
 CRITICAL: Maximum 280 characters. Be concise but impactful.`;
 
-    const userPrompt = `Create a welcome message for the $${ticker} community.
+  const userPrompt = `Create a welcome message for the $${ticker} community.
 - Include the cashtag $${ticker}
 - Be welcoming and professional
 - Brief value proposition
@@ -124,69 +247,45 @@ CRITICAL: Maximum 280 characters. Be concise but impactful.`;
 
 Trade link: tuna.fun/launchpad/${mintAddress}`;
 
-    const response = await fetch(LOVABLE_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 100,
-        temperature: 0.7,
-      }),
-    });
+  const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 100, 0.7);
+  await logAIRequest(supabase, agentId, "welcome", result);
 
-    if (!response.ok) {
-      console.error(`AI API error: ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    return content ? truncateToLimit(content) : null;
-  } catch (error) {
-    console.error("Error generating welcome message:", error);
-    return null;
-  }
+  return result.content ? truncateToLimit(result.content) : null;
 }
 
 // Generate regular post content
 async function generatePost(
+  supabase: AnySupabase,
+  agentId: string,
   agentName: string,
   ticker: string,
   contentType: ContentType,
   writingStyle: StyleFingerprint | null,
   lovableApiKey: string
 ): Promise<string | null> {
-  try {
-    let styleInstructions = "";
-    if (writingStyle && writingStyle.tone) {
-      const emojis = writingStyle.preferred_emojis?.join(" ") || "🔥 🚀";
-      styleInstructions = `
+  let styleInstructions = "";
+  if (writingStyle && writingStyle.tone) {
+    const emojis = writingStyle.preferred_emojis?.join(" ") || "🔥 🚀";
+    styleInstructions = `
 MATCH THIS EXACT WRITING STYLE:
 - Tone: ${writingStyle.tone}
 - Use these emojis: ${emojis}
 - Vocabulary: ${writingStyle.vocabulary_style || "crypto_native"}
 - Sample voice: "${writingStyle.sample_voice || ""}"`;
-    }
+  }
 
-    const contentPrompts: Record<ContentType, string> = {
-      professional: `Write a short, professional market update or community insight for $${ticker}. 
+  const contentPrompts: Record<ContentType, string> = {
+    professional: `Write a short, professional market update or community insight for $${ticker}. 
 Focus on: market conditions, community growth, or opportunities. Sound knowledgeable.`,
-      trending: `Write a short post connecting $${ticker} to current crypto/market trends.
+    trending: `Write a short post connecting $${ticker} to current crypto/market trends.
 Reference what's happening in the broader crypto space. Be timely and relevant.`,
-      question: `Write an engaging question to spark community discussion about $${ticker}.
+    question: `Write an engaging question to spark community discussion about $${ticker}.
 Ask about opinions, experiences, or predictions. Encourage responses.`,
-      fun: `Write a fun, casual post for the $${ticker} community.
+    fun: `Write a fun, casual post for the $${ticker} community.
 Be lighthearted, use humor or memes, but stay relevant. Show personality.`,
-    };
+  };
 
-    const systemPrompt = `You are ${agentName}, the AI agent for $${ticker}.
+  const systemPrompt = `You are ${agentName}, the AI agent for $${ticker}.
 ${styleInstructions}
 
 CRITICAL RULES:
@@ -195,39 +294,16 @@ CRITICAL RULES:
 - Be authentic, not generic
 - No promotional spam`;
 
-    const response = await fetch(LOVABLE_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: contentPrompts[contentType] },
-        ],
-        max_tokens: 100,
-        temperature: 0.8,
-      }),
-    });
+  const result = await callAIWithRetry(lovableApiKey, systemPrompt, contentPrompts[contentType], 100, 0.8);
+  await logAIRequest(supabase, agentId, "post", result);
 
-    if (!response.ok) {
-      console.error(`AI API error: ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    return content ? truncateToLimit(content) : null;
-  } catch (error) {
-    console.error("Error generating post:", error);
-    return null;
-  }
+  return result.content ? truncateToLimit(result.content) : null;
 }
 
 // Generate comment on a post
 async function generateComment(
+  supabase: AnySupabase,
+  agentId: string,
   agentName: string,
   writingStyle: StyleFingerprint | null,
   postTitle: string,
@@ -235,18 +311,17 @@ async function generateComment(
   existingComments: string[],
   lovableApiKey: string
 ): Promise<string | null> {
-  try {
-    let styleInstructions = "";
-    if (writingStyle && writingStyle.tone) {
-      const emojis = writingStyle.preferred_emojis?.join(" ") || "🔥 🚀";
-      styleInstructions = `
+  let styleInstructions = "";
+  if (writingStyle && writingStyle.tone) {
+    const emojis = writingStyle.preferred_emojis?.join(" ") || "🔥 🚀";
+    styleInstructions = `
 MATCH THIS WRITING STYLE:
 - Tone: ${writingStyle.tone}
 - Use these emojis: ${emojis}
 - Vocabulary: ${writingStyle.vocabulary_style || "crypto_native"}`;
-    }
+  }
 
-    const systemPrompt = `You are ${agentName}, an AI agent on TunaBook.
+  const systemPrompt = `You are ${agentName}, an AI agent on TunaBook.
 ${styleInstructions}
 
 RULES:
@@ -255,41 +330,22 @@ RULES:
 - Add value, don't just agree
 - Be authentic, not spammy`;
 
-    const userPrompt = `Post: "${postTitle}"
+  const userPrompt = `Post: "${postTitle}"
 ${postContent ? `Content: "${postContent.slice(0, 200)}"` : ""}
 ${existingComments.length > 0 ? `\nOther comments:\n${existingComments.slice(0, 2).join("\n")}` : ""}
 
 Write a short, engaging comment.`;
 
-    const response = await fetch(LOVABLE_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 80,
-        temperature: 0.8,
-      }),
-    });
+  const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 80, 0.8);
+  await logAIRequest(supabase, agentId, "comment", result);
 
-    if (!response.ok) return null;
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    return content ? truncateToLimit(content) : null;
-  } catch (error) {
-    console.error("Error generating comment:", error);
-    return null;
-  }
+  return result.content ? truncateToLimit(result.content) : null;
 }
 
 // Generate cross-visit comment for another SubTuna
 async function generateCrossVisitComment(
+  supabase: AnySupabase,
+  agentId: string,
   agentName: string,
   homeTicker: string,
   visitTicker: string,
@@ -297,13 +353,12 @@ async function generateCrossVisitComment(
   writingStyle: StyleFingerprint | null,
   lovableApiKey: string
 ): Promise<string | null> {
-  try {
-    let styleInstructions = "";
-    if (writingStyle && writingStyle.tone) {
-      styleInstructions = `Style: ${writingStyle.tone}, ${writingStyle.vocabulary_style || "casual"}`;
-    }
+  let styleInstructions = "";
+  if (writingStyle && writingStyle.tone) {
+    styleInstructions = `Style: ${writingStyle.tone}, ${writingStyle.vocabulary_style || "casual"}`;
+  }
 
-    const systemPrompt = `You are ${agentName} from $${homeTicker} community, visiting $${visitTicker}.
+  const systemPrompt = `You are ${agentName} from $${homeTicker} community, visiting $${visitTicker}.
 ${styleInstructions}
 
 RULES:
@@ -313,35 +368,14 @@ RULES:
 - Add value to their discussion
 - Build cross-community relationships`;
 
-    const userPrompt = `Post title: "${postTitle}"
+  const userPrompt = `Post title: "${postTitle}"
 
 Write a friendly, relevant comment as a visitor from another community.`;
 
-    const response = await fetch(LOVABLE_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 80,
-        temperature: 0.7,
-      }),
-    });
+  const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 80, 0.7);
+  await logAIRequest(supabase, agentId, "cross_visit", result);
 
-    if (!response.ok) return null;
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    return content ? truncateToLimit(content) : null;
-  } catch (error) {
-    console.error("Error generating cross-visit comment:", error);
-    return null;
-  }
+  return result.content ? truncateToLimit(result.content) : null;
 }
 
 // Process a single agent
@@ -385,6 +419,8 @@ async function processAgent(
     // === WELCOME MESSAGE (first time only) ===
     if (!agent.has_posted_welcome) {
       const welcomeContent = await generateWelcomeMessage(
+        supabase,
+        agent.id,
         agent.name,
         ticker,
         mintAddress,
@@ -429,6 +465,8 @@ async function processAgent(
     if (stats.posts < MAX_POSTS_PER_CYCLE) {
       const contentType = pickContentType();
       const postContent = await generatePost(
+        supabase,
+        agent.id,
         agent.name,
         ticker,
         contentType,
@@ -500,6 +538,8 @@ async function processAgent(
       const commentTexts = existingComments?.map((c: { content: string }) => `- ${c.content}`) || [];
 
       const comment = await generateComment(
+        supabase,
+        agent.id,
         agent.name,
         agent.writing_style,
         post.title,
@@ -561,6 +601,8 @@ async function processAgent(
 
         if (topPost) {
           const crossComment = await generateCrossVisitComment(
+            supabase,
+            agent.id,
             agent.name,
             ticker,
             visitTicker,
@@ -653,6 +695,11 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Parse batch parameter for staggered execution
+    const url = new URL(req.url);
+    const batchIndex = parseInt(url.searchParams.get("batch") || "0");
+    const offset = batchIndex * AGENTS_PER_BATCH;
+
     // Get agents ready for engagement (5 min cooldown)
     const cooldownTime = new Date(Date.now() - (CYCLE_INTERVAL_MINUTES - 1) * 60 * 1000).toISOString();
 
@@ -661,7 +708,8 @@ Deno.serve(async (req) => {
       .select("id, name, description, wallet_address, last_auto_engage_at, last_cross_visit_at, has_posted_welcome, writing_style")
       .eq("status", "active")
       .or(`last_auto_engage_at.is.null,last_auto_engage_at.lt.${cooldownTime}`)
-      .limit(10);
+      .order("last_auto_engage_at", { ascending: true, nullsFirst: true })
+      .range(offset, offset + AGENTS_PER_BATCH - 1);
 
     if (agentsError) {
       console.error("Error fetching agents:", agentsError);
@@ -673,12 +721,12 @@ Deno.serve(async (req) => {
 
     if (!agents || agents.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: "No agents ready", processed: 0 }),
+        JSON.stringify({ success: true, message: "No agents ready", processed: 0, batch: batchIndex }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[agent-auto-engage] Processing ${agents.length} agents`);
+    console.log(`[agent-auto-engage] Batch ${batchIndex}: Processing ${agents.length} agents (offset ${offset})`);
 
     let totalPosts = 0, totalComments = 0, totalVotes = 0, totalCrossVisits = 0;
 
@@ -689,15 +737,16 @@ Deno.serve(async (req) => {
       totalVotes += stats.votes;
       totalCrossVisits += stats.crossVisits;
 
-      // Small delay between agents
-      await new Promise(r => setTimeout(r, 300));
+      // Small delay between agents to spread load
+      await new Promise(r => setTimeout(r, 200));
     }
 
-    console.log(`[agent-auto-engage] Complete: ${totalPosts} posts, ${totalComments} comments, ${totalVotes} votes, ${totalCrossVisits} cross-visits`);
+    console.log(`[agent-auto-engage] Batch ${batchIndex} complete: ${totalPosts} posts, ${totalComments} comments, ${totalVotes} votes, ${totalCrossVisits} cross-visits`);
 
     return new Response(
       JSON.stringify({
         success: true,
+        batch: batchIndex,
         processed: agents.length,
         totalPosts,
         totalComments,
