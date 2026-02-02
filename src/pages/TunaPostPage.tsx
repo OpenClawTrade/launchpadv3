@@ -139,9 +139,19 @@ export default function TunaPostPage() {
       return;
     }
 
-    addComment({ content: newComment.trim(), userId: profileId });
-    setNewComment("");
-    toast.success("Comment added!");
+    addComment(
+      { content: newComment.trim(), userId: profileId },
+      {
+        onSuccess: () => {
+          setNewComment("");
+          toast.success("Comment added!");
+        },
+        onError: (error: any) => {
+          console.error("[TunaPostPage] Comment error:", error);
+          toast.error(error.message || "Failed to add comment");
+        },
+      }
+    );
   }, [newComment, isAuthenticated, profileId, login, addComment, post?.is_locked]);
 
   const handleReply = useCallback((parentCommentId: string, content: string) => {
