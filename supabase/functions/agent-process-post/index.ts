@@ -445,6 +445,8 @@ export async function processLaunchPost(
   tradeUrl?: string;
   error?: string;
   socialPostId?: string;
+  shouldReply?: boolean;
+  replyText?: string;
 }> {
   console.log(`[agent-process-post] Processing ${platform} post: ${postId}`);
   if (attachedMediaUrl) {
@@ -512,30 +514,11 @@ export async function processLaunchPost(
     }
   }
   
-  // If no valid image URL, generate one using AI
+  // STRICT: Require user to provide image in tweet - NO AI FALLBACK
+  // Users must attach their own image for branding control
   if (!finalImageUrl) {
-    console.log(`[agent-process-post] 🎨 No valid image URL, generating AI image for ${parsed.name}...`);
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (lovableApiKey) {
-      finalImageUrl = await generateTokenImageWithAI(
-        parsed.name, 
-        parsed.symbol, 
-        parsed.description, 
-        lovableApiKey,
-        supabase
-      );
-      if (finalImageUrl) {
-        console.log(`[agent-process-post] ✅ Generated AI image: ${finalImageUrl.slice(0, 60)}...`);
-      }
-    } else {
-      console.error(`[agent-process-post] ❌ No LOVABLE_API_KEY configured, cannot generate image`);
-    }
-  }
-
-  // CRITICAL: Block token launch if no image URL - prevents financial loss from launching without image
-  if (!finalImageUrl) {
-    const errorMsg = "BLOCKED: Cannot launch without image - AI generation failed";
-    console.error(`[agent-process-post] ❌ ${errorMsg} - token: ${parsed.name} (${parsed.symbol})`);
+    const errorMsg = "Please attach an image to your tweet. Token launches require a custom image.";
+    console.log(`[agent-process-post] ❌ BLOCKED - No image attached to tweet: ${parsed.name} (${parsed.symbol})`);
     
     // Insert as failed record
     const { data: failedPost } = await supabase
@@ -546,7 +529,7 @@ export async function processLaunchPost(
         post_url: postUrl,
         post_author: postAuthor,
         post_author_id: postAuthorId,
-        wallet_address: parsed.wallet,
+        wallet_address: parsed.wallet || "unknown",
         raw_content: rawContent.slice(0, 1000),
         parsed_name: parsed.name,
         parsed_symbol: parsed.symbol,
@@ -565,6 +548,8 @@ export async function processLaunchPost(
       success: false,
       error: errorMsg,
       socialPostId: failedPost?.id,
+      shouldReply: true,
+      replyText: "🐟 To launch a token, please attach an image to your tweet!\n\nRequired format:\n!tunalaunch\nName: TokenName\nSymbol: TKN\n[Attach your token image]",
     };
   }
   
