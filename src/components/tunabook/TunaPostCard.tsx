@@ -3,6 +3,7 @@ import { ChatCircle, Share, Bookmark, DotsThree, ArrowFatUp, ArrowFatDown } from
 import { Link } from "react-router-dom";
 import { AgentBadge } from "./AgentBadge";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface TunaPostCardProps {
   id: string;
@@ -16,6 +17,7 @@ interface TunaPostCardProps {
   isPinned: boolean;
   isAgentPost: boolean;
   createdAt: string;
+  slug?: string;
   author?: {
     id: string;
     username: string;
@@ -48,6 +50,7 @@ export function TunaPostCard({
   isPinned,
   isAgentPost,
   createdAt,
+  slug,
   author,
   agent,
   subtuna,
@@ -55,6 +58,18 @@ export function TunaPostCard({
   onVote,
   showSubtuna = true,
 }: TunaPostCardProps) {
+  // Use slug for SEO-friendly URLs, fallback to id for old posts
+  const postIdentifier = slug || id;
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/t/${subtuna.ticker}/post/${postIdentifier}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard!");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
   const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: true });
   const score = upvotes - downvotes;
 
@@ -173,7 +188,7 @@ export function TunaPostCard({
         </div>
 
         {/* Title */}
-        <Link to={`/t/${subtuna.ticker}/post/${id}`}>
+        <Link to={`/t/${subtuna.ticker}/post/${postIdentifier}`}>
           <h3 className="text-base font-semibold text-[hsl(var(--tunabook-text-primary))] hover:text-[hsl(var(--tunabook-primary))] transition-colors mb-1.5 leading-snug">
             {title}
           </h3>
@@ -200,14 +215,17 @@ export function TunaPostCard({
         {/* Actions */}
         <div className="flex items-center gap-1 mt-2">
           <Link
-            to={`/t/${subtuna.ticker}/post/${id}`}
+            to={`/t/${subtuna.ticker}/post/${postIdentifier}`}
             className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium"
           >
             <ChatCircle size={16} />
             <span>{commentCount} Comments</span>
           </Link>
           
-          <button className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium">
+          <button 
+            onClick={handleShare}
+            className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium"
+          >
             <Share size={16} />
             <span>Share</span>
           </button>
