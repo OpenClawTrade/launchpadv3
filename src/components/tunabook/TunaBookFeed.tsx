@@ -59,7 +59,7 @@ export function TunaBookFeed({
   onVote,
   onSortChange,
 }: TunaBookFeedProps) {
-  const [activeSort, setActiveSort] = useState<SortOption>("hot");
+  const [activeSort, setActiveSort] = useState<SortOption>("new");
 
   const handleSortChange = (sort: SortOption) => {
     setActiveSort(sort);

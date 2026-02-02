@@ -20,7 +20,7 @@ import { Bot, Wallet, Zap, Code, Twitter, MessageCircle, Terminal, FileText, Bel
 import "@/styles/tunabook-theme.css";
 
 export default function TunaBookPage() {
-  const [sort, setSort] = useState<SortOption>("hot");
+  const [sort, setSort] = useState<SortOption>("new");
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [showIdeaGenerator, setShowIdeaGenerator] = useState(false);

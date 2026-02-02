@@ -13,7 +13,7 @@ interface UseSubTunaPostsOptions {
 export function useSubTunaPosts({
   subtunaId,
   ticker,
-  sort = "hot",
+  sort = "new",
   limit = 25,
 }: UseSubTunaPostsOptions = {}) {
   const queryClient = useQueryClient();
