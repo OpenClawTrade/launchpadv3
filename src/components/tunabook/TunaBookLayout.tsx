@@ -46,23 +46,23 @@ export function TunaBookLayout({
               <SheetPortal>
                 <SheetOverlay className="bg-black/80" />
                 <SheetPrimitive.Content
-                  className="fixed inset-y-0 left-0 z-50 h-full w-72 border-r border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-primary))] shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left"
+                  className="tunabook-theme fixed inset-y-0 left-0 z-50 h-full w-72 border-r border-[#1a1d24] bg-[#0d0f12] shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left"
                 >
-                  <div className="p-4 border-b border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))] flex items-center gap-2">
+                  <div className="p-4 border-b border-[#1a1d24] bg-[#14171d] flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
                       <span className="text-xl">🐟</span> TunaBook
                     </h2>
                     <SheetClose asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-[hsl(var(--tunabook-text-muted))] hover:text-[hsl(var(--tunabook-text-primary))] hover:bg-[hsl(var(--tunabook-bg-hover))]"
+                        className="h-8 w-8 text-gray-400 hover:text-white hover:bg-[#1a1d24]"
                       >
                         <X size={18} />
                       </Button>
                     </SheetClose>
                   </div>
-                  <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)]">
+                  <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)] bg-[#0d0f12]">
                     {leftSidebar}
                   </div>
                 </SheetPrimitive.Content>
@@ -88,23 +88,23 @@ export function TunaBookLayout({
               <SheetPortal>
                 <SheetOverlay className="bg-black/80" />
                 <SheetPrimitive.Content
-                  className="fixed inset-y-0 right-0 z-50 h-full w-80 border-l border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-primary))] shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
+                  className="tunabook-theme fixed inset-y-0 right-0 z-50 h-full w-80 border-l border-[#1a1d24] bg-[#0d0f12] shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
                 >
-                  <div className="p-4 border-b border-[hsl(var(--tunabook-border))] bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-[hsl(var(--tunabook-text-primary))]">
+                  <div className="p-4 border-b border-[#1a1d24] bg-[#14171d] flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-white">
                       Stats & Trending
                     </h2>
                     <SheetClose asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-[hsl(var(--tunabook-text-muted))] hover:text-[hsl(var(--tunabook-text-primary))] hover:bg-[hsl(var(--tunabook-bg-hover))]"
+                        className="h-8 w-8 text-gray-400 hover:text-white hover:bg-[#1a1d24]"
                       >
                         <X size={18} />
                       </Button>
                     </SheetClose>
                   </div>
-                  <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)]">
+                  <div className="p-4 overflow-y-auto max-h-[calc(100vh-60px)] bg-[#0d0f12]">
                     {rightSidebar}
                   </div>
                 </SheetPrimitive.Content>
