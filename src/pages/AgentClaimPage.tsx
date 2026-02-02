@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePrivy, useLogin } from "@privy-io/react-auth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,7 +75,7 @@ interface ClaimCooldown {
 }
 
 export default function AgentClaimPage() {
-  const { authenticated, user, ready } = usePrivy();
+  const { authenticated, user, ready, exportWallet } = usePrivy();
   const { login } = useLogin({
     onComplete: () => {
       setStep("discover");
@@ -734,16 +735,11 @@ export default function AgentClaimPage() {
           </p>
         </div>
 
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-secondary/30 transition-colors">
-            <input
-              type="radio"
-              checked={useEmbeddedWallet}
-              onChange={() => setUseEmbeddedWallet(true)}
-              className="w-4 h-4"
-            />
+        <div className="p-4 rounded-lg border bg-primary/5 border-primary/20">
+          <div className="flex items-center gap-3">
+            <Wallet className="w-5 h-5 text-primary" />
             <div className="flex-1">
-              <p className="font-medium text-sm">Use Embedded Wallet</p>
+              <p className="font-medium text-sm">Embedded Wallet</p>
               {walletAddress && (
                 <p className="text-xs text-muted-foreground font-mono truncate">
                   {walletAddress}
@@ -751,28 +747,10 @@ export default function AgentClaimPage() {
               )}
             </div>
             <Badge variant="secondary">Recommended</Badge>
-          </label>
-
-          <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-secondary/30 transition-colors">
-            <input
-              type="radio"
-              checked={!useEmbeddedWallet}
-              onChange={() => setUseEmbeddedWallet(false)}
-              className="w-4 h-4 mt-1"
-            />
-            <div className="flex-1">
-              <p className="font-medium text-sm">Use External Wallet</p>
-              {!useEmbeddedWallet && (
-                <Input
-                  placeholder="Enter Solana wallet address"
-                  value={customWallet}
-                  onChange={(e) => setCustomWallet(e.target.value)}
-                  className="mt-2"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              )}
-            </div>
-          </label>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Fees will be sent to your embedded wallet. You can export your private key after claiming to withdraw to any external wallet.
+          </p>
         </div>
 
         <div className="flex gap-2 pt-4">
@@ -781,7 +759,7 @@ export default function AgentClaimPage() {
           </Button>
           <Button
             onClick={handleInitClaim}
-            disabled={isLoading || (!useEmbeddedWallet && !customWallet)}
+            disabled={isLoading}
             className="flex-1"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Continue"}
@@ -886,6 +864,26 @@ export default function AgentClaimPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Export Key Section */}
+        <div className="p-4 rounded-lg border bg-secondary/30">
+          <div className="flex items-center gap-2 mb-2">
+            <Key className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Withdraw Your Earnings</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Export your wallet's private key to import it into Phantom, Solflare, or any Solana wallet to withdraw your fees.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportWallet()}
+            className="w-full"
+          >
+            <Key className="w-4 h-4 mr-2" />
+            Export Private Key
+          </Button>
         </div>
 
         <Button
