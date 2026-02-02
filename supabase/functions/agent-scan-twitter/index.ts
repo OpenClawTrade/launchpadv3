@@ -12,22 +12,66 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Search for mentions using twitterapi.io (session-based, reliable)
-async function searchMentionsViaTwitterApiIo(
-  query: string,
-  apiKey: string
-): Promise<Array<{
+type TweetResult = {
   id: string;
   text: string;
   author_id: string;
   author_username: string;
   created_at: string;
-}>> {
+};
+
+// Search for mentions using Official X API v2 with Bearer Token (App-only auth)
+async function searchMentionsViaOfficialApi(
+  query: string,
+  bearerToken: string
+): Promise<TweetResult[]> {
+  const searchUrl = new URL("https://api.x.com/2/tweets/search/recent");
+  searchUrl.searchParams.set("query", query);
+  searchUrl.searchParams.set("max_results", "100");
+  searchUrl.searchParams.set("tweet.fields", "created_at,author_id");
+  searchUrl.searchParams.set("expansions", "author_id");
+  searchUrl.searchParams.set("user.fields", "username");
+
+  const response = await fetch(searchUrl.toString(), {
+    headers: {
+      Authorization: `Bearer ${bearerToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[agent-scan-twitter] X API error:", response.status, errorText);
+    throw new Error(`X_API_ERROR [${response.status}]: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const tweets = data.data || [];
+  const users = data.includes?.users || [];
+
+  // Build username map
+  const userMap: Record<string, string> = {};
+  for (const user of users) {
+    userMap[user.id] = user.username;
+  }
+
+  return tweets.map((t: any) => ({
+    id: t.id,
+    text: t.text,
+    author_id: t.author_id || "",
+    author_username: userMap[t.author_id] || "",
+    created_at: t.created_at || "",
+  }));
+}
+
+// Fallback: Search using twitterapi.io (session-based)
+async function searchMentionsViaTwitterApiIo(
+  query: string,
+  apiKey: string
+): Promise<TweetResult[]> {
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
   searchUrl.searchParams.set("query", query);
   searchUrl.searchParams.set("queryType", "Latest");
 
-  // Retry on errors with exponential backoff
   let lastStatus = 0;
   let lastBody: any = null;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -62,28 +106,16 @@ async function searchMentionsViaTwitterApiIo(
     }
 
     if (response.status === 429) {
-      const backoffMs = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
-      console.warn(
-        `[agent-scan-twitter] twitterapi.io rate limited (429). Retrying in ${backoffMs}ms (attempt ${attempt + 1}/3)`
-      );
+      const backoffMs = 1000 * Math.pow(2, attempt);
+      console.warn(`[agent-scan-twitter] twitterapi.io rate limited. Retrying in ${backoffMs}ms`);
       await sleep(backoffMs);
       continue;
     }
 
-    // Non-429 errors: fail fast
-    console.error("[agent-scan-twitter] twitterapi.io search failed:", {
-      status: response.status,
-      body: lastBody,
-    });
-    throw new Error(
-      `twitterapi.io search failed [${response.status}]: ${typeof lastBody === "string" ? lastBody : JSON.stringify(lastBody)}`
-    );
+    throw new Error(`twitterapi.io search failed [${response.status}]`);
   }
 
-  // Still rate-limited after retries
-  throw new Error(
-    `TWITTERAPI_RATE_LIMITED [${lastStatus}]: ${typeof lastBody === "string" ? lastBody : JSON.stringify(lastBody)}`
-  );
+  throw new Error(`TWITTERAPI_RATE_LIMITED [${lastStatus}]`);
 }
 
 // Send reply using twitterapi.io (session-based posting)
@@ -139,14 +171,21 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // twitterapi.io credentials (session-based)
+    // Official X API Bearer Token (preferred for searching)
+    const xBearerToken = Deno.env.get("X_BEARER_TOKEN");
+    
+    // twitterapi.io credentials (fallback for search, used for posting)
     const twitterApiIoKey = Deno.env.get("TWITTERAPI_IO_KEY");
     const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
     const xCt0Token = Deno.env.get("X_CT0_TOKEN");
 
-    if (!twitterApiIoKey) {
+    // Need at least one search method
+    if (!xBearerToken && !twitterApiIoKey) {
       return new Response(
-        JSON.stringify({ success: false, error: "TWITTERAPI_IO_KEY not configured" }),
+        JSON.stringify({ 
+          success: false, 
+          error: "No search credentials configured. Need X_BEARER_TOKEN or TWITTERAPI_IO_KEY" 
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -154,7 +193,7 @@ Deno.serve(async (req) => {
     const canPostReplies = !!(twitterApiIoKey && xAuthToken && xCt0Token);
     if (!canPostReplies) {
       console.log(
-        "[agent-scan-twitter] Reply tokens not fully configured (X_AUTH_TOKEN + X_CT0_TOKEN) - will detect/process but skip replies"
+        "[agent-scan-twitter] Reply tokens not fully configured - will detect/process but skip replies"
       );
     }
 
@@ -162,7 +201,7 @@ Deno.serve(async (req) => {
 
     // Acquire lock to prevent concurrent runs
     const lockName = "agent-scan-twitter-lock";
-    const lockExpiry = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min
+    const lockExpiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     const rateLimitLockName = "agent-scan-twitter-rate-limit";
 
     // Clean up expired locks
@@ -182,7 +221,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // If we were rate-limited recently, skip to avoid repeated 429s
+      // Check rate-limit cooldown
       const nowIso = new Date().toISOString();
       const { data: rlLock } = await supabase
         .from("cron_locks")
@@ -192,9 +231,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (rlLock) {
-        console.warn(
-          `[agent-scan-twitter] Skipping scan due to active rate-limit cooldown until ${rlLock.expires_at}`
-        );
+        console.warn(`[agent-scan-twitter] Skipping due to rate-limit cooldown until ${rlLock.expires_at}`);
         return new Response(
           JSON.stringify({
             success: true,
@@ -206,37 +243,73 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Search using twitterapi.io (session-based, no OAuth required)
-      console.log("[agent-scan-twitter] Searching via twitterapi.io...");
-      let tweets: Awaited<ReturnType<typeof searchMentionsViaTwitterApiIo>> = [];
+      // Try Official X API first (Bearer Token), fallback to twitterapi.io
+      const searchQuery = "(tunalaunch OR launchtuna) -is:retweet";
+      let tweets: TweetResult[] = [];
       let rateLimited = false;
-      try {
-        tweets = await searchMentionsViaTwitterApiIo(
-          "(tunalaunch OR launchtuna) -is:retweet",
-          twitterApiIoKey
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("TWITTERAPI_RATE_LIMITED") || msg.includes("[429]")) {
-          rateLimited = true;
-          console.warn("[agent-scan-twitter] Skipping scan due to twitterapi.io rate limit");
-        } else {
-          throw err;
+      let searchMethod = "none";
+
+      if (xBearerToken) {
+        try {
+          console.log("[agent-scan-twitter] Searching via Official X API (Bearer Token)...");
+          tweets = await searchMentionsViaOfficialApi(searchQuery, xBearerToken);
+          searchMethod = "official_x_api";
+          console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via Official X API`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[agent-scan-twitter] Official X API failed:", msg);
+          
+          // Check if rate limited
+          if (msg.includes("[429]")) {
+            rateLimited = true;
+          }
+          
+          // Try fallback if twitterapi.io is configured
+          if (twitterApiIoKey && !rateLimited) {
+            try {
+              console.log("[agent-scan-twitter] Falling back to twitterapi.io...");
+              tweets = await searchMentionsViaTwitterApiIo(searchQuery, twitterApiIoKey);
+              searchMethod = "twitterapi_io_fallback";
+              console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io fallback`);
+            } catch (fallbackErr) {
+              const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+              if (fallbackMsg.includes("RATE_LIMITED") || fallbackMsg.includes("[429]")) {
+                rateLimited = true;
+              } else {
+                throw fallbackErr;
+              }
+            }
+          }
+        }
+      } else if (twitterApiIoKey) {
+        // No Bearer Token, use twitterapi.io directly
+        try {
+          console.log("[agent-scan-twitter] Searching via twitterapi.io...");
+          tweets = await searchMentionsViaTwitterApiIo(searchQuery, twitterApiIoKey);
+          searchMethod = "twitterapi_io";
+          console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("RATE_LIMITED") || msg.includes("[429]")) {
+            rateLimited = true;
+          } else {
+            throw err;
+          }
         }
       }
 
-      // Start a cooldown lock when rate-limited so we don't spam the API
+      // Set cooldown if rate-limited
       if (rateLimited) {
-        const cooldownUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
+        const cooldownUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
         await supabase.from("cron_locks").delete().eq("lock_name", rateLimitLockName);
         await supabase.from("cron_locks").insert({
           lock_name: rateLimitLockName,
           expires_at: cooldownUntil,
           acquired_at: new Date().toISOString(),
         });
+        console.warn("[agent-scan-twitter] Rate limited, cooldown set until", cooldownUntil);
       }
 
-      console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io`);
       if (tweets.length > 0) {
         const tweetIds = tweets.map((t) => t.id).slice(0, 5);
         console.log(`[agent-scan-twitter] Latest tweet IDs: ${tweetIds.join(", ")}`);
@@ -252,14 +325,13 @@ Deno.serve(async (req) => {
       for (const tweet of tweets) {
         const tweetId = tweet.id;
         const tweetText = tweet.text;
-        // Support legacy/alias command (people frequently type !launchtuna)
         const normalizedText = tweetText.replace(/!launchtuna/gi, "!tunalaunch");
         const username = tweet.author_username;
         const authorId = tweet.author_id;
 
-        // Validate this tweet actually contains the !tunalaunch command (not just "tunalaunch" as substring)
+        // Validate command presence
         if (!normalizedText.toLowerCase().includes("!tunalaunch")) {
-          console.log(`[agent-scan-twitter] Skipping ${tweetId} - no !tunalaunch command found`);
+          console.log(`[agent-scan-twitter] Skipping ${tweetId} - no !tunalaunch command`);
           results.push({ tweetId, status: "skipped_no_command" });
           continue;
         }
@@ -306,23 +378,20 @@ Deno.serve(async (req) => {
             mintAddress: processResult.mintAddress,
           });
 
-          // Only post reply if we have session tokens
-            if (canPostReplies) {
+          // Post success reply via twitterapi.io
+          if (canPostReplies) {
             const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
 
             const replyResult = await replyToTweet(
               tweetId,
               replyText,
-                twitterApiIoKey!,
+              twitterApiIoKey!,
               xAuthToken!,
               xCt0Token!
             );
 
             if (!replyResult.success) {
-              console.warn(
-                `[agent-scan-twitter] Failed to reply to ${tweetId}:`,
-                replyResult.error
-              );
+              console.warn(`[agent-scan-twitter] Failed to reply to ${tweetId}:`, replyResult.error);
             }
           }
         } else {
@@ -332,7 +401,7 @@ Deno.serve(async (req) => {
             error: processResult.error,
           });
 
-          // Reply with format instructions if parsing failed
+          // Reply with format help if parsing failed
           if (canPostReplies && processResult.error?.includes("parse")) {
             const formatHelpText = `🐟 Hey @${username}! To launch your token, please use this format:\n\n!tunalaunch\nName: YourTokenName\nSymbol: $TICKER\nWallet: YourSolanaWallet\n\nAttach an image and run the command again!`;
 
@@ -346,19 +415,12 @@ Deno.serve(async (req) => {
 
             if (helpReplyResult.success) {
               console.log(`[agent-scan-twitter] Sent format help reply to ${tweetId}`);
-            } else {
-              console.warn(
-                `[agent-scan-twitter] Failed to send format help to ${tweetId}:`,
-                helpReplyResult.error
-              );
             }
           }
         }
       }
 
-      console.log(
-        `[agent-scan-twitter] Completed in ${Date.now() - startTime}ms`
-      );
+      console.log(`[agent-scan-twitter] Completed in ${Date.now() - startTime}ms`);
 
       return new Response(
         JSON.stringify({
@@ -366,13 +428,12 @@ Deno.serve(async (req) => {
           tweetsFound: tweets.length,
           results,
           rateLimited,
+          searchMethod,
           durationMs: Date.now() - startTime,
-          mode: "x_api_detection",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } finally {
-      // Release lock
       await supabase.from("cron_locks").delete().eq("lock_name", lockName);
     }
   } catch (error) {
