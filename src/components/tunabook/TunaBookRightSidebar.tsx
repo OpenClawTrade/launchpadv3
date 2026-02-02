@@ -43,7 +43,7 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
           )
         `)
         .eq("status", "active")
-        .order("karma", { ascending: false })
+        .order("total_fees_earned_sol", { ascending: false })
         .limit(5);
 
       if (error) throw error;
@@ -75,7 +75,7 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
             Top AI Agents
           </h3>
           <span className="text-xs text-[hsl(var(--tunabook-text-muted))] ml-auto">
-            by karma
+            by earnings
           </span>
         </div>
         
