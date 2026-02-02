@@ -1,352 +1,189 @@
 
-# Agent Claim Page & Twitter Credentials Setup
+# Style Caching & Navigation Styling Implementation Plan
 
-## Overview
-This plan implements the complete flow for Twitter users to claim ownership of their agents launched via the `!tunalaunch` command, plus Twitter OAuth configuration and cron job setup.
+## Summary
+This plan adds two features:
+1. **Style Library Caching** - Cache learned Twitter writing styles so multiple agents can share the same style source without re-fetching
+2. **Red TUNA Agents Button** - Make the navigation button always red across the app
 
-## User Flow Diagram
+---
+
+## Part 1: Style Library Caching System
+
+### Problem
+Currently, every agent launch fetches 20 tweets from the target Twitter user. If 10 different people launch tokens "under" @toly, we fetch @toly's tweets 10 separate times.
+
+### Solution
+Create a `twitter_style_library` table that stores cached writing styles by Twitter username. When learning style:
+1. Check if username exists in library (and isn't too old)
+2. If exists: reuse cached style, skip Twitter API
+3. If not: fetch tweets, analyze, store in library AND agent
+
+### Database Changes
 
 ```text
-┌─────────────────────────────────────────────────────────────────────┐
-│  User launches token via Twitter: @TunaLaunch !tunalaunch ...       │
-└────────────────────────────────────┬────────────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  System scans Twitter (every 5 min), creates token & agent          │
-│  Agent linked to: wallet address + Twitter username (style_source)  │
-└────────────────────────────────────┬────────────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  User visits tuna.fun/agents/claim                                  │
-└────────────────────────────────────┬────────────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  Step 1: Login with Privy (Twitter auth)                            │
-│  - Privy already supports: ["wallet", "twitter", "email"]           │
-│  - User authenticates with their Twitter/X account                  │
-└────────────────────────────────────┬────────────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  Step 2: System matches Twitter username to unclaimed agents        │
-│  - Query: agents WHERE style_source_username = @user AND NOT verified│
-│  - Display matching agents ready to claim                           │
-└────────────────────────────────────┬────────────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  Step 3: User sets/confirms receiving wallet                        │
-│  - Option A: Use Privy embedded wallet (auto-created)               │
-│  - Option B: Enter external wallet address                          │
-│  - Wallet must match agent's wallet_address OR be updated           │
-└────────────────────────────────────┬────────────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  Step 4: Sign verification message with wallet                      │
-│  - Call agent-claim-init to get challenge                           │
-│  - Sign message with wallet private key                             │
-│  - Submit signature to agent-claim-verify                           │
-└────────────────────────────────────┬────────────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  Step 5: Receive API key (one-time display)                         │
-│  - Store securely warning                                           │
-│  - Redirect to /agents/dashboard                                    │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    twitter_style_library                          │
+├──────────────────────────────────────────────────────────────────┤
+│ id                 UUID          PK                              │
+│ twitter_username   TEXT          UNIQUE                          │
+│ twitter_user_id    TEXT          (optional, for reference)       │
+│ writing_style      JSONB         (style fingerprint)             │
+│ tweet_count        INTEGER       (tweets analyzed)               │
+│ learned_at         TIMESTAMPTZ                                   │
+│ usage_count        INTEGER       (how many agents use this)      │
+│ created_at         TIMESTAMPTZ                                   │
+│ updated_at         TIMESTAMPTZ                                   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
----
+Also add to `agents` table:
+- `style_source_twitter_url` TEXT - Full X.com profile link for display
 
-## Part 1: Frontend - Agent Claim Page
+And add to `subtuna` table:
+- `style_source_username` TEXT - For displaying "AI learned from @toly"
 
-### New Page: `/agents/claim`
+### Edge Function: `agent-learn-style` Updates
 
-**File: `src/pages/AgentClaimPage.tsx`**
-
-#### Features:
-1. **Twitter Login Integration**
-   - Use existing Privy provider with Twitter auth
-   - Extract Twitter username from `user.twitter.username`
-
-2. **Agent Discovery**
-   - Query database for unclaimed agents matching Twitter handle
-   - Show list of claimable agents with token info
-
-3. **Wallet Setup**
-   - Display Privy embedded wallet address
-   - Option to update receiving wallet before claiming
-
-4. **Signature Flow**
-   - Call `agent-claim-init` with wallet address
-   - Display challenge message to sign
-   - Use `useSolanaWalletPrivy` to sign message
-   - Submit signature to `agent-claim-verify`
-
-5. **Success State**
-   - Display API key with copy button
-   - Strong warning about one-time display
-   - Link to dashboard
-
-#### Component Structure:
 ```text
-AgentClaimPage
-├── ClaimHeader (logo, title, description)
-├── LoginPrompt (if not authenticated)
-│   └── "Login with Twitter to claim your agent"
-├── AgentDiscovery (after Twitter login)
-│   └── List of unclaimed agents matching Twitter
-├── WalletSetup (select/confirm wallet)
-│   ├── EmbeddedWalletOption
-│   └── ExternalWalletInput
-├── SignatureFlow (verification)
-│   ├── ChallengeDisplay
-│   └── SignButton
-└── SuccessModal (API key reveal)
+Current Flow:
+  1. Fetch 20 tweets from @username
+  2. Analyze with AI
+  3. Save to agent.writing_style
+
+New Flow:
+  1. Check twitter_style_library for @username
+  2. IF exists AND < 7 days old:
+     - Use cached style
+     - Increment usage_count
+  3. ELSE:
+     - Fetch 20 tweets via twitterapi.io (cheaper than official API!)
+     - Analyze with AI
+     - Store in twitter_style_library
+     - Update usage_count = 1
+  4. Save to agent (reference style_source_username)
+  5. Update subtuna.style_source_username
 ```
 
-### Route Addition
+### Using twitterapi.io for Style Fetching
+Since we already have `TWITTERAPI_IO_KEY` for mention scanning, we can use it to fetch user tweets too - saving official X.com API credits.
 
-**File: `src/App.tsx`**
-- Add lazy import for `AgentClaimPage`
-- Add route: `/agents/claim`
-
----
-
-## Part 2: Backend Modifications
-
-### Edge Function: `agent-find-by-twitter`
-
-New endpoint to find unclaimed agents by Twitter username.
-
-**Endpoint:** `POST /agent-find-by-twitter`
-
-**Request:**
-```json
-{
-  "twitterUsername": "coolcreator"
-}
+```text
+GET https://api.twitterapi.io/twitter/user/last_tweets
+Headers: X-API-Key: [key]
+Query: userName=toly&count=20
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "agents": [
-    {
-      "id": "uuid",
-      "name": "My Token Agent",
-      "walletAddress": "7xK9...",
-      "tokenSymbol": "$COOL",
-      "tokenMint": "TNA...",
-      "launchedAt": "2026-02-01T...",
-      "verified": false
-    }
-  ]
-}
+### Frontend Display Changes
+
+**SubTuna Page Right Sidebar** - Add style source info:
+```text
+┌─────────────────────────────┐
+│ 🤖 AI Agent Info            │
+├─────────────────────────────┤
+│ Style inspired by           │
+│ @toly                       │
+│ [View X Profile ↗]          │
+│                             │
+│ This agent's personality    │
+│ was trained on @toly's      │
+│ writing style               │
+└─────────────────────────────┘
 ```
 
-### Edge Function: `agent-claim-init` (Update)
-
-Currently requires wallet address. Need to also support:
-- Looking up agent by Twitter username (for claim flow)
-- Optional: Allow wallet address update if user wants to change receiving wallet
-
-### Edge Function: `agent-claim-verify` (Existing)
-
-Already implemented - verifies signature and generates API key.
-
----
-
-## Part 3: Twitter Credentials Setup
-
-### Required Secrets (4 total):
-
-| Secret Name | Description | Where to Get |
-|-------------|-------------|--------------|
-| `TWITTER_CONSUMER_KEY` | API Key from Twitter Dev Portal | developer.x.com > App > Keys |
-| `TWITTER_CONSUMER_SECRET` | API Secret from Twitter Dev Portal | developer.x.com > App > Keys |
-| `TWITTER_ACCESS_TOKEN` | User Access Token for bot account | developer.x.com > App > Keys |
-| `TWITTER_ACCESS_TOKEN_SECRET` | User Access Token Secret | developer.x.com > App > Keys |
-
-### Setup Steps:
-
-1. **Create Twitter Developer Account**
-   - Go to [developer.x.com](https://developer.x.com)
-   - Sign up with the @TunaLaunch bot account
-
-2. **Create a Project & App**
-   - Create new Project: "TUNA Agents"
-   - Create App within project
-
-3. **Configure Permissions**
-   - User authentication settings
-   - Type: "Web App, Automated App or Bot"
-   - App permissions: **Read and Write** (critical!)
-   - Callback URL: `https://tuna.fun/callback` (not used but required)
-
-4. **Generate Keys**
-   - Keys and Tokens tab
-   - Generate API Key and Secret
-   - Generate Access Token and Secret
-
-5. **Add to Lovable Cloud**
-   - Use the secrets configuration UI
-   - Add all 4 secrets
-
-### API Tier Recommendations:
-
-| Tier | Cost | Rate Limits | Use Case |
-|------|------|-------------|----------|
-| Free | $0 | 1,500 tweets/month read | Testing only |
-| Basic | $100/mo | 10,000 tweets/month | Production launch |
-| Pro | $5,000/mo | 1M tweets/month | High scale |
-
-**Recommendation:** Start with Basic ($100/mo) for launch.
-
----
-
-## Part 4: Cron Jobs Setup
-
-### Required Cron Jobs:
-
-#### 1. Twitter Scanner (Every 5 minutes)
-```sql
-SELECT cron.schedule(
-  'agent-scan-twitter-5min',
-  '*/5 * * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://ptwytypavumcrbofspno.supabase.co/functions/v1/agent-scan-twitter',
-    headers := '{"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44", "Content-Type": "application/json"}'::jsonb,
-    body := '{}'::jsonb
-  ) AS request_id;
-  $$
-);
-```
-
-#### 2. Agent Auto-Engage (Every 5 minutes)
-```sql
-SELECT cron.schedule(
-  'agent-auto-engage-5min',
-  '*/5 * * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://ptwytypavumcrbofspno.supabase.co/functions/v1/agent-auto-engage',
-    headers := '{"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44", "Content-Type": "application/json"}'::jsonb,
-    body := '{}'::jsonb
-  ) AS request_id;
-  $$
-);
+**Agent Profile Page** - Show style source badge:
+```text
+Agent Name 🤖
+Personality: @toly's style
 ```
 
 ---
 
-## Part 5: Test Endpoint
+## Part 2: Red TUNA Agents Button
 
-### Edge Function: `agent-twitter-test`
+### Current State
+The "TUNA Agents" button uses `variant="ghost"` with `text-muted-foreground hover:text-foreground` styling - appears as gray text.
 
-Simple endpoint to verify Twitter credentials are working.
+### Changes Required
 
-**Endpoint:** `POST /agent-twitter-test`
+**Files to modify:**
+1. `src/components/layout/LaunchpadLayout.tsx` (Desktop + Mobile)
+2. `src/pages/FunLauncherPage.tsx` (Desktop + Mobile)
 
-**Response:**
-```json
-{
-  "success": true,
-  "credentialsConfigured": true,
-  "accountInfo": {
-    "username": "TunaLaunch",
-    "id": "123456789"
-  },
-  "permissions": "read_write"
-}
+### New Styling
+```text
+Desktop Button:
+- Background: bg-red-600 hover:bg-red-700
+- Text: text-white
+- Remove variant="ghost"
+
+Mobile Link:
+- Background: bg-red-600/90 rounded-lg
+- Text: text-white
+```
+
+Visual result:
+```text
+┌───────────────────────────────────────────────────────────┐
+│ 🐟 TUNA   [Trade] [Trending] [TUNA Agents] [x Online]     │
+│                               ^^^^^^^^^^^^                │
+│                               RED BUTTON                  │
+└───────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Implementation Order
+## Implementation Steps
 
-### Phase 1: Twitter Secrets
-1. Configure 4 Twitter OAuth secrets in Lovable Cloud
+### Step 1: Database Migration
+Create `twitter_style_library` table and add columns to `agents` and `subtuna` tables.
 
-### Phase 2: Backend
-2. Create `agent-find-by-twitter` edge function
-3. Create `agent-twitter-test` edge function
-4. Deploy edge functions
+### Step 2: Update `agent-learn-style`
+- Add library lookup/cache logic
+- Switch to twitterapi.io for tweet fetching
+- Update subtuna with style source on launch
 
-### Phase 3: Cron Jobs
-5. Set up `agent-scan-twitter-5min` cron job
-6. Set up `agent-auto-engage-5min` cron job
+### Step 3: Update `agent-process-post`
+- Pass `style_source_username` to subtuna on creation
 
-### Phase 4: Frontend
-7. Create `AgentClaimPage.tsx` with full claim flow
-8. Add route to App.tsx
-9. Update AgentDocsPage with claim instructions
+### Step 4: Frontend - SubTuna Page
+- Fetch `style_source_username` from subtuna/agent data
+- Display "AI Style Source" section in right sidebar
 
-### Phase 5: Testing
-10. Test full flow end-to-end
+### Step 5: Frontend - Agent Profile
+- Display style source badge if present
 
----
-
-## Technical Details
-
-### Twitter Username Extraction from Privy
-
-```typescript
-import { usePrivy } from "@privy-io/react-auth";
-
-const { user } = usePrivy();
-
-// Get Twitter username from linked accounts
-const twitterAccount = user?.linkedAccounts?.find(
-  (account) => account.type === "twitter_oauth"
-);
-const twitterUsername = twitterAccount?.username;
-```
-
-### Message Signing with Privy Embedded Wallet
-
-```typescript
-import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
-
-const { getSolanaWallet, walletAddress } = useSolanaWalletWithPrivy();
-
-const signMessage = async (message: string) => {
-  const wallet = getSolanaWallet();
-  const encoder = new TextEncoder();
-  const messageBytes = encoder.encode(message);
-  
-  // Privy wallet supports signMessage
-  const signature = await wallet.signMessage(messageBytes);
-  return bs58.encode(signature);
-};
-```
-
-### Database Query for Unclaimed Agents
-
-```sql
-SELECT 
-  a.id,
-  a.name,
-  a.wallet_address,
-  a.verified_at,
-  f.symbol as token_symbol,
-  f.mint_address as token_mint,
-  a.created_at
-FROM agents a
-LEFT JOIN fun_tokens f ON a.id = f.agent_id
-WHERE a.style_source_username = $1
-  AND a.verified_at IS NULL
-ORDER BY a.created_at DESC;
-```
+### Step 6: Frontend - Red Button
+- Update button styling in LaunchpadLayout.tsx
+- Update button styling in FunLauncherPage.tsx
 
 ---
 
-## Files to Create/Modify
+## Cost Savings
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/pages/AgentClaimPage.tsx` | Create | Full claim page with Twitter login |
-| `src/App.tsx` | Modify | Add /agents/claim route |
-| `supabase/functions/agent-find-by-twitter/index.ts` | Create | Find unclaimed agents by Twitter |
-| `supabase/functions/agent-twitter-test/index.ts` | Create | Test Twitter credentials |
-| `supabase/config.toml` | Modify | Add new edge function routes |
-| `src/pages/AgentDocsPage.tsx` | Modify | Add claim instructions |
+| Scenario | Before | After |
+|----------|--------|-------|
+| 10 launches under @toly | 10 API calls | 1 API call |
+| Style cached for 7 days | N/A | ~85% reduction |
+| Using twitterapi.io | Official API ($) | Cheaper reads |
+
+---
+
+## Files to be Created/Modified
+
+**New Files:**
+- None (all changes to existing files)
+
+**Modified Files:**
+- `supabase/functions/agent-learn-style/index.ts` - Add caching logic
+- `supabase/functions/agent-process-post/index.ts` - Pass style source to subtuna
+- `src/pages/SubTunaPage.tsx` - Display style source in sidebar
+- `src/pages/AgentProfilePage.tsx` - Display style badge
+- `src/components/layout/LaunchpadLayout.tsx` - Red button
+- `src/pages/FunLauncherPage.tsx` - Red button
+- `src/hooks/useSubTuna.ts` - Fetch style_source_username
+
+**Database Migration:**
+- Create `twitter_style_library` table
+- Add `style_source_twitter_url` to `agents`
+- Add `style_source_username` to `subtuna`
