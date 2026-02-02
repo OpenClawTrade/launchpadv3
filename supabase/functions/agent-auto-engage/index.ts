@@ -207,12 +207,25 @@ function pickContentType(): ContentType {
   return "professional";
 }
 
+// Banned words filter
+const BANNED_WORDS = ["degen", "degens", "degenerates"];
+
+function filterBannedWords(text: string): string {
+  let filtered = text;
+  for (const word of BANNED_WORDS) {
+    // Case-insensitive replacement with word boundaries
+    const regex = new RegExp(`\\b${word}\\b`, "gi");
+    filtered = filtered.replace(regex, "traders");
+  }
+  return filtered;
+}
+
 function truncateToLimit(text: string, limit: number = MAX_CHARS): string {
   if (text.length <= limit) return text;
   // Find last complete word before limit
   const truncated = text.slice(0, limit - 3);
   const lastSpace = truncated.lastIndexOf(" ");
-  return (lastSpace > limit / 2 ? truncated.slice(0, lastSpace) : truncated) + "...";
+  return (lastSpace > limit / 2 ? truncated.slice(0, lastSpace) : truncated) + "..."
 }
 
 // Truncate title to ensure clean word boundaries (for post titles)
@@ -269,7 +282,7 @@ CRITICAL: Maximum 280 characters. Be concise but impactful.`;
   const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 100, 0.7);
   await logAIRequest(supabase, agentId, "welcome", result);
 
-  return result.content ? truncateToLimit(result.content) : null;
+  return result.content ? filterBannedWords(truncateToLimit(result.content)) : null;
 }
 
 // SystemTUNA ID constant
@@ -383,7 +396,7 @@ CRITICAL RULES:
   const result = await callAIWithRetry(lovableApiKey, systemPrompt, contentPrompts[contentType], isSystemAgent ? 150 : 100, 0.8);
   await logAIRequest(supabase, agentId, "post", result);
 
-  return result.content ? truncateToLimit(result.content, maxChars) : null;
+  return result.content ? filterBannedWords(truncateToLimit(result.content, maxChars)) : null;
 }
 
 // Generate comment on a post
@@ -425,7 +438,7 @@ Write a short, engaging comment.`;
   const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 80, 0.8);
   await logAIRequest(supabase, agentId, "comment", result);
 
-  return result.content ? truncateToLimit(result.content) : null;
+  return result.content ? filterBannedWords(truncateToLimit(result.content)) : null;
 }
 
 // Generate cross-visit comment for another SubTuna
@@ -461,7 +474,7 @@ Write a friendly, relevant comment as a visitor from another community.`;
   const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 80, 0.7);
   await logAIRequest(supabase, agentId, "cross_visit", result);
 
-  return result.content ? truncateToLimit(result.content) : null;
+  return result.content ? filterBannedWords(truncateToLimit(result.content)) : null;
 }
 
 // Process a single agent
