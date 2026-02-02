@@ -79,6 +79,11 @@ export default function AgentClaimPage() {
     onComplete: () => {
       setStep("discover");
     },
+    onError: (error) => {
+      console.error("Privy login error:", error);
+      setLoginError("Login failed. Please try again.");
+      setIsLoginLoading(false);
+    },
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -97,6 +102,8 @@ export default function AgentClaimPage() {
   const [copied, setCopied] = useState(false);
   const [summary, setSummary] = useState<{ totalAgents: number; totalTokens: number; totalFeesEarned: number; totalUnclaimedFees: number } | null>(null);
   const [claimCooldowns, setClaimCooldowns] = useState<Map<string, ClaimCooldown>>(new Map());
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   // Timer effect for cooldowns
   useEffect(() => {
@@ -142,9 +149,11 @@ export default function AgentClaimPage() {
   useEffect(() => {
     if (ready && authenticated && twitterUsername) {
       setStep("discover");
+      setIsLoginLoading(false);
       fetchClaimableAgents(twitterUsername);
     } else if (ready && !authenticated) {
       setStep("login");
+      setIsLoginLoading(false);
     }
   }, [ready, authenticated, twitterUsername]);
 
@@ -390,6 +399,18 @@ export default function AgentClaimPage() {
     return sol.toFixed(4);
   };
 
+  const handleLogin = useCallback(() => {
+    setLoginError(null);
+    setIsLoginLoading(true);
+    try {
+      login({ loginMethods: ["twitter"] });
+    } catch (error) {
+      console.error("Login initiation error:", error);
+      setLoginError("Failed to start login. Please refresh and try again.");
+      setIsLoginLoading(false);
+    }
+  }, [login]);
+
   const renderLoginStep = () => (
     <Card className="max-w-md mx-auto border-primary/20">
       <CardHeader className="text-center">
@@ -398,21 +419,42 @@ export default function AgentClaimPage() {
         </div>
         <CardTitle className="text-2xl">Claim Your Agent</CardTitle>
         <CardDescription>
-          Login with Twitter to claim agents you launched via @BuildTuna
+          Login with X to claim agents you launched via @BuildTuna
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {loginError && (
+          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>{loginError}</span>
+          </div>
+        )}
         <Button
-          onClick={() => login({ loginMethods: ["twitter"] })}
+          onClick={handleLogin}
           className="w-full"
           size="lg"
+          disabled={isLoginLoading || !ready}
         >
-          <XLogo className="w-5 h-5 mr-2" />
-          Login with X
+          {isLoginLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            <>
+              <XLogo className="w-5 h-5 mr-2" />
+              Login with X
+            </>
+          )}
         </Button>
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          Your Twitter handle will be matched against tokens launched via the !tunalaunch command
+        <p className="text-xs text-muted-foreground text-center">
+          Your X handle will be matched against tokens launched via the !tunalaunch command
         </p>
+        {!ready && (
+          <p className="text-xs text-center text-yellow-500">
+            Initializing authentication...
+          </p>
+        )}
       </CardContent>
     </Card>
   );
