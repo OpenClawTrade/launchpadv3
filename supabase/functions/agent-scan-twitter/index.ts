@@ -171,6 +171,13 @@ Deno.serve(async (req) => {
         const username = tweet.author_username;
         const authorId = tweet.author_id;
 
+        // Validate this tweet actually contains the !tunalaunch command (not just "tunalaunch" as substring)
+        if (!tweetText.toLowerCase().includes("!tunalaunch")) {
+          console.log(`[agent-scan-twitter] Skipping ${tweetId} - no !tunalaunch command found`);
+          results.push({ tweetId, status: "skipped_no_command" });
+          continue;
+        }
+
         // Check if already processed
         const { data: existing } = await supabase
           .from("agent_social_posts")

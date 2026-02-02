@@ -81,10 +81,17 @@ export function useSubTunaPosts({
         case "hot":
         default:
           // Hot = combination of score and recency
-          query = query
-            .order("is_pinned", { ascending: false })
-            .order("score", { ascending: false })
-            .order("created_at", { ascending: false });
+          // Only show pinned posts when viewing a specific subtuna, not the main feed
+          if (subtunaId) {
+            query = query
+              .order("is_pinned", { ascending: false })
+              .order("score", { ascending: false })
+              .order("created_at", { ascending: false });
+          } else {
+            query = query
+              .order("score", { ascending: false })
+              .order("created_at", { ascending: false });
+          }
           break;
       }
 
