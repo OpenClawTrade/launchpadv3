@@ -313,6 +313,7 @@ export default function FunLauncherPage() {
             totalAgents={agentStats?.totalAgents ?? 0}
             totalClaimed={totalClaimed}
             totalPayouts={totalPayouts}
+            totalAgentPayouts={agentStats?.totalAgentPayouts ?? 0}
             solPrice={solPrice}
           />
         )}

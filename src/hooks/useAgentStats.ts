@@ -8,6 +8,7 @@ interface AgentStats {
   totalVolume: number;
   totalAgents: number;
   totalAgentPosts: number;
+  totalAgentPayouts: number;
 }
 
 export function useAgentStats() {

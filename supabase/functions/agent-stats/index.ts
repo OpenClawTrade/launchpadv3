@@ -43,10 +43,10 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to fetch agent tokens: ${tokensError.message}`);
     }
 
-    // Get agent stats
+    // Get agent stats (include total_fees_claimed_sol for payouts)
     const { data: agents, error: agentsError } = await supabase
       .from("agents")
-      .select("id, name, total_fees_earned_sol, total_tokens_launched, post_count, comment_count")
+      .select("id, name, total_fees_earned_sol, total_fees_claimed_sol, total_tokens_launched, post_count, comment_count")
       .eq("status", "active");
 
     if (agentsError) {
@@ -92,6 +92,12 @@ Deno.serve(async (req) => {
       0
     ) || 0;
 
+    // Sum up all agent payouts (claimed fees)
+    const totalAgentPayouts = agents?.reduce(
+      (sum, a) => sum + Number(a.total_fees_claimed_sol || 0),
+      0
+    ) || 0;
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -102,6 +108,7 @@ Deno.serve(async (req) => {
           totalVolume,
           totalAgents,
           totalAgentPosts,
+          totalAgentPayouts,
         },
       }),
       {
