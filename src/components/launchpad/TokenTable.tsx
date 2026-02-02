@@ -81,7 +81,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
 
     return (
       <Link
-        to={`/launchpad/${token.mint_address}`}
+        to={token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address}`}
         className={`block p-3 border-b border-border last:border-b-0 hover:bg-secondary/30 transition-colors ${isPromoted ? "ring-2 ring-warning/50 ring-inset bg-warning/5" : ""}`}
       >
         <div className="flex items-start gap-3">
@@ -227,7 +227,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                     <tr key={token.id} className={isPromoted ? "ring-2 ring-warning/30 ring-inset bg-warning/5" : ""}>
                       <td className="text-muted-foreground font-medium">{(page - 1) * pageSize + index + 1}</td>
                       <td>
-                        <Link to={`/launchpad/${token.mint_address}`} className="gate-token-row hover:opacity-80 transition-opacity">
+                        <Link to={token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address}`} className="gate-token-row hover:opacity-80 transition-opacity">
                           <div className={`gate-token-avatar ${isPromoted ? "ring-2 ring-warning" : ""}`}>
                             {token.image_url ? <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">{token.ticker?.slice(0, 2)}</div>}
                           </div>
