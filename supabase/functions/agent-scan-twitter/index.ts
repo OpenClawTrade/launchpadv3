@@ -352,7 +352,7 @@ async function replyToTweet(
       );
     };
 
-    // Attempt with /twitter/tweet/create (primary documented endpoint per twitterapi.io)
+    // Attempt with /twitter/tweet/create with tweet_text (documented param)
     const tryTweetCreatePrimary = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
       if (!loginCookies) {
         return { ok: false, error: "Missing login_cookies" };
@@ -364,7 +364,7 @@ async function replyToTweet(
           "X-API-Key": apiKey,
         },
         body: JSON.stringify({
-          tweet_content: text,
+          tweet_text: text,
           in_reply_to_tweet_id: tweetId,
           login_cookies: loginCookies,
           proxy: proxyUrl,
@@ -372,7 +372,7 @@ async function replyToTweet(
       });
 
       const responseText = await response.text();
-      console.log(`[agent-scan-twitter] 📥 Reply API response (tweet/create v1): ${response.status} - ${responseText.slice(0, 300)}`);
+      console.log(`[agent-scan-twitter] 📥 Reply API response (tweet/create tweet_text): ${response.status} - ${responseText.slice(0, 300)}`);
 
       if (!response.ok) {
         return { ok: false, error: `HTTP ${response.status}: ${responseText}` };
