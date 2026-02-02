@@ -631,22 +631,27 @@ export async function processLaunchPost(
       `[agent-process-post] Launching token for agent ${agent.name}: ${parsed.name} (${parsed.symbol})`
     );
 
+    // === DEFENSIVE SANITIZATION ===
+    // Clean name and symbol to prevent malformed URLs and data
+    // This ensures robustness even if parsing logic changes or data comes from other sources
+    const cleanName = parsed.name.replace(/[,.:;!?]+$/, "").slice(0, 32);
+    const cleanSymbol = parsed.symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
+    
     // === PRE-CREATE SUBTUNA COMMUNITY BEFORE TOKEN LAUNCH ===
     // This ensures the community URL can be embedded in on-chain metadata
-    const tickerUpper = parsed.symbol.toUpperCase();
     const isReply = !!(postUrl && postUrl.includes("/status/") && rawContent.includes("@"));
     const styleSourceUsername = isReply && postAuthor ? postAuthor : (postAuthor || undefined);
     
-    console.log(`[agent-process-post] Pre-creating SubTuna community for ${tickerUpper}`);
+    console.log(`[agent-process-post] Pre-creating SubTuna community for ${cleanSymbol}`);
     
     const { data: preCreatedSubtuna, error: preSubtunaError } = await supabase
       .from("subtuna")
       .insert({
         fun_token_id: null, // Will be linked after launch
         agent_id: agent.id,
-        ticker: tickerUpper,
-        name: `t/${tickerUpper}`,
-        description: parsed.description || `Welcome to the official community for $${tickerUpper}!`,
+        ticker: cleanSymbol,
+        name: `t/${cleanSymbol}`,
+        description: parsed.description || `Welcome to the official community for $${cleanSymbol}!`,
         icon_url: finalImageUrl,
         style_source_username: styleSourceUsername?.replace("@", "") || null,
       })
@@ -654,7 +659,7 @@ export async function processLaunchPost(
       .single();
 
     // Generate community URL for on-chain metadata
-    const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${tickerUpper}` : null;
+    const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${cleanSymbol}` : null;
     
     if (preCreatedSubtuna) {
       console.log(`[agent-process-post] ✅ SubTuna pre-created: ${communityUrl}`);
@@ -671,11 +676,11 @@ export async function processLaunchPost(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: parsed.name,
-        ticker: parsed.symbol,
+        name: cleanName,
+        ticker: cleanSymbol,
         description:
           parsed.description ||
-          `${parsed.name} - Launched via TUNA Agents on ${platform}`,
+          `${cleanName} - Launched via TUNA Agents on ${platform}`,
         imageUrl: finalImageUrl,
         websiteUrl: parsed.website || communityUrl || null, // Use community URL as fallback
         twitterUrl: postUrl || parsed.twitter || null, // Use original X post URL for on-chain metadata
@@ -749,8 +754,8 @@ export async function processLaunchPost(
       const { data: inserted } = await supabase
         .from("fun_tokens")
         .insert({
-          name: parsed.name,
-          ticker: parsed.symbol,
+          name: cleanName,
+          ticker: cleanSymbol,
           description: parsed.description || null,
           image_url: finalImageUrl,
           creator_wallet: parsed.wallet,
@@ -804,17 +809,17 @@ export async function processLaunchPost(
           await supabase.from("subtuna_posts").insert({
             subtuna_id: preCreatedSubtuna.id,
             author_agent_id: agent.id,
-            title: `Welcome to $${tickerUpper}! 🎉`,
-            content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+            title: `Welcome to $${cleanSymbol}! 🎉`,
+            content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
             post_type: "text",
             is_agent_post: true,
             is_pinned: true,
           });
         } else {
-          console.log(`[agent-process-post] Welcome post already exists for ${tickerUpper}, skipping duplicate`);
+          console.log(`[agent-process-post] Welcome post already exists for ${cleanSymbol}, skipping duplicate`);
         }
 
-        console.log(`[agent-process-post] ✅ SubTuna community linked: t/${tickerUpper}`);
+        console.log(`[agent-process-post] ✅ SubTuna community linked: t/${cleanSymbol}`);
         
         // Trigger style learning
         if (platform === "twitter" && postAuthor) {
@@ -847,10 +852,10 @@ export async function processLaunchPost(
           .insert({
             fun_token_id: funTokenId,
             agent_id: agent.id,
-            ticker: tickerUpper,
-            name: `t/${tickerUpper}`,
-            description: parsed.description || `Welcome to the official community for $${tickerUpper}!`,
-            icon_url: parsed.image || null,
+            ticker: cleanSymbol,
+            name: `t/${cleanSymbol}`,
+            description: parsed.description || `Welcome to the official community for $${cleanSymbol}!`,
+            icon_url: finalImageUrl || null,
             style_source_username: styleSourceUsername?.replace("@", "") || null,
           })
           .select("id")
@@ -870,14 +875,14 @@ export async function processLaunchPost(
             await supabase.from("subtuna_posts").insert({
               subtuna_id: subtuna.id,
               author_agent_id: agent.id,
-              title: `Welcome to $${tickerUpper}! 🎉`,
-              content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts.\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+              title: `Welcome to $${cleanSymbol}! 🎉`,
+              content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts.\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
               post_type: "text",
               is_agent_post: true,
               is_pinned: true,
             });
           }
-          console.log(`[agent-process-post] ✅ SubTuna community created (fallback): t/${tickerUpper}`);
+          console.log(`[agent-process-post] ✅ SubTuna community created (fallback): t/${cleanSymbol}`);
         } else if (subtunaError) {
           console.error(`[agent-process-post] SubTuna creation failed:`, subtunaError.message);
         }
