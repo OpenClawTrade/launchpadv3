@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// OAuth 1.0a signing
+// OAuth 1.0a signing for official X.com API (used ONLY for posting)
 function generateOAuthSignature(
   method: string,
   url: string,
@@ -74,7 +74,52 @@ function generateOAuthHeader(
   return `OAuth ${headerParts}`;
 }
 
-// Send reply to a tweet
+// Search for mentions using twitterapi.io (cheap reads)
+async function searchMentionsViaTwitterApiIo(
+  apiKey: string,
+  query: string
+): Promise<Array<{
+  id: string;
+  text: string;
+  author_id: string;
+  author_username: string;
+  created_at: string;
+}>> {
+  const url = new URL("https://api.twitterapi.io/twitter/tweet/advanced_search");
+  url.searchParams.set("query", query);
+  url.searchParams.set("queryType", "Latest");
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      "X-API-Key": apiKey,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("[agent-scan-twitter] twitterapi.io search failed:", error);
+    throw new Error(`twitterapi.io search failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const tweets = data.tweets || [];
+
+  return tweets.map((tweet: {
+    id: string;
+    text: string;
+    author?: { id: string; userName: string };
+    createdAt: string;
+  }) => ({
+    id: tweet.id,
+    text: tweet.text,
+    author_id: tweet.author?.id || "",
+    author_username: tweet.author?.userName || "",
+    created_at: tweet.createdAt,
+  }));
+}
+
+// Send reply using official X.com API (requires OAuth 1.0a)
 async function replyToTweet(
   tweetId: string,
   text: string,
@@ -135,6 +180,11 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    // twitterapi.io for cheap mention monitoring
+    const twitterApiIoKey = Deno.env.get("TWITTERAPI_IO_KEY");
+    
+    // Official X.com API only for posting replies
     const consumerKey = Deno.env.get("TWITTER_CONSUMER_KEY");
     const consumerSecret = Deno.env.get("TWITTER_CONSUMER_SECRET");
     const accessToken = Deno.env.get("TWITTER_ACCESS_TOKEN");
@@ -144,15 +194,21 @@ Deno.serve(async (req) => {
       Deno.env.get("VITE_METEORA_API_URL") ||
       "https://tunalaunch.vercel.app";
 
-    if (!consumerKey || !consumerSecret || !accessToken || !accessTokenSecret) {
-      console.log("[agent-scan-twitter] Twitter credentials not configured");
+    if (!twitterApiIoKey) {
+      console.log("[agent-scan-twitter] TWITTERAPI_IO_KEY not configured");
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Twitter credentials not configured",
+          error: "TWITTERAPI_IO_KEY not configured",
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Check if we have official API credentials for posting replies
+    const canPostReplies = consumerKey && consumerSecret && accessToken && accessTokenSecret;
+    if (!canPostReplies) {
+      console.log("[agent-scan-twitter] Official X.com API not configured - will process but skip replies");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -178,38 +234,14 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // Search for recent tweets with !tunalaunch
-      const searchUrl = new URL("https://api.x.com/2/tweets/search/recent");
-      searchUrl.searchParams.set("query", "!tunalaunch -is:retweet");
-      searchUrl.searchParams.set("max_results", "20");
-      searchUrl.searchParams.set("tweet.fields", "author_id,created_at,text");
-      searchUrl.searchParams.set("expansions", "author_id");
-      searchUrl.searchParams.set("user.fields", "username");
-
-      const searchOAuth = generateOAuthHeader(
-        "GET",
-        "https://api.x.com/2/tweets/search/recent",
-        consumerKey,
-        consumerSecret,
-        accessToken,
-        accessTokenSecret
+      // Use twitterapi.io for cheap mention detection (saves ~70% API costs)
+      console.log("[agent-scan-twitter] Searching via twitterapi.io...");
+      const tweets = await searchMentionsViaTwitterApiIo(
+        twitterApiIoKey,
+        "!tunalaunch -is:retweet"
       );
 
-      const searchResponse = await fetch(searchUrl.toString(), {
-        headers: { Authorization: searchOAuth },
-      });
-
-      if (!searchResponse.ok) {
-        const errorText = await searchResponse.text();
-        console.error("[agent-scan-twitter] Search failed:", errorText);
-        throw new Error(`Twitter search failed: ${searchResponse.status}`);
-      }
-
-      const searchData = await searchResponse.json();
-      const tweets = searchData.data || [];
-      const users = searchData.includes?.users || [];
-
-      console.log(`[agent-scan-twitter] Found ${tweets.length} tweets to process`);
+      console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io`);
 
       const results: Array<{
         tweetId: string;
@@ -221,9 +253,8 @@ Deno.serve(async (req) => {
       for (const tweet of tweets) {
         const tweetId = tweet.id;
         const tweetText = tweet.text;
+        const username = tweet.author_username;
         const authorId = tweet.author_id;
-        const author = users.find((u: { id: string }) => u.id === authorId);
-        const username = author?.username || null;
 
         // Check if already processed
         const { data: existing } = await supabase
@@ -261,29 +292,31 @@ Deno.serve(async (req) => {
         const processResult = await processResponse.json();
 
         if (processResult.success && processResult.mintAddress) {
-          // Reply to the tweet with token info
-          const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
-
-          const replyResult = await replyToTweet(
-            tweetId,
-            replyText,
-            consumerKey,
-            consumerSecret,
-            accessToken,
-            accessTokenSecret
-          );
-
           results.push({
             tweetId,
             status: "launched",
             mintAddress: processResult.mintAddress,
           });
 
-          if (!replyResult.success) {
-            console.warn(
-              `[agent-scan-twitter] Failed to reply to ${tweetId}:`,
-              replyResult.error
+          // Only post reply if we have official X.com API credentials
+          if (canPostReplies) {
+            const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
+
+            const replyResult = await replyToTweet(
+              tweetId,
+              replyText,
+              consumerKey!,
+              consumerSecret!,
+              accessToken!,
+              accessTokenSecret!
             );
+
+            if (!replyResult.success) {
+              console.warn(
+                `[agent-scan-twitter] Failed to reply to ${tweetId}:`,
+                replyResult.error
+              );
+            }
           }
         } else {
           results.push({
@@ -304,6 +337,7 @@ Deno.serve(async (req) => {
           tweetsFound: tweets.length,
           results,
           durationMs: Date.now() - startTime,
+          mode: "hybrid_twitterapi_io",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
