@@ -1552,7 +1552,7 @@ export type Database = {
           chain_id: number | null
           created_at: string | null
           creator_fee_bps: number | null
-          creator_wallet: string
+          creator_wallet: string | null
           dbc_pool_address: string | null
           description: string | null
           discord_url: string | null
@@ -1592,7 +1592,7 @@ export type Database = {
           chain_id?: number | null
           created_at?: string | null
           creator_fee_bps?: number | null
-          creator_wallet: string
+          creator_wallet?: string | null
           dbc_pool_address?: string | null
           description?: string | null
           discord_url?: string | null
@@ -1632,7 +1632,7 @@ export type Database = {
           chain_id?: number | null
           created_at?: string | null
           creator_fee_bps?: number | null
-          creator_wallet?: string
+          creator_wallet?: string | null
           dbc_pool_address?: string | null
           description?: string | null
           discord_url?: string | null

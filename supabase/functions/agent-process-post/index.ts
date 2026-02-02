@@ -769,7 +769,7 @@ export async function processLaunchPost(
           ticker: cleanSymbol,
           description: parsed.description || null,
           image_url: finalImageUrl,
-          creator_wallet: parsed.wallet,
+          creator_wallet: parsed.wallet || null, // Nullable - fees claimed via X login
           mint_address: mintAddress,
           dbc_pool_address: dbcPoolAddress,
           status: "active",
