@@ -324,6 +324,29 @@ Deno.serve(async (req) => {
             status: "failed",
             error: processResult.error,
           });
+
+          // Reply with format instructions if parsing failed
+          if (canPostReplies && processResult.error?.includes("parse")) {
+            const formatHelpText = `🐟 Hey @${username}! To launch your token, please use this format:\n\n!tunalaunch\nName: YourTokenName\nSymbol: $TICKER\nWallet: YourSolanaWallet\n\nAttach an image and run the command again!`;
+
+            const helpReplyResult = await replyToTweet(
+              tweetId,
+              formatHelpText,
+              consumerKey!,
+              consumerSecret!,
+              accessToken!,
+              accessTokenSecret!
+            );
+
+            if (helpReplyResult.success) {
+              console.log(`[agent-scan-twitter] Sent format help reply to ${tweetId}`);
+            } else {
+              console.warn(
+                `[agent-scan-twitter] Failed to send format help to ${tweetId}:`,
+                helpReplyResult.error
+              );
+            }
+          }
         }
       }
 
