@@ -157,19 +157,28 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Test different endpoint variations - try auth_session as some endpoints require it
+    // Test different endpoint variations with both "text" and "tweet_text" field names
     const endpoints = [
       {
-        name: "create_tweet_v2 (auth_session)",
-        url: "/twitter/create_tweet_v2",
+        name: "post_tweets (text field)",
+        url: "/twitter/tweets/post_tweets",
         body: {
-          tweet_text: testText,
-          auth_session: loginCookies,
+          text: testText,
+          login_cookies: loginCookies,
           proxy: proxyUrl,
         },
       },
       {
-        name: "create_tweet_v2 (login_cookies)",
+        name: "create_tweet_v2 (text field)",
+        url: "/twitter/create_tweet_v2",
+        body: {
+          text: testText,
+          login_cookies: loginCookies,
+          proxy: proxyUrl,
+        },
+      },
+      {
+        name: "create_tweet_v2 (tweet_text field)",
         url: "/twitter/create_tweet_v2",
         body: {
           tweet_text: testText,
@@ -178,38 +187,21 @@ Deno.serve(async (req) => {
         },
       },
       {
-        name: "create_tweet_v2 (cookies)",
+        name: "reply format (nested reply object)",
         url: "/twitter/create_tweet_v2",
         body: {
-          tweet_text: testText,
-          cookies: loginCookies,
+          text: testText + " [reply test]",
+          reply: { in_reply_to_tweet_id: tweet_id },
+          login_cookies: loginCookies,
           proxy: proxyUrl,
         },
       },
       {
-        name: "tweet/create (auth_session)",
-        url: "/twitter/tweet/create",
+        name: "post_tweet endpoint",
+        url: "/twitter/post_tweet",
         body: {
           text: testText,
-          auth_session: loginCookies,
-          proxy: proxyUrl,
-        },
-      },
-      {
-        name: "user/tweet (auth_session)",
-        url: "/twitter/user/tweet",
-        body: {
-          text: testText,
-          auth_session: loginCookies,
-          proxy: proxyUrl,
-        },
-      },
-      {
-        name: "create_tweet (auth_session)",
-        url: "/twitter/create_tweet",
-        body: {
-          tweet_text: testText,
-          auth_session: loginCookies,
+          login_cookies: loginCookies,
           proxy: proxyUrl,
         },
       },
