@@ -1,0 +1,609 @@
+import { useState, useEffect, useCallback } from "react";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  ArrowClockwise,
+  TwitterLogo,
+  CheckCircle,
+  XCircle,
+  Warning,
+  Rocket,
+  Eye,
+  MagnifyingGlass,
+} from "@phosphor-icons/react";
+import { toast } from "sonner";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
+import { formatDistanceToNow } from "date-fns";
+
+interface SocialPost {
+  id: string;
+  platform: string;
+  post_id: string;
+  post_author: string | null;
+  post_url: string | null;
+  raw_content: string | null;
+  status: string;
+  error_message: string | null;
+  parsed_name: string | null;
+  parsed_symbol: string | null;
+  wallet_address: string;
+  fun_token_id: string | null;
+  created_at: string;
+  processed_at: string | null;
+}
+
+interface TokenJob {
+  id: string;
+  name: string;
+  ticker: string;
+  creator_wallet: string;
+  status: string;
+  error_message: string | null;
+  mint_address: string | null;
+  dbc_pool_address: string | null;
+  fun_token_id: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export default function AgentLogsAdminPage() {
+  const { walletAddress } = useSolanaWalletWithPrivy();
+  const { isAdmin, isLoading: isAdminLoading } = useIsAdmin(walletAddress);
+
+  const [activeTab, setActiveTab] = useState("mentions");
+  const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
+  const [tokenJobs, setTokenJobs] = useState<TokenJob[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
+
+  const fetchSocialPosts = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("agent_social_posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      setSocialPosts(data || []);
+    } catch (err) {
+      console.error("Error fetching social posts:", err);
+      toast.error("Failed to fetch social posts");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const fetchTokenJobs = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("fun_token_jobs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      setTokenJobs(data || []);
+    } catch (err) {
+      console.error("Error fetching token jobs:", err);
+      toast.error("Failed to fetch token jobs");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const triggerScan = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "agent-scan-twitter",
+        { body: {} }
+      );
+
+      if (error) throw error;
+
+      toast.success(
+        `Scan complete: ${data?.processed || 0} posts processed`
+      );
+      await fetchSocialPosts();
+    } catch (err) {
+      console.error("Error triggering scan:", err);
+      toast.error("Failed to trigger scan");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchSocialPosts();
+      fetchTokenJobs();
+    }
+  }, [isAdmin, fetchSocialPosts, fetchTokenJobs]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+      case "launched":
+        return (
+          <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
+      case "failed":
+        return (
+          <Badge variant="destructive" className="bg-destructive/20">
+            <XCircle className="h-3 w-3 mr-1" />
+            failed
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge variant="outline" className="bg-accent/20 text-accent-foreground border-accent/30">
+            <Warning className="h-3 w-3 mr-1" />
+            pending
+          </Badge>
+        );
+      case "processing":
+        return (
+          <Badge variant="outline" className="bg-secondary/20 text-secondary-foreground border-secondary/30">
+            <ArrowClockwise className="h-3 w-3 mr-1 animate-spin" />
+            processing
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            {status}
+          </Badge>
+        );
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const stats = {
+    totalMentions: socialPosts.length,
+    successfulLaunches: socialPosts.filter((p) => p.status === "launched")
+      .length,
+    failedParsing: socialPosts.filter((p) => p.status === "failed").length,
+    pendingJobs: tokenJobs.filter((j) => j.status === "pending").length,
+    completedJobs: tokenJobs.filter((j) => j.status === "completed").length,
+    failedJobs: tokenJobs.filter((j) => j.status === "failed").length,
+  };
+
+  if (isAdminLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <main className="max-w-7xl mx-auto px-4 py-16">
+          <div className="text-center text-muted-foreground">
+            Checking admin access...
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <main className="max-w-7xl mx-auto px-4 py-16">
+          <Card className="max-w-md mx-auto">
+            <CardContent className="p-8 text-center">
+              <Warning className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2">Admin Access Required</h2>
+              <p className="text-muted-foreground">
+                Connect an admin wallet to access this page.
+              </p>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <MagnifyingGlass className="h-6 w-6 text-primary" />
+              Agent Logs Monitor
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Monitor Twitter mentions and token launch jobs
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                fetchSocialPosts();
+                fetchTokenJobs();
+              }}
+              disabled={isLoading}
+            >
+              <ArrowClockwise
+                className={`h-4 w-4 mr-1 ${isLoading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              onClick={triggerScan}
+              disabled={isLoading}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <TwitterLogo className="h-4 w-4 mr-1" weight="fill" />
+              Scan Now
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold">{stats.totalMentions}</div>
+              <div className="text-xs text-muted-foreground">Total Mentions</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-primary">
+                {stats.successfulLaunches}
+              </div>
+              <div className="text-xs text-muted-foreground">Launched</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-destructive">
+                {stats.failedParsing}
+              </div>
+              <div className="text-xs text-muted-foreground">Parse Failed</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-accent-foreground">
+                {stats.pendingJobs}
+              </div>
+              <div className="text-xs text-muted-foreground">Pending Jobs</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-primary">
+                {stats.completedJobs}
+              </div>
+              <div className="text-xs text-muted-foreground">Completed Jobs</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-destructive">
+                {stats.failedJobs}
+              </div>
+              <div className="text-xs text-muted-foreground">Failed Jobs</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="mentions" className="gap-2">
+              <TwitterLogo className="h-4 w-4" />
+              Twitter Mentions ({socialPosts.length})
+            </TabsTrigger>
+            <TabsTrigger value="jobs" className="gap-2">
+              <Rocket className="h-4 w-4" />
+              Token Jobs ({tokenJobs.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="mentions">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  Recent !tunalaunch Mentions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[600px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Author</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Parsed Data</TableHead>
+                        <TableHead>Error</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {socialPosts.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="text-muted-foreground">
+                              No mentions found yet. Click "Scan Now" to fetch.
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        socialPosts.map((post) => (
+                          <TableRow key={post.id}>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDate(post.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <TwitterLogo className="h-3 w-3 text-primary" />
+                                <span className="text-sm">
+                                  @{post.post_author || "unknown"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(post.status)}</TableCell>
+                            <TableCell>
+                              {post.parsed_name ? (
+                                <div className="text-xs">
+                                  <span className="font-medium">
+                                    {post.parsed_name}
+                                  </span>
+                                  {post.parsed_symbol && (
+                                    <span className="text-muted-foreground ml-1">
+                                      (${post.parsed_symbol})
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  Not parsed
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {post.error_message && (
+                                <span className="text-xs text-destructive max-w-[200px] truncate block">
+                                  {post.error_message}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {post.post_url && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    asChild
+                                    className="h-7 px-2"
+                                  >
+                                    <a
+                                      href={post.post_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <TwitterLogo className="h-3 w-3" />
+                                    </a>
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2"
+                                  onClick={() => setSelectedPost(post)}
+                                >
+                                  <Eye className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="jobs">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Token Launch Jobs</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[600px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Token</TableHead>
+                        <TableHead>Creator</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Mint Address</TableHead>
+                        <TableHead>Error</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tokenJobs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="text-muted-foreground">
+                              No token jobs yet.
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        tokenJobs.map((job) => (
+                          <TableRow key={job.id}>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDate(job.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{job.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                ${job.ticker}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs font-mono">
+                                {job.creator_wallet.slice(0, 4)}...
+                                {job.creator_wallet.slice(-4)}
+                              </span>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(job.status)}</TableCell>
+                            <TableCell>
+                              {job.mint_address ? (
+                                <a
+                                  href={`https://solscan.io/token/${job.mint_address}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-mono text-primary hover:underline"
+                                >
+                                  {job.mint_address.slice(0, 4)}...
+                                  {job.mint_address.slice(-4)}
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  -
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {job.error_message && (
+                                <span className="text-xs text-destructive max-w-[200px] truncate block">
+                                  {job.error_message}
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Detail Modal */}
+        {selectedPost && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedPost(null)}
+          >
+            <Card
+              className="max-w-2xl w-full max-h-[80vh] overflow-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Post Details</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedPost(null)}
+                  >
+                    ×
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <div className="text-muted-foreground">Platform</div>
+                    <div className="font-medium">{selectedPost.platform}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Status</div>
+                    <div>{getStatusBadge(selectedPost.status)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Author</div>
+                    <div className="font-medium">
+                      @{selectedPost.post_author || "unknown"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Wallet</div>
+                    <div className="font-mono text-xs">
+                      {selectedPost.wallet_address}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedPost.raw_content && (
+                  <div>
+                    <div className="text-muted-foreground text-sm mb-1">
+                      Raw Content
+                    </div>
+                    <div className="bg-muted p-3 rounded text-sm">
+                      {selectedPost.raw_content}
+                    </div>
+                  </div>
+                )}
+
+                {selectedPost.error_message && (
+                  <div>
+                    <div className="text-destructive text-sm mb-1">Error</div>
+                    <div className="bg-destructive/10 border border-destructive/20 p-3 rounded text-sm text-destructive">
+                      {selectedPost.error_message}
+                    </div>
+                  </div>
+                )}
+
+                {selectedPost.post_url && (
+                  <Button asChild className="w-full">
+                    <a
+                      href={selectedPost.post_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <TwitterLogo className="h-4 w-4 mr-2" />
+                      View on Twitter
+                    </a>
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
