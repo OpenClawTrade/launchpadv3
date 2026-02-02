@@ -23,63 +23,30 @@ interface ParsedLaunchData {
 }
 
 // Parse the !tunalaunch post content
+// Supports both multi-line format (key: value on each line) and single-line format
 export function parseLaunchPost(content: string): ParsedLaunchData | null {
   // Check for the trigger command
   if (!content.toLowerCase().includes("!tunalaunch")) {
     return null;
   }
 
-  const lines = content.split("\n").map((line) => line.trim());
   const data: Partial<ParsedLaunchData> = {};
 
+  // First try multi-line parsing
+  const lines = content.split("\n").map((line) => line.trim());
+
   for (const line of lines) {
-    // Match key: value patterns
+    // Match key: value patterns on separate lines
     const match = line.match(/^(\w+)\s*[:=]\s*(.+)$/i);
     if (match) {
       const [, key, value] = match;
-      const keyLower = key.toLowerCase();
-
-      switch (keyLower) {
-        case "name":
-        case "token":
-          data.name = value.trim().slice(0, 32);
-          break;
-        case "symbol":
-        case "ticker":
-          data.symbol = value.trim().toUpperCase().slice(0, 10);
-          break;
-        case "wallet":
-        case "address":
-        case "creator":
-          data.wallet = value.trim();
-          break;
-        case "description":
-        case "desc":
-          data.description = value.trim().slice(0, 500);
-          break;
-        case "image":
-        case "logo":
-        case "img":
-          data.image = value.trim();
-          break;
-        case "website":
-        case "site":
-        case "web":
-          data.website = value.trim();
-          break;
-        case "twitter":
-        case "x":
-          data.twitter = value.trim();
-          break;
-        case "telegram":
-        case "tg":
-          data.telegram = value.trim();
-          break;
-        case "discord":
-          data.discord = value.trim();
-          break;
-      }
+      assignParsedField(data, key, value);
     }
+  }
+
+  // If multi-line parsing didn't find required fields, try single-line parsing
+  if (!data.name || !data.symbol || !data.wallet) {
+    parseSingleLine(content, data);
   }
 
   // Validate required fields
@@ -87,12 +54,130 @@ export function parseLaunchPost(content: string): ParsedLaunchData | null {
     return null;
   }
 
+  // Clean wallet - remove any trailing URLs or non-base58 chars
+  data.wallet = data.wallet.split(/\s+/)[0].replace(/[^1-9A-HJ-NP-Za-km-z]/g, "");
+
   // Validate wallet address format (Solana base58, 32-44 chars)
   if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(data.wallet)) {
     return null;
   }
 
   return data as ParsedLaunchData;
+}
+
+// Helper to assign parsed field to data object
+function assignParsedField(data: Partial<ParsedLaunchData>, key: string, value: string): void {
+  const keyLower = key.toLowerCase();
+  const trimmedValue = value.trim();
+
+  switch (keyLower) {
+    case "name":
+    case "token":
+      data.name = trimmedValue.slice(0, 32);
+      break;
+    case "symbol":
+    case "ticker":
+      data.symbol = trimmedValue.toUpperCase().slice(0, 10);
+      break;
+    case "wallet":
+    case "address":
+    case "creator":
+      data.wallet = trimmedValue;
+      break;
+    case "description":
+    case "desc":
+      data.description = trimmedValue.slice(0, 500);
+      break;
+    case "image":
+    case "logo":
+    case "img":
+      data.image = trimmedValue;
+      break;
+    case "website":
+    case "site":
+    case "web":
+      data.website = trimmedValue;
+      break;
+    case "twitter":
+    case "x":
+      data.twitter = trimmedValue;
+      break;
+    case "telegram":
+    case "tg":
+      data.telegram = trimmedValue;
+      break;
+    case "discord":
+      data.discord = trimmedValue;
+      break;
+  }
+}
+
+// Parse single-line format: "!tunalaunch name: X symbol: Y wallet: Z description: ..."
+function parseSingleLine(content: string, data: Partial<ParsedLaunchData>): void {
+  // Define field patterns - order matters, longer keys first
+  const fieldKeys = [
+    { pattern: /\bname\s*[:=]\s*/i, key: "name" },
+    { pattern: /\btoken\s*[:=]\s*/i, key: "name" },
+    { pattern: /\bsymbol\s*[:=]\s*/i, key: "symbol" },
+    { pattern: /\bticker\s*[:=]\s*/i, key: "symbol" },
+    { pattern: /\bwallet\s*[:=]\s*/i, key: "wallet" },
+    { pattern: /\baddress\s*[:=]\s*/i, key: "wallet" },
+    { pattern: /\bcreator\s*[:=]\s*/i, key: "wallet" },
+    { pattern: /\bdescription\s*[:=]\s*/i, key: "description" },
+    { pattern: /\bdesc\s*[:=]\s*/i, key: "description" },
+    { pattern: /\bimage\s*[:=]\s*/i, key: "image" },
+    { pattern: /\blogo\s*[:=]\s*/i, key: "image" },
+    { pattern: /\bwebsite\s*[:=]\s*/i, key: "website" },
+    { pattern: /\btwitter\s*[:=]\s*/i, key: "twitter" },
+    { pattern: /\btelegram\s*[:=]\s*/i, key: "telegram" },
+    { pattern: /\bdiscord\s*[:=]\s*/i, key: "discord" },
+  ];
+
+  // Find all field positions
+  const positions: Array<{ key: string; start: number; matchEnd: number }> = [];
+  
+  for (const { pattern, key } of fieldKeys) {
+    const match = content.match(pattern);
+    if (match && match.index !== undefined) {
+      // Check if we already have this key at an earlier position
+      const existingIndex = positions.findIndex(p => p.key === key);
+      if (existingIndex === -1) {
+        positions.push({
+          key,
+          start: match.index,
+          matchEnd: match.index + match[0].length,
+        });
+      }
+    }
+  }
+
+  // Sort by position in the string
+  positions.sort((a, b) => a.start - b.start);
+
+  // Extract values - value is text from matchEnd until next field or end
+  for (let i = 0; i < positions.length; i++) {
+    const current = positions[i];
+    const next = positions[i + 1];
+    
+    // Value ends at next field start, or at end of content
+    const valueEnd = next ? next.start : content.length;
+    let value = content.slice(current.matchEnd, valueEnd).trim();
+    
+    // For wallet, stop at first whitespace or URL
+    if (current.key === "wallet") {
+      value = value.split(/[\s\n]/)[0];
+    }
+    
+    // For description, capture until next known field
+    if (current.key !== "description") {
+      // Remove trailing URLs for non-description fields
+      value = value.replace(/https?:\/\/\S+$/i, "").trim();
+    }
+    
+    if (value) {
+      assignParsedField(data, current.key, value);
+    }
+  }
 }
 
 // Get or create agent by wallet address
