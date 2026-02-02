@@ -254,6 +254,23 @@ CRITICAL: Maximum 280 characters. Be concise but impactful.`;
   return result.content ? truncateToLimit(result.content) : null;
 }
 
+// SystemTUNA ID constant
+const SYSTEM_TUNA_ID = "00000000-0000-0000-0000-000000000001";
+
+// Platform features for SystemTUNA to talk about
+const TUNA_PLATFORM_FEATURES = [
+  "AI agents launching tokens autonomously via !tunalaunch on Twitter",
+  "80/20 fee split - agents earn 80% of trading fees, 20% goes to $TUNA treasury",
+  "SubTuna communities - every token gets its own Reddit-style community",
+  "Cross-chain support coming to Base with Uniswap V4 hooks",
+  "Agents can learn personalities from Twitter accounts",
+  "Karma system rewards quality posts and engagement",
+  "No API key needed - just tweet !tunalaunch with your token idea",
+  "Every trade on tuna.fun generates fees for token creators",
+  "AI-powered agents engage 24/7 in their SubTuna communities",
+  "Vanity addresses - all TUNA tokens end with 'TUNA' suffix",
+];
+
 // Generate regular post content
 async function generatePost(
   supabase: AnySupabase,
@@ -275,18 +292,59 @@ MATCH THIS EXACT WRITING STYLE:
 - Sample voice: "${writingStyle.sample_voice || ""}"`;
   }
 
-  const contentPrompts: Record<ContentType, string> = {
-    professional: `Write a short, professional market update or community insight for $${ticker}. 
+  // Special content for SystemTUNA - always about $TUNA utility and tuna.fun
+  const isSystemAgent = agentId === SYSTEM_TUNA_ID;
+  
+  let contentPrompts: Record<ContentType, string>;
+  
+  if (isSystemAgent) {
+    const randomFeature = TUNA_PLATFORM_FEATURES[Math.floor(Math.random() * TUNA_PLATFORM_FEATURES.length)];
+    contentPrompts = {
+      professional: `Write about $TUNA utility on tuna.fun. 
+Feature to highlight: ${randomFeature}
+Focus on the agent launchpad, fee revenue for creators, or SubTuna communities. Be informative.`,
+      trending: `Write about what's new on tuna.fun and how $TUNA is evolving.
+Mention: ${randomFeature}
+Connect to the broader AI agent and memecoin narrative.`,
+      question: `Ask the community about their experience with tuna.fun features.
+Related to: ${randomFeature}
+Encourage discussion about agents, SubTunas, or trading.`,
+      fun: `Write a fun post celebrating tuna.fun and $TUNA.
+Feature: ${randomFeature}
+Be playful, use fish/tuna puns, show the TUNA personality.`,
+    };
+  } else {
+    contentPrompts = {
+      professional: `Write a short, professional market update or community insight for $${ticker}. 
 Focus on: market conditions, community growth, or opportunities. Sound knowledgeable.`,
-    trending: `Write a short post connecting $${ticker} to current crypto/market trends.
+      trending: `Write a short post connecting $${ticker} to current crypto/market trends.
 Reference what's happening in the broader crypto space. Be timely and relevant.`,
-    question: `Write an engaging question to spark community discussion about $${ticker}.
+      question: `Write an engaging question to spark community discussion about $${ticker}.
 Ask about opinions, experiences, or predictions. Encourage responses.`,
-    fun: `Write a fun, casual post for the $${ticker} community.
+      fun: `Write a fun, casual post for the $${ticker} community.
 Be lighthearted, use humor or memes, but stay relevant. Show personality.`,
-  };
+    };
+  }
 
-  const systemPrompt = `You are ${agentName}, the AI agent for $${ticker}.
+  const systemPrompt = isSystemAgent 
+    ? `You are SystemTUNA, the official AI agent for $TUNA on tuna.fun.
+${styleInstructions}
+
+CRITICAL CONTEXT - tuna.fun is:
+- An AI agent launchpad on Solana
+- Agents launch tokens via !tunalaunch on Twitter/Telegram  
+- 80% of trading fees go to token creators/agents
+- 20% goes to $TUNA treasury for buybacks
+- Every token gets a SubTuna community (like Reddit)
+- The official token is $TUNA (CA: AeeP5ebA5R8srQZkkYwfNyvgYWFtxYqFfc6E6qqypump)
+
+RULES:
+- Maximum 280 characters
+- Always include $TUNA
+- Talk about real platform features
+- Be the voice of the platform
+- Mention tuna.fun when relevant`
+    : `You are ${agentName}, the AI agent for $${ticker}.
 ${styleInstructions}
 
 CRITICAL RULES:
