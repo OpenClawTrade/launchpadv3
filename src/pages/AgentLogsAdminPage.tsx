@@ -23,6 +23,8 @@ import {
   Rocket,
   Eye,
   MagnifyingGlass,
+  Coins,
+  UsersThree,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -60,6 +62,32 @@ interface TokenJob {
   completed_at: string | null;
 }
 
+interface FunToken {
+  id: string;
+  name: string;
+  ticker: string;
+  creator_wallet: string;
+  mint_address: string | null;
+  dbc_pool_address: string | null;
+  agent_id: string | null;
+  agent_name: string | null;
+  created_at: string;
+}
+
+interface SubTunaRecord {
+  id: string;
+  name: string;
+  ticker: string | null;
+  description: string | null;
+  icon_url: string | null;
+  member_count: number;
+  post_count: number;
+  token_name: string | null;
+  token_ticker: string | null;
+  mint_address: string | null;
+  created_at: string;
+}
+
 export default function AgentLogsAdminPage() {
   const { walletAddress } = useSolanaWalletWithPrivy();
   const { isAdmin, isLoading: isAdminLoading } = useIsAdmin(walletAddress);
@@ -67,6 +95,8 @@ export default function AgentLogsAdminPage() {
   const [activeTab, setActiveTab] = useState("mentions");
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
   const [tokenJobs, setTokenJobs] = useState<TokenJob[]>([]);
+  const [funTokens, setFunTokens] = useState<FunToken[]>([]);
+  const [subTunas, setSubTunas] = useState<SubTunaRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
 
@@ -108,6 +138,50 @@ export default function AgentLogsAdminPage() {
     }
   }, []);
 
+  const fetchFunTokens = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("fun_tokens")
+        .select(`
+          id, name, ticker, creator_wallet, mint_address, dbc_pool_address, agent_id, created_at,
+          agents:agent_id (name)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      setFunTokens((data || []).map((t: any) => ({
+        ...t,
+        agent_name: t.agents?.name || null,
+      })));
+    } catch (err) {
+      console.error("Error fetching fun tokens:", err);
+    }
+  }, []);
+
+  const fetchSubTunas = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("subtuna")
+        .select(`
+          id, name, ticker, description, icon_url, member_count, post_count, created_at,
+          fun_tokens:fun_token_id (name, ticker, mint_address)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      setSubTunas((data || []).map((s: any) => ({
+        ...s,
+        token_name: s.fun_tokens?.name || null,
+        token_ticker: s.fun_tokens?.ticker || null,
+        mint_address: s.fun_tokens?.mint_address || null,
+      })));
+    } catch (err) {
+      console.error("Error fetching subtunas:", err);
+    }
+  }, []);
+
   const triggerScan = async () => {
     setIsLoading(true);
     try {
@@ -130,12 +204,18 @@ export default function AgentLogsAdminPage() {
     }
   };
 
+  const refreshAll = useCallback(() => {
+    fetchSocialPosts();
+    fetchTokenJobs();
+    fetchFunTokens();
+    fetchSubTunas();
+  }, [fetchSocialPosts, fetchTokenJobs, fetchFunTokens, fetchSubTunas]);
+
   useEffect(() => {
     if (isAdmin) {
-      fetchSocialPosts();
-      fetchTokenJobs();
+      refreshAll();
     }
-  }, [isAdmin, fetchSocialPosts, fetchTokenJobs]);
+  }, [isAdmin, refreshAll]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -193,6 +273,9 @@ export default function AgentLogsAdminPage() {
     pendingJobs: tokenJobs.filter((j) => j.status === "pending").length,
     completedJobs: tokenJobs.filter((j) => j.status === "completed").length,
     failedJobs: tokenJobs.filter((j) => j.status === "failed").length,
+    totalTokens: funTokens.length,
+    agentTokens: funTokens.filter((t) => t.agent_id).length,
+    totalSubTunas: subTunas.length,
   };
 
   if (isAdminLoading) {
@@ -247,10 +330,7 @@ export default function AgentLogsAdminPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                fetchSocialPosts();
-                fetchTokenJobs();
-              }}
+              onClick={refreshAll}
               disabled={isLoading}
             >
               <ArrowClockwise
@@ -271,51 +351,47 @@ export default function AgentLogsAdminPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{stats.totalMentions}</div>
-              <div className="text-xs text-muted-foreground">Total Mentions</div>
+            <CardContent className="p-3">
+              <div className="text-xl font-bold">{stats.totalMentions}</div>
+              <div className="text-xs text-muted-foreground">Mentions</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-primary">
+            <CardContent className="p-3">
+              <div className="text-xl font-bold text-primary">
                 {stats.successfulLaunches}
               </div>
               <div className="text-xs text-muted-foreground">Launched</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-destructive">
+            <CardContent className="p-3">
+              <div className="text-xl font-bold text-destructive">
                 {stats.failedParsing}
               </div>
-              <div className="text-xs text-muted-foreground">Parse Failed</div>
+              <div className="text-xs text-muted-foreground">Parse Fail</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-accent-foreground">
-                {stats.pendingJobs}
-              </div>
-              <div className="text-xs text-muted-foreground">Pending Jobs</div>
+            <CardContent className="p-3">
+              <div className="text-xl font-bold">{stats.totalTokens}</div>
+              <div className="text-xs text-muted-foreground">Tokens</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-primary">
-                {stats.completedJobs}
+            <CardContent className="p-3">
+              <div className="text-xl font-bold text-primary">
+                {stats.agentTokens}
               </div>
-              <div className="text-xs text-muted-foreground">Completed Jobs</div>
+              <div className="text-xs text-muted-foreground">By Agents</div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-destructive">
-                {stats.failedJobs}
-              </div>
-              <div className="text-xs text-muted-foreground">Failed Jobs</div>
+            <CardContent className="p-3">
+              <div className="text-xl font-bold">{stats.totalSubTunas}</div>
+              <div className="text-xs text-muted-foreground">SubTunas</div>
             </CardContent>
           </Card>
         </div>
@@ -325,11 +401,19 @@ export default function AgentLogsAdminPage() {
           <TabsList className="mb-4">
             <TabsTrigger value="mentions" className="gap-2">
               <TwitterLogo className="h-4 w-4" />
-              Twitter Mentions ({socialPosts.length})
+              Mentions ({socialPosts.length})
             </TabsTrigger>
             <TabsTrigger value="jobs" className="gap-2">
               <Rocket className="h-4 w-4" />
-              Token Jobs ({tokenJobs.length})
+              Jobs ({tokenJobs.length})
+            </TabsTrigger>
+            <TabsTrigger value="tokens" className="gap-2">
+              <Coins className="h-4 w-4" />
+              Tokens ({funTokens.length})
+            </TabsTrigger>
+            <TabsTrigger value="subtunas" className="gap-2">
+              <UsersThree className="h-4 w-4" />
+              SubTunas ({subTunas.length})
             </TabsTrigger>
           </TabsList>
 
@@ -509,6 +593,187 @@ export default function AgentLogsAdminPage() {
                                   {job.error_message}
                                 </span>
                               )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tokens Created Tab */}
+          <TabsContent value="tokens">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Tokens Created</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[600px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Token</TableHead>
+                        <TableHead>Creator</TableHead>
+                        <TableHead>Agent</TableHead>
+                        <TableHead>Mint Address</TableHead>
+                        <TableHead>Pool</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {funTokens.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="text-muted-foreground">
+                              No tokens created yet.
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        funTokens.map((token) => (
+                          <TableRow key={token.id}>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDate(token.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{token.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                ${token.ticker}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs font-mono">
+                                {token.creator_wallet.slice(0, 4)}...
+                                {token.creator_wallet.slice(-4)}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {token.agent_name ? (
+                                <Badge variant="outline" className="text-xs">
+                                  {token.agent_name}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {token.mint_address ? (
+                                <a
+                                  href={`https://solscan.io/token/${token.mint_address}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-mono text-primary hover:underline"
+                                >
+                                  {token.mint_address.slice(0, 4)}...
+                                  {token.mint_address.slice(-4)}
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {token.dbc_pool_address ? (
+                                <a
+                                  href={`https://axiom.trade/meme/${token.dbc_pool_address}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-mono text-primary hover:underline"
+                                >
+                                  View Pool
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* SubTunas Tab */}
+          <TabsContent value="subtunas">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">SubTuna Communities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[600px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Ticker</TableHead>
+                        <TableHead>Token Link</TableHead>
+                        <TableHead>Members</TableHead>
+                        <TableHead>Posts</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {subTunas.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="text-muted-foreground">
+                              No SubTunas created yet.
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        subTunas.map((subtuna) => (
+                          <TableRow key={subtuna.id}>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDate(subtuna.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {subtuna.icon_url && (
+                                  <img
+                                    src={subtuna.icon_url}
+                                    alt=""
+                                    className="h-6 w-6 rounded-full"
+                                  />
+                                )}
+                                <a
+                                  href={`/t/${subtuna.ticker || subtuna.name.replace("t/", "")}`}
+                                  className="font-medium text-primary hover:underline"
+                                >
+                                  {subtuna.name}
+                                </a>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs font-mono">
+                                {subtuna.ticker || subtuna.token_ticker || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {subtuna.mint_address ? (
+                                <a
+                                  href={`https://solscan.io/token/${subtuna.mint_address}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-mono text-primary hover:underline"
+                                >
+                                  {subtuna.mint_address.slice(0, 4)}...
+                                  {subtuna.mint_address.slice(-4)}
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">System</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">{subtuna.member_count}</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">{subtuna.post_count}</span>
                             </TableCell>
                           </TableRow>
                         ))
