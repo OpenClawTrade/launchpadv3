@@ -77,6 +77,8 @@ async function generateTokenImageWithAI(
   lovableApiKey: string,
   supabase: AnySupabase
 ): Promise<string | null> {
+  console.log(`[generateTokenImageWithAI] Starting for ${tokenName} (${tokenSymbol})`);
+  
   const prompt = `Create a colorful, professional cryptocurrency token logo for a memecoin called "${tokenName}" ($${tokenSymbol}). ${description ? `Theme: ${description.slice(0, 100)}` : ""}. Style: vibrant, modern, crypto aesthetic with bold colors. Cartoon mascot style with expressive face. No text, just the character/icon.`;
 
   let imageUrl: string | null = null;
@@ -99,7 +101,8 @@ async function generateTokenImageWithAI(
   }
   
   if (!imageUrl) {
-    console.error(`[generateTokenImageWithAI] All image generation attempts failed`);
+    console.error(`[generateTokenImageWithAI] ❌ FAILED: All ${IMAGE_MODELS.length} models failed after 3 attempts`);
+    console.error(`[generateTokenImageWithAI] Token: ${tokenName}, Symbol: ${tokenSymbol}`);
     return null;
   }
   
@@ -531,8 +534,8 @@ export async function processLaunchPost(
 
   // CRITICAL: Block token launch if no image URL - prevents financial loss from launching without image
   if (!finalImageUrl) {
-    const errorMsg = "Failed to obtain token image - cannot launch without image (AI generation failed)";
-    console.error(`[agent-process-post] ❌ ${errorMsg}`);
+    const errorMsg = "BLOCKED: Cannot launch without image - AI generation failed";
+    console.error(`[agent-process-post] ❌ ${errorMsg} - token: ${parsed.name} (${parsed.symbol})`);
     
     // Insert as failed record
     const { data: failedPost } = await supabase
@@ -564,6 +567,8 @@ export async function processLaunchPost(
       socialPostId: failedPost?.id,
     };
   }
+  
+  console.log(`[agent-process-post] ✅ Image validation passed: ${finalImageUrl.slice(0, 60)}...`);
 
   // Insert pending record
   const { data: socialPost, error: insertError } = await supabase
@@ -746,13 +751,27 @@ export async function processLaunchPost(
 
     if (existing?.id) {
       funTokenId = existing.id;
+      console.log(`[agent-process-post] Token exists in DB (${funTokenId}), updating with full metadata...`);
+      
       await supabase
         .from("fun_tokens")
         .update({
+          // Always update agent attribution
           agent_id: agent.id,
           agent_fee_share_bps: 8000,
+          // Update image if we have one (don't overwrite with null)
+          ...(finalImageUrl && { image_url: finalImageUrl }),
+          // Update socials if we have them
+          ...(parsed.website && { website_url: parsed.website }),
+          ...((postUrl || parsed.twitter) && { twitter_url: postUrl || parsed.twitter }),
+          ...(parsed.telegram && { telegram_url: parsed.telegram }),
+          ...(parsed.discord && { discord_url: parsed.discord }),
+          // Always set description if we have it
+          ...(parsed.description && { description: parsed.description }),
         })
         .eq("id", funTokenId);
+      
+      console.log(`[agent-process-post] ✅ Updated existing token with metadata: image=${!!finalImageUrl}, twitter=${!!(postUrl || parsed.twitter)}`);
     } else {
       // Insert fun_token with:
       // - website_url: community URL fallback if no custom website

@@ -425,11 +425,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (tokenError) {
-      console.error(`[create-fun][${VERSION}] Token creation error`, { error: tokenError, elapsed: Date.now() - startTime });
-      throw new Error(`Failed to create token: ${tokenError.message}`);
+      console.error(`[create-fun][${VERSION}] CRITICAL: Token created on-chain but DB insert failed!`);
+      console.error(`[create-fun][${VERSION}] Mint: ${mintAddress}, Pool: ${dbcPoolAddress}`);
+      console.error(`[create-fun][${VERSION}] Metadata: ${JSON.stringify({ name, ticker, imageUrl })}`);
+      console.error(`[create-fun][${VERSION}] DB Error:`, tokenError);
+      throw new Error(`Failed to create token record: ${tokenError.message}`);
     }
 
-    console.log(`[create-fun][${VERSION}] Token saved to DB`, { tokenId, elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Token saved to DB`, { tokenId, mintAddress, imageUrl: imageUrl?.slice(0, 50), elapsed: Date.now() - startTime });
 
     // Mark vanity address as used (fire-and-forget)
     if (vanityKeypair) {
