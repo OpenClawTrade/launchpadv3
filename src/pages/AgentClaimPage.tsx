@@ -18,9 +18,29 @@ import {
   ExternalLink,
   AlertTriangle,
   Loader2,
-  Fish
+  Fish,
+  TrendingUp,
+  DollarSign,
+  Users,
+  BarChart3,
+  ArrowRight
 } from "lucide-react";
 import bs58 from "bs58";
+
+interface TokenInfo {
+  id: string;
+  symbol: string;
+  name: string;
+  mint: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+  totalFeesEarned: number;
+  volume24h: number;
+  marketCapSol: number;
+  priceSol: number;
+  holderCount: number;
+  poolAddress: string | null;
+}
 
 interface ClaimableAgent {
   id: string;
@@ -30,7 +50,11 @@ interface ClaimableAgent {
   description: string | null;
   launchedAt: string;
   tokensLaunched: number;
-  tokens: { symbol: string; mint: string; imageUrl: string | null }[];
+  totalFeesEarned: number;
+  totalFeesClaimed: number;
+  unclaimedFees: number;
+  verified: boolean;
+  tokens: TokenInfo[];
 }
 
 interface ClaimResult {
@@ -60,7 +84,9 @@ export default function AgentClaimPage() {
   const [challenge, setChallenge] = useState<{ message: string; nonce: string } | null>(null);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [summary, setSummary] = useState<{ totalAgents: number; totalTokens: number; totalFeesEarned: number; totalUnclaimedFees: number } | null>(null);
 
   // Extract Twitter username from Privy user
   useEffect(() => {
@@ -95,6 +121,7 @@ export default function AgentClaimPage() {
 
       if (data.success) {
         setClaimableAgents(data.agents || []);
+        setSummary(data.summary || null);
       } else {
         throw new Error(data.error || "Failed to fetch agents");
       }
@@ -107,6 +134,43 @@ export default function AgentClaimPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleClaimFees = async (agent: ClaimableAgent) => {
+    if (!twitterUsername || agent.unclaimedFees < 0.01) return;
+
+    setIsClaiming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("agent-creator-claim", {
+        body: {
+          twitterUsername,
+          walletAddress: agent.walletAddress,
+          tokenIds: agent.tokens.map(t => t.id),
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "🎉 Fees Claimed!",
+          description: `${data.claimedAmount.toFixed(4)} SOL sent to your wallet`,
+        });
+        // Refresh the data
+        fetchClaimableAgents(twitterUsername);
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (err) {
+      console.error("Error claiming fees:", err);
+      toast({
+        title: "Claim Failed",
+        description: err instanceof Error ? err.message : "Failed to claim fees",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClaiming(false);
     }
   };
 
@@ -126,7 +190,6 @@ export default function AgentClaimPage() {
         throw new Error("No wallet address specified");
       }
 
-      // Validate custom wallet if used
       if (!useEmbeddedWallet && customWallet.length < 32) {
         throw new Error("Invalid wallet address");
       }
@@ -172,15 +235,12 @@ export default function AgentClaimPage() {
         throw new Error("Wallet not available. Please try again.");
       }
 
-      // Sign the challenge message
       const encoder = new TextEncoder();
       const messageBytes = encoder.encode(challenge.message);
 
-      // Use the wallet's signMessage method
       let signature: string;
       if ("signMessage" in wallet && typeof wallet.signMessage === "function") {
         const result = await wallet.signMessage({ message: messageBytes });
-        // Handle different return types from Privy wallet
         const signatureBytes = (result as { signature?: Uint8Array }).signature || result;
         signature = bs58.encode(new Uint8Array(signatureBytes as ArrayLike<number>));
       } else {
@@ -189,7 +249,6 @@ export default function AgentClaimPage() {
 
       const targetWallet = useEmbeddedWallet ? walletAddress : customWallet;
 
-      // Verify the signature
       const { data, error } = await supabase.functions.invoke("agent-claim-verify", {
         body: {
           walletAddress: targetWallet,
@@ -237,6 +296,12 @@ export default function AgentClaimPage() {
     }
   };
 
+  const formatSol = (sol: number) => {
+    if (sol === 0) return "0";
+    if (sol < 0.0001) return "<0.0001";
+    return sol.toFixed(4);
+  };
+
   const renderLoginStep = () => (
     <Card className="max-w-md mx-auto border-primary/20">
       <CardHeader className="text-center">
@@ -245,7 +310,7 @@ export default function AgentClaimPage() {
         </div>
         <CardTitle className="text-2xl">Claim Your Agent</CardTitle>
         <CardDescription>
-          Login with Twitter to claim agents you launched via @TunaLaunch
+          Login with Twitter to claim agents you launched via @BuildTuna
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -258,31 +323,69 @@ export default function AgentClaimPage() {
           Login with Twitter
         </Button>
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Your Twitter handle will be matched against agents launched via the !tunalaunch command
+          Your Twitter handle will be matched against tokens launched via the !tunalaunch command
         </p>
       </CardContent>
     </Card>
   );
 
   const renderDiscoverStep = () => (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* User Card */}
       <Card className="border-primary/20">
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Twitter className="w-6 h-6 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Twitter className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle>@{twitterUsername}</CardTitle>
+                <CardDescription>Your Twitter account</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle>@{twitterUsername}</CardTitle>
-              <CardDescription>Your Twitter account</CardDescription>
-            </div>
+            {summary && (
+              <div className="hidden md:flex items-center gap-6 text-sm">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{summary.totalTokens}</p>
+                  <p className="text-muted-foreground">Tokens</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-500">{formatSol(summary.totalFeesEarned)}</p>
+                  <p className="text-muted-foreground">Total Earned (SOL)</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-500">{formatSol(summary.totalUnclaimedFees)}</p>
+                  <p className="text-muted-foreground">Unclaimed (SOL)</p>
+                </div>
+              </div>
+            )}
           </div>
         </CardHeader>
       </Card>
 
+      {/* Mobile Summary */}
+      {summary && (
+        <div className="md:hidden grid grid-cols-3 gap-3">
+          <Card className="p-3 text-center">
+            <p className="text-xl font-bold text-primary">{summary.totalTokens}</p>
+            <p className="text-xs text-muted-foreground">Tokens</p>
+          </Card>
+          <Card className="p-3 text-center">
+            <p className="text-xl font-bold text-green-500">{formatSol(summary.totalFeesEarned)}</p>
+            <p className="text-xs text-muted-foreground">Earned</p>
+          </Card>
+          <Card className="p-3 text-center">
+            <p className="text-xl font-bold text-yellow-500">{formatSol(summary.totalUnclaimedFees)}</p>
+            <p className="text-xs text-muted-foreground">Unclaimed</p>
+          </Card>
+        </div>
+      )}
+
+      {/* Agents List */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">
-          {isLoading ? "Searching..." : `Claimable Agents (${claimableAgents.length})`}
+          {isLoading ? "Searching..." : `Your Tokens (${claimableAgents.reduce((sum, a) => sum + a.tokens.length, 0)})`}
         </h3>
 
         {isLoading ? (
@@ -293,9 +396,9 @@ export default function AgentClaimPage() {
           <Card className="border-dashed">
             <CardContent className="py-12 text-center">
               <Fish className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h4 className="font-medium mb-2">No Unclaimed Agents Found</h4>
+              <h4 className="font-medium mb-2">No Tokens Found</h4>
               <p className="text-sm text-muted-foreground mb-4">
-                Launch a token by tweeting @TunaLaunch with the !tunalaunch command
+                Launch a token by tagging @BuildTuna with the !tunalaunch command
               </p>
               <Button variant="outline" onClick={() => navigate("/agents/docs")}>
                 View Launch Instructions
@@ -303,42 +406,104 @@ export default function AgentClaimPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-6">
             {claimableAgents.map((agent) => (
-              <Card
-                key={agent.id}
-                className="cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => handleSelectAgent(agent)}
-              >
-                <CardContent className="p-4">
+              <Card key={agent.id} className="overflow-hidden">
+                <CardHeader className="bg-secondary/30 pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+                      <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center overflow-hidden">
                         {agent.avatarUrl ? (
-                          <img
-                            src={agent.avatarUrl}
-                            alt={agent.name}
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={agent.avatarUrl} alt={agent.name} className="w-full h-full object-cover" />
                         ) : (
-                          <Fish className="w-6 h-6 text-muted-foreground" />
+                          <Wallet className="w-5 h-5 text-muted-foreground" />
                         )}
                       </div>
                       <div>
-                        <h4 className="font-medium">{agent.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {agent.tokensLaunched} tokens launched
+                        <p className="font-medium">{agent.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {agent.walletAddress.slice(0, 4)}...{agent.walletAddress.slice(-4)}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {agent.tokens.slice(0, 3).map((token, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs">
-                          ${token.symbol}
+                      {agent.verified ? (
+                        <Badge variant="secondary" className="bg-green-500/10 text-green-500">
+                          <Check className="w-3 h-3 mr-1" />
+                          Verified
                         </Badge>
-                      ))}
-                      <Button size="sm">Claim</Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => handleSelectAgent(agent)}>
+                          Verify Ownership
+                        </Button>
+                      )}
+                      {agent.unclaimedFees >= 0.01 && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleClaimFees(agent)}
+                          disabled={isClaiming}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {isClaiming ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <DollarSign className="w-4 h-4 mr-1" />
+                              Claim {formatSol(agent.unclaimedFees)} SOL
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border">
+                    {agent.tokens.map((token) => (
+                      <div key={token.id} className="p-4 hover:bg-secondary/20 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+                              {token.imageUrl ? (
+                                <img src={token.imageUrl} alt={token.symbol} className="w-full h-full object-cover" />
+                              ) : (
+                                <Fish className="w-5 h-5 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{token.name}</span>
+                                <Badge variant="outline" className="text-xs">${token.symbol}</Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Launched {new Date(token.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6 text-sm">
+                            <div className="text-right hidden sm:block">
+                              <p className="font-medium">{formatSol(token.marketCapSol)} SOL</p>
+                              <p className="text-xs text-muted-foreground">Market Cap</p>
+                            </div>
+                            <div className="text-right hidden md:block">
+                              <p className="font-medium">{token.holderCount}</p>
+                              <p className="text-xs text-muted-foreground">Holders</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium text-green-500">{formatSol(token.totalFeesEarned * 0.8)} SOL</p>
+                              <p className="text-xs text-muted-foreground">Your Earnings</p>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => navigate(`/t/${token.symbol}`)}
+                            >
+                              <ArrowRight className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -545,7 +710,7 @@ export default function AgentClaimPage() {
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold mb-3">Claim Your TUNA Agent</h1>
           <p className="text-muted-foreground max-w-lg mx-auto">
-            Verify ownership of agents you launched via Twitter to access your dashboard and API key
+            Verify ownership of tokens you launched via Twitter to claim your 80% fee earnings
           </p>
         </div>
 
