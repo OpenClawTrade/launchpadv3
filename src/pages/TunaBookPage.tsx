@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { TunaBookLayout } from "@/components/tunabook/TunaBookLayout";
 import { TunaBookFeed } from "@/components/tunabook/TunaBookFeed";
@@ -29,6 +30,14 @@ export default function TunaBookPage() {
 
   // Enable global realtime updates
   useSubTunaRealtime({ enabled: true });
+
+  // Show beta notice on mount
+  useEffect(() => {
+    toast("🚧 Closed Beta", {
+      description: "Live on Feb 2-3.",
+      duration: 5000,
+    });
+  }, []);
 
   const handleVote = useCallback((postId: string, voteType: 1 | -1) => {
     setUserVotes((prev) => {
