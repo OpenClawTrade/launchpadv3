@@ -1,206 +1,101 @@
 
-# Comprehensive SEO Upgrade Plan
 
-This plan addresses three key areas: SEO-friendly URLs for posts, working share functionality, and professional website SEO optimization.
+# Fix Twitter Auto-Reply to Use twitterapi.io
 
----
-
-## Overview
-
-### Current State
-- Post URLs use UUID format: `/t/TUNA/post/4d0bd832-afa6-4900-b269-17875896b04c`
-- Share buttons are non-functional (no click handlers)
-- 9 existing posts in the TUNA community use UUID-based links
-- Basic meta tags exist but need enhancement for better search visibility
-
-### Target State
-- SEO-friendly URLs: `/t/TUNA/post/no-api-key-needed-to-launch-your-token`
-- One-click copy-to-clipboard sharing with toast confirmation
-- Fresh posts with slugs from day one
-- Professional meta tags with structured data support
+The auto-reply for "missing format" help messages was implemented using the official X.com OAuth API, but your account is set up to post via **twitterapi.io** using session tokens.
 
 ---
 
-## Phase 1: Database Schema Update
+## Current Issue
 
-Add a `slug` column to `subtuna_posts` with automatic generation.
-
-### Migration Details
+The `replyToTweet` function in `agent-scan-twitter` uses:
 ```text
-1. Add nullable `slug` column (TEXT)
-2. Add unique constraint on slug within each subtuna
-3. Create `generate_slug()` helper function
-4. Create trigger to auto-generate slugs on INSERT
+Endpoint: https://api.x.com/2/tweets
+Auth: OAuth 1.0a (TWITTER_CONSUMER_KEY, etc.)
+Status: These credentials are NOT configured
 ```
 
-### Slug Format
-- Lowercase, hyphen-separated words
-- Max 60 characters for URL cleanliness
-- Auto-generated from title (strip special chars, limit words)
-- Example: "No API key needed to launch your token on tuna.fun!" → `no-api-key-needed-to-launch-your-token`
-
----
-
-## Phase 2: Clean Slate - Delete Old Posts
-
-Remove existing TUNA posts to start fresh with SEO-friendly URLs.
-
-### Actions
-1. Delete all posts from subtuna `00000000-0000-0000-0000-000000000002`
-2. Reset `has_posted_welcome` flag for SystemTUNA agent
-3. New welcome message and posts will generate with slugs automatically
-
----
-
-## Phase 3: Frontend Routing Updates
-
-Support both slug-based and UUID-based lookups (for flexibility).
-
-### Files to Update
-
-**src/App.tsx**
-- Keep route: `/t/:ticker/post/:postId`
-- `postId` can be either UUID or slug
-
-**src/pages/TunaPostPage.tsx**
-- Modify query to match by `id` OR `slug`
-- If matched by UUID, redirect to slug-based canonical URL
-
-**src/hooks/useSubTunaPosts.ts**
-- Include `slug` field in post data
-
-**src/components/tunabook/TunaPostCard.tsx**
-- Update links to use slug instead of id
-
----
-
-## Phase 4: Working Share Button
-
-Implement copy-to-clipboard functionality.
-
-### Implementation
+But `twitter-mention-launcher` already posts successfully using:
 ```text
-Both TunaPostCard.tsx and TunaPostPage.tsx:
-1. Add click handler to Share button
-2. Construct full URL: `${window.location.origin}/t/${ticker}/post/${slug}`
-3. Use navigator.clipboard.writeText()
-4. Show toast: "Link copied to clipboard!"
+Endpoint: https://api.twitterapi.io/twitter/tweet/create
+Auth: X_AUTH_TOKEN + X_CT0_TOKEN
+Status: Already configured and working ✅
 ```
-
-### Enhanced Share Options
-- Primary: Copy link (click)
-- Future expansion: Native Web Share API on mobile
 
 ---
 
-## Phase 5: Professional SEO Enhancements
+## Solution
 
-### 5.1 Improved index.html Meta Tags
-- Enhanced descriptions with keywords
-- Open Graph improvements
-- Canonical URL tag
-- Keywords meta tag
-- Robots enhancement
+Update `agent-scan-twitter` to use the same twitterapi.io posting method.
 
-### 5.2 Dynamic Meta Tags for Posts
-Create SEO component for post pages with dynamic:
-- Title: `{post.title} | t/{ticker} - TUNA`
-- Description: First 160 chars of content
-- OG/Twitter meta updates
+### File to Update
 
-### 5.3 Structured Data (JSON-LD)
-Add Article schema for post pages:
+**supabase/functions/agent-scan-twitter/index.ts**
+
+Replace the `replyToTweet` function to use twitterapi.io:
+
 ```text
-- @type: DiscussionForumPosting
-- headline, datePublished, author
-- Improves Google rich results
+Before: OAuth 1.0a signature generation + api.x.com
+After: Simple POST to twitterapi.io with session tokens
 ```
 
-### 5.4 Sitemap Foundation
-- Add sitemap.xml placeholder
-- robots.txt update to reference sitemap
+### New Implementation Pattern
 
----
-
-## Technical Details
-
-### Slug Generation Function (Postgres)
-```sql
-CREATE OR REPLACE FUNCTION generate_slug(title TEXT)
-RETURNS TEXT AS $$
-DECLARE
-  base_slug TEXT;
-BEGIN
-  -- Lowercase, replace non-alphanumeric with hyphens
-  base_slug := lower(regexp_replace(title, '[^a-zA-Z0-9\s-]', '', 'g'));
-  base_slug := regexp_replace(base_slug, '\s+', '-', 'g');
-  base_slug := regexp_replace(base_slug, '-+', '-', 'g');
-  base_slug := trim(both '-' from base_slug);
-  -- Limit to 60 chars at word boundary
-  IF length(base_slug) > 60 THEN
-    base_slug := substring(base_slug from 1 for 60);
-    base_slug := regexp_replace(base_slug, '-[^-]*$', '');
-  END IF;
-  RETURN base_slug;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-```
-
-### Trigger for Auto-Slug
-```sql
-CREATE TRIGGER set_post_slug
-BEFORE INSERT ON subtuna_posts
-FOR EACH ROW
-WHEN (NEW.slug IS NULL)
-EXECUTE FUNCTION auto_generate_post_slug();
-```
-
-### Share Button Handler
 ```typescript
-const handleShare = async () => {
-  const url = `${window.location.origin}/t/${ticker}/post/${slug}`;
-  try {
-    await navigator.clipboard.writeText(url);
-    toast.success("Link copied to clipboard!");
-  } catch {
-    toast.error("Failed to copy link");
+async function replyToTweet(
+  tweetId: string, 
+  text: string
+): Promise<boolean> {
+  const authToken = Deno.env.get("X_AUTH_TOKEN");
+  const ct0Token = Deno.env.get("X_CT0_TOKEN");
+  const apiKey = Deno.env.get("TWITTERAPI_IO_KEY");
+
+  if (!authToken || !ct0Token || !apiKey) {
+    console.error("[agent-scan-twitter] Missing X session tokens");
+    return false;
   }
-};
+
+  const response = await fetch(
+    "https://api.twitterapi.io/twitter/tweet/create",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": apiKey,
+      },
+      body: JSON.stringify({
+        auth_token: authToken,
+        ct0: ct0Token,
+        text: text,
+        reply_to_tweet_id: tweetId,
+      }),
+    }
+  );
+
+  return response.ok;
+}
 ```
 
 ---
 
-## Files Changed
+## Changes Summary
 
 | File | Change |
 |------|--------|
-| Database Migration | Add slug column, function, trigger |
-| src/App.tsx | No change (route stays flexible) |
-| src/pages/TunaPostPage.tsx | Query by id OR slug, share handler |
-| src/components/tunabook/TunaPostCard.tsx | Update links to slug, share handler |
-| src/hooks/useSubTunaPosts.ts | Include slug in returned data |
-| src/hooks/useCreatePost.ts | No change (slug auto-generated) |
-| index.html | Enhanced meta tags |
-| supabase/functions/agent-auto-engage | No change (slug auto-generated by trigger) |
-| supabase/functions/agent-social-post | No change (slug auto-generated by trigger) |
+| `supabase/functions/agent-scan-twitter/index.ts` | Replace OAuth-based `replyToTweet` with twitterapi.io session-based posting |
 
 ---
 
-## Execution Order
+## No New Credentials Needed
 
-1. Apply database migration (add slug column + trigger)
-2. Delete existing TUNA posts and reset SystemTUNA welcome flag
-3. Update TunaPostCard.tsx (add slug prop, update links, add share)
-4. Update useSubTunaPosts.ts (include slug in query)
-5. Update TunaPostPage.tsx (query by slug/id, add share handler)
-6. Enhance index.html meta tags
-7. Test end-to-end with new posts
+Your existing secrets are sufficient:
+- `TWITTERAPI_IO_KEY` ✅
+- `X_AUTH_TOKEN` ✅  
+- `X_CT0_TOKEN` ✅
 
 ---
 
-## Expected Results
+## Expected Result
 
-- Clean URLs: `/t/TUNA/post/welcome-to-tuna`
-- Working share: One click copies full URL
-- Better SEO: Improved meta tags and URL structure
-- Fresh content: All new posts with professional slugs
+When someone tweets `!tunalaunch` without proper format, the bot will successfully reply with helpful instructions using the same posting mechanism that already works for token launch confirmations.
+
