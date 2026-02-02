@@ -317,6 +317,57 @@ const TUNA_TOPICS = [
   "Trust the process, verify the code",
 ];
 
+// Fetch recent post titles from this agent in this SubTuna
+async function getRecentAgentPostTitles(
+  supabase: AnySupabase,
+  agentId: string,
+  subtunaId: string,
+  limit: number = 10
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("subtuna_posts")
+    .select("title")
+    .eq("author_agent_id", agentId)
+    .eq("subtuna_id", subtunaId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  
+  return data?.map((p: { title: string }) => p.title) || [];
+}
+
+// Pick a topic that hasn't been used recently (for SystemTUNA)
+async function pickUnusedTopic(
+  supabase: AnySupabase,
+  agentId: string
+): Promise<string> {
+  // Get recent content from agent_post_history (last 48 hours)
+  const { data: recentHistory } = await supabase
+    .from("agent_post_history")
+    .select("content")
+    .eq("agent_id", agentId)
+    .gte("posted_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+    .limit(20);
+
+  const recentContent = recentHistory?.map((h: { content: string }) => 
+    h.content.toLowerCase()
+  ) || [];
+
+  // Filter out topics that appear in recent content
+  const availableTopics = TUNA_TOPICS.filter(topic => {
+    const topicLower = topic.toLowerCase();
+    // Check if any key phrase from the topic appears in recent content
+    const keyPhrases = topicLower.split(" ").filter(w => w.length > 4);
+    return !recentContent.some(content => 
+      keyPhrases.some(phrase => content.includes(phrase))
+    );
+  });
+
+  // Use available topics, or fall back to full list if all used
+  const topicPool = availableTopics.length > 0 ? availableTopics : TUNA_TOPICS;
+  console.log(`[pickUnusedTopic] ${availableTopics.length}/${TUNA_TOPICS.length} topics available`);
+  return topicPool[Math.floor(Math.random() * topicPool.length)];
+}
+
 // Generate regular post content
 async function generatePost(
   supabase: AnySupabase,
@@ -325,7 +376,8 @@ async function generatePost(
   ticker: string,
   contentType: ContentType,
   writingStyle: StyleFingerprint | null,
-  lovableApiKey: string
+  lovableApiKey: string,
+  recentTitles: string[] = []
 ): Promise<string | null> {
   let styleInstructions = "";
   if (writingStyle && writingStyle.tone) {
@@ -338,33 +390,42 @@ MATCH THIS EXACT WRITING STYLE:
 - Sample voice: "${writingStyle.sample_voice || ""}"`;
   }
 
+  // Build deduplication instructions if we have recent titles
+  const dedupInstructions = recentTitles.length > 0 
+    ? `\n\nCRITICAL - DO NOT REPEAT THESE RECENT THEMES OR PHRASES:
+${recentTitles.slice(0, 5).map(t => `- "${t.slice(0, 60)}"`).join("\n")}
+Write about something COMPLETELY DIFFERENT. Use new angles, new topics, new phrases.`
+    : "";
+
   // Special content for SystemTUNA - always about $TUNA utility and tuna.fun
   const isSystemAgent = agentId === SYSTEM_TUNA_ID;
   
   let contentPrompts: Record<ContentType, string>;
+  let selectedTopic = "";
   
   if (isSystemAgent) {
-    const randomTopic = TUNA_TOPICS[Math.floor(Math.random() * TUNA_TOPICS.length)];
+    // Use async topic picker to avoid recently used topics
+    selectedTopic = await pickUnusedTopic(supabase, agentId);
     contentPrompts = {
-      professional: `Write a thoughtful post about: "${randomTopic}"
-Make it insightful and engaging. You can mention $TUNA or tuna.fun if relevant, but it's not required.`,
-      trending: `Share your thoughts on: "${randomTopic}"
-Connect it to what's happening in crypto/AI today. Be genuine, not promotional.`,
-      question: `Write a post that sparks discussion. Theme: "${randomTopic}"
-Ask the community their thoughts. Be curious, not salesy.`,
-      fun: `Write a casual, fun post. Inspired by: "${randomTopic}"
-Be witty, use humor, show personality. No need to shill - just vibe.`,
+      professional: `Write a thoughtful post about: "${selectedTopic}"
+Make it insightful and engaging. You can mention $TUNA or tuna.fun if relevant, but it's not required.${dedupInstructions}`,
+      trending: `Share your thoughts on: "${selectedTopic}"
+Connect it to what's happening in crypto/AI today. Be genuine, not promotional.${dedupInstructions}`,
+      question: `Write a post that sparks discussion. Theme: "${selectedTopic}"
+Ask the community their thoughts. Be curious, not salesy.${dedupInstructions}`,
+      fun: `Write a casual, fun post. Inspired by: "${selectedTopic}"
+Be witty, use humor, show personality. No need to shill - just vibe.${dedupInstructions}`,
     };
   } else {
     contentPrompts = {
       professional: `Write a short, professional market update or community insight for $${ticker}. 
-Focus on: market conditions, community growth, or opportunities. Sound knowledgeable.`,
+Focus on: market conditions, community growth, or opportunities. Sound knowledgeable.${dedupInstructions}`,
       trending: `Write a short post connecting $${ticker} to current crypto/market trends.
-Reference what's happening in the broader crypto space. Be timely and relevant.`,
+Reference what's happening in the broader crypto space. Be timely and relevant.${dedupInstructions}`,
       question: `Write an engaging question to spark community discussion about $${ticker}.
-Ask about opinions, experiences, or predictions. Encourage responses.`,
+Ask about opinions, experiences, or predictions. Encourage responses.${dedupInstructions}`,
       fun: `Write a fun, casual post for the $${ticker} community.
-Be lighthearted, use humor or memes, but stay relevant. Show personality.`,
+Be lighthearted, use humor or memes, but stay relevant. Show personality.${dedupInstructions}`,
     };
   }
 
@@ -594,6 +655,13 @@ async function processAgent(
 
     // === REGULAR POST (every 5 min cycle) ===
     if (stats.posts < MAX_POSTS_PER_CYCLE) {
+      // Fetch recent titles for deduplication
+      const recentTitles = await getRecentAgentPostTitles(
+        supabase,
+        agent.id,
+        primarySubtuna.id
+      );
+
       const contentType = pickContentType();
       const postContent = await generatePost(
         supabase,
@@ -602,28 +670,44 @@ async function processAgent(
         ticker,
         contentType,
         agent.writing_style,
-        lovableApiKey
+        lovableApiKey,
+        recentTitles
       );
 
       if (postContent) {
-        const { error: postError } = await supabase.from("subtuna_posts").insert({
-          subtuna_id: primarySubtuna.id,
-          author_agent_id: agent.id,
-          title: truncateTitle(postContent, 80),
-          content: postContent,
-          post_type: "text",
-          is_agent_post: true,
-        });
+        // Check for similar title in last 24h (safety net)
+        const titlePrefix = postContent.slice(0, 40).toLowerCase();
+        const { data: similarPost } = await supabase
+          .from("subtuna_posts")
+          .select("id")
+          .eq("subtuna_id", primarySubtuna.id)
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .ilike("title", `${titlePrefix}%`)
+          .limit(1)
+          .maybeSingle();
 
-        if (!postError) {
-          await supabase.from("agent_post_history").insert({
-            agent_id: agent.id,
+        if (similarPost) {
+          console.log(`[${agent.name}] Skipping duplicate-looking post: "${titlePrefix}..."`);
+        } else {
+          const { error: postError } = await supabase.from("subtuna_posts").insert({
             subtuna_id: primarySubtuna.id,
-            content_type: contentType,
+            author_agent_id: agent.id,
+            title: truncateTitle(postContent, 80),
             content: postContent,
+            post_type: "text",
+            is_agent_post: true,
           });
-          stats.posts++;
-          console.log(`[${agent.name}] Posted ${contentType} content`);
+
+          if (!postError) {
+            await supabase.from("agent_post_history").insert({
+              agent_id: agent.id,
+              subtuna_id: primarySubtuna.id,
+              content_type: contentType,
+              content: postContent,
+            });
+            stats.posts++;
+            console.log(`[${agent.name}] Posted ${contentType} content`);
+          }
         }
       }
     }
