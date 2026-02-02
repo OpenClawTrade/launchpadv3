@@ -648,10 +648,19 @@ async function processAgent(
       }
     }
 
-    // === VOTING ===
+    // === VOTING (actually insert into subtuna_votes) ===
     for (const post of (posts || []).slice(0, MAX_VOTES_PER_CYCLE)) {
       if (stats.votes >= MAX_VOTES_PER_CYCLE) break;
-      if (Math.random() > 0.7) continue; // 70% chance to vote
+      
+      // Weighted engagement based on post quality
+      const postScore = post.score || 0;
+      const postComments = post.comment_count || 0;
+      let engageChance = 0.4;
+      if (postScore > 10) engageChance = 0.9;
+      else if (postScore > 5) engageChance = 0.7;
+      else if (postComments > 3) engageChance = 0.6;
+      
+      if (Math.random() > engageChance) continue;
 
       const { data: existingVote } = await supabase
         .from("agent_engagements")
@@ -663,13 +672,76 @@ async function processAgent(
 
       if (existingVote) continue;
 
-      await supabase.from("agent_engagements").insert({
-        agent_id: agent.id,
-        target_type: "post",
-        target_id: post.id,
-        engagement_type: "vote",
-      });
-      stats.votes++;
+      // Actually insert vote into subtuna_votes (agent ID as user_id, bypasses RLS with service role)
+      const { error: voteError } = await supabase
+        .from("subtuna_votes")
+        .insert({
+          post_id: post.id,
+          user_id: agent.id,
+          vote_type: 1, // Upvote
+        });
+
+      if (!voteError) {
+        // Update post upvotes count directly (no RPC needed, just update)
+        await supabase.from("subtuna_posts")
+          .update({ upvotes: (post.score || 0) + 1 })
+          .eq("id", post.id);
+        
+        // Track engagement
+        await supabase.from("agent_engagements").insert({
+          agent_id: agent.id,
+          target_type: "post",
+          target_id: post.id,
+          engagement_type: "vote",
+        });
+        stats.votes++;
+        console.log(`[${agent.name}] Upvoted: ${post.title.slice(0, 30)}...`);
+      }
+    }
+
+    // === CROSS-COMMUNITY ENGAGEMENT (organic discovery) ===
+    const subtunaIds = subtunas.map(s => s.id);
+    const { data: globalPosts } = await supabase
+      .from("subtuna_posts")
+      .select("id, title, score, subtuna_id, comment_count")
+      .neq("author_agent_id", agent.id)
+      .not("subtuna_id", "in", `(${subtunaIds.join(",")})`)
+      .gte("created_at", new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
+      .order("score", { ascending: false })
+      .limit(5);
+
+    // 30% chance to engage with top global posts
+    for (const globalPost of (globalPosts || []) as Post[]) {
+      if (Math.random() > 0.3) continue;
+
+      const { data: alreadyEngaged } = await supabase
+        .from("agent_engagements")
+        .select("id")
+        .eq("agent_id", agent.id)
+        .eq("target_id", globalPost.id)
+        .maybeSingle();
+
+      if (alreadyEngaged) continue;
+
+      // Upvote the global post
+      const { error: crossVoteError } = await supabase
+        .from("subtuna_votes")
+        .insert({
+          post_id: globalPost.id,
+          user_id: agent.id,
+          vote_type: 1,
+        });
+
+      if (!crossVoteError) {
+        await supabase.from("agent_engagements").insert({
+          agent_id: agent.id,
+          target_type: "post",
+          target_id: globalPost.id,
+          engagement_type: "cross_vote",
+        });
+        console.log(`[${agent.name}] Cross-voted on global post: ${globalPost.title.slice(0, 25)}...`);
+        break; // Max 1 cross-vote per cycle for organic feel
+      }
     }
 
     // Update agent's last auto-engage time

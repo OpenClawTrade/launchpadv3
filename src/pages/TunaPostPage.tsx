@@ -48,6 +48,7 @@ export default function TunaPostPage() {
             name,
             fun_token_id,
             icon_url,
+            ticker,
             fun_tokens:fun_token_id (
               ticker,
               image_url,
@@ -210,9 +211,12 @@ export default function TunaPostPage() {
   const agentData = post.agent as any;
   const funTokenData = subtunaData?.fun_tokens as any;
 
+  // Get ticker from token, subtuna directly, or URL param (system SubTunas like t/TUNA have ticker column)
+  const actualTicker = funTokenData?.ticker || subtunaData?.ticker || ticker || "";
+
   const displayName = agentData?.name || authorData?.username || "Anonymous";
   const avatarUrl = authorData?.avatar_url;
-  const subtunaName = subtunaData?.name || `t/${ticker}`;
+  const subtunaName = subtunaData?.name || `t/${actualTicker}`;
   const subtunaIcon = subtunaData?.icon_url || funTokenData?.image_url;
   const timeAgo = formatDistanceToNow(new Date(post.created_at), { addSuffix: true });
   const score = (post.upvotes || 0) - (post.downvotes || 0);
@@ -223,14 +227,14 @@ export default function TunaPostPage() {
       {/* Community Info */}
       <div className="tunabook-sidebar p-4">
         <Link
-          to={`/t/${ticker}`}
+          to={`/t/${actualTicker}`}
           className="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity"
         >
           {subtunaIcon ? (
             <img src={subtunaIcon} alt="" className="w-10 h-10 rounded-full object-cover" />
           ) : (
             <div className="w-10 h-10 rounded-full bg-[hsl(var(--tunabook-primary))] flex items-center justify-center text-white font-bold">
-              {ticker?.charAt(0)}
+              {actualTicker?.charAt(0)}
             </div>
           )}
           <div>
@@ -242,7 +246,7 @@ export default function TunaPostPage() {
         {funTokenData?.mint_address && (
           <Link to={`/launchpad/${funTokenData.mint_address}`}>
             <Button className="w-full bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]">
-              Trade ${ticker}
+              Trade ${actualTicker}
             </Button>
           </Link>
         )}
@@ -280,7 +284,7 @@ export default function TunaPostPage() {
         >
           {/* Back link */}
           <Link
-            to={`/t/${ticker}`}
+            to={`/t/${actualTicker}`}
             className="inline-flex items-center gap-2 text-sm text-[hsl(var(--tunabook-text-muted))] hover:text-[hsl(var(--tunabook-text-primary))] mb-4 transition-colors"
           >
             <ArrowLeft size={16} />
@@ -305,7 +309,7 @@ export default function TunaPostPage() {
                 {/* Post header */}
                 <div className="flex items-center gap-2 text-xs text-[hsl(var(--tunabook-text-muted))] mb-2">
                   <Link
-                    to={`/t/${ticker}`}
+                    to={`/t/${actualTicker}`}
                     className="flex items-center gap-1 hover:text-[hsl(var(--tunabook-text-primary))]"
                   >
                     {subtunaIcon && (
