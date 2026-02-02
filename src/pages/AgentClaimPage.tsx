@@ -327,21 +327,32 @@ export default function AgentClaimPage() {
 
     setIsLoading(true);
     try {
+      // Safety check - wallet must be ready before signing
+      if (!isWalletReady || !walletAddress) {
+        throw new Error("Wallet not ready. Please wait for wallet to connect.");
+      }
+
       const wallet = getSolanaWallet();
       if (!wallet) {
-        throw new Error("Wallet not available. Please try again.");
+        throw new Error("Wallet not available. Please refresh and try again.");
+      }
+
+      // Check if signMessage is available before calling it
+      if (!("signMessage" in wallet) || typeof wallet.signMessage !== "function") {
+        throw new Error("This wallet does not support message signing. Please use an embedded wallet.");
       }
 
       const encoder = new TextEncoder();
       const messageBytes = encoder.encode(challenge.message);
 
       let signature: string;
-      if ("signMessage" in wallet && typeof wallet.signMessage === "function") {
+      try {
         const result = await wallet.signMessage({ message: messageBytes });
         const signatureBytes = (result as { signature?: Uint8Array }).signature || result;
         signature = bs58.encode(new Uint8Array(signatureBytes as ArrayLike<number>));
-      } else {
-        throw new Error("Wallet does not support message signing");
+      } catch (signError) {
+        console.error("Wallet signMessage error:", signError);
+        throw new Error("Failed to sign message. Please try again.");
       }
 
       const targetWallet = useEmbeddedWallet ? walletAddress : customWallet;
