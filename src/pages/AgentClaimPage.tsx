@@ -353,10 +353,10 @@ function AgentClaimPageInner() {
         throw new Error("Wallet not ready. Please wait a moment and try again.");
       }
 
-      // Avoid confusing 404s: claim-init looks up agent by wallet address.
+      // For API key claims, wallet must match the launch wallet
       if (selectedAgent.walletAddress && selectedAgent.walletAddress !== targetWallet) {
         throw new Error(
-          `Connected wallet (${targetWallet.slice(0, 8)}...) does not match the launch wallet (${selectedAgent.walletAddress.slice(0, 8)}...). Please connect/select the wallet used in your launch post.`
+          `Please connect the launch wallet (${selectedAgent.walletAddress.slice(0, 8)}...) to generate an API key.`
         );
       }
 
@@ -626,74 +626,90 @@ function AgentClaimPageInner() {
             {claimableAgents.map((agent) => (
               <Card key={agent.id} className="overflow-hidden">
                 <CardHeader className="bg-secondary/30 pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center overflow-hidden">
-                        {agent.avatarUrl ? (
-                          <img src={agent.avatarUrl} alt={agent.name} className="w-full h-full object-cover" />
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center overflow-hidden">
+                          {agent.avatarUrl ? (
+                            <img src={agent.avatarUrl} alt={agent.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Wallet className="w-5 h-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium">{agent.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {agent.walletAddress.slice(0, 4)}...{agent.walletAddress.slice(-4)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {agent.verified ? (
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-500">
+                            <Check className="w-3 h-3 mr-1" />
+                            API Key Active
+                          </Badge>
                         ) : (
-                          <Wallet className="w-5 h-5 text-muted-foreground" />
+                          <Button size="sm" variant="outline" onClick={() => handleSelectAgent(agent)}>
+                            <Key className="w-3 h-3 mr-1" />
+                            Get API Key
+                          </Button>
                         )}
                       </div>
-                      <div>
-                        <p className="font-medium">{agent.name}</p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {agent.walletAddress.slice(0, 4)}...{agent.walletAddress.slice(-4)}
-                        </p>
-                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {agent.verified ? (
-                        <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                          <Check className="w-3 h-3 mr-1" />
-                          Verified
-                        </Badge>
-                      ) : (
-                        <Button size="sm" variant="outline" onClick={() => handleSelectAgent(agent)}>
-                          Verify Ownership
-                        </Button>
-                      )}
-                      {(() => {
-                        const cooldown = getCooldownForAgent(agent);
-                        const isOnCooldown = cooldown && cooldown.remainingSeconds > 0;
-                        
-                        if (isOnCooldown) {
+                    
+                    {/* Payout destination & claim button - separated from API key flow */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-background/50 border border-border/50">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Wallet className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Payouts to:</span>
+                        <span className="font-mono text-xs">
+                          {agent.walletAddress.slice(0, 6)}...{agent.walletAddress.slice(-4)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const cooldown = getCooldownForAgent(agent);
+                          const isOnCooldown = cooldown && cooldown.remainingSeconds > 0;
+                          
+                          if (isOnCooldown) {
+                            return (
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
+                                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                                <span className="text-sm text-muted-foreground">
+                                  Next claim in {formatCooldown(cooldown.remainingSeconds)}
+                                </span>
+                              </div>
+                            );
+                          }
+                          
+                          if (agent.unclaimedFees >= 0.01) {
+                            return (
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleClaimFees(agent)}
+                                disabled={isClaiming}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                {isClaiming ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <DollarSign className="w-4 h-4 mr-1" />
+                                    Claim {formatSol(agent.unclaimedFees)} SOL
+                                  </>
+                                )}
+                              </Button>
+                            );
+                          }
+                          
                           return (
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
-                              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                              <span className="text-sm text-muted-foreground">
-                                Next claim in {formatCooldown(cooldown.remainingSeconds)}
-                              </span>
-                            </div>
+                            <Badge variant="outline" className="text-muted-foreground">
+                              No fees to claim
+                            </Badge>
                           );
-                        }
-                        
-                        if (agent.unclaimedFees >= 0.01) {
-                          return (
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleClaimFees(agent)}
-                              disabled={isClaiming}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              {isClaiming ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <DollarSign className="w-4 h-4 mr-1" />
-                                  Claim {formatSol(agent.unclaimedFees)} SOL
-                                </>
-                              )}
-                            </Button>
-                          );
-                        }
-                        
-                        return (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            No fees to claim
-                          </Badge>
-                        );
-                      })()}
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
@@ -759,29 +775,32 @@ function AgentClaimPageInner() {
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <Wallet className="w-6 h-6 text-primary" />
+            <Key className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <CardTitle>Set Fee Wallet</CardTitle>
+            <CardTitle>Get API Key</CardTitle>
             <CardDescription>
-              Choose where to receive your 80% fee share
+              Sign with the launch wallet to generate your API key
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-3 rounded-lg bg-secondary/50">
-          <p className="text-sm font-medium mb-1">Claiming: {selectedAgent?.name}</p>
-          <p className="text-xs text-muted-foreground font-mono truncate">
-            {selectedAgent?.walletAddress}
+          <p className="text-sm font-medium mb-1">Agent: {selectedAgent?.name}</p>
+          <p className="text-xs text-muted-foreground">
+            Required wallet: <span className="font-mono">{selectedAgent?.walletAddress.slice(0, 6)}...{selectedAgent?.walletAddress.slice(-4)}</span>
+          </p>
+        </div>
+
+        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            <strong>Note:</strong> This is only required for API access. Fee claims work automatically via X login - no wallet signature needed.
           </p>
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">Select wallet to prove ownership</p>
-          <p className="text-xs text-muted-foreground">
-            This must match the wallet shown above (the wallet used in your launch post).
-          </p>
+          <p className="text-sm font-medium">Select wallet to sign</p>
 
           <div className="grid gap-2">
             {(claimWalletOptions.length ? claimWalletOptions : []).map((opt) => (
@@ -813,7 +832,7 @@ function AgentClaimPageInner() {
                 <div>
                   <p className="text-sm font-medium">Wallet mismatch</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Connect/select the launch wallet ({selectedAgent.walletAddress.slice(0, 4)}...{selectedAgent.walletAddress.slice(-4)}) to continue.
+                    API key generation requires the launch wallet ({selectedAgent.walletAddress.slice(0, 4)}...{selectedAgent.walletAddress.slice(-4)}).
                   </p>
                   <div className="mt-2">
                     <Button size="sm" variant="outline" onClick={() => login({ loginMethods: ["wallet"] })}>
@@ -832,7 +851,7 @@ function AgentClaimPageInner() {
           </Button>
           <Button
             onClick={handleInitClaim}
-            disabled={isLoading}
+            disabled={isLoading || (selectedAgent?.walletAddress !== walletAddress)}
             className="flex-1"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Continue"}
