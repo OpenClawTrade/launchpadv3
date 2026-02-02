@@ -53,33 +53,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Test 3: Test proxy with twitterapi.io login (just check if proxy is accepted)
+    // Test 3: Test REAL login without TOTP
     if (twitterApiIoKey && proxyUrl) {
-      try {
-        // Just test with a minimal login attempt to see proxy response
-        const testRes = await fetch("https://api.twitterapi.io/twitter/user_login_v2", {
-          method: "POST",
-          headers: {
-            "X-API-Key": twitterApiIoKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_name: "test_proxy_check",
-            email: "test@test.com",
-            password: "test",
+      const xUsername = Deno.env.get("X_ACCOUNT_USERNAME");
+      const xEmail = Deno.env.get("X_ACCOUNT_EMAIL");
+      const xPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
+      
+      if (xUsername && xEmail && xPassword) {
+        try {
+          // Try login WITHOUT TOTP to see if that's the issue
+          const loginBody: Record<string, string> = {
+            user_name: xUsername,
+            email: xEmail,
+            password: xPassword,
             proxy: proxyUrl,
-          }),
-          signal: AbortSignal.timeout(15000),
-        });
-        const testText = await testRes.text();
-        results.proxy_login_test = {
-          status: testRes.status,
-          response: testText.slice(0, 500),
-        };
-      } catch (e) {
-        results.proxy_login_test = {
-          error: e instanceof Error ? e.message : "Unknown error",
-        };
+          };
+          
+          const testRes = await fetch("https://api.twitterapi.io/twitter/user_login_v2", {
+            method: "POST",
+            headers: {
+              "X-API-Key": twitterApiIoKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(loginBody),
+            signal: AbortSignal.timeout(30000),
+          });
+          const testText = await testRes.text();
+          results.login_without_totp = {
+            status: testRes.status,
+            response: testText.slice(0, 500),
+          };
+        } catch (e) {
+          results.login_without_totp = {
+            error: e instanceof Error ? e.message : "Unknown error",
+          };
+        }
       }
     }
 
