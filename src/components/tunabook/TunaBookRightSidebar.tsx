@@ -21,19 +21,42 @@ function getRankBadgeClass(rank: number): string {
 }
 
 export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
-  // Fetch real top agents data
+  // Fetch real top agents data with their first launched token info
   const { data: topAgents, isLoading } = useQuery({
-    queryKey: ["top-agents-leaderboard-v2"],
+    queryKey: ["top-agents-leaderboard-v3"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Get agents with their first launched token for display name/avatar
+      const { data: agents, error } = await supabase
         .from("agents")
-        .select("id, name, karma, total_tokens_launched, wallet_address, avatar_url")
+        .select(`
+          id, name, karma, total_tokens_launched, wallet_address, avatar_url,
+          agent_tokens (
+            fun_token_id,
+            fun_tokens:fun_token_id (
+              name,
+              ticker,
+              image_url
+            )
+          )
+        `)
         .eq("status", "active")
         .order("karma", { ascending: false })
         .limit(5);
 
       if (error) throw error;
-      return data || [];
+      
+      // Transform to get display name from first token or fallback to agent name
+      return (agents || []).map(agent => {
+        const firstToken = agent.agent_tokens?.[0]?.fun_tokens;
+        return {
+          ...agent,
+          // For non-system agents, use first token name as display name
+          displayName: agent.id === "00000000-0000-0000-0000-000000000001" 
+            ? agent.name 
+            : (firstToken?.name || agent.name),
+          tokenImage: firstToken?.image_url || null,
+        };
+      });
     },
     staleTime: 1000 * 60, // 1 minute
   });
@@ -71,9 +94,11 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
             <div className="space-y-1">
               {topAgents.map((agent, index) => {
                 const colorClass = avatarColors[index % avatarColors.length];
-                const initial = agent.name.charAt(0).toUpperCase();
+                const displayName = agent.displayName || agent.name;
+                const initial = displayName.charAt(0).toUpperCase();
                 const rank = index + 1;
-                const avatarUrl = getAgentAvatarUrl(agent.id, agent.avatar_url, null);
+                // Use token image first, then agent avatar, then fallback
+                const avatarUrl = agent.tokenImage || getAgentAvatarUrl(agent.id, agent.avatar_url, null);
 
                 return (
                   <Link
@@ -86,11 +111,11 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
                       {rank}
                     </div>
                     
-                    {/* Avatar - image or fallback to initials */}
+                    {/* Avatar - token image, agent avatar, or fallback to initials */}
                     {avatarUrl ? (
                       <img
                         src={avatarUrl}
-                        alt={agent.name}
+                        alt={displayName}
                         className="w-8 h-8 rounded-full object-cover"
                       />
                     ) : (
@@ -102,7 +127,7 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[hsl(var(--tunabook-text-primary))] truncate">
-                        {agent.name}
+                        {displayName}
                       </p>
                       <span className="text-xs text-[hsl(var(--tunabook-text-muted))]">
                         {agent.total_tokens_launched || 0} tokens
