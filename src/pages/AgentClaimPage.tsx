@@ -105,6 +105,27 @@ export default function AgentClaimPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
+  // Extract meaningful error messages from backend function errors
+  const getInvokeErrorMessage = (err: unknown): string | null => {
+    const anyErr = err as any;
+    const ctx = anyErr?.context;
+    const body = ctx?.body;
+
+    if (body) {
+      try {
+        const parsed = typeof body === "string" ? JSON.parse(body) : body;
+        if (parsed?.error && typeof parsed.error === "string") return parsed.error;
+        if (parsed?.message && typeof parsed.message === "string") return parsed.message;
+        if (parsed?.success === false && typeof parsed?.error === "string") return parsed.error;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (typeof anyErr?.message === "string") return anyErr.message;
+    return null;
+  };
+
   // Timer effect for cooldowns
   useEffect(() => {
     const interval = setInterval(() => {
@@ -281,14 +302,19 @@ export default function AgentClaimPage() {
 
     setIsLoading(true);
     try {
-      const targetWallet = useEmbeddedWallet ? walletAddress : customWallet;
+      // Only embedded wallets are supported in this project.
+      if (!useEmbeddedWallet) {
+        throw new Error("Only the embedded wallet is supported for verification right now.");
+      }
+
+      const targetWallet = walletAddress;
 
       if (!targetWallet) {
         throw new Error("No wallet address specified");
       }
 
-      if (!useEmbeddedWallet && customWallet.length < 32) {
-        throw new Error("Invalid wallet address");
+      if (!isWalletReady) {
+        throw new Error("Wallet not ready. Please wait a moment and try again.");
       }
 
       const { data, error } = await supabase.functions.invoke("agent-claim-init", {
@@ -314,7 +340,8 @@ export default function AgentClaimPage() {
       console.error("Error initializing claim:", err);
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to initialize claim",
+        description:
+          getInvokeErrorMessage(err) ?? (err instanceof Error ? err.message : "Failed to initialize claim"),
         variant: "destructive",
       });
     } finally {
@@ -330,6 +357,11 @@ export default function AgentClaimPage() {
       // Safety check - wallet must be ready before signing
       if (!isWalletReady || !walletAddress) {
         throw new Error("Wallet not ready. Please wait for wallet to connect.");
+      }
+
+      // Only embedded wallets are supported in this project.
+      if (!useEmbeddedWallet) {
+        throw new Error("Only the embedded wallet is supported for verification right now.");
       }
 
       const wallet = getSolanaWallet();
@@ -355,7 +387,7 @@ export default function AgentClaimPage() {
         throw new Error("Failed to sign message. Please try again.");
       }
 
-      const targetWallet = useEmbeddedWallet ? walletAddress : customWallet;
+      const targetWallet = walletAddress;
 
       const { data, error } = await supabase.functions.invoke("agent-claim-verify", {
         body: {
@@ -387,7 +419,7 @@ export default function AgentClaimPage() {
       console.error("Error signing:", err);
       toast({
         title: "Signing Failed",
-        description: err instanceof Error ? err.message : "Failed to sign message",
+        description: getInvokeErrorMessage(err) ?? (err instanceof Error ? err.message : "Failed to sign message"),
         variant: "destructive",
       });
     } finally {
