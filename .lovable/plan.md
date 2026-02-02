@@ -1,157 +1,95 @@
 
-# Fix: Remove Outdated Wallet Requirement from Documentation
+# Complete Fix: Agent Fee Data Integrity
 
-## Problem Identified
+## Problem Summary
 
-You're absolutely right. After implementing X verification for agent claims, the `wallet:` field is **no longer required** when launching tokens via `!tunalaunch`. However, multiple UI components and documentation pages still show it as mandatory:
+The `agents.total_fees_earned_sol` column contains **corrupted data** (doubled values) due to the `fun-distribute` function incorrectly incrementing running totals multiple times. This causes:
 
-| Location | Current Text | Issue |
-|----------|--------------|-------|
-| Agent Idea Generator | `wallet: YOUR_WALLET_ADDRESS` | Shows outdated required field |
-| Agent Hero | `wallet: ABC...` | Shows in Twitter example |
-| Agent Docs Page | "Required Fields: wallet" | Listed as required |
-| TunaBook Page | `wallet: ABC...` | Shows in sidebar example |
+| Component | Issue |
+|-----------|-------|
+| Agent Leaderboard | Shows 2x actual earnings |
+| Agent Profile Pages | Shows 2x actual earnings |
+| TunaBook Sidebar | Shows 2x actual earnings |
+| Agent Stats (top-level) | Still reads from corrupted column |
 
-## How It Works Now (Correct Flow)
+**Current Corrupted Values:**
+| Agent | Stored | Correct (80% share) | Over-counted |
+|-------|--------|---------------------|--------------|
+| TunaAI_Bmyigj | 10.40 SOL | 5.20 SOL | 2x |
+| TunaAI_F5TJYD | 3.84 SOL | 1.92 SOL | 2x |
+| TunaAI_HPHoEV | 0.37 SOL | 0.18 SOL | 2x |
+| Inverse Cramer | 0.05 SOL | 0.03 SOL | 2x |
 
-```text
-Launch Flow (NO wallet needed):
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Agent posts     │───▶│ Bot creates     │───▶│ Creator claims  │
-│ !tunalaunch     │    │ token           │    │ via X verify    │
-│ (no wallet)     │    │ (placeholder    │    │ (sets wallet)   │
-│                 │    │  wallet used)   │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+---
+
+## Two-Part Solution
+
+### Part 1: Clean Corrupted Data (Database Update)
+
+Run a one-time SQL update to fix the `agents.total_fees_earned_sol` column with correct values calculated from the source of truth (`fun_fee_claims`):
+
+```sql
+UPDATE agents a
+SET total_fees_earned_sol = COALESCE((
+  SELECT SUM(ffc.claimed_sol) * 0.8
+  FROM fun_fee_claims ffc
+  JOIN fun_tokens ft ON ffc.fun_token_id = ft.id
+  WHERE ft.agent_id = a.id
+), 0)
+WHERE a.status = 'active';
 ```
 
-The backend already handles this correctly:
-- If no wallet is provided, it uses a placeholder
-- Ownership is verified via X OAuth at `/agents/claim`
-- Creator sets their payout wallet during the claim process
+This recalculates the 80% agent share from actual fee claims for each agent.
 
-## Files to Update
+### Part 2: Fix Remaining Component
 
-### 1. `src/components/agents/AgentIdeaGenerator.tsx` (Lines 268-275)
+The `agent-stats` function still uses the corrupted column for `totalAgentFeesEarned`. Update it to calculate dynamically like we did for `totalAgentPayouts`.
 
-**Current:**
-```jsx
-<code className="block bg-background p-3 rounded text-xs font-mono text-foreground">
-  <span className="text-primary">!tunalaunch</span><br/>
-  name: {generatedMeme.name}<br/>
-  symbol: {generatedMeme.ticker}<br/>
-  description: {generatedMeme.description.slice(0, 80)}...<br/>
-  wallet: YOUR_WALLET_ADDRESS<br/>
-  <span className="text-muted-foreground">+ attach the downloaded image</span>
-</code>
+**File:** `supabase/functions/agent-stats/index.ts`
+
+Change lines 77-80 from:
+```typescript
+const totalAgentFeesEarned = agents?.reduce(
+  (sum, a) => sum + Number(a.total_fees_earned_sol || 0),
+  0
+) || 0;
 ```
 
-**Fixed:**
-```jsx
-<code className="block bg-background p-3 rounded text-xs font-mono text-foreground">
-  <span className="text-primary">@BuildTuna !tunalaunch</span><br/>
-  name: {generatedMeme.name}<br/>
-  symbol: {generatedMeme.ticker}<br/>
-  description: {generatedMeme.description.slice(0, 80)}...<br/>
-  <span className="text-muted-foreground">+ attach the downloaded image</span>
-</code>
+To (reuse the already-calculated value):
+```typescript
+// Use the same source-of-truth calculation as totalAgentPayouts
+// totalAgentFeesEarned should equal totalAgentPayouts for consistency
+const totalAgentFeesEarned = totalAgentPayouts;
 ```
 
-### 2. `src/components/agents/AgentHero.tsx` (Lines 62-68)
+This ensures the stat bar shows accurate data even if the database column becomes corrupted again.
 
-**Current:**
-```jsx
-<div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-  <span className="text-[#1DA1F2]">@BuildTuna</span> <span className="text-primary">!tunalaunch</span><br/>
-  name: MyToken<br/>
-  symbol: MTK<br/>
-  wallet: ABC...<br/>
-  + attach image
-</div>
-```
+---
 
-**Fixed:**
-```jsx
-<div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-  <span className="text-[#1DA1F2]">@BuildTuna</span> <span className="text-primary">!tunalaunch</span><br/>
-  name: MyToken<br/>
-  symbol: MTK<br/>
-  + attach image
-</div>
-```
+## Why This Fully Fixes It
 
-### 3. `src/pages/AgentDocsPage.tsx` - Multiple Sections
+1. **Database Cleanup**: Corrects all agent records to match actual fee claims
+2. **Dynamic Calculation**: The `agent-stats` function calculates from source of truth
+3. **All Components Fixed**: Leaderboard, profiles, and sidebar all read from the corrected `agents` table
+4. **Future-Proof**: Even if `fun-distribute` double-counts again, the stats display will remain accurate
 
-**Twitter Example (Lines 89-98):**
-```text
-CURRENT:
-!tunalaunch
-name: Cool Token
-symbol: COOL
-wallet: 7xK9abc123...
-description: The coolest token on Solana
+---
 
-FIXED:
-!tunalaunch
-name: Cool Token
-symbol: COOL
-description: The coolest token on Solana
-```
+## Files to Modify
 
-**Required Fields (Lines 113-118):**
-```text
-CURRENT:
-• name - Token name (1-32 characters)
-• symbol - Token ticker (1-10 characters)
-• wallet - Your Solana wallet address (receives fees)
+| Item | Type | Change |
+|------|------|--------|
+| `agents` table | Database | UPDATE to recalculate `total_fees_earned_sol` from `fun_fee_claims` |
+| `supabase/functions/agent-stats/index.ts` | Edge Function | Use dynamic calculation for `totalAgentFeesEarned` |
 
-FIXED:
-• name - Token name (1-32 characters)
-• symbol - Token ticker (1-10 characters)
-```
+---
 
-**Add to Optional Fields (Line 130):**
-```text
-• wallet - Payout wallet (optional, set later via X claim)
-```
+## Expected Results After Fix
 
-### 4. `src/pages/TunaBookPage.tsx` (Lines 146-151)
+| Stat | Before | After |
+|------|--------|-------|
+| Agent Fees Earned (total) | ~14.66 SOL | ~7.33 SOL |
+| TunaAI_Bmyigj (leaderboard) | 10.40 SOL | 5.20 SOL |
+| TunaAI_F5TJYD (leaderboard) | 3.84 SOL | 1.92 SOL |
 
-**Current:**
-```jsx
-<div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-  <span className="text-primary">!tunalaunch</span><br/>
-  name: MyToken<br/>
-  symbol: MTK<br/>
-  wallet: ABC...<br/>
-  + attach image
-</div>
-```
-
-**Fixed:**
-```jsx
-<div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-  <span className="text-primary">@BuildTuna !tunalaunch</span><br/>
-  name: MyToken<br/>
-  symbol: MTK<br/>
-  + attach image
-</div>
-```
-
-## Additional Improvement: Add X Claim Info
-
-Add a note explaining the verification flow where applicable:
-
-```text
-Claim ownership via X at /agents/claim to set your payout wallet and withdraw fees.
-```
-
-## Summary
-
-| File | Changes |
-|------|---------|
-| `AgentIdeaGenerator.tsx` | Remove `wallet: YOUR_WALLET_ADDRESS` line |
-| `AgentHero.tsx` | Remove `wallet: ABC...` from Twitter example |
-| `AgentDocsPage.tsx` | Move `wallet` from required to optional; update all examples |
-| `TunaBookPage.tsx` | Remove `wallet: ABC...` from sidebar example |
-
-This ensures all documentation is consistent with the X verification flow that was already implemented.
+All values will now match the 80% share of actual trading fees from `fun_fee_claims`.
