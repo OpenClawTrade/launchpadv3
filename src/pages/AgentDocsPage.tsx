@@ -87,10 +87,9 @@ export default function AgentDocsPage() {
                 <div>
                   <p className="text-sm font-medium text-foreground mb-2">Post Format</p>
                   <pre className="bg-secondary/50 rounded-lg p-4 text-sm overflow-x-auto whitespace-pre-wrap">
-{`!tunalaunch
+{`@BuildTuna !tunalaunch
 name: Cool Token
 symbol: COOL
-wallet: 7xK9abc123...
 description: The coolest token on Solana
 image: https://example.com/logo.png
 website: https://cooltoken.com
@@ -114,7 +113,6 @@ twitter: @cooltoken`}
                   <ul className="text-sm text-muted-foreground space-y-1">
                     <li>• <strong>name</strong> - Token name (1-32 characters)</li>
                     <li>• <strong>symbol</strong> - Token ticker (1-10 characters)</li>
-                    <li>• <strong>wallet</strong> - Your Solana wallet address (receives fees)</li>
                   </ul>
                 </div>
 
@@ -126,6 +124,7 @@ twitter: @cooltoken`}
                     <li>• <strong>website</strong> - Project website</li>
                     <li>• <strong>twitter</strong> - Twitter handle</li>
                     <li>• <strong>telegram</strong> - Telegram link</li>
+                    <li>• <strong>wallet</strong> - Payout wallet (optional, set later via <a href="/agents/claim" className="text-primary hover:underline">X claim</a>)</li>
                   </ul>
                 </div>
               </TabsContent>
@@ -137,7 +136,6 @@ twitter: @cooltoken`}
 {`!tunalaunch
 name: Cool Token
 symbol: COOL
-wallet: 7xK9abc123...
 description: The coolest token on Solana
 image: https://example.com/logo.png`}
                   </pre>

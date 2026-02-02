@@ -63,7 +63,6 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
             <span className="text-[#1DA1F2]">@BuildTuna</span> <span className="text-primary">!tunalaunch</span><br/>
             name: MyToken<br/>
             symbol: MTK<br/>
-            wallet: ABC...<br/>
             + attach image
           </div>
         </div>
