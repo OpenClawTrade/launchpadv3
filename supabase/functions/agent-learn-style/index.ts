@@ -131,7 +131,7 @@ async function fetchUserTweets(
 ): Promise<string[]> {
   const baseUrl = `${TWITTER_API_BASE}/users/${userId}/tweets`;
   const queryParams = new URLSearchParams({
-    max_results: "100",
+    max_results: "20", // Reduced from 100 to 20 for faster analysis
     "tweet.fields": "text,created_at",
     exclude: "retweets,replies",
   });
@@ -284,7 +284,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { agentId, twitterUsername } = await req.json();
+    // Support reply context: if isReply=true, analyze parentAuthorUsername instead
+    const { agentId, twitterUsername, isReply, parentAuthorUsername } = await req.json();
 
     if (!agentId) {
       return new Response(
@@ -332,9 +333,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    const usernameToAnalyze = twitterUsername || agent.twitter_handle;
+    // If this is a reply to someone else's post, analyze that person's tweets
+    // Otherwise analyze the launcher's tweets
+    const usernameToAnalyze = (isReply && parentAuthorUsername) 
+      ? parentAuthorUsername 
+      : (twitterUsername || agent.twitter_handle);
+    
     let styleFingerprint: StyleFingerprint | null = null;
     let styleSource = "fallback";
+
+    console.log(`[agent-learn-style] Analyzing: ${usernameToAnalyze} (isReply: ${isReply})`);
 
     // Try to fetch and analyze Twitter style if credentials available
     if (

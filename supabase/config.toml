@@ -209,3 +209,9 @@ verify_jwt = false
 
 [functions.agent-learn-style]
 verify_jwt = false
+
+[functions.agent-claim-init]
+verify_jwt = false
+
+[functions.agent-claim-verify]
+verify_jwt = false
