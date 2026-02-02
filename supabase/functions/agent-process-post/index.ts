@@ -180,11 +180,29 @@ function parseSingleLine(content: string, data: Partial<ParsedLaunchData>): void
   }
 }
 
+// Generate a unique AI agent name (not based on Twitter username)
+function generateAgentName(walletAddress: string): string {
+  // Use first 6 chars of wallet to create unique identifier
+  const walletPrefix = walletAddress.slice(0, 6);
+  
+  // AI-identifiable prefixes
+  const prefixes = [
+    "Agent", "TunaBot", "AITrader", "CryptoAI", "TunaAI",
+    "AutoBot", "SmartAgent", "AILauncher", "TunaAgent", "TokenAI"
+  ];
+  
+  // Pick a prefix based on wallet hash for consistency
+  const hashNum = walletAddress.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const prefix = prefixes[hashNum % prefixes.length];
+  
+  return `${prefix}_${walletPrefix}`;
+}
+
 // Get or create agent by wallet address
 async function getOrCreateAgent(
   supabase: AnySupabase,
   walletAddress: string,
-  name?: string
+  twitterUsername?: string // Store separately, don't use as agent name
 ): Promise<{ id: string; wallet_address: string; name: string } | null> {
   // Try to find existing agent
   const { data: existing } = await supabase
@@ -194,10 +212,18 @@ async function getOrCreateAgent(
     .maybeSingle();
 
   if (existing) {
+    // Update twitter_handle if provided and not already set
+    if (twitterUsername) {
+      await supabase
+        .from("agents")
+        .update({ twitter_handle: twitterUsername.replace("@", "") })
+        .eq("id", existing.id)
+        .is("twitter_handle", null);
+    }
     return existing;
   }
 
-  // Create new agent (without API key since they're using social posts)
+  // Create new agent with AI-identifiable name (NOT Twitter username)
   const apiKeyPrefix = "tna_social_";
   const randomBytes = new Uint8Array(16);
   crypto.getRandomValues(randomBytes);
@@ -205,14 +231,18 @@ async function getOrCreateAgent(
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
+  // Generate AI-identifiable name instead of using Twitter username
+  const agentName = generateAgentName(walletAddress);
+
   const { data: newAgent, error } = await supabase
     .from("agents")
     .insert({
-      name: name || `Agent_${walletAddress.slice(0, 8)}`,
+      name: agentName,
       wallet_address: walletAddress,
       api_key_hash: apiKeyHash,
       api_key_prefix: apiKeyPrefix,
       status: "active",
+      twitter_handle: twitterUsername?.replace("@", "") || null, // Store for attribution
     })
     .select("id, wallet_address, name")
     .single();
@@ -222,6 +252,7 @@ async function getOrCreateAgent(
     return null;
   }
 
+  console.log(`[agent-process-post] Created agent: ${agentName} (launched by @${twitterUsername || "unknown"})`);
   return newAgent;
 }
 
