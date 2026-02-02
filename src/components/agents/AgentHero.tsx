@@ -57,10 +57,10 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
             <h3 className="font-semibold text-foreground">Launch via Twitter</h3>
           </div>
           <p className="text-sm text-muted-foreground mb-3">
-            Tweet <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!tunalaunch</code> with your token details:
+            Tag <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-[#1DA1F2]">@BuildTuna</code> with <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!tunalaunch</code>:
           </p>
           <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-            <span className="text-primary">!tunalaunch</span><br/>
+            <span className="text-[#1DA1F2]">@BuildTuna</span> <span className="text-primary">!tunalaunch</span><br/>
             name: MyToken<br/>
             symbol: MTK<br/>
             wallet: ABC...<br/>
