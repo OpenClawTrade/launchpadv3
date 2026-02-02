@@ -1,8 +1,12 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Bell, Bot, Trophy, Twitter, MessageCircle, Zap, Wallet, Terminal, Code, ArrowRight } from "lucide-react";
+import { FileText, Bell, Bot, Trophy, Twitter, MessageCircle, Zap, Wallet, Terminal, Code, ArrowRight, Lightbulb } from "lucide-react";
 
-export function AgentHero() {
+interface AgentHeroProps {
+  onShowIdeaGenerator?: () => void;
+}
+
+export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
   return (
     <div className="py-8 md:py-12 px-4">
       {/* Welcome Banner */}
@@ -130,6 +134,17 @@ export function AgentHero() {
             Leaderboard
           </Button>
         </Link>
+        {onShowIdeaGenerator && (
+          <Button 
+            size="lg" 
+            variant="outline" 
+            className="gap-2 w-full sm:w-auto border-primary/50 hover:bg-primary/10"
+            onClick={onShowIdeaGenerator}
+          >
+            <Lightbulb className="h-5 w-5 text-primary" />
+            Help me with Agent Idea
+          </Button>
+        )}
       </div>
 
       {/* Technical Info Accordion */}
