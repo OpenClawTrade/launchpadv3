@@ -556,6 +556,8 @@ export async function processLaunchPost(
   console.log(`[agent-process-post] ✅ Image validation passed: ${finalImageUrl.slice(0, 60)}...`);
 
   // Insert pending record
+  // Note: wallet_address is now optional in tweet - fees are claimed via X login
+  // Use "pending_claim" as placeholder when wallet not provided
   const { data: socialPost, error: insertError } = await supabase
     .from("agent_social_posts")
     .insert({
@@ -564,7 +566,7 @@ export async function processLaunchPost(
       post_url: postUrl,
       post_author: postAuthor,
       post_author_id: postAuthorId,
-      wallet_address: parsed.wallet,
+      wallet_address: parsed.wallet || "pending_claim",
       raw_content: rawContent.slice(0, 1000),
       parsed_name: parsed.name,
       parsed_symbol: parsed.symbol,
