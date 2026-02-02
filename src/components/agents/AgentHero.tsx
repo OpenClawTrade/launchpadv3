@@ -112,17 +112,15 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
 
       {/* CTA Row */}
       <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
-        {onShowIdeaGenerator && (
-          <Button 
-            size="lg" 
-            variant="outline" 
-            className="gap-2 w-full sm:w-auto border-primary/50 hover:bg-primary/10"
-            onClick={onShowIdeaGenerator}
-          >
-            <Lightbulb className="h-5 w-5 text-primary" />
-            Help me with Agent Idea
-          </Button>
-        )}
+        <Button 
+          size="lg" 
+          variant="outline" 
+          className="gap-2 w-full sm:w-auto border-primary/50 hover:bg-primary/10"
+          onClick={onShowIdeaGenerator}
+        >
+          <Lightbulb className="h-5 w-5 text-primary" />
+          Help me with Agent Idea
+        </Button>
         <Link to="/agents/docs">
           <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 w-full sm:w-auto">
             <FileText className="h-5 w-5" />
