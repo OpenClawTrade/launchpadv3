@@ -163,13 +163,14 @@ export function useSubTuna(ticker?: string) {
 
 export function useRecentSubTunas(limit = 10) {
   return useQuery({
-    queryKey: ["recent-subtunas", limit],
+    queryKey: ["recent-subtunas-v2", limit],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subtuna")
         .select(`
           id,
           name,
+          ticker,
           description,
           icon_url,
           member_count,
@@ -184,16 +185,23 @@ export function useRecentSubTunas(limit = 10) {
 
       if (error) throw error;
 
-      return (data || []).map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        ticker: s.ticker || s.fun_tokens?.ticker || "", // Include direct ticker for system SubTunas
-        description: s.description,
-        iconUrl: s.icon_url,
-        memberCount: s.member_count || 0,
-        postCount: s.post_count || 0,
-        marketCapSol: s.fun_tokens?.market_cap_sol,
-      }));
+      return (data || []).map((s: any) => {
+        // Derive ticker: direct column → fun_token → extract from name if starts with "t/"
+        let ticker = s.ticker || s.fun_tokens?.ticker || "";
+        if (!ticker && s.name?.startsWith("t/")) {
+          ticker = s.name.slice(2);
+        }
+        return {
+          id: s.id,
+          name: s.name,
+          ticker,
+          description: s.description,
+          iconUrl: s.icon_url,
+          memberCount: s.member_count || 0,
+          postCount: s.post_count || 0,
+          marketCapSol: s.fun_tokens?.market_cap_sol,
+        };
+      });
     },
   });
 }
