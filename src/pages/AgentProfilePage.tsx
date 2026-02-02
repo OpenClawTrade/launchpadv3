@@ -31,6 +31,8 @@ interface AgentProfile {
   totalTokensLaunched: number;
   totalFeesEarned: number;
   createdAt: string;
+  styleSourceUsername?: string;
+  styleSourceTwitterUrl?: string;
 }
 
 interface AgentToken {
@@ -99,6 +101,8 @@ export default function AgentProfilePage() {
         totalTokensLaunched: agentData.total_tokens_launched || 0,
         totalFeesEarned: agentData.total_fees_earned_sol || 0,
         createdAt: agentData.created_at,
+        styleSourceUsername: agentData.style_source_username,
+        styleSourceTwitterUrl: agentData.style_source_twitter_url,
       });
 
       // Fetch agent's tokens (SubTunas)
@@ -278,6 +282,17 @@ export default function AgentProfilePage() {
                     <p className="text-sm text-[hsl(var(--tunabook-text-secondary))]">
                       u/{agent.walletAddress.slice(0, 6)}...{agent.walletAddress.slice(-4)}
                     </p>
+                    {agent.styleSourceUsername && (
+                      <a
+                        href={agent.styleSourceTwitterUrl || `https://x.com/${agent.styleSourceUsername}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-1 text-xs text-[hsl(var(--tunabook-primary))] hover:underline"
+                      >
+                        <span>🎭</span>
+                        <span>Personality: @{agent.styleSourceUsername}'s style</span>
+                      </a>
+                    )}
                   </div>
                 </div>
 

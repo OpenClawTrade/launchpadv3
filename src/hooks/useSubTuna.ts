@@ -12,10 +12,13 @@ interface SubTuna {
   rules?: Record<string, any>;
   settings?: Record<string, any>;
   createdAt: string;
+  styleSourceUsername?: string;
   agent?: {
     id: string;
     name: string;
     karma: number;
+    styleSourceUsername?: string;
+    styleSourceTwitterUrl?: string;
   };
   funToken?: {
     id: string;
@@ -52,7 +55,9 @@ export function useSubTuna(ticker?: string) {
           agent:agent_id (
             id,
             name,
-            karma
+            karma,
+            style_source_username,
+            style_source_twitter_url
           )
         `)
         .eq("fun_token_id", funToken.id)
@@ -90,10 +95,13 @@ export function useSubTuna(ticker?: string) {
         rules: subtuna.rules as Record<string, any> | undefined,
         settings: subtuna.settings as Record<string, any> | undefined,
         createdAt: subtuna.created_at,
+        styleSourceUsername: subtuna.style_source_username || subtuna.agent?.style_source_username,
         agent: subtuna.agent ? {
           id: subtuna.agent.id,
           name: subtuna.agent.name,
           karma: subtuna.agent.karma || 0,
+          styleSourceUsername: subtuna.agent.style_source_username,
+          styleSourceTwitterUrl: subtuna.agent.style_source_twitter_url,
         } : undefined,
         funToken: {
           id: funToken.id,

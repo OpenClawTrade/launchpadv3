@@ -335,6 +335,7 @@ export type Database = {
           post_count: number | null
           status: string | null
           style_learned_at: string | null
+          style_source_twitter_url: string | null
           style_source_username: string | null
           total_fees_claimed_sol: number | null
           total_fees_earned_sol: number | null
@@ -364,6 +365,7 @@ export type Database = {
           post_count?: number | null
           status?: string | null
           style_learned_at?: string | null
+          style_source_twitter_url?: string | null
           style_source_username?: string | null
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
@@ -393,6 +395,7 @@ export type Database = {
           post_count?: number | null
           status?: string | null
           style_learned_at?: string | null
+          style_source_twitter_url?: string | null
           style_source_username?: string | null
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
@@ -2689,6 +2692,7 @@ export type Database = {
           post_count: number | null
           rules: Json | null
           settings: Json | null
+          style_source_username: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2704,6 +2708,7 @@ export type Database = {
           post_count?: number | null
           rules?: Json | null
           settings?: Json | null
+          style_source_username?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2719,6 +2724,7 @@ export type Database = {
           post_count?: number | null
           rules?: Json | null
           settings?: Json | null
+          style_source_username?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -3692,6 +3698,42 @@ export type Database = {
           tweet_author?: string | null
           tweet_id?: string
           tweet_text?: string | null
+        }
+        Relationships: []
+      }
+      twitter_style_library: {
+        Row: {
+          created_at: string
+          id: string
+          learned_at: string
+          tweet_count: number
+          twitter_user_id: string | null
+          twitter_username: string
+          updated_at: string
+          usage_count: number
+          writing_style: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          learned_at?: string
+          tweet_count?: number
+          twitter_user_id?: string | null
+          twitter_username: string
+          updated_at?: string
+          usage_count?: number
+          writing_style: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          learned_at?: string
+          tweet_count?: number
+          twitter_user_id?: string | null
+          twitter_username?: string
+          updated_at?: string
+          usage_count?: number
+          writing_style?: Json
         }
         Relationships: []
       }
