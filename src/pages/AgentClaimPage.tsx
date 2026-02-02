@@ -145,6 +145,8 @@ function AgentClaimPageInner() {
   const [claimCooldowns, setClaimCooldowns] = useState<Map<string, ClaimCooldown>>(new Map());
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [payoutWallet, setPayoutWallet] = useState<string>("");
+  const [payoutWalletError, setPayoutWalletError] = useState<string | null>(null);
 
   // Extract meaningful error messages from backend function errors
   const getInvokeErrorMessage = (err: unknown): string | null => {
@@ -249,6 +251,31 @@ function AgentClaimPageInner() {
   const handleClaimFees = async (agent: ClaimableAgent) => {
     if (!twitterUsername || agent.unclaimedFees < 0.01) return;
 
+    // Validate payout wallet
+    if (!payoutWallet.trim()) {
+      setPayoutWalletError("Please enter a wallet address");
+      toast({
+        title: "Wallet Required",
+        description: "Please enter a Solana wallet address to receive your fees.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic Solana address validation (base58, 32-44 chars)
+    const trimmedWallet = payoutWallet.trim();
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmedWallet)) {
+      setPayoutWalletError("Invalid Solana wallet address");
+      toast({
+        title: "Invalid Wallet",
+        description: "Please enter a valid Solana wallet address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPayoutWalletError(null);
+
     // Check if on cooldown
     const cooldown = claimCooldowns.get(agent.walletAddress);
     if (cooldown && cooldown.remainingSeconds > 0) {
@@ -265,7 +292,7 @@ function AgentClaimPageInner() {
       const { data, error } = await supabase.functions.invoke("agent-creator-claim", {
         body: {
           twitterUsername,
-          walletAddress: agent.walletAddress,
+          payoutWallet: trimmedWallet,
           tokenIds: agent.tokens.map(t => t.id),
         },
       });
@@ -658,57 +685,77 @@ function AgentClaimPageInner() {
                       </div>
                     </div>
                     
-                    {/* Payout destination & claim button - separated from API key flow */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-background/50 border border-border/50">
+                    {/* Payout wallet input & claim button */}
+                    <div className="flex flex-col gap-2 p-3 rounded-lg bg-background/50 border border-border/50">
                       <div className="flex items-center gap-2 text-sm">
                         <Wallet className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Payouts to:</span>
-                        <span className="font-mono text-xs">
-                          {agent.walletAddress.slice(0, 6)}...{agent.walletAddress.slice(-4)}
-                        </span>
+                        <span className="text-muted-foreground">Where should we send your fees?</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const cooldown = getCooldownForAgent(agent);
-                          const isOnCooldown = cooldown && cooldown.remainingSeconds > 0;
-                          
-                          if (isOnCooldown) {
+                      
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="Enter your Solana wallet address"
+                            value={payoutWallet}
+                            onChange={(e) => {
+                              setPayoutWallet(e.target.value);
+                              setPayoutWalletError(null);
+                            }}
+                            className={`w-full px-3 py-2 text-sm font-mono rounded-md border bg-background ${
+                              payoutWalletError 
+                                ? "border-destructive focus:ring-destructive" 
+                                : "border-border focus:ring-primary"
+                            } focus:outline-none focus:ring-2`}
+                          />
+                          {payoutWalletError && (
+                            <p className="text-xs text-destructive mt-1">{payoutWalletError}</p>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-start">
+                          {(() => {
+                            const cooldown = getCooldownForAgent(agent);
+                            const isOnCooldown = cooldown && cooldown.remainingSeconds > 0;
+                            
+                            if (isOnCooldown) {
+                              return (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md whitespace-nowrap">
+                                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                                  <span className="text-sm text-muted-foreground">
+                                    Next claim in {formatCooldown(cooldown.remainingSeconds)}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            
+                            if (agent.unclaimedFees >= 0.01) {
+                              return (
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => handleClaimFees(agent)}
+                                  disabled={isClaiming}
+                                  className="bg-primary hover:bg-primary/90 whitespace-nowrap"
+                                >
+                                  {isClaiming ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <DollarSign className="w-4 h-4 mr-1" />
+                                      Claim {formatSol(agent.unclaimedFees)} SOL
+                                    </>
+                                  )}
+                                </Button>
+                              );
+                            }
+                            
                             return (
-                              <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
-                                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                                <span className="text-sm text-muted-foreground">
-                                  Next claim in {formatCooldown(cooldown.remainingSeconds)}
-                                </span>
-                              </div>
+                              <Badge variant="outline" className="text-muted-foreground py-2">
+                                No fees to claim
+                              </Badge>
                             );
-                          }
-                          
-                          if (agent.unclaimedFees >= 0.01) {
-                            return (
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleClaimFees(agent)}
-                                disabled={isClaiming}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                {isClaiming ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    <DollarSign className="w-4 h-4 mr-1" />
-                                    Claim {formatSol(agent.unclaimedFees)} SOL
-                                  </>
-                                )}
-                              </Button>
-                            );
-                          }
-                          
-                          return (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              No fees to claim
-                            </Badge>
-                          );
-                        })()}
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -162,19 +162,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get distributions for unclaimed fee calculation
+    // Get UNCLAIMED fees - fee claims that haven't been distributed to creator yet
     const tokenUnclaimedMap = new Map<string, number>();
     if (tokenIds.length > 0) {
-      const { data: distributions } = await supabase
-        .from("fun_distributions")
-        .select("fun_token_id, amount_sol, status")
+      const { data: unclaimedFeeClaims } = await supabase
+        .from("fun_fee_claims")
+        .select("fun_token_id, claimed_sol")
         .in("fun_token_id", tokenIds)
-        .eq("distribution_type", "creator");
+        .eq("creator_distributed", false);
 
-      for (const dist of distributions || []) {
-        if (dist.fun_token_id && dist.status === "completed") {
-          const current = tokenUnclaimedMap.get(dist.fun_token_id) || 0;
-          tokenUnclaimedMap.set(dist.fun_token_id, current + (dist.amount_sol || 0));
+      for (const claim of unclaimedFeeClaims || []) {
+        if (claim.fun_token_id) {
+          const current = tokenUnclaimedMap.get(claim.fun_token_id) || 0;
+          tokenUnclaimedMap.set(claim.fun_token_id, current + (claim.claimed_sol || 0));
         }
       }
     }
