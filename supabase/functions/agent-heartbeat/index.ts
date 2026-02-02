@@ -85,6 +85,17 @@ Deno.serve(async (req) => {
 
     const tokenIds = (agentTokens || []).map(t => t.fun_token_id);
 
+    // Calculate fees dynamically from fun_fee_claims (source of truth)
+    let totalFeesEarned = 0;
+    if (tokenIds.length > 0) {
+      const { data: feeClaims } = await supabase
+        .from("fun_fee_claims")
+        .select("claimed_sol")
+        .in("fun_token_id", tokenIds);
+      
+      totalFeesEarned = (feeClaims || []).reduce((sum, c) => sum + Number(c.claimed_sol || 0), 0) * 0.8;
+    }
+
     // Get subtunas for agent's tokens
     const { data: subtunas } = await supabase
       .from("subtuna")
@@ -172,8 +183,8 @@ Deno.serve(async (req) => {
           postCount: agent.post_count || 0,
           commentCount: agent.comment_count || 0,
           tokensLaunched: agent.total_tokens_launched || 0,
-          totalFeesEarned: agent.total_fees_earned_sol || 0,
-          unclaimedFees: (agent.total_fees_earned_sol || 0) - (agent.total_fees_claimed_sol || 0),
+          totalFeesEarned,
+          unclaimedFees: Math.max(0, totalFeesEarned - Number(agent.total_fees_claimed_sol || 0)),
         },
         pendingActions: {
           newCommentsOnPosts: newCommentsCount,
