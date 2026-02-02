@@ -53,6 +53,25 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to fetch agents: ${agentsError.message}`);
     }
 
+    // Get agent token IDs for fee claims query
+    const agentTokenIds = agentTokens?.map(at => at.fun_token_id).filter(Boolean) || [];
+
+    // Calculate total volume from fee claims (fee is 1%, so volume = fees / 0.01)
+    let totalVolume = 0;
+    if (agentTokenIds.length > 0) {
+      const { data: feeClaims } = await supabase
+        .from("fun_fee_claims")
+        .select("claimed_sol")
+        .in("fun_token_id", agentTokenIds);
+
+      const totalFeesClaimed = feeClaims?.reduce(
+        (sum, fc) => sum + Number(fc.claimed_sol || 0), 0
+      ) || 0;
+
+      // Volume = Fees / 1% fee rate
+      totalVolume = totalFeesClaimed / 0.01;
+    }
+
     // Calculate totals
     const totalTokensLaunched = agentTokens?.length || 0;
     const totalAgentFeesEarned = agents?.reduce(
@@ -63,11 +82,6 @@ Deno.serve(async (req) => {
     const totalMarketCap = agentTokens?.reduce((sum, at) => {
       const token = at.fun_tokens as any;
       return sum + Number(token?.market_cap_sol || 0);
-    }, 0) || 0;
-
-    const totalVolume = agentTokens?.reduce((sum, at) => {
-      const token = at.fun_tokens as any;
-      return sum + Number(token?.volume_24h_sol || 0);
     }, 0) || 0;
 
     const totalAgents = agents?.length || 0;

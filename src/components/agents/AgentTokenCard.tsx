@@ -59,7 +59,7 @@ export function AgentTokenCard({
     <div className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-all">
       <div className="flex items-start gap-4">
         {/* Token Image */}
-        <Link to={`/launchpad/${token.mintAddress}`} className="flex-shrink-0">
+        <Link to={`/t/${token.ticker}`} className="flex-shrink-0">
           {token.imageUrl ? (
             <img
               src={token.imageUrl}
@@ -79,7 +79,7 @@ export function AgentTokenCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Link
-              to={`/launchpad/${token.mintAddress}`}
+              to={`/t/${token.ticker}`}
               className="font-semibold text-foreground hover:text-primary transition-colors"
             >
               ${token.ticker}
@@ -123,9 +123,9 @@ export function AgentTokenCard({
               </Button>
             </a>
           )}
-          <Link to={`/launchpad/${token.mintAddress}`}>
+          <Link to={`/t/${token.ticker}`}>
             <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
-              Trade
+              View
               <ExternalLink className="h-3 w-3" />
             </Button>
           </Link>

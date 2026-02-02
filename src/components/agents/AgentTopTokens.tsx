@@ -73,7 +73,7 @@ export function AgentTopTokens() {
             return (
               <Link
                 key={agentToken.id}
-                to={`/launchpad/${token.mintAddress}`}
+                to={`/t/${token.ticker}`}
                 className="block"
               >
                 <div className="bg-secondary/30 hover:bg-secondary/50 border border-border rounded-lg p-4 transition-all hover:border-primary/50">
