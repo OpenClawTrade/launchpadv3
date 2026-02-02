@@ -208,11 +208,14 @@ function assignParsedField(data: Partial<ParsedLaunchData>, key: string, value: 
   switch (keyLower) {
     case "name":
     case "token":
-      data.name = trimmedValue.slice(0, 32);
+      // Remove trailing punctuation from name (commas, periods, etc.)
+      data.name = trimmedValue.replace(/[,.:;!?]+$/, "").slice(0, 32);
       break;
     case "symbol":
     case "ticker":
-      data.symbol = trimmedValue.toUpperCase().slice(0, 10);
+      // Remove ALL non-alphanumeric characters (ticker should only be letters/numbers)
+      // This handles: CRAMER, → CRAMER, $CRAMER → CRAMER, etc.
+      data.symbol = trimmedValue.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
       break;
     case "wallet":
     case "address":
