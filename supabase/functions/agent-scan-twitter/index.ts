@@ -6,102 +6,16 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-function percentEncode(input: string): string {
-  // OAuth 1.0a requires RFC3986 encoding (encodeURIComponent + a few extra chars)
-  return encodeURIComponent(input).replace(/[!'()*]/g, (c) =>
-    `%${c.charCodeAt(0).toString(16).toUpperCase()}`
-  );
-}
-
-function createNonce(): string {
-  return crypto.randomUUID().replace(/-/g, "");
-}
-
-function toBase64(bytes: ArrayBuffer): string {
-  const arr = new Uint8Array(bytes);
-  let binary = "";
-  for (let i = 0; i < arr.length; i++) binary += String.fromCharCode(arr[i]);
-  return btoa(binary);
-}
+const TWITTERAPI_BASE = "https://api.twitterapi.io";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function hmacSha1Base64(secret: string, message: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(message)
-  );
-  return toBase64(sig);
-}
-
-async function buildOAuth1Header(opts: {
-  method: string;
-  url: string;
-  queryParams: Record<string, string>;
-  consumerKey: string;
-  consumerSecret: string;
-  accessToken: string;
-  accessTokenSecret: string;
-}): Promise<string> {
-  const oauthParams: Record<string, string> = {
-    oauth_consumer_key: opts.consumerKey,
-    oauth_nonce: createNonce(),
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: opts.accessToken,
-    oauth_version: "1.0",
-  };
-
-  // Base string includes both OAuth params + query params
-  const allParams: Array<[string, string]> = [];
-  for (const [k, v] of Object.entries({ ...oauthParams, ...opts.queryParams })) {
-    allParams.push([percentEncode(k), percentEncode(v)]);
-  }
-  allParams.sort((a, b) => (a[0] === b[0] ? a[1].localeCompare(b[1]) : a[0].localeCompare(b[0])));
-  const paramString = allParams.map(([k, v]) => `${k}=${v}`).join("&");
-
-  const baseUrl = new URL(opts.url);
-  baseUrl.search = "";
-  baseUrl.hash = "";
-
-  const baseString = [
-    opts.method.toUpperCase(),
-    percentEncode(baseUrl.toString()),
-    percentEncode(paramString),
-  ].join("&");
-
-  const signingKey = `${percentEncode(opts.consumerSecret)}&${percentEncode(opts.accessTokenSecret)}`;
-  const signature = await hmacSha1Base64(signingKey, baseString);
-
-  oauthParams.oauth_signature = signature;
-
-  const headerParams = Object.entries(oauthParams)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${percentEncode(k)}="${percentEncode(v)}"`)
-    .join(", ");
-
-  return `OAuth ${headerParams}`;
-}
-
-// Search for mentions using official X API (reliable indexing)
-async function searchMentionsViaXApi(
+// Search for mentions using twitterapi.io (session-based, reliable)
+async function searchMentionsViaTwitterApiIo(
   query: string,
-  creds: {
-    consumerKey: string;
-    consumerSecret: string;
-    accessToken: string;
-    accessTokenSecret: string;
-  }
+  apiKey: string
 ): Promise<Array<{
   id: string;
   text: string;
@@ -109,39 +23,16 @@ async function searchMentionsViaXApi(
   author_username: string;
   created_at: string;
 }>> {
-  const url = new URL("https://api.x.com/2/tweets/search/recent");
-  const queryParams: Record<string, string> = {
-    query,
-    max_results: "25",
-    "tweet.fields": "created_at,author_id,text",
-    expansions: "author_id",
-    "user.fields": "username",
-  };
+  const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
+  searchUrl.searchParams.set("query", query);
+  searchUrl.searchParams.set("queryType", "Latest");
 
-  for (const [k, v] of Object.entries(queryParams)) {
-    url.searchParams.set(k, v);
-  }
-
-  // Retry on 429 with exponential backoff (X API rate limits)
+  // Retry on errors with exponential backoff
   let lastStatus = 0;
   let lastBody: any = null;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const authHeader = await buildOAuth1Header({
-      method: "GET",
-      url: url.toString(),
-      queryParams,
-      consumerKey: creds.consumerKey,
-      consumerSecret: creds.consumerSecret,
-      accessToken: creds.accessToken,
-      accessTokenSecret: creds.accessTokenSecret,
-    });
-
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        Authorization: authHeader,
-        "User-Agent": "TUNA Agents (Lovable Cloud)",
-      },
+    const response = await fetch(searchUrl.toString(), {
+      headers: { "X-API-Key": apiKey },
     });
 
     lastStatus = response.status;
@@ -154,41 +45,44 @@ async function searchMentionsViaXApi(
 
     if (response.ok) {
       const data = lastBody;
-      const users: Array<{ id: string; username: string }> = data?.includes?.users || [];
-      const userMap = new Map(users.map((u) => [u.id, u.username]));
+      const tweets: Array<{
+        id: string;
+        text: string;
+        author?: { id: string; userName: string };
+        createdAt?: string;
+      }> = data?.tweets || [];
 
-      const tweets: Array<{ id: string; text: string; author_id: string; created_at: string }> = data?.data || [];
       return tweets.map((t) => ({
         id: t.id,
         text: t.text,
-        author_id: t.author_id,
-        author_username: userMap.get(t.author_id) || "",
-        created_at: t.created_at,
+        author_id: t.author?.id || "",
+        author_username: t.author?.userName || "",
+        created_at: t.createdAt || "",
       }));
     }
 
     if (response.status === 429) {
       const backoffMs = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
       console.warn(
-        `[agent-scan-twitter] X API rate limited (429). Retrying in ${backoffMs}ms (attempt ${attempt + 1}/3)`
+        `[agent-scan-twitter] twitterapi.io rate limited (429). Retrying in ${backoffMs}ms (attempt ${attempt + 1}/3)`
       );
       await sleep(backoffMs);
       continue;
     }
 
     // Non-429 errors: fail fast
-    console.error("[agent-scan-twitter] X API search failed:", {
+    console.error("[agent-scan-twitter] twitterapi.io search failed:", {
       status: response.status,
       body: lastBody,
     });
     throw new Error(
-      `X API search failed [${response.status}]: ${typeof lastBody === "string" ? lastBody : JSON.stringify(lastBody)}`
+      `twitterapi.io search failed [${response.status}]: ${typeof lastBody === "string" ? lastBody : JSON.stringify(lastBody)}`
     );
   }
 
   // Still rate-limited after retries
   throw new Error(
-    `X_API_RATE_LIMITED [${lastStatus}]: ${typeof lastBody === "string" ? lastBody : JSON.stringify(lastBody)}`
+    `TWITTERAPI_RATE_LIMITED [${lastStatus}]: ${typeof lastBody === "string" ? lastBody : JSON.stringify(lastBody)}`
   );
 }
 
@@ -245,45 +139,22 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Official X API credentials (OAuth 1.0a)
-    const twitterConsumerKey = Deno.env.get("TWITTER_CONSUMER_KEY");
-    const twitterConsumerSecret = Deno.env.get("TWITTER_CONSUMER_SECRET");
-    const twitterAccessToken = Deno.env.get("TWITTER_ACCESS_TOKEN");
-    const twitterAccessTokenSecret = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET");
-
-    if (!twitterConsumerKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: "TWITTER_CONSUMER_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!twitterConsumerSecret) {
-      return new Response(
-        JSON.stringify({ success: false, error: "TWITTER_CONSUMER_SECRET not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!twitterAccessToken) {
-      return new Response(
-        JSON.stringify({ success: false, error: "TWITTER_ACCESS_TOKEN not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!twitterAccessTokenSecret) {
-      return new Response(
-        JSON.stringify({ success: false, error: "TWITTER_ACCESS_TOKEN_SECRET not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Reply posting is still session-based (optional)
+    // twitterapi.io credentials (session-based)
     const twitterApiIoKey = Deno.env.get("TWITTERAPI_IO_KEY");
     const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
     const xCt0Token = Deno.env.get("X_CT0_TOKEN");
+
+    if (!twitterApiIoKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: "TWITTERAPI_IO_KEY not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const canPostReplies = !!(twitterApiIoKey && xAuthToken && xCt0Token);
     if (!canPostReplies) {
       console.log(
-        "[agent-scan-twitter] Reply tokens not fully configured (TWITTERAPI_IO_KEY + X_AUTH_TOKEN + X_CT0_TOKEN) - will detect/process but skip replies"
+        "[agent-scan-twitter] Reply tokens not fully configured (X_AUTH_TOKEN + X_CT0_TOKEN) - will detect/process but skip replies"
       );
     }
 
@@ -335,29 +206,26 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Official X API detection (no twitterapi.io reads)
-      // Broad search to avoid any edge-case parsing around punctuation.
-      console.log("[agent-scan-twitter] Searching via official X API...");
-      let tweets: Awaited<ReturnType<typeof searchMentionsViaXApi>> = [];
+      // Search using twitterapi.io (session-based, no OAuth required)
+      console.log("[agent-scan-twitter] Searching via twitterapi.io...");
+      let tweets: Awaited<ReturnType<typeof searchMentionsViaTwitterApiIo>> = [];
       let rateLimited = false;
       try {
-        tweets = await searchMentionsViaXApi("(tunalaunch OR launchtuna) -is:retweet", {
-          consumerKey: twitterConsumerKey,
-          consumerSecret: twitterConsumerSecret,
-          accessToken: twitterAccessToken,
-          accessTokenSecret: twitterAccessTokenSecret,
-        });
+        tweets = await searchMentionsViaTwitterApiIo(
+          "(tunalaunch OR launchtuna) -is:retweet",
+          twitterApiIoKey
+        );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("X_API_RATE_LIMITED") || msg.includes("[429]")) {
+        if (msg.includes("TWITTERAPI_RATE_LIMITED") || msg.includes("[429]")) {
           rateLimited = true;
-          console.warn("[agent-scan-twitter] Skipping scan due to X API rate limit");
+          console.warn("[agent-scan-twitter] Skipping scan due to twitterapi.io rate limit");
         } else {
           throw err;
         }
       }
 
-      // Start a cooldown lock when rate-limited so we don't spam the X API
+      // Start a cooldown lock when rate-limited so we don't spam the API
       if (rateLimited) {
         const cooldownUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
         await supabase.from("cron_locks").delete().eq("lock_name", rateLimitLockName);
@@ -368,7 +236,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via official X API`);
+      console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io`);
       if (tweets.length > 0) {
         const tweetIds = tweets.map((t) => t.id).slice(0, 5);
         console.log(`[agent-scan-twitter] Latest tweet IDs: ${tweetIds.join(", ")}`);
