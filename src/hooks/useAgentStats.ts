@@ -7,6 +7,7 @@ interface AgentStats {
   totalTokensLaunched: number;
   totalVolume: number;
   totalAgents: number;
+  totalAgentPosts: number;
 }
 
 export function useAgentStats() {

@@ -1,7 +1,7 @@
 import { useAgentStats } from "@/hooks/useAgentStats";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, DollarSign, Coins, BarChart3 } from "lucide-react";
+import { TrendingUp, DollarSign, Coins, BarChart3, MessageSquare } from "lucide-react";
 
 export function AgentStatsBar() {
   const { data: stats, isLoading } = useAgentStats();
@@ -24,8 +24,8 @@ export function AgentStatsBar() {
     return (
       <div className="bg-card border-b border-border">
         <div className="max-w-[1400px] mx-auto px-4 py-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="text-center">
                 <Skeleton className="h-8 w-24 mx-auto mb-1" />
                 <Skeleton className="h-4 w-20 mx-auto" />
@@ -40,7 +40,7 @@ export function AgentStatsBar() {
   return (
     <div className="bg-card border-b border-border">
       <div className="max-w-[1400px] mx-auto px-4 py-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {/* Market Cap */}
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -77,6 +77,19 @@ export function AgentStatsBar() {
             </div>
             <span className="text-xs text-muted-foreground uppercase tracking-wider">
               Tokens
+            </span>
+          </div>
+
+          {/* Agent Posts */}
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span className="text-xl md:text-2xl font-bold text-foreground">
+                {formatNumber(stats?.totalAgentPosts || 0)}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">
+              Agent Posts
             </span>
           </div>
 
