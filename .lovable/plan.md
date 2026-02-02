@@ -1,77 +1,146 @@
 
 
-# Fix: Remove Base/EVM Errors from Agent Claim Flow
+# Fix: Token Image Generation Failure for Agent Launches
 
-## Problem
-When visiting the **Solana-only** `/agents/claim` page, you're seeing console errors related to Base chain:
-- `Failed to load resource: 403` from `api.web3modal.org`
-- `Failed to load resource: 400` from `pulse.walletconnect.org`
-- `[Reown Config] Failed to fetch remote project configuration`
+## Problem Summary
 
-This happens because:
-1. **EvmWalletProvider wraps the entire app** – even Solana-only pages initialize WalletConnect
-2. **Invalid WalletConnect project ID** – `'tuna-launchpad-base'` is a placeholder, not a real WalletConnect Cloud ID
+The **Inverse Cramer Bitcoin ($CRAMER)** token was launched without an image because the AI image generation failed with a **400 error**. This happened because:
+
+1. The `agent-process-post` edge function uses the **wrong API endpoint and model** for image generation
+2. When image generation fails, the token still launches with a `null` image URL
+3. Both the on-chain metadata and database store no image, causing financial loss
+
+## Root Cause Analysis
+
+### Evidence from Logs
+```
+2026-02-02T19:38:11Z INFO  [agent-process-post] 🎨 No valid image URL, generating AI image for Inverse Cramer Bitcoin,...
+2026-02-02T19:38:11Z ERROR [generateTokenImageWithAI] Image generation failed: 400
+2026-02-02T19:38:12Z INFO  [agent-process-post] Calling create-fun API for Inverse Cramer Bitcoin,...
+```
+
+### Database Evidence
+```sql
+-- Both tables show image_url = NULL
+SELECT image_url FROM fun_tokens WHERE ticker ILIKE '%CRAMER%';  -- NULL
+SELECT image_url FROM tokens WHERE ticker ILIKE '%CRAMER%';      -- NULL
+```
+
+### Code Issue
+The `generateTokenImageWithAI` function in `agent-process-post/index.ts` uses:
+- **Wrong endpoint**: `/v1/images/generations` 
+- **Wrong model**: `flux.schnell`
+
+But the **working** implementation in `twitter-mention-launcher/index.ts` uses:
+- **Correct endpoint**: `/v1/chat/completions`
+- **Correct model**: `google/gemini-2.5-flash-image`
+
+---
 
 ## Solution
 
-**Make EVM wallet loading conditional** – only initialize the EVM provider when user is on a Base/EVM chain route.
+### 1. Fix the Image Generation Function
 
-### Changes
+Update `supabase/functions/agent-process-post/index.ts` to use the correct Lovable AI gateway format:
 
-1. **Create a lazy EVM wrapper** that only mounts when needed
+**Before (broken):**
+```typescript
+const response = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+  body: JSON.stringify({
+    model: "flux.schnell",
+    prompt,
+    n: 1,
+    size: "512x512",
+  }),
+});
+```
 
-2. **Update `App.tsx`** to conditionally render `EvmWalletProvider`:
-   - Use `ChainContext` to detect if user is on an EVM chain
-   - Only mount the EVM provider when `chain === 'base'` (or other EVM chains)
-   - Solana routes skip EVM initialization entirely
+**After (fixed):**
+```typescript
+const response = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+  body: JSON.stringify({
+    model: "google/gemini-3-pro-image-preview",
+    prompt,
+  }),
+});
+```
 
-3. **Alternatively (simpler approach)**: Suppress WalletConnect initialization errors by providing a valid project ID or removing the EVM provider from global scope until Base launchpad goes live
+### 2. Add Fallback Retry with Alternative Model
 
-### Recommended Approach
+If the first model fails, try an alternative model before giving up:
 
-Since **Base launchpad is not live yet** (gated with "Coming Soon"), the cleanest solution is to:
-- Remove `EvmWalletProvider` from the global `App.tsx` wrapper
-- Only include it in Base-specific routes/components when needed
+```typescript
+// Primary attempt
+let imageUrl = await tryGenerateImage("google/gemini-3-pro-image-preview", prompt);
+
+// Fallback if primary fails
+if (!imageUrl) {
+  console.log("[agent-process-post] Retrying image generation with fallback model...");
+  imageUrl = await tryGenerateImage("google/gemini-2.5-flash", prompt);
+}
+```
+
+### 3. Add Failure Prevention: Block Token Launch Without Image
+
+To prevent financial loss from tokens launching without images:
+
+```typescript
+// In processLaunchPost function
+if (!finalImageUrl) {
+  console.log(`[agent-process-post] 🎨 No valid image URL, generating AI image for ${parsed.name}...`);
+  
+  finalImageUrl = await generateTokenImageWithAI(...);
+  
+  // CRITICAL: If no image, abort the launch
+  if (!finalImageUrl) {
+    throw new Error("Failed to generate token image - cannot launch without image");
+  }
+}
+```
+
+### 4. Fix Existing CRAMER Token (Immediate Action)
+
+Run a database update to fix the $CRAMER token image:
+
+```sql
+-- Generate and upload an image for CRAMER, then update:
+UPDATE fun_tokens 
+SET image_url = '[uploaded_image_url]'
+WHERE mint_address = 'HWzFtWfTFcgHLrxQ7Exd3PrZ17Mw82rdHXxvA9mCQtna';
+
+UPDATE tokens 
+SET image_url = '[uploaded_image_url]'
+WHERE mint_address = 'HWzFtWfTFcgHLrxQ7Exd3PrZ17Mw82rdHXxvA9mCQtna';
+```
 
 ---
 
-## Technical Implementation
+## Files to Modify
 
-### Step 1: Remove global EVM provider from App.tsx
-```tsx
-// Before (current)
-<EvmWalletProvider>
-  <PrivyProviderWrapper>
-    ...
-  </PrivyProviderWrapper>
-</EvmWalletProvider>
+1. **`supabase/functions/agent-process-post/index.ts`**
+   - Update `generateTokenImageWithAI` function with correct API endpoint/model
+   - Add fallback model retry
+   - Add error handling to block launch if image generation fails
 
-// After
-<PrivyProviderWrapper>
-  ...
-</PrivyProviderWrapper>
-```
-
-### Step 2: Add EVM provider only to Base routes
-When Base launchpad goes live, wrap only the Base-specific pages:
-```tsx
-<Route 
-  path="/launch/base" 
-  element={
-    <EvmWalletProvider>
-      <FunLauncherPage />
-    </EvmWalletProvider>
-  } 
-/>
-```
-
-### Step 3: (Future) Get a real WalletConnect project ID
-When Base is ready, register at [WalletConnect Cloud](https://cloud.walletconnect.com/) to get a valid project ID and replace the placeholder.
+2. **Database migration** (optional)
+   - Add a manual image for the CRAMER token
 
 ---
 
-## Result
-- ✅ No more WalletConnect errors on `/agents`, `/agents/claim`, and other Solana pages
-- ✅ Faster page loads (no EVM initialization overhead)
-- ✅ Clean console logs for debugging
+## Prevention Measures
+
+1. **Unified Image Generation**: Create a shared utility function used by both `agent-process-post` and `twitter-mention-launcher` to prevent future inconsistencies
+
+2. **Mandatory Image Validation**: Never allow token launch if `image_url` is null for agent-created tokens
+
+3. **Logging Enhancement**: Log the full error response body (not just status code) for debugging
+
+---
+
+## Testing After Fix
+
+1. Trigger a test token launch via Twitter/X mention
+2. Verify the image is generated and uploaded to storage
+3. Confirm the image URL is stored in both `fun_tokens` and `tokens` tables
+4. Verify the on-chain metadata shows the correct image
 
