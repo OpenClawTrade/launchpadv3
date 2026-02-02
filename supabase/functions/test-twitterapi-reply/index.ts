@@ -116,14 +116,17 @@ Deno.serve(async (req) => {
     const results: Record<string, any> = {};
 
     // Step 1: Login
-    console.log("[test] Logging in...");
+    console.log("[test] Logging in with username:", xAccountUsername);
     const loginBody: Record<string, string> = {
       user_name: xAccountUsername!,
       email: xAccountEmail!,
       password: xAccountPassword!,
       proxy: proxyUrl,
     };
-    if (totpCode) loginBody.totp_code = totpCode;
+    if (totpCode) {
+      loginBody.totp_code = totpCode;
+      console.log("[test] TOTP code generated:", totpCode);
+    }
 
     const loginRes = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
       method: "POST",
@@ -135,67 +138,78 @@ Deno.serve(async (req) => {
     });
 
     const loginText = await loginRes.text();
+    console.log("[test] Login response:", loginRes.status, loginText.slice(0, 500));
+    
     const loginData = safeJsonParse(loginText);
     results.login = {
       status: loginRes.status,
       success: loginData?.status === "success",
+      raw_response: loginText.slice(0, 300),
+      has_cookies: !!loginData?.login_cookies,
+      user_info: loginData?.user_info || loginData?.user || null,
     };
 
     const loginCookies = loginData?.login_cookies;
     if (!loginCookies) {
       return new Response(
-        JSON.stringify({ success: false, error: "Login failed", results }),
+        JSON.stringify({ success: false, error: "Login failed - no cookies returned", results, loginData }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Test different endpoint variations
+    // Test different endpoint variations - try auth_session as some endpoints require it
     const endpoints = [
       {
-        name: "create_tweet_v2 (tweet_text + reply_to_tweet_id)",
+        name: "create_tweet_v2 (auth_session)",
         url: "/twitter/create_tweet_v2",
         body: {
           tweet_text: testText,
-          reply_to_tweet_id: tweet_id,
-          login_cookies: loginCookies,
+          auth_session: loginCookies,
           proxy: proxyUrl,
         },
       },
       {
-        name: "create_tweet_v2 (text only)",
+        name: "create_tweet_v2 (login_cookies)",
         url: "/twitter/create_tweet_v2",
         body: {
-          tweet_text: testText + " [standalone]",
+          tweet_text: testText,
           login_cookies: loginCookies,
           proxy: proxyUrl,
         },
       },
       {
-        name: "create_tweet (if exists)",
+        name: "create_tweet_v2 (cookies)",
+        url: "/twitter/create_tweet_v2",
+        body: {
+          tweet_text: testText,
+          cookies: loginCookies,
+          proxy: proxyUrl,
+        },
+      },
+      {
+        name: "tweet/create (auth_session)",
+        url: "/twitter/tweet/create",
+        body: {
+          text: testText,
+          auth_session: loginCookies,
+          proxy: proxyUrl,
+        },
+      },
+      {
+        name: "user/tweet (auth_session)",
+        url: "/twitter/user/tweet",
+        body: {
+          text: testText,
+          auth_session: loginCookies,
+          proxy: proxyUrl,
+        },
+      },
+      {
+        name: "create_tweet (auth_session)",
         url: "/twitter/create_tweet",
         body: {
           tweet_text: testText,
-          reply_to_tweet_id: tweet_id,
-          login_cookies: loginCookies,
-          proxy: proxyUrl,
-        },
-      },
-      {
-        name: "tweet/reply",
-        url: "/twitter/tweet/reply",
-        body: {
-          text: testText,
-          tweet_id: tweet_id,
-          login_cookies: loginCookies,
-          proxy: proxyUrl,
-        },
-      },
-      {
-        name: "tweet/post",
-        url: "/twitter/tweet/post",
-        body: {
-          text: testText,
-          login_cookies: loginCookies,
+          auth_session: loginCookies,
           proxy: proxyUrl,
         },
       },
