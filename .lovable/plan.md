@@ -1,178 +1,159 @@
 
 
-# Fix: Token Metadata Missing Images and Socials
+# Strict Image Requirement: Block X Launches Without User-Provided Image
 
-## Problem Summary
+## Current Behavior (Problem)
 
-Multiple tokens are being launched with missing metadata:
-1. **Missing images** - e.g., CRAMER, CR1K, HBB have `image_url: NULL`
-2. **Missing socials** - Many tokens have `twitter_url` and `website_url` as NULL
-3. **On-chain metadata is broken** - Axiom/Birdeye/Solscan show empty data
+When a user tweets `!tunalaunch` without attaching an image:
+1. System detects no image in tweet
+2. Falls back to AI image generation
+3. If AI succeeds → Token launches with AI-generated image
+4. User had no control over the mascot/branding
 
-## Root Causes Identified
+For EPST specifically - the tweet had no image attached, but AI generated one and launched anyway.
 
-### Issue 1: AI Image Generation Failures Not Blocking Launch
+## New Behavior (Requested)
 
-The blocking logic at `agent-process-post:532-566` SHOULD stop launches when image generation fails, but there's a race condition:
+**Require user to attach image to their tweet. No AI fallback.**
 
-1. `agent-process-post` calls Vercel API at line 681
-2. Vercel API (`create-fun.ts`) creates token in DB with `imageUrl: null`
-3. Even if `agent-process-post` tries to block, the token is already created on-chain
+```text
+LAUNCH FLOW (Updated)
+─────────────────────
+@user tweets with image attached:
+  "!tunalaunch @BuildTuna
+   Name: MyToken
+   Symbol: MTK"
+   [attached image.jpg]
 
-The fundamental issue: **Vercel API creates the token before agent-process-post can block it**.
+→ System extracts attached image ✅
+→ Token launches with user's image
 
-### Issue 2: Update Path Doesn't Include Image/Socials
+@user tweets WITHOUT image:
+  "!tunalaunch @BuildTuna
+   Name: MyToken  
+   Symbol: MTK"
 
-When a token already exists (created by Vercel API), lines 747-755 only update:
+→ System detects no image ❌
+→ BLOCKED: "Please attach an image to your tweet"
+→ Reply to user explaining requirement
+```
+
+---
+
+## Technical Changes
+
+### File: `supabase/functions/agent-process-post/index.ts`
+
+**Remove AI fallback logic and block immediately when no image is provided:**
+
+Current code (lines 510-533):
 ```typescript
-.update({
-  agent_id: agent.id,
-  agent_fee_share_bps: 8000,
-})
-```
-
-It does NOT update: `image_url`, `website_url`, `twitter_url`, etc.
-
-### Issue 3: t.co Shortlinks Rejected But No Media Fallback
-
-When users include `Image: https://t.co/xxx` in their tweet:
-- The t.co shortlink is correctly rejected (line 502-504)
-- But the attached media from the tweet may not be extracted by X API
-- AI generation may fail silently
-- Token gets created without image
-
-## Solution
-
-### Phase 1: Fix the Update Path (Critical)
-
-**File: `supabase/functions/agent-process-post/index.ts`**
-
-Update lines 749-755 to include ALL metadata fields when updating an existing token:
-
-```typescript
-if (existing?.id) {
-  funTokenId = existing.id;
-  await supabase
-    .from("fun_tokens")
-    .update({
-      // Always update agent attribution
-      agent_id: agent.id,
-      agent_fee_share_bps: 8000,
-      // Update image if we have one (don't overwrite with null)
-      ...(finalImageUrl && { image_url: finalImageUrl }),
-      // Update socials if we have them
-      ...(parsed.website && { website_url: parsed.website }),
-      ...((postUrl || parsed.twitter) && { twitter_url: postUrl || parsed.twitter }),
-      ...(parsed.telegram && { telegram_url: parsed.telegram }),
-      ...(parsed.discord && { discord_url: parsed.discord }),
-      // Always set description if we have it
-      ...(parsed.description && { description: parsed.description }),
-    })
-    .eq("id", funTokenId);
-}
-```
-
-### Phase 2: Move Image Validation Before API Call (Critical)
-
-**File: `supabase/functions/agent-process-post/index.ts`**
-
-The blocking logic at line 532-566 is correct, but we need to ensure it executes BEFORE calling the Vercel API. The current flow is:
-
-```
-1. Parse post
-2. Validate image (block if null) ← Line 532
-3. Insert "processing" record ← Line 569
-4. Call Vercel API ← Line 681
-```
-
-This should work, but add additional logging to confirm the flow:
-
-```typescript
-// Line 532 - Add explicit confirmation
+// If no image from tweet, try AI generation  
 if (!finalImageUrl) {
-  const errorMsg = "BLOCKED: Cannot launch without image";
-  console.error(`[agent-process-post] ❌ ${errorMsg} - token: ${parsed.name}`);
-  // ... existing error handling
-  return { success: false, error: errorMsg };
-}
-
-console.log(`[agent-process-post] ✅ Image validation passed: ${finalImageUrl.slice(0, 50)}...`);
-```
-
-### Phase 3: Improve AI Image Generation Reliability
-
-**File: `supabase/functions/agent-process-post/index.ts`**
-
-Add more robust error handling and logging in `generateTokenImageWithAI`:
-
-```typescript
-// Lines 73-146 - Add detailed error logging
-async function generateTokenImageWithAI(...) {
-  console.log(`[generateTokenImageWithAI] Starting for ${tokenName} (${tokenSymbol})`);
-  
-  // ... existing retry logic ...
-  
-  if (!imageUrl) {
-    console.error(`[generateTokenImageWithAI] ❌ FAILED: All ${IMAGE_MODELS.length} models failed`);
-    console.error(`[generateTokenImageWithAI] Token: ${tokenName}, Symbol: ${tokenSymbol}`);
-    return null;
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableApiKey) {
+    finalImageUrl = await generateTokenImageWithAI(...);
+    // ... AI generation logic
   }
-  
-  // ... rest of function
 }
 ```
 
-### Phase 4: Fix the Mint Address Discrepancy
+New code:
+```typescript
+// STRICT: Require user to provide image in tweet - no AI fallback
+if (!finalImageUrl) {
+  const errorMsg = "Please attach an image to your tweet. Token launches require a custom image.";
+  console.log(`[agent-process-post] ❌ BLOCKED - No image attached to tweet: ${parsed.name} (${parsed.symbol})`);
+  
+  // Insert as failed record
+  const { data: failedPost } = await supabase
+    .from("agent_social_posts")
+    .insert({
+      platform,
+      post_id: postId,
+      post_url: postUrl,
+      post_author: postAuthor,
+      post_author_id: postAuthorId,
+      wallet_address: parsed.wallet,
+      raw_content: rawContent.slice(0, 1000),
+      parsed_name: parsed.name,
+      parsed_symbol: parsed.symbol,
+      parsed_description: parsed.description,
+      parsed_image_url: null,
+      parsed_website: parsed.website,
+      parsed_twitter: parsed.twitter,
+      status: "failed",
+      error_message: errorMsg,
+      processed_at: new Date().toISOString(),
+    })
+    .select("id")
+    .maybeSingle();
 
-The user linked to `895WtPwn6NnWh5uW9o23kSUZx13K5gjuPVuXJFr6qNtR` which doesn't exist in our database. This indicates either:
-- Token created through external means
-- Database insert failed after on-chain creation
+  return {
+    success: false,
+    error: errorMsg,
+    socialPostId: failedPost?.id,
+    shouldReply: true,  // Flag to reply to user explaining requirement
+    replyText: "🐟 To launch a token, please attach an image to your tweet!\n\nRequired format:\n!tunalaunch @BuildTuna\nName: TokenName\nSymbol: TKN\n[Attach your token image]"
+  };
+}
+```
 
-**File: `api/pool/create-fun.ts`**
+### Add Reply Logic for Failed Launches
 
-Add a safety check: If database insert fails after on-chain confirmation, log the mint address for recovery:
+When launch is blocked due to missing image, reply to the user explaining what's needed. This happens in `agent-scan-twitter` and `agent-scan-mentions` where the post is processed.
+
+**File: `supabase/functions/agent-scan-twitter/index.ts`** (and `agent-scan-mentions`)
+
+After calling `agent-process-post`, check if `shouldReply` is set and send helpful reply:
 
 ```typescript
-// After line 425
-if (tokenError) {
-  console.error(`[create-fun][${VERSION}] CRITICAL: Token created on-chain but DB insert failed!`);
-  console.error(`[create-fun][${VERSION}] Mint: ${mintAddress}, Pool: ${dbcPoolAddress}`);
-  console.error(`[create-fun][${VERSION}] Metadata: ${JSON.stringify({ name, ticker, imageUrl })}`);
-  throw new Error(`Failed to create token record: ${tokenError.message}`);
+const processResult = await processResponse.json();
+
+if (!processResult.success && processResult.shouldReply && processResult.replyText) {
+  // Reply to user explaining why launch failed
+  await replyToTweet(
+    tweetId,
+    processResult.replyText,
+    consumerKey,
+    consumerSecret,
+    accessToken,
+    accessTokenSecret
+  );
 }
 ```
 
-### Phase 5: Backfill Missing Images (Data Fix)
+---
 
-For tokens already created with `image_url: NULL`, create a one-time fix script:
+## What Gets Removed
 
-```sql
--- Identify affected tokens
-SELECT id, name, ticker, mint_address, created_at 
-FROM fun_tokens 
-WHERE image_url IS NULL 
-ORDER BY created_at DESC;
+1. **AI image generation fallback** - The `generateTokenImageWithAI` function call when no tweet image is found
+2. **Silent acceptance** - No more launching tokens without user-provided images
 
--- These need manual image generation/upload
-```
+## What Gets Added
 
-The agent owners would need to manually upload images, or we could run AI generation for them.
+1. **Immediate blocking** - Fail fast when no image attached
+2. **User feedback** - Reply to tweet explaining the requirement
+3. **Clear error messages** - In dashboard and logs
+
+---
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `supabase/functions/agent-process-post/index.ts` | Fix update path to include image/socials; Add logging |
-| `api/pool/create-fun.ts` | Add error logging for DB failures |
+| File | Change |
+|------|--------|
+| `supabase/functions/agent-process-post/index.ts` | Remove AI fallback, block when no image, return shouldReply flag |
+| `supabase/functions/agent-scan-twitter/index.ts` | Reply to user when launch blocked |
+| `supabase/functions/agent-scan-mentions/index.ts` | Reply to user when launch blocked |
 
-## Testing Plan
+---
 
-1. Deploy edge function changes
-2. Attempt a test launch with a t.co shortlink image (should generate AI fallback)
-3. Verify the token has correct image and socials in database
-4. Check Axiom/Solscan for correct metadata display
+## Edge Cases
 
-## Summary
-
-The main fix is updating lines 749-755 in `agent-process-post` to include image and social URLs when updating an existing token. This ensures that even if the Vercel API creates the token first, the metadata gets populated correctly from the parsed tweet data.
+| Scenario | Behavior |
+|----------|----------|
+| Tweet with attached PNG/JPG | ✅ Proceed with launch |
+| Tweet with t.co shortlink | ❌ Blocked (shortlinks already filtered) |
+| Tweet with no image at all | ❌ Blocked + Reply with instructions |
+| Tweet with external image URL | ✅ Proceed (if not t.co) |
 
