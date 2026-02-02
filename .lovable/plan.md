@@ -1,84 +1,75 @@
 
-## Fix SystemTUNA Avatar in Top AI Agents Section
+## Fix Truncated Post Titles
 
 ### Problem
-The "Top AI Agents" leaderboard in the right sidebar always shows colored initials instead of actual avatar images. SystemTUNA should display its dedicated avatar (`/images/system-tuna-avatar.png`), and other agents should show their `avatar_url` or token image when available.
+Post titles are being cut off mid-word (e.g., "are just the sta" instead of a complete sentence). This happens because:
+1. AI generates 280-character posts
+2. The `title` field is set using `.slice(0, 100)` which hard-cuts at exactly 100 characters
+3. No word boundary consideration → incomplete words/sentences
 
-### Root Cause
-The `TunaBookRightSidebar` component has two issues:
-1. **Missing data**: The database query doesn't fetch `avatar_url` from the `agents` table
-2. **Missing logic**: The render code doesn't use the `getAgentAvatarUrl()` helper that handles SystemTUNA's special case
+### Solution
+Use proper truncation that respects word boundaries for titles:
 
-### Comparison
-The `RecentAgentsStrip` component already does this correctly - it fetches avatar data, uses the helper function, and conditionally renders an `<img>` or colored initials.
+1. **Create a dedicated title truncation function** that:
+   - Limits titles to 80 characters (shorter for cleaner display)
+   - Finds the last complete word before the limit
+   - Adds "..." only if truncated
+   - Ensures titles end cleanly
 
----
+2. **Apply to all title generation points** in `agent-auto-engage/index.ts`:
+   - Regular posts (line 548)
+   - Welcome posts already use a static title so they're fine
 
-### Implementation
+### Technical Changes
 
-**File:** `src/components/tunabook/TunaBookRightSidebar.tsx`
+**File:** `supabase/functions/agent-auto-engage/index.ts`
 
-#### 1. Import the avatar helper
+#### 1. Add new `truncateTitle` function (after `truncateToLimit` around line 216)
 ```typescript
-import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+function truncateTitle(text: string, limit: number = 80): string {
+  // Remove any leading/trailing whitespace
+  text = text.trim();
+  
+  // If already under limit, return as-is
+  if (text.length <= limit) return text;
+  
+  // Find last space before limit
+  const truncated = text.slice(0, limit);
+  const lastSpace = truncated.lastIndexOf(" ");
+  
+  // If we found a reasonable break point (at least half the limit)
+  if (lastSpace > limit * 0.4) {
+    // Get the word-boundary truncated text
+    let result = truncated.slice(0, lastSpace).trim();
+    
+    // Remove trailing punctuation that looks incomplete
+    result = result.replace(/[,;:\-–—]$/, "").trim();
+    
+    return result + "...";
+  }
+  
+  // Fallback: just use the limit with ellipsis
+  return truncated.trim() + "...";
+}
 ```
 
-#### 2. Update the database query to include `avatar_url`
+#### 2. Update regular post title generation (line 548)
+Change:
 ```typescript
-const { data, error } = await supabase
-  .from("agents")
-  .select("id, name, karma, total_tokens_launched, wallet_address, avatar_url")
-  .eq("status", "active")
-  .order("karma", { ascending: false })
-  .limit(5);
+title: postContent.slice(0, 100),
+```
+To:
+```typescript
+title: truncateTitle(postContent, 80),
 ```
 
-#### 3. Update the render logic to show avatar images
-```typescript
-{topAgents.map((agent, index) => {
-  const colorClass = avatarColors[index % avatarColors.length];
-  const initial = agent.name.charAt(0).toUpperCase();
-  const rank = index + 1;
-  const avatarUrl = getAgentAvatarUrl(agent.id, agent.avatar_url, null);
+### Expected Results
+| Before | After |
+|--------|-------|
+| `Feeling fintastic about $TUNA on tuna.fun! 🐟 Our vanity addresses ending in 'TUNA' are just the sta` | `Feeling fintastic about $TUNA on tuna.fun! 🐟 Our vanity addresses ending in...` |
 
-  return (
-    <Link ...>
-      {/* Rank Badge */}
-      <div className={cn("tunabook-rank-badge", getRankBadgeClass(rank))}>
-        {rank}
-      </div>
-      
-      {/* Avatar - image or fallback to initials */}
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt={agent.name}
-          className="w-8 h-8 rounded-full object-cover"
-        />
-      ) : (
-        <div className={cn("tunabook-agent-avatar w-8 h-8 text-sm", colorClass)}>
-          {initial}
-        </div>
-      )}
-      
-      {/* ... rest of component */}
-    </Link>
-  );
-})}
-```
-
-#### 4. Update cache key for immediate refresh
-Change queryKey from `["top-agents-leaderboard"]` to `["top-agents-leaderboard-v2"]` to bust cached data.
-
----
-
-### Summary
-
-| Change | Purpose |
-|--------|---------|
-| Add `avatar_url` to SELECT | Fetch avatar data from database |
-| Import `getAgentAvatarUrl` | Use helper that handles SystemTUNA special case |
-| Conditional render `<img>` vs initials | Display actual avatars when available |
-| Update queryKey | Force cache refresh for immediate effect |
-
-After this fix, SystemTUNA will display its proper avatar image (`/images/system-tuna-avatar.png`) and other agents will show their avatars if set.
+### Why 80 Characters?
+- Fits better in UI cards without overflow
+- More likely to form complete thoughts/sentences
+- Leaves room for emojis without breaking
+- Matches typical headline length standards
