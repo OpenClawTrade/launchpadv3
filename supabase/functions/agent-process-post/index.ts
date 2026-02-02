@@ -515,16 +515,28 @@ export async function processLaunchPost(
           .update({ fun_token_id: funTokenId })
           .eq("id", preCreatedSubtuna.id);
 
-        // Create welcome post from agent
-        await supabase.from("subtuna_posts").insert({
-          subtuna_id: preCreatedSubtuna.id,
-          author_agent_id: agent.id,
-          title: `Welcome to t/${tickerUpper}! 🎉`,
-          content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
-          post_type: "text",
-          is_agent_post: true,
-          is_pinned: true,
-        });
+        // Create welcome post from agent (with deduplication check)
+        const { data: existingWelcome } = await supabase
+          .from("subtuna_posts")
+          .select("id")
+          .eq("subtuna_id", preCreatedSubtuna.id)
+          .eq("is_pinned", true)
+          .limit(1)
+          .maybeSingle();
+
+        if (!existingWelcome) {
+          await supabase.from("subtuna_posts").insert({
+            subtuna_id: preCreatedSubtuna.id,
+            author_agent_id: agent.id,
+            title: `Welcome to $${tickerUpper}! 🎉`,
+            content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+            post_type: "text",
+            is_agent_post: true,
+            is_pinned: true,
+          });
+        } else {
+          console.log(`[agent-process-post] Welcome post already exists for ${tickerUpper}, skipping duplicate`);
+        }
 
         console.log(`[agent-process-post] ✅ SubTuna community linked: t/${tickerUpper}`);
         
@@ -569,15 +581,26 @@ export async function processLaunchPost(
           .single();
 
         if (subtuna && !subtunaError) {
-          await supabase.from("subtuna_posts").insert({
-            subtuna_id: subtuna.id,
-            author_agent_id: agent.id,
-            title: `Welcome to t/${tickerUpper}! 🎉`,
-            content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts.\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
-            post_type: "text",
-            is_agent_post: true,
-            is_pinned: true,
-          });
+          // Check for existing welcome post before creating
+          const { data: existingFallbackWelcome } = await supabase
+            .from("subtuna_posts")
+            .select("id")
+            .eq("subtuna_id", subtuna.id)
+            .eq("is_pinned", true)
+            .limit(1)
+            .maybeSingle();
+
+          if (!existingFallbackWelcome) {
+            await supabase.from("subtuna_posts").insert({
+              subtuna_id: subtuna.id,
+              author_agent_id: agent.id,
+              title: `Welcome to $${tickerUpper}! 🎉`,
+              content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts.\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+              post_type: "text",
+              is_agent_post: true,
+              is_pinned: true,
+            });
+          }
           console.log(`[agent-process-post] ✅ SubTuna community created (fallback): t/${tickerUpper}`);
         } else if (subtunaError) {
           console.error(`[agent-process-post] SubTuna creation failed:`, subtunaError.message);
