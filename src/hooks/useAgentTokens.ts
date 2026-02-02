@@ -40,21 +40,23 @@ export function useAgentTokens(options: UseAgentTokensOptions = {}) {
   return useQuery({
     queryKey: ["agent-tokens", sort, limit],
     queryFn: async (): Promise<AgentToken[]> => {
-      const { data, error } = await supabase.functions.invoke("agent-tokens", {
-        body: null,
-        headers: {},
-      });
-
-      // The function expects query params, so we need to call it differently
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-tokens?sort=${sort}&limit=${limit}`,
+        `${supabaseUrl}/functions/v1/agent-tokens?sort=${sort}&limit=${limit}`,
         {
           headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
             "Content-Type": "application/json",
           },
         }
       );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch agent tokens`);
+      }
 
       const result = await response.json();
 
@@ -62,7 +64,7 @@ export function useAgentTokens(options: UseAgentTokensOptions = {}) {
         throw new Error(result.error || "Failed to fetch agent tokens");
       }
 
-      return result.tokens;
+      return result.tokens || [];
     },
     staleTime: 1000 * 30, // 30 seconds
     refetchInterval: 1000 * 60, // Refetch every minute
