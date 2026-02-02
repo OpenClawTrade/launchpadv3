@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     // Get agent stats
     const { data: agents, error: agentsError } = await supabase
       .from("agents")
-      .select("id, name, total_fees_earned_sol, total_tokens_launched")
+      .select("id, name, total_fees_earned_sol, total_tokens_launched, post_count, comment_count")
       .eq("status", "active");
 
     if (agentsError) {
@@ -71,6 +71,12 @@ Deno.serve(async (req) => {
     }, 0) || 0;
 
     const totalAgents = agents?.length || 0;
+    
+    // Sum up all agent posts and comments
+    const totalAgentPosts = agents?.reduce(
+      (sum, a) => sum + Number(a.post_count || 0) + Number(a.comment_count || 0),
+      0
+    ) || 0;
 
     return new Response(
       JSON.stringify({
@@ -81,6 +87,7 @@ Deno.serve(async (req) => {
           totalTokensLaunched,
           totalVolume,
           totalAgents,
+          totalAgentPosts,
         },
       }),
       {
