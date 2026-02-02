@@ -93,6 +93,7 @@ type TweetResult = {
   author_id: string;
   author_username: string;
   created_at: string;
+  media_url?: string; // Attached image URL from tweet
 };
 
 // Search for mentions using Official X API v2 with Bearer Token (App-only auth)
@@ -103,9 +104,10 @@ async function searchMentionsViaOfficialApi(
   const searchUrl = new URL("https://api.x.com/2/tweets/search/recent");
   searchUrl.searchParams.set("query", query);
   searchUrl.searchParams.set("max_results", "100");
-  searchUrl.searchParams.set("tweet.fields", "created_at,author_id");
-  searchUrl.searchParams.set("expansions", "author_id");
+  searchUrl.searchParams.set("tweet.fields", "created_at,author_id,attachments");
+  searchUrl.searchParams.set("expansions", "author_id,attachments.media_keys");
   searchUrl.searchParams.set("user.fields", "username");
+  searchUrl.searchParams.set("media.fields", "url,preview_image_url,type");
 
   const response = await fetch(searchUrl.toString(), {
     headers: {
@@ -122,6 +124,7 @@ async function searchMentionsViaOfficialApi(
   const data = await response.json();
   const tweets = data.data || [];
   const users = data.includes?.users || [];
+  const media = data.includes?.media || [];
 
   // Build username map
   const userMap: Record<string, string> = {};
@@ -129,13 +132,36 @@ async function searchMentionsViaOfficialApi(
     userMap[user.id] = user.username;
   }
 
-  return tweets.map((t: any) => ({
-    id: t.id,
-    text: t.text,
-    author_id: t.author_id || "",
-    author_username: userMap[t.author_id] || "",
-    created_at: t.created_at || "",
-  }));
+  // Build media map (media_key -> url)
+  const mediaMap: Record<string, string> = {};
+  for (const m of media) {
+    // For photos, use url; for videos, use preview_image_url
+    const mediaUrl = m.url || m.preview_image_url;
+    if (m.media_key && mediaUrl) {
+      mediaMap[m.media_key] = mediaUrl;
+    }
+  }
+
+  return tweets.map((t: any) => {
+    // Get first media URL from attachments
+    let mediaUrl: string | undefined;
+    const mediaKeys = t.attachments?.media_keys || [];
+    for (const key of mediaKeys) {
+      if (mediaMap[key]) {
+        mediaUrl = mediaMap[key];
+        break;
+      }
+    }
+
+    return {
+      id: t.id,
+      text: t.text,
+      author_id: t.author_id || "",
+      author_username: userMap[t.author_id] || "",
+      created_at: t.created_at || "",
+      media_url: mediaUrl,
+    };
+  });
 }
 
 // Fallback: Search using twitterapi.io (session-based)
@@ -169,15 +195,38 @@ async function searchMentionsViaTwitterApiIo(
         text: string;
         author?: { id: string; userName: string };
         createdAt?: string;
+        extendedEntities?: { media?: Array<{ media_url_https?: string; type?: string }> };
+        entities?: { media?: Array<{ media_url_https?: string; type?: string }> };
+        mediaUrls?: string[];
       }> = data?.tweets || [];
 
-      return tweets.map((t) => ({
-        id: t.id,
-        text: t.text,
-        author_id: t.author?.id || "",
-        author_username: t.author?.userName || "",
-        created_at: t.createdAt || "",
-      }));
+      return tweets.map((t) => {
+        // Extract media URL from various possible locations in twitterapi.io response
+        let mediaUrl: string | undefined;
+        
+        // Try extendedEntities first (preferred for high quality)
+        const extMedia = t.extendedEntities?.media || t.entities?.media || [];
+        for (const m of extMedia) {
+          if (m.media_url_https && (m.type === "photo" || !m.type)) {
+            mediaUrl = m.media_url_https;
+            break;
+          }
+        }
+        
+        // Fallback to mediaUrls array if present
+        if (!mediaUrl && t.mediaUrls && t.mediaUrls.length > 0) {
+          mediaUrl = t.mediaUrls[0];
+        }
+
+        return {
+          id: t.id,
+          text: t.text,
+          author_id: t.author?.id || "",
+          author_username: t.author?.userName || "",
+          created_at: t.createdAt || "",
+          media_url: mediaUrl,
+        };
+      });
     }
 
     if (response.status === 429) {
@@ -666,6 +715,7 @@ Deno.serve(async (req) => {
         const normalizedText = tweetText.replace(/!launchtuna/gi, "!tunalaunch");
         const username = tweet.author_username;
         const authorId = tweet.author_id;
+        const mediaUrl = tweet.media_url; // Attached image from tweet
 
         // Skip tweets older than or equal to the last processed one
         if (latestProcessedId && BigInt(tweetId) <= BigInt(latestProcessedId)) {
@@ -738,7 +788,11 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Process the tweet
+        // Process the tweet - include media URL if present
+        if (mediaUrl) {
+          console.log(`[agent-scan-twitter] 📷 Tweet ${tweetId} has attached image: ${mediaUrl.slice(0, 60)}...`);
+        }
+        
         const processResponse = await fetch(
           `${supabaseUrl}/functions/v1/agent-process-post`,
           {
@@ -754,6 +808,7 @@ Deno.serve(async (req) => {
               postAuthor: username,
               postAuthorId: authorId,
               content: normalizedText,
+              mediaUrl: mediaUrl || null, // Pass attached image from tweet
             }),
           }
         );

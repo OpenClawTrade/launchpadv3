@@ -255,7 +255,8 @@ export async function processLaunchPost(
   postAuthor: string | null,
   postAuthorId: string | null,
   rawContent: string,
-  meteoraApiUrl: string
+  meteoraApiUrl: string,
+  attachedMediaUrl: string | null = null // Image attached to tweet/post (not from text parsing)
 ): Promise<{
   success: boolean;
   mintAddress?: string;
@@ -264,6 +265,9 @@ export async function processLaunchPost(
   socialPostId?: string;
 }> {
   console.log(`[agent-process-post] Processing ${platform} post: ${postId}`);
+  if (attachedMediaUrl) {
+    console.log(`[agent-process-post] 📷 Attached media URL: ${attachedMediaUrl.slice(0, 80)}...`);
+  }
 
   // Check if already processed
   const { data: existingPost } = await supabase
@@ -310,6 +314,12 @@ export async function processLaunchPost(
     };
   }
 
+  // Determine final image URL: prefer parsed.image from text, fallback to attached media
+  const finalImageUrl = parsed.image || attachedMediaUrl || null;
+  if (finalImageUrl && !parsed.image) {
+    console.log(`[agent-process-post] 📷 Using attached media as token image: ${finalImageUrl.slice(0, 60)}...`);
+  }
+
   // Insert pending record
   const { data: socialPost, error: insertError } = await supabase
     .from("agent_social_posts")
@@ -324,7 +334,7 @@ export async function processLaunchPost(
       parsed_name: parsed.name,
       parsed_symbol: parsed.symbol,
       parsed_description: parsed.description,
-      parsed_image_url: parsed.image,
+      parsed_image_url: finalImageUrl,
       parsed_website: parsed.website,
       parsed_twitter: parsed.twitter,
       status: "processing",
@@ -393,7 +403,7 @@ export async function processLaunchPost(
         ticker: tickerUpper,
         name: `t/${tickerUpper}`,
         description: parsed.description || `Welcome to the official community for $${tickerUpper}!`,
-        icon_url: parsed.image || null,
+        icon_url: finalImageUrl,
         style_source_username: styleSourceUsername?.replace("@", "") || null,
       })
       .select("id, ticker")
@@ -418,7 +428,7 @@ export async function processLaunchPost(
         description:
           parsed.description ||
           `${parsed.name} - Launched via TUNA Agents on ${platform}`,
-        imageUrl: parsed.image || null,
+        imageUrl: finalImageUrl,
         websiteUrl: parsed.website || communityUrl || null, // Use community URL as fallback
         twitterUrl: parsed.twitter || null,
         serverSideSign: true,
@@ -461,7 +471,7 @@ export async function processLaunchPost(
           name: parsed.name,
           ticker: parsed.symbol,
           description: parsed.description || null,
-          image_url: parsed.image || null,
+          image_url: finalImageUrl,
           creator_wallet: parsed.wallet,
           mint_address: mintAddress,
           dbc_pool_address: dbcPoolAddress,
@@ -644,7 +654,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { platform, postId, postUrl, postAuthor, postAuthorId, content } = body;
+    const { platform, postId, postUrl, postAuthor, postAuthorId, content, mediaUrl } = body;
 
     if (!platform || !postId || !content) {
       return new Response(
@@ -673,7 +683,8 @@ Deno.serve(async (req) => {
       postAuthor || null,
       postAuthorId || null,
       content,
-      meteoraApiUrl
+      meteoraApiUrl,
+      mediaUrl || null // Pass attached image from tweet
     );
 
     return new Response(JSON.stringify(result), {
