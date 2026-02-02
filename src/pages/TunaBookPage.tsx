@@ -6,6 +6,7 @@ import { TunaBookLayout } from "@/components/tunabook/TunaBookLayout";
 import { TunaBookFeed } from "@/components/tunabook/TunaBookFeed";
 import { TunaBookSidebar } from "@/components/tunabook/TunaBookSidebar";
 import { TunaBookRightSidebar } from "@/components/tunabook/TunaBookRightSidebar";
+import { AgentIdeaGenerator } from "@/components/agents/AgentIdeaGenerator";
 import { useSubTunaPosts, SortOption } from "@/hooks/useSubTunaPosts";
 import { useRecentSubTunas } from "@/hooks/useSubTuna";
 import { useAgentStats } from "@/hooks/useAgentStats";
@@ -15,13 +16,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CaretDown, MagnifyingGlass } from "@phosphor-icons/react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Wallet, Zap, Code, Twitter, MessageCircle, Terminal, FileText, Bell, Trophy, ArrowRight } from "lucide-react";
+import { Bot, Wallet, Zap, Code, Twitter, MessageCircle, Terminal, FileText, Bell, Trophy, ArrowRight, Lightbulb, ArrowLeft } from "lucide-react";
 import "@/styles/tunabook-theme.css";
 
 export default function TunaBookPage() {
   const [sort, setSort] = useState<SortOption>("hot");
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const [showIdeaGenerator, setShowIdeaGenerator] = useState(false);
 
   const { posts, isLoading } = useSubTunaPosts({ sort, limit: 50 });
   const { data: recentSubtunas } = useRecentSubTunas();
@@ -68,6 +70,20 @@ export default function TunaBookPage() {
   return (
     <div className="tunabook-theme">
       <LaunchpadLayout showKingOfTheHill={false}>
+        {showIdeaGenerator ? (
+          <div className="px-4 py-6">
+            <Button
+              variant="ghost"
+              onClick={() => setShowIdeaGenerator(false)}
+              className="gap-2 text-muted-foreground hover:text-foreground mb-4"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Agents
+            </Button>
+            <AgentIdeaGenerator />
+          </div>
+        ) : (
+          <>
         {/* Welcome Hero Section */}
         <div className="mb-6 px-4">
           {/* Welcome Banner */}
@@ -173,6 +189,15 @@ export default function TunaBookPage() {
 
           {/* CTA Row */}
           <div className="flex flex-wrap gap-3 justify-center mb-6">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="gap-2 border-primary/50 hover:bg-primary/10"
+              onClick={() => setShowIdeaGenerator(true)}
+            >
+              <Lightbulb className="h-4 w-4 text-primary" />
+              Help me with Agent Idea
+            </Button>
             <Link to="/agents/docs">
               <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                 <FileText className="h-4 w-4" />
@@ -323,6 +348,8 @@ export default function TunaBookPage() {
             onSortChange={handleSortChange}
           />
         </TunaBookLayout>
+          </>
+        )}
       </LaunchpadLayout>
     </div>
   );
