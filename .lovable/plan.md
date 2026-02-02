@@ -1,54 +1,84 @@
 
-## Goal
-Fix the “Recent Communities” sidebar so it shows `t/TUNA` (and other communities) instead of `t/` (blank ticker), and ensure the links generated from that section navigate correctly everywhere it’s used.
+## Fix SystemTUNA Avatar in Top AI Agents Section
 
-## What’s happening (root cause)
-- The sidebar renders `t/{subtuna.ticker}` (seen in `src/components/tunabook/TunaBookSidebar.tsx`).
-- The data for that sidebar comes from `useRecentSubTunas()` in `src/hooks/useSubTuna.ts`.
-- `useRecentSubTunas()` maps `ticker: s.ticker || s.fun_tokens?.ticker || ""`, but the database query **does not SELECT `ticker` from `subtuna`**, so `s.ticker` is always undefined.
-- For system communities like `t/TUNA`, `fun_token_id` is null (so `s.fun_tokens?.ticker` is also null), producing an empty string → UI shows `t/`.
+### Problem
+The "Top AI Agents" leaderboard in the right sidebar always shows colored initials instead of actual avatar images. SystemTUNA should display its dedicated avatar (`/images/system-tuna-avatar.png`), and other agents should show their `avatar_url` or token image when available.
 
-We also confirmed in the database that the system SubTuna row does have `ticker = 'TUNA'`, so this is purely a frontend query/selection bug.
+### Root Cause
+The `TunaBookRightSidebar` component has two issues:
+1. **Missing data**: The database query doesn't fetch `avatar_url` from the `agents` table
+2. **Missing logic**: The render code doesn't use the `getAgentAvatarUrl()` helper that handles SystemTUNA's special case
 
-## Scope (where this will fix it)
-`useRecentSubTunas()` is used in multiple pages (so one fix covers all):
-- `src/pages/TunaBookPage.tsx`
-- `src/pages/TunaPostPage.tsx`
-- `src/pages/SubTunaPage.tsx`
-- `src/pages/AgentProfilePage.tsx`
+### Comparison
+The `RecentAgentsStrip` component already does this correctly - it fetches avatar data, uses the helper function, and conditionally renders an `<img>` or colored initials.
 
-## Implementation steps (code changes)
-### 1) Fix the data fetch in `useRecentSubTunas`
-**File:** `src/hooks/useSubTuna.ts`
+---
 
-Change the `.select()` to include the `ticker` column from the `subtuna` table:
+### Implementation
 
-- Add `ticker,` alongside the other selected fields:
-  - `id, name, description, icon_url, member_count, post_count, ticker, ...`
+**File:** `src/components/tunabook/TunaBookRightSidebar.tsx`
 
-This ensures `s.ticker` is actually present for system SubTunas like `t/TUNA`.
+#### 1. Import the avatar helper
+```typescript
+import { getAgentAvatarUrl } from "@/lib/agentAvatars";
+```
 
-### 2) Add a safe fallback for older/edge records (optional but recommended)
-Still in `useRecentSubTunas` mapping, if both `s.ticker` and `s.fun_tokens?.ticker` are missing:
-- Derive from the name if it matches `t/SOMETHING`:
-  - If `s.name` starts with `t/`, use the part after `t/`
-- Otherwise keep it empty
+#### 2. Update the database query to include `avatar_url`
+```typescript
+const { data, error } = await supabase
+  .from("agents")
+  .select("id, name, karma, total_tokens_launched, wallet_address, avatar_url")
+  .eq("status", "active")
+  .order("karma", { ascending: false })
+  .limit(5);
+```
 
-This prevents `t/` from showing up if there are any incomplete rows.
+#### 3. Update the render logic to show avatar images
+```typescript
+{topAgents.map((agent, index) => {
+  const colorClass = avatarColors[index % avatarColors.length];
+  const initial = agent.name.charAt(0).toUpperCase();
+  const rank = index + 1;
+  const avatarUrl = getAgentAvatarUrl(agent.id, agent.avatar_url, null);
 
-### 3) Force-refresh cached results (optional but helps immediately)
-React Query may be showing a cached result in an already-open session.
-To guarantee users see the fix immediately without waiting:
-- Change the queryKey from `["recent-subtunas", limit]` to something versioned like `["recent-subtunas-v2", limit]`
+  return (
+    <Link ...>
+      {/* Rank Badge */}
+      <div className={cn("tunabook-rank-badge", getRankBadgeClass(rank))}>
+        {rank}
+      </div>
+      
+      {/* Avatar - image or fallback to initials */}
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={agent.name}
+          className="w-8 h-8 rounded-full object-cover"
+        />
+      ) : (
+        <div className={cn("tunabook-agent-avatar w-8 h-8 text-sm", colorClass)}>
+          {initial}
+        </div>
+      )}
+      
+      {/* ... rest of component */}
+    </Link>
+  );
+})}
+```
 
-This safely busts the old cache.
+#### 4. Update cache key for immediate refresh
+Change queryKey from `["top-agents-leaderboard"]` to `["top-agents-leaderboard-v2"]` to bust cached data.
 
-## Verification checklist
-1. Open TunaBook (or any page with the left sidebar).
-2. In “Recent Communities”, confirm it shows `t/TUNA` (not `t/`).
-3. Click `t/TUNA` and confirm it navigates to `/t/TUNA` (and not `/t/`).
-4. Click a post from that community and confirm the post URL keeps the ticker (no `/t//post/...`).
+---
 
-## Notes / Non-goals
-- This plan addresses the “Recent Communities shows t/” issue and the link correctness stemming from missing ticker.
-- Your separate request about SEO-friendly post URLs (slugs) is a bigger routing + DB change; we can implement it next once the ticker problem is fully resolved.
+### Summary
+
+| Change | Purpose |
+|--------|---------|
+| Add `avatar_url` to SELECT | Fetch avatar data from database |
+| Import `getAgentAvatarUrl` | Use helper that handles SystemTUNA special case |
+| Conditional render `<img>` vs initials | Display actual avatars when available |
+| Update queryKey | Force cache refresh for immediate effect |
+
+After this fix, SystemTUNA will display its proper avatar image (`/images/system-tuna-avatar.png`) and other agents will show their avatars if set.
