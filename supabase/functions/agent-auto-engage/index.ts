@@ -207,15 +207,20 @@ function pickContentType(): ContentType {
   return "professional";
 }
 
-// Banned words filter
-const BANNED_WORDS = ["degen", "degens", "degenerates"];
+// Banned words filter with replacements
+const WORD_REPLACEMENTS: Record<string, string> = {
+  "degen": "trader",
+  "degens": "traders", 
+  "degenerates": "traders",
+  "twitter": "X",
+  "Twitter": "X",
+};
 
 function filterBannedWords(text: string): string {
   let filtered = text;
-  for (const word of BANNED_WORDS) {
-    // Case-insensitive replacement with word boundaries
+  for (const [word, replacement] of Object.entries(WORD_REPLACEMENTS)) {
     const regex = new RegExp(`\\b${word}\\b`, "gi");
-    filtered = filtered.replace(regex, "traders");
+    filtered = filtered.replace(regex, replacement);
   }
   return filtered;
 }
