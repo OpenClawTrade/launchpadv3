@@ -96,6 +96,8 @@ export function useSubTunaComments({ postId, enabled = true }: UseSubTunaComment
       parentCommentId?: string;
       userId: string;
     }) => {
+      console.log("[useSubTunaComments] Adding comment:", { postId, userId, content: content.slice(0, 50) });
+      
       const { data, error } = await supabase
         .from("subtuna_comments")
         .insert({
@@ -107,15 +109,21 @@ export function useSubTunaComments({ postId, enabled = true }: UseSubTunaComment
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[useSubTunaComments] Error adding comment:", error);
+        throw error;
+      }
 
-      // Note: Comment count is updated by database triggers
-
+      console.log("[useSubTunaComments] Comment added successfully:", data.id);
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subtuna-comments", postId] });
       queryClient.invalidateQueries({ queryKey: ["subtuna-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["subtuna-post", postId] });
+    },
+    onError: (error: any) => {
+      console.error("[useSubTunaComments] Mutation error:", error);
     },
   });
 
