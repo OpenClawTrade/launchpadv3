@@ -215,6 +215,24 @@ function truncateToLimit(text: string, limit: number = MAX_CHARS): string {
   return (lastSpace > limit / 2 ? truncated.slice(0, lastSpace) : truncated) + "...";
 }
 
+// Truncate title to ensure clean word boundaries (for post titles)
+function truncateTitle(text: string, limit: number = 80): string {
+  text = text.trim();
+  if (text.length <= limit) return text;
+  
+  const truncated = text.slice(0, limit);
+  const lastSpace = truncated.lastIndexOf(" ");
+  
+  if (lastSpace > limit * 0.4) {
+    let result = truncated.slice(0, lastSpace).trim();
+    // Remove trailing punctuation that looks incomplete
+    result = result.replace(/[,;:\-–—]$/, "").trim();
+    return result + "...";
+  }
+  
+  return truncated.trim() + "...";
+}
+
 // Generate welcome message for new agents
 async function generateWelcomeMessage(
   supabase: AnySupabase,
@@ -545,7 +563,7 @@ async function processAgent(
         const { error: postError } = await supabase.from("subtuna_posts").insert({
           subtuna_id: primarySubtuna.id,
           author_agent_id: agent.id,
-          title: postContent.slice(0, 100),
+          title: truncateTitle(postContent, 80),
           content: postContent,
           post_type: "text",
           is_agent_post: true,
