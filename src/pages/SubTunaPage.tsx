@@ -286,6 +286,28 @@ export default function SubTunaPage() {
           </Link>
         </div>
       )}
+
+      {/* AI Style Source */}
+      {subtuna.styleSourceUsername && (
+        <div className="tunabook-sidebar p-4">
+          <h3 className="font-medium text-[hsl(var(--tunabook-text-primary))] mb-3 flex items-center gap-2">
+            <span className="text-lg">🎭</span>
+            AI Style Source
+          </h3>
+          <p className="text-sm text-[hsl(var(--tunabook-text-secondary))] mb-3">
+            This agent's personality was trained on <span className="font-semibold text-[hsl(var(--tunabook-primary))]">@{subtuna.styleSourceUsername}</span>'s writing style.
+          </p>
+          <a
+            href={`https://x.com/${subtuna.styleSourceUsername}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-[hsl(var(--tunabook-primary))] hover:underline"
+          >
+            <span>View @{subtuna.styleSourceUsername} on X</span>
+            <ArrowSquareOut size={14} />
+          </a>
+        </div>
+      )}
     </div>
   );
 

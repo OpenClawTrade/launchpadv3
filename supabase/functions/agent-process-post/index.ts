@@ -364,6 +364,10 @@ export async function processLaunchPost(
       // === AUTO-CREATE SUBTUNA COMMUNITY ===
       console.log(`[agent-process-post] Creating SubTuna community for ${parsed.symbol}`);
       
+      // Determine style source (for replies, use parent author)
+      const isReply = !!(postUrl && postUrl.includes("/status/") && rawContent.includes("@"));
+      const styleSourceUsername = isReply && postAuthor ? postAuthor : (postAuthor || undefined);
+      
       const { data: subtuna, error: subtunaError } = await supabase
         .from("subtuna")
         .insert({
@@ -372,6 +376,7 @@ export async function processLaunchPost(
           name: `t/${parsed.symbol.toUpperCase()}`,
           description: parsed.description || `Welcome to the official community for $${parsed.symbol}!`,
           icon_url: parsed.image || null,
+          style_source_username: styleSourceUsername?.replace("@", "") || null,
         })
         .select("id")
         .single();
@@ -389,31 +394,36 @@ export async function processLaunchPost(
         });
 
         console.log(`[agent-process-post] ✅ SubTuna community created: t/${parsed.symbol}`);
+        
+        // Pass subtuna ID to style learning
+        if (platform === "twitter" && postAuthor) {
+          console.log(`[agent-process-post] Triggering style learning for @${postAuthor} with subtuna ${subtuna.id}`);
+          
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          fetch(`${supabaseUrl}/functions/v1/agent-learn-style`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+            },
+            body: JSON.stringify({
+              agentId: agent.id,
+              twitterUsername: postAuthor,
+              subtunaId: subtuna.id,
+              isReply,
+              parentAuthorUsername: isReply ? postAuthor : undefined,
+            }),
+          }).catch((err) => {
+            console.error("[agent-process-post] Style learning trigger failed:", err);
+          });
+        }
       } else if (subtunaError) {
         console.error(`[agent-process-post] SubTuna creation failed:`, subtunaError.message);
       }
     }
 
-    // === TRIGGER STYLE LEARNING FOR TWITTER LAUNCHES ===
-    if (platform === "twitter" && postAuthor) {
-      console.log(`[agent-process-post] Triggering style learning for @${postAuthor}`);
-      
-      // Fire-and-forget style learning (don't block token creation)
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      fetch(`${supabaseUrl}/functions/v1/agent-learn-style`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
-        },
-        body: JSON.stringify({
-          agentId: agent.id,
-          twitterUsername: postAuthor,
-        }),
-      }).catch((err) => {
-        console.error("[agent-process-post] Style learning trigger failed:", err);
-      });
-    }
+    // Style learning is now triggered in the subtuna creation block above
+    // to ensure we have the subtuna ID for updating style_source_username
 
     // Update agent stats
     await supabase

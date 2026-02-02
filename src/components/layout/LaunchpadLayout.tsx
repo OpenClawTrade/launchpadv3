@@ -56,7 +56,7 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
               </Button>
             </Link>
             <Link to="/agents">
-              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium">
+              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white rounded-lg h-9 px-3 text-sm font-medium">
                 TUNA Agents
               </Button>
             </Link>
@@ -103,8 +103,8 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
                   <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-foreground text-sm font-medium">Trending Narratives</span>
                   </Link>
-                  <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-foreground text-sm font-medium">TUNA Agents</span>
+                  <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <span className="text-white text-sm font-medium">TUNA Agents</span>
                   </Link>
                 </nav>
               </SheetContent>

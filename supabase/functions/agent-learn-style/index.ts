@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { createHmac } from "https://deno.land/std@0.177.0/node/crypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +8,8 @@ const corsHeaders = {
 
 const LOVABLE_API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const AI_MODEL = "openai/gpt-5-mini";
-const TWITTER_API_BASE = "https://api.x.com/2";
+const TWITTERAPI_IO_BASE = "https://api.twitterapi.io/twitter";
+const STYLE_CACHE_DAYS = 7;
 
 interface StyleFingerprint {
   tone: string;
@@ -25,154 +25,54 @@ interface StyleFingerprint {
   tweet_count_analyzed: number;
 }
 
-// Generate OAuth 1.0a signature for Twitter API
-function generateOAuthSignature(
-  method: string,
-  url: string,
-  params: Record<string, string>,
-  consumerSecret: string,
-  tokenSecret: string
-): string {
-  const sortedParams = Object.keys(params)
-    .sort()
-    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-    .join("&");
-
-  const signatureBase = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(sortedParams)}`;
-  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-
-  const hmac = createHmac("sha1", signingKey);
-  hmac.update(signatureBase);
-  return hmac.digest("base64");
+interface CachedStyle {
+  id: string;
+  twitter_username: string;
+  writing_style: StyleFingerprint;
+  learned_at: string;
+  usage_count: number;
 }
 
-function generateOAuthHeader(
-  method: string,
-  url: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): string {
-  const oauthParams: Record<string, string> = {
-    oauth_consumer_key: consumerKey,
-    oauth_nonce: crypto.randomUUID().replace(/-/g, ""),
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: accessToken,
-    oauth_version: "1.0",
-  };
-
-  const signature = generateOAuthSignature(
-    method,
-    url,
-    oauthParams,
-    consumerSecret,
-    accessTokenSecret
-  );
-
-  oauthParams.oauth_signature = signature;
-
-  const headerParts = Object.keys(oauthParams)
-    .sort()
-    .map((key) => `${encodeURIComponent(key)}="${encodeURIComponent(oauthParams[key])}"`)
-    .join(", ");
-
-  return `OAuth ${headerParts}`;
-}
-
-// Fetch user ID from username
-async function getUserIdFromUsername(
+// Fetch tweets using twitterapi.io (cheaper than official API)
+async function fetchTweetsViaTwitterApiIo(
   username: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): Promise<string | null> {
+  apiKey: string
+): Promise<string[]> {
   const cleanUsername = username.replace("@", "");
-  const url = `${TWITTER_API_BASE}/users/by/username/${cleanUsername}`;
+  const url = `${TWITTERAPI_IO_BASE}/user/last_tweets?userName=${encodeURIComponent(cleanUsername)}&count=20`;
 
   try {
-    const authHeader = generateOAuthHeader(
-      "GET",
-      url,
-      consumerKey,
-      consumerSecret,
-      accessToken,
-      accessTokenSecret
-    );
-
+    console.log(`[agent-learn-style] Fetching tweets for @${cleanUsername} via twitterapi.io`);
+    
     const response = await fetch(url, {
       headers: {
-        Authorization: authHeader,
+        "X-API-Key": apiKey,
       },
     });
 
     if (!response.ok) {
-      console.error(`Twitter user lookup failed: ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-    return data.data?.id || null;
-  } catch (error) {
-    console.error("Error fetching Twitter user ID:", error);
-    return null;
-  }
-}
-
-// Fetch tweets from user timeline
-async function fetchUserTweets(
-  userId: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): Promise<string[]> {
-  const baseUrl = `${TWITTER_API_BASE}/users/${userId}/tweets`;
-  const queryParams = new URLSearchParams({
-    max_results: "20", // Reduced from 100 to 20 for faster analysis
-    "tweet.fields": "text,created_at",
-    exclude: "retweets,replies",
-  });
-
-  const fullUrl = `${baseUrl}?${queryParams.toString()}`;
-
-  try {
-    const authHeader = generateOAuthHeader(
-      "GET",
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      accessToken,
-      accessTokenSecret
-    );
-
-    const response = await fetch(fullUrl, {
-      headers: {
-        Authorization: authHeader,
-      },
-    });
-
-    if (!response.ok) {
-      console.error(`Twitter tweets fetch failed: ${response.status}`);
+      console.error(`[agent-learn-style] twitterapi.io error: ${response.status}`);
       const errorText = await response.text();
       console.error("Error body:", errorText);
       return [];
     }
 
     const data = await response.json();
-    const tweets = data.data || [];
+    const tweets = data.tweets || data.data || [];
 
-    // Filter out tweets that are mostly links or very short
+    // Extract tweet text and filter out retweets and very short tweets
     return tweets
-      .map((t: { text: string }) => t.text)
-      .filter((text: string) => {
+      .filter((t: any) => {
+        const text = t.text || t.full_text || "";
+        // Filter out retweets
+        if (text.startsWith("RT @")) return false;
+        // Filter out very short tweets
         const cleanText = text.replace(/https?:\/\/\S+/g, "").trim();
         return cleanText.length > 10;
-      });
+      })
+      .map((t: any) => t.text || t.full_text || "");
   } catch (error) {
-    console.error("Error fetching tweets:", error);
+    console.error("[agent-learn-style] Error fetching via twitterapi.io:", error);
     return [];
   }
 }
@@ -183,11 +83,11 @@ async function extractStyleFingerprint(
   lovableApiKey: string
 ): Promise<StyleFingerprint | null> {
   if (tweets.length < 5) {
-    console.log("Not enough tweets to analyze style");
+    console.log("[agent-learn-style] Not enough tweets to analyze style");
     return null;
   }
 
-  const tweetSample = tweets.slice(0, 100).join("\n---\n");
+  const tweetSample = tweets.slice(0, 20).join("\n---\n");
 
   const systemPrompt = `You are an expert at analyzing writing styles. You will be given a collection of tweets from a single user and must extract a detailed writing style fingerprint that can be used to generate new content in their exact voice.
 
@@ -231,7 +131,7 @@ Return JSON with these exact fields:
     });
 
     if (!response.ok) {
-      console.error(`AI API error: ${response.status}`);
+      console.error(`[agent-learn-style] AI API error: ${response.status}`);
       return null;
     }
 
@@ -239,7 +139,7 @@ Return JSON with these exact fields:
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
-      console.error("No content from AI response");
+      console.error("[agent-learn-style] No content from AI response");
       return null;
     }
 
@@ -256,7 +156,7 @@ Return JSON with these exact fields:
 
     return fingerprint;
   } catch (error) {
-    console.error("Error extracting style fingerprint:", error);
+    console.error("[agent-learn-style] Error extracting style fingerprint:", error);
     return null;
   }
 }
@@ -278,14 +178,21 @@ function getFallbackStyle(agentName: string): StyleFingerprint {
   };
 }
 
+// Check if cached style is still valid
+function isCacheValid(cachedStyle: CachedStyle): boolean {
+  const learnedAt = new Date(cachedStyle.learned_at);
+  const now = new Date();
+  const daysSince = (now.getTime() - learnedAt.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSince < STYLE_CACHE_DAYS;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Support reply context: if isReply=true, analyze parentAuthorUsername instead
-    const { agentId, twitterUsername, isReply, parentAuthorUsername } = await req.json();
+    const { agentId, twitterUsername, isReply, parentAuthorUsername, subtunaId } = await req.json();
 
     if (!agentId) {
       return new Response(
@@ -297,17 +204,14 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    const twitterConsumerKey = Deno.env.get("TWITTER_CONSUMER_KEY");
-    const twitterConsumerSecret = Deno.env.get("TWITTER_CONSUMER_SECRET");
-    const twitterAccessToken = Deno.env.get("TWITTER_ACCESS_TOKEN");
-    const twitterAccessTokenSecret = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET");
+    const twitterApiIoKey = Deno.env.get("TWITTERAPI_IO_KEY");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get agent info
     const { data: agent, error: agentError } = await supabase
       .from("agents")
-      .select("id, name, twitter_handle, style_learned_at")
+      .select("id, name, twitter_handle, style_learned_at, style_source_username")
       .eq("id", agentId)
       .single();
 
@@ -318,105 +222,136 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Rate limit: max 1 style refresh per day
-    if (agent.style_learned_at) {
-      const lastLearned = new Date(agent.style_learned_at);
-      const hoursSince = (Date.now() - lastLearned.getTime()) / (1000 * 60 * 60);
-      if (hoursSince < 24) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Style already learned recently. Try again in 24 hours.",
-          }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    // Determine which username to analyze
+    // If reply, analyze parent author's style; otherwise analyze launcher's style
+    const usernameToAnalyze = (isReply && parentAuthorUsername)
+      ? parentAuthorUsername
+      : (twitterUsername || agent.twitter_handle);
+
+    if (!usernameToAnalyze) {
+      console.log("[agent-learn-style] No username to analyze, using fallback");
+      const fallbackStyle = getFallbackStyle(agent.name);
+      
+      await supabase
+        .from("agents")
+        .update({
+          writing_style: fallbackStyle,
+          style_source_username: null,
+          style_learned_at: new Date().toISOString(),
+        })
+        .eq("id", agentId);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          agentId,
+          style: fallbackStyle,
+          source: "fallback",
+          cached: false,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // If this is a reply to someone else's post, analyze that person's tweets
-    // Otherwise analyze the launcher's tweets
-    const usernameToAnalyze = (isReply && parentAuthorUsername) 
-      ? parentAuthorUsername 
-      : (twitterUsername || agent.twitter_handle);
-    
+    const cleanUsername = usernameToAnalyze.replace("@", "").toLowerCase();
+    console.log(`[agent-learn-style] Target username: @${cleanUsername} (isReply: ${isReply})`);
+
+    // Check style library cache first
+    const { data: cachedStyle } = await supabase
+      .from("twitter_style_library")
+      .select("*")
+      .eq("twitter_username", cleanUsername)
+      .maybeSingle();
+
     let styleFingerprint: StyleFingerprint | null = null;
     let styleSource = "fallback";
+    let usedCache = false;
 
-    console.log(`[agent-learn-style] Analyzing: ${usernameToAnalyze} (isReply: ${isReply})`);
+    if (cachedStyle && isCacheValid(cachedStyle as CachedStyle)) {
+      // Use cached style
+      console.log(`[agent-learn-style] ✅ Using cached style for @${cleanUsername} (${cachedStyle.usage_count} previous uses)`);
+      styleFingerprint = cachedStyle.writing_style as StyleFingerprint;
+      styleSource = cleanUsername;
+      usedCache = true;
 
-    // Try to fetch and analyze Twitter style if credentials available
-    if (
-      usernameToAnalyze &&
-      twitterConsumerKey &&
-      twitterConsumerSecret &&
-      twitterAccessToken &&
-      twitterAccessTokenSecret &&
-      lovableApiKey
-    ) {
-      console.log(`[agent-learn-style] Analyzing style for @${usernameToAnalyze}`);
+      // Increment usage count
+      await supabase
+        .from("twitter_style_library")
+        .update({
+          usage_count: (cachedStyle.usage_count || 1) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", cachedStyle.id);
+    } else if (twitterApiIoKey && lovableApiKey) {
+      // Fetch fresh tweets and analyze
+      console.log(`[agent-learn-style] Fetching fresh tweets for @${cleanUsername}`);
+      
+      const tweets = await fetchTweetsViaTwitterApiIo(cleanUsername, twitterApiIoKey);
+      console.log(`[agent-learn-style] Fetched ${tweets.length} tweets for analysis`);
 
-      // Get Twitter user ID
-      const userId = await getUserIdFromUsername(
-        usernameToAnalyze,
-        twitterConsumerKey,
-        twitterConsumerSecret,
-        twitterAccessToken,
-        twitterAccessTokenSecret
-      );
+      if (tweets.length >= 5) {
+        styleFingerprint = await extractStyleFingerprint(tweets, lovableApiKey);
+        
+        if (styleFingerprint) {
+          styleSource = cleanUsername;
 
-      if (userId) {
-        // Fetch tweets
-        const tweets = await fetchUserTweets(
-          userId,
-          twitterConsumerKey,
-          twitterConsumerSecret,
-          twitterAccessToken,
-          twitterAccessTokenSecret
-        );
+          // Save to style library (upsert)
+          const { error: upsertError } = await supabase
+            .from("twitter_style_library")
+            .upsert({
+              twitter_username: cleanUsername,
+              writing_style: styleFingerprint,
+              tweet_count: tweets.length,
+              learned_at: new Date().toISOString(),
+              usage_count: 1,
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: "twitter_username",
+            });
 
-        console.log(`[agent-learn-style] Fetched ${tweets.length} tweets for analysis`);
-
-        if (tweets.length >= 5) {
-          // Extract style using AI
-          styleFingerprint = await extractStyleFingerprint(tweets, lovableApiKey);
-          if (styleFingerprint) {
-            styleSource = usernameToAnalyze.replace("@", "");
+          if (upsertError) {
+            console.error("[agent-learn-style] Failed to cache style:", upsertError);
+          } else {
+            console.log(`[agent-learn-style] ✅ Cached new style for @${cleanUsername}`);
           }
-        } else {
-          console.log(`[agent-learn-style] Not enough tweets (${tweets.length}), using fallback`);
         }
       } else {
-        console.log(`[agent-learn-style] Could not find Twitter user: ${usernameToAnalyze}`);
+        console.log(`[agent-learn-style] Not enough tweets (${tweets.length}), using fallback`);
       }
     } else {
-      console.log("[agent-learn-style] Twitter credentials or username not available, using fallback");
+      console.log("[agent-learn-style] Missing API keys, using fallback");
     }
 
-    // Use fallback if Twitter analysis failed
+    // Use fallback if analysis failed
     if (!styleFingerprint) {
       styleFingerprint = getFallbackStyle(agent.name);
       styleSource = "fallback";
     }
 
-    // Save to database
-    const { error: updateError } = await supabase
+    // Update agent with style info
+    const twitterUrl = styleSource !== "fallback" ? `https://x.com/${styleSource}` : null;
+    
+    await supabase
       .from("agents")
       .update({
         writing_style: styleFingerprint,
         style_source_username: styleSource !== "fallback" ? styleSource : null,
+        style_source_twitter_url: twitterUrl,
         style_learned_at: new Date().toISOString(),
       })
       .eq("id", agentId);
 
-    if (updateError) {
-      console.error("[agent-learn-style] Failed to save style:", updateError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Failed to save style" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Update subtuna with style source if provided
+    if (subtunaId && styleSource !== "fallback") {
+      await supabase
+        .from("subtuna")
+        .update({
+          style_source_username: styleSource,
+        })
+        .eq("id", subtunaId);
     }
 
-    console.log(`[agent-learn-style] ✅ Style learned for ${agent.name} (source: ${styleSource})`);
+    console.log(`[agent-learn-style] ✅ Style applied for ${agent.name} (source: @${styleSource}, cached: ${usedCache})`);
 
     return new Response(
       JSON.stringify({
@@ -424,6 +359,8 @@ Deno.serve(async (req) => {
         agentId,
         style: styleFingerprint,
         source: styleSource,
+        cached: usedCache,
+        twitterUrl,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
