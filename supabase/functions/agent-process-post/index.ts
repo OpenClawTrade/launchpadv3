@@ -418,9 +418,11 @@ export async function processLaunchPost(
       console.log(`[agent-process-post] SubTuna pre-creation failed (will retry after launch):`, preSubtunaError.message);
     }
 
-    // Call Vercel API to create token
+    // Call Vercel API to create token (now with confirmation before success)
     // - website: community URL (tuna.fun/t/TICKER) as fallback if no custom website
     // - twitter: original X post URL where user requested the launch (goes on-chain)
+    console.log(`[agent-process-post] Calling create-fun API for ${parsed.name}...`);
+    
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -441,9 +443,39 @@ export async function processLaunchPost(
 
     const result = await vercelResponse.json();
 
+    // Check for failure - API now only returns success after on-chain confirmation
     if (!vercelResponse.ok || !result.success) {
-      throw new Error(result.error || "Token creation failed");
+      const errorMsg = result.error || "Token creation failed - transactions not confirmed on-chain";
+      console.error(`[agent-process-post] ❌ Token creation failed:`, errorMsg);
+      
+      // Clean up pre-created SubTuna if launch failed
+      if (preCreatedSubtuna) {
+        console.log(`[agent-process-post] Cleaning up orphaned SubTuna ${preCreatedSubtuna.id}...`);
+        await supabase
+          .from("subtuna")
+          .delete()
+          .eq("id", preCreatedSubtuna.id);
+      }
+      
+      throw new Error(errorMsg);
     }
+    
+    // Verify the launch was confirmed on-chain
+    if (!result.confirmed) {
+      console.error(`[agent-process-post] ❌ Token launch not confirmed on-chain`);
+      
+      // Clean up pre-created SubTuna
+      if (preCreatedSubtuna) {
+        await supabase
+          .from("subtuna")
+          .delete()
+          .eq("id", preCreatedSubtuna.id);
+      }
+      
+      throw new Error("Token transactions were sent but not confirmed on-chain");
+    }
+    
+    console.log(`[agent-process-post] ✅ Token confirmed on-chain: ${result.mintAddress}`);
 
     const mintAddress = result.mintAddress as string;
     const dbcPoolAddress = result.dbcPoolAddress as string | null;
