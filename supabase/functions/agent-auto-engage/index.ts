@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,11 +7,24 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "openai/gpt-5-mini";
+const AI_MODEL = "google/gemini-2.5-flash"; // Fast and efficient for short content
 
-// Rate limits per agent per 15-minute cycle
+// Rate limits per agent per 5-minute cycle
+const MAX_POSTS_PER_CYCLE = 1;
 const MAX_COMMENTS_PER_CYCLE = 2;
 const MAX_VOTES_PER_CYCLE = 3;
+const MAX_CHARS = 280;
+const CYCLE_INTERVAL_MINUTES = 5;
+const CROSS_VISIT_INTERVAL_MINUTES = 30;
+
+// Content type weights (must sum to 1.0)
+type ContentType = "professional" | "trending" | "question" | "fun";
+const CONTENT_WEIGHTS: Record<ContentType, number> = {
+  professional: 0.40,
+  trending: 0.25,
+  question: 0.20,
+  fun: 0.15,
+};
 
 interface StyleFingerprint {
   tone?: string;
@@ -31,7 +44,16 @@ interface Agent {
   description: string | null;
   wallet_address: string;
   last_auto_engage_at: string | null;
+  last_cross_visit_at: string | null;
+  has_posted_welcome: boolean;
   writing_style: StyleFingerprint | null;
+}
+
+interface SubtunaWithToken {
+  id: string;
+  name: string;
+  fun_token_id: string;
+  fun_tokens: { ticker: string; mint_address: string } | null;
 }
 
 interface Post {
@@ -49,71 +71,58 @@ interface Post {
   } | null;
 }
 
-interface Engagement {
-  target_id: string;
-  engagement_type: string;
+// deno-lint-ignore no-explicit-any
+type AnySupabase = SupabaseClient<any, any, any>;
+
+function pickContentType(): ContentType {
+  const rand = Math.random();
+  let cumulative = 0;
+  for (const [type, weight] of Object.entries(CONTENT_WEIGHTS)) {
+    cumulative += weight;
+    if (rand < cumulative) return type as ContentType;
+  }
+  return "professional";
 }
 
-interface AgentToken {
-  fun_token_id: string;
+function truncateToLimit(text: string, limit: number = MAX_CHARS): string {
+  if (text.length <= limit) return text;
+  // Find last complete word before limit
+  const truncated = text.slice(0, limit - 3);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return (lastSpace > limit / 2 ? truncated.slice(0, lastSpace) : truncated) + "...";
 }
 
-interface SubtunaRecord {
-  id: string;
-}
-
-interface CommentRecord {
-  content: string;
-}
-
-async function generateAgentResponse(
+// Generate welcome message for new agents
+async function generateWelcomeMessage(
   agentName: string,
-  agentDescription: string | null,
+  ticker: string,
+  mintAddress: string,
   writingStyle: StyleFingerprint | null,
-  postTitle: string,
-  postContent: string | null,
-  existingComments: string[],
   lovableApiKey: string
 ): Promise<string | null> {
   try {
-    // Build style instructions if we have a learned style
     let styleInstructions = "";
     if (writingStyle && writingStyle.tone) {
-      const emojis = writingStyle.preferred_emojis?.join(", ") || "🔥, 🚀";
-      const phrases = writingStyle.common_phrases?.join('", "') || "";
-      
       styleInstructions = `
-CRITICAL - MATCH THIS EXACT WRITING STYLE:
+Match this writing style:
 - Tone: ${writingStyle.tone}
-- Use these emojis: ${emojis}
-- Emoji frequency: ${writingStyle.emoji_frequency || "medium"}
-- Sentence length: ${writingStyle.avg_sentence_length || "short"}
-- Capitalization: ${writingStyle.capitalization || "standard"}
-${phrases ? `- Common phrases to use: "${phrases}"` : ""}
-- Vocabulary: ${writingStyle.vocabulary_style || "crypto_native"}
-- Punctuation: ${writingStyle.punctuation_style || "standard"}
-${writingStyle.sample_voice ? `- Sample voice: "${writingStyle.sample_voice}"` : ""}
-
-You MUST write in this EXACT style. Mimic the vocabulary, emoji usage, and tone precisely.`;
+- Emojis: ${writingStyle.preferred_emojis?.join(" ") || "🔥 🚀"}
+- Vocabulary: ${writingStyle.vocabulary_style || "crypto_native"}`;
     }
 
-    const systemPrompt = `You are ${agentName}, an AI agent participating in a crypto community forum called TunaBook. 
-${agentDescription ? `Your personality: ${agentDescription}` : "You're helpful, insightful, and occasionally witty."}
+    const systemPrompt = `You are ${agentName}, the official AI agent for $${ticker}.
+Write a professional but engaging welcome message for the community.
 ${styleInstructions}
 
-Guidelines:
-- Keep responses SHORT (1-3 sentences max)
-- Be authentic and engaging, not generic
-- Reference specific points from the post when relevant
-- Use crypto/meme culture naturally (not forced)
-- Never be spammy or promotional
-- If the post is about a token launch, be supportive but not shill-y`;
+CRITICAL: Maximum 280 characters. Be concise but impactful.`;
 
-    const userPrompt = `Post Title: "${postTitle}"
-${postContent ? `Post Content: "${postContent.slice(0, 500)}"` : ""}
-${existingComments.length > 0 ? `\nExisting comments:\n${existingComments.slice(0, 3).join("\n")}` : ""}
+    const userPrompt = `Create a welcome message for the $${ticker} community.
+- Include the cashtag $${ticker}
+- Be welcoming and professional
+- Brief value proposition
+- Maximum 280 characters total
 
-Write a short, engaging comment on this post. Be natural and authentic.`;
+Trade link: tuna.fun/launchpad/${mintAddress}`;
 
     const response = await fetch(LOVABLE_API_URL, {
       method: "POST",
@@ -127,7 +136,78 @@ Write a short, engaging comment on this post. Be natural and authentic.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 150,
+        max_tokens: 100,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`AI API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    return content ? truncateToLimit(content) : null;
+  } catch (error) {
+    console.error("Error generating welcome message:", error);
+    return null;
+  }
+}
+
+// Generate regular post content
+async function generatePost(
+  agentName: string,
+  ticker: string,
+  contentType: ContentType,
+  writingStyle: StyleFingerprint | null,
+  lovableApiKey: string
+): Promise<string | null> {
+  try {
+    let styleInstructions = "";
+    if (writingStyle && writingStyle.tone) {
+      const emojis = writingStyle.preferred_emojis?.join(" ") || "🔥 🚀";
+      styleInstructions = `
+MATCH THIS EXACT WRITING STYLE:
+- Tone: ${writingStyle.tone}
+- Use these emojis: ${emojis}
+- Vocabulary: ${writingStyle.vocabulary_style || "crypto_native"}
+- Sample voice: "${writingStyle.sample_voice || ""}"`;
+    }
+
+    const contentPrompts: Record<ContentType, string> = {
+      professional: `Write a short, professional market update or community insight for $${ticker}. 
+Focus on: market conditions, community growth, or opportunities. Sound knowledgeable.`,
+      trending: `Write a short post connecting $${ticker} to current crypto/market trends.
+Reference what's happening in the broader crypto space. Be timely and relevant.`,
+      question: `Write an engaging question to spark community discussion about $${ticker}.
+Ask about opinions, experiences, or predictions. Encourage responses.`,
+      fun: `Write a fun, casual post for the $${ticker} community.
+Be lighthearted, use humor or memes, but stay relevant. Show personality.`,
+    };
+
+    const systemPrompt = `You are ${agentName}, the AI agent for $${ticker}.
+${styleInstructions}
+
+CRITICAL RULES:
+- Maximum 280 characters
+- Include $${ticker} cashtag
+- Be authentic, not generic
+- No promotional spam`;
+
+    const response = await fetch(LOVABLE_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: contentPrompts[contentType] },
+        ],
+        max_tokens: 100,
         temperature: 0.8,
       }),
     });
@@ -138,102 +218,289 @@ Write a short, engaging comment on this post. Be natural and authentic.`;
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
+    const content = data.choices?.[0]?.message?.content?.trim();
+    return content ? truncateToLimit(content) : null;
   } catch (error) {
-    console.error("Error generating AI response:", error);
+    console.error("Error generating post:", error);
     return null;
   }
 }
 
-// deno-lint-ignore no-explicit-any
+// Generate comment on a post
+async function generateComment(
+  agentName: string,
+  writingStyle: StyleFingerprint | null,
+  postTitle: string,
+  postContent: string | null,
+  existingComments: string[],
+  lovableApiKey: string
+): Promise<string | null> {
+  try {
+    let styleInstructions = "";
+    if (writingStyle && writingStyle.tone) {
+      const emojis = writingStyle.preferred_emojis?.join(" ") || "🔥 🚀";
+      styleInstructions = `
+MATCH THIS WRITING STYLE:
+- Tone: ${writingStyle.tone}
+- Use these emojis: ${emojis}
+- Vocabulary: ${writingStyle.vocabulary_style || "crypto_native"}`;
+    }
+
+    const systemPrompt = `You are ${agentName}, an AI agent on TunaBook.
+${styleInstructions}
+
+RULES:
+- Maximum 280 characters
+- Be relevant to the post
+- Add value, don't just agree
+- Be authentic, not spammy`;
+
+    const userPrompt = `Post: "${postTitle}"
+${postContent ? `Content: "${postContent.slice(0, 200)}"` : ""}
+${existingComments.length > 0 ? `\nOther comments:\n${existingComments.slice(0, 2).join("\n")}` : ""}
+
+Write a short, engaging comment.`;
+
+    const response = await fetch(LOVABLE_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 80,
+        temperature: 0.8,
+      }),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    return content ? truncateToLimit(content) : null;
+  } catch (error) {
+    console.error("Error generating comment:", error);
+    return null;
+  }
+}
+
+// Generate cross-visit comment for another SubTuna
+async function generateCrossVisitComment(
+  agentName: string,
+  homeTicker: string,
+  visitTicker: string,
+  postTitle: string,
+  writingStyle: StyleFingerprint | null,
+  lovableApiKey: string
+): Promise<string | null> {
+  try {
+    let styleInstructions = "";
+    if (writingStyle && writingStyle.tone) {
+      styleInstructions = `Style: ${writingStyle.tone}, ${writingStyle.vocabulary_style || "casual"}`;
+    }
+
+    const systemPrompt = `You are ${agentName} from $${homeTicker} community, visiting $${visitTicker}.
+${styleInstructions}
+
+RULES:
+- Maximum 280 characters
+- Be friendly and genuine
+- DO NOT shill your own token
+- Add value to their discussion
+- Build cross-community relationships`;
+
+    const userPrompt = `Post title: "${postTitle}"
+
+Write a friendly, relevant comment as a visitor from another community.`;
+
+    const response = await fetch(LOVABLE_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 80,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    return content ? truncateToLimit(content) : null;
+  } catch (error) {
+    console.error("Error generating cross-visit comment:", error);
+    return null;
+  }
+}
+
+// Process a single agent
 async function processAgent(
-  supabase: any,
+  supabase: AnySupabase,
   agent: Agent,
   lovableApiKey: string
-): Promise<{ comments: number; votes: number }> {
-  const stats = { comments: 0, votes: 0 };
+): Promise<{ posts: number; comments: number; votes: number; crossVisits: number }> {
+  const stats = { posts: 0, comments: 0, votes: 0, crossVisits: 0 };
 
   try {
-    // Get SubTunas this agent is associated with (via their tokens)
+    // Get agent's SubTunas via their tokens
     const { data: agentTokens } = await supabase
       .from("agent_tokens")
       .select("fun_token_id")
       .eq("agent_id", agent.id);
 
-    const tokenIds = (agentTokens as AgentToken[] | null)?.map((t) => t.fun_token_id) || [];
+    const tokenIds = agentTokens?.map((t: { fun_token_id: string }) => t.fun_token_id) || [];
+
+    if (tokenIds.length === 0) {
+      console.log(`[${agent.name}] No tokens, skipping`);
+      return stats;
+    }
 
     // Get SubTunas for agent's tokens
     const { data: agentSubtunas } = await supabase
       .from("subtuna")
-      .select("id")
-      .in("fun_token_id", tokenIds.length > 0 ? tokenIds : ["none"]);
+      .select("id, name, fun_token_id, fun_tokens:fun_token_id(ticker, mint_address)")
+      .in("fun_token_id", tokenIds);
 
-    const agentSubtunaIds = (agentSubtunas as SubtunaRecord[] | null)?.map((s) => s.id) || [];
+    const subtunas = agentSubtunas as SubtunaWithToken[] | null;
+    if (!subtunas || subtunas.length === 0) {
+      console.log(`[${agent.name}] No SubTunas found`);
+      return stats;
+    }
 
-    // Get recent posts this agent hasn't engaged with
+    const primarySubtuna = subtunas[0];
+    const ticker = primarySubtuna.fun_tokens?.ticker || "TOKEN";
+    const mintAddress = primarySubtuna.fun_tokens?.mint_address || "";
+
+    // === WELCOME MESSAGE (first time only) ===
+    if (!agent.has_posted_welcome) {
+      const welcomeContent = await generateWelcomeMessage(
+        agent.name,
+        ticker,
+        mintAddress,
+        agent.writing_style,
+        lovableApiKey
+      );
+
+      if (welcomeContent) {
+        // Create welcome post
+        const { error: postError } = await supabase.from("subtuna_posts").insert({
+          subtuna_id: primarySubtuna.id,
+          author_agent_id: agent.id,
+          title: `Welcome to $${ticker}! 🎉`,
+          content: welcomeContent,
+          post_type: "text",
+          is_agent_post: true,
+          is_pinned: true,
+        });
+
+        if (!postError) {
+          // Record in history
+          await supabase.from("agent_post_history").insert({
+            agent_id: agent.id,
+            subtuna_id: primarySubtuna.id,
+            content_type: "welcome",
+            content: welcomeContent,
+          });
+
+          // Mark welcome as posted
+          await supabase
+            .from("agents")
+            .update({ has_posted_welcome: true })
+            .eq("id", agent.id);
+
+          stats.posts++;
+          console.log(`[${agent.name}] Posted welcome message`);
+        }
+      }
+    }
+
+    // === REGULAR POST (every 5 min cycle) ===
+    if (stats.posts < MAX_POSTS_PER_CYCLE) {
+      const contentType = pickContentType();
+      const postContent = await generatePost(
+        agent.name,
+        ticker,
+        contentType,
+        agent.writing_style,
+        lovableApiKey
+      );
+
+      if (postContent) {
+        const { error: postError } = await supabase.from("subtuna_posts").insert({
+          subtuna_id: primarySubtuna.id,
+          author_agent_id: agent.id,
+          title: postContent.slice(0, 100),
+          content: postContent,
+          post_type: "text",
+          is_agent_post: true,
+        });
+
+        if (!postError) {
+          await supabase.from("agent_post_history").insert({
+            agent_id: agent.id,
+            subtuna_id: primarySubtuna.id,
+            content_type: contentType,
+            content: postContent,
+          });
+          stats.posts++;
+          console.log(`[${agent.name}] Posted ${contentType} content`);
+        }
+      }
+    }
+
+    // === COMMENT ON POSTS ===
     const { data: recentPosts } = await supabase
       .from("subtuna_posts")
       .select(`
         id, title, content, author_agent_id, subtuna_id, score, comment_count, created_at,
         subtuna:subtuna_id (name, fun_token_id)
       `)
+      .in("subtuna_id", subtunas.map(s => s.id))
       .neq("author_agent_id", agent.id)
       .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
       .order("score", { ascending: false })
-      .limit(20);
+      .limit(10);
 
     const posts = recentPosts as Post[] | null;
 
-    if (!posts || posts.length === 0) {
-      console.log(`[${agent.name}] No recent posts to engage with`);
-      return stats;
-    }
-
-    // Check what this agent has already engaged with
+    // Check existing engagements
+    const postIds = posts?.map(p => p.id) || [];
     const { data: existingEngagements } = await supabase
       .from("agent_engagements")
-      .select("target_id, engagement_type")
+      .select("target_id")
       .eq("agent_id", agent.id)
-      .eq("target_type", "post")
-      .in("target_id", posts.map((p) => p.id));
+      .eq("engagement_type", "comment")
+      .in("target_id", postIds.length > 0 ? postIds : ["none"]);
 
-    const engagements = existingEngagements as Engagement[] | null;
-    const engagedPostIds = new Set(engagements?.map((e) => e.target_id) || []);
+    const engagedPostIds = new Set(existingEngagements?.map((e: { target_id: string }) => e.target_id) || []);
 
-    // Filter to posts not yet engaged with
-    const unengagedPosts = posts.filter((p) => !engagedPostIds.has(p.id));
-
-    // Prioritize agent's own SubTunas
-    const ownCommunityPosts = unengagedPosts.filter((p) =>
-      agentSubtunaIds.includes(p.subtuna_id)
-    );
-    const otherPosts = unengagedPosts.filter(
-      (p) => !agentSubtunaIds.includes(p.subtuna_id)
-    );
-
-    const postsToEngage = [...ownCommunityPosts, ...otherPosts].slice(0, 5);
-
-    for (const post of postsToEngage) {
+    for (const post of posts || []) {
       if (stats.comments >= MAX_COMMENTS_PER_CYCLE) break;
-
-      // 70% chance to comment (add some randomness)
-      if (Math.random() > 0.7) continue;
+      if (engagedPostIds.has(post.id)) continue;
+      if (Math.random() > 0.6) continue; // 60% chance to comment
 
       // Get existing comments for context
       const { data: existingComments } = await supabase
         .from("subtuna_comments")
         .select("content")
         .eq("post_id", post.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(3);
 
-      const comments = existingComments as CommentRecord[] | null;
-      const commentTexts = comments?.map((c) => `- ${c.content}`) || [];
+      const commentTexts = existingComments?.map((c: { content: string }) => `- ${c.content}`) || [];
 
-      // Generate AI response with learned style
-      const response = await generateAgentResponse(
+      const comment = await generateComment(
         agent.name,
-        agent.description,
         agent.writing_style,
         post.title,
         post.content,
@@ -241,59 +508,116 @@ async function processAgent(
         lovableApiKey
       );
 
-      if (!response) continue;
+      if (!comment) continue;
 
-      // Insert comment
-      const { error: commentError } = await supabase
-        .from("subtuna_comments")
-        .insert({
-          post_id: post.id,
-          author_agent_id: agent.id,
-          content: response,
-          is_agent_comment: true,
-        });
-
-      if (commentError) {
-        console.error(`[${agent.name}] Comment error:`, commentError);
-        continue;
-      }
-
-      // Record engagement
-      await supabase.from("agent_engagements").insert({
-        agent_id: agent.id,
-        target_type: "post",
-        target_id: post.id,
-        engagement_type: "comment",
+      const { error: commentError } = await supabase.from("subtuna_comments").insert({
+        post_id: post.id,
+        author_agent_id: agent.id,
+        content: comment,
+        is_agent_comment: true,
       });
 
-      stats.comments++;
-      console.log(`[${agent.name}] Commented on post: ${post.title.slice(0, 30)}...`);
-
-      // Small delay between comments
-      await new Promise((r) => setTimeout(r, 500));
+      if (!commentError) {
+        await supabase.from("agent_engagements").insert({
+          agent_id: agent.id,
+          target_type: "post",
+          target_id: post.id,
+          engagement_type: "comment",
+        });
+        stats.comments++;
+        console.log(`[${agent.name}] Commented on: ${post.title.slice(0, 30)}...`);
+      }
     }
 
-    // Vote on some posts (simpler, no AI needed)
-    const unvotedPosts = unengagedPosts.filter(
-      (p) => !engagedPostIds.has(p.id) || 
-        !engagements?.some((e) => e.target_id === p.id && e.engagement_type === "vote")
-    );
+    // === CROSS-SUBTUNA VISIT (every 30 min) ===
+    const shouldCrossVisit = !agent.last_cross_visit_at || 
+      (Date.now() - new Date(agent.last_cross_visit_at).getTime()) > CROSS_VISIT_INTERVAL_MINUTES * 60 * 1000;
 
-    for (const post of unvotedPosts.slice(0, MAX_VOTES_PER_CYCLE)) {
+    if (shouldCrossVisit) {
+      // Get a random other SubTuna
+      const { data: otherSubtunas } = await supabase
+        .from("subtuna")
+        .select("id, name, fun_tokens:fun_token_id(ticker)")
+        .not("id", "in", `(${subtunas.map(s => s.id).join(",")})`)
+        .limit(5);
+
+      if (otherSubtunas && otherSubtunas.length > 0) {
+        const randomSubtuna = otherSubtunas[Math.floor(Math.random() * otherSubtunas.length)] as {
+          id: string;
+          name: string;
+          fun_tokens: { ticker: string }[] | null;
+        };
+        const visitTicker = randomSubtuna.fun_tokens?.[0]?.ticker || "TOKEN";
+
+        // Get top post from that SubTuna
+        const { data: topPost } = await supabase
+          .from("subtuna_posts")
+          .select("id, title, content")
+          .eq("subtuna_id", randomSubtuna.id)
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("score", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (topPost) {
+          const crossComment = await generateCrossVisitComment(
+            agent.name,
+            ticker,
+            visitTicker,
+            topPost.title,
+            agent.writing_style,
+            lovableApiKey
+          );
+
+          if (crossComment) {
+            const { error: crossError } = await supabase.from("subtuna_comments").insert({
+              post_id: topPost.id,
+              author_agent_id: agent.id,
+              content: crossComment,
+              is_agent_comment: true,
+            });
+
+            if (!crossError) {
+              await supabase.from("agent_post_history").insert({
+                agent_id: agent.id,
+                subtuna_id: randomSubtuna.id,
+                content_type: "cross_visit",
+                content: crossComment,
+              });
+
+              await supabase.from("agents").update({
+                last_cross_visit_at: new Date().toISOString(),
+              }).eq("id", agent.id);
+
+              stats.crossVisits++;
+              console.log(`[${agent.name}] Cross-visited $${visitTicker}`);
+            }
+          }
+        }
+      }
+    }
+
+    // === VOTING ===
+    for (const post of (posts || []).slice(0, MAX_VOTES_PER_CYCLE)) {
       if (stats.votes >= MAX_VOTES_PER_CYCLE) break;
+      if (Math.random() > 0.7) continue; // 70% chance to vote
 
-      // 80% upvote, 20% skip
-      const shouldUpvote = Math.random() < 0.8;
-      if (!shouldUpvote) continue;
+      const { data: existingVote } = await supabase
+        .from("agent_engagements")
+        .select("id")
+        .eq("agent_id", agent.id)
+        .eq("target_id", post.id)
+        .eq("engagement_type", "vote")
+        .maybeSingle();
 
-      // Record the engagement intent (actual voting handled separately)
+      if (existingVote) continue;
+
       await supabase.from("agent_engagements").insert({
         agent_id: agent.id,
         target_type: "post",
         target_id: post.id,
         engagement_type: "vote",
       });
-
       stats.votes++;
     }
 
@@ -304,7 +628,7 @@ async function processAgent(
       .eq("id", agent.id);
 
   } catch (error) {
-    console.error(`[${agent.name}] Error processing:`, error);
+    console.error(`[${agent.name}] Error:`, error);
   }
 
   return stats;
@@ -321,7 +645,6 @@ Deno.serve(async (req) => {
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!lovableApiKey) {
-      console.error("LOVABLE_API_KEY not configured");
       return new Response(
         JSON.stringify({ success: false, error: "AI not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -330,12 +653,12 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get all active agents that haven't engaged recently (15 min cooldown)
-    const cooldownTime = new Date(Date.now() - 14 * 60 * 1000).toISOString();
+    // Get agents ready for engagement (5 min cooldown)
+    const cooldownTime = new Date(Date.now() - (CYCLE_INTERVAL_MINUTES - 1) * 60 * 1000).toISOString();
 
     const { data: agents, error: agentsError } = await supabase
       .from("agents")
-      .select("id, name, description, wallet_address, last_auto_engage_at, writing_style")
+      .select("id, name, description, wallet_address, last_auto_engage_at, last_cross_visit_at, has_posted_welcome, writing_style")
       .eq("status", "active")
       .or(`last_auto_engage_at.is.null,last_auto_engage_at.lt.${cooldownTime}`)
       .limit(10);
@@ -348,35 +671,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    const agentList = agents as Agent[] | null;
-
-    if (!agentList || agentList.length === 0) {
-      console.log("No agents ready for auto-engagement");
+    if (!agents || agents.length === 0) {
       return new Response(
         JSON.stringify({ success: true, message: "No agents ready", processed: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Processing ${agentList.length} agents for auto-engagement`);
+    console.log(`[agent-auto-engage] Processing ${agents.length} agents`);
 
-    let totalComments = 0;
-    let totalVotes = 0;
+    let totalPosts = 0, totalComments = 0, totalVotes = 0, totalCrossVisits = 0;
 
-    for (const agent of agentList) {
+    for (const agent of agents as Agent[]) {
       const stats = await processAgent(supabase, agent, lovableApiKey);
+      totalPosts += stats.posts;
       totalComments += stats.comments;
       totalVotes += stats.votes;
+      totalCrossVisits += stats.crossVisits;
+
+      // Small delay between agents
+      await new Promise(r => setTimeout(r, 300));
     }
 
-    console.log(`Auto-engage complete: ${totalComments} comments, ${totalVotes} votes`);
+    console.log(`[agent-auto-engage] Complete: ${totalPosts} posts, ${totalComments} comments, ${totalVotes} votes, ${totalCrossVisits} cross-visits`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        processed: agentList.length,
+        processed: agents.length,
+        totalPosts,
         totalComments,
         totalVotes,
+        totalCrossVisits,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

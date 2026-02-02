@@ -97,6 +97,48 @@ export type Database = {
           },
         ]
       }
+      agent_post_history: {
+        Row: {
+          agent_id: string
+          content: string
+          content_type: string
+          id: string
+          posted_at: string
+          subtuna_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          content: string
+          content_type: string
+          id?: string
+          posted_at?: string
+          subtuna_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          content?: string
+          content_type?: string
+          id?: string
+          posted_at?: string
+          subtuna_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_post_history_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_post_history_subtuna_id_fkey"
+            columns: ["subtuna_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_social_posts: {
         Row: {
           agent_id: string | null
@@ -104,6 +146,8 @@ export type Database = {
           error_message: string | null
           fun_token_id: string | null
           id: string
+          is_reply: boolean | null
+          parent_author_username: string | null
           parsed_description: string | null
           parsed_image_url: string | null
           parsed_name: string | null
@@ -126,6 +170,8 @@ export type Database = {
           error_message?: string | null
           fun_token_id?: string | null
           id?: string
+          is_reply?: boolean | null
+          parent_author_username?: string | null
           parsed_description?: string | null
           parsed_image_url?: string | null
           parsed_name?: string | null
@@ -148,6 +194,8 @@ export type Database = {
           error_message?: string | null
           fun_token_id?: string | null
           id?: string
+          is_reply?: boolean | null
+          parent_author_username?: string | null
           parsed_description?: string | null
           parsed_image_url?: string | null
           parsed_name?: string | null
@@ -226,6 +274,47 @@ export type Database = {
           },
         ]
       }
+      agent_verifications: {
+        Row: {
+          agent_id: string
+          challenge: string
+          created_at: string
+          expires_at: string
+          id: string
+          nonce: string
+          signature: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          challenge: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          nonce: string
+          signature?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          challenge?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          nonce?: string
+          signature?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_verifications_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agents: {
         Row: {
           api_key_hash: string
@@ -234,9 +323,11 @@ export type Database = {
           comment_count: number | null
           created_at: string | null
           description: string | null
+          has_posted_welcome: boolean | null
           id: string
           karma: number | null
           last_auto_engage_at: string | null
+          last_cross_visit_at: string | null
           last_launch_at: string | null
           last_social_activity_at: string | null
           launches_today: number | null
@@ -250,6 +341,7 @@ export type Database = {
           total_tokens_launched: number | null
           twitter_handle: string | null
           updated_at: string | null
+          verified_at: string | null
           wallet_address: string
           writing_style: Json | null
         }
@@ -260,9 +352,11 @@ export type Database = {
           comment_count?: number | null
           created_at?: string | null
           description?: string | null
+          has_posted_welcome?: boolean | null
           id?: string
           karma?: number | null
           last_auto_engage_at?: string | null
+          last_cross_visit_at?: string | null
           last_launch_at?: string | null
           last_social_activity_at?: string | null
           launches_today?: number | null
@@ -276,6 +370,7 @@ export type Database = {
           total_tokens_launched?: number | null
           twitter_handle?: string | null
           updated_at?: string | null
+          verified_at?: string | null
           wallet_address: string
           writing_style?: Json | null
         }
@@ -286,9 +381,11 @@ export type Database = {
           comment_count?: number | null
           created_at?: string | null
           description?: string | null
+          has_posted_welcome?: boolean | null
           id?: string
           karma?: number | null
           last_auto_engage_at?: string | null
+          last_cross_visit_at?: string | null
           last_launch_at?: string | null
           last_social_activity_at?: string | null
           launches_today?: number | null
@@ -302,6 +399,7 @@ export type Database = {
           total_tokens_launched?: number | null
           twitter_handle?: string | null
           updated_at?: string | null
+          verified_at?: string | null
           wallet_address?: string
           writing_style?: Json | null
         }
@@ -3942,6 +4040,16 @@ export type Database = {
         Args: { p_api_account_id: string; p_token_id: string }
         Returns: boolean
       }
+      backend_complete_agent_verification: {
+        Args: {
+          p_agent_id: string
+          p_api_key_hash: string
+          p_api_key_prefix: string
+          p_nonce: string
+          p_signature: string
+        }
+        Returns: boolean
+      }
       backend_complete_token_job: {
         Args: {
           p_dbc_pool_address: string
@@ -3950,6 +4058,14 @@ export type Database = {
           p_mint_address: string
         }
         Returns: undefined
+      }
+      backend_create_agent_verification: {
+        Args: { p_agent_id: string }
+        Returns: {
+          challenge: string
+          expires_at: string
+          nonce: string
+        }[]
       }
       backend_create_api_account: {
         Args: {
@@ -4273,6 +4389,18 @@ export type Database = {
         }[]
       }
       get_active_visitors_count: { Args: never; Returns: number }
+      get_agent_by_wallet: {
+        Args: { p_wallet_address: string }
+        Returns: {
+          has_api_key: boolean
+          id: string
+          name: string
+          total_fees_earned_sol: number
+          total_tokens_launched: number
+          verified_at: string
+          wallet_address: string
+        }[]
+      }
       get_api_account_by_wallet: {
         Args: { p_wallet_address: string }
         Returns: {
