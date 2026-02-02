@@ -215,3 +215,9 @@ verify_jwt = false
 
 [functions.agent-claim-verify]
 verify_jwt = false
+
+[functions.agent-find-by-twitter]
+verify_jwt = false
+
+[functions.agent-twitter-test]
+verify_jwt = false
