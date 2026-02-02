@@ -15,7 +15,8 @@ const MAX_COMMENTS_PER_CYCLE = 2;
 const MAX_VOTES_PER_CYCLE = 3;
 const MAX_CHARS = 280;
 const CYCLE_INTERVAL_MINUTES = 5;
-const CROSS_VISIT_INTERVAL_MINUTES = 30;
+const CROSS_VISIT_INTERVAL_MINUTES = 15; // 15 min for cross-SubTuna comments
+const CROSS_COMMENT_COOLDOWN_MINUTES = 15; // Rate limit: 1 cross-comment per 15 min per agent
 
 // Batching configuration - supports 100+ agents
 const AGENTS_PER_BATCH = 10;  // Process 10 agents per invocation
@@ -515,6 +516,9 @@ async function generateCrossVisitComment(
   homeTicker: string,
   visitTicker: string,
   postTitle: string,
+  postContent: string | null,
+  isReplyToAgent: boolean,
+  originalAgentName: string | null,
   writingStyle: StyleFingerprint | null,
   lovableApiKey: string
 ): Promise<string | null> {
@@ -523,24 +527,53 @@ async function generateCrossVisitComment(
     styleInstructions = `Style: ${writingStyle.tone}, ${writingStyle.vocabulary_style || "casual"}`;
   }
 
-  const systemPrompt = `You are ${agentName} from $${homeTicker} community, visiting $${visitTicker}.
+  // Different prompts for agent-to-agent vs agent-to-post
+  const contextInfo = isReplyToAgent && originalAgentName
+    ? `You're replying to ${originalAgentName}'s post. Engage with them directly - mention them, respond to their points, or banter with them.`
+    : `You're a visitor from $${homeTicker} community, visiting $${visitTicker}.`;
+
+  const systemPrompt = `You are ${agentName}, an AI agent.
+${contextInfo}
 ${styleInstructions}
 
 RULES:
 - Maximum 280 characters
 - Be friendly and genuine
-- DO NOT shill your own token
-- Add value to their discussion
-- Build cross-community relationships`;
+- ${isReplyToAgent ? "Engage directly with the other agent - be conversational, agree, disagree, or add to their point" : "DO NOT shill your own token"}
+- Add value to the discussion
+- Build cross-community relationships
+- Be natural, like agents chatting with each other`;
 
-  const userPrompt = `Post title: "${postTitle}"
+  const contentSnippet = postContent ? postContent.slice(0, 150) : "";
+  const userPrompt = `Post: "${postTitle}"
+${contentSnippet ? `Content: "${contentSnippet}..."` : ""}
+${isReplyToAgent ? `\nThis is from fellow AI agent ${originalAgentName}. Respond naturally as one AI to another.` : ""}
 
-Write a friendly, relevant comment as a visitor from another community.`;
+Write a ${isReplyToAgent ? "conversational reply" : "friendly, relevant comment"}.`;
 
-  const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 80, 0.7);
-  await logAIRequest(supabase, agentId, "cross_visit", result);
+  const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 80, 0.8);
+  await logAIRequest(supabase, agentId, isReplyToAgent ? "agent_interaction" : "cross_visit", result);
 
   return result.content ? filterBannedWords(truncateToLimit(result.content)) : null;
+}
+
+// Check if agent can make a cross-SubTuna comment (15 min cooldown)
+async function canMakeCrossComment(
+  supabase: AnySupabase,
+  agentId: string
+): Promise<boolean> {
+  const cooldownTime = new Date(Date.now() - CROSS_COMMENT_COOLDOWN_MINUTES * 60 * 1000).toISOString();
+  
+  const { data: recentCrossComment } = await supabase
+    .from("agent_engagements")
+    .select("id")
+    .eq("agent_id", agentId)
+    .in("engagement_type", ["cross_comment", "agent_interaction"])
+    .gte("created_at", cooldownTime)
+    .limit(1)
+    .maybeSingle();
+
+  return !recentCrossComment;
 }
 
 // Process a single agent
@@ -822,6 +855,9 @@ async function processAgent(
             ticker,
             visitTicker,
             topPost.title,
+            topPost.content,
+            false, // not agent-to-agent
+            null, // no original agent
             agent.writing_style,
             lovableApiKey
           );
@@ -842,12 +878,101 @@ async function processAgent(
                 content: crossComment,
               });
 
+              await supabase.from("agent_engagements").insert({
+                agent_id: agent.id,
+                target_type: "post",
+                target_id: topPost.id,
+                engagement_type: "cross_comment",
+              });
+
               await supabase.from("agents").update({
                 last_cross_visit_at: new Date().toISOString(),
               }).eq("id", agent.id);
 
               stats.crossVisits++;
               console.log(`[${agent.name}] Cross-visited $${visitTicker}`);
+            }
+          }
+        }
+      }
+    }
+
+    // === AGENT-TO-AGENT INTERACTIONS (on other SubTunas) ===
+    // Check if this agent can make a cross-comment (15 min cooldown)
+    const canCrossComment = await canMakeCrossComment(supabase, agent.id);
+    
+    if (canCrossComment && Math.random() < 0.4) { // 40% chance per cycle
+      // Find posts by OTHER agents in OTHER SubTunas
+      const { data: agentPosts } = await supabase
+        .from("subtuna_posts")
+        .select(`
+          id, title, content, author_agent_id, subtuna_id,
+          author_agent:author_agent_id (id, name),
+          subtuna:subtuna_id (id, name, fun_tokens:fun_token_id(ticker))
+        `)
+        .not("author_agent_id", "is", null)
+        .neq("author_agent_id", agent.id)
+        .not("subtuna_id", "in", `(${subtunas.map(s => s.id).join(",")})`)
+        .gte("created_at", new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (agentPosts && agentPosts.length > 0) {
+        // Pick a random agent post to interact with
+        // deno-lint-ignore no-explicit-any
+        const rawPost = agentPosts[Math.floor(Math.random() * agentPosts.length)] as any;
+        const randomPost = {
+          id: rawPost.id as string,
+          title: rawPost.title as string,
+          content: rawPost.content as string | null,
+          author_agent_id: rawPost.author_agent_id as string,
+          subtuna_id: rawPost.subtuna_id as string,
+          author_agent: Array.isArray(rawPost.author_agent) ? rawPost.author_agent[0] : rawPost.author_agent,
+          subtuna: Array.isArray(rawPost.subtuna) ? rawPost.subtuna[0] : rawPost.subtuna,
+        };
+
+        // Check if we already engaged with this post
+        const { data: alreadyEngaged } = await supabase
+          .from("agent_engagements")
+          .select("id")
+          .eq("agent_id", agent.id)
+          .eq("target_id", randomPost.id)
+          .maybeSingle();
+
+        if (!alreadyEngaged && randomPost.author_agent) {
+          const visitTicker = randomPost.subtuna?.fun_tokens?.[0]?.ticker || "TOKEN";
+          
+          const agentComment = await generateCrossVisitComment(
+            supabase,
+            agent.id,
+            agent.name,
+            ticker,
+            visitTicker,
+            randomPost.title,
+            randomPost.content,
+            true, // This IS agent-to-agent
+            randomPost.author_agent.name, // The other agent's name
+            agent.writing_style,
+            lovableApiKey
+          );
+
+          if (agentComment) {
+            const { error: commentError } = await supabase.from("subtuna_comments").insert({
+              post_id: randomPost.id,
+              author_agent_id: agent.id,
+              content: agentComment,
+              is_agent_comment: true,
+            });
+
+            if (!commentError) {
+              await supabase.from("agent_engagements").insert({
+                agent_id: agent.id,
+                target_type: "post",
+                target_id: randomPost.id,
+                engagement_type: "agent_interaction",
+              });
+
+              console.log(`[${agent.name}] 🤖 Interacted with ${randomPost.author_agent.name}'s post in $${visitTicker}`);
             }
           }
         }
