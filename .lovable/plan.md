@@ -1,135 +1,93 @@
 
-# Fix: Complete Sanitization for Token Launch Data (Name, Symbol, and Socials)
+# Fix: Agent Claim Page - Separate Fee Claims from API Key Claims
 
 ## Problem Summary
 
-The **$CRAMER** token was launched with multiple data issues:
-1. **Ticker has trailing comma**: `CRAMER,` instead of `CRAMER`
-2. **Name has trailing comma**: `Inverse Cramer Bitcoin,`
-3. **Website URL is malformed**: `https://tuna.fun/t/CRAMER,` (comma in URL!)
-4. **SubTuna ticker is wrong**: `CRAMER,` instead of `CRAMER`
-5. **SubTuna name is wrong**: `t/CRAMER,` instead of `t/CRAMER`
-6. **No image**: Image generation failed (fixed in previous response)
-7. **Twitter URL is correct**: `https://x.com/Maximo851565/status/2018408500469157969` ✓
+The Agent Claim page has two different flows that are incorrectly merged:
+
+1. **Fee Claiming**: Should work purely via X login verification. Once verified, fees are sent to the wallet that was used during the original token launch.
+
+2. **API Key Claiming**: Requires wallet signature verification to prove ownership and generate an API key.
+
+The current UI blocks fee claims if the user's connected wallet doesn't match the launch wallet - but for fee claims, the **X login verification IS the authentication**, not wallet signature. The fees always go to the original launch wallet anyway.
 
 ## Root Cause
 
-While I added cleanup in `assignParsedField()` (during parsing), the **actual code that USES these values** doesn't apply defensive cleaning. The CRAMER token was launched BEFORE the parsing fix was deployed, but more importantly, the code has these vulnerabilities:
-
-### Line 636: Creating tickerUpper
+Lines 357-361 in `AgentClaimPage.tsx` block the flow:
 ```typescript
-// Current (vulnerable)
-const tickerUpper = parsed.symbol.toUpperCase();
-
-// Should be (defensive)
-const tickerUpper = parsed.symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
+if (selectedAgent.walletAddress && selectedAgent.walletAddress !== targetWallet) {
+  throw new Error(`Connected wallet does not match...`);
+}
 ```
 
-### Lines 647-648: SubTuna insert uses dirty tickerUpper
-```typescript
-ticker: tickerUpper,  // Has comma!
-name: `t/${tickerUpper}`,  // Has comma!
-```
-
-### Lines 674-675: API call uses raw parsed values
-```typescript
-name: parsed.name,  // Has trailing comma!
-ticker: parsed.symbol,  // May have punctuation!
-```
-
-### Lines 752-753: Database insert uses raw parsed values
-```typescript
-name: parsed.name,  // Has trailing comma!
-ticker: parsed.symbol,  // May have punctuation!
-```
+This check is meant for API key claims (which require signing with the launch wallet), but it's also blocking fee claims which only need X verification.
 
 ## Solution
 
-Apply **defensive sanitization** at the point of use, not just at parse time. This ensures robustness even if parsing logic changes or data comes from other sources.
+### Step 1: Simplify the UI flow
 
-### Step 1: Create cleaned variables at the start of `processLaunchPost()`
+Remove the wallet matching requirement for fee claims:
+- User logs in with X
+- System shows tokens launched by their X handle  
+- "Claim Fees" button works directly (fees go to original launch wallet - hardcoded by backend)
+- No wallet connection needed for claiming fees
 
-Add these right after parsing, before any usage:
+### Step 2: Separate the API Key verification flow
 
-```typescript
-// Defensive sanitization - ensure clean data regardless of parse source
-const cleanName = parsed.name.replace(/[,.:;!?]+$/, "").slice(0, 32);
-const cleanSymbol = parsed.symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
-```
+The "Verify Ownership" button (for API keys) should:
+- Still require wallet connection
+- Prompt user to connect the launch wallet specifically
+- Show clear messaging about what wallet is needed
 
-### Step 2: Update all usage points
+### Step 3: Add destination wallet display
 
-Replace all occurrences of:
-- `parsed.name` → `cleanName`
-- `parsed.symbol` → `cleanSymbol`
-- `tickerUpper` → `cleanSymbol` (consolidate into one variable)
+Show users WHERE their fees will be sent (the launch wallet), so they understand the flow.
 
-**Locations to update:**
-| Line | Current | Fixed |
-|------|---------|-------|
-| 636 | `parsed.symbol.toUpperCase()` | `cleanSymbol` |
-| 647 | `tickerUpper` | `cleanSymbol` |
-| 648 | `t/${tickerUpper}` | `t/${cleanSymbol}` |
-| 649 | `$${tickerUpper}` | `$${cleanSymbol}` |
-| 657 | `t/${tickerUpper}` | `t/${cleanSymbol}` |
-| 674 | `parsed.name` | `cleanName` |
-| 675 | `parsed.symbol` | `cleanSymbol` |
-| 678 | `${parsed.name}` | `${cleanName}` |
-| 752 | `parsed.name` | `cleanName` |
-| 753 | `parsed.symbol` | `cleanSymbol` |
-| 807-808 | `$${tickerUpper}`, `parsed.name` | `$${cleanSymbol}`, `cleanName` |
-| 850-852 | `tickerUpper` | `cleanSymbol` |
+## Technical Changes
 
-### Step 3: Fix the corrupted CRAMER token data
+### File: `src/pages/AgentClaimPage.tsx`
 
-Run database updates to fix the existing token:
+1. **Remove wallet requirement for fee claims**
+   - `handleClaimFees()` already works correctly - it passes `agent.walletAddress` (the launch wallet)
+   - The "Claim" button should work without any connected wallet check
 
-```sql
--- Fix fun_tokens
-UPDATE fun_tokens 
-SET 
-  ticker = 'CRAMER',
-  name = 'Inverse Cramer Bitcoin',
-  website_url = 'https://tuna.fun/t/CRAMER'
-WHERE ticker = 'CRAMER,' OR ticker = 'CRAMER';
+2. **Remove `useClaimWallet` hook dependency for fee claims**
+   - The claim wallet hook is only needed for the API key signature flow
 
--- Fix subtuna  
-UPDATE subtuna 
-SET 
-  ticker = 'CRAMER',
-  name = 't/CRAMER'
-WHERE ticker = 'CRAMER,' OR ticker ILIKE '%CRAMER%';
+3. **Update "Verify Ownership" flow**
+   - Keep wallet connection requirement only for API key claims
+   - Add clear UI showing which wallet needs to be connected
 
--- Fix tokens table if exists
-UPDATE tokens 
-SET 
-  ticker = 'CRAMER',
-  name = 'Inverse Cramer Bitcoin'
-WHERE ticker = 'CRAMER,' OR ticker = 'CRAMER';
-```
+4. **Add payout destination display**
+   - In the agent card, show: "Payouts go to: {agent.walletAddress}"
+   - This makes it clear where fees will be sent
 
-## Files to Modify
+5. **Keep wallet selector for API key claims only**
+   - Move wallet-related UI to only show when clicking "Verify Ownership"
 
-1. **`supabase/functions/agent-process-post/index.ts`**
-   - Add `cleanName` and `cleanSymbol` variables after parsing
-   - Replace `tickerUpper` with `cleanSymbol`
-   - Update all occurrences of `parsed.name` → `cleanName`
-   - Update all occurrences of `parsed.symbol` → `cleanSymbol`
+### File: `supabase/functions/agent-creator-claim/index.ts`
 
-2. **Database** (manual update)
-   - Fix the corrupted CRAMER token records
+No changes needed - it already:
+- Validates X username matches launch records
+- Sends funds to the wallet from the original launch
+- Has proper security model
 
-## Verification
+## UI Changes Summary
 
-After deployment, test with a new token launch containing:
-```
-!tunalaunch
-name: Test Token,
-symbol: $TEST,
-wallet: [address]
-```
+| Current Behavior | New Behavior |
+|------------------|--------------|
+| Requires wallet connection to see claim button | Claim button always visible if unclaimed fees exist |
+| Blocks if connected wallet doesn't match | No wallet connection needed for fee claims |
+| Unclear where fees go | Shows "Payouts to: {wallet}" in UI |
+| Wallet selector shown always | Wallet selector only for "Verify Ownership" |
 
-Verify:
-- SubTuna URL is `https://tuna.fun/t/TEST` (no $ or comma)
-- Token name is `Test Token` (no trailing comma)
-- Ticker is `TEST` (no $ or comma)
+## Security Model (Unchanged)
+
+- **Authentication**: X login verifies the user owns the X account that launched the token
+- **Authorization**: Backend verifies the X handle matches `agent_social_posts.post_author`
+- **Payout destination**: Always goes to the original `wallet_address` from the launch (not user-specified)
+
+This is secure because:
+1. Only the X account owner can claim
+2. Funds go to the wallet they specified at launch time
+3. No way to redirect funds to a different wallet
