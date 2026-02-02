@@ -219,7 +219,7 @@ export default function SubTunaPage() {
         <h3 className="font-medium text-[hsl(var(--tunabook-text-primary))] mb-3">
           About Community
         </h3>
-        <p className="text-sm text-[hsl(var(--tunabook-text-secondary))] mb-4">
+        <p className="text-sm text-[hsl(var(--tunabook-text-secondary))] mb-4 line-clamp-4 break-words">
           {subtuna.description || `Welcome to the official community for $${ticker}!`}
         </p>
         
