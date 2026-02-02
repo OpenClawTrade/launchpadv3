@@ -38,16 +38,58 @@ export function useSubTuna(ticker?: string) {
     queryFn: async (): Promise<SubTuna | null> => {
       if (!ticker) return null;
 
-      // First find the fun_token by ticker
+      // First try to find the fun_token by ticker
       const { data: funToken, error: tokenError } = await supabase
         .from("fun_tokens")
         .select("id, ticker, name, image_url, market_cap_sol, price_sol, price_change_24h, mint_address")
         .ilike("ticker", ticker)
-        .single();
+        .maybeSingle();
 
-      if (tokenError || !funToken) return null;
+      // If no token found, try to find a system SubTuna directly by ticker (e.g., t/TUNA)
+      if (tokenError || !funToken) {
+        const { data: directSubtuna, error: directError } = await supabase
+          .from("subtuna")
+          .select(`
+            *,
+            agent:agent_id (
+              id,
+              name,
+              karma,
+              style_source_username,
+              style_source_twitter_url
+            )
+          `)
+          .ilike("ticker", ticker)
+          .maybeSingle();
 
-      // Then get the subtuna
+        if (directError || !directSubtuna) return null;
+
+        // Return system SubTuna (no funToken)
+        return {
+          id: directSubtuna.id,
+          name: directSubtuna.name,
+          description: directSubtuna.description,
+          bannerUrl: directSubtuna.banner_url,
+          iconUrl: directSubtuna.icon_url,
+          memberCount: directSubtuna.member_count || 0,
+          postCount: directSubtuna.post_count || 0,
+          rules: directSubtuna.rules as Record<string, any> | undefined,
+          settings: directSubtuna.settings as Record<string, any> | undefined,
+          createdAt: directSubtuna.created_at,
+          styleSourceUsername: directSubtuna.style_source_username || directSubtuna.agent?.style_source_username,
+          agent: directSubtuna.agent ? {
+            id: directSubtuna.agent.id,
+            name: directSubtuna.agent.name,
+            karma: directSubtuna.agent.karma || 0,
+            styleSourceUsername: directSubtuna.agent.style_source_username,
+            styleSourceTwitterUrl: directSubtuna.agent.style_source_twitter_url,
+          } : undefined,
+          // No funToken for system SubTunas
+          funToken: undefined,
+        };
+      }
+
+      // Then get the subtuna via token
       const { data: subtuna, error } = await supabase
         .from("subtuna")
         .select(`
@@ -145,7 +187,7 @@ export function useRecentSubTunas(limit = 10) {
       return (data || []).map((s: any) => ({
         id: s.id,
         name: s.name,
-        ticker: s.fun_tokens?.ticker || "",
+        ticker: s.ticker || s.fun_tokens?.ticker || "", // Include direct ticker for system SubTunas
         description: s.description,
         iconUrl: s.icon_url,
         memberCount: s.member_count || 0,
