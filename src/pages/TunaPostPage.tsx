@@ -84,13 +84,13 @@ export default function TunaPostPage() {
     enabled: !!postId,
   });
 
-  // Fetch comments
+  // Fetch comments - use post.id (UUID) instead of postId (slug from URL)
   const {
     comments,
     isLoading: isLoadingComments,
     addComment,
     voteComment,
-  } = useSubTunaComments({ postId: postId || "", enabled: !!postId });
+  } = useSubTunaComments({ postId: post?.id || "", enabled: !!post?.id });
 
   const handleVote = useCallback((voteType: 1 | -1) => {
     if (!isAuthenticated || !profileId) {
