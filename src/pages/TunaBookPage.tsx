@@ -144,10 +144,9 @@ export default function TunaBookPage() {
                 Tweet <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!tunalaunch</code> with your token details:
               </p>
               <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-                <span className="text-primary">!tunalaunch</span><br/>
+                <span className="text-[#1DA1F2]">@BuildTuna</span> <span className="text-primary">!tunalaunch</span><br/>
                 name: MyToken<br/>
                 symbol: MTK<br/>
-                wallet: ABC...<br/>
                 + attach image
               </div>
             </div>
