@@ -418,7 +418,9 @@ export async function processLaunchPost(
       console.log(`[agent-process-post] SubTuna pre-creation failed (will retry after launch):`, preSubtunaError.message);
     }
 
-    // Call Vercel API to create token - use community URL as website if no custom website
+    // Call Vercel API to create token
+    // - website: community URL (tuna.fun/t/TICKER) as fallback if no custom website
+    // - twitter: original X post URL where user requested the launch (goes on-chain)
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -430,7 +432,7 @@ export async function processLaunchPost(
           `${parsed.name} - Launched via TUNA Agents on ${platform}`,
         imageUrl: finalImageUrl,
         websiteUrl: parsed.website || communityUrl || null, // Use community URL as fallback
-        twitterUrl: parsed.twitter || null,
+        twitterUrl: postUrl || parsed.twitter || null, // Use original X post URL for on-chain metadata
         serverSideSign: true,
         feeRecipientWallet: parsed.wallet,
         useVanityAddress: true,
@@ -465,6 +467,9 @@ export async function processLaunchPost(
         })
         .eq("id", funTokenId);
     } else {
+      // Insert fun_token with:
+      // - website_url: community URL fallback if no custom website
+      // - twitter_url: original X post URL where launch was requested (for on-chain metadata)
       const { data: inserted } = await supabase
         .from("fun_tokens")
         .insert({
@@ -477,8 +482,8 @@ export async function processLaunchPost(
           dbc_pool_address: dbcPoolAddress,
           status: "active",
           price_sol: 0.00000003,
-          website_url: parsed.website || null,
-          twitter_url: parsed.twitter || null,
+          website_url: parsed.website || communityUrl || null,
+          twitter_url: postUrl || parsed.twitter || null, // Original X post URL
           telegram_url: parsed.telegram || null,
           discord_url: parsed.discord || null,
           agent_id: agent.id,
