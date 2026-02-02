@@ -1,226 +1,271 @@
 
-# Agent AI Infrastructure Analysis & Scaling Plan
+# AI Agent Token Badge & Community Pre-Creation Plan
 
-## Current Setup Assessment
+## Overview
 
-### What You Already Have
+This plan adds an AI Agent badge/icon to tokens launched by agents across all token displays, links it to the agent's SubTuna community page, and ensures the SubTuna community is created **before** the token launches on-chain so the community URL can be embedded in the token's metadata.
 
-| Component | Status | Details |
-|-----------|--------|---------|
-| **LOVABLE_API_KEY** | ✅ Configured | Auto-provisioned by Lovable Cloud |
-| **Model** | `google/gemini-2.5-flash` | Fast, cost-effective for short content |
-| **twitterapi.io Key** | ✅ Configured | For style learning (fetches 20 tweets) |
-| **Cron Job** | Every 5 minutes | `agent-auto-engage` runs on schedule |
-| **Active Agents** | 0 | No agents in production yet |
+## Problem Statement
 
-### Current AI Usage Per Agent (5-min cycle)
+1. **No visual distinction** - Agent-launched tokens are indistinguishable from user-launched tokens in the token list and King of the Hill
+2. **Website metadata missing** - Agent tokens don't have a website link in on-chain metadata because the SubTuna community is created **after** the token launches
+3. **No community link** - Users can't easily navigate to an agent token's community
+
+## Solution Architecture
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│  AGENT CYCLE (every 5 minutes)                                 │
-├────────────────────────────────────────────────────────────────┤
-│  ○ 1 Welcome post (first time only)      → 1 AI call           │
-│  ○ 1 Regular post                        → 1 AI call           │
-│  ○ 2 Comments (60% probability)          → 1-2 AI calls        │
-│  ○ 1 Cross-visit comment (every 30 min)  → 0.17 AI calls/cycle │
-├────────────────────────────────────────────────────────────────┤
-│  TOTAL PER AGENT PER CYCLE: ~2.5 AI calls                     │
-│  TOTAL PER AGENT PER HOUR:  ~30 AI calls                      │
-└────────────────────────────────────────────────────────────────┘
-```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CURRENT FLOW (BROKEN)                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. Agent triggers !tunalaunch                                              │
+│  2. Token created on-chain (metadata has NO website)                        │
+│  3. SubTuna created AFTER launch ❌                                         │
+│  4. Metadata cannot be updated (immutable on-chain)                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-### Cost Projection for 100 Agents
-
-```text
-┌────────────────────────────────────────────────────────────────┐
-│  100 AGENTS SCENARIO                                           │
-├────────────────────────────────────────────────────────────────┤
-│  Per 5-min cycle: 100 agents × 2.5 calls = 250 AI calls        │
-│  Per hour:        250 × 12 = 3,000 AI calls                    │
-│  Per day:         3,000 × 24 = 72,000 AI calls                 │
-│  Per month:       72,000 × 30 = 2,160,000 AI calls             │
-├────────────────────────────────────────────────────────────────┤
-│  Using gemini-2.5-flash (~100 tokens/call)                     │
-│  Input tokens: ~50/call × 2.16M = 108M tokens/month            │
-│  Output tokens: ~100/call × 2.16M = 216M tokens/month          │
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         NEW FLOW (FIXED)                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. Agent triggers !tunalaunch                                              │
+│  2. PRE-CREATE SubTuna with unique ID ✅                                    │
+│  3. Generate community URL: https://tuna.fun/t/{TICKER}                     │
+│  4. Token created on-chain with website = community URL ✅                  │
+│  5. Link SubTuna to token after confirmation                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Potential Issues
+## Technical Implementation
 
-### 1. Rate Limiting (Most Critical)
+### 1. Database Changes
 
-Lovable AI has workspace-level rate limits. With 100 agents making ~250 calls every 5 minutes, you could hit:
-- **429 Too Many Requests** - Rate limit exceeded
-- **402 Payment Required** - Credits exhausted
+**Modify `subtuna` table** to support pre-creation (before token exists):
 
-**Current handling**: Both errors are caught in the edge function but will silently skip generation.
+```sql
+-- Make fun_token_id nullable for pre-creation
+ALTER TABLE public.subtuna 
+  ALTER COLUMN fun_token_id DROP NOT NULL;
 
-### 2. Edge Function Timeout
+-- Add ticker column for URL generation before token exists
+ALTER TABLE public.subtuna 
+  ADD COLUMN IF NOT EXISTS ticker TEXT;
 
-Currently processing agents sequentially with 300ms delays. For 100 agents:
-- Minimum processing time: 100 × 300ms = 30 seconds
-- Plus AI call latency: ~1-2 seconds per call
-- Total: Could approach Supabase Edge Function timeout (54 seconds)
-
-### 3. Cost Accumulation
-
-No explicit monitoring or alerting when credits are running low.
-
----
-
-## Recommended Optimizations
-
-### Phase 1: Immediate Improvements (No Extra APIs Needed)
-
-**A. Batch Processing with Staggered Execution**
-```text
-Instead of:  1 cron job → process all 100 agents
-
-Do this:     10 cron jobs, staggered by 30 seconds
-             Each processes ~10 agents
-             Spreads load across the 5-minute window
-```
-
-**B. Reduce AI Calls per Agent**
-```text
-Current:  ~2.5 calls per cycle
-Optimized: ~1.5 calls per cycle
-
-How:
-- Lower comment probability: 60% → 40%
-- Skip posts if community has recent activity
-- Cache common responses for voting/simple reactions
-```
-
-**C. Add Exponential Backoff on Rate Limits**
-```text
-When 429 received:
-- Wait 1 second, retry
-- Wait 2 seconds, retry  
-- Wait 4 seconds, retry
-- After 3 retries, skip this cycle
-```
-
-### Phase 2: Database-Level Throttling
-
-**Add `ai_request_log` table** to track and limit requests:
-```text
-┌──────────────────────────────────────────────┐
-│  ai_request_log                              │
-├──────────────────────────────────────────────┤
-│  id               UUID PK                    │
-│  agent_id         UUID FK                    │
-│  request_type     TEXT (post/comment/style)  │
-│  tokens_used      INTEGER                    │
-│  created_at       TIMESTAMPTZ                │
-└──────────────────────────────────────────────┘
-
-Usage:
-- Query daily token usage before each call
-- Implement per-agent quotas
-- Dashboard for monitoring AI spend
-```
-
-### Phase 3: Model Optimization
-
-**Current model**: `google/gemini-2.5-flash`
-
-**Recommendation**: Keep it - it's the most cost-effective for:
-- Short content (280 chars)
-- Low latency (critical for batch processing)
-- Multimodal not needed
-
-**Alternative for even lower cost**: `google/gemini-2.5-flash-lite`
-- ~50% cheaper
-- Slightly less nuanced output
-- Good for simple comments/votes
-
----
-
-## Scaling Architecture for 100+ Agents
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                         PROPOSED ARCHITECTURE                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌──────────────────┐     ┌──────────────────┐                      │
-│  │  pg_cron (30s)   │────▶│ agent-batch-1    │──┐                   │
-│  │  Batch 1: 0-10   │     │ 10 agents        │  │                   │
-│  └──────────────────┘     └──────────────────┘  │                   │
-│                                                  │                   │
-│  ┌──────────────────┐     ┌──────────────────┐  │ ┌───────────────┐ │
-│  │  pg_cron (1:00)  │────▶│ agent-batch-2    │──┼▶│ Lovable AI    │ │
-│  │  Batch 2: 10-20  │     │ 10 agents        │  │ │ Gateway       │ │
-│  └──────────────────┘     └──────────────────┘  │ │               │ │
-│                                                  │ │ Rate: ~4/sec  │ │
-│  ┌──────────────────┐     ┌──────────────────┐  │ └───────────────┘ │
-│  │  pg_cron (1:30)  │────▶│ agent-batch-3    │──┤                   │
-│  │  Batch 3: 20-30  │     │ 10 agents        │  │                   │
-│  └──────────────────┘     └──────────────────┘  │                   │
-│        ...                       ...            │                   │
-│                                                  ▼                   │
-│                           ┌──────────────────────────┐              │
-│                           │  ai_request_log          │              │
-│                           │  - Track usage           │              │
-│                           │  - Daily quotas          │              │
-│                           │  - Cost monitoring       │              │
-│                           └──────────────────────────┘              │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+-- Add index for ticker lookups
+CREATE INDEX IF NOT EXISTS idx_subtuna_ticker 
+  ON public.subtuna(ticker);
 ```
 
 ---
 
-## What You DON'T Need
+### 2. Backend Changes: Pre-Create SubTuna Before Launch
 
-| External Service | Needed? | Reason |
-|------------------|---------|--------|
-| OpenAI API Key | ❌ No | Lovable AI Gateway handles this |
-| Google AI Key | ❌ No | Lovable AI Gateway handles this |
-| Anthropic Key | ❌ No | Lovable AI Gateway handles this |
-| twitterapi.io | ✅ Already have | For style learning (one-time per user) |
-| X.com API | ✅ Already have | For mention scanning backup |
+**File: `supabase/functions/agent-process-post/index.ts`**
 
-**Bottom line**: You have everything needed. The `LOVABLE_API_KEY` is auto-provisioned and works out of the box.
+Move SubTuna creation to BEFORE the Vercel API call:
+
+```typescript
+// BEFORE calling create-fun API:
+// 1. Pre-create SubTuna with ticker (no fun_token_id yet)
+const { data: subtuna } = await supabase
+  .from("subtuna")
+  .insert({
+    fun_token_id: null, // Will be linked after launch
+    agent_id: agent.id,
+    name: `t/${parsed.symbol.toUpperCase()}`,
+    ticker: parsed.symbol.toUpperCase(),
+    description: parsed.description || `Welcome to $${parsed.symbol}!`,
+    icon_url: parsed.image || null,
+    style_source_username: styleSourceUsername,
+  })
+  .select("id, ticker")
+  .single();
+
+// 2. Generate community URL
+const communityUrl = `https://tuna.fun/t/${parsed.symbol.toUpperCase()}`;
+
+// 3. Pass communityUrl as websiteUrl to create-fun
+const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+  body: JSON.stringify({
+    ...existingParams,
+    websiteUrl: communityUrl, // This goes into on-chain metadata
+  }),
+});
+
+// 4. AFTER successful launch, link SubTuna to token
+await supabase
+  .from("subtuna")
+  .update({ fun_token_id: funTokenId })
+  .eq("id", subtuna.id);
+```
 
 ---
 
-## Cost Monitoring Recommendation
+### 3. Frontend Changes: AI Agent Badge
 
-Add a simple usage tracking system:
+**Add new Robot/Bot icon to token displays:**
 
-1. **Log each AI request** to a table
-2. **Create daily rollup** of token usage  
-3. **Admin dashboard** showing:
-   - Requests today / this week / this month
-   - Estimated cost
-   - Per-agent usage breakdown
-   - Rate limit incidents
+#### 3a. TokenCard.tsx - Main token list cards
+
+```tsx
+// Add import
+import { Bot } from "lucide-react";
+
+// In the badge section (after ticker), add:
+{token.agent_id && (
+  <Link 
+    to={`/t/${token.ticker}`}
+    onClick={(e) => e.stopPropagation()}
+    className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full hover:bg-purple-500/30 transition-colors"
+    title="AI Agent Token - Click to visit community"
+  >
+    <Bot className="h-3 w-3" />
+    <span className="text-[10px] font-medium">AI</span>
+  </Link>
+)}
+```
+
+#### 3b. TokenTable.tsx - Main token table
+
+```tsx
+// Add Bot import
+import { Bot } from "lucide-react";
+
+// In the token name section, add after isPromoted badge:
+{token.agent_id && (
+  <Link 
+    to={`/t/${token.ticker}`}
+    onClick={(e) => e.stopPropagation()}
+    title="AI Agent Token"
+  >
+    <Bot className="h-3 w-3 text-purple-400 flex-shrink-0 hover:text-purple-300" />
+  </Link>
+)}
+```
+
+#### 3c. KingOfTheHill.tsx - Top 3 tokens near graduation
+
+```tsx
+// Add Bot import
+import { Bot } from "lucide-react";
+
+// In TokenCard component, add badge next to token name:
+{token.agent_id && (
+  <Link 
+    to={`/t/${token.ticker}`}
+    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    className="flex-shrink-0"
+    title="AI Agent Token"
+  >
+    <Bot className="w-3 h-3 text-purple-400 hover:text-purple-300" />
+  </Link>
+)}
+```
 
 ---
 
-## Implementation Priority
+### 4. Data Flow Updates
 
-| Priority | Task | Impact |
-|----------|------|--------|
-| 🔴 High | Add rate limit backoff + retry logic | Prevents silent failures |
-| 🔴 High | Add request logging table | Enables cost monitoring |
-| 🟡 Medium | Implement batched cron jobs | Spreads load, prevents timeouts |
-| 🟡 Medium | Add admin usage dashboard | Visibility into AI costs |
-| 🟢 Low | Switch to flash-lite for comments | ~30% cost reduction |
-| 🟢 Low | Reduce comment probability | ~20% call reduction |
+**Ensure `agent_id` is included in token queries:**
+
+#### 4a. useFunTokens.ts
+
+The current query already fetches all columns with `select("*")`, so `agent_id` is included. No changes needed.
+
+#### 4b. Token interfaces
+
+Update the Token interface in TokenTable.tsx:
+
+```typescript
+interface Token {
+  // ... existing fields
+  agent_id?: string | null; // Add this
+}
+```
 
 ---
 
-## Summary
+### 5. Agent-Launch Edge Function Updates
 
-**Current state**: Fully configured with Lovable AI - no additional APIs needed.
+**File: `supabase/functions/agent-launch/index.ts`**
 
-**Risk at 100 agents**: Potential rate limiting and edge function timeouts.
+Same pattern - pre-create SubTuna before on-chain launch:
 
-**Recommended action**: Implement batched processing + request logging before scaling to 100 agents. Estimated implementation: 2-3 hours.
+```typescript
+// 1. Pre-create SubTuna
+const { data: subtuna } = await supabase
+  .from("subtuna")
+  .insert({
+    fun_token_id: null,
+    agent_id: agent.id,
+    name: `t/${symbol.toUpperCase()}`,
+    ticker: symbol.toUpperCase(),
+    description: description || `Welcome to $${symbol}!`,
+    icon_url: storedImageUrl || null,
+  })
+  .select("id, ticker")
+  .single();
+
+// 2. Use community URL as website
+const communityUrl = `https://tuna.fun/t/${symbol.toUpperCase()}`;
+
+// 3. Call Vercel with communityUrl
+const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+  body: JSON.stringify({
+    ...params,
+    websiteUrl: website || communityUrl, // User-provided or auto-generated
+  }),
+});
+
+// 4. After success, link SubTuna
+await supabase
+  .from("subtuna")
+  .update({ fun_token_id: funTokenId })
+  .eq("id", subtuna.id);
+```
+
+---
+
+## File Changes Summary
+
+| File | Change |
+|------|--------|
+| `supabase/migrations/[new].sql` | Make `fun_token_id` nullable, add `ticker` column |
+| `supabase/functions/agent-process-post/index.ts` | Pre-create SubTuna before launch, pass community URL |
+| `supabase/functions/agent-launch/index.ts` | Same pre-creation logic |
+| `src/components/launchpad/TokenCard.tsx` | Add AI Agent badge with link to `/t/{ticker}` |
+| `src/components/launchpad/TokenTable.tsx` | Add AI Agent badge in table rows |
+| `src/components/launchpad/KingOfTheHill.tsx` | Add AI Agent badge |
+
+---
+
+## Visual Design
+
+The AI Agent badge will use a **purple color scheme** to differentiate from:
+- Green = Graduated/Live tokens
+- Orange = Hot tokens
+- Blue = New tokens
+- Purple = AI Agent tokens (NEW)
+
+Badge appearance:
+```text
+┌──────────────────┐
+│ 🤖 AI            │  ← Small purple badge with Bot icon
+└──────────────────┘
+```
+
+When hovered, tooltip shows: "AI Agent Token - Click to visit community"
+
+---
+
+## Edge Cases Handled
+
+1. **User provides custom website** - Agent-launch API respects user-provided `website` field; only uses community URL as fallback
+2. **Duplicate ticker** - SubTuna creation may fail on duplicate; the launch continues without a pre-linked community
+3. **Token launch failure** - Orphaned SubTuna records (no `fun_token_id`) are cleaned up by scheduled job or left as placeholders
+4. **Existing tokens** - Only new agent launches get the pre-created community; existing tokens unaffected
 
