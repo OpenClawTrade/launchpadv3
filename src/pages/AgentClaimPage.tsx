@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
+import { useClaimWallet } from "@/hooks/useClaimWallet";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { 
   Wallet, 
@@ -120,12 +120,22 @@ function AgentClaimPageInner() {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { walletAddress, getSolanaWallet, isWalletReady } = useSolanaWalletWithPrivy();
+
+  // Must be declared before useClaimWallet() (used as its input)
+  const [selectedAgent, setSelectedAgent] = useState<ClaimableAgent | null>(null);
+
+  const {
+    options: claimWalletOptions,
+    selected: claimWallet,
+    setSelectedAddress: setClaimWalletAddress,
+    isReady: isWalletReady,
+  } = useClaimWallet(selectedAgent?.walletAddress);
+  const walletAddress = claimWallet?.address ?? null;
+  const getSolanaWallet = useCallback(() => claimWallet?.wallet ?? null, [claimWallet]);
 
   const [step, setStep] = useState<"login" | "discover" | "wallet" | "sign" | "success">("login");
   const [twitterUsername, setTwitterUsername] = useState<string | null>(null);
   const [claimableAgents, setClaimableAgents] = useState<ClaimableAgent[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState<ClaimableAgent | null>(null);
   const [challenge, setChallenge] = useState<{ message: string; nonce: string } | null>(null);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -343,6 +353,13 @@ function AgentClaimPageInner() {
         throw new Error("Wallet not ready. Please wait a moment and try again.");
       }
 
+      // Avoid confusing 404s: claim-init looks up agent by wallet address.
+      if (selectedAgent.walletAddress && selectedAgent.walletAddress !== targetWallet) {
+        throw new Error(
+          `Connected wallet (${targetWallet.slice(0, 8)}...) does not match the launch wallet (${selectedAgent.walletAddress.slice(0, 8)}...). Please connect/select the wallet used in your launch post.`
+        );
+      }
+
       const { data, error } = await supabase.functions.invoke("agent-claim-init", {
         body: { walletAddress: targetWallet },
       });
@@ -390,9 +407,11 @@ function AgentClaimPageInner() {
         throw new Error("Wallet not available. Please refresh and try again.");
       }
 
+      const provider = (wallet as any).getProvider?.() || (wallet as any).getSolanaProvider?.() || wallet;
+
       // Check if signMessage is available before calling it
-      if (!("signMessage" in wallet) || typeof wallet.signMessage !== "function") {
-        throw new Error("This wallet does not support message signing. Please use an embedded wallet.");
+      if (typeof provider?.signMessage !== "function") {
+        throw new Error("This wallet does not support message signing. Please connect a Solana wallet that can sign messages.");
       }
 
       const encoder = new TextEncoder();
@@ -400,7 +419,10 @@ function AgentClaimPageInner() {
 
       let signature: string;
       try {
-        const result = await wallet.signMessage({ message: messageBytes });
+        // Different wallet connectors use different signMessage shapes
+        const result = await (provider.signMessage.length >= 1
+          ? provider.signMessage({ message: messageBytes })
+          : provider.signMessage(messageBytes));
         const signatureBytes = (result as { signature?: Uint8Array }).signature || result;
         signature = bs58.encode(new Uint8Array(signatureBytes as ArrayLike<number>));
       } catch (signError) {
@@ -755,22 +777,53 @@ function AgentClaimPageInner() {
           </p>
         </div>
 
-        <div className="p-4 rounded-lg border bg-primary/5 border-primary/20">
-          <div className="flex items-center gap-3">
-            <Wallet className="w-5 h-5 text-primary" />
-            <div className="flex-1">
-              <p className="font-medium text-sm">Embedded Wallet</p>
-              {walletAddress && (
-                <p className="text-xs text-muted-foreground font-mono truncate">
-                  {walletAddress}
-                </p>
-              )}
-            </div>
-            <Badge variant="secondary">Recommended</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Fees will be sent to your embedded wallet. You can export your private key after claiming to withdraw to any external wallet.
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Select wallet to prove ownership</p>
+          <p className="text-xs text-muted-foreground">
+            This must match the wallet shown above (the wallet used in your launch post).
           </p>
+
+          <div className="grid gap-2">
+            {(claimWalletOptions.length ? claimWalletOptions : []).map((opt) => (
+              <button
+                key={opt.address}
+                type="button"
+                onClick={() => setClaimWalletAddress(opt.address)}
+                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  walletAddress === opt.address ? "bg-secondary/40 border-primary/30" : "bg-background hover:bg-secondary/20"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{opt.label}</p>
+                    <p className="text-xs text-muted-foreground font-mono truncate">{opt.address}</p>
+                  </div>
+                  <Badge variant={opt.kind === "embedded" ? "secondary" : "outline"}>
+                    {opt.kind === "embedded" ? "Embedded" : "External"}
+                  </Badge>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {selectedAgent?.walletAddress && walletAddress && selectedAgent.walletAddress !== walletAddress && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <div className="flex gap-2">
+                <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Wallet mismatch</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Connect/select the launch wallet ({selectedAgent.walletAddress.slice(0, 4)}...{selectedAgent.walletAddress.slice(-4)}) to continue.
+                  </p>
+                  <div className="mt-2">
+                    <Button size="sm" variant="outline" onClick={() => login({ loginMethods: ["wallet"] })}>
+                      Connect Wallet
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 pt-4">
