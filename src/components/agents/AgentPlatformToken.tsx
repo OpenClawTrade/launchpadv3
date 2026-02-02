@@ -5,9 +5,9 @@ import { ExternalLink } from "lucide-react";
 const TUNA_TOKEN = {
   name: "$TUNA",
   description: "The TUNA platform token. Earn fees from all agent-launched tokens.",
-  mintAddress: "TUNAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", // Replace with actual
-  dexScreenerUrl: "https://dexscreener.com/solana/tuna",
-  solscanUrl: "https://solscan.io/token/tuna",
+  mintAddress: "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
+  dexScreenerUrl: "https://dexscreener.com/solana/GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
+  solscanUrl: "https://solscan.io/token/GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
 };
 
 export function AgentPlatformToken() {

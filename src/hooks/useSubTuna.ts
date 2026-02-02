@@ -64,7 +64,10 @@ export function useSubTuna(ticker?: string) {
 
         if (directError || !directSubtuna) return null;
 
-        // Return system SubTuna (no funToken)
+        // Check if this is the TUNA system SubTuna - inject token info
+        const isTunaSubtuna = ticker?.toUpperCase() === "TUNA";
+
+        // Return system SubTuna with TUNA token info if applicable
         return {
           id: directSubtuna.id,
           name: directSubtuna.name,
@@ -84,8 +87,18 @@ export function useSubTuna(ticker?: string) {
             styleSourceUsername: directSubtuna.agent.style_source_username,
             styleSourceTwitterUrl: directSubtuna.agent.style_source_twitter_url,
           } : undefined,
-          // No funToken for system SubTunas
-          funToken: undefined,
+          // Inject TUNA token info for the platform token SubTuna
+          funToken: isTunaSubtuna ? {
+            id: "tuna-platform-token",
+            ticker: "TUNA",
+            name: "TUNA",
+            imageUrl: "/tuna-logo.png",
+            mintAddress: "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
+            // Price/market cap fetched separately via useTunaTokenData
+            marketCapSol: undefined,
+            priceSol: undefined,
+            priceChange24h: undefined,
+          } : undefined,
         };
       }
 
