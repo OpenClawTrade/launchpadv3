@@ -55,7 +55,8 @@ interface Agent {
 interface SubtunaWithToken {
   id: string;
   name: string;
-  fun_token_id: string;
+  fun_token_id: string | null;
+  ticker?: string; // Direct ticker for system SubTunas
   fun_tokens: { ticker: string; mint_address: string } | null;
 }
 
@@ -220,7 +221,7 @@ async function generateWelcomeMessage(
   agentId: string,
   agentName: string,
   ticker: string,
-  mintAddress: string,
+  mintAddress: string | null, // Can be null for system SubTunas
   writingStyle: StyleFingerprint | null,
   lovableApiKey: string
 ): Promise<string | null> {
@@ -239,13 +240,13 @@ ${styleInstructions}
 
 CRITICAL: Maximum 280 characters. Be concise but impactful.`;
 
+  // Customize prompt based on whether this is a tradeable token or system community
+  const tradeLink = mintAddress ? `\nTrade link: tuna.fun/launchpad/${mintAddress}` : "";
   const userPrompt = `Create a welcome message for the $${ticker} community.
 - Include the cashtag $${ticker}
 - Be welcoming and professional
 - Brief value proposition
-- Maximum 280 characters total
-
-Trade link: tuna.fun/launchpad/${mintAddress}`;
+- Maximum 280 characters total${tradeLink}`;
 
   const result = await callAIWithRetry(lovableApiKey, systemPrompt, userPrompt, 100, 0.7);
   await logAIRequest(supabase, agentId, "welcome", result);
@@ -395,26 +396,34 @@ async function processAgent(
 
     const tokenIds = agentTokens?.map((t: { fun_token_id: string }) => t.fun_token_id) || [];
 
-    if (tokenIds.length === 0) {
-      console.log(`[${agent.name}] No tokens, skipping`);
-      return stats;
+    let subtunas: SubtunaWithToken[] | null = null;
+
+    if (tokenIds.length > 0) {
+      // Normal agents: get SubTunas via tokens
+      const { data: agentSubtunas } = await supabase
+        .from("subtuna")
+        .select("id, name, fun_token_id, fun_tokens:fun_token_id(ticker, mint_address)")
+        .in("fun_token_id", tokenIds);
+      subtunas = agentSubtunas as SubtunaWithToken[] | null;
+    } else {
+      // System agents: get SubTunas directly linked by agent_id (e.g., t/TUNA)
+      const { data: directSubtunas } = await supabase
+        .from("subtuna")
+        .select("id, name, fun_token_id, ticker")
+        .eq("agent_id", agent.id);
+      subtunas = directSubtunas as SubtunaWithToken[] | null;
+      console.log(`[${agent.name}] Using direct SubTunas: ${subtunas?.length || 0}`);
     }
 
-    // Get SubTunas for agent's tokens
-    const { data: agentSubtunas } = await supabase
-      .from("subtuna")
-      .select("id, name, fun_token_id, fun_tokens:fun_token_id(ticker, mint_address)")
-      .in("fun_token_id", tokenIds);
-
-    const subtunas = agentSubtunas as SubtunaWithToken[] | null;
     if (!subtunas || subtunas.length === 0) {
       console.log(`[${agent.name}] No SubTunas found`);
       return stats;
     }
 
     const primarySubtuna = subtunas[0];
-    const ticker = primarySubtuna.fun_tokens?.ticker || "TOKEN";
-    const mintAddress = primarySubtuna.fun_tokens?.mint_address || "";
+    // Use ticker from fun_tokens if available, otherwise use direct ticker column
+    const ticker = primarySubtuna.fun_tokens?.ticker || primarySubtuna.ticker || "TOKEN";
+    const mintAddress = primarySubtuna.fun_tokens?.mint_address || null;
 
     // === WELCOME MESSAGE (first time only) ===
     if (!agent.has_posted_welcome) {
