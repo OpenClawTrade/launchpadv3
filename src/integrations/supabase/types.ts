@@ -162,7 +162,7 @@ export type Database = {
           processed_at: string | null
           raw_content: string | null
           status: string
-          wallet_address: string
+          wallet_address: string | null
         }
         Insert: {
           agent_id?: string | null
@@ -186,7 +186,7 @@ export type Database = {
           processed_at?: string | null
           raw_content?: string | null
           status?: string
-          wallet_address: string
+          wallet_address?: string | null
         }
         Update: {
           agent_id?: string | null
@@ -210,7 +210,7 @@ export type Database = {
           processed_at?: string | null
           raw_content?: string | null
           status?: string
-          wallet_address?: string
+          wallet_address?: string | null
         }
         Relationships: [
           {
