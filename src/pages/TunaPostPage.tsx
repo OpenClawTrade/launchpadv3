@@ -7,6 +7,7 @@ import { TunaBookSidebar } from "@/components/tunabook/TunaBookSidebar";
 import { TunaVoteButtons } from "@/components/tunabook/TunaVoteButtons";
 import { TunaCommentTree } from "@/components/tunabook/TunaCommentTree";
 import { AgentBadge } from "@/components/tunabook/AgentBadge";
+import { FormattedContent } from "@/components/tunabook/FormattedContent";
 import { ReportModal } from "@/components/tunabook/ReportModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -314,42 +315,42 @@ export default function TunaPostPage() {
               </div>
 
               {/* Content */}
-              <div className="flex-1 py-3 pr-4">
+              <div className="flex-1 py-3 pr-4 min-w-0">
                 {/* Post header */}
-                <div className="flex items-center gap-2 text-xs text-[hsl(var(--tunabook-text-muted))] mb-2">
+                <div className="flex items-center gap-2 text-xs text-[hsl(var(--tunabook-text-muted))] mb-2 flex-wrap">
                   <Link
                     to={`/t/${actualTicker}`}
                     className="flex items-center gap-1 hover:text-[hsl(var(--tunabook-text-primary))]"
                   >
                     {subtunaIcon && (
-                      <img src={subtunaIcon} alt="" className="w-4 h-4 rounded-full" />
+                      <img src={subtunaIcon} alt="" className="w-4 h-4 rounded-full flex-shrink-0" />
                     )}
-                    <span className="font-medium">{subtunaName}</span>
+                    <span className="font-medium truncate max-w-[100px] sm:max-w-none">{subtunaName}</span>
                   </Link>
                   <span>•</span>
-                  <span>Posted by</span>
+                  <span className="hidden sm:inline">Posted by</span>
                   <div className="flex items-center gap-1">
-                    <Avatar className="h-4 w-4">
+                    <Avatar className="h-4 w-4 flex-shrink-0">
                       <AvatarImage src={avatarUrl} />
                       <AvatarFallback className="text-[8px]">
                         {displayName.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hover:underline cursor-pointer">{displayName}</span>
+                    <span className="hover:underline cursor-pointer truncate max-w-[80px] sm:max-w-[150px]">{displayName}</span>
                     {post.is_agent_post && <AgentBadge />}
                   </div>
                   <span>•</span>
-                  <span>{timeAgo}</span>
+                  <span className="whitespace-nowrap">{timeAgo}</span>
                   {post.is_pinned && (
                     <>
-                      <span>•</span>
-                      <span className="text-[hsl(var(--tunabook-primary))] font-medium">📌 Pinned</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="text-[hsl(var(--tunabook-primary))] font-medium hidden sm:inline">📌 Pinned</span>
                     </>
                   )}
                   {post.is_locked && (
                     <>
-                      <span>•</span>
-                      <span className="text-[hsl(var(--tunabook-text-muted))] font-medium flex items-center gap-1">
+                      <span className="hidden sm:inline">•</span>
+                      <span className="text-[hsl(var(--tunabook-text-muted))] font-medium hidden sm:flex items-center gap-1">
                         <Lock size={12} /> Locked
                       </span>
                     </>
@@ -357,15 +358,16 @@ export default function TunaPostPage() {
                 </div>
 
                 {/* Title */}
-                <h1 className="text-xl font-semibold text-[hsl(var(--tunabook-text-primary))] mb-3">
+                <h1 className="text-lg sm:text-xl font-semibold text-[hsl(var(--tunabook-text-primary))] mb-3 break-words">
                   {post.title}
                 </h1>
 
                 {/* Content */}
                 {post.content && (
-                  <div className="text-[hsl(var(--tunabook-text-primary))] whitespace-pre-wrap mb-4">
-                    {post.content}
-                  </div>
+                  <FormattedContent 
+                    content={post.content} 
+                    className="text-[hsl(var(--tunabook-text-primary))] mb-4"
+                  />
                 )}
 
                 {/* Image */}
@@ -380,10 +382,11 @@ export default function TunaPostPage() {
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center gap-4 text-[hsl(var(--tunabook-text-muted))]">
-                  <span className="flex items-center gap-1 text-sm">
-                    <ChatCircle size={18} />
-                    {post.comment_count || 0} Comments
+                <div className="flex items-center gap-2 sm:gap-4 text-[hsl(var(--tunabook-text-muted))] flex-wrap">
+                  <span className="flex items-center gap-1 text-xs sm:text-sm">
+                    <ChatCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="hidden sm:inline">{post.comment_count || 0} Comments</span>
+                    <span className="sm:hidden">{post.comment_count || 0}</span>
                   </span>
                   <button 
                     onClick={async () => {
@@ -397,14 +400,14 @@ export default function TunaPostPage() {
                         toast.error("Failed to copy link");
                       }
                     }}
-                    className="flex items-center gap-1 text-sm hover:text-[hsl(var(--tunabook-text-primary))] transition-colors"
+                    className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--tunabook-text-primary))] transition-colors"
                   >
-                    <Share size={18} />
-                    Share
+                    <Share size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="hidden sm:inline">Share</span>
                   </button>
-                  <button className="flex items-center gap-1 text-sm hover:text-[hsl(var(--tunabook-text-primary))] transition-colors">
-                    <Bookmark size={18} />
-                    Save
+                  <button className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--tunabook-text-primary))] transition-colors">
+                    <Bookmark size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="hidden sm:inline">Save</span>
                   </button>
                   <button 
                     onClick={() => {
@@ -416,10 +419,10 @@ export default function TunaPostPage() {
                       }
                       setIsReportOpen(true);
                     }}
-                    className="flex items-center gap-1 text-sm hover:text-[hsl(var(--tunabook-downvote))] transition-colors"
+                    className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--tunabook-downvote))] transition-colors"
                   >
-                    <Flag size={18} />
-                    Report
+                    <Flag size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="hidden sm:inline">Report</span>
                   </button>
                 </div>
               </div>

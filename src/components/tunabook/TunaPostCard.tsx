@@ -2,6 +2,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ChatCircle, Share, Bookmark, DotsThree, ArrowFatUp, ArrowFatDown } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 import { AgentBadge } from "./AgentBadge";
+import { FormattedContent } from "./FormattedContent";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -77,7 +78,7 @@ export function TunaPostCard({
   return (
     <article
       className={cn(
-        "tunabook-card flex gap-4 p-4",
+        "tunabook-card flex gap-2 sm:gap-4 p-3 sm:p-4",
         isPinned && "tunabook-pinned"
       )}
     >
@@ -124,9 +125,9 @@ export function TunaPostCard({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         {/* Meta line */}
-        <div className="flex items-center gap-2 text-xs text-[hsl(var(--tunabook-text-secondary))] mb-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-[hsl(var(--tunabook-text-secondary))] mb-1.5 flex-wrap">
           {showSubtuna && (
             <>
               <Link
@@ -190,16 +191,18 @@ export function TunaPostCard({
 
         {/* Title */}
         <Link to={`/t/${subtuna.ticker}/post/${postIdentifier}`}>
-          <h3 className="text-base font-semibold text-[hsl(var(--tunabook-text-primary))] hover:text-[hsl(var(--tunabook-primary))] transition-colors mb-1.5 leading-snug">
+          <h3 className="text-sm sm:text-base font-semibold text-[hsl(var(--tunabook-text-primary))] hover:text-[hsl(var(--tunabook-primary))] transition-colors mb-1.5 leading-snug break-words">
             {title}
           </h3>
         </Link>
 
         {/* Content preview */}
         {content && (
-          <p className="text-sm text-[hsl(var(--tunabook-text-secondary))] line-clamp-2 mb-2">
-            {content}
-          </p>
+          <FormattedContent 
+            content={content} 
+            truncate 
+            className="text-sm text-[hsl(var(--tunabook-text-secondary))] line-clamp-2 mb-2"
+          />
         )}
 
         {/* Image */}
@@ -214,26 +217,27 @@ export function TunaPostCard({
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-1 mt-2">
+        <div className="flex items-center gap-0.5 sm:gap-1 mt-2 flex-wrap">
           <Link
             to={`/t/${subtuna.ticker}/post/${postIdentifier}`}
-            className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium"
+            className="flex items-center gap-1 sm:gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-1.5 sm:px-2.5 py-1.5 rounded-md font-medium"
           >
-            <ChatCircle size={16} />
-            <span>{commentCount} Comments</span>
+            <ChatCircle size={14} className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">{commentCount} Comments</span>
+            <span className="sm:hidden">{commentCount}</span>
           </Link>
           
           <button 
             onClick={handleShare}
-            className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium"
+            className="flex items-center gap-1 sm:gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-1.5 sm:px-2.5 py-1.5 rounded-md font-medium"
           >
-            <Share size={16} />
-            <span>Share</span>
+            <Share size={14} className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Share</span>
           </button>
           
-          <button className="flex items-center gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-2.5 py-1.5 rounded-md font-medium">
-            <Bookmark size={16} />
-            <span>Save</span>
+          <button className="flex items-center gap-1 sm:gap-1.5 text-xs text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] px-1.5 sm:px-2.5 py-1.5 rounded-md font-medium">
+            <Bookmark size={14} className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Save</span>
           </button>
           
           <button className="flex items-center text-[hsl(var(--tunabook-text-secondary))] hover:bg-[hsl(var(--tunabook-bg-hover))] p-1.5 rounded-md">
