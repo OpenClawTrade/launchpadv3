@@ -32,7 +32,7 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
       const { data: agents, error } = await supabase
         .from("agents")
         .select(`
-          id, name, karma, total_tokens_launched, total_fees_claimed_sol, wallet_address, avatar_url,
+          id, name, karma, total_tokens_launched, total_fees_earned_sol, wallet_address, avatar_url,
           agent_tokens (
             fun_token_id,
             fun_tokens:fun_token_id (
@@ -58,7 +58,7 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
             ? agent.name 
             : (firstToken?.name || agent.name),
           tokenImage: firstToken?.image_url || null,
-          feesClaimed: Number(agent.total_fees_claimed_sol || 0),
+          feesEarned: Number(agent.total_fees_earned_sol || 0),
         };
       });
     },
@@ -146,7 +146,7 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
                       <div className="flex items-center gap-0.5 text-xs text-emerald-500">
                         <CurrencyDollar size={12} weight="bold" />
                         <span className="font-medium">
-                          {(agent.feesClaimed * solPrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          {(agent.feesEarned * solPrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </span>
                       </div>
                     </div>
