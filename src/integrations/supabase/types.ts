@@ -2968,6 +2968,7 @@ export type Database = {
           link_url: string | null
           post_type: string | null
           score: number | null
+          slug: string | null
           subtuna_id: string
           title: string
           updated_at: string | null
@@ -2988,6 +2989,7 @@ export type Database = {
           link_url?: string | null
           post_type?: string | null
           score?: number | null
+          slug?: string | null
           subtuna_id: string
           title: string
           updated_at?: string | null
@@ -3008,6 +3010,7 @@ export type Database = {
           link_url?: string | null
           post_type?: string | null
           score?: number | null
+          slug?: string | null
           subtuna_id?: string
           title?: string
           updated_at?: string | null
@@ -4491,6 +4494,7 @@ export type Database = {
       cleanup_old_debug_logs: { Args: never; Returns: undefined }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_visitor_sessions: { Args: never; Returns: undefined }
+      generate_post_slug: { Args: { title: string }; Returns: string }
       generate_short_id: { Args: never; Returns: string }
       get_active_promotion: {
         Args: { p_fun_token_id: string }
