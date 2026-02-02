@@ -1,159 +1,58 @@
 
 
-# Strict Image Requirement: Block X Launches Without User-Provided Image
+# Fix: Agent Payouts Stat Shows Earned Amount Instead of Claimed
 
-## Current Behavior (Problem)
+## Problem
 
-When a user tweets `!tunalaunch` without attaching an image:
-1. System detects no image in tweet
-2. Falls back to AI image generation
-3. If AI succeeds → Token launches with AI-generated image
-4. User had no control over the mascot/branding
+The "Agent Payouts" stat on the launchpad shows **0.00 SOL** because it currently displays `total_fees_claimed_sol` (actual payouts made), but no agents have claimed yet.
 
-For EPST specifically - the tweet had no image attached, but AI generated one and launched anyway.
+**Current data:**
+- Total Agent Earnings: **14.66 SOL** (80% share of trading fees)
+- Total Agent Claimed: **0 SOL** (no payouts processed yet)
 
-## New Behavior (Requested)
+The user wants to see the **earned** amount (what agents are entitled to), not just what's been paid out.
 
-**Require user to attach image to their tweet. No AI fallback.**
+## Solution
 
-```text
-LAUNCH FLOW (Updated)
-─────────────────────
-@user tweets with image attached:
-  "!tunalaunch @BuildTuna
-   Name: MyToken
-   Symbol: MTK"
-   [attached image.jpg]
-
-→ System extracts attached image ✅
-→ Token launches with user's image
-
-@user tweets WITHOUT image:
-  "!tunalaunch @BuildTuna
-   Name: MyToken  
-   Symbol: MTK"
-
-→ System detects no image ❌
-→ BLOCKED: "Please attach an image to your tweet"
-→ Reply to user explaining requirement
-```
-
----
+Change the "Agent Payouts" stat to show `total_fees_earned_sol` instead of `total_fees_claimed_sol`.
 
 ## Technical Changes
 
-### File: `supabase/functions/agent-process-post/index.ts`
+### File: `supabase/functions/agent-stats/index.ts`
 
-**Remove AI fallback logic and block immediately when no image is provided:**
-
-Current code (lines 510-533):
-```typescript
-// If no image from tweet, try AI generation  
-if (!finalImageUrl) {
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (lovableApiKey) {
-    finalImageUrl = await generateTokenImageWithAI(...);
-    // ... AI generation logic
-  }
-}
-```
-
-New code:
-```typescript
-// STRICT: Require user to provide image in tweet - no AI fallback
-if (!finalImageUrl) {
-  const errorMsg = "Please attach an image to your tweet. Token launches require a custom image.";
-  console.log(`[agent-process-post] ❌ BLOCKED - No image attached to tweet: ${parsed.name} (${parsed.symbol})`);
-  
-  // Insert as failed record
-  const { data: failedPost } = await supabase
-    .from("agent_social_posts")
-    .insert({
-      platform,
-      post_id: postId,
-      post_url: postUrl,
-      post_author: postAuthor,
-      post_author_id: postAuthorId,
-      wallet_address: parsed.wallet,
-      raw_content: rawContent.slice(0, 1000),
-      parsed_name: parsed.name,
-      parsed_symbol: parsed.symbol,
-      parsed_description: parsed.description,
-      parsed_image_url: null,
-      parsed_website: parsed.website,
-      parsed_twitter: parsed.twitter,
-      status: "failed",
-      error_message: errorMsg,
-      processed_at: new Date().toISOString(),
-    })
-    .select("id")
-    .maybeSingle();
-
-  return {
-    success: false,
-    error: errorMsg,
-    socialPostId: failedPost?.id,
-    shouldReply: true,  // Flag to reply to user explaining requirement
-    replyText: "🐟 To launch a token, please attach an image to your tweet!\n\nRequired format:\n!tunalaunch @BuildTuna\nName: TokenName\nSymbol: TKN\n[Attach your token image]"
-  };
-}
-```
-
-### Add Reply Logic for Failed Launches
-
-When launch is blocked due to missing image, reply to the user explaining what's needed. This happens in `agent-scan-twitter` and `agent-scan-mentions` where the post is processed.
-
-**File: `supabase/functions/agent-scan-twitter/index.ts`** (and `agent-scan-mentions`)
-
-After calling `agent-process-post`, check if `shouldReply` is set and send helpful reply:
+**Lines 95-99** - Update to use `total_fees_earned_sol`:
 
 ```typescript
-const processResult = await processResponse.json();
+// Current (incorrect)
+const totalAgentPayouts = agents?.reduce(
+  (sum, a) => sum + Number(a.total_fees_claimed_sol || 0),
+  0
+) || 0;
 
-if (!processResult.success && processResult.shouldReply && processResult.replyText) {
-  // Reply to user explaining why launch failed
-  await replyToTweet(
-    tweetId,
-    processResult.replyText,
-    consumerKey,
-    consumerSecret,
-    accessToken,
-    accessTokenSecret
-  );
-}
+// New (correct)
+const totalAgentPayouts = agents?.reduce(
+  (sum, a) => sum + Number(a.total_fees_earned_sol || 0),
+  0
+) || 0;
 ```
 
----
+This is a one-line change in the edge function.
 
-## What Gets Removed
+## Alternative: Show Both Stats
 
-1. **AI image generation fallback** - The `generateTokenImageWithAI` function call when no tweet image is found
-2. **Silent acceptance** - No more launching tokens without user-provided images
+If you want to distinguish between earned and claimed, I can instead:
+1. Rename "Agent Payouts" → "Agent Earnings" (shows earned)
+2. Add a new "Agent Claimed" stat (shows actual payouts)
 
-## What Gets Added
-
-1. **Immediate blocking** - Fail fast when no image attached
-2. **User feedback** - Reply to tweet explaining the requirement
-3. **Clear error messages** - In dashboard and logs
-
----
+Let me know if you prefer this approach.
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `supabase/functions/agent-process-post/index.ts` | Remove AI fallback, block when no image, return shouldReply flag |
-| `supabase/functions/agent-scan-twitter/index.ts` | Reply to user when launch blocked |
-| `supabase/functions/agent-scan-mentions/index.ts` | Reply to user when launch blocked |
+| `supabase/functions/agent-stats/index.ts` | Change line 97 from `total_fees_claimed_sol` to `total_fees_earned_sol` |
 
----
+## Expected Result
 
-## Edge Cases
-
-| Scenario | Behavior |
-|----------|----------|
-| Tweet with attached PNG/JPG | ✅ Proceed with launch |
-| Tweet with t.co shortlink | ❌ Blocked (shortlinks already filtered) |
-| Tweet with no image at all | ❌ Blocked + Reply with instructions |
-| Tweet with external image URL | ✅ Proceed (if not t.co) |
+After fix: "Agent Payouts" will show **14.66 SOL** instead of 0.00 SOL
 
