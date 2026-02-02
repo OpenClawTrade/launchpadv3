@@ -148,7 +148,7 @@ async function generateTokenImageWithAI(
 interface ParsedLaunchData {
   name: string;
   symbol: string;
-  wallet: string;
+  wallet?: string;  // Now optional - fees claimed via X login instead
   description?: string;
   image?: string;
   website?: string;
@@ -180,21 +180,23 @@ export function parseLaunchPost(content: string): ParsedLaunchData | null {
   }
 
   // If multi-line parsing didn't find required fields, try single-line parsing
-  if (!data.name || !data.symbol || !data.wallet) {
+  if (!data.name || !data.symbol) {
     parseSingleLine(content, data);
   }
 
-  // Validate required fields
-  if (!data.name || !data.symbol || !data.wallet) {
+  // Validate required fields - wallet is now OPTIONAL
+  if (!data.name || !data.symbol) {
     return null;
   }
 
-  // Clean wallet - remove any trailing URLs or non-base58 chars
-  data.wallet = data.wallet.split(/\s+/)[0].replace(/[^1-9A-HJ-NP-Za-km-z]/g, "");
+  // Clean wallet if provided - remove any trailing URLs or non-base58 chars
+  if (data.wallet) {
+    data.wallet = data.wallet.split(/\s+/)[0].replace(/[^1-9A-HJ-NP-Za-km-z]/g, "");
 
-  // Validate wallet address format (Solana base58, 32-44 chars)
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(data.wallet)) {
-    return null;
+    // Validate wallet address format (Solana base58, 32-44 chars)
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(data.wallet)) {
+      data.wallet = undefined;  // Invalid wallet, treat as not provided
+    }
   }
 
   return data as ParsedLaunchData;
@@ -597,10 +599,14 @@ export async function processLaunchPost(
   const socialPostId = socialPost.id;
 
   try {
+    // Use wallet from tweet or generate a placeholder for wallet-less launches
+    // Fee claiming works via X login, so wallet is no longer required
+    const creatorWallet = parsed.wallet || "TUNA_NO_WALLET_" + crypto.randomUUID().slice(0, 8);
+    
     // Get or create agent - the agent IS the token (self-aware entity!)
     const agent = await getOrCreateAgent(
       supabase,
-      parsed.wallet,
+      creatorWallet,
       parsed.name, // Token name becomes agent identity
       postAuthor || undefined
     );

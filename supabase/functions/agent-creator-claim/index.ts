@@ -14,7 +14,8 @@ const CLAIM_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour in milliseconds
 
 interface ClaimRequest {
   twitterUsername: string;
-  walletAddress: string;
+  payoutWallet: string;  // User-selected destination wallet
+  walletAddress?: string; // Deprecated - kept for backwards compatibility
   tokenIds?: string[];
   checkOnly?: boolean; // If true, just check status without claiming
 }
@@ -43,23 +44,35 @@ Deno.serve(async (req) => {
     }
 
     const body: ClaimRequest = await req.json();
-    const { twitterUsername, walletAddress, tokenIds, checkOnly } = body;
+    const { twitterUsername, tokenIds, checkOnly } = body;
+    // Support both payoutWallet (new) and walletAddress (legacy)
+    const payoutWallet = body.payoutWallet || body.walletAddress;
 
-    if (!twitterUsername || !walletAddress) {
+    if (!twitterUsername) {
       return new Response(
-        JSON.stringify({ success: false, error: "twitterUsername and walletAddress are required" }),
+        JSON.stringify({ success: false, error: "twitterUsername is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate wallet address format
-    try {
-      new PublicKey(walletAddress);
-    } catch {
+    // payoutWallet only required for actual claims, not for checkOnly
+    if (!checkOnly && !payoutWallet) {
       return new Response(
-        JSON.stringify({ success: false, error: "Invalid wallet address" }),
+        JSON.stringify({ success: false, error: "payoutWallet is required for claiming" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Validate wallet address format if provided
+    if (payoutWallet) {
+      try {
+        new PublicKey(payoutWallet);
+      } catch {
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid wallet address" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const normalizedUsername = twitterUsername.replace(/^@/, "").toLowerCase();
@@ -78,16 +91,19 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check rate limit - get last claim for this wallet
+    // Check rate limit - get last claim for this Twitter username (not wallet)
+    // This prevents spamming claims from multiple wallets
     const { data: lastClaim } = await supabase
       .from("fun_distributions")
       .select("created_at")
-      .eq("creator_wallet", walletAddress)
       .eq("distribution_type", "creator_claim")
       .eq("status", "completed")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // TODO: Ideally we'd track cooldown per Twitter username, but for now we use global cooldown
+    // A better approach would be to add a twitter_username column to fun_distributions
 
     const now = Date.now();
     let nextClaimAt: string | null = null;
@@ -128,28 +144,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 2: Verify wallet ownership - wallet must match what was used in launch
-    const validTokenIds = socialPosts
-      .filter(p => {
-        return p.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
-      })
+    // Step 2: Get all token IDs launched by this Twitter user
+    // X login proves ownership - no wallet matching required anymore
+    const allTokenIds = socialPosts
       .map(p => p.fun_token_id)
       .filter((id): id is string => id !== null);
 
-    if (validTokenIds.length === 0) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Wallet ${walletAddress.slice(0, 8)}... does not match any tokens launched by @${normalizedUsername}` 
-        }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Filter by requested tokenIds if provided
     const targetTokenIds = tokenIds && tokenIds.length > 0
-      ? validTokenIds.filter(id => tokenIds.includes(id))
-      : validTokenIds;
+      ? allTokenIds.filter(id => tokenIds.includes(id))
+      : allTokenIds;
 
     if (targetTokenIds.length === 0) {
       return new Response(
@@ -183,8 +187,17 @@ Deno.serve(async (req) => {
           pendingAmount: creatorShare,
           minClaimAmount: MIN_CLAIM_SOL,
           meetsMinimum: creatorShare >= MIN_CLAIM_SOL,
+          tokenCount: targetTokenIds.length,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // For actual claims, payoutWallet is required
+    if (!payoutWallet) {
+      return new Response(
+        JSON.stringify({ success: false, error: "payoutWallet is required for claiming" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -228,9 +241,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[agent-creator-claim] @${normalizedUsername} claiming ${creatorShare.toFixed(6)} SOL (${feeClaims.length} fee claims)`);
+    console.log(`[agent-creator-claim] @${normalizedUsername} claiming ${creatorShare.toFixed(6)} SOL to ${payoutWallet} (${feeClaims.length} fee claims)`);
 
-    // Step 4: Send SOL from treasury
+    // Step 4: Send SOL from treasury to user-specified wallet
     let treasuryKeypair: Keypair;
     try {
       if (treasuryPrivateKey.startsWith("[")) {
@@ -261,8 +274,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create and send transaction
-    const recipientPubkey = new PublicKey(walletAddress);
+    // Create and send transaction to user's specified wallet
+    const recipientPubkey = new PublicKey(payoutWallet);
     const lamports = Math.floor(creatorShare * 1e9);
 
     const transaction = new Transaction().add(
@@ -282,7 +295,7 @@ Deno.serve(async (req) => {
       maxRetries: 3,
     });
 
-    console.log(`[agent-creator-claim] ✅ Sent ${creatorShare} SOL to ${walletAddress}, sig: ${signature}`);
+    console.log(`[agent-creator-claim] ✅ Sent ${creatorShare} SOL to ${payoutWallet}, sig: ${signature}`);
 
     // Step 5: Mark fee claims as distributed
     const feeClaimIds = feeClaims.map(f => f.id);
@@ -294,7 +307,7 @@ Deno.serve(async (req) => {
       })
       .in("id", feeClaimIds);
 
-    // Step 6: Record the distribution
+    // Step 6: Record the distribution with payout wallet
     for (const tokenId of targetTokenIds) {
       const tokenFees = feeClaims
         .filter(f => f.fun_token_id === tokenId)
@@ -303,7 +316,7 @@ Deno.serve(async (req) => {
       if (tokenFees > 0) {
         await supabase.from("fun_distributions").insert({
           fun_token_id: tokenId,
-          creator_wallet: walletAddress,
+          creator_wallet: payoutWallet,  // Now stores the user's chosen payout wallet
           amount_sol: tokenFees * CREATOR_SHARE,
           distribution_type: "creator_claim",
           signature,
@@ -319,6 +332,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         claimedAmount: creatorShare,
+        payoutWallet,
         signature,
         solscanUrl: `https://solscan.io/tx/${signature}`,
         tokensClaimed: targetTokenIds.length,
