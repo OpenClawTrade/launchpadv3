@@ -278,7 +278,38 @@ export async function processLaunchPost(
       `[agent-process-post] Launching token for agent ${agent.name}: ${parsed.name} (${parsed.symbol})`
     );
 
-    // Call Vercel API to create token
+    // === PRE-CREATE SUBTUNA COMMUNITY BEFORE TOKEN LAUNCH ===
+    // This ensures the community URL can be embedded in on-chain metadata
+    const tickerUpper = parsed.symbol.toUpperCase();
+    const isReply = !!(postUrl && postUrl.includes("/status/") && rawContent.includes("@"));
+    const styleSourceUsername = isReply && postAuthor ? postAuthor : (postAuthor || undefined);
+    
+    console.log(`[agent-process-post] Pre-creating SubTuna community for ${tickerUpper}`);
+    
+    const { data: preCreatedSubtuna, error: preSubtunaError } = await supabase
+      .from("subtuna")
+      .insert({
+        fun_token_id: null, // Will be linked after launch
+        agent_id: agent.id,
+        ticker: tickerUpper,
+        name: `t/${tickerUpper}`,
+        description: parsed.description || `Welcome to the official community for $${tickerUpper}!`,
+        icon_url: parsed.image || null,
+        style_source_username: styleSourceUsername?.replace("@", "") || null,
+      })
+      .select("id, ticker")
+      .single();
+
+    // Generate community URL for on-chain metadata
+    const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${tickerUpper}` : null;
+    
+    if (preCreatedSubtuna) {
+      console.log(`[agent-process-post] ✅ SubTuna pre-created: ${communityUrl}`);
+    } else if (preSubtunaError) {
+      console.log(`[agent-process-post] SubTuna pre-creation failed (will retry after launch):`, preSubtunaError.message);
+    }
+
+    // Call Vercel API to create token - use community URL as website if no custom website
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -289,7 +320,7 @@ export async function processLaunchPost(
           parsed.description ||
           `${parsed.name} - Launched via TUNA Agents on ${platform}`,
         imageUrl: parsed.image || null,
-        websiteUrl: parsed.website || null,
+        websiteUrl: parsed.website || communityUrl || null, // Use community URL as fallback
         twitterUrl: parsed.twitter || null,
         serverSideSign: true,
         feeRecipientWallet: parsed.wallet,
@@ -361,43 +392,31 @@ export async function processLaunchPost(
         source_post_url: postUrl,
       });
 
-      // === AUTO-CREATE SUBTUNA COMMUNITY ===
-      console.log(`[agent-process-post] Creating SubTuna community for ${parsed.symbol}`);
-      
-      // Determine style source (for replies, use parent author)
-      const isReply = !!(postUrl && postUrl.includes("/status/") && rawContent.includes("@"));
-      const styleSourceUsername = isReply && postAuthor ? postAuthor : (postAuthor || undefined);
-      
-      const { data: subtuna, error: subtunaError } = await supabase
-        .from("subtuna")
-        .insert({
-          fun_token_id: funTokenId,
-          agent_id: agent.id,
-          name: `t/${parsed.symbol.toUpperCase()}`,
-          description: parsed.description || `Welcome to the official community for $${parsed.symbol}!`,
-          icon_url: parsed.image || null,
-          style_source_username: styleSourceUsername?.replace("@", "") || null,
-        })
-        .select("id")
-        .single();
+      // === LINK PRE-CREATED SUBTUNA TO TOKEN ===
+      if (preCreatedSubtuna) {
+        console.log(`[agent-process-post] Linking SubTuna ${preCreatedSubtuna.id} to token ${funTokenId}`);
+        
+        await supabase
+          .from("subtuna")
+          .update({ fun_token_id: funTokenId })
+          .eq("id", preCreatedSubtuna.id);
 
-      if (subtuna && !subtunaError) {
         // Create welcome post from agent
         await supabase.from("subtuna_posts").insert({
-          subtuna_id: subtuna.id,
+          subtuna_id: preCreatedSubtuna.id,
           author_agent_id: agent.id,
-          title: `Welcome to t/${parsed.symbol}! 🎉`,
-          content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${parsed.symbol} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+          title: `Welcome to t/${tickerUpper}! 🎉`,
+          content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
           post_type: "text",
           is_agent_post: true,
           is_pinned: true,
         });
 
-        console.log(`[agent-process-post] ✅ SubTuna community created: t/${parsed.symbol}`);
+        console.log(`[agent-process-post] ✅ SubTuna community linked: t/${tickerUpper}`);
         
-        // Pass subtuna ID to style learning
+        // Trigger style learning
         if (platform === "twitter" && postAuthor) {
-          console.log(`[agent-process-post] Triggering style learning for @${postAuthor} with subtuna ${subtuna.id}`);
+          console.log(`[agent-process-post] Triggering style learning for @${postAuthor} with subtuna ${preCreatedSubtuna.id}`);
           
           const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
           fetch(`${supabaseUrl}/functions/v1/agent-learn-style`, {
@@ -409,7 +428,7 @@ export async function processLaunchPost(
             body: JSON.stringify({
               agentId: agent.id,
               twitterUsername: postAuthor,
-              subtunaId: subtuna.id,
+              subtunaId: preCreatedSubtuna.id,
               isReply,
               parentAuthorUsername: isReply ? postAuthor : undefined,
             }),
@@ -417,8 +436,38 @@ export async function processLaunchPost(
             console.error("[agent-process-post] Style learning trigger failed:", err);
           });
         }
-      } else if (subtunaError) {
-        console.error(`[agent-process-post] SubTuna creation failed:`, subtunaError.message);
+      } else {
+        // Fallback: SubTuna wasn't pre-created, create it now (legacy behavior)
+        console.log(`[agent-process-post] Creating SubTuna community after launch (fallback)`);
+        
+        const { data: subtuna, error: subtunaError } = await supabase
+          .from("subtuna")
+          .insert({
+            fun_token_id: funTokenId,
+            agent_id: agent.id,
+            ticker: tickerUpper,
+            name: `t/${tickerUpper}`,
+            description: parsed.description || `Welcome to the official community for $${tickerUpper}!`,
+            icon_url: parsed.image || null,
+            style_source_username: styleSourceUsername?.replace("@", "") || null,
+          })
+          .select("id")
+          .single();
+
+        if (subtuna && !subtunaError) {
+          await supabase.from("subtuna_posts").insert({
+            subtuna_id: subtuna.id,
+            author_agent_id: agent.id,
+            title: `Welcome to t/${tickerUpper}! 🎉`,
+            content: `**${parsed.name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts.\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+            post_type: "text",
+            is_agent_post: true,
+            is_pinned: true,
+          });
+          console.log(`[agent-process-post] ✅ SubTuna community created (fallback): t/${tickerUpper}`);
+        } else if (subtunaError) {
+          console.error(`[agent-process-post] SubTuna creation failed:`, subtunaError.message);
+        }
       }
     }
 

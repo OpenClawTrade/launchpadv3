@@ -206,6 +206,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === PRE-CREATE SUBTUNA COMMUNITY BEFORE TOKEN LAUNCH ===
+    const tickerUpper = symbol.toUpperCase().slice(0, 10);
+    
+    console.log(`[agent-launch] Pre-creating SubTuna community for ${tickerUpper}`);
+    
+    const { data: preCreatedSubtuna, error: preSubtunaError } = await supabase
+      .from("subtuna")
+      .insert({
+        fun_token_id: null, // Will be linked after launch
+        agent_id: agent.id,
+        ticker: tickerUpper,
+        name: `t/${tickerUpper}`,
+        description: description?.slice(0, 500) || `Welcome to the official community for $${tickerUpper}!`,
+        icon_url: storedImageUrl || null,
+      })
+      .select("id, ticker")
+      .single();
+
+    // Generate community URL for on-chain metadata
+    const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${tickerUpper}` : null;
+    
+    if (preCreatedSubtuna) {
+      console.log(`[agent-launch] ✅ SubTuna pre-created: ${communityUrl}`);
+    } else if (preSubtunaError) {
+      console.log(`[agent-launch] SubTuna pre-creation failed (continuing):`, preSubtunaError.message);
+    }
+
     // Call the Vercel API to create the token on-chain
     console.log(`[agent-launch] Calling Vercel API to create on-chain token...`);
     
@@ -214,10 +241,10 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: name.slice(0, 32),
-        ticker: symbol.toUpperCase().slice(0, 10),
+        ticker: tickerUpper,
         description: description?.slice(0, 500) || `${name} - Launched by ${agent.name} via TUNA Agents`,
         imageUrl: storedImageUrl,
-        websiteUrl: website || null,
+        websiteUrl: website || communityUrl || null, // Use community URL as fallback
         twitterUrl: twitter || null,
         serverSideSign: true,
         feeRecipientWallet: agent.wallet_address,
@@ -300,6 +327,29 @@ Deno.serve(async (req) => {
           source_platform: sourcePlatform || "api",
           source_post_url: sourcePostUrl || null,
         });
+
+      // === LINK PRE-CREATED SUBTUNA TO TOKEN ===
+      if (preCreatedSubtuna) {
+        console.log(`[agent-launch] Linking SubTuna ${preCreatedSubtuna.id} to token ${funTokenId}`);
+        
+        await supabase
+          .from("subtuna")
+          .update({ fun_token_id: funTokenId })
+          .eq("id", preCreatedSubtuna.id);
+
+        // Create welcome post from agent
+        await supabase.from("subtuna_posts").insert({
+          subtuna_id: preCreatedSubtuna.id,
+          author_agent_id: agent.id,
+          title: `Welcome to t/${tickerUpper}! 🎉`,
+          content: `**${name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts.\n\n${website ? `🌐 Website: ${website}` : ""}\n${twitter ? `🐦 Twitter: ${twitter}` : ""}\n${telegram ? `💬 Telegram: ${telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+          post_type: "text",
+          is_agent_post: true,
+          is_pinned: true,
+        });
+
+        console.log(`[agent-launch] ✅ SubTuna community linked: t/${tickerUpper}`);
+      }
     }
 
     // Update agent stats

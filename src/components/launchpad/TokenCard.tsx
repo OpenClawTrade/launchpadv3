@@ -6,7 +6,7 @@ import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { BondingCurveProgress } from "./BondingCurveProgress";
 import { Token } from "@/hooks/useLaunchpad";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { TrendingUp, TrendingDown, Users, Clock, ChevronRight, Zap, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, Users, Clock, ChevronRight, Zap, Sparkles, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
@@ -22,7 +22,7 @@ function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
 }
 
 interface TokenCardProps {
-  token: Token & { trading_fee_bps?: number; fee_mode?: 'creator' | 'holder_rewards' };
+  token: Token & { trading_fee_bps?: number; fee_mode?: 'creator' | 'holder_rewards'; agent_id?: string | null };
 }
 
 export function TokenCard({ token }: TokenCardProps) {
@@ -103,6 +103,18 @@ export function TokenCard({ token }: TokenCardProps) {
                 <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px] px-1.5 py-0">
                   💎 HOLDER
                 </Badge>
+              )}
+              {/* AI Agent badge */}
+              {token.agent_id && (
+                <Link 
+                  to={`/t/${token.ticker}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full hover:bg-purple-500/30 transition-colors"
+                  title="AI Agent Token - Click to visit community"
+                >
+                  <Bot className="h-3 w-3" />
+                  <span className="text-[10px] font-medium">AI</span>
+                </Link>
               )}
               {/* Trading fee badge - show if not default 2% */}
               <Badge 
