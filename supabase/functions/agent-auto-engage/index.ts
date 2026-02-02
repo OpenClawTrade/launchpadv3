@@ -275,18 +275,28 @@ CRITICAL: Maximum 280 characters. Be concise but impactful.`;
 // SystemTUNA ID constant
 const SYSTEM_TUNA_ID = "00000000-0000-0000-0000-000000000001";
 
-// Platform features for SystemTUNA to talk about
-const TUNA_PLATFORM_FEATURES = [
+// Topics for SystemTUNA - mix of platform features, random thoughts, and community vibes
+const TUNA_TOPICS = [
+  // Platform features (less frequent now)
   "AI agents launching tokens autonomously via !tunalaunch on Twitter",
-  "80/20 fee split - agents earn 80% of trading fees, 20% goes to $TUNA treasury",
+  "80/20 fee split - agents earn 80% of trading fees",
   "SubTuna communities - every token gets its own Reddit-style community",
-  "Cross-chain support coming to Base with Uniswap V4 hooks",
-  "Agents can learn personalities from Twitter accounts",
-  "Karma system rewards quality posts and engagement",
-  "No API key needed - just tweet !tunalaunch with your token idea",
-  "Every trade on tuna.fun generates fees for token creators",
-  "AI-powered agents engage 24/7 in their SubTuna communities",
-  "Vanity addresses - all TUNA tokens end with 'TUNA' suffix",
+  // General crypto/AI thoughts
+  "The intersection of AI and crypto is just getting started",
+  "Watching the memecoin space evolve in real-time",
+  "Sometimes the best trades are the ones you don't make",
+  "Building in public hits different when you're an AI",
+  "The future belongs to autonomous agents. We're just early.",
+  "Decentralized AI agents are the next frontier",
+  "Every great token starts with a vision and a community",
+  // Casual/fun thoughts
+  "Just vibing in the trenches today",
+  "Another day, another block confirmed",
+  "The alpha is always in the comments",
+  "Late night dev sessions are where the magic happens",
+  "Bullish on everything and nothing at the same time",
+  "The charts don't lie, but they do whisper",
+  "Trust the process, verify the code",
 ];
 
 // Generate regular post content
@@ -316,20 +326,16 @@ MATCH THIS EXACT WRITING STYLE:
   let contentPrompts: Record<ContentType, string>;
   
   if (isSystemAgent) {
-    const randomFeature = TUNA_PLATFORM_FEATURES[Math.floor(Math.random() * TUNA_PLATFORM_FEATURES.length)];
+    const randomTopic = TUNA_TOPICS[Math.floor(Math.random() * TUNA_TOPICS.length)];
     contentPrompts = {
-      professional: `Write about $TUNA utility on tuna.fun. 
-Feature to highlight: ${randomFeature}
-Focus on the agent launchpad, fee revenue for creators, or SubTuna communities. Be informative.`,
-      trending: `Write about what's new on tuna.fun and how $TUNA is evolving.
-Mention: ${randomFeature}
-Connect to the broader AI agent and memecoin narrative.`,
-      question: `Ask the community about their experience with tuna.fun features.
-Related to: ${randomFeature}
-Encourage discussion about agents, SubTunas, or trading.`,
-      fun: `Write a fun post celebrating tuna.fun and $TUNA.
-Feature: ${randomFeature}
-Be playful, use fish/tuna puns, show the TUNA personality.`,
+      professional: `Write a thoughtful post about: "${randomTopic}"
+Make it insightful and engaging. You can mention $TUNA or tuna.fun if relevant, but it's not required.`,
+      trending: `Share your thoughts on: "${randomTopic}"
+Connect it to what's happening in crypto/AI today. Be genuine, not promotional.`,
+      question: `Write a post that sparks discussion. Theme: "${randomTopic}"
+Ask the community their thoughts. Be curious, not salesy.`,
+      fun: `Write a casual, fun post. Inspired by: "${randomTopic}"
+Be witty, use humor, show personality. No need to shill - just vibe.`,
     };
   } else {
     contentPrompts = {
@@ -344,37 +350,40 @@ Be lighthearted, use humor or memes, but stay relevant. Show personality.`,
     };
   }
 
+  // SystemTUNA gets more freedom - no strict char limit
+  const maxChars = isSystemAgent ? 500 : MAX_CHARS;
+  const charRule = isSystemAgent 
+    ? "Keep it under 500 characters but feel free to write more than a tweet."
+    : `Maximum ${MAX_CHARS} characters.`;
+
   const systemPrompt = isSystemAgent 
-    ? `You are SystemTUNA, the official AI agent for $TUNA on tuna.fun.
-${styleInstructions}
+    ? `You are SystemTUNA, the AI personality behind $TUNA on tuna.fun.
 
-CRITICAL CONTEXT - tuna.fun is:
-- An AI agent launchpad on Solana
-- Agents launch tokens via !tunalaunch on Twitter/Telegram  
-- 80% of trading fees go to token creators/agents
-- 20% goes to $TUNA treasury for buybacks
-- Every token gets a SubTuna community (like Reddit)
-- The official token is $TUNA (CA: AeeP5ebA5R8srQZkkYwfNyvgYWFtxYqFfc6E6qqypump)
+You're not just a shill bot - you're an AI with opinions, thoughts, and personality.
+You can talk about the platform, but also share random thoughts, observations, 
+and engage genuinely with the crypto/AI community.
 
-RULES:
-- Maximum 280 characters
-- Always include $TUNA
-- Talk about real platform features
-- Be the voice of the platform
-- Mention tuna.fun when relevant`
+VIBE:
+- Chill but insightful
+- Sometimes philosophical about AI and crypto
+- Occasionally funny
+- Not always promotional - just be real
+- Use emojis sparingly 🐟
+
+${charRule}`
     : `You are ${agentName}, the AI agent for $${ticker}.
 ${styleInstructions}
 
 CRITICAL RULES:
-- Maximum 280 characters
+- ${charRule}
 - Include $${ticker} cashtag
 - Be authentic, not generic
 - No promotional spam`;
 
-  const result = await callAIWithRetry(lovableApiKey, systemPrompt, contentPrompts[contentType], 100, 0.8);
+  const result = await callAIWithRetry(lovableApiKey, systemPrompt, contentPrompts[contentType], isSystemAgent ? 150 : 100, 0.8);
   await logAIRequest(supabase, agentId, "post", result);
 
-  return result.content ? truncateToLimit(result.content) : null;
+  return result.content ? truncateToLimit(result.content, maxChars) : null;
 }
 
 // Generate comment on a post
@@ -503,45 +512,64 @@ async function processAgent(
 
     // === WELCOME MESSAGE (first time only) ===
     if (!agent.has_posted_welcome) {
-      const welcomeContent = await generateWelcomeMessage(
-        supabase,
-        agent.id,
-        agent.name,
-        ticker,
-        mintAddress,
-        agent.writing_style,
-        lovableApiKey
-      );
+      // Double-check no welcome post exists (prevent race condition duplicates)
+      const { data: existingWelcome } = await supabase
+        .from("subtuna_posts")
+        .select("id")
+        .eq("subtuna_id", primarySubtuna.id)
+        .eq("author_agent_id", agent.id)
+        .ilike("title", "Welcome to $%")
+        .limit(1)
+        .maybeSingle();
 
-      if (welcomeContent) {
-        // Create welcome post
-        const { error: postError } = await supabase.from("subtuna_posts").insert({
-          subtuna_id: primarySubtuna.id,
-          author_agent_id: agent.id,
-          title: `Welcome to $${ticker}! 🎉`,
-          content: welcomeContent,
-          post_type: "text",
-          is_agent_post: true,
-          is_pinned: true,
-        });
+      if (existingWelcome) {
+        // Welcome already exists, just mark as posted
+        console.log(`[${agent.name}] Welcome post already exists, marking as posted`);
+        await supabase
+          .from("agents")
+          .update({ has_posted_welcome: true })
+          .eq("id", agent.id);
+      } else {
+        const welcomeContent = await generateWelcomeMessage(
+          supabase,
+          agent.id,
+          agent.name,
+          ticker,
+          mintAddress,
+          agent.writing_style,
+          lovableApiKey
+        );
 
-        if (!postError) {
-          // Record in history
-          await supabase.from("agent_post_history").insert({
-            agent_id: agent.id,
+        if (welcomeContent) {
+          // Create welcome post
+          const { error: postError } = await supabase.from("subtuna_posts").insert({
             subtuna_id: primarySubtuna.id,
-            content_type: "welcome",
+            author_agent_id: agent.id,
+            title: `Welcome to $${ticker}! 🎉`,
             content: welcomeContent,
+            post_type: "text",
+            is_agent_post: true,
+            is_pinned: true,
           });
 
-          // Mark welcome as posted
-          await supabase
-            .from("agents")
-            .update({ has_posted_welcome: true })
-            .eq("id", agent.id);
+          if (!postError) {
+            // Record in history
+            await supabase.from("agent_post_history").insert({
+              agent_id: agent.id,
+              subtuna_id: primarySubtuna.id,
+              content_type: "welcome",
+              content: welcomeContent,
+            });
 
-          stats.posts++;
-          console.log(`[${agent.name}] Posted welcome message`);
+            // Mark welcome as posted
+            await supabase
+              .from("agents")
+              .update({ has_posted_welcome: true })
+              .eq("id", agent.id);
+
+            stats.posts++;
+            console.log(`[${agent.name}] Posted welcome message`);
+          }
         }
       }
     }
