@@ -12,6 +12,36 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const safeJsonParse = (text: string): any => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
+const normalizeTotpSecret = (raw?: string | null): string | undefined => {
+  if (!raw) return undefined;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return undefined;
+
+  if (trimmed.toLowerCase().startsWith("otpauth://")) {
+    try {
+      const url = new URL(trimmed);
+      const secretParam = url.searchParams.get("secret");
+      if (secretParam) {
+        return secretParam.replace(/\s|-/g, "").toUpperCase();
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  const secretMatch = trimmed.match(/secret\s*=\s*([A-Za-z2-7\s-]+)/i);
+  const candidate = (secretMatch?.[1] ?? trimmed).replace(/\s|-/g, "").toUpperCase();
+  return candidate || undefined;
+};
+
 type TweetResult = {
   id: string;
   text: string;
@@ -118,20 +148,97 @@ async function searchMentionsViaTwitterApiIo(
   throw new Error(`TWITTERAPI_RATE_LIMITED [${lastStatus}]`);
 }
 
-// Send reply using twitterapi.io (session-based posting)
+// Dynamic login to get fresh cookies
+interface LoginCredentials {
+  apiKey: string;
+  username: string;
+  email: string;
+  password: string;
+  totpSecret?: string;
+  proxyUrl: string;
+}
+
+async function getLoginCookies(creds: LoginCredentials): Promise<string | null> {
+  console.log("[agent-scan-twitter] 🔐 Attempting dynamic login...");
+
+  const loginBody: Record<string, string> = {
+    user_name: creds.username,
+    email: creds.email,
+    password: creds.password,
+    proxy: creds.proxyUrl,
+  };
+  if (creds.totpSecret) {
+    loginBody.totp_secret = creds.totpSecret;
+  }
+
+  const doLogin = async (endpoint: string, bodyOverrides?: Record<string, string>) => {
+    const body = { ...loginBody, ...bodyOverrides };
+    const res = await fetch(`${TWITTERAPI_BASE}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "X-API-Key": creds.apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    const data = safeJsonParse(text) ?? { raw: text };
+    return { res, text, data };
+  };
+
+  // Try login v2 first
+  let loginAttempt = await doLogin("/twitter/user_login_v2");
+  console.log(`[agent-scan-twitter] 🔐 Login v2 response: ${loginAttempt.res.status}`);
+
+  const loginIsAuthError = (payload: any): boolean => {
+    const msg = String(payload?.message ?? payload?.msg ?? payload?.error ?? "").toLowerCase();
+    return msg.includes("authentication error") || msg.includes("login failed") || msg.includes("challenge");
+  };
+
+  // Fallback to v3 if v2 fails
+  if (!loginAttempt.res.ok || (loginAttempt.data?.status === "error" && loginIsAuthError(loginAttempt.data))) {
+    console.log("[agent-scan-twitter] 🛟 Falling back to login v3...");
+    const v3Body: Record<string, string> = creds.totpSecret ? { totp_code: creds.totpSecret } : {};
+    loginAttempt = await doLogin("/twitter/user_login_v3", Object.keys(v3Body).length > 0 ? v3Body : undefined);
+    console.log(`[agent-scan-twitter] 🔐 Login v3 response: ${loginAttempt.res.status}`);
+  }
+
+  if (!loginAttempt.res.ok) {
+    console.error("[agent-scan-twitter] ❌ Login failed:", loginAttempt.text.slice(0, 500));
+    return null;
+  }
+
+  const loginData = loginAttempt.data;
+  const loginCookies =
+    loginData.login_cookies ||
+    loginData.cookies ||
+    loginData.cookie ||
+    loginData?.data?.login_cookies ||
+    loginData?.data?.cookies;
+
+  if (!loginCookies) {
+    console.error("[agent-scan-twitter] ❌ No cookies in login response:", JSON.stringify(loginData).slice(0, 500));
+    return null;
+  }
+
+  console.log("[agent-scan-twitter] ✅ Login successful, got cookies");
+  return loginCookies;
+}
+
+// Send reply using twitterapi.io with login_cookies (dynamic login method)
 async function replyToTweet(
   tweetId: string,
   text: string,
   apiKey: string,
-  authToken: string,
-  ct0Token: string,
+  loginCookies: string,
+  proxyUrl: string,
   username?: string
 ): Promise<{ success: boolean; replyId?: string; error?: string }> {
   try {
     console.log(`[agent-scan-twitter] 📤 Attempting reply to @${username || "unknown"} (tweet ${tweetId})`);
     
     const response = await fetch(
-      "https://api.twitterapi.io/twitter/tweet/create",
+      `${TWITTERAPI_BASE}/twitter/tweet/create`,
       {
         method: "POST",
         headers: {
@@ -139,10 +246,10 @@ async function replyToTweet(
           "X-API-Key": apiKey,
         },
         body: JSON.stringify({
-          auth_token: authToken,
-          ct0: ct0Token,
           text: text,
           reply_to_tweet_id: tweetId,
+          login_cookies: loginCookies,
+          proxy: proxyUrl,
         }),
       }
     );
@@ -158,7 +265,7 @@ async function replyToTweet(
     }
 
     const data = await response.json();
-    const replyId = data.data?.id || data.id;
+    const replyId = data.data?.id || data.id || data.tweet_id;
     console.log(`[agent-scan-twitter] ✅ Reply sent to @${username || "unknown"}: ${replyId}`);
     return { success: true, replyId };
   } catch (error) {
@@ -206,10 +313,14 @@ Deno.serve(async (req) => {
     // Official X API Bearer Token (preferred for searching)
     const xBearerToken = Deno.env.get("X_BEARER_TOKEN");
     
-    // twitterapi.io credentials (fallback for search, used for posting)
+    // twitterapi.io credentials for posting via dynamic login
     const twitterApiIoKey = Deno.env.get("TWITTERAPI_IO_KEY");
-    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
-    const xCt0Token = Deno.env.get("X_CT0_TOKEN");
+    const xAccountUsername = Deno.env.get("X_ACCOUNT_USERNAME");
+    const xAccountEmail = Deno.env.get("X_ACCOUNT_EMAIL");
+    const xAccountPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
+    const xTotpSecretRaw = Deno.env.get("X_TOTP_SECRET");
+    const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
+    const proxyUrl = Deno.env.get("TWITTER_PROXY");
 
     // Need at least one search method
     if (!xBearerToken && !twitterApiIoKey) {
@@ -222,10 +333,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    const canPostReplies = !!(twitterApiIoKey && xAuthToken && xCt0Token);
+    // Check if we can post replies (need login credentials)
+    const canPostReplies = !!(twitterApiIoKey && xAccountUsername && xAccountEmail && xAccountPassword && proxyUrl);
+    let loginCookies: string | null = null;
+    
     if (!canPostReplies) {
       console.log(
-        "[agent-scan-twitter] Reply tokens not fully configured - will detect/process but skip replies"
+        "[agent-scan-twitter] Login credentials not fully configured - will detect/process but skip replies"
       );
     }
 
@@ -368,6 +482,23 @@ Deno.serve(async (req) => {
         error?: string;
       }> = [];
 
+      // Get login cookies if we can post replies and have tweets to process
+      if (canPostReplies && tweets.length > 0) {
+        console.log("[agent-scan-twitter] 🔐 Getting login cookies for replies...");
+        loginCookies = await getLoginCookies({
+          apiKey: twitterApiIoKey!,
+          username: xAccountUsername!,
+          email: xAccountEmail!,
+          password: xAccountPassword!,
+          totpSecret: xTotpSecret,
+          proxyUrl: proxyUrl!,
+        });
+        
+        if (!loginCookies) {
+          console.error("[agent-scan-twitter] ❌ Failed to get login cookies - will process but skip replies");
+        }
+      }
+
       // Sort tweets by ID descending (newest first) to process in order
       const sortedTweets = [...tweets].sort((a, b) => {
         // Tweet IDs are snowflake IDs - larger = newer
@@ -431,15 +562,15 @@ Deno.serve(async (req) => {
             results.push({ tweetId, status: "rate_limited", error: "Daily limit reached" });
 
             // Reply with rate limit message
-            if (canPostReplies) {
+            if (canPostReplies && loginCookies) {
               const rateLimitText = `🐟 Hey @${username}! There is a daily limit of 3 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
               
               const rateLimitReply = await replyToTweet(
                 tweetId,
                 rateLimitText,
                 twitterApiIoKey!,
-                xAuthToken!,
-                xCt0Token!,
+                loginCookies,
+                proxyUrl!,
                 username
               );
 
@@ -481,15 +612,15 @@ Deno.serve(async (req) => {
           });
 
           // Post success reply via twitterapi.io
-          if (canPostReplies) {
+          if (canPostReplies && loginCookies) {
             const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
 
             const replyResult = await replyToTweet(
               tweetId,
               replyText,
               twitterApiIoKey!,
-              xAuthToken!,
-              xCt0Token!,
+              loginCookies,
+              proxyUrl!,
               username
             );
 
@@ -505,15 +636,15 @@ Deno.serve(async (req) => {
           });
 
           // Reply with format help if parsing failed
-          if (canPostReplies && processResult.error?.includes("parse")) {
+          if (canPostReplies && loginCookies && processResult.error?.includes("parse")) {
             const formatHelpText = `🐟 Hey @${username}! To launch your token, please use this format:\n\n!tunalaunch\nName: YourTokenName\nSymbol: $TICKER\nWallet: YourSolanaWallet\n\nAttach an image and run the command again!`;
 
             const helpReplyResult = await replyToTweet(
               tweetId,
               formatHelpText,
               twitterApiIoKey!,
-              xAuthToken!,
-              xCt0Token!,
+              loginCookies,
+              proxyUrl!,
               username
             );
 
