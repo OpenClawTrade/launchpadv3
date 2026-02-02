@@ -225,7 +225,7 @@ async function getLoginCookies(creds: LoginCredentials): Promise<string | null> 
   return loginCookies;
 }
 
-// Send reply using twitterapi.io with login_cookies (dynamic login method)
+// Send reply using twitterapi.io with login_cookies (create_tweet_v2 endpoint)
 async function replyToTweet(
   tweetId: string,
   text: string,
@@ -238,7 +238,7 @@ async function replyToTweet(
     console.log(`[agent-scan-twitter] 📤 Attempting reply to @${username || "unknown"} (tweet ${tweetId})`);
     
     const response = await fetch(
-      `${TWITTERAPI_BASE}/twitter/tweet/create`,
+      `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
       {
         method: "POST",
         headers: {
@@ -246,7 +246,7 @@ async function replyToTweet(
           "X-API-Key": apiKey,
         },
         body: JSON.stringify({
-          text: text,
+          tweet_text: text,
           reply_to_tweet_id: tweetId,
           login_cookies: loginCookies,
           proxy: proxyUrl,
@@ -254,20 +254,36 @@ async function replyToTweet(
       }
     );
 
+    const responseText = await response.text();
+    console.log(`[agent-scan-twitter] 📥 Reply API response: ${response.status} - ${responseText.slice(0, 300)}`);
+
     if (!response.ok) {
-      const error = await response.text();
       console.error(`[agent-scan-twitter] ❌ REPLY FAILED to @${username || "unknown"} (tweet ${tweetId}):`, {
         status: response.status,
         statusText: response.statusText,
-        error: error.slice(0, 500),
+        error: responseText.slice(0, 500),
       });
-      return { success: false, error };
+      return { success: false, error: responseText };
     }
 
-    const data = await response.json();
-    const replyId = data.data?.id || data.id || data.tweet_id;
+    const data = safeJsonParse(responseText) || {};
+    
+    // Check for error payloads that come with 200 status
+    if (data.success === false || data.status === "error") {
+      console.error(`[agent-scan-twitter] ❌ REPLY API ERROR to @${username || "unknown"}:`, responseText.slice(0, 500));
+      return { success: false, error: responseText };
+    }
+
+    const replyId = 
+      data?.data?.id ||
+      data?.data?.rest_id ||
+      data?.data?.create_tweet?.tweet_results?.result?.rest_id ||
+      data?.tweet_id ||
+      data?.id ||
+      null;
+      
     console.log(`[agent-scan-twitter] ✅ Reply sent to @${username || "unknown"}: ${replyId}`);
-    return { success: true, replyId };
+    return { success: true, replyId: replyId || undefined };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error(`[agent-scan-twitter] ❌ REPLY EXCEPTION to @${username || "unknown"} (tweet ${tweetId}):`, errorMsg);
