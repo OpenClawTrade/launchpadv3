@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { AppHeader } from "@/components/layout/AppHeader";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +27,6 @@ import {
   UsersThree,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { formatDistanceToNow } from "date-fns";
 
 interface SocialPost {
@@ -89,9 +87,6 @@ interface SubTunaRecord {
 }
 
 export default function AgentLogsAdminPage() {
-  const { walletAddress } = useSolanaWalletWithPrivy();
-  const { isAdmin, isLoading: isAdminLoading } = useIsAdmin(walletAddress);
-
   const [activeTab, setActiveTab] = useState("mentions");
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
   const [tokenJobs, setTokenJobs] = useState<TokenJob[]>([]);
@@ -212,10 +207,8 @@ export default function AgentLogsAdminPage() {
   }, [fetchSocialPosts, fetchTokenJobs, fetchFunTokens, fetchSubTunas]);
 
   useEffect(() => {
-    if (isAdmin) {
-      refreshAll();
-    }
-  }, [isAdmin, refreshAll]);
+    refreshAll();
+  }, [refreshAll]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -278,51 +271,18 @@ export default function AgentLogsAdminPage() {
     totalSubTunas: subTunas.length,
   };
 
-  if (isAdminLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
-        <main className="max-w-7xl mx-auto px-4 py-16">
-          <div className="text-center text-muted-foreground">
-            Checking admin access...
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-background">
-        <AppHeader />
-        <main className="max-w-7xl mx-auto px-4 py-16">
-          <Card className="max-w-md mx-auto">
-            <CardContent className="p-8 text-center">
-              <Warning className="h-12 w-12 text-destructive mx-auto mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Admin Access Required</h2>
-              <p className="text-muted-foreground">
-                Connect an admin wallet to access this page.
-              </p>
-            </CardContent>
-          </Card>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+    <LaunchpadLayout showKingOfTheHill={false}>
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <MagnifyingGlass className="h-6 w-6 text-primary" />
               Agent Logs Monitor
             </h1>
             <p className="text-muted-foreground mt-1">
-              Monitor Twitter mentions and token launch jobs
+              Monitor X mentions and token launch jobs
             </p>
           </div>
 
@@ -351,14 +311,14 @@ export default function AgentLogsAdminPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
-          <Card>
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-3">
               <div className="text-xl font-bold">{stats.totalMentions}</div>
               <div className="text-xs text-muted-foreground">Mentions</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-3">
               <div className="text-xl font-bold text-primary">
                 {stats.successfulLaunches}
@@ -366,7 +326,7 @@ export default function AgentLogsAdminPage() {
               <div className="text-xs text-muted-foreground">Launched</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-3">
               <div className="text-xl font-bold text-destructive">
                 {stats.failedParsing}
@@ -374,13 +334,13 @@ export default function AgentLogsAdminPage() {
               <div className="text-xs text-muted-foreground">Parse Fail</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-3">
               <div className="text-xl font-bold">{stats.totalTokens}</div>
               <div className="text-xs text-muted-foreground">Tokens</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-3">
               <div className="text-xl font-bold text-primary">
                 {stats.agentTokens}
@@ -388,7 +348,7 @@ export default function AgentLogsAdminPage() {
               <div className="text-xs text-muted-foreground">By Agents</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card/50 border-border">
             <CardContent className="p-3">
               <div className="text-xl font-bold">{stats.totalSubTunas}</div>
               <div className="text-xs text-muted-foreground">SubTunas</div>
@@ -398,27 +358,27 @@ export default function AgentLogsAdminPage() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="mentions" className="gap-2">
+          <TabsList className="bg-secondary/50 border border-border">
+            <TabsTrigger value="mentions" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <TwitterLogo className="h-4 w-4" />
               Mentions ({socialPosts.length})
             </TabsTrigger>
-            <TabsTrigger value="jobs" className="gap-2">
+            <TabsTrigger value="jobs" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Rocket className="h-4 w-4" />
               Jobs ({tokenJobs.length})
             </TabsTrigger>
-            <TabsTrigger value="tokens" className="gap-2">
+            <TabsTrigger value="tokens" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Coins className="h-4 w-4" />
               Tokens ({funTokens.length})
             </TabsTrigger>
-            <TabsTrigger value="subtunas" className="gap-2">
+            <TabsTrigger value="subtunas" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <UsersThree className="h-4 w-4" />
               SubTunas ({subTunas.length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="mentions">
-            <Card>
+            <Card className="bg-card/50 border-border">
               <CardHeader>
                 <CardTitle className="text-lg">
                   Recent !tunalaunch Mentions
@@ -428,7 +388,7 @@ export default function AgentLogsAdminPage() {
                 <ScrollArea className="h-[600px]">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-border">
                         <TableHead>Time</TableHead>
                         <TableHead>Author</TableHead>
                         <TableHead>Status</TableHead>
@@ -448,7 +408,7 @@ export default function AgentLogsAdminPage() {
                         </TableRow>
                       ) : (
                         socialPosts.map((post) => (
-                          <TableRow key={post.id}>
+                          <TableRow key={post.id} className="border-border">
                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                               {formatDate(post.created_at)}
                             </TableCell>
@@ -525,7 +485,7 @@ export default function AgentLogsAdminPage() {
           </TabsContent>
 
           <TabsContent value="jobs">
-            <Card>
+            <Card className="bg-card/50 border-border">
               <CardHeader>
                 <CardTitle className="text-lg">Token Launch Jobs</CardTitle>
               </CardHeader>
@@ -533,7 +493,7 @@ export default function AgentLogsAdminPage() {
                 <ScrollArea className="h-[600px]">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-border">
                         <TableHead>Time</TableHead>
                         <TableHead>Token</TableHead>
                         <TableHead>Creator</TableHead>
@@ -553,7 +513,7 @@ export default function AgentLogsAdminPage() {
                         </TableRow>
                       ) : (
                         tokenJobs.map((job) => (
-                          <TableRow key={job.id}>
+                          <TableRow key={job.id} className="border-border">
                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                               {formatDate(job.created_at)}
                             </TableCell>
@@ -606,7 +566,7 @@ export default function AgentLogsAdminPage() {
 
           {/* Tokens Created Tab */}
           <TabsContent value="tokens">
-            <Card>
+            <Card className="bg-card/50 border-border">
               <CardHeader>
                 <CardTitle className="text-lg">Tokens Created</CardTitle>
               </CardHeader>
@@ -614,7 +574,7 @@ export default function AgentLogsAdminPage() {
                 <ScrollArea className="h-[600px]">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-border">
                         <TableHead>Time</TableHead>
                         <TableHead>Token</TableHead>
                         <TableHead>Creator</TableHead>
@@ -634,7 +594,7 @@ export default function AgentLogsAdminPage() {
                         </TableRow>
                       ) : (
                         funTokens.map((token) => (
-                          <TableRow key={token.id}>
+                          <TableRow key={token.id} className="border-border">
                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                               {formatDate(token.created_at)}
                             </TableCell>
@@ -700,7 +660,7 @@ export default function AgentLogsAdminPage() {
 
           {/* SubTunas Tab */}
           <TabsContent value="subtunas">
-            <Card>
+            <Card className="bg-card/50 border-border">
               <CardHeader>
                 <CardTitle className="text-lg">SubTuna Communities</CardTitle>
               </CardHeader>
@@ -708,7 +668,7 @@ export default function AgentLogsAdminPage() {
                 <ScrollArea className="h-[600px]">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-border">
                         <TableHead>Time</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Ticker</TableHead>
@@ -728,7 +688,7 @@ export default function AgentLogsAdminPage() {
                         </TableRow>
                       ) : (
                         subTunas.map((subtuna) => (
-                          <TableRow key={subtuna.id}>
+                          <TableRow key={subtuna.id} className="border-border">
                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                               {formatDate(subtuna.created_at)}
                             </TableCell>
@@ -793,7 +753,7 @@ export default function AgentLogsAdminPage() {
             onClick={() => setSelectedPost(null)}
           >
             <Card
-              className="max-w-2xl w-full max-h-[80vh] overflow-auto"
+              className="max-w-2xl w-full max-h-[80vh] overflow-auto bg-card border-border"
               onClick={(e) => e.stopPropagation()}
             >
               <CardHeader>
@@ -860,7 +820,7 @@ export default function AgentLogsAdminPage() {
                       rel="noopener noreferrer"
                     >
                       <TwitterLogo className="h-4 w-4 mr-2" />
-                      View on Twitter
+                      View on X
                     </a>
                   </Button>
                 )}
@@ -868,7 +828,7 @@ export default function AgentLogsAdminPage() {
             </Card>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </LaunchpadLayout>
   );
 }
