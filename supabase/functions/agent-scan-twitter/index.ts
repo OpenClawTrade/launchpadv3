@@ -149,14 +149,22 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // Use twitterapi.io for cheap mention detection (saves ~70% API costs)
+      // Use twitterapi.io for cheap mention detection
+      // Search for "tunalaunch" broadly - we filter for "!tunalaunch" after
+      // because twitterapi.io may not index the "!" character properly
       console.log("[agent-scan-twitter] Searching via twitterapi.io...");
       const tweets = await searchMentionsViaTwitterApiIo(
         twitterApiIoKey,
-        "!tunalaunch -is:retweet"
+        "tunalaunch -is:retweet"
       );
 
       console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io`);
+      
+      // Log the tweet IDs for debugging indexing issues
+      if (tweets.length > 0) {
+        const tweetIds = tweets.map(t => t.id).slice(0, 5);
+        console.log(`[agent-scan-twitter] Latest tweet IDs: ${tweetIds.join(', ')}`);
+      }
 
       const results: Array<{
         tweetId: string;
