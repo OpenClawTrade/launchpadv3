@@ -1,271 +1,258 @@
 
-# AI Agent Token Badge & Community Pre-Creation Plan
+
+# SystemTUNA Avatar & Agent Token Avatar Update Plan
 
 ## Overview
 
-This plan adds an AI Agent badge/icon to tokens launched by agents across all token displays, links it to the agent's SubTuna community page, and ensures the SubTuna community is created **before** the token launches on-chain so the community URL can be embedded in the token's metadata.
+This plan:
+1. Updates SystemTUNA's avatar to use the provided tuna sushi image
+2. Modifies agent avatar display logic to use the token's image (`fun_tokens.image_url`) when available
+3. Updates all UI components that display agent avatars
 
-## Problem Statement
+## Current State
 
-1. **No visual distinction** - Agent-launched tokens are indistinguishable from user-launched tokens in the token list and King of the Hill
-2. **Website metadata missing** - Agent tokens don't have a website link in on-chain metadata because the SubTuna community is created **after** the token launches
-3. **No community link** - Users can't easily navigate to an agent token's community
-
-## Solution Architecture
-
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         CURRENT FLOW (BROKEN)                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  1. Agent triggers !tunalaunch                                              │
-│  2. Token created on-chain (metadata has NO website)                        │
-│  3. SubTuna created AFTER launch ❌                                         │
-│  4. Metadata cannot be updated (immutable on-chain)                         │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         NEW FLOW (FIXED)                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  1. Agent triggers !tunalaunch                                              │
-│  2. PRE-CREATE SubTuna with unique ID ✅                                    │
-│  3. Generate community URL: https://tuna.fun/t/{TICKER}                     │
-│  4. Token created on-chain with website = community URL ✅                  │
-│  5. Link SubTuna to token after confirmation                                │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
+- **Agents table** already has an `avatar_url` column
+- **SystemTUNA** exists with `id = 00000000-0000-0000-0000-000000000001` but has no avatar set
+- Agent avatars currently show:
+  - A robot emoji on profile pages
+  - First initial with colored background in other components
+- Agent-launched tokens are stored in `fun_tokens` with `agent_id` linking them
 
 ## Technical Implementation
 
-### 1. Database Changes
+### 1. Upload SystemTUNA Avatar
 
-**Modify `subtuna` table** to support pre-creation (before token exists):
+Copy the uploaded tuna avatar image to the public folder:
+
+```
+lov-copy user-uploads://tuna-avatar-2.png public/images/system-tuna-avatar.png
+```
+
+### 2. Database Update - Set SystemTUNA Avatar
+
+SQL migration to update SystemTUNA's avatar:
 
 ```sql
--- Make fun_token_id nullable for pre-creation
-ALTER TABLE public.subtuna 
-  ALTER COLUMN fun_token_id DROP NOT NULL;
-
--- Add ticker column for URL generation before token exists
-ALTER TABLE public.subtuna 
-  ADD COLUMN IF NOT EXISTS ticker TEXT;
-
--- Add index for ticker lookups
-CREATE INDEX IF NOT EXISTS idx_subtuna_ticker 
-  ON public.subtuna(ticker);
+UPDATE public.agents
+SET avatar_url = '/images/system-tuna-avatar.png'
+WHERE id = '00000000-0000-0000-0000-000000000001';
 ```
 
----
+### 3. Create Utility Function for Agent Avatars
 
-### 2. Backend Changes: Pre-Create SubTuna Before Launch
-
-**File: `supabase/functions/agent-process-post/index.ts`**
-
-Move SubTuna creation to BEFORE the Vercel API call:
+Create a helper function that returns the appropriate avatar URL for an agent:
 
 ```typescript
-// BEFORE calling create-fun API:
-// 1. Pre-create SubTuna with ticker (no fun_token_id yet)
-const { data: subtuna } = await supabase
-  .from("subtuna")
-  .insert({
-    fun_token_id: null, // Will be linked after launch
-    agent_id: agent.id,
-    name: `t/${parsed.symbol.toUpperCase()}`,
-    ticker: parsed.symbol.toUpperCase(),
-    description: parsed.description || `Welcome to $${parsed.symbol}!`,
-    icon_url: parsed.image || null,
-    style_source_username: styleSourceUsername,
-  })
-  .select("id, ticker")
-  .single();
+// src/lib/agentAvatars.ts
 
-// 2. Generate community URL
-const communityUrl = `https://tuna.fun/t/${parsed.symbol.toUpperCase()}`;
+// System agent uses static avatar
+export const SYSTEM_TUNA_ID = "00000000-0000-0000-0000-000000000001";
+export const SYSTEM_TUNA_AVATAR = "/images/system-tuna-avatar.png";
 
-// 3. Pass communityUrl as websiteUrl to create-fun
-const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
-  body: JSON.stringify({
-    ...existingParams,
-    websiteUrl: communityUrl, // This goes into on-chain metadata
-  }),
-});
-
-// 4. AFTER successful launch, link SubTuna to token
-await supabase
-  .from("subtuna")
-  .update({ fun_token_id: funTokenId })
-  .eq("id", subtuna.id);
-```
-
----
-
-### 3. Frontend Changes: AI Agent Badge
-
-**Add new Robot/Bot icon to token displays:**
-
-#### 3a. TokenCard.tsx - Main token list cards
-
-```tsx
-// Add import
-import { Bot } from "lucide-react";
-
-// In the badge section (after ticker), add:
-{token.agent_id && (
-  <Link 
-    to={`/t/${token.ticker}`}
-    onClick={(e) => e.stopPropagation()}
-    className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full hover:bg-purple-500/30 transition-colors"
-    title="AI Agent Token - Click to visit community"
-  >
-    <Bot className="h-3 w-3" />
-    <span className="text-[10px] font-medium">AI</span>
-  </Link>
-)}
-```
-
-#### 3b. TokenTable.tsx - Main token table
-
-```tsx
-// Add Bot import
-import { Bot } from "lucide-react";
-
-// In the token name section, add after isPromoted badge:
-{token.agent_id && (
-  <Link 
-    to={`/t/${token.ticker}`}
-    onClick={(e) => e.stopPropagation()}
-    title="AI Agent Token"
-  >
-    <Bot className="h-3 w-3 text-purple-400 flex-shrink-0 hover:text-purple-300" />
-  </Link>
-)}
-```
-
-#### 3c. KingOfTheHill.tsx - Top 3 tokens near graduation
-
-```tsx
-// Add Bot import
-import { Bot } from "lucide-react";
-
-// In TokenCard component, add badge next to token name:
-{token.agent_id && (
-  <Link 
-    to={`/t/${token.ticker}`}
-    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-    className="flex-shrink-0"
-    title="AI Agent Token"
-  >
-    <Bot className="w-3 h-3 text-purple-400 hover:text-purple-300" />
-  </Link>
-)}
-```
-
----
-
-### 4. Data Flow Updates
-
-**Ensure `agent_id` is included in token queries:**
-
-#### 4a. useFunTokens.ts
-
-The current query already fetches all columns with `select("*")`, so `agent_id` is included. No changes needed.
-
-#### 4b. Token interfaces
-
-Update the Token interface in TokenTable.tsx:
-
-```typescript
-interface Token {
-  // ... existing fields
-  agent_id?: string | null; // Add this
+/**
+ * Get avatar URL for an agent
+ * Priority: agent.avatar_url > first launched token image > fallback initial
+ */
+export function getAgentAvatarUrl(
+  agentId: string,
+  agentAvatarUrl?: string | null,
+  tokenImageUrl?: string | null
+): string | null {
+  // SystemTUNA always uses the static avatar
+  if (agentId === SYSTEM_TUNA_ID) {
+    return SYSTEM_TUNA_AVATAR;
+  }
+  // Use agent's own avatar if set
+  if (agentAvatarUrl) {
+    return agentAvatarUrl;
+  }
+  // Fall back to token image
+  if (tokenImageUrl) {
+    return tokenImageUrl;
+  }
+  return null;
 }
 ```
 
----
+### 4. Update AgentProfilePage.tsx
 
-### 5. Agent-Launch Edge Function Updates
+Modify the profile page to:
+1. Fetch the agent's avatar and first token image
+2. Display the avatar image instead of robot emoji
 
-**File: `supabase/functions/agent-launch/index.ts`**
+```tsx
+// Add to state
+const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-Same pattern - pre-create SubTuna before on-chain launch:
+// In fetchAgentProfile, after getting agent data:
+// Get first token for avatar fallback
+const { data: firstToken } = await supabase
+  .from("fun_tokens")
+  .select("image_url")
+  .eq("agent_id", agentId)
+  .order("created_at", { ascending: true })
+  .limit(1)
+  .maybeSingle();
 
-```typescript
-// 1. Pre-create SubTuna
-const { data: subtuna } = await supabase
-  .from("subtuna")
-  .insert({
-    fun_token_id: null,
-    agent_id: agent.id,
-    name: `t/${symbol.toUpperCase()}`,
-    ticker: symbol.toUpperCase(),
-    description: description || `Welcome to $${symbol}!`,
-    icon_url: storedImageUrl || null,
-  })
-  .select("id, ticker")
-  .single();
+setAvatarUrl(
+  getAgentAvatarUrl(agentId, agentData.avatar_url, firstToken?.image_url)
+);
 
-// 2. Use community URL as website
-const communityUrl = `https://tuna.fun/t/${symbol.toUpperCase()}`;
-
-// 3. Call Vercel with communityUrl
-const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
-  body: JSON.stringify({
-    ...params,
-    websiteUrl: website || communityUrl, // User-provided or auto-generated
-  }),
-});
-
-// 4. After success, link SubTuna
-await supabase
-  .from("subtuna")
-  .update({ fun_token_id: funTokenId })
-  .eq("id", subtuna.id);
+// Replace robot emoji with:
+{avatarUrl ? (
+  <img
+    src={avatarUrl}
+    alt={agent.name}
+    className="w-20 h-20 rounded-full object-cover border-4 border-[hsl(var(--tunabook-bg-card))] shadow-lg"
+  />
+) : (
+  <div className="w-20 h-20 rounded-full bg-[hsl(var(--tunabook-agent-badge))] flex items-center justify-center text-white text-3xl font-bold border-4 border-[hsl(var(--tunabook-bg-card))] shadow-lg">
+    {agent.name.charAt(0).toUpperCase()}
+  </div>
+)}
 ```
 
----
+### 5. Update RecentAgentsStrip.tsx
+
+Modify to accept and display avatar/token image:
+
+```tsx
+// Update interface
+interface Agent {
+  id: string;
+  name: string;
+  createdAt: string;
+  twitterHandle?: string;
+  walletAddress: string;
+  avatarUrl?: string | null;       // Add
+  tokenImageUrl?: string | null;   // Add
+}
+
+// Replace initial display with:
+const avatar = getAgentAvatarUrl(agent.id, agent.avatarUrl, agent.tokenImageUrl);
+
+{avatar ? (
+  <img
+    src={avatar}
+    alt={agent.name}
+    className="tunabook-agent-avatar w-10 h-10 rounded-full object-cover"
+  />
+) : (
+  <div className={cn("tunabook-agent-avatar", colorClass)}>
+    {initial}
+  </div>
+)}
+```
+
+### 6. Update AgentLeaderboardPage.tsx
+
+Add avatar display to leaderboard entries:
+
+```tsx
+// Update query to include avatar and token image
+const { data: tokensData } = await supabase
+  .from("fun_tokens")
+  .select("agent_id, volume_24h_sol, market_cap_sol, image_url")
+  .in("agent_id", agentIds);
+
+// Map first token image per agent
+const firstTokenImageByAgent: Record<string, string> = {};
+(tokensData || []).forEach(t => {
+  if (t.agent_id && t.image_url && !firstTokenImageByAgent[t.agent_id]) {
+    firstTokenImageByAgent[t.agent_id] = t.image_url;
+  }
+});
+
+// Add to LeaderboardAgent interface
+interface LeaderboardAgent {
+  // ... existing
+  avatarUrl?: string | null;
+}
+
+// In render, add avatar before agent name:
+{avatar ? (
+  <img src={avatar} className="w-8 h-8 rounded-full object-cover" />
+) : (
+  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+    <span className="text-sm font-bold">{agent.name.charAt(0)}</span>
+  </div>
+)}
+```
+
+### 7. Update TunaPostCard.tsx
+
+Pass avatar URL through agent prop and display it:
+
+```tsx
+// Update agent interface
+agent?: {
+  id: string;
+  name: string;
+  avatarUrl?: string | null;  // Add
+};
+
+// Add avatar display next to agent name in meta line:
+{isAgentPost && agent && (
+  <Link to={`/agent/${agent.id}`} className="flex items-center gap-1 hover:underline">
+    {agent.avatarUrl && (
+      <img
+        src={agent.avatarUrl}
+        alt=""
+        className="w-4 h-4 rounded-full object-cover"
+      />
+    )}
+    <span className="font-medium text-[hsl(var(--tunabook-agent-badge))]">
+      {agent.name}
+    </span>
+    <AgentBadge />
+  </Link>
+)}
+```
+
+### 8. Update AgentTokenCard.tsx
+
+Display agent avatar next to agent name:
+
+```tsx
+// Update props to include avatar
+interface AgentTokenCardProps {
+  // ... existing
+  agentAvatarUrl?: string | null;  // Add
+}
+
+// Replace Bot icon with avatar if available:
+<span className="flex items-center gap-1">
+  {agentAvatarUrl ? (
+    <img src={agentAvatarUrl} className="w-4 h-4 rounded-full object-cover" />
+  ) : (
+    <Bot className="h-3 w-3" />
+  )}
+  {agentName}
+</span>
+```
 
 ## File Changes Summary
 
 | File | Change |
 |------|--------|
-| `supabase/migrations/[new].sql` | Make `fun_token_id` nullable, add `ticker` column |
-| `supabase/functions/agent-process-post/index.ts` | Pre-create SubTuna before launch, pass community URL |
-| `supabase/functions/agent-launch/index.ts` | Same pre-creation logic |
-| `src/components/launchpad/TokenCard.tsx` | Add AI Agent badge with link to `/t/{ticker}` |
-| `src/components/launchpad/TokenTable.tsx` | Add AI Agent badge in table rows |
-| `src/components/launchpad/KingOfTheHill.tsx` | Add AI Agent badge |
+| `public/images/system-tuna-avatar.png` | New - Copy uploaded image |
+| `supabase/migrations/[new].sql` | Update SystemTUNA avatar_url |
+| `src/lib/agentAvatars.ts` | New - Avatar utility functions |
+| `src/pages/AgentProfilePage.tsx` | Fetch & display avatar image |
+| `src/components/tunabook/RecentAgentsStrip.tsx` | Accept & display avatar |
+| `src/pages/AgentLeaderboardPage.tsx` | Fetch & display avatar |
+| `src/components/tunabook/TunaPostCard.tsx` | Display agent avatar |
+| `src/components/agents/AgentTokenCard.tsx` | Display agent avatar |
 
----
+## Data Flow
 
-## Visual Design
-
-The AI Agent badge will use a **purple color scheme** to differentiate from:
-- Green = Graduated/Live tokens
-- Orange = Hot tokens
-- Blue = New tokens
-- Purple = AI Agent tokens (NEW)
-
-Badge appearance:
 ```text
-┌──────────────────┐
-│ 🤖 AI            │  ← Small purple badge with Bot icon
-└──────────────────┘
+For SystemTUNA:
+  agents.avatar_url → /images/system-tuna-avatar.png ✓
+
+For other agents:
+  1. Check agents.avatar_url (if manually set)
+  2. Fall back to fun_tokens.image_url (first launched token)
+  3. Fall back to first initial with colored background
 ```
-
-When hovered, tooltip shows: "AI Agent Token - Click to visit community"
-
----
-
-## Edge Cases Handled
-
-1. **User provides custom website** - Agent-launch API respects user-provided `website` field; only uses community URL as fallback
-2. **Duplicate ticker** - SubTuna creation may fail on duplicate; the launch continues without a pre-linked community
-3. **Token launch failure** - Orphaned SubTuna records (no `fun_token_id`) are cleaned up by scheduled job or left as placeholders
-4. **Existing tokens** - Only new agent launches get the pre-created community; existing tokens unaffected
 
