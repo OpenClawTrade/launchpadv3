@@ -4,6 +4,56 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Minimal Base32 + TOTP generator (no external deps)
+const base32ToBytes = (input: string): Uint8Array => {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = input.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = 0;
+  let value = 0;
+  const out: number[] = [];
+
+  for (const ch of clean) {
+    const idx = alphabet.indexOf(ch);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(out);
+};
+
+const generateTotpCode = async (secretBase32: string, digits = 6, stepSec = 30): Promise<string> => {
+  const keyBytes = base32ToBytes(secretBase32);
+  const keyBuf = keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer;
+  const counter = Math.floor(Date.now() / 1000 / stepSec);
+  const msg = new ArrayBuffer(8);
+  const view = new DataView(msg);
+  // big-endian 64-bit counter
+  view.setUint32(0, Math.floor(counter / 2 ** 32));
+  view.setUint32(4, counter >>> 0);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBuf,
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new Uint8Array(msg)));
+  const offset = sig[sig.length - 1] & 0x0f;
+  const binCode =
+    ((sig[offset] & 0x7f) << 24) |
+    ((sig[offset + 1] & 0xff) << 16) |
+    ((sig[offset + 2] & 0xff) << 8) |
+    (sig[offset + 3] & 0xff);
+  const mod = 10 ** digits;
+  const code = String(binCode % mod).padStart(digits, "0");
+  return code;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -77,64 +127,68 @@ Deno.serve(async (req) => {
     };
     
     const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
-    
-    if (twitterApiIoKey && proxyUrl && xUsername && xEmail && xPassword) {
-      // Test login_v2 with totp_secret
+    let totpCode: string | undefined;
+    if (xTotpSecret) {
       try {
-        const loginBodyV2: Record<string, string> = {
-          user_name: xUsername,
-          email: xEmail,
-          password: xPassword,
-          proxy: proxyUrl,
-        };
-        if (xTotpSecret) loginBodyV2.totp_secret = xTotpSecret;
-        
-        const resV2 = await fetch("https://api.twitterapi.io/twitter/user_login_v2", {
-          method: "POST",
-          headers: {
-            "X-API-Key": twitterApiIoKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(loginBodyV2),
-          signal: AbortSignal.timeout(30000),
-        });
-        const textV2 = await resV2.text();
-        results.login_v2 = {
-          status: resV2.status,
-          response: textV2.slice(0, 500),
-          totp_included: !!xTotpSecret,
-        };
-      } catch (e) {
-        results.login_v2 = { error: e instanceof Error ? e.message : "Unknown error" };
+        totpCode = await generateTotpCode(xTotpSecret);
+      } catch {
+        // ignore; we'll still try secret-based logins
+      }
+    }
+    
+    if (twitterApiIoKey && proxyUrl && xEmail && xPassword) {
+      const attempt = async (label: string, endpoint: string, body: Record<string, string>) => {
+        try {
+          const res = await fetch(`https://api.twitterapi.io${endpoint}`, {
+            method: "POST",
+            headers: {
+              "X-API-Key": twitterApiIoKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(30000),
+          });
+          const text = await res.text();
+          results[label] = {
+            status: res.status,
+            response: text.slice(0, 500),
+          };
+        } catch (e) {
+          results[label] = { error: e instanceof Error ? e.message : "Unknown error" };
+        }
+      };
+
+      // Build bodies for v2/v3 with common permutations found across providers
+      const base: Record<string, string> = {
+        email: xEmail,
+        password: xPassword,
+        proxy: proxyUrl,
+      };
+
+      const withUserName: Record<string, string>[] = [];
+      if (xUsername) {
+        withUserName.push({ ...base, user_name: xUsername });
+        withUserName.push({ ...base, username: xUsername });
+      }
+      // Some providers accept email-only
+      withUserName.push({ ...base });
+
+      const addTotpSecret = (b: Record<string, string>) => (xTotpSecret ? { ...b, totp_secret: xTotpSecret } : b);
+      const addTotpCode = (b: Record<string, string>) => (totpCode ? { ...b, totp_code: totpCode } : b);
+
+      // v2
+      for (const [i, b] of withUserName.entries()) {
+        await attempt(`login_v2_secret_${i}`, "/twitter/user_login_v2", addTotpSecret(b));
+        if (totpCode) await attempt(`login_v2_code_${i}`, "/twitter/user_login_v2", addTotpCode(b));
       }
 
-      // Test login_v3 with totp_code (different field name)
-      try {
-        const loginBodyV3: Record<string, string> = {
-          user_name: xUsername,
-          email: xEmail,
-          password: xPassword,
-          proxy: proxyUrl,
-        };
-        if (xTotpSecret) loginBodyV3.totp_code = xTotpSecret;
-        
-        const resV3 = await fetch("https://api.twitterapi.io/twitter/user_login_v3", {
-          method: "POST",
-          headers: {
-            "X-API-Key": twitterApiIoKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(loginBodyV3),
-          signal: AbortSignal.timeout(30000),
-        });
-        const textV3 = await resV3.text();
-        results.login_v3 = {
-          status: resV3.status,
-          response: textV3.slice(0, 500),
-          totp_included: !!xTotpSecret,
-        };
-      } catch (e) {
-        results.login_v3 = { error: e instanceof Error ? e.message : "Unknown error" };
+      // v3
+      for (const [i, b] of withUserName.entries()) {
+        await attempt(`login_v3_code_${i}`, "/twitter/user_login_v3", addTotpCode(b));
+        // fallback variant: some older docs used the secret in totp_code
+        if (xTotpSecret && !totpCode) {
+          await attempt(`login_v3_secret_${i}`, "/twitter/user_login_v3", { ...b, totp_code: xTotpSecret });
+        }
       }
     }
 
@@ -145,6 +199,7 @@ Deno.serve(async (req) => {
       password: xPassword ? "SET (hidden)" : "NOT SET",
       totp_secret: xTotpSecretRaw ? "SET (hidden)" : "NOT SET",
       totp_normalized: xTotpSecret ? `${xTotpSecret.slice(0, 4)}...` : "NOT SET",
+      totp_code_generated: !!totpCode,
     };
 
     return new Response(

@@ -15,8 +15,8 @@ const LOCK_DURATION_SECONDS = 90; // Lock duration to prevent overlap
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * twitterapi.io expects `totp_secret` (base32 secret), not a 6-digit code.
- * Users often paste an `otpauth://...` URL or include spaces/hyphens.
+ * twitterapi.io login requires a *current* 6-digit `totp_code` for 2FA.
+ * We store a Base32 secret in env, normalize it, then generate the code at runtime.
  */
 const normalizeTotpSecret = (raw?: string | null): string | undefined => {
   if (!raw) return undefined;
@@ -40,6 +40,53 @@ const normalizeTotpSecret = (raw?: string | null): string | undefined => {
   const secretMatch = trimmed.match(/secret\s*=\s*([A-Za-z2-7\s-]+)/i);
   const candidate = (secretMatch?.[1] ?? trimmed).replace(/\s|-/g, "").toUpperCase();
   return candidate || undefined;
+};
+
+const base32ToBytes = (input: string): Uint8Array => {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = input.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = 0;
+  let value = 0;
+  const out: number[] = [];
+
+  for (const ch of clean) {
+    const idx = alphabet.indexOf(ch);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(out);
+};
+
+const generateTotpCode = async (secretBase32: string, digits = 6, stepSec = 30): Promise<string> => {
+  const keyBytes = base32ToBytes(secretBase32);
+  const keyBuf = keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer;
+  const counter = Math.floor(Date.now() / 1000 / stepSec);
+  const msg = new ArrayBuffer(8);
+  const view = new DataView(msg);
+  view.setUint32(0, Math.floor(counter / 2 ** 32));
+  view.setUint32(4, counter >>> 0);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBuf,
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new Uint8Array(msg)));
+  const offset = sig[sig.length - 1] & 0x0f;
+  const binCode =
+    ((sig[offset] & 0x7f) << 24) |
+    ((sig[offset + 1] & 0xff) << 16) |
+    ((sig[offset + 2] & 0xff) << 8) |
+    (sig[offset + 3] & 0xff);
+  const mod = 10 ** digits;
+  return String(binCode % mod).padStart(digits, "0");
 };
 
 const safeJsonParse = (text: string): any => {
@@ -213,10 +260,8 @@ serve(async (req) => {
       proxy: proxyUrl,
     };
     if (xTotpSecret) {
-      loginBody.totp_secret = xTotpSecret;
-      console.log(
-        `[twitter-auto-reply] 🔑 Using TOTP secret (normalized length: ${xTotpSecret.length})`
-      );
+      // twitterapi.io expects the 6-digit code, not the secret
+      loginBody.totp_code = await generateTotpCode(xTotpSecret);
     } else if (xTotpSecretRaw) {
       console.log("[twitter-auto-reply] ⚠️ X_TOTP_SECRET provided but normalized to empty");
     }
@@ -235,7 +280,7 @@ serve(async (req) => {
       return { res, text, data };
     };
 
-    // Some accounts/proxies succeed only on v3; docs call the field `totp_code` but it is still the secret key.
+    // Fallback login endpoint
     const doLoginV3 = async () => {
       const v3Body: Record<string, string> = {
         user_name: xAccountUsername,
@@ -243,7 +288,7 @@ serve(async (req) => {
         password: xAccountPassword,
         proxy: proxyUrl,
       };
-      if (xTotpSecret) v3Body.totp_code = xTotpSecret;
+      if (xTotpSecret) v3Body.totp_code = await generateTotpCode(xTotpSecret);
 
       const res = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v3`, {
         method: "POST",

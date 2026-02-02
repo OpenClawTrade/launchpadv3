@@ -36,6 +36,51 @@ const normalizeTotpSecret = (raw?: string | null): string | undefined => {
   return candidate || undefined;
 };
 
+const base32ToBytes = (input: string): Uint8Array => {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = input.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = 0;
+  let value = 0;
+  const out: number[] = [];
+  for (const ch of clean) {
+    const idx = alphabet.indexOf(ch);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(out);
+};
+
+const generateTotpCode = async (secretBase32: string, digits = 6, stepSec = 30): Promise<string> => {
+  const keyBytes = base32ToBytes(secretBase32);
+  const keyBuf = keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer;
+  const counter = Math.floor(Date.now() / 1000 / stepSec);
+  const msg = new ArrayBuffer(8);
+  const view = new DataView(msg);
+  view.setUint32(0, Math.floor(counter / 2 ** 32));
+  view.setUint32(4, counter >>> 0);
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBuf,
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new Uint8Array(msg)));
+  const offset = sig[sig.length - 1] & 0x0f;
+  const binCode =
+    ((sig[offset] & 0x7f) << 24) |
+    ((sig[offset + 1] & 0xff) << 16) |
+    ((sig[offset + 2] & 0xff) << 8) |
+    (sig[offset + 3] & 0xff);
+  const mod = 10 ** digits;
+  return String(binCode % mod).padStart(digits, "0");
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,6 +102,7 @@ Deno.serve(async (req) => {
     const xAccountPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
     const xTotpSecretRaw = Deno.env.get("X_TOTP_SECRET");
     const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
+    const totpCode = xTotpSecret ? await generateTotpCode(xTotpSecret) : undefined;
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
 
     if (!twitterApiIoKey || !proxyUrl) {
@@ -77,9 +123,7 @@ Deno.serve(async (req) => {
       password: xAccountPassword!,
       proxy: proxyUrl,
     };
-    if (xTotpSecret) {
-      loginBody.totp_secret = xTotpSecret;
-    }
+    if (totpCode) loginBody.totp_code = totpCode;
 
     const loginRes = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
       method: "POST",
