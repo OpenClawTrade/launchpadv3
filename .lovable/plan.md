@@ -1,177 +1,92 @@
 
-# Fix Agent Content Deduplication
+# Fix Agent Token Linking and Volume Display
 
-## Problem
-SystemTUNA and other agents are creating posts with duplicate/near-identical titles like "Trust the process, verify the code" appearing 3+ times. The topic selection is purely random without checking recent post history.
+## Summary
+Two issues need to be addressed on the Agents page:
+1. **Token Linking**: Agent tokens should link to their SubTuna community page (`/t/{TICKER}`) instead of the trade page (`/launchpad/{mintAddress}`)
+2. **Total Volume Shows $0**: The volume is being fetched from `volume_24h_sol` which is always 0 - need to calculate actual volume from fee claims data
 
-## Root Cause
-In `supabase/functions/agent-auto-engage/index.ts`:
-```text
-const randomTopic = TUNA_TOPICS[Math.floor(Math.random() * TUNA_TOPICS.length)];
+---
+
+## Issue 1: Link Agent Tokens to SubTuna Pages
+
+### Current Behavior
+- `AgentTokenCard.tsx` links to `/launchpad/${token.mintAddress}` (trade page)
+- `AgentTopTokens.tsx` also links to `/launchpad/${token.mintAddress}`
+
+### Solution
+Update both components to link to `/t/${token.ticker}` (SubTuna community page):
+
+**Files to modify:**
+- `src/components/agents/AgentTokenCard.tsx` - Change all 3 links (image, ticker, Trade button) to `/t/${token.ticker}`
+- `src/components/agents/AgentTopTokens.tsx` - Change link to `/t/${token.ticker}`
+
+---
+
+## Issue 2: Total Volume Showing $0
+
+### Root Cause
+The `agent-stats` edge function calculates `totalVolume` from `fun_tokens.volume_24h_sol`, which is always 0 for these tokens.
+
+### Solution
+Calculate total volume from actual fee claim data. The trading fee is 1%, so:
+- `Total Volume = Total Fees Claimed / 0.01`
+
+From the database, `fun_fee_claims` shows ~1.83 SOL in total fees claimed for agent tokens, which means ~183 SOL in actual trading volume.
+
+**File to modify:**
+- `supabase/functions/agent-stats/index.ts` - Add query to sum `fun_fee_claims.claimed_sol` and calculate volume
+
+---
+
+## Technical Implementation
+
+### Changes to AgentTokenCard.tsx (lines 62, 82, 126)
+```tsx
+// Change from:
+<Link to={`/launchpad/${token.mintAddress}`}>
+
+// Change to:
+<Link to={`/t/${token.ticker}`}>
 ```
-This picks a random topic without:
-1. Checking what topics were recently used
-2. Verifying against existing post titles
-3. Providing the AI with context about past posts to avoid repetition
 
-## Solution
+### Changes to AgentTopTokens.tsx (line 76)
+```tsx
+// Change from:
+to={`/launchpad/${token.mintAddress}`}
 
-### 1. Fetch Recent Posts Before Generation
-Before generating content, query the last 10 posts from this agent in this SubTuna to get their titles/content.
+// Change to:
+to={`/t/${token.ticker}`}
+```
 
-### 2. Pass Recent Titles to AI Prompt
-Include a list of recent post titles in the system prompt with explicit instructions to NOT repeat similar themes or phrases.
+### Changes to agent-stats/index.ts
 
-### 3. Implement Topic Exclusion for SystemTUNA
-For the `TUNA_TOPICS` array:
-- Query recent `agent_post_history` entries
-- Extract which topics were used recently (last 24-48 hours)
-- Filter out used topics before random selection
-- Only fall back to full list if all topics exhausted
+Add a query to calculate total volume from fee claims:
 
-### 4. Add Title Similarity Check Before Insert
-Before inserting a new post, check if a post with a very similar title (first 40 chars) already exists in the last 24 hours.
+```typescript
+// After fetching agent tokens, get total fees claimed
+const { data: feeClaims } = await supabase
+  .from("fun_fee_claims")
+  .select("claimed_sol")
+  .in("fun_token_id", agentTokenIds);
+
+const totalFeesClaimed = feeClaims?.reduce(
+  (sum, fc) => sum + Number(fc.claimed_sol || 0), 0
+) || 0;
+
+// Volume = Fees / 1% fee rate
+const totalVolume = totalFeesClaimed / 0.01;
+```
 
 ---
 
 ## Files to Modify
-
-### `supabase/functions/agent-auto-engage/index.ts`
-
-**Change 1: Add helper function to fetch recent post titles**
-```typescript
-async function getRecentAgentPostTitles(
-  supabase: AnySupabase,
-  agentId: string,
-  subtunaId: string,
-  limit: number = 10
-): Promise<string[]> {
-  const { data } = await supabase
-    .from("subtuna_posts")
-    .select("title")
-    .eq("author_agent_id", agentId)
-    .eq("subtuna_id", subtunaId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  
-  return data?.map((p: { title: string }) => p.title) || [];
-}
-```
-
-**Change 2: Modify topic selection for SystemTUNA to exclude recently used**
-```typescript
-async function pickUnusedTopic(
-  supabase: AnySupabase,
-  agentId: string
-): Promise<string> {
-  // Get recent content from agent_post_history (last 48 hours)
-  const { data: recentHistory } = await supabase
-    .from("agent_post_history")
-    .select("content")
-    .eq("agent_id", agentId)
-    .gte("posted_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
-    .limit(20);
-
-  const recentContent = recentHistory?.map((h: { content: string }) => 
-    h.content.toLowerCase()
-  ) || [];
-
-  // Filter out topics that appear in recent content
-  const availableTopics = TUNA_TOPICS.filter(topic => {
-    const topicLower = topic.toLowerCase();
-    return !recentContent.some(content => content.includes(topicLower));
-  });
-
-  // Use available topics, or fall back to full list if all used
-  const topicPool = availableTopics.length > 0 ? availableTopics : TUNA_TOPICS;
-  return topicPool[Math.floor(Math.random() * topicPool.length)];
-}
-```
-
-**Change 3: Update generatePost function signature to accept recent titles**
-Add `recentTitles: string[]` parameter and include in AI prompt:
-```typescript
-async function generatePost(
-  supabase: AnySupabase,
-  agentId: string,
-  agentName: string,
-  ticker: string,
-  contentType: ContentType,
-  writingStyle: StyleFingerprint | null,
-  lovableApiKey: string,
-  recentTitles: string[] = []  // NEW PARAMETER
-): Promise<string | null> {
-```
-
-**Change 4: Add deduplication instructions to AI prompt**
-In the system prompt, add:
-```typescript
-const dedupInstructions = recentTitles.length > 0 
-  ? `\n\nCRITICAL - DO NOT REPEAT THESE RECENT THEMES:
-${recentTitles.slice(0, 5).map(t => `- "${t.slice(0, 60)}"`).join("\n")}
-Write about something COMPLETELY DIFFERENT.`
-  : "";
-```
-
-**Change 5: Update the call site in processAgent**
-```typescript
-// Fetch recent titles before generating
-const recentTitles = await getRecentAgentPostTitles(
-  supabase, 
-  agent.id, 
-  primarySubtuna.id
-);
-
-// Use async topic picker for SystemTUNA
-const selectedTopic = agent.id === SYSTEM_TUNA_ID 
-  ? await pickUnusedTopic(supabase, agent.id)
-  : null;
-
-const postContent = await generatePost(
-  supabase,
-  agent.id,
-  agent.name,
-  ticker,
-  contentType,
-  agent.writing_style,
-  lovableApiKey,
-  recentTitles  // Pass recent titles
-);
-```
-
-**Change 6: Add title similarity check before insert**
-```typescript
-// Check for similar title in last 24h
-const titlePrefix = postContent.slice(0, 40).toLowerCase();
-const { data: similarPost } = await supabase
-  .from("subtuna_posts")
-  .select("id")
-  .eq("subtuna_id", primarySubtuna.id)
-  .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-  .ilike("title", `${titlePrefix}%`)
-  .limit(1)
-  .maybeSingle();
-
-if (similarPost) {
-  console.log(`[${agent.name}] Skipping duplicate-looking post: ${titlePrefix}...`);
-  // Skip this post
-  continue; // or return early
-}
-```
+1. `src/components/agents/AgentTokenCard.tsx` - Update 3 links to use `/t/{ticker}`
+2. `src/components/agents/AgentTopTokens.tsx` - Update link to use `/t/{ticker}`  
+3. `supabase/functions/agent-stats/index.ts` - Calculate volume from fee claims
 
 ---
 
-## Summary of Changes
-
-| Change | Purpose |
-|--------|---------|
-| `getRecentAgentPostTitles()` | Fetch last 10 titles from this agent |
-| `pickUnusedTopic()` | Filter out recently-used topics from TUNA_TOPICS |
-| AI prompt update | Explicitly tell AI not to repeat recent themes |
-| Title similarity check | Block posts with near-identical title prefixes |
-
-## Expected Result
-- No more duplicate "Trust the process, verify the code" style posts
-- Each post will have unique content inspired by different topics
-- AI explicitly avoids themes it recently covered
-- Safety net blocks posts if AI still generates similar content
+## Expected Results
+- Clicking any agent token navigates to `/t/ATUN` or `/t/TUNAKHAMU` (SubTuna community)
+- Total Volume stat shows actual trading volume (~$27K based on ~183 SOL at current prices)
