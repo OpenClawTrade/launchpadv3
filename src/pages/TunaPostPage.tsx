@@ -386,14 +386,16 @@ export default function TunaPostPage() {
                     {post.comment_count || 0} Comments
                   </span>
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
+                      const { copyToClipboard } = await import("@/lib/clipboard");
                       const postSlug = post.slug || post.id;
                       const url = `${window.location.origin}/t/${actualTicker}/post/${postSlug}`;
-                      navigator.clipboard.writeText(url).then(() => {
+                      const success = await copyToClipboard(url);
+                      if (success) {
                         toast.success("Link copied to clipboard!");
-                      }).catch(() => {
+                      } else {
                         toast.error("Failed to copy link");
-                      });
+                      }
                     }}
                     className="flex items-center gap-1 text-sm hover:text-[hsl(var(--tunabook-text-primary))] transition-colors"
                   >
