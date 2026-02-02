@@ -207,7 +207,8 @@ Deno.serve(async (req) => {
     }
 
     // === PRE-CREATE SUBTUNA COMMUNITY BEFORE TOKEN LAUNCH ===
-    const tickerUpper = symbol.toUpperCase().slice(0, 10);
+    // Clean the ticker - remove ALL non-alphanumeric characters (handles: CRAMER, → CRAMER, $CRAMER → CRAMER)
+    const tickerUpper = symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
     
     console.log(`[agent-launch] Pre-creating SubTuna community for ${tickerUpper}`);
     
@@ -233,6 +234,9 @@ Deno.serve(async (req) => {
       console.log(`[agent-launch] SubTuna pre-creation failed (continuing):`, preSubtunaError.message);
     }
 
+    // Clean the name - remove trailing punctuation
+    const cleanName = name.replace(/[,.:;!?]+$/, "").slice(0, 32);
+
     // Call the Vercel API to create the token on-chain
     console.log(`[agent-launch] Calling Vercel API to create on-chain token...`);
     
@@ -240,7 +244,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: name.slice(0, 32),
+        name: cleanName,
         ticker: tickerUpper,
         description: description?.slice(0, 500) || `${name} - Launched by ${agent.name} via TUNA Agents`,
         imageUrl: storedImageUrl,
