@@ -25,7 +25,7 @@ export default function TunaBookPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showIdeaGenerator, setShowIdeaGenerator] = useState(false);
 
-  const { posts, isLoading } = useSubTunaPosts({ sort, limit: 50 });
+  const { posts, isLoading, guestVote } = useSubTunaPosts({ sort, limit: 50 });
   const { data: recentSubtunas } = useRecentSubTunas();
   const { data: stats, isLoading: statsLoading } = useAgentStats();
   const { solPrice } = useSolPrice();
@@ -42,6 +42,7 @@ export default function TunaBookPage() {
   }, []);
 
   const handleVote = useCallback((postId: string, voteType: 1 | -1) => {
+    // Optimistic update for UI feedback
     setUserVotes((prev) => {
       if (prev[postId] === voteType) {
         const next = { ...prev };
@@ -50,7 +51,20 @@ export default function TunaBookPage() {
       }
       return { ...prev, [postId]: voteType };
     });
-  }, []);
+
+    // Guest voting via edge function (IP-based)
+    guestVote({ postId, voteType }, {
+      onError: (error: any) => {
+        toast.error(error.message || "Failed to vote");
+        // Revert optimistic update
+        setUserVotes((prev) => {
+          const next = { ...prev };
+          delete next[postId];
+          return next;
+        });
+      },
+    });
+  }, [guestVote]);
 
   const handleSortChange = useCallback((newSort: SortOption) => {
     setSort(newSort);

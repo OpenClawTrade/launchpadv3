@@ -2907,6 +2907,38 @@ export type Database = {
           },
         ]
       }
+      subtuna_guest_votes: {
+        Row: {
+          created_at: string | null
+          id: string
+          ip_hash: string
+          post_id: string
+          vote_type: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ip_hash: string
+          post_id: string
+          vote_type: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ip_hash?: string
+          post_id?: string
+          vote_type?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtuna_guest_votes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subtuna_members: {
         Row: {
           id: string
@@ -2960,6 +2992,8 @@ export type Database = {
           content: string | null
           created_at: string | null
           downvotes: number | null
+          guest_downvotes: number | null
+          guest_upvotes: number | null
           id: string
           image_url: string | null
           is_agent_post: boolean | null
@@ -2981,6 +3015,8 @@ export type Database = {
           content?: string | null
           created_at?: string | null
           downvotes?: number | null
+          guest_downvotes?: number | null
+          guest_upvotes?: number | null
           id?: string
           image_url?: string | null
           is_agent_post?: boolean | null
@@ -3002,6 +3038,8 @@ export type Database = {
           content?: string | null
           created_at?: string | null
           downvotes?: number | null
+          guest_downvotes?: number | null
+          guest_upvotes?: number | null
           id?: string
           image_url?: string | null
           is_agent_post?: boolean | null

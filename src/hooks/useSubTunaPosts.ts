@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type SortOption = "hot" | "new" | "top" | "rising";
+export type SortOption = "hot" | "new" | "top" | "rising" | "discussed";
 
 interface UseSubTunaPostsOptions {
   subtunaId?: string;
@@ -31,6 +31,8 @@ export function useSubTunaPosts({
           post_type,
           upvotes,
           downvotes,
+          guest_upvotes,
+          guest_downvotes,
           comment_count,
           is_pinned,
           is_agent_post,
@@ -70,13 +72,24 @@ export function useSubTunaPosts({
           query = query.order("created_at", { ascending: false });
           break;
         case "top":
-          query = query.order("score", { ascending: false });
+          // Top = highest total votes (user + guest upvotes)
+          // We'll sort by guest_upvotes primarily since that's the new voting mechanism
+          query = query
+            .order("guest_upvotes", { ascending: false })
+            .order("upvotes", { ascending: false })
+            .order("created_at", { ascending: false });
           break;
         case "rising":
           // Rising = high score relative to age
           query = query
-            .order("score", { ascending: false })
+            .order("guest_upvotes", { ascending: false })
             .gte("created_at", new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString());
+          break;
+        case "discussed":
+          // Most commented posts
+          query = query
+            .order("comment_count", { ascending: false })
+            .order("created_at", { ascending: false });
           break;
         case "hot":
         default:
@@ -85,11 +98,11 @@ export function useSubTunaPosts({
           if (subtunaId) {
             query = query
               .order("is_pinned", { ascending: false })
-              .order("score", { ascending: false })
+              .order("guest_upvotes", { ascending: false })
               .order("created_at", { ascending: false });
           } else {
             query = query
-              .order("score", { ascending: false })
+              .order("guest_upvotes", { ascending: false })
               .order("created_at", { ascending: false });
           }
           break;
@@ -99,38 +112,46 @@ export function useSubTunaPosts({
       if (error) throw error;
 
       // Transform data to match expected shape
-      return (data || []).map((post: any) => ({
-        id: post.id,
-        title: post.title,
-        content: post.content,
-        imageUrl: post.image_url,
-        postType: post.post_type,
-        upvotes: post.upvotes,
-        downvotes: post.downvotes,
-        commentCount: post.comment_count,
-        isPinned: post.is_pinned,
-        isAgentPost: post.is_agent_post,
-        createdAt: post.created_at,
-        slug: post.slug,
-        author: post.author ? {
-          id: post.author.id,
-          username: post.author.username,
-          avatarUrl: post.author.avatar_url,
-        } : undefined,
-        agent: post.agent ? {
-          id: post.agent.id,
-          name: post.agent.name,
-        } : undefined,
-        subtuna: {
-          name: post.subtuna?.name || "",
-          ticker: post.subtuna?.ticker || post.subtuna?.fun_tokens?.ticker || ticker || "",
-          iconUrl: post.subtuna?.icon_url || post.subtuna?.fun_tokens?.image_url,
-        },
-      }));
+      // deno-lint-ignore no-explicit-any
+      return (data || []).map((post: any) => {
+        // Calculate total votes (user votes + guest votes)
+        const totalUpvotes = (post.upvotes || 0) + (post.guest_upvotes || 0);
+        const totalDownvotes = (post.downvotes || 0) + (post.guest_downvotes || 0);
+        
+        return {
+          id: post.id,
+          title: post.title,
+          content: post.content,
+          imageUrl: post.image_url,
+          postType: post.post_type,
+          upvotes: totalUpvotes,
+          downvotes: totalDownvotes,
+          commentCount: post.comment_count,
+          isPinned: post.is_pinned,
+          isAgentPost: post.is_agent_post,
+          createdAt: post.created_at,
+          slug: post.slug,
+          author: post.author ? {
+            id: post.author.id,
+            username: post.author.username,
+            avatarUrl: post.author.avatar_url,
+          } : undefined,
+          agent: post.agent ? {
+            id: post.agent.id,
+            name: post.agent.name,
+          } : undefined,
+          subtuna: {
+            name: post.subtuna?.name || "",
+            ticker: post.subtuna?.ticker || post.subtuna?.fun_tokens?.ticker || ticker || "",
+            iconUrl: post.subtuna?.icon_url || post.subtuna?.fun_tokens?.image_url,
+          },
+        };
+      });
     },
     enabled: true,
   });
 
+  // Authenticated user vote mutation
   const voteMutation = useMutation({
     mutationFn: async ({
       postId,
@@ -153,16 +174,6 @@ export function useSubTunaPosts({
         if (existingVote.vote_type === voteType) {
           // Remove vote
           await supabase.from("subtuna_votes").delete().eq("id", existingVote.id);
-          
-          // Update post vote counts directly
-          const upvoteDelta = voteType === 1 ? -1 : 0;
-          const downvoteDelta = voteType === -1 ? -1 : 0;
-          await supabase
-            .from("subtuna_posts")
-            .update({
-              upvotes: supabase.rpc ? undefined : undefined, // Will be handled by trigger
-            })
-            .eq("id", postId);
         } else {
           // Change vote
           await supabase
@@ -184,11 +195,46 @@ export function useSubTunaPosts({
     },
   });
 
+  // Guest vote mutation (via edge function)
+  const guestVoteMutation = useMutation({
+    mutationFn: async ({
+      postId,
+      voteType,
+    }: {
+      postId: string;
+      voteType: 1 | -1;
+    }) => {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/guest-vote`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ postId, voteType }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to vote");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subtuna-posts"] });
+    },
+  });
+
   return {
     posts: postsQuery.data || [],
     isLoading: postsQuery.isLoading,
     error: postsQuery.error,
     vote: voteMutation.mutate,
     isVoting: voteMutation.isPending,
+    guestVote: guestVoteMutation.mutate,
+    isGuestVoting: guestVoteMutation.isPending,
   };
 }

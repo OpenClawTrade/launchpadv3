@@ -28,7 +28,7 @@ export default function SubTunaPage() {
 
   const { user, isAuthenticated, profileId, login } = useAuth();
   const { data: subtuna, isLoading: isLoadingSubtuna } = useSubTuna(ticker);
-  const { posts, isLoading: isLoadingPosts, vote } = useSubTunaPosts({
+  const { posts, isLoading: isLoadingPosts, vote, guestVote } = useSubTunaPosts({
     subtunaId: subtuna?.id,
     ticker,
     sort,
@@ -78,17 +78,7 @@ export default function SubTunaPage() {
   useSubTunaRealtime({ subtunaId: subtuna?.id, enabled: !!subtuna?.id });
 
   const handleVote = useCallback((postId: string, voteType: 1 | -1) => {
-    if (!isAuthenticated || !profileId) {
-      toast.error("Please login to vote", {
-        action: {
-          label: "Login",
-          onClick: login,
-        },
-      });
-      return;
-    }
-
-    // Optimistic update
+    // Optimistic update for UI feedback
     setUserVotes((prev) => {
       if (prev[postId] === voteType) {
         const next = { ...prev };
@@ -98,9 +88,24 @@ export default function SubTunaPage() {
       return { ...prev, [postId]: voteType };
     });
 
-    // Persist to database
-    vote({ postId, voteType, userId: profileId });
-  }, [isAuthenticated, profileId, login, vote]);
+    // Authenticated users use regular vote, guests use guest vote
+    if (isAuthenticated && profileId) {
+      vote({ postId, voteType, userId: profileId });
+    } else {
+      // Guest voting via edge function (IP-based)
+      guestVote({ postId, voteType }, {
+        onError: (error: any) => {
+          toast.error(error.message || "Failed to vote");
+          // Revert optimistic update
+          setUserVotes((prev) => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
+        },
+      });
+    }
+  }, [isAuthenticated, profileId, vote, guestVote]);
 
   const handleJoinLeave = useCallback(() => {
     if (!isAuthenticated) {

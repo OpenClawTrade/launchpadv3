@@ -4,7 +4,7 @@ import { TunaPostCard } from "./TunaPostCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-type SortOption = "hot" | "new" | "top" | "rising";
+type SortOption = "hot" | "new" | "top" | "rising" | "discussed";
 
 interface Post {
   id: string;
@@ -48,6 +48,7 @@ const sortOptions: { value: SortOption; label: string; emoji: string; colorClass
   { value: "rising", label: "Random", emoji: "🎯", colorClass: "random" },
   { value: "new", label: "New", emoji: "🆕", colorClass: "new" },
   { value: "top", label: "Top", emoji: "🔥", colorClass: "top" },
+  { value: "discussed", label: "Discussed", emoji: "💬", colorClass: "discussed" },
 ];
 
 export function TunaBookFeed({
@@ -89,15 +90,6 @@ export function TunaBookFeed({
               <span>{label}</span>
             </button>
           ))}
-          <button
-            className={cn(
-              "tunabook-sort-tab discussed",
-              activeSort === "top" && "active"
-            )}
-          >
-            <span>💬</span>
-            <span>Discussed</span>
-          </button>
         </div>
       </div>
 
