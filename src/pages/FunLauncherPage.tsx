@@ -14,6 +14,7 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions } from "@/hooks/useFunFeeData";
 import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAgentStats } from "@/hooks/useAgentStats";
 import { useTokenPromotions } from "@/hooks/useTokenPromotions";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { useChainRoute } from "@/hooks/useChainRoute";
@@ -94,6 +95,7 @@ export default function FunLauncherPage() {
   const { data: claimsSummary } = useFunFeeClaimsSummary();
   const { data: distributions = [] } = useFunDistributions();
   const { data: topPerformers = [], isLoading: topPerformersLoading } = useFunTopPerformers(10);
+  const { data: agentStats } = useAgentStats();
 
   // Launch result modal
   const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
@@ -308,6 +310,7 @@ export default function FunLauncherPage() {
         {isSolana && (
           <StatsCards
             totalTokens={tokens.length}
+            totalAgents={agentStats?.totalAgents ?? 0}
             totalClaimed={totalClaimed}
             totalPayouts={totalPayouts}
             solPrice={solPrice}
