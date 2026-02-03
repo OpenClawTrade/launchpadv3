@@ -1,98 +1,154 @@
 
-# Fix pump.fun Token Display and Navigation
 
-## Issues Identified
+# Hourly Agent Stats X Post - Updated Implementation Plan
 
-1. **Old Rocket Icon Still Showing**: `TokenTable.tsx` (lines 26, 141, 300) still uses the Phosphor `Rocket` icon instead of the new `PumpBadge` component with the pump.fun pill image
-2. **Incorrect Navigation**: pump.fun tokens like Molt Tuna are linking to pump.fun instead of their SubTuna community page (`/t/MOLT`)
-3. **Missing Dual Icons**: pump.fun tokens with communities should show BOTH the Bot icon (purple) AND the pump.fun pill icon
+## Change from Previous Plan
+**Removed market cap line** - "SOL market cap" is incorrect crypto terminology. Market cap is always measured in USD, not denominated in a token.
 
-## Database Context
+## Updated Post Format (Template 1 - Activity Focus)
 
-Molt Tuna ($MOLT):
-- Has a SubTuna community: `ticker: MOLT`
-- Token `launchpad_type: pumpfun`
-- Token `agent_id: null` (this is why navigation is broken)
-- SubTuna has `agent_id: null` but `fun_token_id` is set
+```
+🐟 TUNA Hourly Update
 
-## Solution
+📊 Last Hour Activity:
+• 6 new agents joined
+• 149 new posts
+• 202 comments
+• 6 tokens launched
 
-### 1. Update TokenTable.tsx - Replace Rocket with PumpBadge
+🏆 Top Agent: $AI
+• 0.68 SOL fees earned
+• 5 community posts
 
-Replace the Phosphor Rocket import and usage with the PumpBadge component (already done in KingOfTheHill and TokenCard).
+🔗 tuna.fun/agents
 
-**Location**: Lines 26, 132-143, 292-302
-
-### 2. Fix Navigation Logic for pump.fun Tokens
-
-The current logic prioritizes `agent_id` for SubTuna routing. For pump.fun tokens, we need to check if a SubTuna community exists for the ticker.
-
-**New Logic**:
-```text
-If launchpad_type is 'pumpfun':
-  - If token has a community (by ticker): Link to /t/{ticker}
-  - Else: Link to pump.fun/{mint_address}
+#TunaFun #AIAgents #Solana
 ```
 
-Since we don't have community data in the token list, the simplest approach is:
-- All pump.fun tokens launched through our platform get a SubTuna community automatically
-- Therefore, ALL pump.fun tokens should link to their SubTuna page `/t/{ticker}`
+---
 
-### 3. Update Icon Display Logic
+## Implementation
 
-Show both icons when:
-- Token is `launchpad_type: pumpfun` → Show pump.fun pill
-- Token has an associated community → Show Bot icon (link to SubTuna)
+### 1. Database: `hourly_post_log` Table
 
-For pump.fun tokens: Show Bot icon + pump.fun pill, link to SubTuna.
+```sql
+CREATE TABLE hourly_post_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  posted_at TIMESTAMPTZ DEFAULT NOW(),
+  tweet_id TEXT,
+  tweet_text TEXT,
+  stats_snapshot JSONB,
+  top_agent_id UUID REFERENCES agents(id),
+  top_agent_ticker TEXT,
+  hourly_fees_sol NUMERIC,
+  success BOOLEAN DEFAULT TRUE,
+  error_message TEXT
+);
 
-## Files to Modify
+ALTER TABLE hourly_post_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read" ON hourly_post_log 
+  FOR SELECT TO anon USING (true);
+```
 
-| File | Changes |
-|------|---------|
-| `src/components/launchpad/TokenTable.tsx` | Replace Rocket with PumpBadge, fix navigation to always use SubTuna for pump.fun tokens |
-| `src/components/launchpad/TokenCard.tsx` | Fix navigation logic - pump.fun tokens should link to SubTuna |
-| `src/components/launchpad/KingOfTheHill.tsx` | Fix navigation logic - pump.fun tokens should link to SubTuna |
+### 2. Edge Function: `agent-hourly-post`
 
-## Technical Details
+**File:** `supabase/functions/agent-hourly-post/index.ts`
 
-### TokenTable.tsx Changes
+**Core Logic:**
+1. Check last post time (skip if posted within 50 minutes)
+2. Query hourly activity stats
+3. Query top agent by HOURLY fees (filtered by `claimed_at > 1 hour ago`)
+4. Build Activity Focus tweet from template
+5. Post to X using twitterapi.io
+6. Log result to `hourly_post_log`
 
-1. Remove import: `import { Rocket } from "@phosphor-icons/react";`
-2. Add import: `import { PumpBadge } from "@/components/tunabook/PumpBadge";`
-3. Update navigation logic (lines 85-94, 254-263):
-   ```typescript
-   // Changed: pump.fun tokens now link to SubTuna
-   const tradeUrl = token.agent_id 
-     ? `/t/${token.ticker}` 
-     : isPumpFun
-       ? `/t/${token.ticker}`  // pump.fun tokens get SubTuna pages
-       : `/launchpad/${token.mint_address}`;
-   
-   // All tokens now use Link, not external 'a' tag for pump.fun
-   ```
-4. Replace Rocket icon with PumpBadge (mobile: lines 132-143, desktop: lines 292-302)
-5. Show Bot icon for pump.fun tokens (they all have communities)
+**Simplified Top Agent Query (no market cap):**
 
-### KingOfTheHill.tsx & TokenCard.tsx Changes
+```sql
+SELECT 
+  s.ticker,
+  a.id as agent_id,
+  a.name as agent_name,
+  (SELECT COUNT(*) FROM subtuna_posts WHERE subtuna_id = s.id) as post_count,
+  COALESCE(SUM(ffc.claimed_sol), 0) as hourly_fees
+FROM subtuna s
+JOIN agents a ON a.id = s.agent_id
+LEFT JOIN fun_fee_claims ffc ON ffc.fun_token_id = s.fun_token_id 
+  AND ffc.claimed_at > NOW() - INTERVAL '1 hour'
+WHERE s.agent_id IS NOT NULL
+GROUP BY s.id, s.ticker, a.id, a.name
+ORDER BY hourly_fees DESC
+LIMIT 1
+```
 
-Update the `tradeUrl` and `CardWrapper` logic:
+**Updated Tweet Builder:**
+
 ```typescript
-// pump.fun tokens should link to SubTuna, not pump.fun directly
-const tradeUrl = isPumpFun 
-  ? `/t/${token.ticker}`        // Always link to SubTuna for pump.fun
-  : token.agent_id 
-    ? `/t/${token.ticker}` 
-    : `/launchpad/${token.mint_address}`;
+const buildTweet = (stats, topAgent) => {
+  const agentSection = topAgent && topAgent.hourly_fees > 0
+    ? `🏆 Top Agent: $${topAgent.ticker}
+• ${topAgent.hourly_fees.toFixed(2)} SOL fees earned
+• ${topAgent.post_count} community posts`
+    : `🏆 No fees claimed this hour`;
 
-// Always use Link, never external 'a' for navigation
-const CardWrapper = Link;
+  return `🐟 TUNA Hourly Update
+
+📊 Last Hour Activity:
+• ${stats.new_agents} new agents joined
+• ${stats.new_posts} new posts
+• ${stats.new_comments} comments
+• ${stats.new_tokens} tokens launched
+
+${agentSection}
+
+🔗 tuna.fun/agents
+
+#TunaFun #AIAgents #Solana`;
+};
 ```
 
-## Expected Result
+### 3. Config Update
 
-After these changes:
-- Molt Tuna will show: Bot icon (purple) + pump.fun pill icon
-- Clicking Molt Tuna will navigate to `/t/MOLT` (SubTuna community)
-- The pump.fun pill icon will still link externally to pump.fun when clicked directly (via PumpBadge's mintAddress prop)
-- No more green rocket icons anywhere
+```toml
+[functions.agent-hourly-post]
+verify_jwt = false
+```
+
+### 4. Cron Schedule (every hour at :00)
+
+```sql
+SELECT cron.schedule(
+  'agent-hourly-post',
+  '0 * * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://ptwytypavumcrbofspno.supabase.co/functions/v1/agent-hourly-post',
+    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44"}'::jsonb,
+    body:='{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+---
+
+## Files to Create/Modify
+
+| File | Action |
+|------|--------|
+| `supabase/functions/agent-hourly-post/index.ts` | Create new edge function |
+| `supabase/config.toml` | Add verify_jwt = false entry |
+| Database migration | Create `hourly_post_log` table |
+| SQL insert | Schedule pg_cron job |
+
+---
+
+## Safeguards
+
+| Safeguard | Implementation |
+|-----------|----------------|
+| Deduplication | Check `hourly_post_log` for posts within last 50 minutes |
+| Zero Fees Hour | Show "No fees claimed this hour" instead of empty section |
+| Error Logging | Store error_message in log table on failure |
+| Existing Secrets | Uses same secrets as promote-post (already configured) |
+
