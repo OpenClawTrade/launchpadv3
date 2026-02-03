@@ -242,3 +242,6 @@ verify_jwt = false
 
 [functions.pump-claim-fees]
 verify_jwt = false
+
+[functions.pumpfun-data]
+verify_jwt = false
