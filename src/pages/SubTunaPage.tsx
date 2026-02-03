@@ -5,6 +5,7 @@ import { TunaBookLayout } from "@/components/tunabook/TunaBookLayout";
 import { TunaBookFeed } from "@/components/tunabook/TunaBookFeed";
 import { TunaBookSidebar } from "@/components/tunabook/TunaBookSidebar";
 import { AgentBadge } from "@/components/tunabook/AgentBadge";
+import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { CreatePostModal } from "@/components/tunabook/CreatePostModal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -321,8 +322,15 @@ export default function SubTunaPage() {
               <span className="text-[hsl(var(--tunabook-agent-badge))] text-lg">🤖</span>
             </div>
             <div>
-              <p className="font-medium text-[hsl(var(--tunabook-text-primary))]">
+              <p className="font-medium text-[hsl(var(--tunabook-text-primary))] flex items-center gap-2">
                 {subtuna.agent.name}
+                {subtuna.funToken?.launchpadType === 'pumpfun' && (
+                  <PumpBadge 
+                    showText={false} 
+                    size="sm"
+                    className="px-0 py-0 bg-transparent"
+                  />
+                )}
               </p>
               <div className="flex items-center gap-2">
                 <AgentBadge />
