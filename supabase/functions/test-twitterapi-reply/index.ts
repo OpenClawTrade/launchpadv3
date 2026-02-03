@@ -81,184 +81,196 @@ const generateTotpCode = async (secretBase32: string, digits = 6, stepSec = 30):
   return String(binCode % mod).padStart(digits, "0");
 };
 
+interface TestResult {
+  name: string;
+  status: number;
+  success: boolean;
+  response: any;
+  tweet_id?: string;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { tweet_id, skip_login } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { tweet_id } = body;
     
-    if (!tweet_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: "tweet_id required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const twitterApiIoKey = Deno.env.get("TWITTERAPI_IO_KEY");
     const xAccountUsername = Deno.env.get("X_ACCOUNT_USERNAME");
     const xAccountEmail = Deno.env.get("X_ACCOUNT_EMAIL");
     const xAccountPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
     const xTotpSecretRaw = Deno.env.get("X_TOTP_SECRET");
     const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
-    const totpCode = xTotpSecret ? await generateTotpCode(xTotpSecret) : undefined;
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
-    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
-    const xCt0Token = Deno.env.get("X_CT0_TOKEN");
     
-    if (!twitterApiIoKey || !proxyUrl) {
+    if (!twitterApiIoKey || !proxyUrl || !xAccountUsername || !xAccountEmail || !xAccountPassword) {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing TWITTERAPI_IO_KEY or TWITTER_PROXY" }),
+        JSON.stringify({ 
+          success: false, 
+          error: "Missing required credentials",
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const testText = `🐟 TUNA test ${new Date().toISOString().slice(11, 19)} UTC`;
-    const results: Record<string, any> = {};
-    let loginCookies: string | null = null;
-
-    // Step 1: Login (unless skipped)
-    if (!skip_login) {
-      console.log("[test] Logging in with username:", xAccountUsername);
-      const loginBody: Record<string, string> = {
-        user_name: xAccountUsername!,
-        email: xAccountEmail!,
-        password: xAccountPassword!,
-        proxy: proxyUrl,
-      };
-      if (totpCode) {
-        loginBody.totp_code = totpCode;
+    const results: Record<string, any> = {
+      config: {
+        username: xAccountUsername,
+        has_totp: !!xTotpSecret,
+        proxy_set: !!proxyUrl,
       }
+    };
 
-      const loginRes = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
+    const uniqueId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const testText = `🐟 TUNA test ${uniqueId}`;
+    const tweetTests: TestResult[] = [];
+
+    // ========== TEST 1: V2 Login + create_tweet_v2 ==========
+    console.log("[test] === TEST 1: V2 Login + create_tweet_v2 ===");
+    const totpCodeV2 = xTotpSecret ? await generateTotpCode(xTotpSecret) : undefined;
+    
+    const loginV2Body: Record<string, string> = {
+      user_name: xAccountUsername,
+      email: xAccountEmail,
+      password: xAccountPassword,
+      proxy: proxyUrl,
+    };
+    if (totpCodeV2) loginV2Body.totp_code = totpCodeV2;
+
+    const loginV2Res = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
+      method: "POST",
+      headers: { "X-API-Key": twitterApiIoKey, "Content-Type": "application/json" },
+      body: JSON.stringify(loginV2Body),
+    });
+    const loginV2Data = safeJsonParse(await loginV2Res.text());
+    const cookiesV2 = loginV2Data?.login_cookies;
+    
+    results.login_v2 = {
+      status: loginV2Res.status,
+      success: !!cookiesV2,
+      msg: loginV2Data?.message,
+    };
+
+    if (cookiesV2) {
+      console.log("[test] V2 login success, trying create_tweet_v2...");
+      const tweetV2Res = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
         method: "POST",
-        headers: {
-          "X-API-Key": twitterApiIoKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(loginBody),
+        headers: { "X-API-Key": twitterApiIoKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          login_cookies: cookiesV2,
+          tweet_text: testText,
+          proxy: proxyUrl,
+        }),
       });
-
-      const loginText = await loginRes.text();
-      const loginData = safeJsonParse(loginText);
-      results.login = {
-        status: loginRes.status,
-        success: loginData?.status === "success",
-        has_cookies: !!loginData?.login_cookies,
-      };
-
-      loginCookies = loginData?.login_cookies;
-      if (!loginCookies) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Login failed - no cookies returned", results, loginData }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      const tweetV2Text = await tweetV2Res.text();
+      const tweetV2Data = safeJsonParse(tweetV2Text);
+      console.log("[test] create_tweet_v2 response:", tweetV2Text.slice(0, 300));
+      
+      const tweetId = tweetV2Data?.tweet_id || tweetV2Data?.data?.rest_id;
+      tweetTests.push({
+        name: "V2: login_v2 + create_tweet_v2",
+        status: tweetV2Res.status,
+        success: tweetV2Data?.status === "success" && !!tweetId,
+        response: tweetV2Data,
+        tweet_id: tweetId,
+      });
     }
 
-    // Comprehensive endpoint test - test ALL variations
-    const endpoints = [
-      // Group 1: create_tweet_v2 variations
-      {
-        name: "create_tweet_v2 + tweet_text + reply_to_tweet_id",
-        url: "/twitter/create_tweet_v2",
-        body: { tweet_text: testText, reply_to_tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
-      },
-      {
-        name: "create_tweet_v2 + tweet_text + in_reply_to_tweet_id",
-        url: "/twitter/create_tweet_v2",
-        body: { tweet_text: testText, in_reply_to_tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
-      },
-      {
-        name: "create_tweet_v2 + tweet_text + reply object",
-        url: "/twitter/create_tweet_v2",
-        body: { tweet_text: testText, reply: { in_reply_to_tweet_id: tweet_id }, login_cookies: loginCookies, proxy: proxyUrl },
-      },
-      
-      // Group 2: reply_tweet endpoint (if exists)
-      {
-        name: "reply_tweet",
-        url: "/twitter/reply_tweet",
-        body: { tweet_text: testText, in_reply_to_tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
-      },
-      
-      // Group 3: tweet_reply endpoint (if exists)
-      {
-        name: "tweet_reply",
-        url: "/twitter/tweet_reply",
-        body: { text: testText, tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
-      },
-      
-      // Group 4: post_reply endpoint (if exists)
-      {
-        name: "post_reply",
-        url: "/twitter/post_reply",
-        body: { text: testText, reply_to: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
-      },
-      
-      // Group 5: Using tweets/create for reply
-      {
-        name: "tweets/create + reply_to_tweet_id",
-        url: "/twitter/tweets/create",
-        body: { text: testText, reply_to_tweet_id: tweet_id, login_cookies: loginCookies, proxy: proxyUrl },
-      },
-    ];
+    // ========== TEST 2: V3 Login + send_tweet_v3 ==========
+    console.log("[test] === TEST 2: V3 Login + send_tweet_v3 ===");
+    // V3 needs fresh TOTP code (time may have passed)
+    const totpCodeV3 = xTotpSecret ? await generateTotpCode(xTotpSecret) : undefined;
+    
+    const loginV3Body: Record<string, string> = {
+      user_name: xAccountUsername,
+      email: xAccountEmail,
+      password: xAccountPassword,
+      proxy: proxyUrl,
+    };
+    if (totpCodeV3) loginV3Body.totp_code = totpCodeV3;
 
-    let foundWorking = false;
+    const loginV3Res = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v3`, {
+      method: "POST",
+      headers: { "X-API-Key": twitterApiIoKey, "Content-Type": "application/json" },
+      body: JSON.stringify(loginV3Body),
+    });
+    const loginV3Text = await loginV3Res.text();
+    const loginV3Data = safeJsonParse(loginV3Text);
+    console.log("[test] V3 login response:", loginV3Text.slice(0, 500));
+    
+    const cookiesV3 = loginV3Data?.login_cookies || loginV3Data?.cookies;
+    
+    results.login_v3 = {
+      status: loginV3Res.status,
+      success: !!cookiesV3 || loginV3Data?.status === "success",
+      msg: loginV3Data?.message || loginV3Data?.msg,
+      has_cookies: !!cookiesV3,
+    };
 
-    for (const ep of endpoints) {
-      if (foundWorking) break;
+    // V3 send_tweet uses user_name, not just cookies
+    console.log("[test] Trying send_tweet_v3 with user_name...");
+    const tweetV3Res = await fetch(`${TWITTERAPI_BASE}/twitter/send_tweet_v3`, {
+      method: "POST",
+      headers: { "X-API-Key": twitterApiIoKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_name: xAccountUsername,
+        tweet_text: testText + " v3",
+        proxy: proxyUrl,
+      }),
+    });
+    const tweetV3Text = await tweetV3Res.text();
+    const tweetV3Data = safeJsonParse(tweetV3Text);
+    console.log("[test] send_tweet_v3 response:", tweetV3Text.slice(0, 500));
+    
+    const tweetIdV3 = tweetV3Data?.tweet_id || tweetV3Data?.data?.rest_id || tweetV3Data?.data?.id;
+    tweetTests.push({
+      name: "V3: send_tweet_v3 (async)",
+      status: tweetV3Res.status,
+      success: tweetV3Data?.status === "success" || !!tweetIdV3,
+      response: tweetV3Data,
+      tweet_id: tweetIdV3,
+    });
+
+    // ========== TEST 3: Check if proxy is the issue - try without proxy ==========
+    // Note: This will likely fail but helps diagnose
+    console.log("[test] === TEST 3: Diagnostic - V2 tweet without proxy (expect fail) ===");
+    if (cookiesV2) {
+      const noProxyRes = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+        method: "POST",
+        headers: { "X-API-Key": twitterApiIoKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          login_cookies: cookiesV2,
+          tweet_text: testText + " noproxy",
+          // No proxy - see what error we get
+        }),
+      });
+      const noProxyText = await noProxyRes.text();
+      const noProxyData = safeJsonParse(noProxyText);
+      console.log("[test] No-proxy response:", noProxyText.slice(0, 300));
       
-      console.log(`[test] Trying ${ep.name}...`);
-      try {
-        const response = await fetch(`${TWITTERAPI_BASE}${ep.url}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": twitterApiIoKey,
-          },
-          body: JSON.stringify(ep.body),
-        });
-
-        const responseText = await response.text();
-        console.log(`[test] ${ep.name}: ${response.status} - ${responseText.slice(0, 200)}`);
-
-        const parsed = safeJsonParse(responseText);
-        results[ep.name] = {
-          status: response.status,
-          response: parsed || responseText.slice(0, 300),
-        };
-
-        // Check for success
-        const replyId = parsed?.tweet_id || parsed?.id || parsed?.data?.id || parsed?.data?.rest_id || 
-                       parsed?.data?.create_tweet?.tweet_results?.result?.rest_id;
-        
-        // Success conditions: 
-        // 1. Got a tweet ID back
-        // 2. Status 200 without error indicators
-        const isError = parsed?.status === "error" || parsed?.success === false;
-        
-        if (response.status === 200 && replyId && !isError) {
-          results.success = true;
-          results.working_endpoint = ep.name;
-          results.reply_id = replyId;
-          foundWorking = true;
-          console.log(`[test] ✅ SUCCESS with ${ep.name}, reply_id: ${replyId}`);
-        }
-      } catch (e) {
-        results[ep.name] = { error: e instanceof Error ? e.message : "Unknown error" };
-      }
+      tweetTests.push({
+        name: "DIAGNOSTIC: V2 without proxy",
+        status: noProxyRes.status,
+        success: false,
+        response: noProxyData,
+      });
     }
+
+    results.tweet_tests = tweetTests;
+
+    // Find working method
+    const workingTest = tweetTests.find(t => t.success);
+    const success = !!workingTest;
 
     return new Response(
       JSON.stringify({
-        success: results.success || false,
-        tweet_id,
-        test_text: testText,
-        working_endpoint: results.working_endpoint || null,
-        reply_id: results.reply_id || null,
-        endpoints_tested: endpoints.length,
+        success,
+        working_method: workingTest?.name || null,
+        tweet_id: workingTest?.tweet_id || null,
+        diagnosis: !success ? getDiagnosis(tweetTests, results) : null,
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -275,3 +287,27 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function getDiagnosis(tests: TestResult[], results: Record<string, any>): string {
+  const v2Response = tests.find(t => t.name.includes("V2"))?.response;
+  const v3Response = tests.find(t => t.name.includes("V3"))?.response;
+  
+  // Check for specific V3 async status
+  if (v3Response?.status === "pending" || v3Response?.task_id) {
+    return "V3_PENDING: V3 request submitted but async - may need polling. Check task_id.";
+  }
+  
+  // Check if it's a proxy issue
+  if (v2Response?.message?.includes("400")) {
+    return `ACCOUNT_OR_PROXY_BLOCKED: Login works but posting fails with 400. This typically means:\n` +
+           `1) The @${results.config?.username} account has a security hold - log into X.com manually\n` +
+           `2) The proxy IP is flagged/datacenter - need residential proxy\n` +
+           `3) Account needs phone/email verification on X.com`;
+  }
+  
+  if (v3Response?.message?.includes("insufficient")) {
+    return "INSUFFICIENT_CREDITS: twitterapi.io account may need credits.";
+  }
+  
+  return "UNKNOWN_FAILURE: Check full response details.";
+}
