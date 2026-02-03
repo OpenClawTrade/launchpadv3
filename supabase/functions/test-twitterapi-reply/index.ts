@@ -210,19 +210,34 @@ Deno.serve(async (req) => {
     
     const cookies = loginData?.login_cookies;
     
+    // Decode base64 cookies to see what's inside
+    let decodedCookies: any = null;
+    let decodedCookiesRaw = "";
+    if (cookies) {
+      try {
+        decodedCookiesRaw = atob(cookies);
+        decodedCookies = safeJsonParse(decodedCookiesRaw);
+      } catch (e) {
+        decodedCookiesRaw = `(decode failed: ${e})`;
+      }
+    }
+    
+    const cookieKeys = decodedCookies ? Object.keys(decodedCookies) : [];
+    const hasAuthToken = cookieKeys.some(k => k.includes("auth") || k === "ct0" || k.includes("twid"));
+    
     results.login = {
       http_status: loginRes.status,
       api_status: loginData?.status,
       api_message: loginData?.message || loginData?.msg,
       has_cookies: !!cookies,
       cookies_length: cookies?.length,
-      // Show raw response for debugging
-      raw_response: loginText.slice(0, 500),
+      decoded_cookie_keys: cookieKeys,
+      has_auth_tokens: hasAuthToken,
+      raw_response: loginText.slice(0, 300),
     };
 
-    // Check if login actually worked
+    // Even if cookies look like guest, try to tweet anyway
     if (!cookies) {
-      // Parse the actual error
       const errorDetail = loginData?.detail || loginData?.message || loginData?.error || loginText.slice(0, 200);
       
       return new Response(
@@ -230,116 +245,16 @@ Deno.serve(async (req) => {
           success: false,
           login_actually_worked: false,
           diagnosis: `LOGIN_FAILED: ${errorDetail}`,
-          possible_causes: [
-            "Wrong password",
-            "Wrong email", 
-            "TOTP code expired or wrong (regenerate from authenticator app)",
-            "Account locked/suspended",
-            "Proxy blocked by X",
-          ],
-          results,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ========== STEP 2: VERIFY the login is real by fetching account info ==========
-    console.log("[test] === STEP 2: Verify session is real ===");
-    
-    // The correct endpoint for twitterapi.io to verify login
-    // Try /oapi/my/info first (returns credits info which proves auth works)
-    let sessionVerified = false;
-    let verifiedUsername: string | null = null;
-    
-    // Check cookies content - if it contains "guest_id" without "auth_token", it's a guest session
-    const cookiesLower = cookies.toLowerCase();
-    const hasGuestId = cookiesLower.includes("guest_id");
-    const hasAuthToken = cookiesLower.includes("auth_token") || cookiesLower.includes("ct0");
-    
-    console.log("[test] Cookie analysis:", { hasGuestId, hasAuthToken, length: cookies.length });
-    
-    results.cookie_analysis = {
-      has_guest_id: hasGuestId,
-      has_auth_token: hasAuthToken,
-      likely_authenticated: hasAuthToken,
-    };
-    
-    // If no auth token in cookies, it's definitely a guest session
-    if (!hasAuthToken) {
-      console.log("[test] ❌ Cookies appear to be guest-only (no auth_token/ct0)");
-      
-      return new Response(
-        JSON.stringify({
-          success: false,
-          login_actually_worked: false,
-          diagnosis: "GUEST_COOKIES: twitterapi.io returned cookies but they lack auth tokens. Login credentials may be incorrect or X is blocking automated login.",
-          possible_causes: [
-            "Password is incorrect",
-            "TOTP code was wrong/expired", 
-            "X detected automation and blocked the login",
-            "Account has pending security verification",
-            "Proxy IP is flagged by X",
-          ],
-          action_required: "Verify password and TOTP secret are correct. Log into X.com manually to clear any security prompts.",
           results,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    // Try to verify with oapi/my/info (correct endpoint per docs)
-    try {
-      const myInfoRes = await fetch(`${TWITTERAPI_BASE}/oapi/my/info`, {
-        method: "GET",
-        headers: { 
-          "X-API-Key": twitterApiIoKey, 
-          "Content-Type": "application/json",
-        },
-      });
-      const myInfoText = await myInfoRes.text();
-      const myInfoData = safeJsonParse(myInfoText);
-      
-      console.log("[test] /oapi/my/info response:", myInfoText.slice(0, 300));
-      
-      results.oapi_my_info = {
-        status: myInfoRes.status,
-        response: myInfoData || myInfoText.slice(0, 300),
-      };
-      
-      // This endpoint returns API credits, not session verification
-      // If we have auth tokens in cookies, assume session is valid
-      if (hasAuthToken) {
-        sessionVerified = true;
-        verifiedUsername = xAccountUsername;
-      }
-    } catch (e) {
-      console.log("[test] /oapi/my/info failed:", e);
-    }
-
-    results.session_verified = sessionVerified;
-    results.verified_username = verifiedUsername;
-
-    if (!sessionVerified) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          login_actually_worked: false,
-          diagnosis: "GHOST_SESSION: twitterapi.io returned cookies but they don't work. The login was NOT successful with X.",
-          possible_causes: [
-            "Proxy is datacenter (not residential) - X blocks these",
-            "Account has security challenge pending",
-            "TOTP code was wrong/expired",
-            "Password is incorrect",
-            "Account is locked/suspended",
-          ],
-          action_required: "Log into X.com manually as @" + xAccountUsername + " and check for any security prompts",
-          results,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ========== STEP 3: Try to tweet ==========
+    // SKIP verification - just try to tweet directly
+    console.log("[test] === STEP 2: Skip verification, try tweet directly ===");
+    
+    // ========== STEP 3: Try to tweet directly ==========
     console.log("[test] === STEP 3: Attempt tweet ===");
     
     const uniqueId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -374,10 +289,12 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: tweetSuccess,
-        login_actually_worked: sessionVerified,
-        verified_username: verifiedUsername,
+        login_actually_worked: tweetSuccess,
+        verified_username: tweetSuccess ? xAccountUsername : null,
         tweet_id: tweetId,
-        diagnosis: tweetSuccess ? null : "Session verified but tweet failed - may be rate limited or write-locked",
+        has_auth_tokens: hasAuthToken,
+        decoded_cookie_keys: cookieKeys,
+        diagnosis: tweetSuccess ? null : (tweetData?.message || tweetData?.msg || "Tweet failed - check raw response"),
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
