@@ -142,11 +142,38 @@ Deno.serve(async (req) => {
     const deployerPublicKey = deployerKeypair.publicKey.toBase58();
     console.log("[pump-agent-launch] Deployer public key:", deployerPublicKey);
 
+    // === CRITICAL: Upload base64 images to storage first ===
+    let storedImageUrl = imageUrl;
+    if (imageUrl.startsWith("data:image")) {
+      console.log("[pump-agent-launch] Uploading base64 image to storage...");
+      try {
+        const base64Data = imageUrl.split(",")[1];
+        const imageBuffer = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+        const fileName = `fun-tokens/${Date.now()}-${ticker.toLowerCase()}.png`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, imageBuffer, { contentType: "image/png", upsert: true });
+
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from("post-images").getPublicUrl(fileName);
+          storedImageUrl = publicUrl;
+          console.log("[pump-agent-launch] ✅ Image uploaded:", storedImageUrl);
+        } else {
+          console.error("[pump-agent-launch] Image upload failed:", uploadError.message);
+          throw new Error("Failed to upload image to storage");
+        }
+      } catch (uploadErr) {
+        console.error("[pump-agent-launch] Image upload error:", uploadErr);
+        throw new Error("Image must be a valid URL, not base64");
+      }
+    }
+
     // Step 1: Upload metadata to pump.fun IPFS
     console.log("[pump-agent-launch] Uploading metadata to pump.fun IPFS...");
     
-    // Fetch the image
-    const imageResponse = await fetch(imageUrl);
+    // Fetch the image (now guaranteed to be a URL, not base64)
+    const imageResponse = await fetch(storedImageUrl);
     if (!imageResponse.ok) {
       throw new Error("Failed to fetch image");
     }
@@ -308,7 +335,10 @@ Deno.serve(async (req) => {
         name,
         ticker: ticker.toUpperCase(),
         description: description || `${name} - AI Agent token on pump.fun`,
-        image_url: imageUrl,
+        image_url: storedImageUrl, // Use uploaded URL, not raw base64
+        website_url: finalWebsite, // Store socials for metadata
+        twitter_url: finalTwitter, // Store socials for metadata
+        telegram_url: telegram || null,
         mint_address: mintAddress,
         creator_wallet: deployerPublicKey,
         deployer_wallet: deployerPublicKey,
