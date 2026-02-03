@@ -1075,6 +1075,24 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_claim_locks: {
+        Row: {
+          expires_at: string
+          locked_at: string
+          twitter_username: string
+        }
+        Insert: {
+          expires_at: string
+          locked_at?: string
+          twitter_username: string
+        }
+        Update: {
+          expires_at?: string
+          locked_at?: string
+          twitter_username?: string
+        }
+        Relationships: []
+      }
       cron_locks: {
         Row: {
           acquired_at: string
@@ -1400,6 +1418,7 @@ export type Database = {
           id: string
           signature: string | null
           status: string | null
+          twitter_username: string | null
         }
         Insert: {
           amount_sol: number
@@ -1410,6 +1429,7 @@ export type Database = {
           id?: string
           signature?: string | null
           status?: string | null
+          twitter_username?: string | null
         }
         Update: {
           amount_sol?: number
@@ -1420,6 +1440,7 @@ export type Database = {
           id?: string
           signature?: string | null
           status?: string | null
+          twitter_username?: string | null
         }
         Relationships: [
           {
@@ -4179,6 +4200,10 @@ export type Database = {
         Args: { p_lock_duration_seconds?: number; p_token_id: string }
         Returns: boolean
       }
+      acquire_creator_claim_lock: {
+        Args: { p_duration_seconds?: number; p_twitter_username: string }
+        Returns: boolean
+      }
       admin_delete_comment: { Args: { _comment_id: string }; Returns: boolean }
       admin_delete_post: { Args: { _post_id: string }; Returns: boolean }
       admin_resolve_report: {
@@ -4634,6 +4659,10 @@ export type Database = {
       is_ip_banned: { Args: { _ip_address: string }; Returns: boolean }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
       release_claim_lock: { Args: { p_token_id: string }; Returns: undefined }
+      release_creator_claim_lock: {
+        Args: { p_twitter_username: string }
+        Returns: undefined
+      }
       snapshot_fun_token_prices: { Args: never; Returns: undefined }
       update_token_24h_stats: { Args: never; Returns: undefined }
       verify_api_key: {
