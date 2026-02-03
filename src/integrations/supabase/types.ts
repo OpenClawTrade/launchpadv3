@@ -2151,6 +2151,53 @@ export type Database = {
           },
         ]
       }
+      hourly_post_log: {
+        Row: {
+          error_message: string | null
+          hourly_fees_sol: number | null
+          id: string
+          posted_at: string | null
+          stats_snapshot: Json | null
+          success: boolean | null
+          top_agent_id: string | null
+          top_agent_ticker: string | null
+          tweet_id: string | null
+          tweet_text: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          hourly_fees_sol?: number | null
+          id?: string
+          posted_at?: string | null
+          stats_snapshot?: Json | null
+          success?: boolean | null
+          top_agent_id?: string | null
+          top_agent_ticker?: string | null
+          tweet_id?: string | null
+          tweet_text?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          hourly_fees_sol?: number | null
+          id?: string
+          posted_at?: string | null
+          stats_snapshot?: Json | null
+          success?: boolean | null
+          top_agent_id?: string | null
+          top_agent_ticker?: string | null
+          tweet_id?: string | null
+          tweet_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hourly_post_log_top_agent_id_fkey"
+            columns: ["top_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ip_bans: {
         Row: {
           banned_by: string
