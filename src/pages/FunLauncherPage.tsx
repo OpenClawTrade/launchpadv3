@@ -270,14 +270,14 @@ export default function FunLauncherPage() {
       {/* Ticker Bar - only show for Solana */}
       {isSolana && (
         <div className="mt-4">
-          <TokenTickerBar />
+          <TokenTickerBar tokens={tokens} />
         </div>
       )}
 
       {/* King of the Hill - only show for Solana */}
       {isSolana && (
         <div className="max-w-[1400px] mx-auto px-4 pt-6">
-          <KingOfTheHill />
+          <KingOfTheHill tokens={tokens} isLoading={tokensLoading} />
         </div>
       )}
 

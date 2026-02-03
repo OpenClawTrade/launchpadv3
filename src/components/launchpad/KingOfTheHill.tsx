@@ -8,8 +8,30 @@ import { formatDistanceToNow } from "date-fns";
 import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { useFunTokens } from "@/hooks/useFunTokens";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
+
+interface FunToken {
+  id: string;
+  name: string;
+  ticker: string;
+  image_url: string | null;
+  mint_address: string | null;
+  dbc_pool_address: string | null;
+  status: string;
+  bonding_progress?: number;
+  market_cap_sol?: number;
+  holder_count?: number;
+  trading_fee_bps?: number;
+  fee_mode?: string | null;
+  agent_id?: string;
+  launchpad_type?: string;
+  created_at: string;
+}
+
+interface KingOfTheHillProps {
+  tokens?: FunToken[];
+  isLoading?: boolean;
+}
 
 const GRADUATION_THRESHOLD = 85;
 
@@ -222,22 +244,21 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   );
 }
 
-export function KingOfTheHill() {
-  const { tokens: allTokens, isLoading, error } = useFunTokens();
+export function KingOfTheHill({ tokens: propTokens, isLoading: propLoading }: KingOfTheHillProps) {
+  // Use props instead of calling useFunTokens - eliminates duplicate query
+  const isLoading = propLoading ?? false;
 
   // Filter to active tokens and sort by bonding_progress (highest first), take top 3
   const tokens = useMemo(() => {
-    if (!allTokens || allTokens.length === 0) return [];
+    if (!propTokens || propTokens.length === 0) return [];
     
-    return allTokens
+    return propTokens
       .filter(t => t.status === "active")
       .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0))
       .slice(0, 3);
-  }, [allTokens]);
+  }, [propTokens]);
 
-  if (error) {
-    return null;
-  }
+  // No error state needed - parent handles errors
 
   if (isLoading) {
     return (
