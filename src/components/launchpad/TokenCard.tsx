@@ -7,8 +7,8 @@ import { BondingCurveProgress } from "./BondingCurveProgress";
 import { Token } from "@/hooks/useLaunchpad";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { TrendingUp, TrendingDown, Users, Clock, ChevronRight, Zap, Sparkles, Bot } from "lucide-react";
-import { Rocket } from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
+import { PumpBadge } from "@/components/tunabook/PumpBadge";
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   const usdValue = marketCapSol * solPrice;
@@ -131,17 +131,7 @@ export function TokenCard({ token }: TokenCardProps) {
               )}
               {/* pump.fun badge */}
               {isPumpFun && (
-                <a
-                  href={`https://pump.fun/${token.mint_address}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-0.5 bg-[#00ff00]/20 text-[#00ff00] px-1.5 py-0.5 rounded-full hover:bg-[#00ff00]/30 transition-colors"
-                  title="pump.fun Token - Click to trade"
-                >
-                  <Rocket size={12} weight="fill" />
-                  <span className="text-[10px] font-medium">pump</span>
-                </a>
+                <PumpBadge mintAddress={token.mint_address} />
               )}
               {/* Trading fee badge - show if not default 2% */}
               <Badge 

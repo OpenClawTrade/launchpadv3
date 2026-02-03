@@ -3,13 +3,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Crown, Copy, CheckCircle, Users, Clock, Gem, Bot } from "lucide-react";
-import { Rocket } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunTokens } from "@/hooks/useFunTokens";
+import { PumpBadge } from "@/components/tunabook/PumpBadge";
 
 const GRADUATION_THRESHOLD = 85;
 
@@ -148,16 +148,12 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
               </Link>
             )}
             {isPumpFun && (
-              <a
-                href={`https://pump.fun/${token.mint_address}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                title="pump.fun Token"
-                className="flex-shrink-0"
-              >
-                <Rocket size={12} weight="fill" className="text-[#00ff00] hover:text-[#00cc00]" />
-              </a>
+              <PumpBadge 
+                mintAddress={token.mint_address} 
+                showText={false} 
+                size="sm"
+                className="px-0 py-0 bg-transparent hover:bg-transparent"
+              />
             )}
           </h3>
           <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>

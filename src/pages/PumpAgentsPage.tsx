@@ -5,10 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles, Download, RefreshCw, Copy, Check, ExternalLink, Lightbulb } from "lucide-react";
-import { Rocket } from "@phosphor-icons/react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import tunaLogo from "@/assets/tuna-logo.png";
+import pumpfunPill from "@/assets/pumpfun-pill.webp";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 
 interface GeneratedMeme {
@@ -140,8 +140,8 @@ export default function PumpAgentsPage() {
             <div className="inline-flex items-center gap-3 mb-4">
               <div className="relative">
                 <img src={tunaLogo} alt="TUNA" className="w-12 h-12 rounded-full" />
-                <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
-                  <Rocket size={12} weight="fill" className="text-primary-foreground" />
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 border border-border">
+                  <img src={pumpfunPill} alt="pump.fun" className="w-5 h-5" />
                 </div>
               </div>
               <h2 className="text-2xl md:text-3xl font-bold text-foreground">
@@ -159,7 +159,7 @@ export default function PumpAgentsPage() {
             <Card className="p-6 mb-6 bg-primary/10 border-primary/50 animate-in fade-in">
               <div className="text-center space-y-4">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/20 mb-2">
-                  <Rocket size={32} weight="fill" className="text-primary" />
+                  <img src={pumpfunPill} alt="pump.fun" className="w-10 h-10" />
                 </div>
                 <h3 className="text-xl font-bold text-primary">Launched on pump.fun! 🎉</h3>
                 
@@ -268,9 +268,9 @@ export default function PumpAgentsPage() {
                       className="w-full h-full object-cover"
                     />
                     {/* pump.fun watermark */}
-                    <div className="absolute bottom-2 right-2 bg-primary/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                      <Rocket size={14} weight="fill" className="text-primary-foreground" />
-                      <span className="text-xs font-bold text-primary-foreground">pump.fun</span>
+                    <div className="absolute bottom-2 right-2 bg-background/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1.5 border border-border">
+                      <img src={pumpfunPill} alt="" className="w-4 h-4" />
+                      <span className="text-xs font-bold text-foreground">pump.fun</span>
                     </div>
                   </div>
                   
@@ -374,7 +374,7 @@ export default function PumpAgentsPage() {
                       </>
                     ) : (
                       <>
-                        <Rocket size={20} weight="fill" />
+                        <img src={pumpfunPill} alt="" className="w-5 h-5" />
                         Launch on pump.fun
                       </>
                     )}

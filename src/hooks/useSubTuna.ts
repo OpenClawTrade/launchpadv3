@@ -29,6 +29,7 @@ interface SubTuna {
     priceSol?: number;
     priceChange24h?: number;
     mintAddress?: string;
+    launchpadType?: string;
   };
 }
 
@@ -41,7 +42,7 @@ export function useSubTuna(ticker?: string) {
       // First try to find the fun_token by ticker (get most recent if duplicates)
       const { data: funTokens, error: tokenError } = await supabase
         .from("fun_tokens")
-        .select("id, ticker, name, image_url, market_cap_sol, price_sol, price_change_24h, mint_address, created_at")
+        .select("id, ticker, name, image_url, market_cap_sol, price_sol, price_change_24h, mint_address, launchpad_type, created_at")
         .ilike("ticker", ticker)
         .order("created_at", { ascending: false })
         .limit(1);
@@ -138,6 +139,7 @@ export function useSubTuna(ticker?: string) {
             priceSol: funToken.price_sol,
             priceChange24h: funToken.price_change_24h,
             mintAddress: funToken.mint_address,
+            launchpadType: funToken.launchpad_type,
           },
         };
       }
@@ -170,6 +172,7 @@ export function useSubTuna(ticker?: string) {
           priceSol: funToken.price_sol,
           priceChange24h: funToken.price_change_24h,
           mintAddress: funToken.mint_address,
+          launchpadType: funToken.launchpad_type,
         },
       };
     },
