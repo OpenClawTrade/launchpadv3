@@ -1,57 +1,140 @@
 
 
-# Increase Agent Launch Rate Limit from 3 to 10
+# Plan: Provide Specific Feedback for Missing Launch Fields
 
-## Summary
+## Overview
 
-Update the daily agent launch limit per X account from **3** to **10** launches per 24 hours. This involves changing hardcoded values in two edge functions and all associated error messages.
+When a user tweets `!tunalaunch` without all required information, we'll reply with a helpful message explaining exactly what's missing and how to fix it, rather than a generic error.
 
----
+## Current Behavior
 
-## Changes Required
+- If `!tunalaunch` is used without `name` or `symbol`, the parser returns `null` and a generic error is stored
+- If no image is attached, there's already a specific reply asking for an image
+- Users get no Twitter reply explaining what's wrong - they just don't see their token launch
 
-### 1. `supabase/functions/agent-scan-twitter/index.ts`
+## Proposed Changes
 
-This is the primary rate limit check that runs when scanning Twitter for `!tunalaunch` tweets.
+### 1. Enhanced Parse Function with Detailed Validation
 
-| Line | Current | New |
-|------|---------|-----|
-| 827 | `const DAILY_LAUNCH_LIMIT_PER_AUTHOR = 3;` | `const DAILY_LAUNCH_LIMIT_PER_AUTHOR = 10;` |
-| 1139 | `error_message: "Daily limit of 3 Agent launches..."` | `error_message: "Daily limit of 10 Agent launches..."` |
-| 1147 | Reply text: `"...daily limit of 3 Agent launches..."` | Reply text: `"...daily limit of 10 Agent launches..."` |
+Update `parseLaunchPost` in `agent-process-post/index.ts` to return:
+- Parsed data (if successful), OR
+- A detailed object with what was found and what's missing
 
----
+```text
++---------------------------+
+|    Parse Result Types     |
++---------------------------+
+| Success: All fields OK    |
+|   → return ParsedData     |
++---------------------------+
+| Partial: Some missing     |
+|   → return { found: {},   |
+|     missing: ["name"] }   |
++---------------------------+
+```
 
-### 2. `supabase/functions/agent-process-post/index.ts`
+### 2. Specific Reply Messages for Missing Fields
 
-This is the secondary (defensive) rate limit check that runs during the actual token launch process.
+| Missing Field | Reply Message |
+|--------------|---------------|
+| Name missing | "Please provide a token name using `name: YourTokenName`" |
+| Symbol missing | "Please provide a ticker symbol using `symbol: TICKER`" |
+| Image missing | (Already implemented - asks user to attach image) |
+| Name + Symbol missing | Lists both requirements |
 
-| Line | Current | New |
-|------|---------|-----|
-| 436 | `const DAILY_LAUNCH_LIMIT = 3;` | `const DAILY_LAUNCH_LIMIT = 10;` |
-| 625 | `throw new Error("Daily limit of 3 Agent launches...")` | `throw new Error("Daily limit of 10 Agent launches...")` |
+### 3. Reply Template
 
----
+When fields are missing, the bot will reply:
 
-## Technical Details
+```
+🐟 Almost there! Your !tunalaunch is missing:
 
-**Rate Limit Logic:**
-- The system counts completed launches per `post_author_id` (X user ID) within the last 24 hours
-- Both edge functions use the same counting mechanism via the `agent_social_posts` table
-- The `agent-scan-twitter` function is the primary check (prevents processing)
-- The `agent-process-post` function is a secondary check (defensive layer)
+❌ Token name (add: name: YourTokenName)
+❌ Ticker symbol (add: symbol: TICKER)
 
-**After Deployment:**
-- New limit takes effect immediately
-- Users who were previously rate-limited can launch more tokens
-- The reply message to rate-limited users will reflect the new "10" limit
+Example format:
+!tunalaunch
+name: My Token
+symbol: MTK
+[Attach your token image]
 
----
+Launch your unique Solana Agent from TUNA dot Fun
+```
 
-## Files to Modify
+## Technical Implementation
 
-| File | Changes |
-|------|---------|
-| `supabase/functions/agent-scan-twitter/index.ts` | Update constant + 2 error messages (lines 827, 1139, 1147) |
-| `supabase/functions/agent-process-post/index.ts` | Update constant + 1 error message (lines 436, 625) |
+### Files to Modify
+
+1. **`supabase/functions/agent-process-post/index.ts`**
+   - Create new `validateLaunchPost()` function that returns validation result with specific missing fields
+   - Update `processLaunchPost()` to use validation result and generate specific reply text
+   - Return `shouldReply: true` with specific `replyText` when validation fails
+
+2. **`supabase/functions/twitter-mention-launcher/index.ts`**
+   - Already handles replies for failed launches
+   - Will use the new `replyText` from `agent-process-post` response
+
+### Validation Flow
+
+```text
+User tweets "!tunalaunch" with partial data
+         │
+         ▼
+┌─────────────────────────┐
+│ validateLaunchPost()    │
+│ Check: name, symbol     │
+└──────────┬──────────────┘
+           │
+     ┌─────┴─────┐
+     │ Missing?  │
+     └─────┬─────┘
+           │
+    ┌──────┴──────┐
+    ▼             ▼
+┌────────┐  ┌────────────┐
+│ None   │  │ Some       │
+│        │  │ missing    │
+└────┬───┘  └──────┬─────┘
+     │             │
+     ▼             ▼
+┌─────────┐  ┌────────────────┐
+│Continue │  │Return specific │
+│to image │  │error + reply   │
+│check    │  │text listing    │
+└─────────┘  │missing fields  │
+             └────────────────┘
+```
+
+### Error Message Examples
+
+**Missing name only:**
+> 🐟 Your !tunalaunch needs a token name!
+>
+> Add: `name: YourTokenName`
+>
+> Example:
+> `!tunalaunch`
+> `name: Pepe`
+> `symbol: PEPE`
+> [Attach image]
+
+**Missing symbol only:**
+> 🐟 Your !tunalaunch needs a ticker symbol!
+>
+> Add: `symbol: TICKER`
+
+**Missing both name and symbol:**
+> 🐟 Your !tunalaunch needs more info:
+> ❌ Token name (name: YourTokenName)
+> ❌ Ticker symbol (symbol: TICKER)
+
+**Missing image (already exists):**
+> 🐟 To launch a token, please attach an image to your tweet!
+
+## Benefits
+
+- Users know exactly what to fix without guessing
+- Reduces failed launch attempts
+- Professional, helpful bot experience
+- Maintains the existing flow for successful launches
 
