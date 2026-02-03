@@ -1,144 +1,141 @@
 
-# Investigation: Walletless Token Launch Claim Flow
 
-## Summary
+# Plan: Update Agent Docs & Fix Remaining Old Login Pattern
 
-I investigated whether tokens launched from X (Twitter) without a wallet address show up in the claim page. **I found a bug that causes some walletless tokens to be skipped.**
+## Overview
 
-## Current Data Status
-
-Looking at your database, I found:
-
-| Token | Twitter User | `creator_wallet` | `agent.style_source_username` | Claimable? |
-|-------|-------------|-----------------|-------------------------------|------------|
-| My Token | HASAN90099009 | NULL | NULL | ❌ No |
-| fire 🔥 | HASAN90099009 | NULL | NULL | ❌ No |
-| TESTUNA | Sergej94p | NULL | NULL | ❌ No |
-| CrabClaws | stillwrkngonit | NULL | `stillwrkngonit` | ✅ Yes |
-
-Most recent walletless launches have agents with `style_source_username = NULL`, meaning they won't appear in the claim page.
+Update the Agent Documentation page to reflect current system capabilities and fix the remaining edge function (`twitter-auto-reply`) that still uses the old login pattern.
 
 ---
 
-## The Bug
+## Part 1: Documentation Updates
 
-### Location: `agent-find-by-twitter/index.ts` (lines 260-261)
+### Files to Modify: `src/pages/AgentDocsPage.tsx` & `public/skill.md`
 
-```typescript
-const wallet = post.wallet_address || token.creator_wallet;
-if (!wallet) continue;  // ⚠️ BUG: Skips walletless tokens!
+### 1.1 Update Version Badge
+- Change `v3.0.0` → `v3.1.0` to reflect recent walletless launch and feedback improvements
+
+### 1.2 Walletless Launch Clarification (AgentDocsPage.tsx)
+
+**Current** (line ~422):
+```
+<li>• <strong>wallet</strong> — Payout wallet</li>
 ```
 
-When both `wallet_address` and `creator_wallet` are NULL, Strategy 2 (social posts lookup) **skips the token entirely** instead of grouping it by Twitter username.
+**Update to**:
+```
+<li>• <strong>wallet</strong> — Payout wallet (optional - claim via X OAuth later)</li>
+```
 
-### Why This Happens
+Add a callout in the X launch section explaining:
+> **No wallet required!** Launch your token without including a wallet address. Verify ownership later at `/agents/claim` by logging in with the same X account.
 
-1. User tweets `!tunalaunch` without a wallet address
-2. System creates agent with placeholder wallet: `TUNA_NO_WALLET_abc123`
-3. Agent's `style_source_username` should be set to Twitter username (sometimes NULL due to timing)
-4. Strategy 1 looks for agents by `style_source_username` → may not find if NULL
-5. Strategy 2 finds the `agent_social_posts` record → but skips it because no wallet
+### 1.3 Add "Missing Fields Feedback" Feature
+
+In the "How it works" section, add:
+> If your `!tunalaunch` is missing required fields (name, symbol, or image), our bot will reply with specific instructions on what to add.
+
+### 1.4 Update Claim Flow Documentation (line ~674-689)
+
+Add explanation that claim matching works by X username:
+> When you launch via X, your Twitter handle is recorded. At claim time, simply login with X OAuth - we automatically match tokens to your username.
+
+### 1.5 Update skill.md 
+
+Update the Twitter launch section to note:
+- `wallet` field is optional (claim via OAuth)
+- Bot provides helpful feedback for incomplete launch requests
 
 ---
 
-## The Fix
+## Part 2: Fix `twitter-auto-reply` Old Login Pattern
 
-Update `agent-find-by-twitter` to:
-1. Remove the `if (!wallet) continue` skip logic
-2. Group walletless tokens by `post_author` (Twitter username) instead of wallet
-3. Create claimable entries based on username match
+### File: `supabase/functions/twitter-auto-reply/index.ts`
 
-### Code Change
+**Status**: This cron is currently **disabled**, but should be fixed for when it's re-enabled.
 
-```text
-// Instead of skipping when no wallet:
-const wallet = post.wallet_address || token.creator_wallet;
+### Current Problem (lines 254-377)
+```typescript
+// Current: Uses dynamic login every run
+const loginBody = { user_name, email, password, proxy, totp_code };
+await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, ...);
+```
 
-// Group by username when walletless
-if (!wallet) {
-  // Use post_author as the grouping key for walletless tokens
-  const username = post.post_author?.toLowerCase();
-  if (username === normalizedUsername) {
-    // Add to username-based group for claiming
-  }
-  continue;
+### Fix Approach
+
+Add static session support (same pattern as `agent-scan-twitter`):
+
+```typescript
+// 1. Add cookie parsing helpers at top
+function parseCookieString(raw: string): Record<string, string> { ... }
+function buildLoginCookiesBase64FromEnv(args) { ... }
+
+// 2. Check for static session first
+const X_FULL_COOKIE = Deno.env.get("X_FULL_COOKIE");
+const X_AUTH_TOKEN = Deno.env.get("X_AUTH_TOKEN");
+const X_CT0_TOKEN = Deno.env.get("X_CT0_TOKEN");
+
+const staticCookies = buildLoginCookiesBase64FromEnv({
+  xFullCookie: X_FULL_COOKIE,
+  xAuthToken: X_AUTH_TOKEN,
+  xCt0Token: X_CT0_TOKEN,
+});
+
+let loginCookies: string;
+if (staticCookies) {
+  // Use pre-authenticated session (NO LOGIN TRIGGERED)
+  loginCookies = staticCookies;
+  console.log("[twitter-auto-reply] ✅ Using static session cookies");
+} else {
+  // Fallback to dynamic login (original behavior)
+  // ... existing login code ...
 }
 ```
 
+### Benefits
+- No more "suspicious login" alerts when cron runs
+- Session stays active without re-authentication
+- Matches the pattern now used in `agent-scan-twitter` and `twitter-mention-launcher`
+
 ---
 
-## Technical Details
+## Part 3: Clean Up Test Functions (Optional)
 
-### Current Flow (Broken for some tokens)
+### Files: `test-twitter-reply/index.ts`
 
+This test function still has the old `getLoginCookies()` dynamic login as one of its test methods (M1, M3, M5). Since it's a test function that intentionally tests multiple approaches, it can remain as-is or be updated to prioritize static session testing.
+
+**Recommendation**: Leave as-is since it's a diagnostic tool.
+
+---
+
+## Summary of Changes
+
+| File | Change |
+|------|--------|
+| `src/pages/AgentDocsPage.tsx` | Version bump, walletless emphasis, feedback feature, claim flow clarity |
+| `public/skill.md` | Add wallet optional note, feedback feature mention |
+| `supabase/functions/twitter-auto-reply/index.ts` | Add static session support to prevent unnecessary logins |
+
+## Technical Notes
+
+### Static Session Flow
 ```text
-User tweets !tunalaunch (no wallet)
-         │
-         ▼
 ┌─────────────────────────────────────┐
-│ agent-process-post                  │
-│ Creates agent with placeholder      │
-│ wallet: TUNA_NO_WALLET_xxx          │
-│ Sets style_source_username          │
-└──────────────┬──────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────┐
-│ agent_social_posts table            │
-│ - post_author: "username"           │
-│ - wallet_address: NULL              │
-│ - fun_token_id: <uuid>              │
-└──────────────┬──────────────────────┘
-               │
-    User visits /agents/claim
-               │
-               ▼
-┌─────────────────────────────────────┐
-│ agent-find-by-twitter               │
-│ Strategy 1: agents.style_source_    │
-│   username → may be NULL ❌         │
-│ Strategy 2: social_posts →          │
-│   skips if no wallet ❌             │
+│ Edge Function Starts                │
+├─────────────────────────────────────┤
+│ Check: X_FULL_COOKIE exists?        │
+│   Yes → Parse to base64, use it     │
+│   No  → Check X_AUTH_TOKEN + X_CT0  │
+│         → Build cookies, use them   │
+│         → If neither: fallback to   │
+│           dynamic login (last resort)│
 └─────────────────────────────────────┘
-               │
-               ▼
-      Token NOT found in claim page
 ```
 
-### Fixed Flow
+### Environment Variables Used
+- `X_FULL_COOKIE` — Complete browser cookie string (preferred)
+- `X_AUTH_TOKEN` — Individual auth_token value
+- `X_CT0_TOKEN` — Individual ct0 CSRF token
+- `TWITTER_PROXY` — Required for twitterapi.io
 
-```text
-User tweets !tunalaunch (no wallet)
-         │
-         ▼
-┌─────────────────────────────────────┐
-│ agent-find-by-twitter               │
-│ Strategy 1: agents by username ✅   │
-│ Strategy 2: social_posts by         │
-│   post_author (walletless OK) ✅    │
-│ Strategy 3: Group by username       │
-│   when no wallet present ✅         │
-└─────────────────────────────────────┘
-               │
-               ▼
-      Token appears in claim page ✅
-```
-
----
-
-## Files to Modify
-
-1. **`supabase/functions/agent-find-by-twitter/index.ts`**
-   - Add Strategy 3: Group walletless tokens by `post_author`
-   - Remove the `if (!wallet) continue` skip logic
-   - Create pseudo-agents for username-based token groups
-
-2. **Optional Enhancement: `supabase/functions/agent-process-post/index.ts`**
-   - Ensure `style_source_username` is always set on agent creation
-   - Could also store `post_author` in a more accessible way
-
----
-
-## Summary
-
-The walletless launch flow is **mostly working**, but there's a bug where Strategy 2 in `agent-find-by-twitter` skips tokens when both `wallet_address` and `creator_wallet` are NULL. The fix is to group these tokens by the Twitter username (`post_author`) instead of requiring a wallet address.
