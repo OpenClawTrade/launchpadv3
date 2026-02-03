@@ -5,14 +5,17 @@ import {
   PublicKey,
   Transaction,
   TransactionConfirmationStatus,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+  sendAndConfirmTransaction,
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
 import { createMeteoraPool, createMeteoraPoolWithMint } from '../../lib/meteora.js';
-import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS } from '../../lib/config.js';
+import { PLATFORM_FEE_WALLET, TOTAL_SUPPLY, GRADUATION_THRESHOLD_SOL, TRADING_FEE_BPS, LAUNCH_FUNDING_SOL, USE_FRESH_DEPLOYER } from '../../lib/config.js';
 import { getAvailableVanityAddress, markVanityAddressUsed, releaseVanityAddress } from '../../lib/vanityGenerator.js';
 
-const VERSION = "v2.0.0"; // Major version bump: now confirms transactions before DB insert
+const VERSION = "v3.0.0"; // Major version: fresh deployer wallet per launch
 
 // Configuration
 const INITIAL_VIRTUAL_SOL = 30;
@@ -66,6 +69,39 @@ function getSupabase() {
 // Helper: sleep
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Generate and fund a fresh deployer wallet for each launch
+// This provides better on-chain attribution and prevents wallet clustering
+async function fundFreshDeployer(
+  connection: Connection,
+  treasuryKeypair: Keypair,
+  amount: number = LAUNCH_FUNDING_SOL
+): Promise<Keypair> {
+  const deployerKeypair = Keypair.generate();
+  
+  const transaction = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: treasuryKeypair.publicKey,
+      toPubkey: deployerKeypair.publicKey,
+      lamports: Math.floor(amount * LAMPORTS_PER_SOL),
+    })
+  );
+  
+  const { blockhash } = await connection.getLatestBlockhash('confirmed');
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = treasuryKeypair.publicKey;
+  
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [treasuryKeypair],
+    { commitment: 'confirmed' }
+  );
+  
+  console.log(`[create-fun] Funded fresh deployer ${deployerKeypair.publicKey.toBase58()} with ${amount} SOL (tx: ${signature.slice(0,16)}...)`);
+  
+  return deployerKeypair;
 }
 
 // Retry blockhash fetch with exponential backoff (1s, 2s, 4s, 8s, 16s)
@@ -229,6 +265,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const connection = new Connection(rpcUrl, 'confirmed');
 
+    // === FRESH DEPLOYER WALLET (if enabled) ===
+    // Each token launch uses a unique wallet for better on-chain attribution
+    let deployerKeypair: Keypair | null = null;
+    let deployerAddress: string = treasuryAddress;
+    
+    if (USE_FRESH_DEPLOYER) {
+      console.log(`[create-fun][${VERSION}] Generating fresh deployer wallet...`, { elapsed: Date.now() - startTime });
+      try {
+        deployerKeypair = await fundFreshDeployer(connection, treasuryKeypair, LAUNCH_FUNDING_SOL);
+        deployerAddress = deployerKeypair.publicKey.toBase58();
+        console.log(`[create-fun][${VERSION}] Fresh deployer ready`, { deployerAddress, elapsed: Date.now() - startTime });
+      } catch (fundError) {
+        console.error(`[create-fun][${VERSION}] Failed to fund fresh deployer, falling back to treasury`, { error: fundError instanceof Error ? fundError.message : fundError });
+        deployerKeypair = null;
+        deployerAddress = treasuryAddress;
+      }
+    }
+
     // Try to get a vanity address for the mint
     let vanityKeypair: { id: string; publicKey: string; keypair: Keypair } | null = null;
     
@@ -268,13 +322,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log(`[create-fun][${VERSION}] Blockhash fetched`, { elapsed: Date.now() - startTime });
 
         // Create Meteora pool transactions
-        console.log(`[create-fun][${VERSION}] Creating pool transactions...`, { elapsed: Date.now() - startTime });
+        // Use fresh deployer as creatorWallet if available, otherwise treasury
+        console.log(`[create-fun][${VERSION}] Creating pool transactions...`, { creatorWallet: deployerAddress, elapsed: Date.now() - startTime });
         
         let transactions: Transaction[];
         
         if (vanityKeypair) {
           const result = await createMeteoraPoolWithMint({
-            creatorWallet: treasuryAddress,
+            creatorWallet: deployerAddress, // Fresh deployer or treasury
             leftoverReceiverWallet: feeRecipientWallet || treasuryAddress,
             mintKeypair: vanityKeypair.keypair,
             name: name.slice(0, 32),
@@ -289,7 +344,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           poolAddress = result.poolAddress;
         } else {
           const result = await createMeteoraPool({
-            creatorWallet: treasuryAddress,
+            creatorWallet: deployerAddress, // Fresh deployer or treasury
             leftoverReceiverWallet: feeRecipientWallet || treasuryAddress,
             name: name.slice(0, 32),
             ticker: ticker.toUpperCase().slice(0, 10),
@@ -306,24 +361,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         mintAddress = mintKeypair.publicKey.toBase58();
         dbcPoolAddress = poolAddress.toBase58();
         
-        console.log(`[create-fun][${VERSION}] Pool prepared`, { mintAddress, dbcPoolAddress, txCount: transactions.length, elapsed: Date.now() - startTime });
+        console.log(`[create-fun][${VERSION}] Pool prepared`, { mintAddress, dbcPoolAddress, deployerAddress, txCount: transactions.length, elapsed: Date.now() - startTime });
 
         // Build keypair map for signing
+        // Include fresh deployer if used, always include treasury as backup
         const availableKeypairs: Map<string, Keypair> = new Map([
           [treasuryKeypair.publicKey.toBase58(), treasuryKeypair],
           [mintKeypair.publicKey.toBase58(), mintKeypair],
           [configKeypair.publicKey.toBase58(), configKeypair],
         ]);
+        
+        // Add fresh deployer keypair if it exists
+        if (deployerKeypair) {
+          availableKeypairs.set(deployerKeypair.publicKey.toBase58(), deployerKeypair);
+        }
 
         signatures = [];
+
+        // Determine which keypair should be the fee payer
+        const feePayerKeypair = deployerKeypair || treasuryKeypair;
 
         // === SEQUENTIAL TRANSACTION EXECUTION WITH CONFIRMATION ===
         for (let i = 0; i < transactions.length; i++) {
           const tx = transactions[i];
 
-          // Use fresh blockhash
+          // Use fresh blockhash and deployer as fee payer
           tx.recentBlockhash = latestBlockhash.blockhash;
-          tx.feePayer = treasuryKeypair.publicKey;
+          tx.feePayer = feePayerKeypair.publicKey;
 
           const message = tx.compileMessage();
           const requiredSignerPubkeys = message.accountKeys
@@ -403,12 +467,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const tokenId = crypto.randomUUID();
 
     // Insert token into database
+    // Use fresh deployer as creator_wallet for on-chain attribution
     const { error: tokenError } = await supabase.rpc('backend_create_token', {
       p_id: tokenId,
       p_mint_address: mintAddress,
       p_name: name.slice(0, 32),
       p_ticker: ticker.toUpperCase().slice(0, 10),
-      p_creator_wallet: treasuryAddress,
+      p_creator_wallet: deployerAddress, // Fresh deployer (or treasury if not enabled)
       p_dbc_pool_address: dbcPoolAddress,
       p_description: description || `${name} - A fun meme coin!`,
       p_image_url: imageUrl || null,
@@ -426,13 +491,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (tokenError) {
       console.error(`[create-fun][${VERSION}] CRITICAL: Token created on-chain but DB insert failed!`);
-      console.error(`[create-fun][${VERSION}] Mint: ${mintAddress}, Pool: ${dbcPoolAddress}`);
+      console.error(`[create-fun][${VERSION}] Mint: ${mintAddress}, Pool: ${dbcPoolAddress}, Deployer: ${deployerAddress}`);
       console.error(`[create-fun][${VERSION}] Metadata: ${JSON.stringify({ name, ticker, imageUrl })}`);
       console.error(`[create-fun][${VERSION}] DB Error:`, tokenError);
       throw new Error(`Failed to create token record: ${tokenError.message}`);
     }
 
-    console.log(`[create-fun][${VERSION}] Token saved to DB`, { tokenId, mintAddress, imageUrl: imageUrl?.slice(0, 50), elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Token saved to DB`, { tokenId, mintAddress, deployerAddress, imageUrl: imageUrl?.slice(0, 50), elapsed: Date.now() - startTime });
+
+    // Update deployer_wallet column (fire-and-forget since column is optional)
+    if (deployerKeypair) {
+      supabase
+        .from('fun_tokens')
+        .update({ deployer_wallet: deployerAddress })
+        .eq('id', tokenId)
+        .then(({ error }) => {
+          if (error) console.log('[create-fun] Failed to update deployer_wallet:', error);
+          else console.log(`[create-fun] deployer_wallet updated for token ${tokenId}`);
+        });
+    }
 
     // Mark vanity address as used (fire-and-forget)
     if (vanityKeypair) {
@@ -473,7 +550,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: { poolAddress: dbcPoolAddress, mintAddress, tokenId, funTokenId: null },
     }).catch(err => console.log(`[create-fun][${VERSION}] Sniper fire-and-forget`, { error: err?.message }));
 
-    console.log(`[create-fun][${VERSION}] SUCCESS`, { tokenId, mintAddress, totalElapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] SUCCESS`, { tokenId, mintAddress, deployerAddress, totalElapsed: Date.now() - startTime });
 
     return res.status(200).json({
       success: true,
@@ -481,14 +558,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       mintAddress,
       dbcPoolAddress,
       poolAddress: dbcPoolAddress,
-      creatorWallet: treasuryAddress,
-      feeRecipientWallet,
+      creatorWallet: deployerAddress, // Fresh deployer address (or treasury)
+      deployerWallet: deployerAddress, // Explicit deployer field
+      feeRecipientWallet: PLATFORM_FEE_WALLET, // Fees always go to treasury
       signatures,
       vanityMint: vanityKeypair ? { suffix: '67x', address: vanityKeypair.publicKey } : null,
       solscanUrl: `https://solscan.io/token/${mintAddress}`,
       tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}?chain=sol`,
-      // New: indicate this was a confirmed launch
+      // New: indicate this was a confirmed launch with fresh deployer
       confirmed: true,
+      freshDeployer: !!deployerKeypair,
     });
 
   } catch (error) {
