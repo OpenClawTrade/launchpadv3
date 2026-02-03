@@ -220,12 +220,18 @@ export function useFunTokens(): UseFunTokensResult {
   }, []);
 
   const fetchBaseTokens = useCallback(async (): Promise<FunToken[]> => {
-    // No timeout - let the request complete naturally
-    // Supabase has its own internal timeout handling
+    // OPTIMIZED: Only fetch essential columns, limit to 100 most recent
+    // This reduces payload size and query time significantly
     const { data: funTokens, error: fetchError } = await supabase
       .from("fun_tokens")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select(`
+        id, name, ticker, description, image_url, creator_wallet, mint_address,
+        dbc_pool_address, status, price_sol, price_change_24h, volume_24h_sol,
+        total_fees_earned, holder_count, market_cap_sol, bonding_progress,
+        trading_fee_bps, fee_mode, last_distribution_at, created_at, updated_at
+      `)
+      .order("created_at", { ascending: false })
+      .limit(100); // Limit to most recent 100 tokens
 
     if (fetchError) {
       throw fetchError;
