@@ -474,8 +474,8 @@ function parseSingleLine(content: string, data: Partial<ParsedLaunchData>): void
     
     // For description, capture until next known field
     if (current.key !== "description") {
-      // Remove trailing URLs for non-description fields
-      value = value.replace(/https?:\/\/\S+$/i, "").trim();
+      // Remove ALL URLs for non-description fields (not just trailing ones)
+      value = value.replace(/https?:\/\/\S+/gi, "").trim();
     }
     
     if (value) {
@@ -876,8 +876,17 @@ export async function processLaunchPost(
     // === DEFENSIVE SANITIZATION ===
     // Clean name and symbol to prevent malformed URLs and data
     // This ensures robustness even if parsing logic changes or data comes from other sources
-    const cleanName = parsed.name.replace(/[,.:;!?]+$/, "").slice(0, 32);
-    const cleanSymbol = parsed.symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
+    // CRITICAL: Strip URLs FIRST before any other processing to prevent "THNKHTTPST" type corruption
+    const cleanName = parsed.name
+      .replace(/https?:\/\/\S+/gi, "")  // Strip any surviving URLs
+      .replace(/[,.:;!?]+$/, "")
+      .trim()
+      .slice(0, 32);
+    const cleanSymbol = parsed.symbol
+      .replace(/https?:\/\/\S+/gi, "")  // Strip any surviving URLs
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase()
+      .slice(0, 10);
     
     // === PRE-CREATE SUBTUNA COMMUNITY BEFORE TOKEN LAUNCH ===
     // This ensures the community URL can be embedded in on-chain metadata
