@@ -1,47 +1,70 @@
 
-# Fix "Zero Data Loads" on Published Site
+# Fix Intermittent Zero-Data Loading Issue
 
-## Problem Summary
-
-After thorough investigation, I've confirmed:
+## Confirmed Status
 
 | Environment | Status | Evidence |
 |------------|--------|----------|
-| **Preview Site** | ✅ Working | Screenshot shows 98 tokens, 72 agents, SOL price $100.20, King of the Hill loaded |
-| **Published Site** | ❌ Broken | User reports all zeros, aborted requests |
-| **Database** | ✅ Healthy | 196 active tokens, RLS allows SELECT |
-| **Edge Functions** | ✅ Working | sol-price, agent-stats return 200 OK |
+| Preview Site | Working | Screenshot shows 98 tokens, 72 agents, $100 SOL price |
+| Published Site | Not republished | User confirmed hasn't clicked Update |
+| Database | Healthy | fun_tokens query returns 200 OK in 2 seconds |
+| Edge Functions | Working | public-config, agent-stats, sol-price all return 200 |
 
 ## Root Cause
 
-The **published site (launchpadv3.lovable.app) is running a stale build** that contains older code with aggressive timeout/abort logic. The preview site has today's fixes (optimized timeouts, deduplicated queries), but these changes were never published to production.
+The published site (launchpadv3.lovable.app) is running **stale JavaScript** from before today's performance fixes. The old code contains a 7-second timeout in `PrivyProviderWrapper` that aborts `public-config` requests before they complete. This cascades into blocking other data fetches.
 
-Evidence from earlier network logs showed repeated `public-config` POST requests being aborted every 7-8 seconds on the published site - a pattern that doesn't appear on the working preview site.
+The preview site has the fixed code and works correctly.
 
 ## Solution
 
-### Step 1: Trigger a Republish
+### Step 1: Republish the Site (Required)
 
-The site needs to be republished to deploy the latest code changes to production. This will sync the published site with the preview version that's currently working correctly.
+You need to publish the latest code to production. Click the button below:
 
-### Step 2: Verify After Publish
+<lov-actions>
+<lov-open-publish>Publish your app</lov-open-publish>
+</lov-actions>
 
-Once republished, the published site should display:
+Wait for the build to complete (usually 30-60 seconds).
+
+### Step 2: Hard Refresh After Publishing
+
+After the publish completes:
+1. Open the published URL: `launchpadv3.lovable.app`
+2. Press `Ctrl + Shift + R` (Windows) or `Cmd + Shift + R` (Mac) to hard refresh
+3. If still showing zeros, clear localStorage:
+   - Open DevTools (F12) -> Application tab -> Local Storage
+   - Right-click -> Clear
+
+### Step 3: Verify Everything Works
+
+After republishing, you should see:
 - SOL price (~$100)
-- Total Tokens (~98-100)
-- Total Agents (72)
-- King of the Hill (3 tokens)
-- Token ticker bar with price changes
-- Fees Claimed (~12.58 SOL)
+- Total Tokens: 98
+- Total Agents: 72
+- Fees Claimed: 12.58 SOL
+- King of the Hill: 3 tokens with progress bars
+- Token ticker bar scrolling at the top
 
-## How to Republish
+## Technical Details
 
-In Lovable:
-1. Click the **Deploy** button in the top right
-2. Select **Publish** to deploy to production
-3. Wait for the build to complete
-4. Clear browser cache and hard refresh on the published URL
+The issue comes from `PrivyProviderWrapper.tsx` lines 94-96:
 
-## No Code Changes Required
+```typescript
+const controller = new AbortController();
+const timeoutId = window.setTimeout(() => controller.abort(), 7000);
+```
 
-The current preview code is working correctly. The fix is purely a deployment issue - the published site just needs to receive the latest build.
+This 7-second timeout was added to prevent infinite loading, but on slower connections or cold starts, the `public-config` edge function might take longer. The preview site has fixes that:
+1. Use longer timeouts (15s) for cold starts
+2. Cache responses in localStorage for instant hydration
+3. Don't block data loading on Privy initialization
+
+## Why This Happens Intermittently
+
+The preview site loads fresh code on every page load (hot module replacement). The published site serves cached/bundled code from the last publish. If you made code changes but didn't publish, the environments diverge.
+
+## No Additional Code Changes Needed
+
+The current codebase is working correctly. This is purely a deployment sync issue.
