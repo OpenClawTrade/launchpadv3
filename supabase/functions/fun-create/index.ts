@@ -145,6 +145,10 @@ serve(async (req) => {
 
     console.log(`[fun-create][${VERSION}] Calling Vercel API...`, { url: `${meteoraApiUrl}/api/pool/create-fun`, elapsed: Date.now() - startTime });
 
+    // === FIX: Auto-populate socials when not provided ===
+    const finalWebsiteUrl = websiteUrl || `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    const finalTwitterUrl = twitterUrl || 'https://x.com/BuildTuna';
+
     // Call Vercel API synchronously - this does all the work
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
       method: "POST",
@@ -154,8 +158,8 @@ serve(async (req) => {
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
         imageUrl: storedImageUrl,
-        websiteUrl: websiteUrl || null,
-        twitterUrl: twitterUrl || null,
+        websiteUrl: finalWebsiteUrl,
+        twitterUrl: finalTwitterUrl,
         serverSideSign: true,
         feeRecipientWallet: creatorWallet,
         useVanityAddress: true, // Use pre-generated TNA vanity addresses from pool
@@ -235,8 +239,8 @@ serve(async (req) => {
           dbc_pool_address: dbcPoolAddress,
           status: "active",
           price_sol: 0.00000003,
-          website_url: websiteUrl || null,
-          twitter_url: twitterUrl || null,
+          website_url: finalWebsiteUrl,
+          twitter_url: finalTwitterUrl,
           fee_mode: tokenFeeMode,
         })
         .select("id")

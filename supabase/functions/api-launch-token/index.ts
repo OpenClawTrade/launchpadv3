@@ -108,6 +108,10 @@ serve(async (req) => {
     // Validate trading fee (10-1000 bps = 0.1% to 10%)
     const tradingFeeBps = Math.max(10, Math.min(1000, body.tradingFeeBps || 200));
 
+    // === FIX: Auto-populate socials when not provided ===
+    const finalWebsiteUrl = body.websiteUrl || `https://tuna.fun/t/${body.ticker.toUpperCase()}`;
+    const finalTwitterUrl = body.twitterUrl || 'https://x.com/BuildTuna';
+
     // Call Vercel API to create the token
     const vercelApiUrl = Deno.env.get("VERCEL_API_URL") || "https://tunalaunch.vercel.app";
     
@@ -121,8 +125,8 @@ serve(async (req) => {
         ticker: body.ticker.toUpperCase().slice(0, 10),
         description: body.description || `${body.name} - Created via API`,
         imageUrl: body.imageUrl,
-        websiteUrl: body.websiteUrl,
-        twitterUrl: body.twitterUrl,
+        websiteUrl: finalWebsiteUrl,
+        twitterUrl: finalTwitterUrl,
         telegramUrl: body.telegramUrl,
         discordUrl: body.discordUrl,
         feeRecipientWallet: feeWalletAddress,
