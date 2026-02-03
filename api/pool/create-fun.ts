@@ -363,6 +363,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         console.log(`[create-fun][${VERSION}] Pool prepared`, { mintAddress, dbcPoolAddress, deployerAddress, txCount: transactions.length, elapsed: Date.now() - startTime });
 
+        // === PRE-POPULATE METADATA BEFORE ON-CHAIN TX ===
+        // CRITICAL: Insert metadata BEFORE sending transactions so that external platforms
+        // (Axiom, DEXTools, Birdeye) that immediately fetch the on-chain metadata URI
+        // will find valid data instead of a fallback/empty response.
+        // The token-metadata edge function checks pending_token_metadata first.
+        console.log(`[create-fun][${VERSION}] Pre-populating pending metadata for immediate availability...`, { elapsed: Date.now() - startTime });
+        
+        try {
+          // Delete any existing entry for this mint (in case of retry)
+          await supabase
+            .from('pending_token_metadata')
+            .delete()
+            .eq('mint_address', mintAddress);
+          
+          // Insert pending metadata with all fields
+          const { error: pendingError } = await supabase
+            .from('pending_token_metadata')
+            .insert({
+              mint_address: mintAddress,
+              name: name.slice(0, 32),
+              ticker: ticker.toUpperCase().slice(0, 10),
+              description: description || `${name} - A fun meme coin!`,
+              image_url: imageUrl || null,
+              website_url: websiteUrl || null,
+              twitter_url: twitterUrl || null,
+              telegram_url: telegramUrl || null,
+              discord_url: discordUrl || null,
+              creator_wallet: feeRecipientWallet || treasuryAddress,
+              expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min expiry
+            });
+          
+          if (pendingError) {
+            console.warn(`[create-fun][${VERSION}] ⚠️ Failed to pre-populate metadata (non-fatal):`, pendingError.message);
+          } else {
+            console.log(`[create-fun][${VERSION}] ✅ Pending metadata inserted for ${mintAddress}`);
+          }
+        } catch (pendingMetaError) {
+          console.warn(`[create-fun][${VERSION}] ⚠️ Pending metadata insert failed (non-fatal):`, pendingMetaError);
+        }
+
         // Build keypair map for signing
         // Include fresh deployer if used, always include treasury as backup
         const availableKeypairs: Map<string, Keypair> = new Map([
