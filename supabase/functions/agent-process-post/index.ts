@@ -148,6 +148,81 @@ async function generateTokenImageWithAI(
   return imageUrl;
 }
 
+// Re-host external images (e.g. X/Twitter CDN) into our public storage bucket.
+// This avoids third-party hotlink/caching issues where explorers/terminals can’t fetch pbs.twimg.com reliably.
+async function rehostImageIfNeeded(
+  supabase: AnySupabase,
+  imageUrl: string,
+  tokenSymbol: string,
+  postId: string
+): Promise<string> {
+  const BUCKET = "post-images";
+  const alreadyHosted = imageUrl.includes("/storage/v1/object/public/") && imageUrl.includes(`/${BUCKET}/`);
+  if (alreadyHosted) return imageUrl;
+
+  if (!/^https?:\/\//i.test(imageUrl)) {
+    throw new Error("Invalid image URL (must be http/https)");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+
+  try {
+    const resp = await fetch(imageUrl, {
+      signal: controller.signal,
+      headers: {
+        // Some CDNs behave better with explicit Accept.
+        Accept: "image/*,*/*;q=0.8",
+      },
+    });
+
+    if (!resp.ok) {
+      throw new Error(`Image fetch failed (${resp.status})`);
+    }
+
+    const contentType = (resp.headers.get("content-type") || "image/png").split(";")[0].trim();
+    if (!contentType.startsWith("image/")) {
+      throw new Error(`Invalid content-type for image: ${contentType}`);
+    }
+
+    const ext = (() => {
+      const t = contentType.toLowerCase();
+      if (t === "image/jpeg") return "jpg";
+      if (t === "image/jpg") return "jpg";
+      if (t === "image/png") return "png";
+      if (t === "image/webp") return "webp";
+      if (t === "image/gif") return "gif";
+      // fallback
+      return "png";
+    })();
+
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+    if (bytes.length < 32) {
+      throw new Error("Downloaded image is empty");
+    }
+
+    const safeSymbol = tokenSymbol.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "token";
+    const filePath = `fun-tokens/x-${postId}-${Date.now()}-${safeSymbol}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(filePath, bytes, { contentType, upsert: true });
+
+    if (uploadError) {
+      throw new Error(`Storage upload failed: ${uploadError.message}`);
+    }
+
+    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
+    if (!urlData?.publicUrl) {
+      throw new Error("Failed to get public URL for uploaded image");
+    }
+
+    return urlData.publicUrl;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 interface ParsedLaunchData {
   name: string;
   symbol: string;
@@ -561,6 +636,52 @@ export async function processLaunchPost(
   }
   
   console.log(`[agent-process-post] ✅ Image validation passed: ${finalImageUrl.slice(0, 60)}...`);
+
+  // CRITICAL: Re-host the image into our storage so it is reliably fetchable by explorers/terminals.
+  // If we can’t fetch/upload the image, we MUST NOT proceed with the launch.
+  try {
+    const hosted = await rehostImageIfNeeded(supabase, finalImageUrl, parsed.symbol, postId);
+    if (hosted !== finalImageUrl) {
+      console.log(`[agent-process-post] ✅ Image re-hosted for reliability: ${hosted.slice(0, 80)}...`);
+    }
+    finalImageUrl = hosted;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown image re-hosting error";
+    const errorMsg = `Could not fetch/upload your attached image (${msg}). Please re-upload the image and try again.`;
+    console.log(`[agent-process-post] ❌ BLOCKED - Image re-host failed:`, msg);
+
+    const { data: failedPost } = await supabase
+      .from("agent_social_posts")
+      .insert({
+        platform,
+        post_id: postId,
+        post_url: postUrl,
+        post_author: postAuthor,
+        post_author_id: postAuthorId,
+        wallet_address: parsed.wallet || "unknown",
+        raw_content: rawContent.slice(0, 1000),
+        parsed_name: parsed.name,
+        parsed_symbol: parsed.symbol,
+        parsed_description: parsed.description,
+        parsed_image_url: null,
+        parsed_website: parsed.website,
+        parsed_twitter: parsed.twitter,
+        status: "failed",
+        error_message: errorMsg,
+        processed_at: new Date().toISOString(),
+      })
+      .select("id")
+      .maybeSingle();
+
+    return {
+      success: false,
+      error: errorMsg,
+      socialPostId: failedPost?.id,
+      shouldReply: true,
+      replyText:
+        "🐟 I couldn't fetch the attached image reliably. Please re-upload the image (not a link) and try again.\n\nRequired format:\n!tunalaunch\nName: TokenName\nSymbol: TKN\n[Attach your token image]",
+    };
+  }
 
   // Insert pending record
   // Note: wallet_address is now optional in tweet - fees are claimed via X login
