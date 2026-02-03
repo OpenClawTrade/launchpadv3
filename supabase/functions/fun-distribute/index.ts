@@ -614,8 +614,150 @@ serve(async (req) => {
       }
     }
 
+    // STEP 6: Process pump.fun fee claims (pumpfun_fee_claims table)
+    console.log("[fun-distribute] Processing pump.fun fee claims...");
+    
+    const { data: pumpfunClaims, error: pumpfunError } = await supabase
+      .from("pumpfun_fee_claims")
+      .select(`
+        *,
+        fun_token:fun_tokens(id, name, ticker, creator_wallet, deployer_wallet, status)
+      `)
+      .eq("distributed", false)
+      .order("claimed_at", { ascending: true });
+
+    if (pumpfunError) {
+      console.error("[fun-distribute] Error fetching pump.fun claims:", pumpfunError);
+    }
+
+    let pumpfunDistributed = 0;
+    let pumpfunSuccessCount = 0;
+
+    if (pumpfunClaims && pumpfunClaims.length > 0) {
+      console.log(`[fun-distribute] Found ${pumpfunClaims.length} undistributed pump.fun claims`);
+
+      for (const claim of pumpfunClaims) {
+        const token = claim.fun_token;
+        if (!token || token.status !== "active") {
+          console.warn(`[fun-distribute] Skipping pumpfun claim ${claim.id}: token not active`);
+          continue;
+        }
+
+        const claimedSol = Number(claim.claimed_sol) || 0;
+        if (claimedSol <= 0) {
+          // Mark as distributed even if 0 SOL
+          await supabase
+            .from("pumpfun_fee_claims")
+            .update({ distributed: true, distributed_at: new Date().toISOString() })
+            .eq("id", claim.id);
+          continue;
+        }
+
+        // Pump.fun tokens use 80/20 split (creator/platform)
+        const creatorAmount = claimedSol * 0.8;
+        const platformAmount = claimedSol * 0.2;
+        const recipientWallet = token.deployer_wallet || token.creator_wallet;
+
+        if (!recipientWallet) {
+          console.warn(`[fun-distribute] Skipping pumpfun claim ${claim.id}: no recipient wallet`);
+          continue;
+        }
+
+        // Skip if below minimum
+        if (creatorAmount < MIN_DISTRIBUTION_SOL) {
+          console.log(`[fun-distribute] Deferring pumpfun ${token.ticker}: ${creatorAmount.toFixed(6)} < ${MIN_DISTRIBUTION_SOL} SOL`);
+          continue;
+        }
+
+        // Send SOL to creator
+        let txSuccess = false;
+        let txSignature: string | undefined;
+
+        for (let attempt = 1; attempt <= MAX_TX_RETRIES; attempt++) {
+          try {
+            console.log(`[fun-distribute] Sending ${creatorAmount.toFixed(6)} SOL to pump.fun creator ${recipientWallet} (attempt ${attempt})`);
+
+            const recipientPubkey = new PublicKey(recipientWallet);
+            const lamports = Math.floor(creatorAmount * 1e9);
+
+            const transaction = new Transaction().add(
+              SystemProgram.transfer({
+                fromPubkey: treasuryKeypair.publicKey,
+                toPubkey: recipientPubkey,
+                lamports,
+              })
+            );
+
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = treasuryKeypair.publicKey;
+
+            txSignature = await sendAndConfirmTransaction(connection, transaction, [treasuryKeypair], {
+              commitment: "confirmed",
+              maxRetries: 3,
+            });
+
+            console.log(`[fun-distribute] ✅ Sent ${creatorAmount.toFixed(6)} SOL to pump.fun creator, sig: ${txSignature}`);
+            txSuccess = true;
+            break;
+          } catch (e) {
+            console.error(`[fun-distribute] ❌ Pumpfun TX attempt ${attempt} failed:`, e);
+            if (attempt < MAX_TX_RETRIES) {
+              await new Promise((r) => setTimeout(r, 1000 * attempt));
+            }
+          }
+        }
+
+        if (txSuccess && txSignature) {
+          // Update claim as distributed
+          await supabase
+            .from("pumpfun_fee_claims")
+            .update({
+              distributed: true,
+              distributed_at: new Date().toISOString(),
+              creator_amount_sol: creatorAmount,
+              platform_amount_sol: platformAmount,
+              distribution_signature: txSignature,
+            })
+            .eq("id", claim.id);
+
+          pumpfunDistributed += creatorAmount;
+          pumpfunSuccessCount++;
+          totalDistributed += creatorAmount;
+          successCount++;
+
+          results.push({
+            claimIds: [claim.id],
+            tokenName: token.name,
+            recipientWallet,
+            recipientType: "creator",
+            claimedSol,
+            recipientAmount: creatorAmount,
+            platformAmount,
+            success: true,
+            signature: txSignature,
+          });
+        } else {
+          results.push({
+            claimIds: [claim.id],
+            tokenName: token.name,
+            recipientWallet,
+            recipientType: "creator",
+            claimedSol,
+            recipientAmount: creatorAmount,
+            platformAmount,
+            success: false,
+            error: "Transaction failed after retries",
+          });
+          failureCount++;
+        }
+      }
+    }
+
+    console.log(`[fun-distribute] Pump.fun: ${pumpfunSuccessCount} distributed, ${pumpfunDistributed.toFixed(6)} SOL`);
+
     const duration = Date.now() - startTime;
-    console.log(`[fun-distribute] ✅ Complete: ${successCount} successful (${apiFeesRecorded} API fees recorded), ${failureCount} failed, ${totalDistributed.toFixed(4)} SOL distributed in ${duration}ms`);
+    console.log(`[fun-distribute] ✅ Complete: ${successCount} successful (${apiFeesRecorded} API fees recorded, ${pumpfunSuccessCount} pumpfun), ${failureCount} failed, ${totalDistributed.toFixed(4)} SOL distributed in ${duration}ms`);
 
     return new Response(
       JSON.stringify({
@@ -624,6 +766,7 @@ serve(async (req) => {
         successful: successCount,
         failed: failureCount,
         apiFeesRecorded,
+        pumpfunDistributed: pumpfunSuccessCount,
         totalDistributedSol: totalDistributed,
         durationMs: duration,
         results,

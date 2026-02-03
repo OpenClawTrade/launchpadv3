@@ -1,5 +1,7 @@
 // PUMP Agent Launch - Creates tokens on pump.fun via PumpPortal API
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { Keypair } from "https://esm.sh/@solana/web3.js@1.98.0";
+import bs58 from "https://esm.sh/bs58@5.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,47 +12,26 @@ const corsHeaders = {
 // PumpPortal API for token creation
 const PUMPPORTAL_API_URL = "https://pumpportal.fun/api/trade";
 
-// Generate a fresh keypair for the mint
-function generateMintKeypair(): { publicKey: string; secretKey: Uint8Array; secretKeyBase58: string } {
-  // For now, we'll generate a simple keypair
-  // In production, use proper ed25519 keypair generation
-  const crypto = globalThis.crypto;
-  const secretKey = new Uint8Array(64);
-  crypto.getRandomValues(secretKey);
-  
-  // Convert to base58 for PumpPortal
-  const base58Chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-  let result = "";
-  const bytes = Array.from(secretKey);
-  while (bytes.some(b => b > 0)) {
-    let carry = 0;
-    for (let i = 0; i < bytes.length; i++) {
-      const value = bytes[i] + carry * 256;
-      bytes[i] = Math.floor(value / 58);
-      carry = value % 58;
+// Generate a proper Ed25519 keypair for the mint using Solana's Keypair
+function generateMintKeypair(): { keypair: Keypair; secretKeyBase58: string } {
+  const keypair = Keypair.generate();
+  const secretKeyBase58 = bs58.encode(keypair.secretKey);
+  return { keypair, secretKeyBase58 };
+}
+
+// Parse deployer keypair from private key (supports JSON array or base58 format)
+function parseDeployerKeypair(privateKey: string): Keypair {
+  try {
+    if (privateKey.startsWith("[")) {
+      const keyArray = JSON.parse(privateKey);
+      return Keypair.fromSecretKey(new Uint8Array(keyArray));
+    } else {
+      const decoded = bs58.decode(privateKey);
+      return Keypair.fromSecretKey(decoded);
     }
-    result = base58Chars[carry] + result;
+  } catch (e) {
+    throw new Error("Invalid PUMP_DEPLOYER_PRIVATE_KEY format");
   }
-  
-  // Generate public key (first 32 bytes of hash) - simplified
-  const publicBytes = secretKey.slice(0, 32);
-  let pubResult = "";
-  const pubBytesArr = Array.from(publicBytes);
-  while (pubBytesArr.some(b => b > 0)) {
-    let carry = 0;
-    for (let i = 0; i < pubBytesArr.length; i++) {
-      const value = pubBytesArr[i] + carry * 256;
-      pubBytesArr[i] = Math.floor(value / 58);
-      carry = value % 58;
-    }
-    pubResult = base58Chars[carry] + pubResult;
-  }
-  
-  return {
-    publicKey: pubResult,
-    secretKey,
-    secretKeyBase58: result,
-  };
 }
 
 Deno.serve(async (req) => {
@@ -89,6 +70,11 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Parse deployer keypair to get public key
+    const deployerKeypair = parseDeployerKeypair(deployerPrivateKey);
+    const deployerPublicKey = deployerKeypair.publicKey.toBase58();
+    console.log("[pump-agent-launch] Deployer public key:", deployerPublicKey);
 
     // Step 1: Upload metadata to pump.fun IPFS
     console.log("[pump-agent-launch] Uploading metadata to pump.fun IPFS...");
@@ -136,24 +122,31 @@ Deno.serve(async (req) => {
     // Step 2: Create token via PumpPortal API
     console.log("[pump-agent-launch] Creating token via PumpPortal...");
     
-    // Generate fresh mint keypair
+    // Generate proper Ed25519 mint keypair
     const mintKeypair = generateMintKeypair();
+    const mintAddress = mintKeypair.keypair.publicKey.toBase58();
+    console.log("[pump-agent-launch] Mint address:", mintAddress);
 
     const createPayload = {
-      publicKey: deployerPrivateKey, // Deployer wallet that signs
+      publicKey: deployerPublicKey, // Deployer wallet PUBLIC key (not private!)
       action: "create",
       tokenMetadata: {
         name: name,
         symbol: ticker.toUpperCase(),
         uri: metadataUri,
       },
-      mint: mintKeypair.secretKeyBase58,
+      mint: mintKeypair.secretKeyBase58, // Mint keypair secret for signing
       denominatedInSol: "true",
       amount: initialBuySol, // Initial dev buy
       slippage: 10,
       priorityFee: 0.0005,
       pool: "pump",
     };
+
+    console.log("[pump-agent-launch] PumpPortal payload:", JSON.stringify({
+      ...createPayload,
+      mint: "[REDACTED]",
+    }));
 
     const createResponse = await fetch(`${PUMPPORTAL_API_URL}?api-key=${pumpPortalApiKey}`, {
       method: "POST",
@@ -176,10 +169,6 @@ Deno.serve(async (req) => {
       throw new Error("No signature returned from PumpPortal");
     }
 
-    // The mint address should be derivable or returned
-    // PumpPortal uses the first 32 bytes of the mint keypair as the mint address
-    const mintAddress = mintKeypair.publicKey;
-
     // Step 3: Save to database
     console.log("[pump-agent-launch] Saving to database...");
     
@@ -191,14 +180,18 @@ Deno.serve(async (req) => {
         description: description || `${name} - AI Agent token on pump.fun`,
         image_url: imageUrl,
         mint_address: mintAddress,
-        creator_wallet: deployerPrivateKey.slice(0, 44), // Extract pubkey portion
+        creator_wallet: deployerPublicKey,
+        deployer_wallet: deployerPublicKey,
         status: "active",
         launchpad_type: "pumpfun",
         pumpfun_signature: createResult.signature,
+        pumpfun_creator: deployerPublicKey,
         price_sol: 0.00000003, // Default initial price
         market_cap_sol: 30, // pump.fun starting mcap
         bonding_progress: 0,
         holder_count: 1, // Deployer is first holder
+        total_fees_earned: 0,
+        total_fees_claimed: 0,
       })
       .select()
       .single();
