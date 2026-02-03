@@ -798,6 +798,39 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ========== GLOBAL RATE LIMIT CHECKS (6-layer spam protection) ==========
+    // Layer 4: Per-minute burst protection (max 20 replies/minute)
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+    const { count: repliesLastMinute } = await supabase
+      .from("twitter_bot_replies")
+      .select("*", { count: "exact", head: true })
+      .gt("created_at", oneMinuteAgo);
+    
+    if ((repliesLastMinute || 0) >= 20) {
+      console.warn(`[agent-scan-twitter] ⚠️ Burst limit reached: ${repliesLastMinute} replies in last minute (max 20)`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "burst_rate_limit", repliesLastMinute }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Layer 5: Hourly rate limit (max 300 replies/hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: repliesLastHour } = await supabase
+      .from("twitter_bot_replies")
+      .select("*", { count: "exact", head: true })
+      .gt("created_at", oneHourAgo);
+    
+    if ((repliesLastHour || 0) >= 300) {
+      console.warn(`[agent-scan-twitter] ⚠️ Hourly limit reached: ${repliesLastHour} replies in last hour (max 300)`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "hourly_rate_limit", repliesLastHour }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[agent-scan-twitter] 📊 Rate check: ${repliesLastMinute || 0}/20 per min, ${repliesLastHour || 0}/300 per hour`);
+
     // Acquire lock to prevent concurrent runs
     const lockName = "agent-scan-twitter-lock";
     const lockExpiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
@@ -997,11 +1030,27 @@ Deno.serve(async (req) => {
           }
         }
 
-        // CRITICAL: Skip tweets from our own bot account to prevent reply loops
-        const botUsernames = ["buildtuna", "tunalaunch", "tunabot"];
+        // Layer 2: Expanded bot username blocklist
+        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent"];
         if (username && botUsernames.includes(username.toLowerCase())) {
           console.log(`[agent-scan-twitter] ⏭️ Skipping ${tweetId} - from bot account @${username}`);
           results.push({ tweetId, status: "skipped_bot_account" });
+          continue;
+        }
+
+        // Layer 3: Reply content signature filter - skip tweets that look like our own replies
+        const botReplySignatures = [
+          "🐟 Hey @",
+          "🐟 Token launched!",
+          "🐟 To launch a token",
+          "🐟 To launch your token",
+          "Powered by TUNA Agents",
+          "is now live on TUNA!",
+          "80% of fees go to you",
+        ];
+        if (botReplySignatures.some(sig => tweetText.includes(sig))) {
+          console.log(`[agent-scan-twitter] ⏭️ Skipping ${tweetId} - looks like a bot reply`);
+          results.push({ tweetId, status: "skipped_bot_reply_content" });
           continue;
         }
 
