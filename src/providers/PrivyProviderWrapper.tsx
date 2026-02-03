@@ -93,7 +93,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           const controller = new AbortController();
-          const timeoutId = window.setTimeout(() => controller.abort(), 7000);
+          const timeoutId = window.setTimeout(() => controller.abort(), 20000);
 
           const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-config`;
           const res = await fetch(url, {
