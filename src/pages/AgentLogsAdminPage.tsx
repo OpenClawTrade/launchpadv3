@@ -525,8 +525,14 @@ export default function AgentLogsAdminPage() {
                             </TableCell>
                             <TableCell>
                               <span className="text-xs font-mono">
-                                {job.creator_wallet.slice(0, 4)}...
-                                {job.creator_wallet.slice(-4)}
+                                {job.creator_wallet ? (
+                                  <>
+                                    {job.creator_wallet.slice(0, 4)}...
+                                    {job.creator_wallet.slice(-4)}
+                                  </>
+                                ) : (
+                                  "-"
+                                )}
                               </span>
                             </TableCell>
                             <TableCell>{getStatusBadge(job.status)}</TableCell>
@@ -606,8 +612,14 @@ export default function AgentLogsAdminPage() {
                             </TableCell>
                             <TableCell>
                               <span className="text-xs font-mono">
-                                {token.creator_wallet.slice(0, 4)}...
-                                {token.creator_wallet.slice(-4)}
+                                {token.creator_wallet ? (
+                                  <>
+                                    {token.creator_wallet.slice(0, 4)}...
+                                    {token.creator_wallet.slice(-4)}
+                                  </>
+                                ) : (
+                                  "-"
+                                )}
                               </span>
                             </TableCell>
                             <TableCell>
