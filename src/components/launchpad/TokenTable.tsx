@@ -23,6 +23,7 @@ import {
   Gem,
   Bot,
 } from "lucide-react";
+import { Rocket } from "@phosphor-icons/react";
 
 interface Token {
   id: string;
@@ -39,6 +40,7 @@ interface Token {
   created_at?: string | null;
   fee_mode?: string | null; // 'standard' or 'holders'
   agent_id?: string | null;
+  launchpad_type?: string | null;
 }
 
 interface TokenTableProps {
@@ -78,10 +80,22 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
     const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
     const isPromoted = promotedTokenIds?.has(token.id) || false;
     const isHolderRewards = token.fee_mode === 'holders';
+    const isPumpFun = token.launchpad_type === 'pumpfun';
+    
+    const tradeUrl = isPumpFun 
+      ? `https://pump.fun/${token.mint_address}` 
+      : token.agent_id 
+        ? `/t/${token.ticker}` 
+        : `/launchpad/${token.mint_address}`;
+    
+    const CardWrapper = isPumpFun ? 'a' : Link;
+    const cardProps = isPumpFun 
+      ? { href: tradeUrl, target: "_blank", rel: "noopener noreferrer" }
+      : { to: tradeUrl };
 
     return (
-      <Link
-        to={token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address}`}
+      <CardWrapper
+        {...cardProps as any}
         className={`block p-3 border-b border-border last:border-b-0 hover:bg-secondary/30 transition-colors ${isPromoted ? "ring-2 ring-warning/50 ring-inset bg-warning/5" : ""}`}
       >
         <div className="flex items-start gap-3">
@@ -115,6 +129,18 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                                     <Bot className="h-3 w-3 text-purple-400 hover:text-purple-300" />
                                   </Link>
                                 )}
+                                {isPumpFun && (
+                                  <a
+                                    href={`https://pump.fun/${token.mint_address}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="pump.fun Token"
+                                    className="flex-shrink-0"
+                                  >
+                                    <Rocket size={12} weight="fill" className="text-[#00ff00] hover:text-[#00cc00]" />
+                                  </a>
+                                )}
                               </span>
               <span className="text-xs text-muted-foreground">${token.ticker}</span>
             </div>
@@ -143,7 +169,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
             )}
           </div>
         </div>
-      </Link>
+      </CardWrapper>
     );
   };
 
@@ -223,11 +249,24 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                   const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
                   const isPromoted = promotedTokenIds?.has(token.id) || false;
                   const isHolderRewards = token.fee_mode === 'holders';
+                  const isPumpFun = token.launchpad_type === 'pumpfun';
+                  
+                  const tradeUrl = isPumpFun 
+                    ? `https://pump.fun/${token.mint_address}` 
+                    : token.agent_id 
+                      ? `/t/${token.ticker}` 
+                      : `/launchpad/${token.mint_address}`;
+                  
+                  const RowLink = isPumpFun ? 'a' : Link;
+                  const rowProps = isPumpFun 
+                    ? { href: tradeUrl, target: "_blank", rel: "noopener noreferrer" }
+                    : { to: tradeUrl };
+                  
                   return (
                     <tr key={token.id} className={isPromoted ? "ring-2 ring-warning/30 ring-inset bg-warning/5" : ""}>
                       <td className="text-muted-foreground font-medium">{(page - 1) * pageSize + index + 1}</td>
                       <td>
-                        <Link to={token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address}`} className="gate-token-row hover:opacity-80 transition-opacity">
+                        <RowLink {...rowProps as any} className="gate-token-row hover:opacity-80 transition-opacity">
                           <div className={`gate-token-avatar ${isPromoted ? "ring-2 ring-warning" : ""}`}>
                             {token.image_url ? <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">{token.ticker?.slice(0, 2)}</div>}
                           </div>
@@ -250,10 +289,21 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                                   <Bot className="h-3 w-3 text-purple-400 hover:text-purple-300" />
                                 </Link>
                               )}
+                              {isPumpFun && (
+                                <a
+                                  href={`https://pump.fun/${token.mint_address}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  title="pump.fun Token"
+                                >
+                                  <Rocket size={12} weight="fill" className="text-[#00ff00] hover:text-[#00cc00]" />
+                                </a>
+                              )}
                             </span>
                             <span className="gate-token-ticker">${token.ticker}</span>
                           </div>
-                        </Link>
+                        </RowLink>
                       </td>
                       <td><span className="text-muted-foreground text-xs">{token.created_at ? formatDistanceToNow(new Date(token.created_at), { addSuffix: false }) : "-"}</span></td>
                       <td>{token.price_change_24h != null ? <span className={`flex items-center gap-1 font-medium ${token.price_change_24h > 0 ? "text-primary" : token.price_change_24h < 0 ? "text-destructive" : "text-muted-foreground"}`}>{token.price_change_24h > 0 && <TrendingUp className="h-3 w-3" />}{token.price_change_24h < 0 && <TrendingDown className="h-3 w-3" />}{token.price_change_24h === 0 ? "0.0%" : `${token.price_change_24h > 0 ? "+" : ""}${token.price_change_24h.toFixed(1)}%`}</span> : <span className="text-muted-foreground">0.0%</span>}</td>

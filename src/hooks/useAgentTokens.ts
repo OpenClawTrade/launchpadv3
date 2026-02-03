@@ -26,6 +26,7 @@ interface AgentToken {
     holderCount: number;
     bondingProgress: number;
     createdAt: string;
+    launchpadType: string | null;
   } | null;
 }
 

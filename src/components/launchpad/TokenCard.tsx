@@ -7,6 +7,7 @@ import { BondingCurveProgress } from "./BondingCurveProgress";
 import { Token } from "@/hooks/useLaunchpad";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { TrendingUp, TrendingDown, Users, Clock, ChevronRight, Zap, Sparkles, Bot } from "lucide-react";
+import { Rocket } from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
@@ -22,7 +23,7 @@ function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
 }
 
 interface TokenCardProps {
-  token: Token & { trading_fee_bps?: number; fee_mode?: 'creator' | 'holder_rewards'; agent_id?: string | null };
+  token: Token & { trading_fee_bps?: number; fee_mode?: 'creator' | 'holder_rewards'; agent_id?: string | null; launchpad_type?: string | null };
 }
 
 export function TokenCard({ token }: TokenCardProps) {
@@ -34,9 +35,21 @@ export function TokenCard({ token }: TokenCardProps) {
   const isNew = Date.now() - new Date(token.created_at).getTime() < 24 * 60 * 60 * 1000;
   const tradingFeePct = ((token as any).trading_fee_bps || 200) / 100; // Convert bps to %
   const isHolderRewards = token.fee_mode === 'holder_rewards';
+  const isPumpFun = token.launchpad_type === 'pumpfun';
+  
+  // Trade URL logic - pump.fun tokens link externally
+  const tradeUrl = isPumpFun 
+    ? `https://pump.fun/${token.mint_address}` 
+    : token.agent_id 
+      ? `/t/${token.ticker}` 
+      : `/launchpad/${token.mint_address}`;
+  const CardWrapper = isPumpFun ? 'a' : Link;
+  const cardProps = isPumpFun 
+    ? { href: tradeUrl, target: "_blank", rel: "noopener noreferrer" }
+    : { to: tradeUrl };
 
   return (
-    <Link to={token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address}`}>
+    <CardWrapper {...cardProps as any}>
       <Card className="relative overflow-hidden p-4 hover:bg-secondary/50 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer group">
         {/* Hot indicator glow */}
         {isHot && !isGraduated && (
@@ -116,6 +129,20 @@ export function TokenCard({ token }: TokenCardProps) {
                   <span className="text-[10px] font-medium">AI</span>
                 </Link>
               )}
+              {/* pump.fun badge */}
+              {isPumpFun && (
+                <a
+                  href={`https://pump.fun/${token.mint_address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-0.5 bg-[#00ff00]/20 text-[#00ff00] px-1.5 py-0.5 rounded-full hover:bg-[#00ff00]/30 transition-colors"
+                  title="pump.fun Token - Click to trade"
+                >
+                  <Rocket size={12} weight="fill" />
+                  <span className="text-[10px] font-medium">pump</span>
+                </a>
+              )}
               {/* Trading fee badge - show if not default 2% */}
               <Badge 
                 variant="outline" 
@@ -189,6 +216,6 @@ export function TokenCard({ token }: TokenCardProps) {
           </div>
         </div>
       </Card>
-    </Link>
+    </CardWrapper>
   );
 }
