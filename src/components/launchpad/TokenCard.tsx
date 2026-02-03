@@ -113,8 +113,10 @@ export function TokenCard({ token }: TokenCardProps) {
                   💎 HOLDER
                 </Badge>
               )}
-              {/* AI Agent badge - show for both agent tokens and pump.fun tokens (they all have communities) */}
-              {(token.agent_id || isPumpFun) && (
+              {/* Mutually exclusive: pump.fun badge takes priority, then agent badge */}
+              {isPumpFun ? (
+                <PumpBadge mintAddress={token.mint_address} />
+              ) : token.agent_id ? (
                 <span 
                   className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full"
                   title="AI Agent Token"
@@ -122,11 +124,7 @@ export function TokenCard({ token }: TokenCardProps) {
                   <Bot className="h-3 w-3" />
                   <span className="text-[10px] font-medium">AI</span>
                 </span>
-              )}
-              {/* pump.fun badge */}
-              {isPumpFun && (
-                <PumpBadge mintAddress={token.mint_address} />
-              )}
+              ) : null}
               {/* Trading fee badge - show if not default 2% */}
               <Badge 
                 variant="outline" 
