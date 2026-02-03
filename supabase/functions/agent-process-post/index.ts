@@ -362,13 +362,16 @@ async function getOrCreateAgent(
     .maybeSingle();
 
   if (existing) {
-    // Update twitter_handle if provided and not already set
+    // Update twitter_handle and style_source_username if provided
     if (twitterUsername) {
+      const normalizedUsername = twitterUsername.replace(/^@/, "").toLowerCase();
       await supabase
         .from("agents")
-        .update({ twitter_handle: twitterUsername.replace("@", "") })
-        .eq("id", existing.id)
-        .is("twitter_handle", null);
+        .update({ 
+          twitter_handle: normalizedUsername,
+          style_source_username: normalizedUsername // For X login claim discovery
+        })
+        .eq("id", existing.id);
     }
     return existing;
   }
@@ -385,6 +388,9 @@ async function getOrCreateAgent(
   // Use the token name as the agent name - the agent IS the token!
   const agentName = tokenName;
 
+  // Normalize the Twitter username for consistent lookups
+  const normalizedUsername = twitterUsername?.replace(/^@/, "").toLowerCase() || null;
+
   const { data: newAgent, error } = await supabase
     .from("agents")
     .insert({
@@ -393,7 +399,8 @@ async function getOrCreateAgent(
       api_key_hash: apiKeyHash,
       api_key_prefix: apiKeyPrefix,
       status: "active",
-      twitter_handle: twitterUsername?.replace("@", "") || null, // Store creator for attribution
+      twitter_handle: normalizedUsername, // Store creator for attribution
+      style_source_username: normalizedUsername, // For X login claim discovery
     })
     .select("id, wallet_address, name")
     .single();

@@ -13,7 +13,9 @@ interface TokenInfo {
   mint: string | null;
   imageUrl: string | null;
   createdAt: string;
-  totalFeesEarned: number;
+  totalFeesEarned: number;      // 80% creator share of all collected fees
+  totalFeesClaimed: number;     // What's been paid out via creator_claim
+  unclaimedFees: number;        // Difference (what they can withdraw)
   volume24h: number;
   marketCapSol: number;
   priceSol: number;
@@ -36,11 +38,14 @@ interface ClaimableAgent {
   tokens: TokenInfo[];
 }
 
+const CREATOR_SHARE = 0.8; // 80% goes to creator
+
 /**
  * Find agents and tokens by Twitter username.
- * Searches both:
- * 1. Agents with matching style_source_username (claimed agents)
- * 2. Tokens launched via Twitter by matching post_author (unclaimed tokens)
+ * Computes CORRECT unclaimed fees using:
+ *   earned = sum(fun_fee_claims.claimed_sol) * 0.8
+ *   paid = sum(fun_distributions where type='creator_claim' & status='completed')
+ *   unclaimed = earned - paid
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -71,7 +76,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Strategy 1: Find agents by style_source_username (existing path)
+    // Strategy 1: Find agents by style_source_username (primary path)
     const { data: agents, error: agentsError } = await supabase
       .from("agents")
       .select(`
@@ -82,10 +87,7 @@ Deno.serve(async (req) => {
         created_at,
         avatar_url,
         description,
-        style_source_username,
-        total_tokens_launched,
-        total_fees_earned_sol,
-        total_fees_claimed_sol
+        style_source_username
       `)
       .ilike("style_source_username", normalizedUsername)
       .order("created_at", { ascending: false });
@@ -115,111 +117,118 @@ Deno.serve(async (req) => {
       console.error("[agent-find-by-twitter] Social posts query error:", postsError);
     }
 
-    // Get token IDs from social posts
-    const tokenIds = (socialPosts || [])
+    // Collect all token IDs (from agents and social posts)
+    const agentIds = (agents || []).map(a => a.id);
+    const socialTokenIds = (socialPosts || [])
       .map(p => p.fun_token_id)
       .filter((id): id is string => id !== null);
 
-    // Fetch full token details
-    let tokenDetails: any[] = [];
-    if (tokenIds.length > 0) {
+    // Get tokens for all found agents
+    let agentTokens: any[] = [];
+    if (agentIds.length > 0) {
       const { data: tokens } = await supabase
         .from("fun_tokens")
         .select(`
-          id,
-          name,
-          ticker,
-          mint_address,
-          image_url,
-          created_at,
-          total_fees_earned,
-          volume_24h_sol,
-          market_cap_sol,
-          price_sol,
-          holder_count,
-          dbc_pool_address,
-          creator_wallet,
-          agent_id
+          id, name, ticker, mint_address, image_url, created_at,
+          volume_24h_sol, market_cap_sol, price_sol, holder_count, dbc_pool_address, agent_id
         `)
-        .in("id", tokenIds);
-
-      tokenDetails = tokens || [];
+        .in("agent_id", agentIds);
+      agentTokens = tokens || [];
     }
 
-    // Calculate fees earned for each token from fee claims
-    const tokenFeesMap = new Map<string, number>();
-    if (tokenIds.length > 0) {
+    // Get tokens from social posts (may include some not linked to agents)
+    let socialTokenDetails: any[] = [];
+    if (socialTokenIds.length > 0) {
+      const { data: tokens } = await supabase
+        .from("fun_tokens")
+        .select(`
+          id, name, ticker, mint_address, image_url, created_at,
+          volume_24h_sol, market_cap_sol, price_sol, holder_count, dbc_pool_address, creator_wallet, agent_id
+        `)
+        .in("id", socialTokenIds);
+      socialTokenDetails = tokens || [];
+    }
+
+    // Combine all unique token IDs
+    const allTokenIds = [
+      ...agentTokens.map(t => t.id),
+      ...socialTokenDetails.map(t => t.id)
+    ].filter((id, index, arr) => arr.indexOf(id) === index);
+
+    // Fetch fee claims for all tokens (total collected fees)
+    const tokenEarnedMap = new Map<string, number>();
+    if (allTokenIds.length > 0) {
       const { data: feeClaims } = await supabase
         .from("fun_fee_claims")
         .select("fun_token_id, claimed_sol")
-        .in("fun_token_id", tokenIds);
+        .in("fun_token_id", allTokenIds);
 
       for (const claim of feeClaims || []) {
         if (claim.fun_token_id) {
-          const current = tokenFeesMap.get(claim.fun_token_id) || 0;
-          tokenFeesMap.set(claim.fun_token_id, current + (claim.claimed_sol || 0));
+          const current = tokenEarnedMap.get(claim.fun_token_id) || 0;
+          tokenEarnedMap.set(claim.fun_token_id, current + (claim.claimed_sol || 0));
         }
       }
     }
 
-    // Get UNCLAIMED fees - fee claims that haven't been distributed to creator yet
-    const tokenUnclaimedMap = new Map<string, number>();
-    if (tokenIds.length > 0) {
-      const { data: unclaimedFeeClaims } = await supabase
-        .from("fun_fee_claims")
-        .select("fun_token_id, claimed_sol")
-        .in("fun_token_id", tokenIds)
-        .eq("creator_distributed", false);
+    // Fetch completed creator_claim distributions (what's been paid out)
+    const tokenPaidMap = new Map<string, number>();
+    if (allTokenIds.length > 0) {
+      const { data: distributions } = await supabase
+        .from("fun_distributions")
+        .select("fun_token_id, amount_sol")
+        .in("fun_token_id", allTokenIds)
+        .eq("distribution_type", "creator_claim")
+        .eq("status", "completed");
 
-      for (const claim of unclaimedFeeClaims || []) {
-        if (claim.fun_token_id) {
-          const current = tokenUnclaimedMap.get(claim.fun_token_id) || 0;
-          tokenUnclaimedMap.set(claim.fun_token_id, current + (claim.claimed_sol || 0));
+      for (const dist of distributions || []) {
+        if (dist.fun_token_id) {
+          const current = tokenPaidMap.get(dist.fun_token_id) || 0;
+          tokenPaidMap.set(dist.fun_token_id, current + (dist.amount_sol || 0));
         }
       }
     }
 
-    // Build agents list with tokens
-    const claimableAgents: ClaimableAgent[] = [];
+    // Helper to compute token info with correct fee calculations
+    const computeTokenInfo = (t: any): TokenInfo => {
+      const totalCollected = tokenEarnedMap.get(t.id) || 0;
+      const creatorEarned = totalCollected * CREATOR_SHARE;
+      const creatorPaid = tokenPaidMap.get(t.id) || 0;
+      const unclaimed = Math.max(0, creatorEarned - creatorPaid);
 
-    // Process existing agents
-    for (const agent of agents || []) {
-      const { data: agentTokens } = await supabase
-        .from("fun_tokens")
-        .select(`
-          id,
-          name,
-          ticker,
-          mint_address,
-          image_url,
-          created_at,
-          total_fees_earned,
-          volume_24h_sol,
-          market_cap_sol,
-          price_sol,
-          holder_count,
-          dbc_pool_address
-        `)
-        .eq("agent_id", agent.id)
-        .order("created_at", { ascending: false });
-
-      const tokens: TokenInfo[] = (agentTokens || []).map(t => ({
+      return {
         id: t.id,
         symbol: t.ticker,
         name: t.name,
         mint: t.mint_address,
         imageUrl: t.image_url,
         createdAt: t.created_at,
-        totalFeesEarned: tokenFeesMap.get(t.id) || (t.total_fees_earned || 0),
+        totalFeesEarned: creatorEarned,
+        totalFeesClaimed: creatorPaid,
+        unclaimedFees: unclaimed,
         volume24h: t.volume_24h_sol || 0,
         marketCapSol: t.market_cap_sol || 0,
         priceSol: t.price_sol || 0,
         holderCount: t.holder_count || 0,
         poolAddress: t.dbc_pool_address,
-      }));
+      };
+    };
+
+    // Build agents list with tokens
+    const claimableAgents: ClaimableAgent[] = [];
+    const processedTokenIds = new Set<string>();
+
+    // Process existing agents (found by style_source_username)
+    for (const agent of agents || []) {
+      const tokens = agentTokens
+        .filter(t => t.agent_id === agent.id)
+        .map(computeTokenInfo);
+
+      tokens.forEach(t => processedTokenIds.add(t.id));
 
       const totalFeesEarned = tokens.reduce((sum, t) => sum + t.totalFeesEarned, 0);
-      const totalFeesClaimed = agent.total_fees_claimed_sol || 0;
+      const totalFeesClaimed = tokens.reduce((sum, t) => sum + t.totalFeesClaimed, 0);
+      const unclaimedFees = tokens.reduce((sum, t) => sum + t.unclaimedFees, 0);
 
       claimableAgents.push({
         id: agent.id,
@@ -229,42 +238,30 @@ Deno.serve(async (req) => {
         description: agent.description,
         launchedAt: agent.created_at,
         tokensLaunched: tokens.length,
-        totalFeesEarned: totalFeesEarned * 0.8, // 80% creator share
+        totalFeesEarned,
         totalFeesClaimed,
-        unclaimedFees: Math.max(0, (totalFeesEarned * 0.8) - totalFeesClaimed),
+        unclaimedFees,
         verified: agent.verified_at !== null,
         tokens,
       });
     }
 
     // Process tokens from social posts that may not have agents yet
-    // Group by creator wallet
+    // Group by wallet or create pseudo-agent entries
     const walletTokensMap = new Map<string, TokenInfo[]>();
     
     for (const post of socialPosts || []) {
-      const token = tokenDetails.find(t => t.id === post.fun_token_id);
+      const token = socialTokenDetails.find(t => t.id === post.fun_token_id);
       if (!token) continue;
 
-      // Skip if already associated with an agent we found
-      if (claimableAgents.some(a => a.tokens.some(t => t.id === token.id))) continue;
+      // Skip if already processed via agent path
+      if (processedTokenIds.has(token.id)) continue;
 
       const wallet = post.wallet_address || token.creator_wallet;
       if (!wallet) continue;
 
-      const tokenInfo: TokenInfo = {
-        id: token.id,
-        symbol: token.ticker,
-        name: token.name,
-        mint: token.mint_address,
-        imageUrl: token.image_url,
-        createdAt: token.created_at,
-        totalFeesEarned: tokenFeesMap.get(token.id) || (token.total_fees_earned || 0),
-        volume24h: token.volume_24h_sol || 0,
-        marketCapSol: token.market_cap_sol || 0,
-        priceSol: token.price_sol || 0,
-        holderCount: token.holder_count || 0,
-        poolAddress: token.dbc_pool_address,
-      };
+      const tokenInfo = computeTokenInfo(token);
+      processedTokenIds.add(token.id);
 
       const existing = walletTokensMap.get(wallet) || [];
       existing.push(tokenInfo);
@@ -274,9 +271,8 @@ Deno.serve(async (req) => {
     // Create pseudo-agents for wallet groups without actual agents
     for (const [wallet, tokens] of walletTokensMap.entries()) {
       const totalFeesEarned = tokens.reduce((sum, t) => sum + t.totalFeesEarned, 0);
-      const unclaimedFees = tokens.reduce((sum, t) => {
-        return sum + (tokenUnclaimedMap.get(t.id) || 0);
-      }, 0);
+      const totalFeesClaimed = tokens.reduce((sum, t) => sum + t.totalFeesClaimed, 0);
+      const unclaimedFees = tokens.reduce((sum, t) => sum + t.unclaimedFees, 0);
 
       claimableAgents.push({
         id: `wallet_${wallet.slice(0, 8)}`,
@@ -286,16 +282,23 @@ Deno.serve(async (req) => {
         description: `Tokens launched via Twitter by @${normalizedUsername}`,
         launchedAt: tokens[0]?.createdAt || new Date().toISOString(),
         tokensLaunched: tokens.length,
-        totalFeesEarned: totalFeesEarned * 0.8, // 80% creator share
-        totalFeesClaimed: 0,
-        unclaimedFees: unclaimedFees * 0.8,
+        totalFeesEarned,
+        totalFeesClaimed,
+        unclaimedFees,
         verified: false,
         tokens,
       });
     }
 
+    // Compute summary totals
+    const totalTokens = claimableAgents.reduce((sum, a) => sum + a.tokens.length, 0);
+    const totalFeesEarned = claimableAgents.reduce((sum, a) => sum + a.totalFeesEarned, 0);
+    const totalFeesClaimed = claimableAgents.reduce((sum, a) => sum + a.totalFeesClaimed, 0);
+    const totalUnclaimedFees = claimableAgents.reduce((sum, a) => sum + a.unclaimedFees, 0);
+
     console.log(
-      `[agent-find-by-twitter] Found ${claimableAgents.length} agents/groups with ${claimableAgents.reduce((sum, a) => sum + a.tokens.length, 0)} total tokens for @${normalizedUsername}`
+      `[agent-find-by-twitter] Found ${claimableAgents.length} agents with ${totalTokens} tokens for @${normalizedUsername}. ` +
+      `Earned: ${totalFeesEarned.toFixed(4)} SOL, Paid: ${totalFeesClaimed.toFixed(4)} SOL, Unclaimed: ${totalUnclaimedFees.toFixed(4)} SOL`
     );
 
     return new Response(
@@ -305,9 +308,10 @@ Deno.serve(async (req) => {
         agents: claimableAgents,
         summary: {
           totalAgents: claimableAgents.length,
-          totalTokens: claimableAgents.reduce((sum, a) => sum + a.tokens.length, 0),
-          totalFeesEarned: claimableAgents.reduce((sum, a) => sum + a.totalFeesEarned, 0),
-          totalUnclaimedFees: claimableAgents.reduce((sum, a) => sum + a.unclaimedFees, 0),
+          totalTokens,
+          totalFeesEarned,
+          totalFeesClaimed,
+          totalUnclaimedFees,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
