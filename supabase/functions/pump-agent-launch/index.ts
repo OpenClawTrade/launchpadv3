@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { name, ticker, description, imageUrl, initialBuySol = 0.01 } = await req.json();
+    const { name, ticker, description, imageUrl, twitter, telegram, website, initialBuySol = 0.01 } = await req.json();
 
     // Validate inputs
     if (!name || typeof name !== "string" || name.length < 1 || name.length > 32) {
@@ -71,6 +71,10 @@ Deno.serve(async (req) => {
     if (!imageUrl) {
       throw new Error("Image URL is required");
     }
+
+    // Set website to SubTuna page if not provided
+    const finalWebsite = website || `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    const finalTwitter = twitter || "https://x.com/BuildTuna";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -102,8 +106,11 @@ Deno.serve(async (req) => {
     formData.append("name", name);
     formData.append("symbol", ticker.toUpperCase());
     formData.append("description", description || `${name} - Launched via TUNA Agents on pump.fun`);
-    formData.append("twitter", "https://x.com/BuildTuna");
-    formData.append("website", `https://tuna.fun/t/${ticker.toUpperCase()}`);
+    formData.append("twitter", finalTwitter);
+    formData.append("website", finalWebsite);
+    if (telegram) {
+      formData.append("telegram", telegram);
+    }
     formData.append("showName", "true");
 
     const ipfsResponse = await fetch("https://pump.fun/api/ipfs", {
