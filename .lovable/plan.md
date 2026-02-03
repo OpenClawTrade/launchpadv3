@@ -1,138 +1,134 @@
 
-## What’s actually happening (root cause)
-Your screenshot shows:
-- “Total Earned” ≈ **5.2136 SOL**
-- “Unclaimed” = **0 SOL**
-- Yet per-token “Your Earnings” shows **0.0526 SOL** and **5.1609 SOL**
+# Fix: CrabClaws Not Showing in King of the Hill
 
-Backend data confirms why:
-- For your tokens (KNGT + CRAB), **all `fun_fee_claims` are already marked `creator_distributed=true`**, so the app’s “unclaimed” calculation (which currently relies on “undistributed fee claims”) becomes **0**.
-- At the same time, the platform has accumulated creator earnings elsewhere (we see many rows in `agent_fee_distributions`), so you *do* have earnings, but the claim UI is looking at the wrong “source of truth” for “unclaimed”.
+## Issue Analysis
 
-There’s a second issue making this worse:
-- Agents created via Twitter launches are not saving `agents.style_source_username`, so the claim dashboard often falls back to a “pseudo-agent” path that computes unclaimed purely from `creator_distributed=false` claims (which is 0 for you).
+The CrabClaws token is **not appearing** in the King of the Hill section because it has `bonding_progress: 0`. This is **correct behavior** based on current logic - King of the Hill shows the top 3 tokens sorted by bonding progress (highest first), and CrabClaws has no trading activity yet.
 
-## Goal
-Make Twitter/X-launched tokens behave exactly like a normal successful launch/claim flow:
-1) The dashboard always finds the correct agent/tokens for your X username.
-2) “Unclaimed” reflects what you can actually withdraw.
-3) Clicking “Claim” pays out correctly to the wallet you input.
-4) Cooldowns/locks prevent double-claims.
-5) Backfill/fix existing records (like your account) so it works immediately.
+### Current State:
+- **CrabClaws (CRAB)**: `bonding_progress: 0`
+- **Top 3 tokens**:
+  1. MARIES: 5.2%
+  2. KNGT: 1.2%
+  3. SLAI: 0.8%
+
+CrabClaws IS appearing in the main token list (sorted by creation date), just not in King of the Hill.
 
 ---
 
-## Plan of changes
+## Proposed Solution: Add "Just Launched" Section
 
-### A) Fix agent identity tracking for Twitter launches (so discovery is stable)
-1. Update the Twitter launch processing backend (`agent-process-post`) so when it creates/updates an agent it sets:
-   - `agents.style_source_username = normalizedTwitterUsername` (no @, lowercase)
-   - also keep `twitter_handle` consistent (same normalized value)
-2. Add a small “backfill” migration for existing agents:
-   - For agents where `style_source_username` is NULL but `twitter_handle` exists, set `style_source_username = twitter_handle`.
-   - For cases where both are NULL, infer from `agent_social_posts.post_author` by joining through `fun_tokens.agent_id` when possible.
+Add a new prominently displayed section to showcase **recently launched tokens** (last 24 hours) regardless of their bonding progress. This ensures new tokens like CrabClaws get visibility immediately after launch.
 
-Result: your X login will always map to the correct agent(s), not the fallback pseudo-agent grouping.
+### Implementation
 
----
+**1. Create a new "JustLaunched" component**
 
-### B) Redefine “claimable/unclaimed” to match reality (stop depending on `creator_distributed`)
-Right now, `creator_distributed` is being used for internal distribution bookkeeping and is not reliable for “what the creator can withdraw” in the Twitter claim UX.
+File: `src/components/launchpad/JustLaunched.tsx`
 
-We’ll switch the claim UX to a robust formula:
+```text
+Component showing:
+- Title: "Just Launched" with Rocket icon
+- Horizontally scrolling cards of tokens created in the last 24 hours
+- Each card shows: token image, name, ticker, market cap, age
+- Sorted by created_at DESC (newest first)
+- Limit to 10 tokens max
+- Links to token detail page
+```
 
-For a given token:
-- **earned_to_creator = sum(fun_fee_claims.claimed_sol) * creator_share**
-  - For agent tokens: `creator_share = fun_tokens.agent_fee_share_bps / 10000` (default 0.8)
-  - For non-agent tokens: use the correct share used by your product rules (agent tokens are 80%).
-- **already_paid_to_creator = sum(fun_distributions.amount_sol)** where:
-  - `distribution_type = 'creator_claim'`
-  - `status = 'completed'`
-  - token matches
-- **unclaimed = max(0, earned_to_creator - already_paid_to_creator)**
+**2. Update FunLauncherPage**
 
-This makes “unclaimed” correct even if `creator_distributed` was toggled earlier.
+Add the JustLaunched component below the King of the Hill section:
 
-Implementation:
-1. Update `agent-find-by-twitter` backend function to compute:
-   - per-token earned_to_creator
-   - per-token already_paid_to_creator
-   - per-token unclaimed
-   - and totals for the header summary
-2. Ensure the dashboard uses this returned unclaimed number to enable/disable the claim button.
+```text
+{/* King of the Hill */}
+<KingOfTheHill />
 
-Result: your “Unclaimed” will show the real withdrawable amount, and the button will become available.
+{/* New: Just Launched */}
+<JustLaunched tokens={tokens} />
+```
 
----
+**3. Component Structure**
 
-### C) Make the “Claim” button pay from the correct pool and record claims
-1. Update `agent-creator-claim` backend function to:
-   - Accept `twitterUsername`, `payoutWallet`, and optional `tokenIds` (already does)
-   - Validate ownership by checking `agent_social_posts` for those tokenIds + post_author match
-   - Compute claimable using the new formula above (earned_to_creator - already_paid_to_creator)
-   - Enforce minimum (keep 0.01 SOL unless you want 0.05 SOL)
-   - Send SOL to `payoutWallet`
-   - Insert `fun_distributions` rows for each token claimed:
-     - `distribution_type = 'creator_claim'`
-     - `status = 'completed'`
-     - `signature = txSignature`
-     - `creator_wallet = payoutWallet`
-2. Add proper cooldown tracking per Twitter username:
-   - Add a `twitter_username` column to `fun_distributions` (migration)
-   - Store it on insert for `creator_claim`
-   - Change cooldown lookup from “global last claim” to “last claim for this twitter_username”
-
-Result: claims work reliably and the system can always compute “already paid” accurately.
+```text
+JustLaunched
+├── Filter tokens created in last 24h
+├── Sort by created_at (newest first)
+├── Take first 10
+├── Render horizontal scroll container
+│   └── TokenCard (compact version)
+│       ├── Image
+│       ├── Name + Ticker
+│       ├── Market Cap (USD)
+│       └── "X minutes ago" timestamp
+└── Show nothing if no recent tokens
+```
 
 ---
 
-### D) Prevent double-claims (lock)
-Add a lightweight backend lock so two clicks or parallel requests can’t double-pay:
-1. Add table `creator_claim_locks` keyed by `twitter_username` with `locked_at` (and expiry)
-2. Add database functions:
-   - `acquire_creator_claim_lock(twitter_username, duration_seconds)`
-   - `release_creator_claim_lock(twitter_username)`
-3. In `agent-creator-claim`, acquire lock before sending; release after (and in error handling)
+## Technical Details
 
-Result: safe payouts even if someone spams the button.
+### New File: `src/components/launchpad/JustLaunched.tsx`
 
----
+```typescript
+// Props: tokens array from useFunTokens
+// Filter: created_at > Date.now() - 24 hours
+// Sort: created_at DESC
+// Display: horizontal scroll with compact cards
+// Link: agent tokens -> /t/:ticker, regular -> /launchpad/:mint
+```
 
-### E) Reconcile existing “pending agent_fee_distributions” (optional but recommended)
-Right now, your database shows large “pending” amounts in `agent_fee_distributions` that do not align with what the claim UI should pay.
-To avoid future confusion or a second “claim system” paying twice:
-- After a successful `creator_claim`, mark related `agent_fee_distributions` rows for those tokenIds as “completed” with the same signature, OR mark them “voided” with a reason (preferred if we add a `status` enum).
-- If we want zero-risk overpayment, we’ll only ever pay using the new formula based on `fun_fee_claims` minus `creator_claim` distributions; `agent_fee_distributions` becomes informational/legacy for this flow.
+### Changes to `src/pages/FunLauncherPage.tsx`
 
-Result: one coherent claim source of truth.
+- Import JustLaunched component
+- Add after KingOfTheHill section (line ~282)
 
----
+### Styling
 
-## Verification plan (what we’ll test)
-1. Log in with X as `@stillwrkngonit` and open `/agents/claim`.
-2. Confirm:
-   - Tokens list populates
-   - Header “Unclaimed” matches the sum of per-token unclaimed
-   - Claim button becomes enabled when unclaimed >= 0.01
-3. Enter a payout wallet and claim:
-   - Transaction succeeds
-   - UI shows success and signature
-   - Unclaimed becomes 0 (or decreases correctly)
-4. Re-click immediately:
-   - Expect cooldown message (per-user)
-5. Reload and verify the claimed state persists.
+- Uses existing gate-theme classes
+- Horizontal scrollable container with hidden scrollbar
+- Subtle border and hover effects
+- Responsive: works on mobile and desktop
 
 ---
 
-## Deliverables (what will be changed)
-- Backend functions:
-  - `agent-process-post` (set `style_source_username`)
-  - `agent-find-by-twitter` (compute correct unclaimed)
-  - `agent-creator-claim` (pay correct amount, record distributions, cooldown per user, locking)
-- Database migrations:
-  - Add `twitter_username` column to `fun_distributions` (+ index for lookups)
-  - Add `creator_claim_locks` table + RPC functions
-  - Backfill `agents.style_source_username` for existing records
-- Frontend:
-  - `AgentClaimPage` continues to call `agent-creator-claim`, but now it will correctly unlock claim based on fixed data from `agent-find-by-twitter`
+## Alternative Option: Modify King of the Hill Logic
 
+If you'd prefer to modify King of the Hill instead:
+
+```typescript
+// Current logic:
+.sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0))
+
+// Alternative: Add recency tiebreaker
+.sort((a, b) => {
+  const progressDiff = (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0);
+  if (Math.abs(progressDiff) < 0.001) {
+    // Tiebreaker: newer tokens first when progress is similar
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  }
+  return progressDiff;
+})
+```
+
+This would show newer tokens when bonding progress is essentially 0% for multiple tokens.
+
+---
+
+## Recommendation
+
+The **"Just Launched" section** is recommended because:
+1. Keeps King of the Hill semantically correct (tokens closest to graduation)
+2. Gives immediate visibility to new tokens regardless of trading
+3. Creates urgency for users to "get in early" on new launches
+4. Clear separation of concerns (progress vs. recency)
+
+---
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/components/launchpad/JustLaunched.tsx` | **New file** - Just Launched component |
+| `src/pages/FunLauncherPage.tsx` | Import and add JustLaunched section |
+| `src/components/launchpad/index.ts` | Export JustLaunched component |
