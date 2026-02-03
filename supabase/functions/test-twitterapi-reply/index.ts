@@ -1,5 +1,3 @@
-import { createHmac } from "node:crypto";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -15,73 +13,6 @@ const safeJsonParse = (text: string): any => {
     return null;
   }
 };
-
-// OAuth 1.0a signing for official X.com API
-function generateOAuthSignature(
-  method: string,
-  url: string,
-  params: Record<string, string>,
-  consumerSecret: string,
-  tokenSecret: string
-): string {
-  const sortedParams = Object.keys(params)
-    .sort()
-    .map(
-      (key) =>
-        `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`
-    )
-    .join("&");
-
-  const signatureBase = [
-    method.toUpperCase(),
-    encodeURIComponent(url),
-    encodeURIComponent(sortedParams),
-  ].join("&");
-
-  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-
-  const hmac = createHmac("sha1", signingKey);
-  hmac.update(signatureBase);
-  return hmac.digest("base64");
-}
-
-function generateOAuthHeader(
-  method: string,
-  url: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): string {
-  const oauthParams: Record<string, string> = {
-    oauth_consumer_key: consumerKey,
-    oauth_nonce: crypto.randomUUID().replace(/-/g, ""),
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: accessToken,
-    oauth_version: "1.0",
-  };
-
-  const signature = generateOAuthSignature(
-    method,
-    url,
-    oauthParams,
-    consumerSecret,
-    accessTokenSecret
-  );
-
-  oauthParams.oauth_signature = signature;
-
-  const headerParts = Object.keys(oauthParams)
-    .sort()
-    .map(
-      (key) =>
-        `${encodeURIComponent(key)}="${encodeURIComponent(oauthParams[key])}"`
-    )
-    .join(", ");
-
-  return `OAuth ${headerParts}`;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -103,200 +34,126 @@ Deno.serve(async (req) => {
     const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
     const xCt0 = Deno.env.get("X_CT0_TOKEN");
 
-    const testText = `🧪 Test reply at ${new Date().toISOString().slice(11, 19)} UTC - checking twitterapi.io endpoints`;
+    if (!twitterApiKey || !proxyUrl || !xAuthToken || !xCt0) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Missing credentials",
+          has_api_key: !!twitterApiKey,
+          has_proxy: !!proxyUrl,
+          has_auth_token: !!xAuthToken,
+          has_ct0: !!xCt0,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
+    const testText = `🐟 Test reply at ${new Date().toISOString().slice(11, 19)} UTC`;
     const results: Record<string, any> = {};
 
-    // ===== METHOD 1: post_tweet with auth_session object =====
-    if (twitterApiKey && xAuthToken && xCt0 && proxyUrl) {
-      console.log("[test-twitter-reply] Testing METHOD 1: post_tweet with auth_session");
-      
-      const response = await fetch(`${TWITTERAPI_BASE}/twitter/post_tweet`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": twitterApiKey,
-        },
-        body: JSON.stringify({
-          tweet_text: testText + " [M1]",
-          in_reply_to_tweet_id: tweet_id,
-          auth_session: {
-            auth_token: xAuthToken,
-            ct0: xCt0,
-          },
-          proxy: proxyUrl,
-        }),
-      });
+    // ===== METHOD 1: create_tweet with text field =====
+    console.log("[test] METHOD 1: create_tweet with text field");
+    const res1 = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": twitterApiKey,
+      },
+      body: JSON.stringify({
+        text: testText + " [M1]",
+        in_reply_to_tweet_id: tweet_id,
+        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
+        proxy: proxyUrl,
+      }),
+    });
+    const txt1 = await res1.text();
+    console.log(`[test] M1: ${res1.status} - ${txt1}`);
+    results.m1_text_field = { status: res1.status, response: safeJsonParse(txt1) || txt1 };
 
-      const responseText = await response.text();
-      console.log(`[test-twitter-reply] M1 Response: ${response.status} - ${responseText}`);
-      
-      results.method1_post_tweet_auth_session = {
-        status: response.status,
-        response: safeJsonParse(responseText) || responseText,
-      };
-    } else {
-      results.method1_post_tweet_auth_session = { error: "Missing credentials" };
-    }
+    // ===== METHOD 2: create_tweet with tweet_text field =====
+    console.log("[test] METHOD 2: create_tweet with tweet_text field");
+    const res2 = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": twitterApiKey,
+      },
+      body: JSON.stringify({
+        tweet_text: testText + " [M2]",
+        in_reply_to_tweet_id: tweet_id,
+        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
+        proxy: proxyUrl,
+      }),
+    });
+    const txt2 = await res2.text();
+    console.log(`[test] M2: ${res2.status} - ${txt2}`);
+    results.m2_tweet_text_field = { status: res2.status, response: safeJsonParse(txt2) || txt2 };
 
-    // ===== METHOD 2: create_tweet with auth_session =====
-    if (twitterApiKey && xAuthToken && xCt0 && proxyUrl) {
-      console.log("[test-twitter-reply] Testing METHOD 2: create_tweet with auth_session");
-      
-      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": twitterApiKey,
-        },
-        body: JSON.stringify({
-          tweet_text: testText + " [M2]",
-          in_reply_to_tweet_id: tweet_id,
-          auth_session: {
-            auth_token: xAuthToken,
-            ct0: xCt0,
-          },
-          proxy: proxyUrl,
-        }),
-      });
+    // ===== METHOD 3: tweet/create endpoint =====
+    console.log("[test] METHOD 3: tweet/create");
+    const res3 = await fetch(`${TWITTERAPI_BASE}/twitter/tweet/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": twitterApiKey,
+      },
+      body: JSON.stringify({
+        text: testText + " [M3]",
+        in_reply_to_tweet_id: tweet_id,
+        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
+        proxy: proxyUrl,
+      }),
+    });
+    const txt3 = await res3.text();
+    console.log(`[test] M3: ${res3.status} - ${txt3}`);
+    results.m3_tweet_create = { status: res3.status, response: safeJsonParse(txt3) || txt3 };
 
-      const responseText = await response.text();
-      console.log(`[test-twitter-reply] M2 Response: ${response.status} - ${responseText}`);
-      
-      results.method2_create_tweet_auth_session = {
-        status: response.status,
-        response: safeJsonParse(responseText) || responseText,
-      };
-    }
+    // ===== METHOD 4: post/tweet endpoint =====
+    console.log("[test] METHOD 4: post/tweet");
+    const res4 = await fetch(`${TWITTERAPI_BASE}/twitter/post/tweet`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": twitterApiKey,
+      },
+      body: JSON.stringify({
+        text: testText + " [M4]",
+        in_reply_to_tweet_id: tweet_id,
+        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
+        proxy: proxyUrl,
+      }),
+    });
+    const txt4 = await res4.text();
+    console.log(`[test] M4: ${res4.status} - ${txt4}`);
+    results.m4_post_tweet = { status: res4.status, response: safeJsonParse(txt4) || txt4 };
 
-    // ===== METHOD 3: create_tweet_v2 with login_cookies base64 =====
-    if (twitterApiKey && xAuthToken && xCt0 && proxyUrl) {
-      console.log("[test-twitter-reply] Testing METHOD 3: create_tweet_v2 with login_cookies");
-      
-      const cookieObj = { auth_token: xAuthToken, ct0: xCt0 };
-      const loginCookiesBase64 = btoa(JSON.stringify(cookieObj));
-      
-      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": twitterApiKey,
-        },
-        body: JSON.stringify({
-          tweet_text: testText + " [M3]",
-          reply_to_tweet_id: tweet_id,
-          login_cookies: loginCookiesBase64,
-          proxy: proxyUrl,
-        }),
-      });
-
-      const responseText = await response.text();
-      console.log(`[test-twitter-reply] M3 Response: ${response.status} - ${responseText}`);
-      
-      results.method3_create_tweet_v2 = {
-        status: response.status,
-        response: safeJsonParse(responseText) || responseText,
-      };
-    }
-
-    // ===== METHOD 5: create_tweet with cookie string format =====
-    if (twitterApiKey && xAuthToken && xCt0 && proxyUrl) {
-      console.log("[test-twitter-reply] Testing METHOD 5: create_tweet with cookie string");
-      
-      const cookieString = `auth_token=${xAuthToken}; ct0=${xCt0}`;
-      
-      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": twitterApiKey,
-        },
-        body: JSON.stringify({
-          tweet_text: testText + " [M5]",
-          in_reply_to_tweet_id: tweet_id,
-          cookies: cookieString,
-          proxy: proxyUrl,
-        }),
-      });
-
-      const responseText = await response.text();
-      console.log(`[test-twitter-reply] M5 Response: ${response.status} - ${responseText}`);
-      
-      results.method5_cookie_string = {
-        status: response.status,
-        response: safeJsonParse(responseText) || responseText,
-      };
-    }
-
-    // ===== METHOD 4: Official X API OAuth 1.0a =====
-    const consumerKey = Deno.env.get("TWITTER_CONSUMER_KEY");
-    const consumerSecret = Deno.env.get("TWITTER_CONSUMER_SECRET");
-    const accessToken = Deno.env.get("TWITTER_ACCESS_TOKEN");
-    const accessTokenSecret = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET");
-    
-    if (consumerKey && consumerSecret && accessToken && accessTokenSecret) {
-      console.log("[test-twitter-reply] Testing METHOD 4: Official X API OAuth 1.0a");
-      
-      const url = "https://api.x.com/2/tweets";
-      const body = JSON.stringify({
-        text: testText + " [M4-OAuth]",
-        reply: { in_reply_to_tweet_id: tweet_id },
-      });
-
-      const oauthHeader = generateOAuthHeader(
-        "POST",
-        url,
-        consumerKey,
-        consumerSecret,
-        accessToken,
-        accessTokenSecret
-      );
-
-      try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            Authorization: oauthHeader,
-            "Content-Type": "application/json",
-          },
-          body,
-        });
-
-        const responseText = await response.text();
-        console.log(`[test-twitter-reply] M4 Response: ${response.status} - ${responseText}`);
-        
-        results.method4_official_xapi_oauth = {
-          status: response.status,
-          response: safeJsonParse(responseText) || responseText,
-        };
-      } catch (error) {
-        results.method4_official_xapi_oauth = {
-          error: error instanceof Error ? error.message : "Unknown error",
-        };
-      }
-    } else {
-      results.method4_official_xapi_oauth = { 
-        error: "Missing TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET, TWITTER_ACCESS_TOKEN, or TWITTER_ACCESS_TOKEN_SECRET" 
-      };
-    }
+    // ===== METHOD 5: standalone tweet (no reply) =====
+    console.log("[test] METHOD 5: standalone tweet");
+    const res5 = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": twitterApiKey,
+      },
+      body: JSON.stringify({
+        text: `🐟 TUNA standalone ${Date.now().toString(36)}`,
+        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
+        proxy: proxyUrl,
+      }),
+    });
+    const txt5 = await res5.text();
+    console.log(`[test] M5: ${res5.status} - ${txt5}`);
+    results.m5_standalone = { status: res5.status, response: safeJsonParse(txt5) || txt5 };
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        tweet_id,
-        test_text: testText,
-        results,
-      }),
+      JSON.stringify({ success: true, tweet_id, results }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("[test-twitter-reply] Error:", error);
+    console.error("[test] Error:", error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
