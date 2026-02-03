@@ -853,6 +853,132 @@ export type Database = {
           },
         ]
       }
+      colosseum_activity: {
+        Row: {
+          activity_type: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          payload: Json | null
+          response: Json | null
+          success: boolean | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          response?: Json | null
+          success?: boolean | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          response?: Json | null
+          success?: boolean | null
+        }
+        Relationships: []
+      }
+      colosseum_forum_comments: {
+        Row: {
+          body: string
+          colosseum_comment_id: string | null
+          id: string
+          posted_at: string | null
+          target_post_id: string
+          target_project_name: string | null
+        }
+        Insert: {
+          body: string
+          colosseum_comment_id?: string | null
+          id?: string
+          posted_at?: string | null
+          target_post_id: string
+          target_project_name?: string | null
+        }
+        Update: {
+          body?: string
+          colosseum_comment_id?: string | null
+          id?: string
+          posted_at?: string | null
+          target_post_id?: string
+          target_project_name?: string | null
+        }
+        Relationships: []
+      }
+      colosseum_forum_posts: {
+        Row: {
+          body: string | null
+          colosseum_post_id: string | null
+          comments_count: number | null
+          id: string
+          last_synced_at: string | null
+          post_type: string
+          posted_at: string | null
+          tags: string[] | null
+          title: string | null
+          upvotes: number | null
+        }
+        Insert: {
+          body?: string | null
+          colosseum_post_id?: string | null
+          comments_count?: number | null
+          id?: string
+          last_synced_at?: string | null
+          post_type?: string
+          posted_at?: string | null
+          tags?: string[] | null
+          title?: string | null
+          upvotes?: number | null
+        }
+        Update: {
+          body?: string | null
+          colosseum_post_id?: string | null
+          comments_count?: number | null
+          id?: string
+          last_synced_at?: string | null
+          post_type?: string
+          posted_at?: string | null
+          tags?: string[] | null
+          title?: string | null
+          upvotes?: number | null
+        }
+        Relationships: []
+      }
+      colosseum_registrations: {
+        Row: {
+          agent_id: string
+          agent_name: string
+          api_key_encrypted: string
+          claim_code: string | null
+          id: string
+          registered_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          agent_name?: string
+          api_key_encrypted: string
+          claim_code?: string | null
+          id?: string
+          registered_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string
+          api_key_encrypted?: string
+          claim_code?: string | null
+          id?: string
+          registered_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       communities: {
         Row: {
           avatar_url: string | null
