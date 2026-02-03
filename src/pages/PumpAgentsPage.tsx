@@ -140,8 +140,8 @@ export default function PumpAgentsPage() {
             <div className="inline-flex items-center gap-3 mb-4">
               <div className="relative">
                 <img src={tunaLogo} alt="TUNA" className="w-12 h-12 rounded-full" />
-                <div className="absolute -bottom-1 -right-1 bg-[#00ff00] rounded-full p-1">
-                  <Rocket size={12} weight="fill" className="text-black" />
+                <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
+                  <Rocket size={12} weight="fill" className="text-primary-foreground" />
                 </div>
               </div>
               <h2 className="text-2xl md:text-3xl font-bold text-foreground">
@@ -149,19 +149,19 @@ export default function PumpAgentsPage() {
               </h2>
             </div>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Generate AI memes and launch them on <span className="text-[#00ff00] font-semibold">pump.fun</span> with one click!
+              Generate AI memes and launch them on <span className="text-primary font-semibold">pump.fun</span> with one click!
               Your token will also appear in TUNA with its own SubTuna community.
             </p>
           </div>
 
           {/* Success State */}
           {launchResult && (
-            <Card className="p-6 mb-6 bg-[#00ff00]/10 border-[#00ff00]/50 animate-in fade-in">
+            <Card className="p-6 mb-6 bg-primary/10 border-primary/50 animate-in fade-in">
               <div className="text-center space-y-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#00ff00]/20 mb-2">
-                  <Rocket size={32} weight="fill" className="text-[#00ff00]" />
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/20 mb-2">
+                  <Rocket size={32} weight="fill" className="text-primary" />
                 </div>
-                <h3 className="text-xl font-bold text-[#00ff00]">Launched on pump.fun! 🎉</h3>
+                <h3 className="text-xl font-bold text-primary">Launched on pump.fun! 🎉</h3>
                 
                 <div className="bg-background/50 rounded-lg p-4">
                   <Label className="text-xs text-muted-foreground uppercase tracking-wide">Contract Address</Label>
@@ -183,7 +183,7 @@ export default function PumpAgentsPage() {
                 <div className="flex gap-2 justify-center">
                   <Button
                     onClick={() => window.open(launchResult.pumpfunUrl, "_blank")}
-                    className="bg-[#00ff00] hover:bg-[#00cc00] text-black gap-2"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
                   >
                     <ExternalLink className="h-4 w-4" />
                     Trade on pump.fun
@@ -218,7 +218,7 @@ export default function PumpAgentsPage() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="prompt" className="text-foreground mb-2 flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4 text-[#00ff00]" />
+                    <Lightbulb className="h-4 w-4 text-primary" />
                     Describe your meme idea (optional)
                   </Label>
                   <Textarea
@@ -237,7 +237,7 @@ export default function PumpAgentsPage() {
                   onClick={generateMeme}
                   disabled={isGenerating}
                   size="lg"
-                  className="w-full bg-[#00ff00] hover:bg-[#00cc00] text-black gap-2 font-semibold"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2 font-semibold"
                 >
                   {isGenerating ? (
                     <>
@@ -268,9 +268,9 @@ export default function PumpAgentsPage() {
                       className="w-full h-full object-cover"
                     />
                     {/* pump.fun watermark */}
-                    <div className="absolute bottom-2 right-2 bg-[#00ff00]/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                      <Rocket size={14} weight="fill" className="text-black" />
-                      <span className="text-xs font-bold text-black">pump.fun</span>
+                    <div className="absolute bottom-2 right-2 bg-primary/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
+                      <Rocket size={14} weight="fill" className="text-primary-foreground" />
+                      <span className="text-xs font-bold text-primary-foreground">pump.fun</span>
                     </div>
                   </div>
                   
@@ -312,7 +312,7 @@ export default function PumpAgentsPage() {
                     <Input
                       value={generatedMeme.ticker}
                       onChange={(e) => setGeneratedMeme({ ...generatedMeme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
-                      className="mt-1 bg-background border-border font-mono font-bold text-[#00ff00]"
+                      className="mt-1 bg-background border-border font-mono font-bold text-primary"
                       placeholder="TICKER"
                     />
                   </div>
@@ -365,7 +365,7 @@ export default function PumpAgentsPage() {
                     onClick={launchOnPumpFun}
                     disabled={isLaunching || !generatedMeme.name || !generatedMeme.ticker}
                     size="lg"
-                    className="w-full bg-[#00ff00] hover:bg-[#00cc00] text-black gap-2 font-bold text-lg h-14"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2 font-bold text-lg h-14"
                   >
                     {isLaunching ? (
                       <>
@@ -396,10 +396,10 @@ export default function PumpAgentsPage() {
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { prompt: "TUNA astronaut", bg: "from-[#00ff00]/20 to-cyan-500/20" },
-                  { prompt: "Cyber TUNA", bg: "from-[#00ff00]/20 to-purple-500/20" },
-                  { prompt: "King TUNA", bg: "from-[#00ff00]/20 to-yellow-500/20" },
-                  { prompt: "Ninja TUNA", bg: "from-[#00ff00]/20 to-red-500/20" },
+                  { prompt: "TUNA astronaut", bg: "from-primary/20 to-cyan-500/20" },
+                  { prompt: "Cyber TUNA", bg: "from-primary/20 to-purple-500/20" },
+                  { prompt: "King TUNA", bg: "from-primary/20 to-yellow-500/20" },
+                  { prompt: "Ninja TUNA", bg: "from-primary/20 to-red-500/20" },
                 ].map((example) => (
                   <button
                     key={example.prompt}
@@ -407,7 +407,7 @@ export default function PumpAgentsPage() {
                       setCustomPrompt(example.prompt);
                       toast.info(`Prompt set: "${example.prompt}"`);
                     }}
-                    className={`aspect-square rounded-xl bg-gradient-to-br ${example.bg} border border-border hover:border-[#00ff00]/50 transition-all flex flex-col items-center justify-center gap-2 p-4`}
+                    className={`aspect-square rounded-xl bg-gradient-to-br ${example.bg} border border-border hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-2 p-4`}
                   >
                     <img src={tunaLogo} alt="" className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-foreground">{example.prompt}</span>
