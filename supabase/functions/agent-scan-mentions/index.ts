@@ -245,7 +245,50 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Emergency kill-switch: disable ALL X posting/replying unless explicitly enabled.
+    const postingEnabled = Deno.env.get("ENABLE_X_POSTING") === "true";
+    if (!postingEnabled) {
+      console.log("[agent-scan-mentions] 🚫 X posting disabled (ENABLE_X_POSTING != true) - skipping entirely");
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "posting_disabled" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // ========== GLOBAL RATE LIMIT CHECKS (6-layer spam protection) ==========
+    // Layer 4: Per-minute burst protection (max 20 replies/minute)
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+    const { count: repliesLastMinute } = await supabase
+      .from("twitter_bot_replies")
+      .select("*", { count: "exact", head: true })
+      .gt("created_at", oneMinuteAgo);
+    
+    if ((repliesLastMinute || 0) >= 20) {
+      console.warn(`[agent-scan-mentions] ⚠️ Burst limit reached: ${repliesLastMinute} replies in last minute (max 20)`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "burst_rate_limit", repliesLastMinute }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Layer 5: Hourly rate limit (max 300 replies/hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: repliesLastHour } = await supabase
+      .from("twitter_bot_replies")
+      .select("*", { count: "exact", head: true })
+      .gt("created_at", oneHourAgo);
+    
+    if ((repliesLastHour || 0) >= 300) {
+      console.warn(`[agent-scan-mentions] ⚠️ Hourly limit reached: ${repliesLastHour} replies in last hour (max 300)`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "hourly_rate_limit", repliesLastHour }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[agent-scan-mentions] 📊 Rate check: ${repliesLastMinute || 0}/20 per min, ${repliesLastHour || 0}/300 per hour`);
 
     // Acquire lock to prevent concurrent runs
     const lockName = "agent-scan-mentions-lock";
@@ -302,22 +345,36 @@ Deno.serve(async (req) => {
 
       for (const mention of mentions) {
         const username = mention.author_username;
+        const tweetId = mention.id;
+        const tweetText = mention.text;
+        const authorId = mention.author_id;
         
-        // CRITICAL: Skip tweets from our own bot account to prevent reply loops
-        const botUsernames = ["buildtuna", "tunalaunch", "tunabot"];
+        // Layer 2: Expanded bot username blocklist
+        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent"];
         if (username && botUsernames.includes(username.toLowerCase())) {
-          console.log(`[agent-scan-mentions] ⏭️ Skipping ${mention.id} - from bot account @${username}`);
+          console.log(`[agent-scan-mentions] ⏭️ Skipping ${tweetId} - from bot account @${username}`);
+          continue;
+        }
+
+        // Layer 3: Reply content signature filter - skip tweets that look like our own replies
+        const botReplySignatures = [
+          "🐟 Hey @",
+          "🐟 Token launched!",
+          "🐟 To launch a token",
+          "🐟 To launch your token",
+          "Powered by TUNA Agents",
+          "is now live on TUNA!",
+          "80% of fees go to you",
+        ];
+        if (botReplySignatures.some(sig => tweetText.includes(sig))) {
+          console.log(`[agent-scan-mentions] ⏭️ Skipping ${tweetId} - looks like a bot reply`);
           continue;
         }
 
         // Check if contains !tunalaunch command
-        if (!mention.text.toLowerCase().includes("!tunalaunch")) {
+        if (!tweetText.toLowerCase().includes("!tunalaunch")) {
           continue;
         }
-
-        const tweetId = mention.id;
-        const tweetText = mention.text;
-        const authorId = mention.author_id;
 
         // Check if already processed (deduplication with primary scanner)
         const { data: existing } = await supabase
