@@ -247,8 +247,9 @@ Deno.serve(async (req) => {
     }
 
     // Process tokens from social posts that may not have agents yet
-    // Group by wallet or create pseudo-agent entries
+    // Group by wallet OR by username for walletless tokens
     const walletTokensMap = new Map<string, TokenInfo[]>();
+    const usernameTokensMap = new Map<string, TokenInfo[]>(); // NEW: For walletless tokens
     
     for (const post of socialPosts || []) {
       const token = socialTokenDetails.find(t => t.id === post.fun_token_id);
@@ -258,14 +259,23 @@ Deno.serve(async (req) => {
       if (processedTokenIds.has(token.id)) continue;
 
       const wallet = post.wallet_address || token.creator_wallet;
-      if (!wallet) continue;
-
       const tokenInfo = computeTokenInfo(token);
       processedTokenIds.add(token.id);
 
-      const existing = walletTokensMap.get(wallet) || [];
-      existing.push(tokenInfo);
-      walletTokensMap.set(wallet, existing);
+      if (wallet) {
+        // Has wallet - group by wallet
+        const existing = walletTokensMap.get(wallet) || [];
+        existing.push(tokenInfo);
+        walletTokensMap.set(wallet, existing);
+      } else {
+        // NO wallet - group by Twitter username (walletless launch)
+        const username = post.post_author?.toLowerCase();
+        if (username === normalizedUsername) {
+          const existing = usernameTokensMap.get(username) || [];
+          existing.push(tokenInfo);
+          usernameTokensMap.set(username, existing);
+        }
+      }
     }
 
     // Create pseudo-agents for wallet groups without actual agents
@@ -280,6 +290,28 @@ Deno.serve(async (req) => {
         walletAddress: wallet,
         avatarUrl: tokens[0]?.imageUrl || null,
         description: `Tokens launched via Twitter by @${normalizedUsername}`,
+        launchedAt: tokens[0]?.createdAt || new Date().toISOString(),
+        tokensLaunched: tokens.length,
+        totalFeesEarned,
+        totalFeesClaimed,
+        unclaimedFees,
+        verified: false,
+        tokens,
+      });
+    }
+
+    // NEW: Create pseudo-agents for walletless tokens grouped by username
+    for (const [username, tokens] of usernameTokensMap.entries()) {
+      const totalFeesEarned = tokens.reduce((sum, t) => sum + t.totalFeesEarned, 0);
+      const totalFeesClaimed = tokens.reduce((sum, t) => sum + t.totalFeesClaimed, 0);
+      const unclaimedFees = tokens.reduce((sum, t) => sum + t.unclaimedFees, 0);
+
+      claimableAgents.push({
+        id: `twitter_${username}`,
+        name: `@${username}`,
+        walletAddress: `CLAIM_VIA_TWITTER_${username.toUpperCase()}`, // Placeholder - user will provide wallet during claim
+        avatarUrl: tokens[0]?.imageUrl || null,
+        description: `Walletless tokens launched via Twitter by @${username}. Connect wallet to claim fees.`,
         launchedAt: tokens[0]?.createdAt || new Date().toISOString(),
         tokensLaunched: tokens.length,
         totalFeesEarned,
