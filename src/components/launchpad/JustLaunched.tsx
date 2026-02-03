@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { PumpBadge } from "@/components/tunabook/PumpBadge";
 
 interface Token {
   id: string;
@@ -15,6 +16,7 @@ interface Token {
   created_at: string;
   agent_id?: string | null;
   status?: string | null;
+  launchpad_type?: string | null;
 }
 
 interface JustLaunchedProps {
@@ -63,7 +65,11 @@ function JustLaunchedCard({ token }: { token: Token }) {
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-xs text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1">
             {token.name}
-            {token.agent_id && <Bot className="w-3 h-3 text-purple-400 flex-shrink-0" />}
+            {token.launchpad_type === 'pumpfun' ? (
+              <PumpBadge size="sm" showText={false} mintAddress={token.mint_address ?? undefined} />
+            ) : token.agent_id ? (
+              <Bot className="w-3 h-3 text-purple-400 flex-shrink-0" />
+            ) : null}
           </h3>
           <span className="text-[10px] text-muted-foreground">${token.ticker}</span>
         </div>
