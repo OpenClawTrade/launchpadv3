@@ -1026,7 +1026,9 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      const latestProcessedId = latestProcessed?.post_id;
+      // Strip any suffixes like _final, _retry from post_id for comparison
+      const rawProcessedId = latestProcessed?.post_id;
+      const latestProcessedId = rawProcessedId?.replace(/_(final|retry)$/i, '') || null;
       
       if (tweets.length > 0) {
         const tweetIds = tweets.map((t) => t.id).slice(0, 5);
