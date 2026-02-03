@@ -235,12 +235,25 @@ interface ParsedLaunchData {
   discord?: string;
 }
 
-// Parse the !tunalaunch post content
-// Supports both multi-line format (key: value on each line) and single-line format
-export function parseLaunchPost(content: string): ParsedLaunchData | null {
-  // Check for the trigger command
-  if (!content.toLowerCase().includes("!tunalaunch")) {
-    return null;
+// Validation result for detailed feedback
+interface ValidationResult {
+  isValid: boolean;
+  parsed: Partial<ParsedLaunchData>;
+  missingFields: string[];
+  hasTrigger: boolean;
+}
+
+// Validate the !tunalaunch post and return detailed result
+export function validateLaunchPost(content: string): ValidationResult {
+  const hasTrigger = content.toLowerCase().includes("!tunalaunch");
+  
+  if (!hasTrigger) {
+    return {
+      isValid: false,
+      parsed: {},
+      missingFields: [],
+      hasTrigger: false,
+    };
   }
 
   const data: Partial<ParsedLaunchData> = {};
@@ -262,22 +275,84 @@ export function parseLaunchPost(content: string): ParsedLaunchData | null {
     parseSingleLine(content, data);
   }
 
-  // Validate required fields - wallet is now OPTIONAL
-  if (!data.name || !data.symbol) {
-    return null;
-  }
-
-  // Clean wallet if provided - remove any trailing URLs or non-base58 chars
+  // Clean wallet if provided
   if (data.wallet) {
     data.wallet = data.wallet.split(/\s+/)[0].replace(/[^1-9A-HJ-NP-Za-km-z]/g, "");
-
-    // Validate wallet address format (Solana base58, 32-44 chars)
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(data.wallet)) {
-      data.wallet = undefined;  // Invalid wallet, treat as not provided
+      data.wallet = undefined;
     }
   }
 
-  return data as ParsedLaunchData;
+  // Collect missing required fields
+  const missingFields: string[] = [];
+  if (!data.name) missingFields.push("name");
+  if (!data.symbol) missingFields.push("symbol");
+
+  return {
+    isValid: missingFields.length === 0,
+    parsed: data,
+    missingFields,
+    hasTrigger: true,
+  };
+}
+
+// Generate helpful reply text for missing fields
+export function generateMissingFieldsReply(missingFields: string[], hasImage: boolean): string {
+  const lines: string[] = [];
+  
+  // Header
+  if (missingFields.length === 1) {
+    if (missingFields[0] === "name") {
+      lines.push("🐟 Your !tunalaunch needs a token name!");
+      lines.push("");
+      lines.push("Add: name: YourTokenName");
+    } else if (missingFields[0] === "symbol") {
+      lines.push("🐟 Your !tunalaunch needs a ticker symbol!");
+      lines.push("");
+      lines.push("Add: symbol: TICKER");
+    }
+  } else if (missingFields.length > 1) {
+    lines.push("🐟 Almost there! Your !tunalaunch is missing:");
+    lines.push("");
+    
+    if (missingFields.includes("name")) {
+      lines.push("❌ Token name (add: name: YourTokenName)");
+    }
+    if (missingFields.includes("symbol")) {
+      lines.push("❌ Ticker symbol (add: symbol: TICKER)");
+    }
+  }
+  
+  // Add image reminder if missing
+  if (!hasImage) {
+    if (lines.length > 0) {
+      lines.push("❌ Token image (attach an image to your tweet)");
+    }
+  }
+  
+  // Add example format
+  lines.push("");
+  lines.push("Example format:");
+  lines.push("!tunalaunch");
+  lines.push("name: My Token");
+  lines.push("symbol: MTK");
+  lines.push("[Attach your token image]");
+  lines.push("");
+  lines.push("Launch your unique Solana Agent from TUNA dot Fun");
+  
+  return lines.join("\n");
+}
+
+// Parse the !tunalaunch post content
+// Supports both multi-line format (key: value on each line) and single-line format
+export function parseLaunchPost(content: string): ParsedLaunchData | null {
+  const validation = validateLaunchPost(content);
+  
+  if (!validation.hasTrigger || !validation.isValid) {
+    return null;
+  }
+
+  return validation.parsed as ParsedLaunchData;
 }
 
 // Helper to assign parsed field to data object
@@ -552,10 +627,30 @@ export async function processLaunchPost(
     };
   }
 
-  // Parse the post content
-  const parsed = parseLaunchPost(rawContent);
-  if (!parsed) {
-    // Insert as failed
+  // Validate the post content with detailed feedback
+  const validation = validateLaunchPost(rawContent);
+  
+  // Check for attached image early to include in validation feedback
+  let hasAttachedImage = !!attachedMediaUrl;
+  if (attachedMediaUrl) {
+    // Skip t.co shortlinks - they're redirects, not images
+    if (attachedMediaUrl.startsWith("https://t.co/") || attachedMediaUrl.startsWith("http://t.co/")) {
+      hasAttachedImage = false;
+    }
+  }
+  
+  if (!validation.hasTrigger) {
+    // Not a launch command, silently ignore
+    return {
+      success: false,
+      error: "Not a launch command",
+    };
+  }
+  
+  if (!validation.isValid) {
+    // Has trigger but missing fields - provide specific feedback
+    const replyText = generateMissingFieldsReply(validation.missingFields, hasAttachedImage);
+    
     const { data: failedPost } = await supabase
       .from("agent_social_posts")
       .insert({
@@ -566,19 +661,28 @@ export async function processLaunchPost(
         post_author_id: postAuthorId,
         wallet_address: "unknown",
         raw_content: rawContent.slice(0, 1000),
+        parsed_name: validation.parsed.name || null,
+        parsed_symbol: validation.parsed.symbol || null,
         status: "failed",
-        error_message: "Failed to parse required fields (name, symbol, wallet)",
+        error_message: `Missing required fields: ${validation.missingFields.join(", ")}`,
         processed_at: new Date().toISOString(),
       })
       .select("id")
       .maybeSingle();
 
+    console.log(`[agent-process-post] ❌ Missing fields: ${validation.missingFields.join(", ")}`);
+    
     return {
       success: false,
-      error: "Failed to parse post. Required: name, symbol, wallet",
+      error: `Missing required fields: ${validation.missingFields.join(", ")}`,
       socialPostId: failedPost?.id,
+      shouldReply: true,
+      replyText,
     };
   }
+  
+  // All required fields present - use parsed data
+  const parsed = validation.parsed as ParsedLaunchData;
 
   // Determine final image URL: prefer parsed.image from text, fallback to attached media
   // Validate that the URL is an actual image, not a t.co shortlink or invalid URL
