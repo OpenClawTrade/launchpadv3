@@ -433,7 +433,7 @@ async function getWalletLaunchesToday(
   return count || 0;
 }
 
-const DAILY_LAUNCH_LIMIT = 3;
+const DAILY_LAUNCH_LIMIT = 10;
 
 // Process a social post and launch token
 export async function processLaunchPost(
@@ -622,7 +622,7 @@ export async function processLaunchPost(
     // Check daily launch limit (secondary check - primary is in agent-scan-twitter)
     const launchesToday = await getWalletLaunchesToday(supabase, agent.id);
     if (launchesToday >= DAILY_LAUNCH_LIMIT) {
-      throw new Error("Daily limit of 3 Agent launches per X account reached");
+      throw new Error("Daily limit of 10 Agent launches per X account reached");
     }
 
     // Update social post with agent ID
