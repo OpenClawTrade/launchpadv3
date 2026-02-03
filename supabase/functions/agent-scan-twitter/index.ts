@@ -9,6 +9,45 @@ const corsHeaders = {
 
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
 
+// --- Cookie helpers (for using X_FULL_COOKIE without re-login) ---
+const stripQuotes = (v: string) => v.replace(/^['"]+|['"]+$/g, "").trim();
+
+function parseCookieString(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split("=");
+    if (!k) continue;
+    const val = rest.join("=");
+    if (val) out[k.trim()] = stripQuotes(val);
+  }
+  return out;
+}
+
+function buildLoginCookiesBase64FromEnv(args: {
+  xFullCookie?: string | null;
+  xAuthToken?: string | null;
+  xCt0Token?: string | null;
+}): string | null {
+  // twitterapi.io expects login_cookies as base64(JSON cookies)
+  if (args.xFullCookie) {
+    const cookies = parseCookieString(args.xFullCookie);
+    if (Object.keys(cookies).length === 0) return null;
+    return btoa(JSON.stringify(cookies));
+  }
+
+  if (args.xAuthToken && args.xCt0Token) {
+    return btoa(
+      JSON.stringify({
+        auth_token: stripQuotes(args.xAuthToken),
+        ct0: stripQuotes(args.xCt0Token),
+      })
+    );
+  }
+
+  return null;
+}
+
 // OAuth 1.0a signing for official X.com API
 function generateOAuthSignature(
   method: string,
@@ -864,6 +903,9 @@ Deno.serve(async (req) => {
     const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
 
+    // Preferred session cookie header (no re-login).
+    const xFullCookie = Deno.env.get("X_FULL_COOKIE");
+
     // Legacy session tokens (fallback posting method)
     const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
     const xCt0Token = Deno.env.get("X_CT0_TOKEN");
@@ -879,9 +921,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if we can post replies (OAuth preferred, then dynamic login cookies, then legacy auth_session)
+    // Check if we can post replies (OAuth preferred, then static cookies, then dynamic login, then auth_session)
     const canPostRepliesWithOAuth = !!(oauthCreds);
-    const canPostRepliesWithCookies = !!(
+    const canPostRepliesWithStaticCookies = !!(
+      twitterApiIoKey &&
+      proxyUrl &&
+      (xFullCookie || (xAuthToken && xCt0Token))
+    );
+    const canPostRepliesWithDynamicLogin = !!(
       twitterApiIoKey &&
       xAccountUsername &&
       xAccountEmail &&
@@ -889,7 +936,11 @@ Deno.serve(async (req) => {
       proxyUrl
     );
     const canPostRepliesWithAuthSession = !!(twitterApiIoKey && xAuthToken && xCt0Token && proxyUrl);
-    const canPostReplies = canPostRepliesWithOAuth || canPostRepliesWithCookies || canPostRepliesWithAuthSession;
+    const canPostReplies =
+      canPostRepliesWithOAuth ||
+      canPostRepliesWithStaticCookies ||
+      canPostRepliesWithDynamicLogin ||
+      canPostRepliesWithAuthSession;
 
     const replyAuthSession = canPostRepliesWithAuthSession
       ? { authToken: xAuthToken!, ct0: xCt0Token! }
@@ -902,6 +953,8 @@ Deno.serve(async (req) => {
       );
     } else if (canPostRepliesWithOAuth) {
       console.log("[agent-scan-twitter] Will use Official X API (OAuth 1.0a) for replies");
+    } else if (canPostRepliesWithStaticCookies) {
+      console.log("[agent-scan-twitter] Will use X_FULL_COOKIE (static session) for replies (no dynamic login)");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -1045,20 +1098,32 @@ Deno.serve(async (req) => {
         error?: string;
       }> = [];
 
-      // Get login cookies if we can post replies via cookies and have tweets to process
-      if (canPostRepliesWithCookies && tweets.length > 0) {
-        console.log("[agent-scan-twitter] 🔐 Getting login cookies for replies...");
-        loginCookies = await getLoginCookies({
-          apiKey: twitterApiIoKey!,
-          username: xAccountUsername!,
-          email: xAccountEmail!,
-          password: xAccountPassword!,
-          totpSecret: xTotpSecret,
-          proxyUrl: proxyUrl!,
-        });
-        
-        if (!loginCookies) {
-          console.error("[agent-scan-twitter] ❌ Failed to get login cookies - will process but skip replies");
+      // Prepare login cookies for twitterapi.io replies if needed.
+      // Prefer static cookies derived from X_FULL_COOKIE (no re-login) over dynamic login.
+      if ((canPostRepliesWithStaticCookies || canPostRepliesWithDynamicLogin) && tweets.length > 0) {
+        if (canPostRepliesWithStaticCookies) {
+          loginCookies = buildLoginCookiesBase64FromEnv({
+            xFullCookie,
+            xAuthToken,
+            xCt0Token,
+          });
+          if (!loginCookies) {
+            console.error("[agent-scan-twitter] ❌ Failed to build login cookies from env - will process but may skip cookie-based replies");
+          }
+        } else if (canPostRepliesWithDynamicLogin) {
+          console.log("[agent-scan-twitter] 🔐 Getting login cookies via dynamic login (fallback)...");
+          loginCookies = await getLoginCookies({
+            apiKey: twitterApiIoKey!,
+            username: xAccountUsername!,
+            email: xAccountEmail!,
+            password: xAccountPassword!,
+            totpSecret: xTotpSecret,
+            proxyUrl: proxyUrl!,
+          });
+
+          if (!loginCookies) {
+            console.error("[agent-scan-twitter] ❌ Failed to get login cookies - will process but skip replies");
+          }
         }
       }
 
@@ -1093,13 +1158,6 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Skip tweets older than or equal to the last processed one
-        if (latestProcessedId && BigInt(tweetId) <= BigInt(latestProcessedId)) {
-          console.log(`[agent-scan-twitter] Skipping ${tweetId} - older than last processed`);
-          results.push({ tweetId, status: "skipped_already_seen" });
-          continue;
-        }
-
         // Validate command presence
         if (!normalizedText.toLowerCase().includes("!tunalaunch")) {
           console.log(`[agent-scan-twitter] Skipping ${tweetId} - no !tunalaunch command`);
@@ -1116,7 +1174,51 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existing) {
+          // Catch-up: if it previously failed and we never replied (because reply creds were missing), send a one-time help reply.
+          if (existing.status === "failed" && canPostReplies && username) {
+            const { data: alreadyReplied } = await supabase
+              .from("twitter_bot_replies")
+              .select("id")
+              .eq("tweet_id", tweetId)
+              .maybeSingle();
+
+            if (!alreadyReplied) {
+              const helpText = `🐟 Hey @${username}! Your !tunalaunch is missing required fields.\n\n❌ Token name (add: name: YourTokenName)\n❌ Ticker symbol (add: symbol: TICKER)\n\nExample:\n!tunalaunch\nname: My Token\nsymbol: MTK\n[Attach your token image]`;
+
+              const replyResult = await replyToTweet(
+                tweetId,
+                helpText,
+                twitterApiIoKey || "",
+                loginCookies || "",
+                proxyUrl || "",
+                username,
+                replyAuthSession,
+                oauthCreds
+              );
+
+              if (replyResult.success && replyResult.replyId) {
+                await supabase.from("twitter_bot_replies").insert({
+                  tweet_id: tweetId,
+                  tweet_author: username,
+                  tweet_text: normalizedText.slice(0, 500),
+                  reply_text: helpText.slice(0, 500),
+                  reply_id: replyResult.replyId,
+                });
+                console.log(`[agent-scan-twitter] ✅ Catch-up reply sent to @${username} for ${tweetId}`);
+              } else {
+                console.error(`[agent-scan-twitter] ❌ FAILED to send catch-up reply to @${username}:`, replyResult.error);
+              }
+            }
+          }
+
           results.push({ tweetId, status: "already_processed" });
+          continue;
+        }
+
+        // Skip tweets older than or equal to the last processed one (only if not already in DB)
+        if (latestProcessedId && BigInt(tweetId) <= BigInt(latestProcessedId)) {
+          console.log(`[agent-scan-twitter] Skipping ${tweetId} - older than last processed`);
+          results.push({ tweetId, status: "skipped_already_seen" });
           continue;
         }
 
