@@ -741,6 +741,10 @@ Deno.serve(async (req) => {
     const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
     const xCt0Token = Deno.env.get("X_CT0_TOKEN");
 
+    // Emergency kill-switch: disable ALL X posting/replying unless explicitly enabled.
+    // Default behavior: OFF (prevents spam if credentials are present).
+    const postingEnabled = Deno.env.get("ENABLE_X_POSTING") === "true";
+
     // Need at least one search method
     if (!xBearerToken && !twitterApiIoKey) {
       return new Response(
@@ -767,18 +771,22 @@ Deno.serve(async (req) => {
       proxyUrl
     );
     const canPostRepliesWithAuthSession = !!(twitterApiIoKey && xAuthToken && xCt0Token && proxyUrl);
-    const canPostReplies =
+    const canPostRepliesRaw =
       canPostRepliesWithOAuth ||
       canPostRepliesWithStaticCookies ||
       canPostRepliesWithDynamicLogin ||
       canPostRepliesWithAuthSession;
+
+    const canPostReplies = postingEnabled && canPostRepliesRaw;
 
     const replyAuthSession = canPostRepliesWithAuthSession
       ? { authToken: xAuthToken!, ct0: xCt0Token! }
       : undefined;
     let loginCookies: string | null = null;
     
-    if (!canPostReplies) {
+    if (!postingEnabled) {
+      console.log("[agent-scan-twitter] 🚫 X posting disabled (ENABLE_X_POSTING != true) - will detect/process but skip replies");
+    } else if (!canPostRepliesRaw) {
       console.log(
         "[agent-scan-twitter] Reply credentials not configured - will detect/process but skip replies"
       );
