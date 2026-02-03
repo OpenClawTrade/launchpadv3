@@ -1,171 +1,175 @@
 
-# Fix Token Metadata & Enable pump.fun Fee Sharing
+## What’s actually broken (based on your logs)
 
-## Problem Summary
+### 1) Your backend is timing out (not a React/UI bug)
+- The browser requests for `/functions/v1/agent-stats` and `/rest/v1/subtuna_posts` are failing with **“Failed to fetch”**.
+- The backend function logs for `agent-stats` show a real upstream failure:
+  - **Cloudflare 522: Connection timed out**
+  - Then: **“connection closed before message completed”**
+That means the function started, tried to query the database, the database/API layer didn’t respond fast enough, and the request died.
 
-Three critical issues need to be addressed:
+### 2) `/agents` is the TunaBook feed and it runs a very expensive query
+`/agents` renders `TunaBookPage`, which runs:
+- `useSubTunaPosts({ limit: 50 })` with a **big multi-join select** (`subtuna_posts -> subtuna -> fun_tokens`, plus `profiles` author, plus `agents` author_agent).
+This is exactly the kind of query that will time out under load.
 
-1. **Missing Website/Twitter URLs** - Tokens launched via TUNA launchpad have NULL `website_url` and `twitter_url`, causing on-chain metadata to show no socials on Axiom/DEXTools
-2. **Base64 Images in Database** - AI-generated images are being stored as base64 strings directly in the database, violating storage policy
-3. **pump.fun Fee Sharing Not Enabled** - Tokens launched via PumpPortal default to "Not Shareable", meaning creator fees cannot be collected until manually enabled
+### 3) `agent-tokens` backend function is currently missing in production
+When I called it directly, it returned:
+- **404 NOT_FOUND: Requested function was not found**
+So anything depending on `/functions/v1/agent-tokens` will never load until that function is re-deployed/restored.
 
-## Root Cause Analysis
+---
 
-### Issue 1: Missing Socials
+## Goals (fix “nothing loads” first)
+1) **Stop infinite loading** (no more permanent skeletons/spinners).
+2) Make `/agents` feed load reliably even if the database is slow.
+3) Reduce overall database pressure so the whole site stops being “super slow”.
 
-| Flow | What Happens |
-|------|--------------|
-| TUNA UI Launch | `fun-generate` returns `websiteUrl: null, twitterUrl: null` → `create-fun.ts` stores NULL → `token-metadata` returns empty socials |
-| Agent/X Launch | `agent-process-post` sets `websiteUrl: communityUrl, twitterUrl: postUrl` → passes to `create-fun.ts` → stored correctly |
+---
 
-The TUNA launchpad UI does not auto-populate socials like the agent flow does.
+## Plan to fix it (fastest path first)
 
-### Issue 2: Base64 Images
+### Phase A — Make the UI fail-fast (no more infinite loaders)
+**Why:** Right now, requests can hang until the network/server kills them, leaving React Query in `isLoading` for too long.
 
-The `fun-generate` function returns base64-encoded images from the AI Gateway. When passed directly to `create-fun.ts` without uploading to storage first, these base64 strings get stored in the `image_url` column.
+**Changes**
+1) Add a shared helper like `fetchJsonWithTimeout()` (AbortController + timeout).
+2) Update these queries to use timeout + controlled fallback:
+   - `src/hooks/useSubTunaPosts.ts`
+   - `src/hooks/useSubTuna.ts` (useRecentSubTunas)
+   - `src/components/tunabook/TunaBookRightSidebar.tsx` (top agents)
+   - `src/hooks/useAgentStats.ts`
+3) UI behavior when backend is slow:
+   - After (example) 8 seconds: show a clear “Backend is busy — Retry” state instead of skeletons forever.
+   - Optional: show last cached result from `localStorage` so `/agents` displays instantly.
 
-### Issue 3: pump.fun Fee Sharing
+**Acceptance**
+- `/agents` shows either:
+  - real posts, OR
+  - cached posts, OR
+  - an error message with a Retry button
+… but never a spinner forever.
 
-PumpPortal API's `create` action does not enable fee sharing by default. A separate `set_params` instruction must be sent to the pump.fun program after token creation.
+---
 
-## Solution
+### Phase B — Make `/agents` feed query cheap (remove the big joins)
+**Why:** The current `subtuna_posts` query is doing multiple joins and is timing out.
 
-### Fix 1: Auto-Populate Socials for TUNA Launchpad
+**Changes**
+1) Refactor `useSubTunaPosts` to **avoid nested relational selects** in one request.
+   - Request 1: posts only (minimal columns)  
+     `subtuna_posts: id,title,content,image_url,post_type,guest_upvotes,guest_downvotes,comment_count,is_pinned,is_agent_post,created_at,slug,subtuna_id,author_id,author_agent_id`
+   - Request 2: subtunas by IDs (name,ticker,icon_url,fun_token_id)
+   - Request 3: profiles by IDs (username,avatar_url) only if needed
+   - Request 4: agents by IDs (name,avatar_url) only if needed
+   - Merge client-side into the final shape used by `TunaPostCard`
+2) Reduce initial load:
+   - Change global feed default limit from **50 → 20/25**
+3) Add a time window for global feed:
+   - For `/agents` main feed, fetch only recent posts (example: last **7–14 days**) unless user scrolls / loads more.
+   - This prevents huge scans.
 
-Modify `api/pool/create-fun.ts` to set default `websiteUrl` and `twitterUrl` when not provided:
+**Acceptance**
+- The `/rest/v1/subtuna_posts?...` request is smaller and returns faster.
+- `/agents` renders posts consistently without timing out.
 
-```typescript
-// After line 238 (after extracting params from request)
-// Auto-populate socials if not provided
-const finalWebsiteUrl = websiteUrl || `https://tuna.fun/t/${ticker.toUpperCase()}`;
-const finalTwitterUrl = twitterUrl || "https://x.com/BuildTuna";
-```
+---
 
-Then use `finalWebsiteUrl` and `finalTwitterUrl` throughout the function instead of the raw values.
+### Phase C — Stop realtime from hammering the backend
+**Why:** `useSubTunaRealtime({ enabled: true })` on the global feed listens to:
+- `subtuna_posts` (global)
+- `subtuna_votes` (global)
+and invalidates `["subtuna-posts"]` repeatedly. Under activity, that becomes a refetch storm.
 
-### Fix 2: Prevent Base64 Images in Database
+**Changes**
+1) In `src/hooks/useSubTunaRealtime.ts`:
+   - For global feed: **unsubscribe from `subtuna_votes`** (or throttle it heavily).
+   - Debounce invalidations (e.g. batch invalidations every 2–5 seconds instead of on every event).
+2) Consider enabling realtime only on:
+   - specific community pages `/t/:ticker`
+   - single post threads
+   …not the global feed.
 
-Modify `api/pool/create-fun.ts` to validate image URLs and reject base64:
+**Acceptance**
+- Opening `/agents` doesn’t cause constant refetch spam in the network panel.
 
-```typescript
-// After line 246 (validation section)
-// Reject base64 images - they must be uploaded to storage first
-if (imageUrl && imageUrl.startsWith('data:')) {
-  return res.status(400).json({ 
-    error: 'Base64 images not allowed. Please upload to storage first.' 
-  });
-}
-```
+---
 
-Also ensure `fun-phantom-create` edge function uploads base64 images before calling `create-fun.ts`.
+### Phase D — Fix backend functions that are timing out (and restore the missing one)
+#### D1) Restore `agent-tokens` function (it’s currently 404)
+**Changes**
+- Ensure `supabase/functions/agent-tokens/index.ts` is deployed (it exists in code but is missing in the backend).
+- After deployment, confirm `/functions/v1/agent-tokens` returns 200.
 
-### Fix 3: Enable pump.fun Fee Sharing via set_params
+#### D2) Make `agent-stats` return quickly even if DB is slow
+**Why:** It currently performs heavier reads and can get stuck behind timeouts.
 
-Add a second transaction immediately after token creation in `pump-agent-launch/index.ts`:
+**Changes**
+1) Add **hard timeouts** to its internal DB calls (AbortController).
+2) Simplify stats computation to avoid joins:
+   - Use `fun_tokens.agent_id IS NOT NULL` instead of querying `agent_tokens` join
+   - Compute:
+     - totalTokensLaunched = count(fun_tokens where agent_id not null)
+     - totalMarketCap = sum(market_cap_sol) for those tokens
+   - Keep the existing “return cached even if stale” behavior, but also add a **safe default** if cache is empty (so it always returns fast JSON).
 
-```typescript
-// After line 256 (after createResult.signature confirmation)
+**Acceptance**
+- `agent-stats` responds within a few seconds even under load (with cached/default values if needed).
 
-// Step 2b: Enable fee sharing via set_params instruction
-console.log("[pump-agent-launch] Enabling fee sharing via set_params...");
+---
 
-const enableFeeSharing = await fetch(`${PUMPPORTAL_API_URL}?api-key=${pumpPortalApiKey}`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    publicKey: deployerPublicKey,
-    action: "setParams", 
-    mint: mintAddress,
-    priorityFee: 0.0005,
-    pool: "pump",
-  }),
-});
+### Phase E — Add DB indexes to stop timeouts (structural fix)
+**Why:** Sorting by `created_at`, `guest_upvotes`, `comment_count` on large tables will time out without indexes.
 
-if (enableFeeSharing.ok) {
-  const setParamsResult = await enableFeeSharing.json();
-  console.log("[pump-agent-launch] Fee sharing enabled:", setParamsResult.signature);
-} else {
-  // Log but don't fail - token was already created
-  console.error("[pump-agent-launch] Failed to enable fee sharing:", await enableFeeSharing.text());
-}
-```
+**Migration (backend SQL)**
+Add indexes like:
+- `subtuna_posts(created_at desc)`
+- `subtuna_posts(guest_upvotes desc, created_at desc)`
+- `subtuna_posts(comment_count desc, created_at desc)`
+- `subtuna_posts(subtuna_id, created_at desc)`
+- `agents(status, total_fees_earned_sol desc)` (for top agents sidebar)
+- `subtuna(created_at desc)`
+- `agent_tokens(created_at desc)` (if still used)
 
-If PumpPortal doesn't support `setParams` action, we need to build the instruction manually using the pump.fun program directly with discriminator `[27, 234, 178, 52, 147, 2, 187, 141]`.
+**Acceptance**
+- The same requests that previously caused 522 become consistently fast.
 
-## Technical Implementation
+---
 
-### Files to Modify
+## Testing checklist (what I’ll verify after implementing)
+1) Open `/agents`:
+   - feed shows posts OR cached posts OR “Retry” message (no infinite skeletons)
+2) Network panel:
+   - no repeated refetch storms from realtime
+3) Direct backend checks:
+   - `/functions/v1/agent-tokens` returns 200 (no 404)
+   - `/functions/v1/agent-stats` returns 200 quickly (even if values are cached/default)
+4) Main page:
+   - token list and key panels no longer take “forever” due to timeouts.
 
-| File | Changes |
-|------|---------|
-| `api/pool/create-fun.ts` | Add default socials, reject base64 images |
-| `supabase/functions/pump-agent-launch/index.ts` | Add set_params call after token creation |
-| `supabase/functions/fun-phantom-create/index.ts` | Ensure base64 images are uploaded before launch |
+---
 
-### Database Cleanup
+## Files I expect to touch
+Frontend:
+- `src/hooks/useSubTunaPosts.ts`
+- `src/hooks/useSubTuna.ts` (useRecentSubTunas)
+- `src/hooks/useSubTunaRealtime.ts`
+- `src/components/tunabook/TunaBookRightSidebar.tsx`
+- `src/hooks/useAgentStats.ts`
+- (new) `src/lib/fetchWithTimeout.ts` (or similar helper)
 
-After deployment, fix existing tokens with missing socials:
+Backend functions:
+- `supabase/functions/agent-stats/index.ts`
+- `supabase/functions/agent-tokens/index.ts`
 
-```sql
--- Backfill website_url for TUNA tokens without one
-UPDATE fun_tokens 
-SET website_url = 'https://tuna.fun/t/' || ticker
-WHERE website_url IS NULL 
-  AND launchpad_type = 'tuna';
+Database (migration):
+- Add indexes listed in Phase E
 
--- Backfill twitter_url for TUNA tokens without one  
-UPDATE fun_tokens 
-SET twitter_url = 'https://x.com/BuildTuna'
-WHERE twitter_url IS NULL 
-  AND launchpad_type = 'tuna';
-```
+---
 
-### pump.fun set_params Instruction (if PumpPortal doesn't support it)
-
-Build the instruction manually:
-
-```typescript
-import { TransactionInstruction, PublicKey } from "@solana/web3.js";
-
-const PUMP_FUN_PROGRAM_ID = new PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
-const SET_PARAMS_DISCRIMINATOR = Buffer.from([27, 234, 178, 52, 147, 2, 187, 141]);
-
-function createSetParamsInstruction(
-  global: PublicKey,
-  user: PublicKey,
-  feeRecipient: PublicKey,
-  feeBasisPoints: number = 100 // 1% creator fee
-): TransactionInstruction {
-  const data = Buffer.concat([
-    SET_PARAMS_DISCRIMINATOR,
-    feeRecipient.toBuffer(),
-    // Additional parameters as needed based on IDL
-  ]);
-
-  return new TransactionInstruction({
-    keys: [
-      { pubkey: global, isSigner: false, isWritable: true },
-      { pubkey: user, isSigner: true, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      // Additional accounts as per IDL
-    ],
-    programId: PUMP_FUN_PROGRAM_ID,
-    data,
-  });
-}
-```
-
-## Impact
-
-| Issue | Before | After |
-|-------|--------|-------|
-| Missing socials | Tokens show no links on Axiom/DEXTools | Auto-populated with SubTuna community + @BuildTuna |
-| Base64 images | Stored in DB causing bloat | Rejected; must upload to storage |
-| Fee sharing | Disabled by default; requires manual enable | Enabled immediately after launch |
-
-## Deployment Order
-
-1. Deploy `create-fun.ts` changes (auto-socials, reject base64)
-2. Deploy `pump-agent-launch` changes (set_params)
-3. Run database cleanup SQL
-4. Test new token launch to verify metadata and fee sharing
+## Why this will fix “nothing loads”
+Right now, the site is waiting on slow database calls until they die (522), and the UI keeps showing loading states. The plan makes requests:
+- smaller,
+- index-supported,
+- and time-bounded,
+so the UI always exits loading and the backend stops getting hammered.
