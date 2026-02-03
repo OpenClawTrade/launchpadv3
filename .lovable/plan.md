@@ -1,73 +1,106 @@
 
-# Fix Duplicate Icons - Show Only One Badge per Token
+# Fix: Ticker Corruption with "HTTPS" Text
 
 ## Problem
-Pump.fun tokens currently display **both** the purple "AI" bot badge AND the green pump.fun pill badge. The user wants these to be mutually exclusive - only one icon should appear.
+Token tickers are being corrupted with "HTTPS" or "HTTPST" appended to them:
+- `$RATESHTTPS` (should be `$RATES`)
+- `$WLFNHTTPST` (should be `$WLFN`)
+- `$THNKHTTPST` (should be `$THNK`)
+
+## Root Cause
+In `supabase/functions/agent-process-post/index.ts`, the ticker parsing has a bug:
+
+1. When parsing tweet content like `symbol: WLFN https://t.co/abc123`, the URL stripping regex only matches URLs at the **end** of the value:
+   ```typescript
+   value = value.replace(/https?:\/\/\S+$/i, "").trim();
+   ```
+
+2. If the URL appears mid-value or the content has multiple URLs, they aren't stripped
+
+3. Then `assignParsedField` removes non-alphanumeric characters:
+   ```typescript
+   data.symbol = trimmedValue.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
+   ```
+   
+4. This turns `WLFN https://t.co/...` → removes `:` and `/` → `WLFNhttpstco...` → sliced to 10 chars → `WLFNHTTPST`
 
 ## Solution
-Update the badge logic to be mutually exclusive:
-- **Pump.fun tokens** → Show only the PumpBadge (green pill)
-- **Agent tokens (not pump.fun)** → Show only the AI Bot badge  
-- **Regular tokens** → Show neither badge
+Fix the URL stripping to remove ALL URLs from ticker/symbol values before processing, not just trailing ones.
 
-## Files to Modify
+### File Changes
 
-### 1. `src/components/launchpad/TokenCard.tsx`
+**`supabase/functions/agent-process-post/index.ts`**
 
-Change the conditional logic from showing both badges to mutually exclusive:
+**Change 1:** Update `assignParsedField` for symbol/ticker case (around line 369-374):
 
-**Current logic (lines 116-129):**
-```tsx
-{/* AI Agent badge - shows for agent_id OR isPumpFun */}
-{(token.agent_id || isPumpFun) && (
-  <span>...</span>
-)}
-{/* pump.fun badge - shows for isPumpFun */}
-{isPumpFun && (
-  <PumpBadge ... />
-)}
+Before:
+```typescript
+case "symbol":
+case "ticker":
+  // Remove ALL non-alphanumeric characters (ticker should only be letters/numbers)
+  data.symbol = trimmedValue.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
+  break;
 ```
 
-**New logic:**
-```tsx
-{/* pump.fun badge - takes priority */}
-{isPumpFun ? (
-  <PumpBadge mintAddress={token.mint_address} />
-) : token.agent_id ? (
-  <span className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full" title="AI Agent Token">
-    <Bot className="h-3 w-3" />
-    <span className="text-[10px] font-medium">AI</span>
-  </span>
-) : null}
+After:
+```typescript
+case "symbol":
+case "ticker":
+  // First, strip ALL URLs from the value (not just trailing ones)
+  // Then remove ALL non-alphanumeric characters (ticker should only be letters/numbers)
+  const cleanedTicker = trimmedValue
+    .replace(/https?:\/\/\S+/gi, "")  // Remove ALL URLs, not just trailing
+    .replace(/[^a-zA-Z0-9]/g, "")      // Remove non-alphanumeric
+    .toUpperCase()
+    .slice(0, 10);
+  data.symbol = cleanedTicker;
+  break;
 ```
 
-### 2. `src/components/launchpad/JustLaunched.tsx`
+**Change 2 (optional but recommended):** Also update the name parsing to be safe (around line 364-368):
 
-Add `launchpad_type` to the Token interface and implement the same mutually exclusive badge logic:
-
-**Add to interface:**
-```tsx
-interface Token {
-  // ... existing fields
-  launchpad_type?: string | null;
-}
+Before:
+```typescript
+case "name":
+case "token":
+  data.name = trimmedValue.replace(/[,.:;!?]+$/, "").slice(0, 32);
+  break;
 ```
 
-**Update badge logic in JustLaunchedCard:**
-```tsx
-{token.launchpad_type === 'pumpfun' ? (
-  <PumpBadge size="sm" showText={false} mintAddress={token.mint_address} />
-) : token.agent_id ? (
-  <Bot className="w-3 h-3 text-purple-400 flex-shrink-0" />
-) : null}
+After:
+```typescript
+case "name":
+case "token":
+  // Strip URLs first, then trailing punctuation
+  const cleanedName = trimmedValue
+    .replace(/https?:\/\/\S+/gi, "")  // Remove ALL URLs
+    .trim()
+    .replace(/[,.:;!?]+$/, "")        // Remove trailing punctuation
+    .slice(0, 32);
+  data.name = cleanedName;
+  break;
 ```
 
-## Result
+## Database Fix (Optional)
+After deploying the fix, we can also clean up the corrupted tokens in the database:
 
-| Token Type | Badge Shown |
-|------------|-------------|
-| Pump.fun token | Green pump pill only |
-| Agent token (TUNA launchpad) | Purple AI bot only |
-| Regular token | No badge |
+```sql
+-- Preview corrupted tokens
+SELECT id, ticker, name FROM fun_tokens 
+WHERE ticker LIKE '%HTTP%'
+ORDER BY created_at DESC;
 
-This ensures visual clarity and prevents icon clutter.
+-- Fix corrupted tickers by stripping HTTP* suffix
+UPDATE fun_tokens 
+SET ticker = REGEXP_REPLACE(ticker, 'HTTP.*$', '', 'g')
+WHERE ticker LIKE '%HTTP%';
+```
+
+## Summary
+
+| What | Change |
+|------|--------|
+| Root cause | URL stripping regex only matches trailing URLs |
+| Fix | Strip ALL URLs from ticker values before processing |
+| Files | `supabase/functions/agent-process-post/index.ts` |
+| Impact | Prevents future ticker corruption from tweets with URLs |
