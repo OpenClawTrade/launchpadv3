@@ -1,186 +1,138 @@
 
-# Complete Agent Fee Data Integrity Audit
+## What’s actually happening (root cause)
+Your screenshot shows:
+- “Total Earned” ≈ **5.2136 SOL**
+- “Unclaimed” = **0 SOL**
+- Yet per-token “Your Earnings” shows **0.0526 SOL** and **5.1609 SOL**
 
-## Summary of Findings
+Backend data confirms why:
+- For your tokens (KNGT + CRAB), **all `fun_fee_claims` are already marked `creator_distributed=true`**, so the app’s “unclaimed” calculation (which currently relies on “undistributed fee claims”) becomes **0**.
+- At the same time, the platform has accumulated creator earnings elsewhere (we see many rows in `agent_fee_distributions`), so you *do* have earnings, but the claim UI is looking at the wrong “source of truth” for “unclaimed”.
 
-After auditing all components that display agent fee data across the website, I found **6 locations that need correction** to ensure accurate data. The issue is that several components still read from potentially stale database columns instead of calculating dynamically from the source of truth (`fun_fee_claims`).
+There’s a second issue making this worse:
+- Agents created via Twitter launches are not saving `agents.style_source_username`, so the claim dashboard often falls back to a “pseudo-agent” path that computes unclaimed purely from `creator_distributed=false` claims (which is 0 for you).
 
-### ✅ Already Fixed
-| Component | Source | Status |
-|-----------|--------|--------|
-| `agent-stats` edge function | Dynamic calculation from `fun_fee_claims` | ✅ FIXED |
-| `AgentStatsBar` component | Uses `agent-stats` function | ✅ CORRECT |
-| `TunaBookPage` stats section | Uses `agent-stats` function | ✅ CORRECT |
-| Database `agents.total_fees_earned_sol` | Updated with correct values | ✅ FIXED |
-
-### ❌ Still Using Stale Column (Need Fixing)
-
-| Component | File | Issue |
-|-----------|------|-------|
-| Agent Leaderboard | `src/pages/AgentLeaderboardPage.tsx:85` | Reads `total_fees_earned_sol` directly |
-| Agent Profile Page | `src/pages/AgentProfilePage.tsx:116` | Reads `total_fees_earned_sol` directly |
-| TunaBook Right Sidebar | `src/components/tunabook/TunaBookRightSidebar.tsx:61` | Reads `total_fees_earned_sol` directly |
-| Agent Heartbeat | `supabase/functions/agent-heartbeat/index.ts:175-176` | Uses `total_fees_earned_sol` for stats |
-| Agent-Me Endpoint | `supabase/functions/agent-me/index.ts:115,130` | Uses `total_fees_earned_sol` |
-
-### ✅ Already Correct (Dynamic Calculation)
-
-| Component | File | Source |
-|-----------|------|--------|
-| Agent-Find-By-Twitter | `supabase/functions/agent-find-by-twitter/index.ts:221` | Calculates from `fun_fee_claims` |
-| Agent Claim Page | `src/pages/AgentClaimPage.tsx` | Uses data from `agent-find-by-twitter` |
+## Goal
+Make Twitter/X-launched tokens behave exactly like a normal successful launch/claim flow:
+1) The dashboard always finds the correct agent/tokens for your X username.
+2) “Unclaimed” reflects what you can actually withdraw.
+3) Clicking “Claim” pays out correctly to the wallet you input.
+4) Cooldowns/locks prevent double-claims.
+5) Backfill/fix existing records (like your account) so it works immediately.
 
 ---
 
-## Detailed Analysis
+## Plan of changes
 
-### 1. Frontend Components Reading Stale Column
+### A) Fix agent identity tracking for Twitter launches (so discovery is stable)
+1. Update the Twitter launch processing backend (`agent-process-post`) so when it creates/updates an agent it sets:
+   - `agents.style_source_username = normalizedTwitterUsername` (no @, lowercase)
+   - also keep `twitter_handle` consistent (same normalized value)
+2. Add a small “backfill” migration for existing agents:
+   - For agents where `style_source_username` is NULL but `twitter_handle` exists, set `style_source_username = twitter_handle`.
+   - For cases where both are NULL, infer from `agent_social_posts.post_author` by joining through `fun_tokens.agent_id` when possible.
 
-These components query the `agents` table directly and use the `total_fees_earned_sol` column:
-
-**AgentLeaderboardPage.tsx (Line 85):**
-```typescript
-totalFeesEarned: Number(agent.total_fees_earned_sol || 0),
-```
-
-**AgentProfilePage.tsx (Line 116):**
-```typescript
-totalFeesEarned: agentData.total_fees_earned_sol || 0,
-```
-
-**TunaBookRightSidebar.tsx (Line 61):**
-```typescript
-feesEarned: Number(agent.total_fees_earned_sol || 0),
-```
-
-**Risk:** If the `fun-distribute` function double-counts again in the future, these values will become incorrect even though we just cleaned the database.
-
-### 2. Edge Functions Reading Stale Column
-
-**agent-heartbeat/index.ts (Lines 175-176):**
-```typescript
-totalFeesEarned: agent.total_fees_earned_sol || 0,
-unclaimedFees: (agent.total_fees_earned_sol || 0) - (agent.total_fees_claimed_sol || 0),
-```
-
-**agent-me/index.ts (Lines 115, 130):**
-```typescript
-feesGenerated: Number(token.total_fees_earned || 0) * 0.8,
-totalFeesEarned: Number(agent.total_fees_earned_sol || 0),
-```
-
-**Risk:** API consumers get incorrect data if the column becomes stale.
-
-### 3. Already Correct Implementation
-
-**agent-find-by-twitter/index.ts** correctly calculates fees from source:
-```typescript
-// Lines 149-163: Calculates tokenFeesMap from fun_fee_claims
-const { data: feeClaims } = await supabase
-  .from("fun_fee_claims")
-  .select("fun_token_id, claimed_sol")
-  .in("fun_token_id", tokenIds);
-
-// Line 221-232: Uses calculated value
-const totalFeesEarned = tokens.reduce((sum, t) => sum + t.totalFeesEarned, 0);
-totalFeesEarned: totalFeesEarned * 0.8, // 80% creator share
-```
+Result: your X login will always map to the correct agent(s), not the fallback pseudo-agent grouping.
 
 ---
 
-## Recommended Fix Strategy
+### B) Redefine “claimable/unclaimed” to match reality (stop depending on `creator_distributed`)
+Right now, `creator_distributed` is being used for internal distribution bookkeeping and is not reliable for “what the creator can withdraw” in the Twitter claim UX.
 
-### Option A: Keep Database Column Accurate (Current Approach)
-- **Pros:** No code changes needed, fast queries
-- **Cons:** Relies on `fun-distribute` not corrupting data again
-- **Risk:** If corruption happens again, we need another manual cleanup
+We’ll switch the claim UX to a robust formula:
 
-### Option B: Dynamic Calculation Everywhere (Recommended)
-- **Pros:** Always accurate, immune to future corruption
-- **Cons:** More complex queries, slight performance impact
+For a given token:
+- **earned_to_creator = sum(fun_fee_claims.claimed_sol) * creator_share**
+  - For agent tokens: `creator_share = fun_tokens.agent_fee_share_bps / 10000` (default 0.8)
+  - For non-agent tokens: use the correct share used by your product rules (agent tokens are 80%).
+- **already_paid_to_creator = sum(fun_distributions.amount_sol)** where:
+  - `distribution_type = 'creator_claim'`
+  - `status = 'completed'`
+  - token matches
+- **unclaimed = max(0, earned_to_creator - already_paid_to_creator)**
 
-### Recommended Approach: Hybrid
+This makes “unclaimed” correct even if `creator_distributed` was toggled earlier.
 
-1. **Keep the database cleanup we did** - Values are now correct
-2. **Add safeguards to prevent future corruption** - Fix the `fun-distribute` function
-3. **Update critical API endpoints** - `agent-heartbeat` and `agent-me` should calculate dynamically
-4. **Frontend components can stay as-is** - They read from the cleaned database column
+Implementation:
+1. Update `agent-find-by-twitter` backend function to compute:
+   - per-token earned_to_creator
+   - per-token already_paid_to_creator
+   - per-token unclaimed
+   - and totals for the header summary
+2. Ensure the dashboard uses this returned unclaimed number to enable/disable the claim button.
 
----
-
-## Implementation Plan
-
-### Part 1: Fix `agent-heartbeat` Edge Function
-Calculate fees dynamically instead of reading stale column:
-
-```typescript
-// Get actual fees from fun_fee_claims
-const { data: agentTokenIds } = await supabase
-  .from("fun_tokens")
-  .select("id")
-  .eq("agent_id", agent.id);
-
-const tokenIds = (agentTokenIds || []).map(t => t.id);
-
-let totalFeesEarned = 0;
-if (tokenIds.length > 0) {
-  const { data: feeClaims } = await supabase
-    .from("fun_fee_claims")
-    .select("claimed_sol")
-    .in("fun_token_id", tokenIds);
-  totalFeesEarned = (feeClaims || []).reduce((sum, c) => sum + (c.claimed_sol || 0), 0) * 0.8;
-}
-
-// Use calculated value
-stats: {
-  totalFeesEarned,
-  unclaimedFees: Math.max(0, totalFeesEarned - (agent.total_fees_claimed_sol || 0)),
-}
-```
-
-### Part 2: Fix `agent-me` Edge Function
-Same dynamic calculation approach:
-
-```typescript
-// Calculate from fun_fee_claims for the agent's tokens
-const tokenIds = tokens.map(t => t.id);
-let calculatedFeesEarned = 0;
-if (tokenIds.length > 0) {
-  const { data: feeClaims } = await supabase
-    .from("fun_fee_claims")
-    .select("fun_token_id, claimed_sol")
-    .in("fun_token_id", tokenIds);
-  
-  calculatedFeesEarned = (feeClaims || []).reduce((sum, c) => sum + (c.claimed_sol || 0), 0) * 0.8;
-}
-
-// Return calculated value
-totalFeesEarned: calculatedFeesEarned,
-```
-
-### Part 3: Frontend Components (Lower Priority)
-The frontend components (`AgentLeaderboardPage`, `AgentProfilePage`, `TunaBookRightSidebar`) can continue reading from the database column since we cleaned it. If we want extra safety, we could create a database view or RPC function that calculates dynamically.
+Result: your “Unclaimed” will show the real withdrawable amount, and the button will become available.
 
 ---
 
-## Files to Modify
+### C) Make the “Claim” button pay from the correct pool and record claims
+1. Update `agent-creator-claim` backend function to:
+   - Accept `twitterUsername`, `payoutWallet`, and optional `tokenIds` (already does)
+   - Validate ownership by checking `agent_social_posts` for those tokenIds + post_author match
+   - Compute claimable using the new formula above (earned_to_creator - already_paid_to_creator)
+   - Enforce minimum (keep 0.01 SOL unless you want 0.05 SOL)
+   - Send SOL to `payoutWallet`
+   - Insert `fun_distributions` rows for each token claimed:
+     - `distribution_type = 'creator_claim'`
+     - `status = 'completed'`
+     - `signature = txSignature`
+     - `creator_wallet = payoutWallet`
+2. Add proper cooldown tracking per Twitter username:
+   - Add a `twitter_username` column to `fun_distributions` (migration)
+   - Store it on insert for `creator_claim`
+   - Change cooldown lookup from “global last claim” to “last claim for this twitter_username”
 
-| File | Priority | Change |
-|------|----------|--------|
-| `supabase/functions/agent-heartbeat/index.ts` | High | Calculate fees from `fun_fee_claims` |
-| `supabase/functions/agent-me/index.ts` | High | Calculate fees from `fun_fee_claims` |
-| `src/pages/AgentLeaderboardPage.tsx` | Low | Uses cleaned DB column (acceptable) |
-| `src/pages/AgentProfilePage.tsx` | Low | Uses cleaned DB column (acceptable) |
-| `src/components/tunabook/TunaBookRightSidebar.tsx` | Low | Uses cleaned DB column (acceptable) |
+Result: claims work reliably and the system can always compute “already paid” accurately.
 
 ---
 
-## Summary
+### D) Prevent double-claims (lock)
+Add a lightweight backend lock so two clicks or parallel requests can’t double-pay:
+1. Add table `creator_claim_locks` keyed by `twitter_username` with `locked_at` (and expiry)
+2. Add database functions:
+   - `acquire_creator_claim_lock(twitter_username, duration_seconds)`
+   - `release_creator_claim_lock(twitter_username)`
+3. In `agent-creator-claim`, acquire lock before sending; release after (and in error handling)
 
-The database has been cleaned, and the main `agent-stats` endpoint is now correct. To make the system **fully robust against future corruption**, we should update the `agent-heartbeat` and `agent-me` edge functions to calculate dynamically from `fun_fee_claims` rather than reading from potentially stale columns.
+Result: safe payouts even if someone spams the button.
 
-This ensures:
-1. **API consumers always get accurate data**
-2. **Agent claim page (which uses `agent-find-by-twitter`) is already correct**
-3. **Frontend leaderboards/profiles use cleaned database values**
-4. **System is immune to future `fun-distribute` bugs**
+---
+
+### E) Reconcile existing “pending agent_fee_distributions” (optional but recommended)
+Right now, your database shows large “pending” amounts in `agent_fee_distributions` that do not align with what the claim UI should pay.
+To avoid future confusion or a second “claim system” paying twice:
+- After a successful `creator_claim`, mark related `agent_fee_distributions` rows for those tokenIds as “completed” with the same signature, OR mark them “voided” with a reason (preferred if we add a `status` enum).
+- If we want zero-risk overpayment, we’ll only ever pay using the new formula based on `fun_fee_claims` minus `creator_claim` distributions; `agent_fee_distributions` becomes informational/legacy for this flow.
+
+Result: one coherent claim source of truth.
+
+---
+
+## Verification plan (what we’ll test)
+1. Log in with X as `@stillwrkngonit` and open `/agents/claim`.
+2. Confirm:
+   - Tokens list populates
+   - Header “Unclaimed” matches the sum of per-token unclaimed
+   - Claim button becomes enabled when unclaimed >= 0.01
+3. Enter a payout wallet and claim:
+   - Transaction succeeds
+   - UI shows success and signature
+   - Unclaimed becomes 0 (or decreases correctly)
+4. Re-click immediately:
+   - Expect cooldown message (per-user)
+5. Reload and verify the claimed state persists.
+
+---
+
+## Deliverables (what will be changed)
+- Backend functions:
+  - `agent-process-post` (set `style_source_username`)
+  - `agent-find-by-twitter` (compute correct unclaimed)
+  - `agent-creator-claim` (pay correct amount, record distributions, cooldown per user, locking)
+- Database migrations:
+  - Add `twitter_username` column to `fun_distributions` (+ index for lookups)
+  - Add `creator_claim_locks` table + RPC functions
+  - Backfill `agents.style_source_username` for existing records
+- Frontend:
+  - `AgentClaimPage` continues to call `agent-creator-claim`, but now it will correctly unlock claim based on fixed data from `agent-find-by-twitter`
+
