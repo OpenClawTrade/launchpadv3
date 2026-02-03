@@ -1714,12 +1714,16 @@ export type Database = {
           id: string
           image_url: string | null
           last_distribution_at: string | null
+          launchpad_type: string | null
           market_cap_sol: number | null
           mint_address: string | null
           name: string
           price_24h_ago: number | null
           price_change_24h: number | null
           price_sol: number | null
+          pumpfun_bonding_curve: string | null
+          pumpfun_creator: string | null
+          pumpfun_signature: string | null
           starting_mcap_usd: number | null
           status: string | null
           telegram_url: string | null
@@ -1755,12 +1759,16 @@ export type Database = {
           id?: string
           image_url?: string | null
           last_distribution_at?: string | null
+          launchpad_type?: string | null
           market_cap_sol?: number | null
           mint_address?: string | null
           name: string
           price_24h_ago?: number | null
           price_change_24h?: number | null
           price_sol?: number | null
+          pumpfun_bonding_curve?: string | null
+          pumpfun_creator?: string | null
+          pumpfun_signature?: string | null
           starting_mcap_usd?: number | null
           status?: string | null
           telegram_url?: string | null
@@ -1796,12 +1804,16 @@ export type Database = {
           id?: string
           image_url?: string | null
           last_distribution_at?: string | null
+          launchpad_type?: string | null
           market_cap_sol?: number | null
           mint_address?: string | null
           name?: string
           price_24h_ago?: number | null
           price_change_24h?: number | null
           price_sol?: number | null
+          pumpfun_bonding_curve?: string | null
+          pumpfun_creator?: string | null
+          pumpfun_signature?: string | null
           starting_mcap_usd?: number | null
           status?: string | null
           telegram_url?: string | null
