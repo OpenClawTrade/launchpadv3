@@ -127,6 +127,58 @@ Deno.serve(async (req) => {
       }
     };
 
+    // ========== STEP 0: Test proxy connectivity via twitterapi.io proxy test ==========
+    console.log("[test] === STEP 0: Proxy connectivity test ===");
+    
+    // twitterapi.io has a proxy test endpoint
+    try {
+      const proxyTestRes = await fetch(`${TWITTERAPI_BASE}/twitter/proxy/test`, {
+        method: "POST",
+        headers: { "X-API-Key": twitterApiIoKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ proxy: proxyUrl }),
+      });
+      const proxyTestText = await proxyTestRes.text();
+      const proxyTestData = safeJsonParse(proxyTestText);
+      
+      console.log("[test] Proxy test response:", proxyTestText.slice(0, 500));
+      
+      results.proxy_test = {
+        http_status: proxyTestRes.status,
+        response: proxyTestData || proxyTestText.slice(0, 300),
+        proxy_working: proxyTestData?.status === "success" || proxyTestRes.status === 200,
+      };
+    } catch (proxyErr) {
+      console.log("[test] Proxy test error:", proxyErr);
+      results.proxy_test = { error: String(proxyErr) };
+    }
+    
+    // Also try to get IP info through the proxy using a different endpoint
+    try {
+      const ipCheckRes = await fetch(`${TWITTERAPI_BASE}/twitter/user/info`, {
+        method: "POST", 
+        headers: { "X-API-Key": twitterApiIoKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          user_name: "elonmusk", // Public profile, no auth needed
+          proxy: proxyUrl 
+        }),
+      });
+      const ipCheckText = await ipCheckRes.text();
+      const ipCheckData = safeJsonParse(ipCheckText);
+      
+      console.log("[test] Proxy IP check (fetching public profile):", ipCheckText.slice(0, 500));
+      
+      results.proxy_ip_check = {
+        http_status: ipCheckRes.status,
+        can_reach_twitter: ipCheckRes.status === 200 && ipCheckData?.status === "success",
+        response: ipCheckData?.status === "success" 
+          ? { verified: true, fetched_user: ipCheckData?.data?.userName || "unknown" }
+          : ipCheckData || ipCheckText.slice(0, 300),
+      };
+    } catch (ipErr) {
+      console.log("[test] Proxy IP check error:", ipErr);
+      results.proxy_ip_check = { error: String(ipErr) };
+    }
+
     // ========== STEP 1: Attempt Login ==========
     console.log("[test] === STEP 1: Login attempt ===");
     console.log("[test] Username:", xAccountUsername);
