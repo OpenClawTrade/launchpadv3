@@ -233,3 +233,6 @@ verify_jwt = false
 
 [functions.colosseum-submit]
 verify_jwt = false
+
+[functions.x-manual-reply]
+verify_jwt = false
