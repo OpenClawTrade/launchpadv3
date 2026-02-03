@@ -1,106 +1,123 @@
 
-# Fix: Ticker Corruption with "HTTPS" Text
+# Fix Ticker Corruption - Complete Solution
 
-## Problem
-Token tickers are being corrupted with "HTTPS" or "HTTPST" appended to them:
-- `$RATESHTTPS` (should be `$RATES`)
-- `$WLFNHTTPST` (should be `$WLFN`)
-- `$THNKHTTPST` (should be `$THNK`)
+## Problem Summary
+The ticker corruption issue ("THNKHTTPST" instead of "THNK") is **still occurring** despite the previous fix. The investigation reveals the problem happens **before** the `assignParsedField` function is called.
 
-## Root Cause
-In `supabase/functions/agent-process-post/index.ts`, the ticker parsing has a bug:
+## Root Cause Analysis
 
-1. When parsing tweet content like `symbol: WLFN https://t.co/abc123`, the URL stripping regex only matches URLs at the **end** of the value:
-   ```typescript
-   value = value.replace(/https?:\/\/\S+$/i, "").trim();
-   ```
+### Evidence from Database
 
-2. If the URL appears mid-value or the content has multiple URLs, they aren't stripped
+| Tweet | Raw Content | Parsed Symbol | Result |
+|-------|-------------|---------------|--------|
+| 10:51 | `symbol: THNK description: ...` | THNK ✅ | Correct |
+| 10:55 | `symbol: THNK https://t.co/...` | THNKHTTPST ❌ | Corrupted |
 
-3. Then `assignParsedField` removes non-alphanumeric characters:
-   ```typescript
-   data.symbol = trimmedValue.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
-   ```
-   
-4. This turns `WLFN https://t.co/...` → removes `:` and `/` → `WLFNhttpstco...` → sliced to 10 chars → `WLFNHTTPST`
+The difference: In the second tweet, the URL was on the **same line** as the symbol field.
+
+### The Bug Location
+
+**File**: `supabase/functions/agent-process-post/index.ts`
+
+**Line 478** in `parseSingleLine` function:
+```typescript
+// Current (BUGGY):
+value = value.replace(/https?:\/\/\S+$/i, "").trim();
+```
+
+This regex only removes URLs at the **very end** of the string (the `$` anchor). When the tweet has:
+```
+symbol: THNK https://t.co/abc123
+```
+
+The extracted value is `THNK https://t.co/abc123`. The regex fails to match because the URL is followed by nothing but IS at the end - however when there's whitespace or other characters after, or when the regex engine processes it, fragments survive.
+
+Then `assignParsedField` receives `THNK https://t.co/abc123`, and even with the fix, when the alphanumeric filter runs: `THNKhttpstcoabc123` → sliced to 10 chars → `THNKHTTPST`.
 
 ## Solution
-Fix the URL stripping to remove ALL URLs from ticker/symbol values before processing, not just trailing ones.
 
-### File Changes
+### Fix 1: Update `parseSingleLine` URL Stripping (Line 478)
 
-**`supabase/functions/agent-process-post/index.ts`**
-
-**Change 1:** Update `assignParsedField` for symbol/ticker case (around line 369-374):
-
-Before:
+**Before:**
 ```typescript
-case "symbol":
-case "ticker":
-  // Remove ALL non-alphanumeric characters (ticker should only be letters/numbers)
-  data.symbol = trimmedValue.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
-  break;
+value = value.replace(/https?:\/\/\S+$/i, "").trim();
 ```
 
-After:
+**After:**
 ```typescript
-case "symbol":
-case "ticker":
-  // First, strip ALL URLs from the value (not just trailing ones)
-  // Then remove ALL non-alphanumeric characters (ticker should only be letters/numbers)
-  const cleanedTicker = trimmedValue
-    .replace(/https?:\/\/\S+/gi, "")  // Remove ALL URLs, not just trailing
-    .replace(/[^a-zA-Z0-9]/g, "")      // Remove non-alphanumeric
-    .toUpperCase()
-    .slice(0, 10);
-  data.symbol = cleanedTicker;
-  break;
+value = value.replace(/https?:\/\/\S+/gi, "").trim();
 ```
 
-**Change 2 (optional but recommended):** Also update the name parsing to be safe (around line 364-368):
+Remove the `$` anchor so ALL URLs are stripped, not just trailing ones.
 
-Before:
+### Fix 2: Add URL Stripping to Defensive Sanitization (Line 880)
+
+**Before:**
 ```typescript
-case "name":
-case "token":
-  data.name = trimmedValue.replace(/[,.:;!?]+$/, "").slice(0, 32);
-  break;
+const cleanSymbol = parsed.symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
 ```
 
-After:
+**After:**
 ```typescript
-case "name":
-case "token":
-  // Strip URLs first, then trailing punctuation
-  const cleanedName = trimmedValue
-    .replace(/https?:\/\/\S+/gi, "")  // Remove ALL URLs
-    .trim()
-    .replace(/[,.:;!?]+$/, "")        // Remove trailing punctuation
-    .slice(0, 32);
-  data.name = cleanedName;
-  break;
+const cleanSymbol = parsed.symbol
+  .replace(/https?:\/\/\S+/gi, "")  // Strip any surviving URLs
+  .replace(/[^a-zA-Z0-9]/g, "")
+  .toUpperCase()
+  .slice(0, 10);
 ```
 
-## Database Fix (Optional)
-After deploying the fix, we can also clean up the corrupted tokens in the database:
+This is a safety net in case any URL fragments survive earlier parsing.
+
+### Fix 3: Same for Name (Line 879)
+
+**Before:**
+```typescript
+const cleanName = parsed.name.replace(/[,.:;!?]+$/, "").slice(0, 32);
+```
+
+**After:**
+```typescript
+const cleanName = parsed.name
+  .replace(/https?:\/\/\S+/gi, "")  // Strip any surviving URLs
+  .replace(/[,.:;!?]+$/, "")
+  .trim()
+  .slice(0, 32);
+```
+
+## Database Cleanup Required
+
+After deployment, run these SQL commands to fix corrupted data:
 
 ```sql
--- Preview corrupted tokens
-SELECT id, ticker, name FROM fun_tokens 
-WHERE ticker LIKE '%HTTP%'
-ORDER BY created_at DESC;
-
--- Fix corrupted tickers by stripping HTTP* suffix
-UPDATE fun_tokens 
-SET ticker = REGEXP_REPLACE(ticker, 'HTTP.*$', '', 'g')
+-- Fix SubTuna communities with corrupted tickers
+UPDATE subtuna 
+SET 
+  ticker = REGEXP_REPLACE(ticker, 'HTTP.*$', '', 'i'),
+  name = 't/' || REGEXP_REPLACE(ticker, 'HTTP.*$', '', 'i')
 WHERE ticker LIKE '%HTTP%';
+
+-- Fix fun_tokens website URLs pointing to corrupted SubTuna paths
+UPDATE fun_tokens 
+SET website_url = REGEXP_REPLACE(website_url, 'HTTP[^/]*$', '', 'i')
+WHERE website_url LIKE '%/t/%HTTP%';
 ```
 
-## Summary
+## Technical Summary
 
-| What | Change |
-|------|--------|
-| Root cause | URL stripping regex only matches trailing URLs |
-| Fix | Strip ALL URLs from ticker values before processing |
-| Files | `supabase/functions/agent-process-post/index.ts` |
-| Impact | Prevents future ticker corruption from tweets with URLs |
+| Location | Current Bug | Fix |
+|----------|-------------|-----|
+| Line 478 (parseSingleLine) | URL regex has `$` anchor - only matches trailing URLs | Remove `$` anchor |
+| Line 879-880 (defensive sanitization) | No URL stripping before alphanumeric filter | Add URL stripping first |
+
+## Impact
+- Prevents future ticker corruption from tweets with inline URLs
+- Fixes SubTuna community names being created with corrupted tickers
+- Fixes website_url pointing to non-existent SubTuna paths
+
+## Files to Modify
+1. `supabase/functions/agent-process-post/index.ts`
+   - Line 478: Fix URL regex
+   - Lines 879-880: Add URL stripping to defensive sanitization
+
+## Deployment
+After code changes, the edge function will be auto-deployed. Then run the SQL cleanup queries.
