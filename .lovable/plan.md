@@ -1,162 +1,171 @@
 
-# Fix Hourly Post Duplicates - Complete Solution
+# Fix Token Metadata & Enable pump.fun Fee Sharing
 
 ## Problem Summary
-The hourly update system (`agent-hourly-post`) is creating **duplicate posts on X**, risking account suspension. Multiple identical hourly updates are being posted because the deduplication logic is broken.
+
+Three critical issues need to be addressed:
+
+1. **Missing Website/Twitter URLs** - Tokens launched via TUNA launchpad have NULL `website_url` and `twitter_url`, causing on-chain metadata to show no socials on Axiom/DEXTools
+2. **Base64 Images in Database** - AI-generated images are being stored as base64 strings directly in the database, violating storage policy
+3. **pump.fun Fee Sharing Not Enabled** - Tokens launched via PumpPortal default to "Not Shareable", meaning creator fees cannot be collected until manually enabled
 
 ## Root Cause Analysis
 
-### Evidence from Logs
-```
-error_message: {"status":"error","message":"could not extract tweet_id from response"}
-success: false
-tweet_id: null
-```
+### Issue 1: Missing Socials
 
-All hourly posts in the last 24 hours show `success: false` - but the tweets **may still be posting to X**!
+| Flow | What Happens |
+|------|--------------|
+| TUNA UI Launch | `fun-generate` returns `websiteUrl: null, twitterUrl: null` → `create-fun.ts` stores NULL → `token-metadata` returns empty socials |
+| Agent/X Launch | `agent-process-post` sets `websiteUrl: communityUrl, twitterUrl: postUrl` → passes to `create-fun.ts` → stored correctly |
 
-### The Bug Chain
+The TUNA launchpad UI does not auto-populate socials like the agent flow does.
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Cron triggers at :00                                         │
-│ 2. Check: "Any success=true in last 50 min?" → NO (all failed)  │
-│ 3. Post tweet to X → Tweet actually posts ✅                    │
-│ 4. API returns error parsing response → "could not extract      │
-│    tweet_id"                                                    │
-│ 5. Logged as success=false                                      │
-│ 6. Next hour: Same check → still NO successful posts            │
-│ 7. Posts AGAIN → DUPLICATE ON X!                                │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Issue 2: Base64 Images
 
-### Three Critical Issues
+The `fun-generate` function returns base64-encoded images from the AI Gateway. When passed directly to `create-fun.ts` without uploading to storage first, these base64 strings get stored in the `image_url` column.
 
-| Issue | Current Code | Problem |
-|-------|--------------|---------|
-| **Dedup check** | `.eq("success", true)` | Only skips if previous post was "successful" - failed posts don't block next run even if tweet actually went through |
-| **No error detection** | Missing `isTwitterApiErrorPayload` | Doesn't detect `{status: "error"}` responses properly |
-| **No lock mechanism** | None | No protection against race conditions if cron fires twice |
+### Issue 3: pump.fun Fee Sharing
+
+PumpPortal API's `create` action does not enable fee sharing by default. A separate `set_params` instruction must be sent to the pump.fun program after token creation.
 
 ## Solution
 
-### Fix 1: Change Deduplication Logic
-Skip posting if ANY log entry exists in the last 50 minutes (regardless of success status):
+### Fix 1: Auto-Populate Socials for TUNA Launchpad
+
+Modify `api/pool/create-fun.ts` to set default `websiteUrl` and `twitterUrl` when not provided:
 
 ```typescript
-// BEFORE (buggy):
-const { data: recentPost } = await supabase
-  .from("hourly_post_log")
-  .select("id, posted_at")
-  .gte("posted_at", new Date(Date.now() - 50 * 60 * 1000).toISOString())
-  .eq("success", true)  // ❌ Only checks successful posts
-  .limit(1)
-  .single();
+// After line 238 (after extracting params from request)
+// Auto-populate socials if not provided
+const finalWebsiteUrl = websiteUrl || `https://tuna.fun/t/${ticker.toUpperCase()}`;
+const finalTwitterUrl = twitterUrl || "https://x.com/BuildTuna";
+```
 
-// AFTER (safe):
-const { data: recentPost } = await supabase
-  .from("hourly_post_log")
-  .select("id, posted_at, success")
-  .gte("posted_at", new Date(Date.now() - 50 * 60 * 1000).toISOString())
-  // No .eq("success", true) - check ANY recent attempt
-  .order("posted_at", { ascending: false })
-  .limit(1)
-  .single();
+Then use `finalWebsiteUrl` and `finalTwitterUrl` throughout the function instead of the raw values.
 
-if (recentPost) {
-  console.log(`[agent-hourly-post] Skipping - already attempted within 50 minutes (success: ${recentPost.success})`);
-  return new Response(
-    JSON.stringify({ success: true, skipped: true, reason: "Already attempted recently" }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
+### Fix 2: Prevent Base64 Images in Database
+
+Modify `api/pool/create-fun.ts` to validate image URLs and reject base64:
+
+```typescript
+// After line 246 (validation section)
+// Reject base64 images - they must be uploaded to storage first
+if (imageUrl && imageUrl.startsWith('data:')) {
+  return res.status(400).json({ 
+    error: 'Base64 images not allowed. Please upload to storage first.' 
+  });
 }
 ```
 
-### Fix 2: Add Error Payload Detection
-Add proper error detection before assuming success (copy from working functions):
+Also ensure `fun-phantom-create` edge function uploads base64 images before calling `create-fun.ts`.
+
+### Fix 3: Enable pump.fun Fee Sharing via set_params
+
+Add a second transaction immediately after token creation in `pump-agent-launch/index.ts`:
 
 ```typescript
-const isTwitterApiErrorPayload = (postData: any): boolean => {
-  if (!postData || typeof postData !== "object") return true;
-  if (postData.success === false) return true;
-  if (postData.status === "error") return true;
-  if (typeof postData.error === "string" && postData.error.length > 0) return true;
-  if (typeof postData.msg === "string" && postData.msg.toLowerCase().includes("failed")) return true;
-  return false;
-};
-```
+// After line 256 (after createResult.signature confirmation)
 
-### Fix 3: Add Cron Lock (Optional but Recommended)
-Use the `cron_locks` table pattern from other functions:
+// Step 2b: Enable fee sharing via set_params instruction
+console.log("[pump-agent-launch] Enabling fee sharing via set_params...");
 
-```typescript
-// Acquire lock before posting
-const lockName = "hourly-post-lock";
-const lockExpiry = 120; // 2 minutes
+const enableFeeSharing = await fetch(`${PUMPPORTAL_API_URL}?api-key=${pumpPortalApiKey}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    publicKey: deployerPublicKey,
+    action: "setParams", 
+    mint: mintAddress,
+    priorityFee: 0.0005,
+    pool: "pump",
+  }),
+});
 
-const { data: existingLock } = await supabase
-  .from("cron_locks")
-  .select("id, expires_at")
-  .eq("lock_name", lockName)
-  .gt("expires_at", new Date().toISOString())
-  .maybeSingle();
-
-if (existingLock) {
-  console.log("[agent-hourly-post] Lock held by another instance, skipping");
-  return new Response(
-    JSON.stringify({ success: true, skipped: true, reason: "Lock held" }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
+if (enableFeeSharing.ok) {
+  const setParamsResult = await enableFeeSharing.json();
+  console.log("[pump-agent-launch] Fee sharing enabled:", setParamsResult.signature);
+} else {
+  // Log but don't fail - token was already created
+  console.error("[pump-agent-launch] Failed to enable fee sharing:", await enableFeeSharing.text());
 }
-
-// Upsert lock
-await supabase
-  .from("cron_locks")
-  .upsert({
-    lock_name: lockName,
-    acquired_at: new Date().toISOString(),
-    expires_at: new Date(Date.now() + lockExpiry * 1000).toISOString(),
-  }, { onConflict: "lock_name" });
 ```
 
-## Files to Modify
-
-### `supabase/functions/agent-hourly-post/index.ts`
-
-1. **Add error detection helper** (after line 56)
-2. **Update deduplication check** (lines 122-137) - remove `.eq("success", true)`
-3. **Add cron lock acquisition** (after dedup check)
-4. **Use error detection** before logging result (around line 247)
+If PumpPortal doesn't support `setParams` action, we need to build the instruction manually using the pump.fun program directly with discriminator `[27, 234, 178, 52, 147, 2, 187, 141]`.
 
 ## Technical Implementation
 
-### Complete Updated Flow
+### Files to Modify
 
-```text
-1. Cron triggers
-2. Acquire cron lock (or skip if locked)
-3. Check for ANY recent attempt in last 50 min (success or fail)
-   → If exists, skip
-4. Gather stats
-5. Build tweet
-6. Post to X
-7. Check for error payload before assuming success
-8. Log result with accurate success status
-9. Release lock (auto-expires)
+| File | Changes |
+|------|---------|
+| `api/pool/create-fun.ts` | Add default socials, reject base64 images |
+| `supabase/functions/pump-agent-launch/index.ts` | Add set_params call after token creation |
+| `supabase/functions/fun-phantom-create/index.ts` | Ensure base64 images are uploaded before launch |
+
+### Database Cleanup
+
+After deployment, fix existing tokens with missing socials:
+
+```sql
+-- Backfill website_url for TUNA tokens without one
+UPDATE fun_tokens 
+SET website_url = 'https://tuna.fun/t/' || ticker
+WHERE website_url IS NULL 
+  AND launchpad_type = 'tuna';
+
+-- Backfill twitter_url for TUNA tokens without one  
+UPDATE fun_tokens 
+SET twitter_url = 'https://x.com/BuildTuna'
+WHERE twitter_url IS NULL 
+  AND launchpad_type = 'tuna';
+```
+
+### pump.fun set_params Instruction (if PumpPortal doesn't support it)
+
+Build the instruction manually:
+
+```typescript
+import { TransactionInstruction, PublicKey } from "@solana/web3.js";
+
+const PUMP_FUN_PROGRAM_ID = new PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
+const SET_PARAMS_DISCRIMINATOR = Buffer.from([27, 234, 178, 52, 147, 2, 187, 141]);
+
+function createSetParamsInstruction(
+  global: PublicKey,
+  user: PublicKey,
+  feeRecipient: PublicKey,
+  feeBasisPoints: number = 100 // 1% creator fee
+): TransactionInstruction {
+  const data = Buffer.concat([
+    SET_PARAMS_DISCRIMINATOR,
+    feeRecipient.toBuffer(),
+    // Additional parameters as needed based on IDL
+  ]);
+
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: global, isSigner: false, isWritable: true },
+      { pubkey: user, isSigner: true, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      // Additional accounts as per IDL
+    ],
+    programId: PUMP_FUN_PROGRAM_ID,
+    data,
+  });
+}
 ```
 
 ## Impact
 
-- **Prevents duplicate tweets** by blocking reruns after ANY attempt (not just successful ones)
-- **Accurate error detection** ensures we don't misreport success
-- **Cron lock** prevents race conditions from overlapping executions
+| Issue | Before | After |
+|-------|--------|-------|
+| Missing socials | Tokens show no links on Axiom/DEXTools | Auto-populated with SubTuna community + @BuildTuna |
+| Base64 images | Stored in DB causing bloat | Rejected; must upload to storage |
+| Fee sharing | Disabled by default; requires manual enable | Enabled immediately after launch |
 
-## Summary
+## Deployment Order
 
-| What | Change |
-|------|--------|
-| Root cause | Dedup only checked `success=true`, so failed attempts didn't block reruns |
-| Primary fix | Remove `.eq("success", true)` from dedup query |
-| Secondary fix | Add `isTwitterApiErrorPayload` helper |
-| Tertiary fix | Add cron lock for race condition protection |
-| File | `supabase/functions/agent-hourly-post/index.ts` |
+1. Deploy `create-fun.ts` changes (auto-socials, reject base64)
+2. Deploy `pump-agent-launch` changes (set_params)
+3. Run database cleanup SQL
+4. Test new token launch to verify metadata and fee sharing
