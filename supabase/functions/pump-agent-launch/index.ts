@@ -12,7 +12,69 @@ const corsHeaders = {
 // PumpPortal API for token creation
 const PUMPPORTAL_API_URL = "https://pumpportal.fun/api/trade";
 
-// Generate a proper Ed25519 keypair for the mint using Solana's Keypair
+// Decrypt secret key from XOR-encrypted storage
+function decryptSecretKey(encryptedHex: string, encryptionKey: string): Uint8Array {
+  const keyBytes = new TextEncoder().encode(encryptionKey);
+  const encryptedBytes = hexToBytes(encryptedHex);
+  
+  const decrypted = new Uint8Array(encryptedBytes.length);
+  for (let i = 0; i < encryptedBytes.length; i++) {
+    decrypted[i] = encryptedBytes[i] ^ keyBytes[i % keyBytes.length];
+  }
+  
+  return decrypted;
+}
+
+// Convert hex string to Uint8Array
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+// Try to get a pre-mined vanity keypair with TNA suffix
+async function getVanityKeypair(supabase: any, encryptionKey: string): Promise<{ keypair: Keypair; publicKey: string; id: string } | null> {
+  try {
+    const { data, error } = await supabase.rpc('backend_reserve_vanity_address', {
+      p_suffix: 'tna'
+    });
+    
+    if (error || !data || data.length === 0) {
+      console.log("[pump-agent-launch] No vanity address available:", error?.message || "empty result");
+      return null;
+    }
+    
+    const reserved = data[0];
+    console.log("[pump-agent-launch] Reserved vanity address:", reserved.public_key);
+    
+    // Decrypt the secret key
+    const secretKeyBytes = decryptSecretKey(reserved.secret_key_encrypted, encryptionKey);
+    const keypair = Keypair.fromSecretKey(secretKeyBytes);
+    
+    // Verify the public key matches
+    const derivedPublicKey = keypair.publicKey.toBase58();
+    if (derivedPublicKey !== reserved.public_key) {
+      console.error("[pump-agent-launch] Vanity keypair mismatch!", { 
+        expected: reserved.public_key, 
+        got: derivedPublicKey 
+      });
+      return null;
+    }
+    
+    return {
+      keypair,
+      publicKey: reserved.public_key,
+      id: reserved.id
+    };
+  } catch (e) {
+    console.error("[pump-agent-launch] Error getting vanity keypair:", e);
+    return null;
+  }
+}
+
+// Generate a proper Ed25519 keypair for the mint using Solana's Keypair (fallback)
 function generateMintKeypair(): { keypair: Keypair; secretKeyBase58: string } {
   const keypair = Keypair.generate();
   const secretKeyBase58 = bs58.encode(keypair.secretKey);
@@ -68,6 +130,10 @@ Deno.serve(async (req) => {
     if (!deployerPrivateKey) {
       throw new Error("PUMP_DEPLOYER_PRIVATE_KEY not configured");
     }
+    
+    // Get encryption key for vanity addresses (first 32 chars of treasury key)
+    const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+    const encryptionKey = treasuryPrivateKey?.slice(0, 32) || 'default-encryption-key-12345678';
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -119,12 +185,32 @@ Deno.serve(async (req) => {
     
     console.log("[pump-agent-launch] Metadata URI:", metadataUri);
 
-    // Step 2: Create token via PumpPortal API
-    console.log("[pump-agent-launch] Creating token via PumpPortal...");
+    // Step 2: Get mint keypair - try vanity (TNA suffix) first, fallback to random
+    console.log("[pump-agent-launch] Getting mint keypair...");
     
-    // Generate proper Ed25519 mint keypair
-    const mintKeypair = generateMintKeypair();
-    const mintAddress = mintKeypair.keypair.publicKey.toBase58();
+    let mintKeypair: Keypair;
+    let mintSecretKeyBase58: string;
+    let vanityId: string | null = null;
+    let usedVanity = false;
+    
+    // Try to get a pre-mined vanity address with TNA suffix
+    const vanityResult = await getVanityKeypair(supabase, encryptionKey);
+    
+    if (vanityResult) {
+      mintKeypair = vanityResult.keypair;
+      mintSecretKeyBase58 = bs58.encode(vanityResult.keypair.secretKey);
+      vanityId = vanityResult.id;
+      usedVanity = true;
+      console.log("[pump-agent-launch] ✅ Using vanity mint with TNA suffix:", vanityResult.publicKey);
+    } else {
+      // Fallback to random keypair
+      const randomKeypair = generateMintKeypair();
+      mintKeypair = randomKeypair.keypair;
+      mintSecretKeyBase58 = randomKeypair.secretKeyBase58;
+      console.log("[pump-agent-launch] Using random mint (no vanity available)");
+    }
+    
+    const mintAddress = mintKeypair.publicKey.toBase58();
     console.log("[pump-agent-launch] Mint address:", mintAddress);
 
     const createPayload = {
@@ -135,7 +221,7 @@ Deno.serve(async (req) => {
         symbol: ticker.toUpperCase(),
         uri: metadataUri,
       },
-      mint: mintKeypair.secretKeyBase58, // Mint keypair secret for signing
+      mint: mintSecretKeyBase58, // Mint keypair secret for signing
       denominatedInSol: "true",
       amount: initialBuySol, // Initial dev buy
       slippage: 10,
@@ -200,6 +286,19 @@ Deno.serve(async (req) => {
       console.error("[pump-agent-launch] DB insert error:", insertError);
       // Don't throw - token was created on-chain, just log error
     }
+    
+    // Mark vanity address as used if we used one
+    if (usedVanity && vanityId) {
+      try {
+        await supabase
+          .from("vanity_keypairs")
+          .update({ status: "used", used_at: new Date().toISOString() })
+          .eq("id", vanityId);
+        console.log("[pump-agent-launch] Marked vanity address as used:", vanityId);
+      } catch (e) {
+        console.error("[pump-agent-launch] Failed to mark vanity as used:", e);
+      }
+    }
 
     // Step 4: Create SubTuna community
     if (funToken?.id) {
@@ -232,6 +331,8 @@ Deno.serve(async (req) => {
         pumpfunUrl: `https://pump.fun/${mintAddress}`,
         tokenId: funToken?.id,
         communityUrl: `/t/${ticker.toUpperCase()}`,
+        usedVanity,
+        vanityId: vanityId || undefined,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
