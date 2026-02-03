@@ -350,29 +350,50 @@ Deno.serve(async (req) => {
         const processResult = await processResponse.json();
 
         if (processResult.success && processResult.mintAddress) {
-          // Reply to the tweet with token info
-          const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
-
-          const replyResult = await replyToTweet(
-            tweetId,
-            replyText,
-            consumerKey,
-            consumerSecret,
-            accessToken,
-            accessTokenSecret
-          );
-
           results.push({
             tweetId,
             status: "launched_via_backup",
             mintAddress: processResult.mintAddress,
           });
 
-          if (!replyResult.success) {
-            console.warn(
-              `[agent-scan-mentions] Failed to reply to ${tweetId}:`,
-              replyResult.error
+          // CRITICAL: Check if we already replied before sending
+          const { data: existingReply } = await supabase
+            .from("twitter_bot_replies")
+            .select("id")
+            .eq("tweet_id", tweetId)
+            .maybeSingle();
+
+          if (existingReply) {
+            console.log(`[agent-scan-mentions] ⏭️ Skipping reply to ${tweetId} - already replied`);
+          } else {
+            // Reply to the tweet with token info
+            const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
+
+            const replyResult = await replyToTweet(
+              tweetId,
+              replyText,
+              consumerKey,
+              consumerSecret,
+              accessToken,
+              accessTokenSecret
             );
+
+            if (!replyResult.success) {
+              console.warn(
+                `[agent-scan-mentions] Failed to reply to ${tweetId}:`,
+                replyResult.error
+              );
+            } else if (replyResult.replyId) {
+              // Record reply to prevent duplicates
+              await supabase.from("twitter_bot_replies").insert({
+                tweet_id: tweetId,
+                tweet_author: username,
+                tweet_text: tweetText.slice(0, 500),
+                reply_text: replyText.slice(0, 500),
+                reply_id: replyResult.replyId,
+              });
+              console.log(`[agent-scan-mentions] ✅ Sent success reply to ${tweetId}`);
+            }
           }
         } else if (processResult.error) {
           results.push({
@@ -381,8 +402,16 @@ Deno.serve(async (req) => {
             error: processResult.error,
           });
 
-          // Reply to user when launch is blocked (e.g., missing image)
-          if (processResult.shouldReply && processResult.replyText) {
+          // CRITICAL: Check if we already replied before sending
+          const { data: existingReply } = await supabase
+            .from("twitter_bot_replies")
+            .select("id")
+            .eq("tweet_id", tweetId)
+            .maybeSingle();
+
+          if (existingReply) {
+            console.log(`[agent-scan-mentions] ⏭️ Skipping error reply to ${tweetId} - already replied`);
+          } else if (processResult.shouldReply && processResult.replyText) {
             const blockedReply = await replyToTweet(
               tweetId,
               processResult.replyText,
@@ -399,6 +428,15 @@ Deno.serve(async (req) => {
               );
             } else {
               console.log(`[agent-scan-mentions] ✅ Sent blocked launch reply to ${tweetId}`);
+              if (blockedReply.replyId) {
+                await supabase.from("twitter_bot_replies").insert({
+                  tweet_id: tweetId,
+                  tweet_author: username,
+                  tweet_text: tweetText.slice(0, 500),
+                  reply_text: processResult.replyText.slice(0, 500),
+                  reply_id: blockedReply.replyId,
+                });
+              }
             }
           }
         }
