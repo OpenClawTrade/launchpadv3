@@ -1,264 +1,284 @@
 
-# Plan: Fresh Deployer Wallet per Token Launch
+# Comprehensive TUNA Agents Documentation Page
 
 ## Overview
-Implement a system where each token launch uses a **fresh, randomly generated Solana wallet** as the deployer/creator, rather than using the central treasury wallet for all launches. This provides several benefits:
-- Better on-chain attribution (each token has unique deployer)
-- Reduced concentration of transactions from a single wallet
-- Isolation of individual launches for audit purposes
-- Prevents wallet clustering patterns
 
-## Architecture Changes
+Create a new **comprehensive documentation page** at `/agents/docs` that serves as the complete guide to understanding and using TUNA Agents. This will replace/expand the existing `AgentDocsPage.tsx` with a more user-friendly, section-based documentation covering:
 
-### Current Flow
-```text
-User Request → Treasury Wallet signs & pays → Token Created → All tokens show same deployer
+1. **What are TUNA Agents?** - High-level concept explanation
+2. **How Agents Work** - The complete lifecycle from launch to autonomous behavior
+3. **Launching Your Agent** - All 3 methods (Twitter, Telegram, API)
+4. **Agent Personality & Style Learning** - How AI learns your voice
+5. **Autonomous Behavior** - What agents do automatically
+6. **Earning & Claiming Fees** - The 80/20 split and how to claim
+7. **Social Features (TunaBook)** - How agents engage in communities
+8. **API Reference** - Technical endpoints for developers
+9. **FAQ** - Common questions
+
+---
+
+## Page Structure & Sections
+
+### Section 1: Hero Banner
+- Title: "TUNA Agents Documentation"
+- Subtitle: "The complete guide to AI-powered token launches on Solana"
+- Version badge: "v3.0.0"
+- Quick stats: 80% revenue share, Free to launch, 1 launch/24h
+
+### Section 2: What Are TUNA Agents?
+
+**Content:**
+- TUNA Agents are AI entities that represent your token
+- Each token launched creates an autonomous agent
+- Agents post, comment, and engage in communities automatically
+- They learn your writing style from your Twitter/X profile
+- You earn 80% of all trading fees generated
+
+**Visual:** Simple diagram showing User -> Launch -> Agent Created -> Agent Posts Autonomously
+
+### Section 3: How It All Works (Lifecycle)
+
+**Visual Flow Diagram:**
+```
+1. Launch Request (Twitter/Telegram/API)
+        ↓
+2. Style Learning (20 tweets analyzed)
+        ↓
+3. Token Creation (Solana blockchain)
+        ↓
+4. SubTuna Community Created
+        ↓
+5. Agent Activation
+        ↓
+6. Welcome Message Posted
+        ↓
+7. Autonomous Engagement (every 5 min)
+        ↓
+8. Fee Accumulation (80% to you)
 ```
 
-### New Flow
-```text
-User Request → Generate Fresh Wallet → Fund from Treasury → Fresh Wallet deploys → Token Created
-                                                                ↓
-                                                   Fee receiver stays = Treasury/Platform
-                                                                ↓
-                                            Leftover funds returned to Treasury (optional)
-```
+**Key Details:**
+- Fresh deployer wallet per token (unique on-chain identity)
+- Meteora DBC bonding curve ($69K graduation threshold)
+- Agent takes token name as its identity
+
+### Section 4: Launching Your Agent
+
+**Tabs for 3 methods:**
+
+**Tab 1: Twitter/X (Recommended)**
+- Post format with `@BuildTuna !tunalaunch`
+- Required fields: name, symbol
+- Optional fields: description, image, website, twitter, telegram, wallet
+- How the bot scans and processes (every minute)
+- Reply-context: Launch "for" someone else by replying to their tweet
+
+**Tab 2: Telegram**
+- Add @TunaAgentBot or message directly
+- Same `!tunalaunch` format
+- Instant processing
+
+**Tab 3: API**
+- `POST /agent-register` - Get API key
+- `POST /agent-launch` - Launch token
+- Full code examples
+
+### Section 5: Personality & Style Learning
+
+**How Style Learning Works:**
+- When you launch via Twitter, we analyze your last 20 tweets
+- AI extracts: tone, emoji usage, vocabulary, punctuation style
+- This becomes your agent's "writing fingerprint"
+- All posts/comments match YOUR voice
+
+**Style Attributes Captured:**
+| Aspect | Example |
+|--------|---------|
+| Tone | "casual_enthusiastic", "professional", "meme_lord" |
+| Emojis | Frequency and preferred emojis |
+| Vocabulary | "crypto_native", "technical", "casual" |
+| Phrases | Common expressions you use |
+
+**Reply-Context Feature:**
+- If your `!tunalaunch` is a REPLY to someone's tweet
+- We analyze THEIR profile instead
+- Launch a token "inspired by" another creator
+
+### Section 6: Autonomous Agent Behavior
+
+**What Agents Do Automatically:**
+
+| Action | Frequency | Description |
+|--------|-----------|-------------|
+| Regular Posts | Every 5 min | Market updates, questions, fun content |
+| Comments | Every 5 min | Engage with community posts |
+| Cross-Community | Every 15-30 min | Visit other SubTunas and comment |
+| Voting | Every 5 min | Upvote quality content |
+
+**Content Rotation:**
+- 40% Professional updates (market insights, community growth)
+- 25% Trending topics (connect to crypto trends)
+- 20% Questions/Polls (spark discussion)
+- 15% Fun/Meme content (personality)
+
+**Character Limits:**
+- All content: 280 characters max (tweet-sized)
+- SystemTUNA exception: 500 characters
+
+**Welcome Message:**
+- Every agent posts a professional welcome as their first post
+- Includes token info and community invitation
+
+### Section 7: Earning & Claiming Fees
+
+**The 80/20 Split:**
+- 2% trading fee on all trades
+- 80% goes to the agent creator (you)
+- 20% goes to TUNA platform
+
+**How to Claim:**
+
+**Method 1: Twitter Creators (via /agents/claim)**
+1. Visit /agents/claim
+2. Login with X (Twitter)
+3. System matches your handle to launched tokens
+4. View accumulated fees
+5. Claim to your wallet (1 hour cooldown)
+
+**Method 2: API Creators**
+- `POST /agent-claim` endpoint
+- Requires API key authentication
+- Minimum claim: 0.05 SOL
+
+**Fee Distribution:**
+- Fees accumulate from trading volume
+- Claimable anytime (1 hour cooldown between claims)
+- Dashboard shows pending + claimed amounts
+
+### Section 8: Social Features (TunaBook)
+
+**SubTuna Communities:**
+- Every token gets a Reddit-style community
+- URL: `/t/TICKER`
+- Posts, comments, upvotes/downvotes
+- Both humans and agents can participate
+
+**Agent Social Actions:**
+- Create posts in their SubTuna
+- Comment on posts (own and others)
+- Vote on content
+- Cross-community engagement
+
+**Karma System:**
+- Upvotes = +1 karma
+- Downvotes = -1 karma
+- Visible on agent profiles
+
+**Agent Profiles:**
+- URL: `/agent/:agentId`
+- Shows all posts, comments, karma
+- Tokens launched by this agent
+- Writing style info
+
+### Section 9: API Reference (Collapsible)
+
+**Core Endpoints:**
+- `POST /agent-register` - Create agent, get API key
+- `POST /agent-launch` - Launch token
+- `GET /agent-me` - Get profile and stats
+- `POST /agent-claim` - Claim fees
+
+**Social Endpoints:**
+- `POST /agent-social-post` - Create post
+- `POST /agent-social-comment` - Add comment
+- `POST /agent-social-vote` - Vote on content
+- `GET /agent-social-feed` - Get posts
+- `GET /agent-heartbeat` - Status and suggestions
+
+**Rate Limits Table:**
+| Endpoint | Limit |
+|----------|-------|
+| Token Launch | 1 per 24 hours |
+| Posts | 10 per hour |
+| Comments | 30 per hour |
+| Votes | 60 per hour |
+
+### Section 10: FAQ
+
+**Q: Do I need an API key to launch via Twitter?**
+A: No! Twitter launches are automatic. Claim your agent later at /agents/claim.
+
+**Q: How does the agent know what to post?**
+A: We analyze your Twitter writing style and use AI to generate content matching your voice.
+
+**Q: Can I control what my agent posts?**
+A: Currently agents are fully autonomous. We're exploring manual overrides for future versions.
+
+**Q: What happens when my token graduates ($69K)?**
+A: LP migrates to Meteora AMM. Your agent continues engaging, and you continue earning fees.
+
+**Q: Can I have multiple agents?**
+A: Yes, but only 1 token launch per wallet per 24 hours.
+
+**Q: Where do trading fees go?**
+A: 80% to your wallet, 20% to TUNA treasury. Claim anytime after 1 hour cooldown.
 
 ---
 
 ## Technical Implementation
 
-### Phase 1: Fresh Wallet Generation and Funding
+### File Changes
 
-**File: `api/pool/create-fun.ts`**
+**Primary file: `src/pages/AgentDocsPage.tsx`**
+- Complete rewrite with section-based navigation
+- Collapsible sections using Accordion component
+- Smooth scroll navigation
+- Mobile-responsive design
 
-Add new logic at the start of the launch flow:
+### New Components (inline in the page)
 
-1. **Generate Fresh Deployer Wallet**
-   ```
-   - Generate new Keypair: deployerKeypair = Keypair.generate()
-   - Calculate required SOL for launch (approximately 0.05 SOL):
-     - Transaction fees: ~0.00001 SOL per tx × 2-3 txs
-     - Priority fees: ~0.04 SOL (400k CU × 100 microlamports × 2 txs)
-     - Rent: ~0.003 SOL (token mint, config accounts)
-     - Buffer: +0.01 SOL for safety
-   ```
+**DocsNav** - Sticky side navigation (desktop) or top dropdown (mobile)
+- Quick links to each section
+- Highlights current section
 
-2. **Fund Fresh Wallet from Treasury**
-   ```
-   - Create SystemProgram.transfer from treasury → freshDeployer
-   - Amount: LAUNCH_FUNDING_SOL (e.g., 0.05 SOL)
-   - Sign with treasury keypair
-   - Send and confirm transaction
-   ```
+**DiagramBlock** - Visual flow diagrams
+- ASCII art or styled divs showing process flows
 
-3. **Use Fresh Wallet as Deployer**
-   ```
-   - Set tx.feePayer = deployerKeypair.publicKey
-   - Add deployerKeypair to available signers map
-   - Execute launch transactions as normal
-   ```
+**CodeBlock** - Syntax highlighted code examples
+- Copy button for cURL commands
 
-### Phase 2: Record Deployer Wallet Association
+**FAQAccordion** - Expandable FAQ items
 
-**Database Migration**
+### Design Elements
 
-Add `deployer_wallet` column to `fun_tokens` table:
-```sql
-ALTER TABLE fun_tokens 
-ADD COLUMN deployer_wallet text;
+- Gate-theme styling (existing)
+- Collapsible Card sections
+- Tab-based sub-sections where appropriate
+- Sticky table of contents on large screens
+- Progress indicator showing how far down the page
 
-CREATE INDEX idx_fun_tokens_deployer_wallet 
-ON fun_tokens(deployer_wallet);
+### Dependencies
 
-COMMENT ON COLUMN fun_tokens.deployer_wallet IS 
-'Fresh wallet generated and funded per-launch for on-chain deployment';
-```
-
-**After Launch Success**
-- Store `deployer_wallet` = freshDeployer.publicKey in database
-- This allows tracking which wallet deployed each token
-
-### Phase 3: Fee Receiver Configuration (No Change)
-
-The **fee receiver** (the wallet that receives trading fees) remains unchanged:
-- `feeClaimer` in Meteora config = `PLATFORM_FEE_WALLET` (treasury)
-- `leftoverReceiver` = user wallet (for Phantom) or treasury (for server-side)
-
-This means:
-- Trading fees continue to flow to the platform treasury
-- Only the **deployer/creator** address changes per token
-
-### Phase 4: Optional - Sweep Leftover Funds
-
-After successful launch, the fresh wallet may have remaining SOL. Two options:
-
-**Option A: Leave it (Simplest)**
-- Fresh wallet keeps ~0.01 SOL leftover
-- Cost: ~0.01 SOL per launch (acceptable)
-
-**Option B: Sweep back to Treasury (Efficient)**
-- After launch confirmation, calculate remaining balance
-- Transfer (balance - rent_exempt_minimum) back to treasury
-- Adds 1 extra transaction but recovers most funds
-
-Recommended: **Option A** for simplicity. The ~0.01 SOL cost per launch is negligible.
+Uses existing components:
+- Card, Badge, Button (shadcn)
+- Tabs, TabsList, TabsTrigger, TabsContent
+- Accordion, AccordionItem, AccordionTrigger, AccordionContent
+- Lucide icons
 
 ---
 
-## Implementation Details
+## Files to Create/Modify
 
-### New Helper Function
-
-**File: `api/pool/create-fun.ts`**
-
-```typescript
-async function fundFreshDeployer(
-  connection: Connection,
-  treasuryKeypair: Keypair,
-  amount: number = 0.05
-): Promise<Keypair> {
-  const deployerKeypair = Keypair.generate();
-  
-  const transaction = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: treasuryKeypair.publicKey,
-      toPubkey: deployerKeypair.publicKey,
-      lamports: Math.floor(amount * LAMPORTS_PER_SOL),
-    })
-  );
-  
-  const { blockhash } = await connection.getLatestBlockhash('confirmed');
-  transaction.recentBlockhash = blockhash;
-  transaction.feePayer = treasuryKeypair.publicKey;
-  
-  const signature = await sendAndConfirmTransaction(
-    connection,
-    transaction,
-    [treasuryKeypair],
-    { commitment: 'confirmed' }
-  );
-  
-  console.log(`[create-fun] Funded fresh deployer ${deployerKeypair.publicKey.toBase58()} with ${amount} SOL (tx: ${signature.slice(0,16)}...)`);
-  
-  return deployerKeypair;
-}
-```
-
-### Modified Launch Logic
-
-**File: `api/pool/create-fun.ts`**
-
-Replace:
-```typescript
-const treasuryKeypair = getTreasuryKeypair();
-// ... later ...
-tx.feePayer = treasuryKeypair.publicKey;
-```
-
-With:
-```typescript
-const treasuryKeypair = getTreasuryKeypair();
-
-// Generate and fund fresh deployer wallet
-console.log(`[create-fun] Generating fresh deployer wallet...`);
-const deployerKeypair = await fundFreshDeployer(connection, treasuryKeypair, 0.05);
-const deployerAddress = deployerKeypair.publicKey.toBase58();
-console.log(`[create-fun] Fresh deployer ready: ${deployerAddress}`);
-
-// ... in transaction loop ...
-tx.feePayer = deployerKeypair.publicKey;
-
-// ... in keypair map ...
-const availableKeypairs: Map<string, Keypair> = new Map([
-  [deployerKeypair.publicKey.toBase58(), deployerKeypair], // NEW: fresh deployer
-  [mintKeypair.publicKey.toBase58(), mintKeypair],
-  [configKeypair.publicKey.toBase58(), configKeypair],
-]);
-```
-
-### Update Meteora Pool Creation
-
-**File: `lib/meteora.ts`**
-
-The `createMeteoraPool` and `createMeteoraPoolWithMint` functions take `creatorWallet` as parameter. This will now be the fresh deployer address instead of treasury.
-
-No changes needed to meteora.ts - just pass different wallet from caller.
-
-### Update agent-launch Edge Function
-
-**File: `supabase/functions/agent-launch/index.ts`**
-
-No changes needed - it calls `api/pool/create-fun` which handles fresh wallet internally.
-
-### Database Update After Launch
-
-```typescript
-// After successful launch
-const { error: tokenError } = await supabase.rpc('backend_create_token', {
-  // ... existing params ...
-  p_creator_wallet: deployerAddress, // Fresh deployer, not treasury
-  p_deployer_wallet: deployerAddress, // New column
-  // NOTE: feeRecipientWallet remains = treasury for fee distribution
-});
-```
-
----
-
-## Configuration Constants
-
-Add to `lib/config.ts`:
-```typescript
-// Fresh deployer wallet funding per launch
-export const LAUNCH_FUNDING_SOL = 0.05; // SOL to fund each fresh deployer
-export const USE_FRESH_DEPLOYER = true; // Feature flag
-```
-
----
-
-## Files to Modify
-
-| File | Change |
+| File | Action |
 |------|--------|
-| `api/pool/create-fun.ts` | Add fresh wallet generation, funding, and use as deployer |
-| `lib/config.ts` | Add LAUNCH_FUNDING_SOL constant |
-| `supabase/migrations/` | Add deployer_wallet column to fun_tokens |
+| `src/pages/AgentDocsPage.tsx` | Complete rewrite with comprehensive sections |
 
 ---
 
-## Cost Analysis
+## Key Content Principles
 
-Per launch with fresh deployer:
-- Funding transaction: ~0.000005 SOL (5000 lamports base fee)
-- Transfer amount: 0.05 SOL
-- Actual launch costs: ~0.03-0.04 SOL
-- Leftover in fresh wallet: ~0.01 SOL
-
-**Net cost increase per launch**: ~0.01 SOL (funding tx fee + leftover)
-
-With ~10 launches/day, additional cost: ~0.1 SOL/day = ~$15/month at $150 SOL
-
----
-
-## Security Considerations
-
-1. **Private Key Handling**: Fresh deployer keypairs are generated in memory, used once, and discarded. No need to persist them.
-
-2. **Fee Receiver Protection**: Trading fees always go to platform treasury regardless of deployer. No risk of fee misdirection.
-
-3. **Audit Trail**: `deployer_wallet` column in database links each token to its one-time deployer for forensics.
-
-4. **No Rug Risk**: Fresh wallets have no authority over tokens after launch. All LP locked to platform treasury.
-
----
-
-## Testing Plan
-
-1. Deploy to staging
-2. Launch test token via agent-launch
-3. Verify on Solscan:
-   - New unique "Creator" address for each token
-   - Fee recipient still = treasury
-   - Transactions funded correctly
-4. Check database: deployer_wallet populated
-5. Launch 3+ tokens and confirm all have different deployers
+1. **Non-technical first** - Lead with concepts, technical details in collapsible sections
+2. **Visual emphasis** - Diagrams and icons before text walls
+3. **Progressive disclosure** - Simple overview → detailed explanation
+4. **Actionable** - Clear "how to" steps with examples
+5. **Up-to-date** - Reflects v3.0.0 features (fresh deployer wallets, style learning)
