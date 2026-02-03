@@ -432,7 +432,7 @@ Deno.serve(async (req) => {
             console.log(`[agent-scan-mentions] ⏭️ Skipping reply to ${tweetId} - already replied`);
           } else {
             // New format: full CA, no links, token name/symbol
-            const replyText = `🐟 Token launched!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
+            const replyText = `🐟 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
 
             const replyResult = await replyToTweet(
               tweetId,
