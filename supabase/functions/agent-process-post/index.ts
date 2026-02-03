@@ -671,6 +671,27 @@ export async function processLaunchPost(
       console.log(`[agent-process-post] SubTuna pre-creation failed (will retry after launch):`, preSubtunaError.message);
     }
 
+    // === FINAL VALIDATION BEFORE LAUNCH ===
+    // Ensure all critical metadata is present before calling on-chain API
+    // This prevents launches with missing images/socials
+    if (!finalImageUrl || finalImageUrl.length < 10) {
+      throw new Error("CRITICAL: No valid image URL available for token launch");
+    }
+    
+    // Validate image URL is accessible (t.co links are already filtered earlier)
+    if (finalImageUrl.startsWith('https://t.co/') || finalImageUrl.startsWith('http://t.co/')) {
+      throw new Error("CRITICAL: Cannot use t.co redirect URL as token image");
+    }
+
+    // Build complete metadata for launch
+    const websiteForOnChain = parsed.website || communityUrl || null;
+    const twitterForOnChain = postUrl || parsed.twitter || null;
+    
+    console.log(`[agent-process-post] 📋 Launch metadata validation:`);
+    console.log(`[agent-process-post]   - Image: ${finalImageUrl.slice(0, 60)}...`);
+    console.log(`[agent-process-post]   - Website: ${websiteForOnChain || '(none)'}`);
+    console.log(`[agent-process-post]   - Twitter: ${twitterForOnChain || '(none)'}`);
+
     // Call Vercel API to create token (now with confirmation before success)
     // - website: community URL (tuna.fun/t/TICKER) as fallback if no custom website
     // - twitter: original X post URL where user requested the launch (goes on-chain)
@@ -686,8 +707,8 @@ export async function processLaunchPost(
           parsed.description ||
           `${cleanName} - Launched via TUNA Agents on ${platform}`,
         imageUrl: finalImageUrl,
-        websiteUrl: parsed.website || communityUrl || null, // Use community URL as fallback
-        twitterUrl: postUrl || parsed.twitter || null, // Use original X post URL for on-chain metadata
+        websiteUrl: websiteForOnChain,
+        twitterUrl: twitterForOnChain,
         serverSideSign: true,
         feeRecipientWallet: parsed.wallet,
         useVanityAddress: true,
