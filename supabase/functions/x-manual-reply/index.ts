@@ -90,6 +90,15 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Emergency kill-switch: disable ALL X posting/replying unless explicitly enabled.
+    // Default behavior: OFF.
+    if (Deno.env.get("ENABLE_X_POSTING") !== "true") {
+      return new Response(JSON.stringify({ success: false, error: "X posting is currently disabled" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const admin = await requireAdmin(req);
     if (!admin.ok) {
       return new Response(JSON.stringify({ success: false, error: admin.error }), {
