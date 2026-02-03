@@ -363,14 +363,24 @@ function assignParsedField(data: Partial<ParsedLaunchData>, key: string, value: 
   switch (keyLower) {
     case "name":
     case "token":
-      // Remove trailing punctuation from name (commas, periods, etc.)
-      data.name = trimmedValue.replace(/[,.:;!?]+$/, "").slice(0, 32);
+      // Strip ALL URLs first, then trailing punctuation
+      const cleanedName = trimmedValue
+        .replace(/https?:\/\/\S+/gi, "")  // Remove ALL URLs
+        .trim()
+        .replace(/[,.:;!?]+$/, "")        // Remove trailing punctuation
+        .slice(0, 32);
+      data.name = cleanedName;
       break;
     case "symbol":
     case "ticker":
-      // Remove ALL non-alphanumeric characters (ticker should only be letters/numbers)
-      // This handles: CRAMER, → CRAMER, $CRAMER → CRAMER, etc.
-      data.symbol = trimmedValue.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
+      // First, strip ALL URLs from the value (not just trailing ones)
+      // Then remove ALL non-alphanumeric characters (ticker should only be letters/numbers)
+      const cleanedTicker = trimmedValue
+        .replace(/https?:\/\/\S+/gi, "")  // Remove ALL URLs, not just trailing
+        .replace(/[^a-zA-Z0-9]/g, "")      // Remove non-alphanumeric
+        .toUpperCase()
+        .slice(0, 10);
+      data.symbol = cleanedTicker;
       break;
     case "wallet":
     case "address":
