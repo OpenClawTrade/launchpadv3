@@ -14,6 +14,63 @@ const safeJsonParse = (text: string): any => {
   }
 };
 
+const stripQuotes = (v: string) => v.replace(/^['"]+|['"]+$/g, "").trim();
+
+const parseCookieString = (raw: string): Record<string, string> => {
+  const out: Record<string, string> = {};
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split("=");
+    if (!k) continue;
+    const val = rest.join("=");
+    if (val) out[k.trim()] = stripQuotes(val);
+  }
+  return out;
+};
+
+const normalizeCookieValue = (raw: string, key: string): { value: string; cookies: Record<string, string> } => {
+  const trimmed = stripQuotes(raw);
+  const looksLikeCookieString = trimmed.includes(";") || trimmed.includes("=");
+  if (looksLikeCookieString) {
+    const cookies = parseCookieString(trimmed);
+    const val = cookies[key] ?? trimmed;
+    return { value: stripQuotes(val), cookies };
+  }
+  return { value: trimmed, cookies: {} };
+};
+
+const buildLoginCookies = (cookies: Record<string, string>) => JSON.stringify(cookies);
+
+const buildLoginCookiesBase64 = (cookies: Record<string, string>) =>
+  btoa(buildLoginCookies(cookies));
+
+async function twitterApiRequest(args: {
+  apiKey: string;
+  path: string;
+  method?: "GET" | "POST";
+  query?: Record<string, string | undefined>;
+  body?: unknown;
+}): Promise<{ status: number; text: string; json: any }>{
+  const method = args.method ?? "GET";
+  const url = new URL(`${TWITTERAPI_BASE}${args.path}`);
+  if (args.query) {
+    for (const [k, v] of Object.entries(args.query)) {
+      if (v !== undefined) url.searchParams.set(k, v);
+    }
+  }
+
+  const res = await fetch(url.toString(), {
+    method,
+    headers: {
+      "X-API-Key": args.apiKey,
+      ...(method === "POST" ? { "Content-Type": "application/json" } : {}),
+    },
+    body: method === "POST" ? JSON.stringify(args.body ?? {}) : undefined,
+  });
+  const text = await res.text();
+  return { status: res.status, text, json: safeJsonParse(text) };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -32,7 +89,8 @@ Deno.serve(async (req) => {
     const twitterApiKey = Deno.env.get("TWITTERAPI_IO_KEY");
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
     const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
-    const xCt0 = Deno.env.get("X_CT0_TOKEN");
+    const xCt0 = Deno.env.get("X_CT0_TOKEN") || Deno.env.get("X_CT0");
+    const xUsername = Deno.env.get("X_ACCOUNT_USERNAME");
 
     if (!twitterApiKey || !proxyUrl || !xAuthToken || !xCt0) {
       return new Response(
@@ -48,105 +106,92 @@ Deno.serve(async (req) => {
       );
     }
 
-    const testText = `🐟 Test reply at ${new Date().toISOString().slice(11, 19)} UTC`;
-    const results: Record<string, any> = {};
+    const marker = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const tweetText = `🐟 TUNA test ${marker}`;
+    const results: Record<string, any> = { marker };
 
-    // ===== METHOD 1: create_tweet with text field =====
-    console.log("[test] METHOD 1: create_tweet with text field");
-    const res1 = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": twitterApiKey,
-      },
-      body: JSON.stringify({
-        text: testText + " [M1]",
-        in_reply_to_tweet_id: tweet_id,
-        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
-        proxy: proxyUrl,
-      }),
-    });
-    const txt1 = await res1.text();
-    console.log(`[test] M1: ${res1.status} - ${txt1}`);
-    results.m1_text_field = { status: res1.status, response: safeJsonParse(txt1) || txt1 };
+    // Build cookie object (supports either raw token values OR full cookie strings pasted into secrets)
+    const authNorm = normalizeCookieValue(xAuthToken, "auth_token");
+    const ct0Norm = normalizeCookieValue(xCt0, "ct0");
+    const mergedCookies = { ...authNorm.cookies, ...ct0Norm.cookies };
+    mergedCookies.auth_token = authNorm.value;
+    mergedCookies.ct0 = ct0Norm.value;
+    // If the user pasted guest_id etc. we keep them too.
 
-    // ===== METHOD 2: create_tweet with tweet_text field =====
-    console.log("[test] METHOD 2: create_tweet with tweet_text field");
-    const res2 = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": twitterApiKey,
-      },
-      body: JSON.stringify({
-        tweet_text: testText + " [M2]",
-        in_reply_to_tweet_id: tweet_id,
-        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
-        proxy: proxyUrl,
-      }),
-    });
-    const txt2 = await res2.text();
-    console.log(`[test] M2: ${res2.status} - ${txt2}`);
-    results.m2_tweet_text_field = { status: res2.status, response: safeJsonParse(txt2) || txt2 };
+    results.normalized = {
+      has_guest_id: !!mergedCookies.guest_id,
+      auth_token_len: mergedCookies.auth_token?.length ?? 0,
+      ct0_len: mergedCookies.ct0?.length ?? 0,
+      cookie_keys: Object.keys(mergedCookies).slice(0, 20),
+    };
 
-    // ===== METHOD 3: tweet/create endpoint =====
-    console.log("[test] METHOD 3: tweet/create");
-    const res3 = await fetch(`${TWITTERAPI_BASE}/twitter/tweet/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": twitterApiKey,
-      },
-      body: JSON.stringify({
-        text: testText + " [M3]",
-        in_reply_to_tweet_id: tweet_id,
-        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
-        proxy: proxyUrl,
-      }),
-    });
-    const txt3 = await res3.text();
-    console.log(`[test] M3: ${res3.status} - ${txt3}`);
-    results.m3_tweet_create = { status: res3.status, response: safeJsonParse(txt3) || txt3 };
+    const loginCookiesB64 = buildLoginCookiesBase64(mergedCookies);
 
-    // ===== METHOD 4: post/tweet endpoint =====
-    console.log("[test] METHOD 4: post/tweet");
-    const res4 = await fetch(`${TWITTERAPI_BASE}/twitter/post/tweet`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": twitterApiKey,
-      },
-      body: JSON.stringify({
-        text: testText + " [M4]",
-        in_reply_to_tweet_id: tweet_id,
-        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
-        proxy: proxyUrl,
-      }),
+    // 0) (Sanity) Check twitterapi.io account credits endpoint (not auth-related, but confirms API key works)
+    const myInfo = await twitterApiRequest({
+      apiKey: twitterApiKey,
+      path: "/oapi/my/info",
+      method: "GET",
     });
-    const txt4 = await res4.text();
-    console.log(`[test] M4: ${res4.status} - ${txt4}`);
-    results.m4_post_tweet = { status: res4.status, response: safeJsonParse(txt4) || txt4 };
+    results.api_key_ok = { status: myInfo.status, response: myInfo.json ?? myInfo.text };
 
-    // ===== METHOD 5: standalone tweet (no reply) =====
-    console.log("[test] METHOD 5: standalone tweet");
-    const res5 = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
+    // 1) Post reply using create_tweet_v2 with base64 login_cookies
+    const post = await twitterApiRequest({
+      apiKey: twitterApiKey,
+      path: "/twitter/create_tweet_v2",
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": twitterApiKey,
-      },
-      body: JSON.stringify({
-        text: `🐟 TUNA standalone ${Date.now().toString(36)}`,
-        auth_session: { auth_token: xAuthToken, ct0: xCt0 },
+      body: {
+        login_cookies: loginCookiesB64,
+        tweet_text: tweetText,
+        reply_to_tweet_id: tweet_id,
         proxy: proxyUrl,
-      }),
+      },
     });
-    const txt5 = await res5.text();
-    console.log(`[test] M5: ${res5.status} - ${txt5}`);
-    results.m5_standalone = { status: res5.status, response: safeJsonParse(txt5) || txt5 };
+    results.post_v2 = { status: post.status, response: post.json ?? post.text };
+    let createdTweetId: string | undefined = post.json?.tweet_id;
+
+    // 3) Verify we can see the created tweet ourselves
+    if (createdTweetId) {
+      const verifyTweet = await twitterApiRequest({
+        apiKey: twitterApiKey,
+        path: "/twitter/tweets",
+        method: "GET",
+        query: { tweet_ids: createdTweetId },
+      });
+      results.verify_tweet = {
+        status: verifyTweet.status,
+        response: verifyTweet.json ?? verifyTweet.text,
+      };
+
+      // Optional: also verify it shows up in our recent tweets
+      if (xUsername) {
+        const lastTweets = await twitterApiRequest({
+          apiKey: twitterApiKey,
+          path: "/twitter/user/last_tweets",
+          method: "GET",
+          query: { userName: xUsername },
+        });
+        results.verify_last_tweets = {
+          status: lastTweets.status,
+          response: lastTweets.json ?? lastTweets.text,
+        };
+      }
+
+      // Optional: check replies for the original tweet (best evidence of reply)
+      const replies = await twitterApiRequest({
+        apiKey: twitterApiKey,
+        path: "/twitter/tweet/replies",
+        method: "GET",
+        query: { tweetId: tweet_id },
+      });
+      results.verify_replies = {
+        status: replies.status,
+        response: replies.json ?? replies.text,
+      };
+    }
 
     return new Response(
-      JSON.stringify({ success: true, tweet_id, results }),
+      JSON.stringify({ success: true, tweet_id, created_tweet_id: createdTweetId ?? null, results }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
