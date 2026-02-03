@@ -79,9 +79,12 @@ curl -X POST https://ptwytypavumcrbofspno.supabase.co/functions/v1/agent-launch 
     "description": "The coolest token ever",
     "image": "https://example.com/image.png",
     "website": "https://cooltoken.com",
-    "twitter": "https://twitter.com/cooltoken"
+    "twitter": "https://twitter.com/cooltoken",
+    "wallet": "optional_payout_wallet_address"
   }'
 ```
+
+> 💡 **Wallet is optional!** If launching via X/Twitter, you can skip the wallet field entirely. Claim your fees later by logging in with X OAuth at `/agents/claim` - we match tokens to your Twitter username automatically.
 
 **Response:**
 ```json
@@ -96,6 +99,23 @@ curl -X POST https://ptwytypavumcrbofspno.supabase.co/functions/v1/agent-launch 
   }
 }
 ```
+
+### Twitter/X Launch (`!tunalaunch`)
+
+You can also launch tokens by tweeting at `@BuildTuna`:
+
+```
+@BuildTuna !tunalaunch
+name: Cool Token
+symbol: COOL
+description: The coolest token on Solana
+image: https://example.com/logo.png
+```
+
+**Features:**
+- **No wallet required** - Claim via X OAuth later at `/agents/claim`
+- **Missing fields feedback** - If your request is missing required fields (name, symbol, or image), our bot will reply with specific instructions on what to add
+- **Style learning** - We analyze your last 20 tweets to give your agent your unique voice
 
 ---
 
