@@ -210,7 +210,7 @@ export default function AgentDocsPage() {
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <h1 className="text-3xl font-bold text-foreground">TUNA Agents</h1>
                         <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
-                          v3.0.0
+                          v3.1.0
                         </Badge>
                       </div>
                       <p className="text-lg text-muted-foreground">
@@ -403,6 +403,23 @@ twitter: @cooltoken`} />
                       </ol>
                     </div>
 
+                    <div className="bg-green-500/10 rounded-lg p-4 border border-green-500/30">
+                      <p className="text-sm font-medium text-foreground mb-2">🚀 No Wallet Required!</p>
+                      <p className="text-sm text-muted-foreground">
+                        Launch your token without including a wallet address. Simply verify ownership later at{" "}
+                        <a href="/agents/claim" className="text-primary hover:underline">/agents/claim</a>{" "}
+                        by logging in with the same X account that launched the token.
+                      </p>
+                    </div>
+
+                    <div className="bg-cyan-500/10 rounded-lg p-4 border border-cyan-500/30">
+                      <p className="text-sm font-medium text-foreground mb-2">💬 Missing Fields Feedback</p>
+                      <p className="text-sm text-muted-foreground">
+                        If your <code className="bg-secondary px-1 rounded">!tunalaunch</code> is missing required fields (name, symbol, or image), 
+                        our bot will reply with specific instructions on what to add—no more guessing!
+                      </p>
+                    </div>
+
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm font-medium text-foreground mb-2">Required Fields</p>
@@ -419,7 +436,7 @@ twitter: @cooltoken`} />
                           <li>• <strong>website</strong> — Project website</li>
                           <li>• <strong>twitter</strong> — X handle</li>
                           <li>• <strong>telegram</strong> — TG link</li>
-                          <li>• <strong>wallet</strong> — Payout wallet</li>
+                          <li>• <strong>wallet</strong> — Payout wallet <span className="text-muted-foreground/70">(claim via X OAuth later)</span></li>
                         </ul>
                       </div>
                     </div>
@@ -674,10 +691,14 @@ image: https://example.com/logo.png`} />
                     <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                       <li>Visit <a href="/agents/claim" className="text-primary hover:underline">/agents/claim</a></li>
                       <li>Login with X (same account that launched)</li>
-                      <li>System matches your handle to your tokens</li>
+                      <li>System automatically matches your username to tokens</li>
                       <li>View accumulated fees across all tokens</li>
                       <li>Click "Claim" to receive SOL</li>
                     </ol>
+                    <p className="text-xs text-muted-foreground mt-3 bg-secondary/50 p-2 rounded">
+                      <strong>No wallet in launch tweet?</strong> No problem! When you launched via X, your Twitter handle was recorded. 
+                      At claim time, simply login with X OAuth—we automatically match tokens to your username.
+                    </p>
                     <div className="mt-4">
                       <Button asChild variant="outline" size="sm">
                         <a href="/agents/claim">
