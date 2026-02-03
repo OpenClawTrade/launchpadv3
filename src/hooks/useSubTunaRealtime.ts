@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -8,9 +8,17 @@ interface UseSubTunaRealtimeOptions {
   enabled?: boolean;
 }
 
+// Debounce interval for batch invalidations (5 seconds)
+const DEBOUNCE_MS = 5000;
+
 /**
  * Hook for realtime updates on SubTuna posts and comments.
  * Automatically invalidates queries when changes are detected.
+ * 
+ * Phase C optimization:
+ * - Debounces invalidations to prevent refetch storms
+ * - Disables vote subscriptions on global feed
+ * - Only enables full realtime on specific community/post pages
  */
 export function useSubTunaRealtime({
   subtunaId,
@@ -18,14 +26,42 @@ export function useSubTunaRealtime({
   enabled = true,
 }: UseSubTunaRealtimeOptions = {}) {
   const queryClient = useQueryClient();
+  const pendingInvalidation = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastInvalidation = useRef<number>(0);
+
+  // Debounced invalidation to batch multiple events
+  const debouncedInvalidate = useCallback((queryKey: string[]) => {
+    const now = Date.now();
+    
+    // If we just invalidated, skip
+    if (now - lastInvalidation.current < DEBOUNCE_MS) {
+      return;
+    }
+
+    // Clear any pending invalidation
+    if (pendingInvalidation.current) {
+      clearTimeout(pendingInvalidation.current);
+    }
+
+    // Schedule batched invalidation
+    pendingInvalidation.current = setTimeout(() => {
+      lastInvalidation.current = Date.now();
+      queryClient.invalidateQueries({ queryKey });
+      pendingInvalidation.current = null;
+    }, 500); // Small delay to batch rapid events
+  }, [queryClient]);
 
   useEffect(() => {
-    if (!enabled) return;
+    // Phase C: Disable realtime on global feed entirely to reduce load
+    const isGlobalFeed = !subtunaId && !postId;
+    if (!enabled || isGlobalFeed) {
+      return;
+    }
 
-    // Channel for posts in a subtuna
-    const channel = supabase.channel(`tunabook-realtime-${subtunaId || postId || "global"}`);
+    const channelName = `tunabook-realtime-${subtunaId || postId || "global"}`;
+    const channel = supabase.channel(channelName);
 
-    // Subscribe to post changes
+    // Subscribe to post changes only for specific subtuna
     if (subtunaId) {
       channel.on(
         "postgres_changes",
@@ -37,21 +73,7 @@ export function useSubTunaRealtime({
         },
         (payload) => {
           console.log("[TunaBook Realtime] Post change:", payload.eventType);
-          queryClient.invalidateQueries({ queryKey: ["subtuna-posts"] });
-        }
-      );
-    } else {
-      // Global feed - listen to all posts
-      channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "subtuna_posts",
-        },
-        (payload) => {
-          console.log("[TunaBook Realtime] Global post change:", payload.eventType);
-          queryClient.invalidateQueries({ queryKey: ["subtuna-posts"] });
+          debouncedInvalidate(["subtuna-posts"]);
         }
       );
     }
@@ -68,34 +90,37 @@ export function useSubTunaRealtime({
         },
         (payload) => {
           console.log("[TunaBook Realtime] Comment change:", payload.eventType);
-          queryClient.invalidateQueries({ queryKey: ["subtuna-comments", postId] });
-          queryClient.invalidateQueries({ queryKey: ["subtuna-post", postId] });
+          debouncedInvalidate(["subtuna-comments", postId]);
+          debouncedInvalidate(["subtuna-post", postId]);
+        }
+      );
+
+      // Only subscribe to votes on specific post pages (not community pages)
+      channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "subtuna_votes",
+          filter: `post_id=eq.${postId}`,
+        },
+        () => {
+          debouncedInvalidate(["subtuna-posts"]);
         }
       );
     }
 
-    // Subscribe to vote changes for optimistic UI updates
-    channel.on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "subtuna_votes",
-      },
-      () => {
-        // Debounce vote updates to avoid too many invalidations
-        queryClient.invalidateQueries({ queryKey: ["subtuna-posts"] });
-      }
-    );
-
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
-        console.log("[TunaBook Realtime] Connected");
+        console.log("[TunaBook Realtime] Connected to", channelName);
       }
     });
 
     return () => {
+      if (pendingInvalidation.current) {
+        clearTimeout(pendingInvalidation.current);
+      }
       channel.unsubscribe();
     };
-  }, [subtunaId, postId, enabled, queryClient]);
+  }, [subtunaId, postId, enabled, queryClient, debouncedInvalidate]);
 }

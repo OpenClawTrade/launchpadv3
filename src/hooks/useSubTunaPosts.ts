@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedData, setCachedData } from "@/lib/fetchWithTimeout";
 
 export type SortOption = "hot" | "new" | "top" | "rising" | "discussed";
 
@@ -10,18 +11,26 @@ interface UseSubTunaPostsOptions {
   limit?: number;
 }
 
+// Smaller default limit to reduce DB load
+const DEFAULT_LIMIT = 20;
+// Time window for global feed (7 days)
+const GLOBAL_FEED_DAYS = 7;
+
 export function useSubTunaPosts({
   subtunaId,
   ticker,
   sort = "new",
-  limit = 25,
+  limit = DEFAULT_LIMIT,
 }: UseSubTunaPostsOptions = {}) {
   const queryClient = useQueryClient();
+  const cacheKey = `posts_${subtunaId || "global"}_${sort}_${limit}`;
 
   const postsQuery = useQuery({
     queryKey: ["subtuna-posts", subtunaId, ticker, sort, limit],
     queryFn: async () => {
-      let query = supabase
+      // Phase B: Split query to avoid heavy joins
+      // Step 1: Fetch posts only (no joins)
+      let postsQuery = supabase
         .from("subtuna_posts")
         .select(`
           id,
@@ -38,86 +47,121 @@ export function useSubTunaPosts({
           is_agent_post,
           created_at,
           slug,
-          subtuna:subtuna_id (
-            id,
-            name,
-            fun_token_id,
-            icon_url,
-            ticker,
-            fun_tokens:fun_token_id (
-              ticker,
-              image_url
-            )
-          ),
-          author:author_id (
-            id,
-            username,
-            avatar_url
-          ),
-          agent:author_agent_id (
-            id,
-            name
-          )
+          subtuna_id,
+          author_id,
+          author_agent_id
         `)
         .limit(limit);
 
       // Filter by subtuna if provided
       if (subtunaId) {
-        query = query.eq("subtuna_id", subtunaId);
+        postsQuery = postsQuery.eq("subtuna_id", subtunaId);
+      } else {
+        // Global feed: only last N days to avoid huge scans
+        const cutoffDate = new Date(Date.now() - GLOBAL_FEED_DAYS * 24 * 60 * 60 * 1000).toISOString();
+        postsQuery = postsQuery.gte("created_at", cutoffDate);
       }
 
       // Apply sorting
       switch (sort) {
         case "new":
-          query = query.order("created_at", { ascending: false });
+          postsQuery = postsQuery.order("created_at", { ascending: false });
           break;
         case "top":
-          // Top = highest total votes (user + guest upvotes)
-          // We'll sort by guest_upvotes primarily since that's the new voting mechanism
-          query = query
+          postsQuery = postsQuery
             .order("guest_upvotes", { ascending: false })
             .order("upvotes", { ascending: false })
             .order("created_at", { ascending: false });
           break;
         case "rising":
-          // Rising = high score relative to age
-          query = query
+          postsQuery = postsQuery
             .order("guest_upvotes", { ascending: false })
             .gte("created_at", new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString());
           break;
         case "discussed":
-          // Most commented posts
-          query = query
+          postsQuery = postsQuery
             .order("comment_count", { ascending: false })
             .order("created_at", { ascending: false });
           break;
         case "hot":
         default:
-          // Hot = combination of score and recency
-          // Only show pinned posts when viewing a specific subtuna, not the main feed
           if (subtunaId) {
-            query = query
+            postsQuery = postsQuery
               .order("is_pinned", { ascending: false })
               .order("guest_upvotes", { ascending: false })
               .order("created_at", { ascending: false });
           } else {
-            query = query
+            postsQuery = postsQuery
               .order("guest_upvotes", { ascending: false })
               .order("created_at", { ascending: false });
           }
           break;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      // Execute query - need to await it directly, not wrap in withTimeout
+      const { data: posts, error: postsError } = await postsQuery;
 
-      // Transform data to match expected shape
-      // deno-lint-ignore no-explicit-any
-      return (data || []).map((post: any) => {
-        // Calculate total votes (user votes + guest votes)
+      if (postsError) throw postsError;
+      if (!posts || posts.length === 0) return [];
+
+      // Step 2: Collect unique IDs for batch fetching
+      const subtunaIds = [...new Set(posts.map(p => p.subtuna_id).filter(Boolean))] as string[];
+      const authorIds = [...new Set(posts.map(p => p.author_id).filter(Boolean))] as string[];
+      const agentIds = [...new Set(posts.map(p => p.author_agent_id).filter(Boolean))] as string[];
+
+      // Step 3: Batch fetch related data in parallel
+      const [subtunaRes, authorRes, agentRes] = await Promise.all([
+        subtunaIds.length > 0
+          ? supabase
+              .from("subtuna")
+              .select("id, name, ticker, icon_url, fun_token_id")
+              .in("id", subtunaIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        authorIds.length > 0
+          ? supabase
+              .from("profiles")
+              .select("id, username, avatar_url")
+              .in("id", authorIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        agentIds.length > 0
+          ? supabase
+              .from("agents")
+              .select("id, name")
+              .in("id", agentIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+      ]);
+
+      // Build lookup maps
+      const subtunaMap = new Map((subtunaRes.data || []).map((s: any) => [s.id, s]));
+      const authorMap = new Map((authorRes.data || []).map((a: any) => [a.id, a]));
+      const agentMap = new Map((agentRes.data || []).map((a: any) => [a.id, a]));
+
+      // Step 4: If we have subtuna fun_token_ids, fetch token images
+      const tokenIds = [...new Set(
+        (subtunaRes.data || [])
+          .map((s: any) => s.fun_token_id)
+          .filter(Boolean)
+      )];
+
+      let tokenMap = new Map<string, { ticker: string; image_url: string }>();
+      if (tokenIds.length > 0) {
+        const { data: tokens } = await supabase
+          .from("fun_tokens")
+          .select("id, ticker, image_url")
+          .in("id", tokenIds);
+        tokenMap = new Map((tokens || []).map(t => [t.id, t]));
+      }
+
+      // Transform posts with joined data
+      const result = posts.map((post: any) => {
+        const subtuna = subtunaMap.get(post.subtuna_id);
+        const author = authorMap.get(post.author_id);
+        const agent = agentMap.get(post.author_agent_id);
+        const funToken = subtuna?.fun_token_id ? tokenMap.get(subtuna.fun_token_id) : null;
+
         const totalUpvotes = (post.upvotes || 0) + (post.guest_upvotes || 0);
         const totalDownvotes = (post.downvotes || 0) + (post.guest_downvotes || 0);
-        
+
         return {
           id: post.id,
           title: post.title,
@@ -131,24 +175,32 @@ export function useSubTunaPosts({
           isAgentPost: post.is_agent_post,
           createdAt: post.created_at,
           slug: post.slug,
-          author: post.author ? {
-            id: post.author.id,
-            username: post.author.username,
-            avatarUrl: post.author.avatar_url,
+          author: author ? {
+            id: author.id,
+            username: author.username,
+            avatarUrl: author.avatar_url,
           } : undefined,
-          agent: post.agent ? {
-            id: post.agent.id,
-            name: post.agent.name,
+          agent: agent ? {
+            id: agent.id,
+            name: agent.name,
           } : undefined,
           subtuna: {
-            name: post.subtuna?.name || "",
-            ticker: post.subtuna?.ticker || post.subtuna?.fun_tokens?.ticker || ticker || "",
-            iconUrl: post.subtuna?.icon_url || post.subtuna?.fun_tokens?.image_url,
+            name: subtuna?.name || "",
+            ticker: subtuna?.ticker || funToken?.ticker || ticker || "",
+            iconUrl: subtuna?.icon_url || funToken?.image_url,
           },
         };
       });
+
+      // Cache result for offline/retry
+      setCachedData(cacheKey, result);
+      return result;
     },
     enabled: true,
+    staleTime: 30 * 1000, // 30 seconds
+    retry: 1, // Only retry once
+    retryDelay: 1000,
+    placeholderData: getCachedData<any[]>(cacheKey) ?? undefined,
   });
 
   // Authenticated user vote mutation
