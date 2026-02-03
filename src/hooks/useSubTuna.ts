@@ -182,32 +182,34 @@ export function useSubTuna(ticker?: string) {
 
 export function useRecentSubTunas(limit = 10) {
   return useQuery({
-    queryKey: ["recent-subtunas-v2", limit],
+    queryKey: ["recent-subtunas-v3", limit],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Step 1: Fetch subtunas without join
+      const { data: subtunas, error } = await supabase
         .from("subtuna")
-        .select(`
-          id,
-          name,
-          ticker,
-          description,
-          icon_url,
-          member_count,
-          post_count,
-          fun_tokens:fun_token_id (
-            ticker,
-            market_cap_sol,
-            image_url
-          )
-        `)
+        .select("id, name, ticker, description, icon_url, member_count, post_count, fun_token_id")
         .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) throw error;
+      if (!subtunas || subtunas.length === 0) return [];
 
-      return (data || []).map((s: any) => {
-        // Derive ticker: direct column → fun_token → extract from name if starts with "t/"
-        let ticker = s.ticker || s.fun_tokens?.ticker || "";
+      // Step 2: Fetch token details for those with fun_token_id
+      const tokenIds = [...new Set(subtunas.map(s => s.fun_token_id).filter(Boolean))];
+      let tokenMap = new Map<string, { ticker: string; market_cap_sol: number; image_url: string }>();
+      
+      if (tokenIds.length > 0) {
+        const { data: tokens } = await supabase
+          .from("fun_tokens")
+          .select("id, ticker, market_cap_sol, image_url")
+          .in("id", tokenIds);
+        tokenMap = new Map((tokens || []).map(t => [t.id, t]));
+      }
+
+      // Transform with token data
+      return subtunas.map((s: any) => {
+        const token = s.fun_token_id ? tokenMap.get(s.fun_token_id) : null;
+        let ticker = s.ticker || token?.ticker || "";
         if (!ticker && s.name?.startsWith("t/")) {
           ticker = s.name.slice(2);
         }
@@ -216,13 +218,14 @@ export function useRecentSubTunas(limit = 10) {
           name: s.name,
           ticker,
           description: s.description,
-          // Use icon_url if set, otherwise fallback to the token's image
-          iconUrl: s.icon_url || s.fun_tokens?.image_url,
+          iconUrl: s.icon_url || token?.image_url,
           memberCount: s.member_count || 0,
           postCount: s.post_count || 0,
-          marketCapSol: s.fun_tokens?.market_cap_sol,
+          marketCapSol: token?.market_cap_sol,
         };
       });
     },
+    staleTime: 1000 * 60, // 1 minute
+    retry: 1,
   });
 }

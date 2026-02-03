@@ -24,36 +24,55 @@ function getRankBadgeClass(rank: number): string {
 export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
   const { solPrice } = useSolPrice();
 
-  // Fetch real top agents data with their first launched token info
-  const { data: topAgents, isLoading } = useQuery({
-    queryKey: ["top-agents-leaderboard-v4"],
+  // Fetch real top agents data - simplified query without heavy joins
+  const { data: topAgents, isLoading, isError } = useQuery({
+    queryKey: ["top-agents-leaderboard-v5"],
     queryFn: async () => {
-      // Get agents with their first launched token for display name/avatar
+      // Step 1: Get agents only (no joins)
       const { data: agents, error } = await supabase
         .from("agents")
-        .select(`
-          id, name, karma, total_tokens_launched, total_fees_earned_sol, wallet_address, avatar_url,
-          agent_tokens (
-            fun_token_id,
-            fun_tokens:fun_token_id (
-              name,
-              ticker,
-              image_url
-            )
-          )
-        `)
+        .select("id, name, karma, total_tokens_launched, total_fees_earned_sol, wallet_address, avatar_url")
         .eq("status", "active")
         .order("total_fees_earned_sol", { ascending: false })
         .limit(5);
 
       if (error) throw error;
-      
-      // Transform to get display name from first token or fallback to agent name
-      return (agents || []).map(agent => {
-        const firstToken = agent.agent_tokens?.[0]?.fun_tokens;
+      if (!agents || agents.length === 0) return [];
+
+      // Step 2: Get first token for each agent in parallel
+      const agentIds = agents.map(a => a.id);
+      const { data: agentTokens } = await supabase
+        .from("agent_tokens")
+        .select("agent_id, fun_token_id")
+        .in("agent_id", agentIds);
+
+      // Get unique token IDs
+      const tokenIds = [...new Set((agentTokens || []).map(at => at.fun_token_id).filter(Boolean))];
+
+      // Step 3: Fetch token details if we have any
+      let tokenMap = new Map<string, { name: string; ticker: string; image_url: string }>();
+      if (tokenIds.length > 0) {
+        const { data: tokens } = await supabase
+          .from("fun_tokens")
+          .select("id, name, ticker, image_url")
+          .in("id", tokenIds);
+        tokenMap = new Map((tokens || []).map(t => [t.id, t]));
+      }
+
+      // Build agent -> first token lookup
+      const agentTokenMap = new Map<string, string>();
+      for (const at of (agentTokens || [])) {
+        if (!agentTokenMap.has(at.agent_id)) {
+          agentTokenMap.set(at.agent_id, at.fun_token_id);
+        }
+      }
+
+      // Transform agents
+      return agents.map(agent => {
+        const firstTokenId = agentTokenMap.get(agent.id);
+        const firstToken = firstTokenId ? tokenMap.get(firstTokenId) : null;
         return {
           ...agent,
-          // For non-system agents, use first token name as display name
           displayName: agent.id === "00000000-0000-0000-0000-000000000001" 
             ? agent.name 
             : (firstToken?.name || agent.name),
@@ -62,7 +81,8 @@ export function TunaBookRightSidebar({ className }: TunaBookRightSidebarProps) {
         };
       });
     },
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    retry: 1,
   });
 
   return (
