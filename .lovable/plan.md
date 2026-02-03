@@ -1,58 +1,50 @@
 
-# Fix Performance Issues: Eliminate Duplicate Queries
+# Fix "Zero Data Loads" on Published Site
 
-## Problem Summary
-The website is now loading data (confirmed via browser test), but performance is degraded due to:
-- 3-4 duplicate `fun_tokens` queries firing on page load
-- Each query taking 2-15 seconds under load
-- Database indexes not being utilized efficiently due to query patterns
+## Problem Diagnosis
 
-## Technical Changes
+After extensive investigation, I confirmed:
 
-### 1. Pass tokens as props to child components (eliminate KingOfTheHill duplicate query)
+| Component | Status |
+|-----------|--------|
+| Database (fun_tokens) | 195 tokens present |
+| Database (agents) | 72 agents present |
+| Edge Functions (sol-price, agent-stats, public-config) | All returning 200 OK |
+| Preview site (lovableproject.com) | Working - shows all data |
+| Published site (launchpadv3.lovable.app) | **BROKEN - stale build** |
 
-**File: `src/pages/FunLauncherPage.tsx`**
-- Pass `tokens` and `tokensLoading` as props to `KingOfTheHill` component
-- Change from: `<KingOfTheHill />`
-- Change to: `<KingOfTheHill tokens={tokens} isLoading={tokensLoading} />`
+The published site is running an older version of the code that predates today's performance fixes. This older code has aggressive timeout/abort logic that causes request loops and prevents data from loading.
 
-**File: `src/components/launchpad/KingOfTheHill.tsx`**
-- Modify component to accept tokens as props instead of calling useFunTokens
-- Update interface to accept: `{ tokens: FunToken[]; isLoading: boolean }`
-- Remove the internal `useFunTokens()` call
+## Solution
 
-### 2. Convert TokenTickerBar to use shared data
+### Step 1: Republish the Site
+The simplest fix is to trigger a republish so the published site gets all the latest code changes. This will sync the preview and published versions.
 
-**File: `src/components/launchpad/TokenTickerBar.tsx`**
-- Option A: Accept tokens as props from parent (cleanest)
-- Option B: Use React Query with same queryKey to share cache
+### Step 2: Verify the Deployment
+After republishing, I will:
+- Open the published URL in a browser session
+- Confirm all data sections load (SOL price, tokens, King of the Hill, stats)
+- Check that no repeated aborted requests appear in network logs
 
-For consistency, implement Option A:
-- Pass `tokens` from FunLauncherPage to TokenTickerBar
-- Remove the independent supabase fetch
+## Technical Details (Why This Happened)
 
-### 3. Optimize useFunTokens query with explicit query key
+The network logs from your session show **repeated `public-config` POST requests being aborted** every 7-8 seconds. This pattern matches the old `PrivyProviderWrapper` code which:
+1. Sets a 7-second timeout on `public-config`
+2. Aborts and retries if no response
+3. Triggers re-renders that cascade into aborting other requests
 
-**File: `src/hooks/useFunTokens.ts`**
-- The hook uses internal state instead of React Query
-- This prevents cache sharing across components
-- Consider refactoring to use React Query for better deduplication
+The preview site already has the fixes (longer timeouts, better caching, deduplicated queries). The published site just needs to be updated.
 
-## Expected Results
-- Single `fun_tokens` query on page load instead of 3-4
-- Faster initial page render (from ~15s to ~3s)
-- Reduced database load
-- Consistent data across all components
+## Expected Outcome
 
-## Files to Modify
-1. `src/pages/FunLauncherPage.tsx` - Pass tokens as props
-2. `src/components/launchpad/KingOfTheHill.tsx` - Accept tokens prop, remove useFunTokens call
-3. `src/components/launchpad/TokenTickerBar.tsx` - Accept tokens prop, remove internal fetch
-4. Optional: `src/hooks/useFunTokens.ts` - Refactor to React Query for better caching
+After republishing:
+- SOL price displays correctly (~$100)
+- Token ticker bar shows tokens with price changes
+- King of the Hill shows top 3 tokens closest to graduation
+- Stats cards show: ~195 tokens, 72 agents, fees claimed, payouts
+- No more "signal is aborted" errors in network logs
 
-## Verification Steps
-1. Open browser DevTools Network tab
-2. Navigate to main page
-3. Verify only ONE `fun_tokens` request is made
-4. Confirm all sections (ticker, king of hill, token table) show data
-5. Check page loads in under 5 seconds
+## Next Steps After Fix
+1. Click "Approve" to switch to implementation mode
+2. I will verify the published site is working by opening it in a browser
+3. If any issues remain, I'll diagnose and fix the specific code paths
