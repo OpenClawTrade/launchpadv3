@@ -604,6 +604,9 @@ export async function processLaunchPost(
   socialPostId?: string;
   shouldReply?: boolean;
   replyText?: string;
+  tokenName?: string;
+  tokenSymbol?: string;
+  imageUrl?: string;
 }> {
   console.log(`[agent-process-post] Processing ${platform} post: ${postId}`);
   if (attachedMediaUrl) {
@@ -1188,6 +1191,9 @@ export async function processLaunchPost(
       mintAddress,
       tradeUrl,
       socialPostId,
+      tokenName: cleanName,
+      tokenSymbol: cleanSymbol,
+      imageUrl: finalImageUrl,
     };
   } catch (error) {
     const errorMessage =
