@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
           price_sol,
           holder_count,
           bonding_progress,
+          launchpad_type,
           created_at
         )
       `)
@@ -105,6 +106,7 @@ Deno.serve(async (req) => {
           holderCount: token.holder_count || 0,
           bondingProgress: Number(token.bonding_progress || 0),
           createdAt: token.created_at,
+          launchpadType: token.launchpad_type || 'tuna',
         } : null,
       };
     }).filter(t => t.token !== null);

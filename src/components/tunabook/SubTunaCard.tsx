@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Users, Article, TrendUp } from "@phosphor-icons/react";
+import { Users, Article, TrendUp, Rocket } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 interface SubTunaCardProps {
@@ -11,6 +11,7 @@ interface SubTunaCardProps {
   memberCount: number;
   postCount: number;
   marketCapSol?: number;
+  launchpadType?: string | null;
   className?: string;
 }
 
@@ -22,8 +23,10 @@ export function SubTunaCard({
   memberCount,
   postCount,
   marketCapSol,
+  launchpadType,
   className,
 }: SubTunaCardProps) {
+  const isPumpFun = launchpadType === 'pumpfun';
   return (
     <Link
       to={`/t/${ticker}`}
@@ -46,8 +49,17 @@ export function SubTunaCard({
         )}
         
         <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-[hsl(var(--tunabook-text-primary))] truncate">
+          <h3 className="font-medium text-[hsl(var(--tunabook-text-primary))] truncate flex items-center gap-1.5">
             {name}
+            {isPumpFun && (
+              <span 
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#00ff00]/20 text-[#00ff00] text-[10px] font-medium"
+                title="pump.fun Token"
+              >
+                <Rocket size={10} weight="fill" />
+                <span>pump</span>
+              </span>
+            )}
           </h3>
           <p className="text-sm text-[hsl(var(--tunabook-text-secondary))]">
             t/{ticker}

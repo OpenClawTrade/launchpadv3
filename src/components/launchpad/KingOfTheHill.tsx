@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Crown, Copy, CheckCircle, Users, Clock, Gem, Bot } from "lucide-react";
+import { Rocket } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { useState, useMemo, useEffect } from "react";
@@ -64,6 +65,19 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   
   // Check if token has holder rewards
   const isHolderRewards = token.fee_mode === 'holders';
+  const isPumpFun = token.launchpad_type === 'pumpfun';
+  
+  // Trade URL logic
+  const tradeUrl = isPumpFun 
+    ? `https://pump.fun/${token.mint_address}` 
+    : token.agent_id 
+      ? `/t/${token.ticker}` 
+      : `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`;
+  
+  const CardWrapper = isPumpFun ? 'a' : Link;
+  const cardProps = isPumpFun 
+    ? { href: tradeUrl, target: "_blank", rel: "noopener noreferrer" }
+    : { to: tradeUrl };
 
   const getRankStyles = (r: number) => {
     if (r === 1) return "border-primary/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-lg shadow-primary/10";
@@ -78,8 +92,8 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   };
 
   return (
-    <Link
-      to={token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`}
+    <CardWrapper
+      {...cardProps as any}
       className={cn(
         "relative flex flex-col p-2 sm:p-4 rounded-lg sm:rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group",
         getRankStyles(rank),
@@ -132,6 +146,18 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
               >
                 <Bot className="w-3 h-3 text-purple-400 hover:text-purple-300" />
               </Link>
+            )}
+            {isPumpFun && (
+              <a
+                href={`https://pump.fun/${token.mint_address}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="pump.fun Token"
+                className="flex-shrink-0"
+              >
+                <Rocket size={12} weight="fill" className="text-[#00ff00] hover:text-[#00cc00]" />
+              </a>
             )}
           </h3>
           <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>
@@ -206,7 +232,7 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
           {realSolReserves.toFixed(2)} / {GRADUATION_THRESHOLD} SOL
         </span>
       </div>
-    </Link>
+    </CardWrapper>
   );
 }
 

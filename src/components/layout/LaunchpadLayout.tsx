@@ -8,7 +8,7 @@ import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { Menu } from "lucide-react";
-import { XLogo } from "@phosphor-icons/react";
+import { XLogo, Rocket } from "@phosphor-icons/react";
 
 const HEADER_LOGO_SRC = "/tuna-logo.png";
 
@@ -60,6 +60,12 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
                 TUNA Agents
               </Button>
             </Link>
+            <Link to="/agents/pump">
+              <Button size="sm" className="bg-[#00ff00] hover:bg-[#00cc00] text-black rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
+                <Rocket size={16} weight="fill" />
+                PUMP Agents
+              </Button>
+            </Link>
             
             {/* Visitors Online */}
             <div className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-secondary/50 border border-border">
@@ -105,6 +111,10 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
                   </Link>
                   <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-white text-sm font-medium">TUNA Agents</span>
+                  </Link>
+                  <Link to="/agents/pump" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#00ff00] hover:bg-[#00cc00] transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <Rocket size={16} weight="fill" className="text-black" />
+                    <span className="text-black text-sm font-medium">PUMP Agents</span>
                   </Link>
                 </nav>
               </SheetContent>
