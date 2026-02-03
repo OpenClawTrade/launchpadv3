@@ -1728,6 +1728,7 @@ export type Database = {
           status: string | null
           telegram_url: string | null
           ticker: string
+          total_fees_claimed: number | null
           total_fees_earned: number | null
           trading_fee_bps: number | null
           twitter_url: string | null
@@ -1773,6 +1774,7 @@ export type Database = {
           status?: string | null
           telegram_url?: string | null
           ticker: string
+          total_fees_claimed?: number | null
           total_fees_earned?: number | null
           trading_fee_bps?: number | null
           twitter_url?: string | null
@@ -1818,6 +1820,7 @@ export type Database = {
           status?: string | null
           telegram_url?: string | null
           ticker?: string
+          total_fees_claimed?: number | null
           total_fees_earned?: number | null
           trading_fee_bps?: number | null
           twitter_url?: string | null
@@ -2772,6 +2775,59 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      pumpfun_fee_claims: {
+        Row: {
+          claimed_at: string | null
+          claimed_sol: number | null
+          created_at: string | null
+          creator_amount_sol: number | null
+          distributed: boolean | null
+          distributed_at: string | null
+          distribution_signature: string | null
+          fun_token_id: string | null
+          id: string
+          mint_address: string
+          platform_amount_sol: number | null
+          signature: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_sol?: number | null
+          created_at?: string | null
+          creator_amount_sol?: number | null
+          distributed?: boolean | null
+          distributed_at?: string | null
+          distribution_signature?: string | null
+          fun_token_id?: string | null
+          id?: string
+          mint_address: string
+          platform_amount_sol?: number | null
+          signature?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_sol?: number | null
+          created_at?: string | null
+          creator_amount_sol?: number | null
+          distributed?: boolean | null
+          distributed_at?: string | null
+          distribution_signature?: string | null
+          fun_token_id?: string | null
+          id?: string
+          mint_address?: string
+          platform_amount_sol?: number | null
+          signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pumpfun_fee_claims_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reports: {
         Row: {
