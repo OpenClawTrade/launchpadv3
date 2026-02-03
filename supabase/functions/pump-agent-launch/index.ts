@@ -255,6 +255,50 @@ Deno.serve(async (req) => {
       throw new Error("No signature returned from PumpPortal");
     }
 
+    // Step 2b: Enable fee sharing via setParams instruction
+    // PumpPortal tokens default to "Not Shareable" - we need to enable it immediately
+    // so snipers who buy instantly also generate fees for the creator
+    console.log("[pump-agent-launch] Enabling fee sharing via setParams...");
+    
+    try {
+      const setParamsPayload = {
+        publicKey: deployerPublicKey,
+        action: "setParams",
+        mint: mintAddress,
+        feeRecipient: deployerPublicKey, // Fees go to deployer wallet
+        feeBasisPoints: 100, // 1% creator fee
+        priorityFee: 0.0005,
+        pool: "pump",
+      };
+      
+      console.log("[pump-agent-launch] setParams payload:", JSON.stringify({
+        ...setParamsPayload,
+        publicKey: deployerPublicKey.slice(0, 8) + "...",
+      }));
+
+      const setParamsResponse = await fetch(`${PUMPPORTAL_API_URL}?api-key=${pumpPortalApiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(setParamsPayload),
+      });
+
+      if (setParamsResponse.ok) {
+        const setParamsResult = await setParamsResponse.json();
+        if (setParamsResult.signature) {
+          console.log("[pump-agent-launch] ✅ Fee sharing enabled:", setParamsResult.signature);
+        } else {
+          console.warn("[pump-agent-launch] ⚠️ setParams returned but no signature:", setParamsResult);
+        }
+      } else {
+        const errorText = await setParamsResponse.text();
+        console.error("[pump-agent-launch] ⚠️ setParams failed (non-fatal):", setParamsResponse.status, errorText);
+        // Don't throw - token was already created successfully
+      }
+    } catch (setParamsError) {
+      console.error("[pump-agent-launch] ⚠️ setParams error (non-fatal):", setParamsError);
+      // Don't throw - token was already created successfully, fee sharing can be enabled manually
+    }
+
     // Step 3: Save to database
     console.log("[pump-agent-launch] Saving to database...");
     

@@ -247,6 +247,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
     }
 
+    // === FIX: Reject base64 images - they must be uploaded to storage first ===
+    if (imageUrl && imageUrl.startsWith('data:')) {
+      console.error(`[create-fun][${VERSION}] Rejected base64 image for ${ticker}`);
+      return res.status(400).json({ 
+        error: 'Base64 images not allowed. Please upload to storage first.' 
+      });
+    }
+
+    // === FIX: Auto-populate socials when not provided ===
+    // This ensures all tokens have proper metadata for Axiom/DEXTools/Birdeye
+    const finalWebsiteUrl = websiteUrl || `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    const finalTwitterUrl = twitterUrl || 'https://x.com/BuildTuna';
+
     if (!serverSideSign) {
       return res.status(400).json({ error: 'This endpoint requires serverSideSign=true' });
     }
@@ -377,7 +390,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .delete()
             .eq('mint_address', mintAddress);
           
-          // Insert pending metadata with all fields
+          // Insert pending metadata with all fields (using auto-populated socials)
           const { error: pendingError } = await supabase
             .from('pending_token_metadata')
             .insert({
@@ -386,8 +399,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ticker: ticker.toUpperCase().slice(0, 10),
               description: description || `${name} - A fun meme coin!`,
               image_url: imageUrl || null,
-              website_url: websiteUrl || null,
-              twitter_url: twitterUrl || null,
+              website_url: finalWebsiteUrl,
+              twitter_url: finalTwitterUrl,
               telegram_url: telegramUrl || null,
               discord_url: discordUrl || null,
               creator_wallet: feeRecipientWallet || treasuryAddress,
@@ -508,6 +521,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Insert token into database
     // Use fresh deployer as creator_wallet for on-chain attribution
+    // Use auto-populated socials (finalWebsiteUrl, finalTwitterUrl) for proper metadata
     const { error: tokenError } = await supabase.rpc('backend_create_token', {
       p_id: tokenId,
       p_mint_address: mintAddress,
@@ -517,8 +531,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_dbc_pool_address: dbcPoolAddress,
       p_description: description || `${name} - A fun meme coin!`,
       p_image_url: imageUrl || null,
-      p_website_url: websiteUrl || null,
-      p_twitter_url: twitterUrl || null,
+      p_website_url: finalWebsiteUrl,
+      p_twitter_url: finalTwitterUrl,
       p_virtual_sol_reserves: virtualSol,
       p_virtual_token_reserves: virtualToken,
       p_total_supply: TOTAL_SUPPLY,
