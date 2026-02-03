@@ -16,6 +16,9 @@ interface GeneratedMeme {
   name: string;
   ticker: string;
   description: string;
+  twitter: string;
+  telegram: string;
+  website: string;
 }
 
 interface LaunchResult {
@@ -51,6 +54,9 @@ export default function PumpAgentsPage() {
         name: data.meme.name,
         ticker: data.meme.ticker,
         description: data.meme.description,
+        twitter: "https://x.com/BuildTuna",
+        telegram: "",
+        website: "",
       });
 
       toast.success("Meme generated successfully!");
@@ -73,6 +79,9 @@ export default function PumpAgentsPage() {
           ticker: generatedMeme.ticker,
           description: generatedMeme.description,
           imageUrl: generatedMeme.imageUrl,
+          twitter: generatedMeme.twitter,
+          telegram: generatedMeme.telegram,
+          website: generatedMeme.website,
         },
       });
 
@@ -292,17 +301,19 @@ export default function PumpAgentsPage() {
                     <Label className="text-muted-foreground text-xs uppercase tracking-wide">Token Name</Label>
                     <Input
                       value={generatedMeme.name}
-                      readOnly
-                      className="mt-1 bg-muted border-border font-semibold text-lg"
+                      onChange={(e) => setGeneratedMeme({ ...generatedMeme, name: e.target.value })}
+                      className="mt-1 bg-background border-border font-semibold text-lg"
+                      placeholder="Token name"
                     />
                   </div>
                   
                   <div>
                     <Label className="text-muted-foreground text-xs uppercase tracking-wide">Ticker</Label>
                     <Input
-                      value={`$${generatedMeme.ticker}`}
-                      readOnly
-                      className="mt-1 bg-muted border-border font-mono font-bold text-[#00ff00]"
+                      value={generatedMeme.ticker}
+                      onChange={(e) => setGeneratedMeme({ ...generatedMeme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
+                      className="mt-1 bg-background border-border font-mono font-bold text-[#00ff00]"
+                      placeholder="TICKER"
                     />
                   </div>
 
@@ -310,15 +321,49 @@ export default function PumpAgentsPage() {
                     <Label className="text-muted-foreground text-xs uppercase tracking-wide">Description</Label>
                     <Textarea
                       value={generatedMeme.description}
-                      readOnly
-                      className="mt-1 bg-muted border-border min-h-[80px]"
+                      onChange={(e) => setGeneratedMeme({ ...generatedMeme, description: e.target.value })}
+                      className="mt-1 bg-background border-border min-h-[80px]"
+                      placeholder="Token description"
                     />
+                  </div>
+
+                  <div>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wide">X (Twitter)</Label>
+                    <Input
+                      value={generatedMeme.twitter}
+                      onChange={(e) => setGeneratedMeme({ ...generatedMeme, twitter: e.target.value })}
+                      className="mt-1 bg-background border-border"
+                      placeholder="https://x.com/BuildTuna"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wide">Telegram</Label>
+                    <Input
+                      value={generatedMeme.telegram}
+                      onChange={(e) => setGeneratedMeme({ ...generatedMeme, telegram: e.target.value })}
+                      className="mt-1 bg-background border-border"
+                      placeholder="https://t.me/yourgroup (optional)"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wide">Website</Label>
+                    <Input
+                      value={generatedMeme.website}
+                      onChange={(e) => setGeneratedMeme({ ...generatedMeme, website: e.target.value })}
+                      className="mt-1 bg-background border-border"
+                      placeholder="Auto-set to SubTuna page after launch"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave empty to use the SubTuna community page
+                    </p>
                   </div>
 
                   {/* Launch Button */}
                   <Button
                     onClick={launchOnPumpFun}
-                    disabled={isLaunching}
+                    disabled={isLaunching || !generatedMeme.name || !generatedMeme.ticker}
                     size="lg"
                     className="w-full bg-[#00ff00] hover:bg-[#00cc00] text-black gap-2 font-bold text-lg h-14"
                   >
