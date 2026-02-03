@@ -1,50 +1,47 @@
 
 # Fix "Zero Data Loads" on Published Site
 
-## Problem Diagnosis
+## Problem Summary
 
-After extensive investigation, I confirmed:
+After thorough investigation, I've confirmed:
 
-| Component | Status |
-|-----------|--------|
-| Database (fun_tokens) | 195 tokens present |
-| Database (agents) | 72 agents present |
-| Edge Functions (sol-price, agent-stats, public-config) | All returning 200 OK |
-| Preview site (lovableproject.com) | Working - shows all data |
-| Published site (launchpadv3.lovable.app) | **BROKEN - stale build** |
+| Environment | Status | Evidence |
+|------------|--------|----------|
+| **Preview Site** | ✅ Working | Screenshot shows 98 tokens, 72 agents, SOL price $100.20, King of the Hill loaded |
+| **Published Site** | ❌ Broken | User reports all zeros, aborted requests |
+| **Database** | ✅ Healthy | 196 active tokens, RLS allows SELECT |
+| **Edge Functions** | ✅ Working | sol-price, agent-stats return 200 OK |
 
-The published site is running an older version of the code that predates today's performance fixes. This older code has aggressive timeout/abort logic that causes request loops and prevents data from loading.
+## Root Cause
+
+The **published site (launchpadv3.lovable.app) is running a stale build** that contains older code with aggressive timeout/abort logic. The preview site has today's fixes (optimized timeouts, deduplicated queries), but these changes were never published to production.
+
+Evidence from earlier network logs showed repeated `public-config` POST requests being aborted every 7-8 seconds on the published site - a pattern that doesn't appear on the working preview site.
 
 ## Solution
 
-### Step 1: Republish the Site
-The simplest fix is to trigger a republish so the published site gets all the latest code changes. This will sync the preview and published versions.
+### Step 1: Trigger a Republish
 
-### Step 2: Verify the Deployment
-After republishing, I will:
-- Open the published URL in a browser session
-- Confirm all data sections load (SOL price, tokens, King of the Hill, stats)
-- Check that no repeated aborted requests appear in network logs
+The site needs to be republished to deploy the latest code changes to production. This will sync the published site with the preview version that's currently working correctly.
 
-## Technical Details (Why This Happened)
+### Step 2: Verify After Publish
 
-The network logs from your session show **repeated `public-config` POST requests being aborted** every 7-8 seconds. This pattern matches the old `PrivyProviderWrapper` code which:
-1. Sets a 7-second timeout on `public-config`
-2. Aborts and retries if no response
-3. Triggers re-renders that cascade into aborting other requests
+Once republished, the published site should display:
+- SOL price (~$100)
+- Total Tokens (~98-100)
+- Total Agents (72)
+- King of the Hill (3 tokens)
+- Token ticker bar with price changes
+- Fees Claimed (~12.58 SOL)
 
-The preview site already has the fixes (longer timeouts, better caching, deduplicated queries). The published site just needs to be updated.
+## How to Republish
 
-## Expected Outcome
+In Lovable:
+1. Click the **Deploy** button in the top right
+2. Select **Publish** to deploy to production
+3. Wait for the build to complete
+4. Clear browser cache and hard refresh on the published URL
 
-After republishing:
-- SOL price displays correctly (~$100)
-- Token ticker bar shows tokens with price changes
-- King of the Hill shows top 3 tokens closest to graduation
-- Stats cards show: ~195 tokens, 72 agents, fees claimed, payouts
-- No more "signal is aborted" errors in network logs
+## No Code Changes Required
 
-## Next Steps After Fix
-1. Click "Approve" to switch to implementation mode
-2. I will verify the published site is working by opening it in a browser
-3. If any issues remain, I'll diagnose and fix the specific code paths
+The current preview code is working correctly. The fix is purely a deployment issue - the published site just needs to receive the latest build.
