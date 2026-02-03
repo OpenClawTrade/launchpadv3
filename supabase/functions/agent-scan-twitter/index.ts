@@ -1132,23 +1132,43 @@ Deno.serve(async (req) => {
             mintAddress: processResult.mintAddress,
           });
 
-          // Post success reply
+          // Post success reply - CHECK DEDUP FIRST
           if (canPostReplies) {
-            const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
+            // CRITICAL: Check if we already replied to this tweet
+            const { data: existingReply } = await supabase
+              .from("twitter_bot_replies")
+              .select("id")
+              .eq("tweet_id", tweetId)
+              .maybeSingle();
 
-            const replyResult = await replyToTweet(
-              tweetId,
-              replyText,
-              twitterApiIoKey || "",
-              loginCookies || "",
-              proxyUrl || "",
-              username,
-              replyAuthSession,
-              oauthCreds
-            );
+            if (existingReply) {
+              console.log(`[agent-scan-twitter] ⏭️ Skipping reply to ${tweetId} - already replied`);
+            } else {
+              const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
 
-            if (!replyResult.success) {
-              console.error(`[agent-scan-twitter] ❌ FAILED to send launch success reply to @${username}:`, replyResult.error);
+              const replyResult = await replyToTweet(
+                tweetId,
+                replyText,
+                twitterApiIoKey || "",
+                loginCookies || "",
+                proxyUrl || "",
+                username,
+                replyAuthSession,
+                oauthCreds
+              );
+
+              if (!replyResult.success) {
+                console.error(`[agent-scan-twitter] ❌ FAILED to send launch success reply to @${username}:`, replyResult.error);
+              } else if (replyResult.replyId) {
+                // Record reply to prevent duplicates
+                await supabase.from("twitter_bot_replies").insert({
+                  tweet_id: tweetId,
+                  tweet_author: username,
+                  tweet_text: normalizedText.slice(0, 500),
+                  reply_text: replyText.slice(0, 500),
+                  reply_id: replyResult.replyId,
+                });
+              }
             }
           }
         } else {
@@ -1159,43 +1179,74 @@ Deno.serve(async (req) => {
           });
 
           // Reply to user when launch is blocked (missing image, parse error, etc.)
-          if (canPostReplies && processResult.shouldReply && processResult.replyText) {
-            // Use the specific reply text from agent-process-post (e.g., missing image)
-            const replyResult = await replyToTweet(
-              tweetId,
-              processResult.replyText,
-              twitterApiIoKey || "",
-              loginCookies || "",
-              proxyUrl || "",
-              username,
-              replyAuthSession,
-              oauthCreds
-            );
+          // CRITICAL: Check if we already replied to this tweet first
+          if (canPostReplies) {
+            const { data: existingReply } = await supabase
+              .from("twitter_bot_replies")
+              .select("id")
+              .eq("tweet_id", tweetId)
+              .maybeSingle();
 
-            if (!replyResult.success) {
-              console.error(`[agent-scan-twitter] ❌ FAILED to send blocked launch reply to @${username}:`, replyResult.error);
-            } else {
-              console.log(`[agent-scan-twitter] ✅ Sent blocked launch reply to @${username}`);
-            }
-          } else if (canPostReplies && processResult.error?.includes("parse")) {
-            // Fallback: format help for parsing errors
-            const formatHelpText = `🐟 Hey @${username}! To launch your token, please use this format:\n\n!tunalaunch\nName: YourTokenName\nSymbol: $TICKER\n\nDon't forget to attach an image!`;
+            if (existingReply) {
+              console.log(`[agent-scan-twitter] ⏭️ Skipping error reply to ${tweetId} - already replied`);
+            } else if (processResult.shouldReply && processResult.replyText) {
+              // Use the specific reply text from agent-process-post (e.g., missing image)
+              const replyResult = await replyToTweet(
+                tweetId,
+                processResult.replyText,
+                twitterApiIoKey || "",
+                loginCookies || "",
+                proxyUrl || "",
+                username,
+                replyAuthSession,
+                oauthCreds
+              );
 
-            const helpReplyResult = await replyToTweet(
-              tweetId,
-              formatHelpText,
-              twitterApiIoKey || "",
-              loginCookies || "",
-              proxyUrl || "",
-              username,
-              replyAuthSession,
-              oauthCreds
-            );
+              if (!replyResult.success) {
+                console.error(`[agent-scan-twitter] ❌ FAILED to send blocked launch reply to @${username}:`, replyResult.error);
+              } else {
+                console.log(`[agent-scan-twitter] ✅ Sent blocked launch reply to @${username}`);
+                // Record reply to prevent duplicates
+                if (replyResult.replyId) {
+                  await supabase.from("twitter_bot_replies").insert({
+                    tweet_id: tweetId,
+                    tweet_author: username,
+                    tweet_text: normalizedText.slice(0, 500),
+                    reply_text: processResult.replyText.slice(0, 500),
+                    reply_id: replyResult.replyId,
+                  });
+                }
+              }
+            } else if (processResult.error?.includes("parse")) {
+              // Fallback: format help for parsing errors
+              const formatHelpText = `🐟 Hey @${username}! To launch your token, please use this format:\n\n!tunalaunch\nName: YourTokenName\nSymbol: $TICKER\n\nDon't forget to attach an image!`;
 
-            if (!helpReplyResult.success) {
-              console.error(`[agent-scan-twitter] ❌ FAILED to send format help reply to @${username}:`, helpReplyResult.error);
-            } else {
-              console.log(`[agent-scan-twitter] ✅ Sent format help reply to @${username}`);
+              const helpReplyResult = await replyToTweet(
+                tweetId,
+                formatHelpText,
+                twitterApiIoKey || "",
+                loginCookies || "",
+                proxyUrl || "",
+                username,
+                replyAuthSession,
+                oauthCreds
+              );
+
+              if (!helpReplyResult.success) {
+                console.error(`[agent-scan-twitter] ❌ FAILED to send format help reply to @${username}:`, helpReplyResult.error);
+              } else {
+                console.log(`[agent-scan-twitter] ✅ Sent format help reply to @${username}`);
+                // Record reply to prevent duplicates
+                if (helpReplyResult.replyId) {
+                  await supabase.from("twitter_bot_replies").insert({
+                    tweet_id: tweetId,
+                    tweet_author: username,
+                    tweet_text: normalizedText.slice(0, 500),
+                    reply_text: formatHelpText.slice(0, 500),
+                    reply_id: helpReplyResult.replyId,
+                  });
+                }
+              }
             }
           }
         }
