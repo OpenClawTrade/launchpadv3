@@ -16,6 +16,45 @@ const safeJsonParse = (text: string): any => {
   }
 };
 
+// --- Cookie helpers (for using X_FULL_COOKIE without re-login) ---
+const stripQuotes = (v: string) => v.replace(/^['"]+|['"]+$/g, "").trim();
+
+function parseCookieString(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split("=");
+    if (!k) continue;
+    const val = rest.join("=");
+    if (val) out[k.trim()] = stripQuotes(val);
+  }
+  return out;
+}
+
+function buildLoginCookiesBase64FromEnv(args: {
+  xFullCookie?: string | null;
+  xAuthToken?: string | null;
+  xCt0Token?: string | null;
+}): string | null {
+  // twitterapi.io expects login_cookies as base64(JSON cookies)
+  if (args.xFullCookie) {
+    const cookies = parseCookieString(args.xFullCookie);
+    if (Object.keys(cookies).length === 0) return null;
+    return btoa(JSON.stringify(cookies));
+  }
+
+  if (args.xAuthToken && args.xCt0Token) {
+    return btoa(
+      JSON.stringify({
+        auth_token: stripQuotes(args.xAuthToken),
+        ct0: stripQuotes(args.xCt0Token),
+      })
+    );
+  }
+
+  return null;
+}
+
 interface HourlyStats {
   new_agents: number;
   new_posts: number;
@@ -62,12 +101,20 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const twitterApiKey = Deno.env.get("TWITTERAPI_IO_KEY")!;
+    const xFullCookie = Deno.env.get("X_FULL_COOKIE");
     const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
     const xCt0 = Deno.env.get("X_CT0_TOKEN") || Deno.env.get("X_CT0");
     const proxyUrl = Deno.env.get("TWITTER_PROXY")!;
 
-    if (!xAuthToken || !xCt0) {
-      throw new Error("Missing X_AUTH_TOKEN or X_CT0 - please add pre-authenticated cookies");
+    // Build login_cookies in base64 format (same as agent-scan-twitter)
+    const loginCookies = buildLoginCookiesBase64FromEnv({
+      xFullCookie,
+      xAuthToken,
+      xCt0Token: xCt0,
+    });
+
+    if (!loginCookies) {
+      throw new Error("Missing X_FULL_COOKIE or X_AUTH_TOKEN/X_CT0 - please add pre-authenticated cookies");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -109,7 +156,6 @@ serve(async (req) => {
     console.log("[agent-hourly-post] Hourly stats:", stats);
 
     // Query top agent by hourly fees
-    // Get all subtunas with agents and their tokens
     const { data: subtunas } = await supabase
       .from("subtuna")
       .select(`
@@ -127,7 +173,6 @@ serve(async (req) => {
     let topAgent: TopAgent | null = null;
 
     if (subtunas && subtunas.length > 0) {
-      // Get hourly fee claims for all agent tokens
       const funTokenIds = subtunas
         .map(s => s.fun_token_id)
         .filter(Boolean);
@@ -138,7 +183,6 @@ serve(async (req) => {
         .in("fun_token_id", funTokenIds)
         .gte("claimed_at", oneHourAgo);
 
-      // Aggregate fees by token
       const feesByToken: Record<string, number> = {};
       feeClaims?.forEach(fc => {
         if (fc.fun_token_id) {
@@ -146,7 +190,6 @@ serve(async (req) => {
         }
       });
 
-      // Find the top agent by hourly fees
       let maxFees = 0;
       let topSubtuna: any = null;
 
@@ -159,7 +202,6 @@ serve(async (req) => {
       }
 
       if (topSubtuna && maxFees > 0) {
-        // Get post count for the top agent's subtuna
         const { count: postCount } = await supabase
           .from("subtuna_posts")
           .select("id", { count: "exact", head: true })
@@ -182,30 +224,27 @@ serve(async (req) => {
     const tweetText = buildTweet(stats, topAgent);
     console.log("[agent-hourly-post] Tweet text:", tweetText);
 
-    // Post to X using twitterapi.io
-    const postBody = {
-      text: tweetText,
-      auth_session: {
-        auth_token: xAuthToken,
-        ct0: xCt0,
-      },
+    // Post to X using twitterapi.io create_tweet_v2 (same as agent-scan-twitter)
+    const requestBody = {
+      login_cookies: loginCookies,
+      tweet_text: tweetText,
       proxy: proxyUrl,
     };
 
-    const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/tweet/create`, {
+    const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
       method: "POST",
       headers: {
         "X-API-Key": twitterApiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(postBody),
+      body: JSON.stringify(requestBody),
     });
 
-    const postText = await postResponse.text();
-    const postData = safeJsonParse(postText);
-    console.log("[agent-hourly-post] Twitter response:", postText.slice(0, 500));
+    const responseText = await response.text();
+    const data = safeJsonParse(responseText);
+    console.log("[agent-hourly-post] Twitter response:", responseText.slice(0, 500));
 
-    const tweetId = postData?.tweet_id || postData?.data?.rest_id || postData?.data?.id;
+    const tweetId = data?.tweet_id || data?.data?.rest_id || data?.data?.id || data?.data?.create_tweet?.tweet_results?.result?.rest_id;
 
     // Log the result
     const logEntry = {
@@ -216,7 +255,7 @@ serve(async (req) => {
       top_agent_ticker: topAgent?.ticker || null,
       hourly_fees_sol: topAgent?.hourly_fees || 0,
       success: !!tweetId,
-      error_message: tweetId ? null : `Failed to post: ${postText.slice(0, 200)}`,
+      error_message: tweetId ? null : `Failed to post: ${responseText.slice(0, 200)}`,
     };
 
     await supabase.from("hourly_post_log").insert(logEntry);
@@ -236,7 +275,7 @@ serve(async (req) => {
     } else {
       console.error("[agent-hourly-post] ❌ Failed to post tweet");
       return new Response(
-        JSON.stringify({ success: false, error: "Failed to post tweet", details: postText.slice(0, 500) }),
+        JSON.stringify({ success: false, error: "Failed to post tweet", details: responseText.slice(0, 500) }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

@@ -240,7 +240,7 @@ This is a paid promotion. DYOR.
         proxy: proxyUrl,
       };
 
-      const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/tweet/create`, {
+      const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/post_tweet`, {
         method: "POST",
         headers: {
           "X-API-Key": twitterApiKey,
