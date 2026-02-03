@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   lazy,
   Suspense,
@@ -70,84 +69,53 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
   const rawAppId = import.meta.env.VITE_PRIVY_APP_ID;
   const buildTimeAppId = (rawAppId ?? "").trim();
 
+  // Prefer build-time env, otherwise use the runtime config loaded by RuntimeConfigBootstrap.
+  // IMPORTANT: We avoid doing our own public-config fetch here because aggressive retries +
+  // AbortController timeouts can create an abort loop that interrupts other data loading.
   const [resolvedAppId, setResolvedAppId] = useState<string>(() => {
     if (isValidPrivyAppId(buildTimeAppId)) return buildTimeAppId;
+    const fromWindow = ((window as any)?.__PUBLIC_CONFIG__?.privyAppId as string | undefined) ?? "";
+    if (isValidPrivyAppId(fromWindow.trim())) return fromWindow.trim();
     return "";
   });
 
-  // "checked" means we've attempted at least one runtime fetch.
-  const [checked, setChecked] = useState(() => isValidPrivyAppId(buildTimeAppId));
-
-  const retryTimer = useRef<number | null>(null);
-
-  // Fetch runtime config with retries + periodic re-attempts (for flaky networks)
+  // If we didn't have a valid app id at build time, wait briefly for RuntimeConfigBootstrap
+  // to populate window.__PUBLIC_CONFIG__, then hydrate the app id once available.
   useEffect(() => {
-    if (isValidPrivyAppId(buildTimeAppId)) return;
+    if (isValidPrivyAppId(buildTimeAppId)) {
+      if (!isValidPrivyAppId(resolvedAppId)) setResolvedAppId(buildTimeAppId);
+      return;
+    }
     if (isValidPrivyAppId(resolvedAppId)) return;
 
     let cancelled = false;
+    const startedAt = Date.now();
+    const maxWaitMs = 15000;
 
-    const attemptFetch = async () => {
-      const maxAttempts = 3;
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = window.setTimeout(() => controller.abort(), 20000);
-
-          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-config`;
-          const res = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({}),
-            signal: controller.signal,
-          });
-
-          window.clearTimeout(timeoutId);
-
-          if (!res.ok) {
-            throw new Error(`public-config request failed (${res.status})`);
-          }
-
-          const data = await res.json();
-          const privyAppId = (data?.privyAppId ?? "").trim();
-
-          if (!cancelled && isValidPrivyAppId(privyAppId)) {
-            setResolvedAppId(privyAppId);
-            setChecked(true);
-            return;
-          }
-        } catch (e) {
-          if (attempt < maxAttempts) {
-            await new Promise((r) => setTimeout(r, 500 * attempt));
-          }
-        }
+    const timer = window.setInterval(() => {
+      if (cancelled) return;
+      const fromWindow = ((window as any)?.__PUBLIC_CONFIG__?.privyAppId as string | undefined) ?? "";
+      const candidate = fromWindow.trim();
+      if (isValidPrivyAppId(candidate)) {
+        setResolvedAppId(candidate);
+        window.clearInterval(timer);
+        return;
       }
 
-      // Mark checked so UI can render fallback, but keep retrying periodically.
-      if (!cancelled) setChecked(true);
-
-      if (retryTimer.current) window.clearTimeout(retryTimer.current);
-      retryTimer.current = window.setTimeout(() => {
-        if (!cancelled) {
-          setChecked(false);
-        }
-      }, 5000);
-    };
-
-    attemptFetch();
+      if (Date.now() - startedAt > maxWaitMs) {
+        // Give up quietly — app should still load without Privy.
+        window.clearInterval(timer);
+      }
+    }, 400);
 
     return () => {
       cancelled = true;
-      if (retryTimer.current) window.clearTimeout(retryTimer.current);
+      window.clearInterval(timer);
     };
-  }, [buildTimeAppId, resolvedAppId, checked]);
+  }, [buildTimeAppId, resolvedAppId]);
 
   const appId = resolvedAppId;
-  const privyAvailable = checked && isValidPrivyAppId(appId);
+  const privyAvailable = isValidPrivyAppId(appId);
 
   const solanaConnectors = useMemo(
     () => toSolanaWalletConnectors({ shouldAutoConnect: false }),

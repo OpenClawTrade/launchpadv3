@@ -29,21 +29,15 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Optimized: Single query for agent tokens with join
-    const { data: agentTokens, error: tokensError } = await supabase
-      .from("agent_tokens")
-      .select(`
-        id,
-        fun_token_id,
-        fun_tokens!inner (
-          market_cap_sol
-        )
-      `)
-      .limit(500); // Limit to prevent timeout
+    // Fast path: use fun_tokens.agent_id instead of joining agent_tokens -> fun_tokens.
+    // This avoids heavy joins on cold starts and keeps response time predictable.
+    const { data: agentLaunchedTokens, error: tokensError } = await supabase
+      .from("fun_tokens")
+      .select("market_cap_sol, agent_id")
+      .not("agent_id", "is", null)
+      .limit(1000);
 
-    if (tokensError) {
-      throw new Error(`Failed to fetch agent tokens: ${tokensError.message}`);
-    }
+    if (tokensError) throw new Error(`Failed to fetch agent-launched tokens: ${tokensError.message}`);
 
     // Get agent count only (minimal query)
     const { count: totalAgents, error: agentsError } = await supabase
@@ -55,12 +49,9 @@ Deno.serve(async (req) => {
       console.error("[agent-stats] Agents count error:", agentsError.message);
     }
 
-    // Calculate totals from single query
-    const totalTokensLaunched = agentTokens?.length || 0;
-    const totalMarketCap = agentTokens?.reduce((sum, at) => {
-      const token = at.fun_tokens as any;
-      return sum + Number(token?.market_cap_sol || 0);
-    }, 0) || 0;
+    const totalTokensLaunched = agentLaunchedTokens?.length || 0;
+    const totalMarketCap =
+      agentLaunchedTokens?.reduce((sum, t) => sum + Number((t as any)?.market_cap_sol || 0), 0) || 0;
 
     // Use reasonable defaults instead of heavy queries
     const stats = {
