@@ -492,7 +492,8 @@ async function replyToTweet(
   proxyUrl: string,
   username?: string,
   authSession?: { authToken: string; ct0: string },
-  oauthCreds?: { consumerKey: string; consumerSecret: string; accessToken: string; accessTokenSecret: string }
+  oauthCreds?: { consumerKey: string; consumerSecret: string; accessToken: string; accessTokenSecret: string },
+  mediaUrl?: string // Optional image URL to attach
 ): Promise<{ success: boolean; replyId?: string; error?: string }> {
   try {
     console.log(`[agent-scan-twitter] 📤 Attempting reply to @${username || "unknown"} (tweet ${tweetId})`);
@@ -542,18 +543,27 @@ async function replyToTweet(
     const tryCreateTweetV2 = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
       if (!loginCookies) return { ok: false, error: "Missing login_cookies" };
 
+      // Build request body with optional media attachment
+      const requestBody: Record<string, unknown> = {
+        login_cookies: loginCookies,
+        tweet_text: text,
+        reply_to_tweet_id: tweetId,
+        proxy: proxyUrl,
+      };
+      
+      // Attach image if provided (twitterapi.io supports media_url parameter)
+      if (mediaUrl) {
+        requestBody.media_url = mediaUrl;
+        console.log(`[agent-scan-twitter] 📷 Attaching image to reply: ${mediaUrl.slice(0, 60)}...`);
+      }
+
       const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-API-Key": apiKey,
         },
-        body: JSON.stringify({
-          login_cookies: loginCookies,
-          tweet_text: text,
-          reply_to_tweet_id: tweetId,
-          proxy: proxyUrl,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const responseText = await response.text();
@@ -573,18 +583,26 @@ async function replyToTweet(
     const tryPostTweetLoginCookies = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
       if (!loginCookies) return { ok: false, error: "Missing login_cookies" };
 
+      // Build request body with optional media attachment
+      const requestBody: Record<string, unknown> = {
+        login_cookies: loginCookies,
+        tweet_text: text,
+        in_reply_to_tweet_id: tweetId,
+        proxy: proxyUrl,
+      };
+      
+      // Attach image if provided
+      if (mediaUrl) {
+        requestBody.media_url = mediaUrl;
+      }
+
       const response = await fetch(`${TWITTERAPI_BASE}/twitter/post_tweet`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-API-Key": apiKey,
         },
-        body: JSON.stringify({
-          login_cookies: loginCookies,
-          tweet_text: text,
-          in_reply_to_tweet_id: tweetId,
-          proxy: proxyUrl,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const responseText = await response.text();
@@ -1209,7 +1227,8 @@ Deno.serve(async (req) => {
             if (existingReply) {
               console.log(`[agent-scan-twitter] ⏭️ Skipping reply to ${tweetId} - already replied`);
             } else {
-              const replyText = `🐟 Token launched!\n\n$${processResult.mintAddress?.slice(0, 8)}... is now live on TUNA!\n\n🔗 Trade: ${processResult.tradeUrl}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
+              // New format: full CA, no links, token name/symbol, with image
+              const replyText = `🐟 Token launched!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by TUNA Agents - 80% of fees go to you!`;
 
               const replyResult = await replyToTweet(
                 tweetId,
@@ -1219,7 +1238,8 @@ Deno.serve(async (req) => {
                 proxyUrl || "",
                 username,
                 replyAuthSession,
-                oauthCreds
+                oauthCreds,
+                processResult.imageUrl // Attach token image
               );
 
               if (!replyResult.success) {
