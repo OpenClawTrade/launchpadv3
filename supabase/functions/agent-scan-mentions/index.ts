@@ -301,6 +301,15 @@ Deno.serve(async (req) => {
       }> = [];
 
       for (const mention of mentions) {
+        const username = mention.author_username;
+        
+        // CRITICAL: Skip tweets from our own bot account to prevent reply loops
+        const botUsernames = ["buildtuna", "tunalaunch", "tunabot"];
+        if (username && botUsernames.includes(username.toLowerCase())) {
+          console.log(`[agent-scan-mentions] ⏭️ Skipping ${mention.id} - from bot account @${username}`);
+          continue;
+        }
+
         // Check if contains !tunalaunch command
         if (!mention.text.toLowerCase().includes("!tunalaunch")) {
           continue;
@@ -308,7 +317,6 @@ Deno.serve(async (req) => {
 
         const tweetId = mention.id;
         const tweetText = mention.text;
-        const username = mention.author_username;
         const authorId = mention.author_id;
 
         // Check if already processed (deduplication with primary scanner)
