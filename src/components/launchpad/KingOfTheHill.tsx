@@ -67,17 +67,12 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   const isHolderRewards = token.fee_mode === 'holders';
   const isPumpFun = token.launchpad_type === 'pumpfun';
   
-  // Trade URL logic
+  // Trade URL logic - pump.fun tokens link to SubTuna (they all have communities)
   const tradeUrl = isPumpFun 
-    ? `https://pump.fun/${token.mint_address}` 
+    ? `/t/${token.ticker}` 
     : token.agent_id 
       ? `/t/${token.ticker}` 
       : `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`;
-  
-  const CardWrapper = isPumpFun ? 'a' : Link;
-  const cardProps = isPumpFun 
-    ? { href: tradeUrl, target: "_blank", rel: "noopener noreferrer" }
-    : { to: tradeUrl };
 
   const getRankStyles = (r: number) => {
     if (r === 1) return "border-primary/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-lg shadow-primary/10";
@@ -92,8 +87,8 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   };
 
   return (
-    <CardWrapper
-      {...cardProps as any}
+    <Link
+      to={tradeUrl}
       className={cn(
         "relative flex flex-col p-2 sm:p-4 rounded-lg sm:rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group",
         getRankStyles(rank),
@@ -137,15 +132,10 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
                 <Gem className="w-3 h-3 text-accent flex-shrink-0" />
               </span>
             )}
-            {token.agent_id && (
-              <Link 
-                to={`/t/${token.ticker}`}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                className="flex-shrink-0"
-                title="AI Agent Token"
-              >
-                <Bot className="w-3 h-3 text-purple-400 hover:text-purple-300" />
-              </Link>
+            {(token.agent_id || isPumpFun) && (
+              <span title="AI Agent Token" className="flex-shrink-0">
+                <Bot className="w-3 h-3 text-purple-400" />
+              </span>
             )}
             {isPumpFun && (
               <PumpBadge 
@@ -228,7 +218,7 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
           {realSolReserves.toFixed(2)} / {GRADUATION_THRESHOLD} SOL
         </span>
       </div>
-    </CardWrapper>
+    </Link>
   );
 }
 

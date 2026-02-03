@@ -37,19 +37,15 @@ export function TokenCard({ token }: TokenCardProps) {
   const isHolderRewards = token.fee_mode === 'holder_rewards';
   const isPumpFun = token.launchpad_type === 'pumpfun';
   
-  // Trade URL logic - pump.fun tokens link externally
+  // Trade URL logic - pump.fun tokens link to SubTuna (they all have communities)
   const tradeUrl = isPumpFun 
-    ? `https://pump.fun/${token.mint_address}` 
+    ? `/t/${token.ticker}` 
     : token.agent_id 
       ? `/t/${token.ticker}` 
       : `/launchpad/${token.mint_address}`;
-  const CardWrapper = isPumpFun ? 'a' : Link;
-  const cardProps = isPumpFun 
-    ? { href: tradeUrl, target: "_blank", rel: "noopener noreferrer" }
-    : { to: tradeUrl };
 
   return (
-    <CardWrapper {...cardProps as any}>
+    <Link to={tradeUrl}>
       <Card className="relative overflow-hidden p-4 hover:bg-secondary/50 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer group">
         {/* Hot indicator glow */}
         {isHot && !isGraduated && (
@@ -117,17 +113,15 @@ export function TokenCard({ token }: TokenCardProps) {
                   💎 HOLDER
                 </Badge>
               )}
-              {/* AI Agent badge */}
-              {token.agent_id && (
-                <Link 
-                  to={`/t/${token.ticker}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full hover:bg-purple-500/30 transition-colors"
-                  title="AI Agent Token - Click to visit community"
+              {/* AI Agent badge - show for both agent tokens and pump.fun tokens (they all have communities) */}
+              {(token.agent_id || isPumpFun) && (
+                <span 
+                  className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full"
+                  title="AI Agent Token"
                 >
                   <Bot className="h-3 w-3" />
                   <span className="text-[10px] font-medium">AI</span>
-                </Link>
+                </span>
               )}
               {/* pump.fun badge */}
               {isPumpFun && (
@@ -206,6 +200,6 @@ export function TokenCard({ token }: TokenCardProps) {
           </div>
         </div>
       </Card>
-    </CardWrapper>
+    </Link>
   );
 }
