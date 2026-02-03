@@ -41,17 +41,20 @@ serve(async (req) => {
 
   const TWITTERAPI_IO_KEY = Deno.env.get("TWITTERAPI_IO_KEY");
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const X_AUTH_TOKEN = Deno.env.get("X_AUTH_TOKEN");
-  const X_CT0_TOKEN = Deno.env.get("X_CT0_TOKEN");
+  const X_FULL_COOKIE = Deno.env.get("X_FULL_COOKIE"); // Full cookie header from browser
+  const X_AUTH_TOKEN = Deno.env.get("X_AUTH_TOKEN"); // Fallback
+  const X_CT0_TOKEN = Deno.env.get("X_CT0_TOKEN"); // Fallback
   const TWITTER_PROXY = Deno.env.get("TWITTER_PROXY");
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const METEORA_API_URL = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
 
-  if (!TWITTERAPI_IO_KEY || !LOVABLE_API_KEY || !X_AUTH_TOKEN || !X_CT0_TOKEN) {
+  // Require X_FULL_COOKIE or fallback to individual tokens
+  const hasAuth = !!X_FULL_COOKIE || (!!X_AUTH_TOKEN && !!X_CT0_TOKEN);
+  if (!TWITTERAPI_IO_KEY || !LOVABLE_API_KEY || !hasAuth) {
     console.error("[mention-launcher] ❌ Missing required API keys");
     return new Response(
-      JSON.stringify({ success: false, error: "Missing API configuration" }),
+      JSON.stringify({ success: false, error: "Missing API configuration", hasFullCookie: !!X_FULL_COOKIE, hasTokens: !!X_AUTH_TOKEN && !!X_CT0_TOKEN }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -278,10 +281,13 @@ serve(async (req) => {
       console.log(`[mention-launcher] ⚠️ Rate limit for @${mention.author.userName}: ${userLaunches.length} launches in last hour`);
       
       // Reply with rate limit message
-      const rateLimitReply = `@${mention.author.userName} You've already launched ${userLaunches.length} tokens in the last hour. Please wait a bit before creating more! 🕐`;
+      const rateLimitReply = `@${mention.author.userName} You've already launched ${userLaunches.length} tokens in the last hour. Please wait a bit before creating more! 🕐
+
+Launch your unique Solana Agent from TUNA dot Fun`;
       
-      await postReply(mention.id, rateLimitReply, {
+      await postReply(mention.id, rateLimitReply, null, {
         TWITTERAPI_IO_KEY,
+        X_FULL_COOKIE,
         X_AUTH_TOKEN,
         X_CT0_TOKEN,
         TWITTER_PROXY,
@@ -302,7 +308,7 @@ serve(async (req) => {
       );
     }
 
-    // Extract Solana address from tweet
+    // Extract Solana address from tweet (optional now - user can claim via OAuth later)
     const solanaAddresses = mention.text.match(SOLANA_ADDRESS_REGEX) || [];
     const validSolanaAddress = solanaAddresses.find(addr => 
       addr.length >= 32 && addr.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(addr)
@@ -311,37 +317,9 @@ serve(async (req) => {
     // Get image URL if present
     const imageUrl = mention.mediaUrls?.[0] || null;
 
-    if (!validSolanaAddress) {
-      console.log(`[mention-launcher] ⚠️ No Solana address in mention from @${mention.author.userName}`);
-      
-      // Reply asking for Solana address
-      const noWalletReply = `@${mention.author.userName} In order to launch coin I need your solana address where to send fees for each swap`;
-      
-      const replyResult = await postReply(mention.id, noWalletReply, {
-        TWITTERAPI_IO_KEY,
-        X_AUTH_TOKEN,
-        X_CT0_TOKEN,
-        TWITTER_PROXY,
-      });
-
-      // Store as pending request
-      await supabase.from("x_pending_requests").insert({
-        tweet_id: mention.id,
-        x_user_id: mention.author.id,
-        x_username: mention.author.userName,
-        original_tweet_text: mention.text,
-        original_tweet_image_url: imageUrl,
-        our_reply_tweet_id: replyResult?.tweetId || null,
-        status: "pending",
-      });
-
-      return new Response(
-        JSON.stringify({ success: true, processed: 1, pendingWallet: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`[mention-launcher] 💰 Found Solana address: ${validSolanaAddress}`);
+    // No longer require wallet - launches can be claimed via X OAuth later
+    // The username is stored for claim flow
+    console.log(`[mention-launcher] 👤 Launch request from @${mention.author.userName}${validSolanaAddress ? ` with wallet ${validSolanaAddress}` : ' (walletless - claimable via OAuth)'}`);
 
     // Generate token concept from tweet content using AI
     const tokenConcept = await generateTokenFromTweet(mention.text, imageUrl, LOVABLE_API_KEY);
@@ -363,12 +341,14 @@ serve(async (req) => {
     }
 
     // Create the token via fun-create
+    // If no wallet provided, use a placeholder - creator claims via OAuth later
     const tokenResult = await createToken({
       name: tokenConcept.name,
       ticker: tokenConcept.ticker,
       description: tokenConcept.description,
       imageUrl: finalImageUrl,
-      creatorWallet: validSolanaAddress,
+      creatorWallet: validSolanaAddress || null, // Can be null for walletless launches
+      creatorUsername: mention.author.userName, // Store for OAuth claim
       twitterUrl: `https://x.com/${mention.author.userName}/status/${mention.id}`,
       supabase,
       METEORA_API_URL,
@@ -378,9 +358,12 @@ serve(async (req) => {
       console.error("[mention-launcher] ❌ Token creation failed:", tokenResult.error);
       
       // Reply with error
-      const errorReply = `@${mention.author.userName} Sorry, there was an issue creating your token. Please try again later! 🙏`;
-      await postReply(mention.id, errorReply, {
+      const errorReply = `@${mention.author.userName} Sorry, there was an issue creating your token. Please try again later! 🙏
+
+Launch your unique Solana Agent from TUNA dot Fun`;
+      await postReply(mention.id, errorReply, null, {
         TWITTERAPI_IO_KEY,
+        X_FULL_COOKIE,
         X_AUTH_TOKEN,
         X_CT0_TOKEN,
         TWITTER_PROXY,
@@ -402,7 +385,7 @@ serve(async (req) => {
 
     console.log(`[mention-launcher] 🚀 Token created! CA: ${tokenResult.mintAddress}`);
 
-    // Reply with success and token details
+    // Reply with success and token details (include token image)
     const successReply = `@${mention.author.userName} Your token is LIVE! 🚀
 
 $${tokenConcept.ticker} - ${tokenConcept.name}
@@ -410,10 +393,13 @@ CA: ${tokenResult.mintAddress}
 
 Trade: ${tokenResult.tradeUrl}
 
-You'll receive 50% of all trading fees! 💰`;
+You'll receive 50-80% of all trading fees! 💰
 
-    await postReply(mention.id, successReply, {
+Launch your unique Solana Agent from TUNA dot Fun`;
+
+    await postReply(mention.id, successReply, finalImageUrl, {
       TWITTERAPI_IO_KEY,
+      X_FULL_COOKIE,
       X_AUTH_TOKEN,
       X_CT0_TOKEN,
       TWITTER_PROXY,
@@ -566,7 +552,8 @@ async function createToken(params: {
   ticker: string;
   description: string;
   imageUrl: string | null;
-  creatorWallet: string;
+  creatorWallet: string | null; // Can be null for walletless launches
+  creatorUsername: string; // Username for OAuth claim
   twitterUrl: string;
   supabase: any;
   METEORA_API_URL: string | undefined;
@@ -587,7 +574,8 @@ async function createToken(params: {
         twitterUrl: params.twitterUrl,
         // IMPORTANT: don't inject a default website when the user didn't provide one
         websiteUrl: null,
-        feeRecipientWallet: params.creatorWallet,
+        feeRecipientWallet: params.creatorWallet, // Can be null
+        creatorUsername: params.creatorUsername, // For OAuth claim
         serverSideSign: true,
       }),
     });
@@ -614,32 +602,65 @@ async function createToken(params: {
   }
 }
 
-// Post a reply to a tweet
+// Helper to parse cookie string into object
+function parseCookieString(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split("=");
+    if (!k) continue;
+    const val = rest.join("=");
+    if (val) out[k.trim()] = val.replace(/^['"]+|['"]+$/g, "").trim();
+  }
+  return out;
+}
+
+// Post a reply to a tweet (with optional media)
 async function postReply(
   tweetId: string,
   text: string,
+  mediaUrl: string | null,
   config: {
     TWITTERAPI_IO_KEY: string;
-    X_AUTH_TOKEN: string;
-    X_CT0_TOKEN: string;
+    X_FULL_COOKIE?: string;
+    X_AUTH_TOKEN?: string;
+    X_CT0_TOKEN?: string;
     TWITTER_PROXY?: string;
   }
 ): Promise<{ success: boolean; tweetId?: string }> {
   try {
-    const body: any = {
-      text,
-      reply: { in_reply_to_tweet_id: tweetId },
-      auth_session: {
+    // Build login_cookies from X_FULL_COOKIE or fallback to individual tokens
+    let loginCookies: Record<string, string>;
+    if (config.X_FULL_COOKIE) {
+      loginCookies = parseCookieString(config.X_FULL_COOKIE);
+    } else if (config.X_AUTH_TOKEN && config.X_CT0_TOKEN) {
+      loginCookies = {
         auth_token: config.X_AUTH_TOKEN,
         ct0: config.X_CT0_TOKEN,
-      },
+      };
+    } else {
+      console.error("[mention-launcher] No auth available for reply");
+      return { success: false };
+    }
+
+    const loginCookiesB64 = btoa(JSON.stringify(loginCookies));
+
+    const body: any = {
+      tweet_text: text,
+      reply_to_tweet_id: tweetId,
+      login_cookies: loginCookiesB64,
     };
+
+    // Add media if provided
+    if (mediaUrl) {
+      body.media_url = mediaUrl;
+    }
 
     if (config.TWITTER_PROXY) {
       body.proxy = config.TWITTER_PROXY;
     }
 
-    const response = await fetch(`${TWITTERAPI_BASE}/twitter/tweet/create`, {
+    const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
       method: "POST",
       headers: {
         "X-API-Key": config.TWITTERAPI_IO_KEY,
@@ -648,15 +669,22 @@ async function postReply(
       body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[mention-launcher] Reply failed:", response.status, errorText);
+    const responseText = await response.text();
+    let result: any;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      result = { raw: responseText };
+    }
+
+    if (!response.ok || result.status === "error") {
+      console.error("[mention-launcher] Reply failed:", response.status, responseText.slice(0, 300));
       return { success: false };
     }
 
-    const result = await response.json();
-    console.log("[mention-launcher] ✅ Reply posted:", result.data?.id);
-    return { success: true, tweetId: result.data?.id };
+    const createdTweetId = result.tweet_id || result.data?.id;
+    console.log("[mention-launcher] ✅ Reply posted:", createdTweetId);
+    return { success: true, tweetId: createdTweetId };
   } catch (error) {
     console.error("[mention-launcher] postReply error:", error);
     return { success: false };
