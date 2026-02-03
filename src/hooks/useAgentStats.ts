@@ -30,10 +30,10 @@ export function useAgentStats() {
     queryKey: ["agent-stats"],
     queryFn: async (): Promise<AgentStats> => {
       try {
-        // Wrap the function invoke with a timeout
+        // Wrap the function invoke with a longer timeout (15s for cold starts)
         const result = await withTimeout(
           supabase.functions.invoke("agent-stats"),
-          8000
+          15000
         );
 
         const { data, error } = result;
