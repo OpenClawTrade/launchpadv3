@@ -1,192 +1,290 @@
 
-# Colosseum Hackathon Application - Complete Step-by-Step Guide
+# PUMP Agents Complete Implementation Plan
 
-## Current Status
+## Overview
 
-| Component | Status |
-|-----------|--------|
-| Database Tables | Done (4 tables created) |
-| Edge Functions | Done (3 functions deployed) |
-| Registrations | **NOT STARTED** (0 records) |
-| Forum Posts | **NOT STARTED** (0 posts) |
-| COLOSSEUM_API_KEY | **NOT CONFIGURED** |
-
-**Today is February 3, 2026** - You're on Day 2 of the hackathon calendar. Here's exactly what you need to do:
+This plan implements a fully working pump.fun integration with:
+1. **Fixed token launching** - Proper Ed25519 keypair generation and correct PumpPortal API usage
+2. **Fee claiming system** - Automated collection of creator fees every 5 minutes
+3. **Fee distribution** - 80/20 split (creator/platform) matching the existing TUNA agents model
 
 ---
 
-## Step 1: Manual Registration on Colosseum.com (Do First!)
+## Current State Analysis
 
-Before using the automated system, you need to register manually on the Colosseum website:
+| Component | Status | Issue |
+|-----------|--------|-------|
+| Meme Generation | ✅ Working | `agent-idea-generate` returns valid images |
+| Keypair Generation | ❌ Broken | Uses random bytes instead of Ed25519 |
+| PumpPortal Payload | ❌ Wrong | Passes private key as `publicKey` field |
+| Mint Address Extraction | ❌ Missing | Uses broken keypair instead of API response |
+| Fee Claiming | ❌ Not Implemented | No edge function exists |
+| Fee Distribution | ❌ Not Implemented | No cron job for pump.fun tokens |
+| Database | ⚠️ Partial | `fun_tokens` has `launchpad_type` column |
 
-1. **Go to**: https://colosseum.com/hackathons
-2. **Find**: The "Agent Hackathon" or current active hackathon
-3. **Click**: "Register" or "Apply"
-4. **Fill out the form**:
-   - **Project Name**: TUNA Agent SDK
-   - **Description**: Infrastructure for AI agents to launch tokens, build communities, and earn 80% of trading fees on Solana
-   - **Website**: https://tuna.fun
-   - **GitHub**: (your repo if public)
-   - **Category**: AI / DeFi / Infrastructure
-   - **Team Size**: (your team size)
-   - **Wallet Address**: Your Solana wallet for receiving prizes
-5. **Submit** the application
-6. **Save** any API key or credentials they provide
-
----
-
-## Step 2: Add COLOSSEUM_API_KEY Secret (After Registration)
-
-Once Colosseum provides an API key (if they do), add it:
-
-I will add this secret for you after you provide the key from Colosseum.
+**Secrets Available:**
+- `PUMPPORTAL_API_KEY` ✅
+- `PUMP_DEPLOYER_PRIVATE_KEY` ✅
+- `TREASURY_PRIVATE_KEY` ✅
+- `HELIUS_RPC_URL` ✅
 
 ---
 
-## Step 3: Call Registration Endpoint (Automated)
+## Implementation Steps
 
-After manual registration, sync with your edge function:
+### Step 1: Fix `pump-agent-launch` Edge Function
 
-```bash
-curl "https://ptwytypavumcrbofspno.supabase.co/functions/v1/colosseum-bridge?action=register"
+**File:** `supabase/functions/pump-agent-launch/index.ts`
+
+**Changes Required:**
+
+1. **Import proper Solana libraries:**
+```typescript
+import { Keypair } from "https://esm.sh/@solana/web3.js@1.98.0";
+import bs58 from "https://esm.sh/bs58@5.0.0";
 ```
 
-Or visit directly in browser:
-```
-https://ptwytypavumcrbofspno.supabase.co/functions/v1/colosseum-bridge?action=register
-```
-
-This registers your agent metadata with Colosseum's API (if live) and stores the registration locally.
-
----
-
-## Step 4: Post Introduction to Forum (Day 1-2)
-
-Post your intro template to the Colosseum forum:
-
-```bash
-curl -X POST "https://ptwytypavumcrbofspno.supabase.co/functions/v1/colosseum-forum?action=post" \
-  -H "Content-Type: application/json" \
-  -d '{"template": "intro"}'
+2. **Fix keypair generation** - Replace the broken `generateMintKeypair()` with:
+```typescript
+function generateMintKeypair(): { keypair: Keypair; secretKeyBase58: string } {
+  const keypair = Keypair.generate();
+  const secretKeyBase58 = bs58.encode(keypair.secretKey);
+  return { keypair, secretKeyBase58 };
+}
 ```
 
-This posts:
-- **Title**: "Introducing TUNA: Agent Infrastructure for Solana Token Economies"
-- **Content**: Overview of TUNA with live stats (22+ tokens, 11+ SOL distributed)
-- **Tags**: introduction, infrastructure, ai, defi
+3. **Fix PumpPortal payload** - Parse deployer's PUBLIC key from the private key:
+```typescript
+// Parse deployer keypair
+let deployerKeypair: Keypair;
+if (deployerPrivateKey.startsWith("[")) {
+  const keyArray = JSON.parse(deployerPrivateKey);
+  deployerKeypair = Keypair.fromSecretKey(new Uint8Array(keyArray));
+} else {
+  deployerKeypair = Keypair.fromSecretKey(bs58.decode(deployerPrivateKey));
+}
 
----
-
-## Step 5: Post Technical Deep-Dive (Today - Day 2)
-
-Post the voice fingerprinting template:
-
-```bash
-curl -X POST "https://ptwytypavumcrbofspno.supabase.co/functions/v1/colosseum-forum?action=post" \
-  -H "Content-Type: application/json" \
-  -d '{"template": "voiceFingerprinting"}'
+const createPayload = {
+  publicKey: deployerKeypair.publicKey.toBase58(), // PUBLIC key, not private!
+  action: "create",
+  tokenMetadata: { name, symbol, uri: metadataUri },
+  mint: mintKeypair.secretKeyBase58,
+  denominatedInSol: "true",
+  amount: initialBuySol,
+  slippage: 10,
+  priorityFee: 0.0005,
+  pool: "pump",
+};
 ```
 
----
+4. **Extract mint address from keypair correctly:**
+```typescript
+const mintAddress = mintKeypair.keypair.publicKey.toBase58();
+```
 
-## Step 6: Remaining Calendar (Days 3-11)
-
-| Day | Date | Action | Command |
-|-----|------|--------|---------|
-| 3 | Feb 4 | Engage 5+ other projects | Browse forum, find posts, use `comment` action |
-| 4 | Feb 5 | Post "walletless" template | `{"template": "walletless"}` |
-| 5 | Feb 6 | Post "feeDistribution" template | `{"template": "feeDistribution"}` |
-| 6-9 | Feb 7-10 | Daily heartbeats + engagement | `action=heartbeat` every 30 min |
-| 10 | Feb 11 | **SUBMIT PROJECT** | `colosseum-submit?action=submit` |
-| 11 | Feb 12 | Final engagement | Manual forum activity |
-
----
-
-## Step 7: Set Up Heartbeat Cron (Optional but Recommended)
-
-For continuous presence, set up a cron job to call heartbeat every 30 minutes:
-
-**Option A: Use an external cron service (easiest)**
-- Use https://cron-job.org or similar
-- URL: `https://ptwytypavumcrbofspno.supabase.co/functions/v1/colosseum-bridge?action=heartbeat`
-- Interval: Every 30 minutes
-
-**Option B: Manual heartbeats**
-- Call the endpoint manually a few times per day
-
----
-
-## Step 8: Engage with Other Projects (Days 3-9)
-
-To comment on other projects:
-
-```bash
-curl -X POST "https://ptwytypavumcrbofspno.supabase.co/functions/v1/colosseum-forum?action=comment" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "targetPostId": "POST_ID_FROM_COLOSSEUM",
-    "projectName": "Other Project Name",
-    "comment": "Great work on [feature]! We built something similar with TUNA - would love to explore integrations. Check out our token launch SDK!"
-  }'
+5. **Store deployer public key in database:**
+```typescript
+creator_wallet: deployerKeypair.publicKey.toBase58(),
+deployer_wallet: deployerKeypair.publicKey.toBase58(),
 ```
 
 ---
 
-## Step 9: Preview Submission (Before Feb 11)
+### Step 2: Create `pump-claim-fees` Edge Function
 
-Check what will be submitted:
+**File:** `supabase/functions/pump-claim-fees/index.ts`
 
-```bash
-curl "https://ptwytypavumcrbofspno.supabase.co/functions/v1/colosseum-submit?action=preview"
+This function:
+1. Queries `fun_tokens` where `launchpad_type = 'pumpfun'` and `status = 'active'`
+2. Calls PumpPortal's `collectCreatorFee` endpoint for each token
+3. Records claims in `pumpfun_fee_claims` table
+4. Updates token's `total_fees_earned` field
+
+**PumpPortal API Call:**
+```typescript
+const response = await fetch("https://pumpportal.fun/api/trade?api-key=" + apiKey, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    action: "collectCreatorFee",
+    mint: token.mint_address,
+    priorityFee: 0.0001,
+    pool: "pump"
+  })
+});
 ```
 
-This shows the full submission payload with live stats.
-
 ---
 
-## Step 10: Final Submission (Feb 11)
+### Step 3: Create Database Table for Fee Tracking
 
-Submit the project:
+**Table:** `pumpfun_fee_claims`
 
-```bash
-curl "https://ptwytypavumcrbofspno.supabase.co/functions/v1/colosseum-submit?action=submit"
+```sql
+CREATE TABLE pumpfun_fee_claims (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fun_token_id UUID REFERENCES fun_tokens(id),
+  mint_address TEXT NOT NULL,
+  claimed_sol NUMERIC DEFAULT 0,
+  signature TEXT,
+  claimed_at TIMESTAMPTZ DEFAULT now(),
+  distributed BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_pumpfun_claims_token ON pumpfun_fee_claims(fun_token_id);
+CREATE INDEX idx_pumpfun_claims_undistributed ON pumpfun_fee_claims(distributed) WHERE distributed = false;
 ```
 
 ---
 
-## Quick Reference: All Endpoints
+### Step 4: Update Fee Distribution Logic
 
-| Action | Endpoint |
-|--------|----------|
-| Register | `colosseum-bridge?action=register` |
-| Heartbeat | `colosseum-bridge?action=heartbeat` |
-| Status | `colosseum-bridge?action=status` |
-| Post Template | `colosseum-forum?action=post` + `{"template": "..."}` |
-| Comment | `colosseum-forum?action=comment` + body |
-| List Posts | `colosseum-forum?action=list` |
-| Preview Submit | `colosseum-submit?action=preview` |
-| Final Submit | `colosseum-submit?action=submit` |
+**File:** `supabase/functions/fun-distribute/index.ts`
 
-**Base URL**: `https://ptwytypavumcrbofspno.supabase.co/functions/v1/`
+Add handling for pump.fun tokens in the distribution logic:
 
----
+```typescript
+// In the undistributed claims query, also fetch pumpfun_fee_claims
+const { data: pumpfunClaims } = await supabase
+  .from("pumpfun_fee_claims")
+  .select(`*, fun_token:fun_tokens(*)`)
+  .eq("distributed", false);
 
-## Available Templates
-
-| Template Key | Title |
-|--------------|-------|
-| `intro` | Introducing TUNA: Agent Infrastructure for Solana Token Economies |
-| `voiceFingerprinting` | How TUNA Learns Agent Voices from Twitter |
-| `walletless` | Walletless Token Launches: Lower Barrier, Same Security |
-| `feeDistribution` | Fee Distribution: How Agents Earn Real SOL |
+// Apply 80/20 split (same as agent tokens)
+const creatorShare = claimedSol * 0.8;  // 80% to creator
+const platformShare = claimedSol * 0.2; // 20% to platform
+```
 
 ---
 
-## What You Need to Do RIGHT NOW
+### Step 5: Create Cron Job for Fee Claiming
 
-1. **Go to https://colosseum.com** and register manually
-2. Save any API key they provide
-3. Let me know the API key so I can add it as a secret
-4. Then run the automated registration endpoint
+**SQL to add cron job:**
+```sql
+SELECT cron.schedule(
+  'pump-claim-fees-every-5-min',
+  '*/5 * * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://ptwytypavumcrbofspno.supabase.co/functions/v1/pump-claim-fees',
+    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}'::jsonb,
+    body:='{}'::jsonb
+  ) as request_id;
+  $$
+);
+```
 
-Would you like me to help you test any of these endpoints or add the COLOSSEUM_API_KEY secret once you have it?
+---
+
+### Step 6: Update config.toml
+
+Add the new edge function:
+```toml
+[functions.pump-claim-fees]
+verify_jwt = false
+```
+
+---
+
+## Technical Details
+
+### PumpPortal API Reference
+
+**Token Creation (Lightning API):**
+```
+POST https://pumpportal.fun/api/trade?api-key=YOUR_KEY
+{
+  "publicKey": "DEPLOYER_PUBLIC_KEY",
+  "action": "create",
+  "tokenMetadata": { "name": "...", "symbol": "...", "uri": "..." },
+  "mint": "MINT_KEYPAIR_SECRET_BASE58",
+  "denominatedInSol": "true",
+  "amount": 0.01,
+  "slippage": 10,
+  "priorityFee": 0.0005,
+  "pool": "pump"
+}
+```
+
+**Fee Collection (Lightning API):**
+```
+POST https://pumpportal.fun/api/trade?api-key=YOUR_KEY
+{
+  "action": "collectCreatorFee",
+  "mint": "TOKEN_MINT_ADDRESS",
+  "priorityFee": 0.0001,
+  "pool": "pump"
+}
+```
+
+### Database Schema for pump.fun Tokens
+
+The existing `fun_tokens` table already has these columns:
+- `launchpad_type` - Set to `'pumpfun'` for pump.fun tokens
+- `pumpfun_signature` - Transaction signature from creation
+- `pumpfun_bonding_curve` - Optional bonding curve address
+- `pumpfun_creator` - Creator address on pump.fun
+- `deployer_wallet` - The wallet that deployed the token
+- `total_fees_earned` - Running total of claimed fees
+
+---
+
+## Files to Create/Modify
+
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/pump-agent-launch/index.ts` | Modify | Fix keypair and payload |
+| `supabase/functions/pump-claim-fees/index.ts` | Create | New fee claiming function |
+| `supabase/config.toml` | Modify | Add pump-claim-fees config |
+| Database migration | Create | Add pumpfun_fee_claims table |
+
+---
+
+## Testing Plan
+
+After implementation:
+1. Generate a meme on `/agents/pump`
+2. Click "Launch on pump.fun"
+3. Verify token appears on pump.fun
+4. Check edge function logs for success
+5. Wait 5 minutes for fee claim cron
+6. Verify fees appear in database
+
+---
+
+## Fee Flow Diagram
+
+```text
++------------------+     +------------------+     +------------------+
+|   pump.fun       | --> | pump-claim-fees  | --> | pumpfun_fee_     |
+|   Trading Fees   |     |   (every 5 min)  |     |   claims table   |
++------------------+     +------------------+     +------------------+
+                                                          |
+                                                          v
+                         +------------------+     +------------------+
+                         |  fun-distribute  | <-- | Query undistrib- |
+                         |  (every 1 min)   |     |   uted claims    |
+                         +------------------+     +------------------+
+                                  |
+                    +-------------+-------------+
+                    |                           |
+                    v                           v
+           +----------------+           +----------------+
+           | 80% to Creator |           | 20% to Platform|
+           | (SOL transfer) |           |   (treasury)   |
+           +----------------+           +----------------+
+```
+
+---
+
+## Summary
+
+This implementation:
+- ✅ Fixes the broken keypair generation using proper Solana libraries
+- ✅ Corrects the PumpPortal API payload (public key, not private)
+- ✅ Creates automated fee claiming every 5 minutes
+- ✅ Distributes fees with 80/20 creator/platform split
+- ✅ Tracks all claims in database for transparency
+- ✅ Integrates with existing TUNA infrastructure
+
