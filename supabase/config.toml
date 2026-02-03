@@ -245,3 +245,6 @@ verify_jwt = false
 
 [functions.pumpfun-data]
 verify_jwt = false
+
+[functions.agent-hourly-post]
+verify_jwt = false
