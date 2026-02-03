@@ -152,48 +152,22 @@ serve(async (req) => {
       );
     }
 
-    // Login to Twitter
-    console.log("[promote-post] 🔐 Logging in to Twitter...");
-    const xTotpSecret = normalizeTotpSecret(xTotpSecretRaw);
-    const totpCode = xTotpSecret ? await generateTotpCode(xTotpSecret) : undefined;
+    // Use pre-authenticated cookies instead of login flow
+    console.log("[promote-post] 🔐 Using pre-authenticated cookies...");
+    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
+    const xCt0 = Deno.env.get("X_CT0_TOKEN") || Deno.env.get("X_CT0");
     
-    const loginBody: Record<string, string> = {
-      user_name: xAccountUsername,
-      email: xAccountEmail,
-      password: xAccountPassword,
-      proxy: proxyUrl,
+    if (!xAuthToken || !xCt0) {
+      throw new Error("Missing X_AUTH_TOKEN or X_CT0 - please add pre-authenticated cookies");
+    }
+
+    const cookieObj = {
+      auth_token: xAuthToken,
+      ct0: xCt0,
     };
-    if (totpCode) loginBody.totp_code = totpCode;
+    const loginCookies = btoa(JSON.stringify(cookieObj));
 
-    const loginResponse = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
-      method: "POST",
-      headers: {
-        "X-API-Key": twitterApiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(loginBody),
-    });
-
-    const loginText = await loginResponse.text();
-    const loginData = safeJsonParse(loginText);
-
-    if (!loginResponse.ok) {
-      console.error("[promote-post] Login failed:", loginText);
-      throw new Error(`Twitter login failed: ${loginResponse.status}`);
-    }
-
-    const loginCookies =
-      loginData?.login_cookies ||
-      loginData?.cookies ||
-      loginData?.cookie ||
-      loginData?.data?.login_cookies ||
-      loginData?.data?.cookies;
-
-    if (!loginCookies) {
-      throw new Error("No login cookies received");
-    }
-
-    console.log("[promote-post] ✅ Twitter login successful");
+    console.log("[promote-post] ✅ Using pre-auth cookies");
 
     // Build tweet text
     const description = token.description 
@@ -228,7 +202,10 @@ This is a paid promotion. DYOR.
             url: token.image_url,
           },
         ],
-        login_cookies: loginCookies,
+        auth_session: {
+          auth_token: xAuthToken,
+          ct0: xCt0,
+        },
         proxy: proxyUrl,
       };
 
@@ -256,11 +233,14 @@ This is a paid promotion. DYOR.
     if (!tweetId) {
       const textPostBody = {
         text: tweetText,
-        login_cookies: loginCookies,
+        auth_session: {
+          auth_token: xAuthToken,
+          ct0: xCt0,
+        },
         proxy: proxyUrl,
       };
 
-      const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/tweets/post_tweets`, {
+      const postResponse = await fetch(`${TWITTERAPI_BASE}/twitter/tweet/create`, {
         method: "POST",
         headers: {
           "X-API-Key": twitterApiKey,
@@ -274,7 +254,7 @@ This is a paid promotion. DYOR.
       console.log("[promote-post] Text tweet response:", postText.slice(0, 500));
 
       if (postResponse.ok) {
-        tweetId = postData?.tweet_id || postData?.data?.tweet_id || postData?.id;
+        tweetId = postData?.tweet_id || postData?.data?.rest_id || postData?.data?.id;
       }
     }
 
