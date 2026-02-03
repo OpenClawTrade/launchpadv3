@@ -88,17 +88,21 @@ Deno.serve(async (req) => {
 
     const twitterApiKey = Deno.env.get("TWITTERAPI_IO_KEY");
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
+    const xFullCookie = Deno.env.get("X_FULL_COOKIE"); // NEW: full cookie header from browser
     const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
     const xCt0 = Deno.env.get("X_CT0_TOKEN") || Deno.env.get("X_CT0");
     const xUsername = Deno.env.get("X_ACCOUNT_USERNAME");
 
-    if (!twitterApiKey || !proxyUrl || !xAuthToken || !xCt0) {
+    // Require API key and proxy; auth can come from X_FULL_COOKIE OR individual tokens
+    const hasAuth = !!xFullCookie || (!!xAuthToken && !!xCt0);
+    if (!twitterApiKey || !proxyUrl || !hasAuth) {
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: "Missing credentials",
           has_api_key: !!twitterApiKey,
           has_proxy: !!proxyUrl,
+          has_full_cookie: !!xFullCookie,
           has_auth_token: !!xAuthToken,
           has_ct0: !!xCt0,
         }),
@@ -110,16 +114,27 @@ Deno.serve(async (req) => {
     const tweetText = `🐟 TUNA test ${marker}`;
     const results: Record<string, any> = { marker };
 
-    // Build cookie object (supports either raw token values OR full cookie strings pasted into secrets)
-    const authNorm = normalizeCookieValue(xAuthToken, "auth_token");
-    const ct0Norm = normalizeCookieValue(xCt0, "ct0");
-    const mergedCookies = { ...authNorm.cookies, ...ct0Norm.cookies };
-    mergedCookies.auth_token = authNorm.value;
-    mergedCookies.ct0 = ct0Norm.value;
-    // If the user pasted guest_id etc. we keep them too.
+    // Build cookie object - prioritize X_FULL_COOKIE if available
+    let mergedCookies: Record<string, string>;
+    if (xFullCookie) {
+      // Full cookie header from browser (preferred)
+      mergedCookies = parseCookieString(xFullCookie);
+      results.cookie_source = "X_FULL_COOKIE";
+    } else {
+      // Fallback to individual tokens
+      const authNorm = normalizeCookieValue(xAuthToken!, "auth_token");
+      const ct0Norm = normalizeCookieValue(xCt0!, "ct0");
+      mergedCookies = { ...authNorm.cookies, ...ct0Norm.cookies };
+      mergedCookies.auth_token = authNorm.value;
+      mergedCookies.ct0 = ct0Norm.value;
+      results.cookie_source = "individual_tokens";
+    }
 
     results.normalized = {
+      has_auth_token: !!mergedCookies.auth_token,
+      has_ct0: !!mergedCookies.ct0,
       has_guest_id: !!mergedCookies.guest_id,
+      has_twid: !!mergedCookies.twid,
       auth_token_len: mergedCookies.auth_token?.length ?? 0,
       ct0_len: mergedCookies.ct0?.length ?? 0,
       cookie_keys: Object.keys(mergedCookies).slice(0, 20),
