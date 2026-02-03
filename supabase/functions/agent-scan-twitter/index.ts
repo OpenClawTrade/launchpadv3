@@ -997,6 +997,14 @@ Deno.serve(async (req) => {
           }
         }
 
+        // CRITICAL: Skip tweets from our own bot account to prevent reply loops
+        const botUsernames = ["buildtuna", "tunalaunch", "tunabot"];
+        if (username && botUsernames.includes(username.toLowerCase())) {
+          console.log(`[agent-scan-twitter] ⏭️ Skipping ${tweetId} - from bot account @${username}`);
+          results.push({ tweetId, status: "skipped_bot_account" });
+          continue;
+        }
+
         // Validate command presence
         if (!normalizedText.toLowerCase().includes("!tunalaunch")) {
           console.log(`[agent-scan-twitter] Skipping ${tweetId} - no !tunalaunch command`);
