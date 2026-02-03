@@ -16,6 +16,16 @@ const safeJsonParse = (text: string): any => {
   }
 };
 
+// Error detection helper - determines if twitterapi.io returned an error
+const isTwitterApiErrorPayload = (postData: any): boolean => {
+  if (!postData || typeof postData !== "object") return true;
+  if (postData.success === false) return true;
+  if (postData.status === "error") return true;
+  if (typeof postData.error === "string" && postData.error.length > 0) return true;
+  if (typeof postData.msg === "string" && postData.msg.toLowerCase().includes("failed")) return true;
+  return false;
+};
+
 // --- Cookie helpers (for using X_FULL_COOKIE without re-login) ---
 const stripQuotes = (v: string) => v.replace(/^['"]+|['"]+$/g, "").trim();
 
@@ -119,19 +129,48 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check for recent post (prevent double-posting within 50 minutes)
+    // Acquire cron lock to prevent race conditions
+    const lockName = "hourly-post-lock";
+    const lockExpiry = 120; // 2 minutes
+
+    const { data: existingLock } = await supabase
+      .from("cron_locks")
+      .select("lock_name, expires_at")
+      .eq("lock_name", lockName)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+
+    if (existingLock) {
+      console.log("[agent-hourly-post] Lock held by another instance, skipping");
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "Lock held" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Upsert lock
+    await supabase
+      .from("cron_locks")
+      .upsert({
+        lock_name: lockName,
+        acquired_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + lockExpiry * 1000).toISOString(),
+      }, { onConflict: "lock_name" });
+
+    // Check for ANY recent attempt (prevent double-posting within 50 minutes)
+    // CRITICAL: Don't filter by success=true - even failed attempts mean tweet may have gone through
     const { data: recentPost } = await supabase
       .from("hourly_post_log")
-      .select("id, posted_at")
+      .select("id, posted_at, success")
       .gte("posted_at", new Date(Date.now() - 50 * 60 * 1000).toISOString())
-      .eq("success", true)
+      .order("posted_at", { ascending: false })
       .limit(1)
       .single();
 
     if (recentPost) {
-      console.log("[agent-hourly-post] Skipping - already posted within 50 minutes");
+      console.log(`[agent-hourly-post] Skipping - already attempted within 50 minutes (success: ${recentPost.success})`);
       return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "Already posted recently" }),
+        JSON.stringify({ success: true, skipped: true, reason: "Already attempted recently" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -244,9 +283,17 @@ serve(async (req) => {
     const data = safeJsonParse(responseText);
     console.log("[agent-hourly-post] Twitter response:", responseText.slice(0, 500));
 
-    const tweetId = data?.tweet_id || data?.data?.rest_id || data?.data?.id || data?.data?.create_tweet?.tweet_results?.result?.rest_id;
+    // Check for error payload BEFORE extracting tweet_id
+    const isError = isTwitterApiErrorPayload(data);
+    
+    const tweetId = !isError 
+      ? (data?.tweet_id || data?.data?.rest_id || data?.data?.id || data?.data?.create_tweet?.tweet_results?.result?.rest_id)
+      : null;
 
-    // Log the result
+    // Determine success based on both having a tweet_id AND no error payload
+    const postSuccess = !!tweetId && !isError;
+
+    // Log the result with accurate success status
     const logEntry = {
       tweet_id: tweetId || null,
       tweet_text: tweetText,
@@ -254,13 +301,13 @@ serve(async (req) => {
       top_agent_id: topAgent?.agent_id || null,
       top_agent_ticker: topAgent?.ticker || null,
       hourly_fees_sol: topAgent?.hourly_fees || 0,
-      success: !!tweetId,
-      error_message: tweetId ? null : `Failed to post: ${responseText.slice(0, 200)}`,
+      success: postSuccess,
+      error_message: postSuccess ? null : `Failed to post: ${responseText.slice(0, 200)}`,
     };
 
     await supabase.from("hourly_post_log").insert(logEntry);
 
-    if (tweetId) {
+    if (postSuccess) {
       console.log(`[agent-hourly-post] ✅ Tweet posted: ${tweetId}`);
       return new Response(
         JSON.stringify({
