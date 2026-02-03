@@ -45,6 +45,11 @@ export const MIGRATED_POOL_FEE_BPS = 200; // 2% on graduated pools
 export const TOKEN_TYPE = 0; // 0 = SPL Token (not Token-2022)
 export const TOKEN_UPDATE_AUTHORITY = 1; // 1 = immutable metadata
 
+// Fresh deployer wallet configuration
+// Each token launch uses a unique wallet as deployer for better on-chain attribution
+export const LAUNCH_FUNDING_SOL = 0.05; // SOL to fund each fresh deployer
+export const USE_FRESH_DEPLOYER = true; // Feature flag to enable fresh deployer per launch
+
 // Environment variables with validation
 // SUPABASE_URL is required
 export const SUPABASE_URL = process.env.SUPABASE_URL || '';

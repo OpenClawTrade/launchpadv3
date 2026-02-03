@@ -1575,6 +1575,7 @@ export type Database = {
           creator_fee_bps: number | null
           creator_wallet: string | null
           dbc_pool_address: string | null
+          deployer_wallet: string | null
           description: string | null
           discord_url: string | null
           evm_factory_tx_hash: string | null
@@ -1615,6 +1616,7 @@ export type Database = {
           creator_fee_bps?: number | null
           creator_wallet?: string | null
           dbc_pool_address?: string | null
+          deployer_wallet?: string | null
           description?: string | null
           discord_url?: string | null
           evm_factory_tx_hash?: string | null
@@ -1655,6 +1657,7 @@ export type Database = {
           creator_fee_bps?: number | null
           creator_wallet?: string | null
           dbc_pool_address?: string | null
+          deployer_wallet?: string | null
           description?: string | null
           discord_url?: string | null
           evm_factory_tx_hash?: string | null
