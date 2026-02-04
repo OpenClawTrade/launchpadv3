@@ -10,7 +10,7 @@ const corsHeaders = {
 
 // Constants
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
-const RUN_BUDGET_MS = 25_000;
+const MAX_REPLIES_PER_RUN = 1; // Only 1 tweet per minute to avoid bans
 const MAX_REPLIES_PER_HOUR = 20;
 const AUTHOR_COOLDOWN_HOURS = 6;
 const MAX_REPLIES_PER_THREAD = 3;
@@ -326,11 +326,8 @@ serve(async (req) => {
     const eligibleTweets: Tweet[] = [];
 
     for (const tweet of tweets) {
-      // Time budget check
-      if (Date.now() - startTime > RUN_BUDGET_MS - 5000) {
-        debug.scanStoppedReason = "Time budget exhausted during filtering";
-        break;
-      }
+      // Stop if we already have enough eligible tweets (only need 1)
+      if (eligibleTweets.length >= MAX_REPLIES_PER_RUN) break;
 
       // Skip old tweets
       if (!isRecentTweet(tweet.createdAt, thirtyMinutesAgo)) continue;
@@ -381,13 +378,10 @@ serve(async (req) => {
 
     debug.eligibleTweets = eligibleTweets.length;
 
-    // Process eligible tweets
-    for (const tweet of eligibleTweets) {
-      if (Date.now() - startTime > RUN_BUDGET_MS - 3000) {
-        debug.scanStoppedReason = "Time budget exhausted during replies";
-        break;
-      }
-
+    // Process only 1 tweet per run (cron runs every minute)
+    const tweetToProcess = eligibleTweets[0];
+    
+    if (tweetToProcess) {
       // Recheck hourly limit
       const { count: currentCount } = await supabase
         .from("promo_mention_replies")
@@ -396,142 +390,60 @@ serve(async (req) => {
         .eq("status", "sent");
 
       if ((currentCount || 0) >= MAX_REPLIES_PER_HOUR) {
-        debug.scanStoppedReason = "Hourly limit reached during processing";
-        break;
-      }
-
-      const username = tweet.author?.userName || "user";
-      const replyText = await generateReply(tweet.text, username, false);
-
-      if (!replyText) {
-        debug.errors.push(`Failed to generate reply for tweet ${tweet.id}`);
-        continue;
-      }
-
-      const result = await postReply(
-        tweet.id,
-        replyText,
-        TWITTERAPI_IO_KEY,
-        X_FULL_COOKIE,
-        TWITTER_PROXY
-      );
-
-      // Record in database
-      const mentionType = determineMentionType(tweet.text);
-      await supabase.from("promo_mention_replies").insert({
-        tweet_id: tweet.id,
-        tweet_author: username,
-        tweet_author_id: tweet.author?.id || null,
-        tweet_text: tweet.text.substring(0, 500),
-        conversation_id: tweet.conversationId || tweet.id,
-        reply_id: result.replyId || null,
-        reply_text: replyText,
-        reply_type: "initial",
-        mention_type: mentionType,
-        status: result.success ? "sent" : "failed",
-        error_message: result.error || null,
-      });
-
-      // Also record in twitter_bot_replies for cross-dedup
-      if (result.success) {
-        try {
-          await supabase.from("twitter_bot_replies").insert({
-            tweet_id: tweet.id,
-            reply_tweet_id: result.replyId,
-            reply_type: "promo_mention",
-          });
-        } catch {
-          // Ignore cross-dedup insert errors
-        }
-
-        debug.repliesSent++;
+        debug.scanStoppedReason = "Hourly limit reached";
       } else {
-        debug.errors.push(`Reply failed for ${tweet.id}: ${result.error}`);
-      }
-    }
+        const username = tweetToProcess.author?.userName || "user";
+        const replyText = await generateReply(tweetToProcess.text, username, false);
 
-    // Process follow-ups (if time permits)
-    if (Date.now() - startTime < RUN_BUDGET_MS - 5000) {
-      // Find our recent replies that can have follow-ups
-      const { data: pendingFollowUps } = await supabase
-        .from("promo_mention_replies")
-        .select("*")
-        .eq("status", "sent")
-        .neq("reply_type", "followup_2")
-        .not("reply_id", "is", null)
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .limit(10);
-
-      for (const ourReply of pendingFollowUps || []) {
-        if (Date.now() - startTime > RUN_BUDGET_MS - 3000) break;
-
-        // Search for replies to our tweet
-        const replies = await searchRepliesTo(ourReply.reply_id!, TWITTERAPI_IO_KEY);
-
-        for (const reply of replies) {
-          // Check if this is from the original author
-          if (reply.author?.userName?.toLowerCase() !== ourReply.tweet_author.toLowerCase())
-            continue;
-
-          // Check if we already replied to this
-          const { data: alreadyReplied } = await supabase
-            .from("promo_mention_replies")
-            .select("id")
-            .eq("tweet_id", reply.id)
-            .single();
-
-          if (alreadyReplied) continue;
-
-          // Count replies in this thread
-          const { count: threadCount } = await supabase
-            .from("promo_mention_replies")
-            .select("*", { count: "exact", head: true })
-            .eq("conversation_id", ourReply.conversation_id);
-
-          if ((threadCount || 0) >= MAX_REPLIES_PER_THREAD) continue;
-
-          // Determine follow-up type
-          const nextType = ourReply.reply_type === "initial" ? "followup_1" : "followup_2";
-
-          // Generate follow-up reply
-          const followUpText = await generateReply(
-            reply.text,
-            reply.author?.userName || "user",
-            true
-          );
-
-          if (!followUpText) continue;
-
+        if (!replyText) {
+          debug.errors.push(`Failed to generate reply for tweet ${tweetToProcess.id}`);
+        } else {
           const result = await postReply(
-            reply.id,
-            followUpText,
+            tweetToProcess.id,
+            replyText,
             TWITTERAPI_IO_KEY,
             X_FULL_COOKIE,
             TWITTER_PROXY
           );
 
+          // Record in database
+          const mentionType = determineMentionType(tweetToProcess.text);
           await supabase.from("promo_mention_replies").insert({
-            tweet_id: reply.id,
-            tweet_author: reply.author?.userName || "user",
-            tweet_author_id: reply.author?.id || null,
-            tweet_text: reply.text.substring(0, 500),
-            conversation_id: ourReply.conversation_id,
+            tweet_id: tweetToProcess.id,
+            tweet_author: username,
+            tweet_author_id: tweetToProcess.author?.id || null,
+            tweet_text: tweetToProcess.text.substring(0, 500),
+            conversation_id: tweetToProcess.conversationId || tweetToProcess.id,
             reply_id: result.replyId || null,
-            reply_text: followUpText,
-            reply_type: nextType,
-            mention_type: ourReply.mention_type,
+            reply_text: replyText,
+            reply_type: "initial",
+            mention_type: mentionType,
             status: result.success ? "sent" : "failed",
             error_message: result.error || null,
           });
 
+          // Also record in twitter_bot_replies for cross-dedup
           if (result.success) {
-            debug.followUpsProcessed++;
-          }
+            try {
+              await supabase.from("twitter_bot_replies").insert({
+                tweet_id: tweetToProcess.id,
+                reply_tweet_id: result.replyId,
+                reply_type: "promo_mention",
+              });
+            } catch {
+              // Ignore cross-dedup insert errors
+            }
 
-          break; // One follow-up per thread per run
+            debug.repliesSent++;
+          } else {
+            debug.errors.push(`Reply failed for ${tweetToProcess.id}: ${result.error}`);
+          }
         }
       }
     }
+
+    // Skip follow-ups if we already sent a reply this run (1 tweet per minute rule)
+    // Follow-ups will be processed in a future run when no new mentions need replies
 
     // Release lock
     await supabase.from("cron_locks").delete().eq("lock_name", lockName);
