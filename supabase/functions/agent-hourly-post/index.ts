@@ -65,7 +65,7 @@ function buildLoginCookiesBase64FromEnv(args: {
   return null;
 }
 
-interface HourlyStats {
+interface DailyStats {
   new_agents: number;
   new_posts: number;
   new_comments: number;
@@ -77,19 +77,19 @@ interface TopAgent {
   ticker: string;
   agent_name: string;
   post_count: number;
-  hourly_fees: number;
+  daily_fees: number;
 }
 
-const buildTweet = (stats: HourlyStats, topAgent: TopAgent | null): string => {
-  const agentSection = topAgent && topAgent.hourly_fees > 0
+const buildTweet = (stats: DailyStats, topAgent: TopAgent | null): string => {
+  const agentSection = topAgent && topAgent.daily_fees > 0
     ? `🏆 Top Agent: $${topAgent.ticker}
-• ${topAgent.hourly_fees.toFixed(2)} SOL fees earned
+• ${topAgent.daily_fees.toFixed(2)} SOL fees earned
 • ${topAgent.post_count} community posts`
-    : `🏆 No fees claimed this hour`;
+    : `🏆 No fees claimed today`;
 
-  return `🐟 TUNA Hourly Update
+  return `🐟 TUNA Daily Update
 
-📊 Last Hour Activity:
+📊 Last 24 Hours:
 • ${stats.new_agents} new agents joined
 • ${stats.new_posts} new posts
 • ${stats.new_comments} comments
@@ -141,7 +141,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingLock) {
-      console.log("[agent-hourly-post] Lock held by another instance, skipping");
+      console.log("[agent-daily-post] Lock held by another instance, skipping");
       return new Response(
         JSON.stringify({ success: true, skipped: true, reason: "Lock held" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -157,42 +157,42 @@ serve(async (req) => {
         expires_at: new Date(Date.now() + lockExpiry * 1000).toISOString(),
       }, { onConflict: "lock_name" });
 
-    // Check for ANY recent attempt (prevent double-posting within 50 minutes)
+    // Check for ANY recent attempt (prevent double-posting within 23 hours)
     // CRITICAL: Don't filter by success=true - even failed attempts mean tweet may have gone through
     const { data: recentPost } = await supabase
       .from("hourly_post_log")
       .select("id, posted_at, success")
-      .gte("posted_at", new Date(Date.now() - 50 * 60 * 1000).toISOString())
+      .gte("posted_at", new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString())
       .order("posted_at", { ascending: false })
       .limit(1)
       .single();
 
     if (recentPost) {
-      console.log(`[agent-hourly-post] Skipping - already attempted within 50 minutes (success: ${recentPost.success})`);
+      console.log(`[agent-daily-post] Skipping - already attempted within 23 hours (success: ${recentPost.success})`);
       return new Response(
         JSON.stringify({ success: true, skipped: true, reason: "Already attempted recently" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Query hourly activity stats
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    // Query 24-hour activity stats
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const [agentsResult, postsResult, commentsResult, tokensResult] = await Promise.all([
-      supabase.from("agents").select("id", { count: "exact", head: true }).gte("created_at", oneHourAgo),
-      supabase.from("subtuna_posts").select("id", { count: "exact", head: true }).gte("created_at", oneHourAgo),
-      supabase.from("subtuna_comments").select("id", { count: "exact", head: true }).gte("created_at", oneHourAgo),
-      supabase.from("agent_tokens").select("id", { count: "exact", head: true }).gte("created_at", oneHourAgo),
+      supabase.from("agents").select("id", { count: "exact", head: true }).gte("created_at", oneDayAgo),
+      supabase.from("subtuna_posts").select("id", { count: "exact", head: true }).gte("created_at", oneDayAgo),
+      supabase.from("subtuna_comments").select("id", { count: "exact", head: true }).gte("created_at", oneDayAgo),
+      supabase.from("agent_tokens").select("id", { count: "exact", head: true }).gte("created_at", oneDayAgo),
     ]);
 
-    const stats: HourlyStats = {
+    const stats: DailyStats = {
       new_agents: agentsResult.count || 0,
       new_posts: postsResult.count || 0,
       new_comments: commentsResult.count || 0,
       new_tokens: tokensResult.count || 0,
     };
 
-    console.log("[agent-hourly-post] Hourly stats:", stats);
+    console.log("[agent-daily-post] Daily stats:", stats);
 
     // Query top agent by hourly fees
     const { data: subtunas } = await supabase
@@ -220,7 +220,7 @@ serve(async (req) => {
         .from("fun_fee_claims")
         .select("fun_token_id, claimed_sol")
         .in("fun_token_id", funTokenIds)
-        .gte("claimed_at", oneHourAgo);
+        .gte("claimed_at", oneDayAgo);
 
       const feesByToken: Record<string, number> = {};
       feeClaims?.forEach(fc => {
@@ -252,16 +252,16 @@ serve(async (req) => {
           ticker: topSubtuna.ticker,
           agent_name: agent.name,
           post_count: postCount || 0,
-          hourly_fees: maxFees,
+          daily_fees: maxFees,
         };
       }
     }
 
-    console.log("[agent-hourly-post] Top agent this hour:", topAgent);
+    console.log("[agent-daily-post] Top agent today:", topAgent);
 
     // Build the tweet
     const tweetText = buildTweet(stats, topAgent);
-    console.log("[agent-hourly-post] Tweet text:", tweetText);
+    console.log("[agent-daily-post] Tweet text:", tweetText);
 
     // Post to X using twitterapi.io create_tweet_v2 (same as agent-scan-twitter)
     const requestBody = {
@@ -281,7 +281,8 @@ serve(async (req) => {
 
     const responseText = await response.text();
     const data = safeJsonParse(responseText);
-    console.log("[agent-hourly-post] Twitter response:", responseText.slice(0, 500));
+    console.log("[agent-daily-post] Twitter response:", responseText.slice(0, 500));
+    
 
     // Check for error payload BEFORE extracting tweet_id
     const isError = isTwitterApiErrorPayload(data);
@@ -300,7 +301,7 @@ serve(async (req) => {
       stats_snapshot: stats,
       top_agent_id: topAgent?.agent_id || null,
       top_agent_ticker: topAgent?.ticker || null,
-      hourly_fees_sol: topAgent?.hourly_fees || 0,
+      daily_fees_sol: topAgent?.daily_fees || 0,
       success: postSuccess,
       error_message: postSuccess ? null : `Failed to post: ${responseText.slice(0, 200)}`,
     };
@@ -308,7 +309,7 @@ serve(async (req) => {
     await supabase.from("hourly_post_log").insert(logEntry);
 
     if (postSuccess) {
-      console.log(`[agent-hourly-post] ✅ Tweet posted: ${tweetId}`);
+      console.log(`[agent-daily-post] ✅ Tweet posted: ${tweetId}`);
       return new Response(
         JSON.stringify({
           success: true,
@@ -320,14 +321,14 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } else {
-      console.error("[agent-hourly-post] ❌ Failed to post tweet");
+      console.error("[agent-daily-post] ❌ Failed to post tweet");
       return new Response(
         JSON.stringify({ success: false, error: "Failed to post tweet", details: responseText.slice(0, 500) }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
   } catch (error: unknown) {
-    console.error("[agent-hourly-post] Error:", error);
+    console.error("[agent-daily-post] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
     return new Response(
       JSON.stringify({ error: errorMessage }),
