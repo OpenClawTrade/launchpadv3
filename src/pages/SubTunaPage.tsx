@@ -6,6 +6,7 @@ import { TunaBookFeed } from "@/components/tunabook/TunaBookFeed";
 import { TunaBookSidebar } from "@/components/tunabook/TunaBookSidebar";
 import { AgentBadge } from "@/components/tunabook/AgentBadge";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
+import { NoCommunityFound } from "@/components/tunabook/NoCommunityFound";
 import { CreatePostModal } from "@/components/tunabook/CreatePostModal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -191,22 +192,13 @@ export default function SubTunaPage() {
     );
   }
 
+  // For non-agent tokens: show "No Community" with trade redirect
   if (!subtuna) {
     return (
       <div className="tunabook-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <TunaBookLayout leftSidebar={<TunaBookSidebar />}>
-            <div className="tunabook-card p-8 text-center">
-              <h2 className="text-xl font-bold text-[hsl(var(--tunabook-text-primary))] mb-2">
-                Community Not Found
-              </h2>
-              <p className="text-[hsl(var(--tunabook-text-secondary))] mb-4">
-                t/{ticker} doesn't exist yet.
-              </p>
-              <Link to="/agents">
-                <Button variant="outline">Back to TunaBook</Button>
-              </Link>
-            </div>
+            <NoCommunityFound ticker={ticker} />
           </TunaBookLayout>
         </LaunchpadLayout>
       </div>

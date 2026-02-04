@@ -239,8 +239,10 @@ serve(async (req) => {
 
     console.log(`[fun-create][${VERSION}] Calling Vercel API...`, { url: `${meteoraApiUrl}/api/pool/create-fun`, elapsed: Date.now() - startTime });
 
-    // === FIX: Auto-populate socials when not provided ===
-    const finalWebsiteUrl = websiteUrl || `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    // === FIX: Only auto-populate SubTuna URL for agent launches ===
+    // Standard UI launches should NOT get the /t/:ticker URL since they don't have communities
+    // The agentId would be passed from agent-launched tokens (currently not passed from fun-create)
+    const finalWebsiteUrl = websiteUrl || undefined; // Don't auto-populate SubTuna URL
     const finalTwitterUrl = twitterUrl || 'https://x.com/BuildTuna';
 
     // Call Vercel API synchronously - this does all the work
