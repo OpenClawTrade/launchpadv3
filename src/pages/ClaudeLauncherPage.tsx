@@ -94,6 +94,9 @@ export default function ClaudeLauncherPage() {
   const isMobile = useIsMobile();
   const { tokens, isLoading: tokensLoading, lastUpdate, refetch } = useFunTokens();
 
+  // Idempotency key to prevent duplicate launches - regenerated on successful launch
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+
   // Main tabs
   const [activeTab, setActiveTab] = useState<MainTab>("tokens");
   
@@ -277,7 +280,7 @@ export default function ClaudeLauncherPage() {
 
     setIsLaunching(true);
     try {
-      toast({ title: "🔄 Creating Token...", description: "This may take up to 30 seconds..." });
+      toast({ title: "🔄 Creating Token...", description: "This may take up to 60 seconds..." });
 
       const { data, error } = await supabase.functions.invoke("fun-create", {
         body: {
@@ -290,10 +293,21 @@ export default function ClaudeLauncherPage() {
           telegramUrl: tokenToLaunch.telegramUrl,
           discordUrl: tokenToLaunch.discordUrl,
           creatorWallet: walletAddress,
+          idempotencyKey, // Prevent duplicate launches
         },
       });
 
       if (error) throw new Error(error.message || error.toString());
+      
+      // Handle in-progress response (duplicate request while still processing)
+      if (!data?.success && data?.inProgress) {
+        toast({ 
+          title: "Launch In Progress", 
+          description: "This token is already being created. Please wait.",
+        });
+        return;
+      }
+      
       if (!data?.success) throw new Error(data?.error || "Launch failed");
 
       // Direct response - no polling needed!
@@ -317,6 +331,7 @@ export default function ClaudeLauncherPage() {
       setCustomImageFile(null);
       setCustomImagePreview(null);
       setWalletAddress("");
+      setIdempotencyKey(crypto.randomUUID()); // New key for next launch attempt
       refetch();
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to launch";
