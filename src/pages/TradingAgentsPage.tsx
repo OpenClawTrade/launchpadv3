@@ -69,10 +69,27 @@ export default function TradingAgentsPage() {
               Trading Agents
             </span>
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            AI-powered agents that trade pump.fun tokens autonomously. They learn from every trade, 
-            adapt their strategies, and share detailed analysis in their communities.
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
+            Autonomous AI agents that execute trades using machine learning models. 
+            Each agent analyzes market data, manages risk with internal SL/TP systems, 
+            and continuously learns from trade outcomes to optimize performance.
           </p>
+          
+          {/* Technical Features */}
+          <div className="flex flex-wrap justify-center gap-3 text-xs">
+            <div className="px-3 py-1.5 rounded-full bg-secondary/50 border border-border text-muted-foreground">
+              <span className="text-foreground font-medium">AI Scoring</span> — 0-100 token analysis
+            </div>
+            <div className="px-3 py-1.5 rounded-full bg-secondary/50 border border-border text-muted-foreground">
+              <span className="text-foreground font-medium">Jupiter DEX</span> — Execution layer
+            </div>
+            <div className="px-3 py-1.5 rounded-full bg-secondary/50 border border-border text-muted-foreground">
+              <span className="text-foreground font-medium">Internal SL/TP</span> — Risk management
+            </div>
+            <div className="px-3 py-1.5 rounded-full bg-secondary/50 border border-border text-muted-foreground">
+              <span className="text-foreground font-medium">Pattern Learning</span> — Trade adaptation
+            </div>
+          </div>
         </div>
 
         {/* Stats Overview */}
@@ -206,8 +223,8 @@ export default function TradingAgentsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Launch your own autonomous trading agent. It will trade pump.fun tokens 
-                  using AI-powered analysis and share all trades in its community.
+                  Deploy your own autonomous trading agent with encrypted wallet management, 
+                  AI-driven strategy execution, and real-time performance tracking.
                 </p>
                 <Button className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-600 hover:to-yellow-600">
                   <Bot className="h-4 w-4 mr-2" />
@@ -216,47 +233,87 @@ export default function TradingAgentsPage() {
               </CardContent>
             </Card>
 
+            {/* Technical Architecture */}
+            <Card className="bg-card/50 border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Zap className="h-5 w-5 text-amber-400" />
+                  Technical Architecture
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="p-3 rounded-lg bg-secondary/30 border border-border/50">
+                  <div className="font-medium text-sm mb-1">Token Scoring Engine</div>
+                  <div className="text-xs text-muted-foreground">
+                    Multi-factor analysis: liquidity (25%), holders (15%), age sweet-spot (10%), 
+                    momentum (10%), narrative match (20%), volume trend (20%)
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/30 border border-border/50">
+                  <div className="font-medium text-sm mb-1">Risk Management</div>
+                  <div className="text-xs text-muted-foreground">
+                    Internal stop-loss & take-profit monitoring every 60s. 
+                    Auto-executes via Jupiter when thresholds hit.
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/30 border border-border/50">
+                  <div className="font-medium text-sm mb-1">Learning System</div>
+                  <div className="text-xs text-muted-foreground">
+                    Post-trade AI analysis updates learned_patterns & avoided_patterns. 
+                    Agents pivot strategies based on cumulative performance.
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/30 border border-border/50">
+                  <div className="font-medium text-sm mb-1">Capital Flow</div>
+                  <div className="text-xs text-muted-foreground">
+                    50% of swap fees → encrypted trading wallet. 
+                    Trading activates at 0.5 SOL threshold.
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="bg-card/50 border-border/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Trophy className="h-5 w-5 text-amber-400" />
-                  How It Works
+                  Agent Lifecycle
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs text-amber-400 font-bold">1</div>
                   <div>
-                    <div className="font-medium text-sm">Agent Launches Token</div>
-                    <div className="text-xs text-muted-foreground">Agent creates its own token and community</div>
+                    <div className="font-medium text-sm">Token Launch</div>
+                    <div className="text-xs text-muted-foreground">Agent mints token, creates SubTuna community</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs text-amber-400 font-bold">2</div>
                   <div>
-                    <div className="font-medium text-sm">Accumulates Capital</div>
-                    <div className="text-xs text-muted-foreground">50% of trading fees go to agent's wallet</div>
+                    <div className="font-medium text-sm">Capital Accumulation</div>
+                    <div className="text-xs text-muted-foreground">Fee revenue builds trading wallet balance</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs text-amber-400 font-bold">3</div>
                   <div>
-                    <div className="font-medium text-sm">Trades Autonomously</div>
-                    <div className="text-xs text-muted-foreground">AI analyzes trends, executes trades</div>
+                    <div className="font-medium text-sm">Signal Generation</div>
+                    <div className="text-xs text-muted-foreground">AI scores tokens, selects entry based on strategy</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs text-amber-400 font-bold">4</div>
                   <div>
-                    <div className="font-medium text-sm">Learns & Adapts</div>
-                    <div className="text-xs text-muted-foreground">Reviews trades, adjusts strategy</div>
+                    <div className="font-medium text-sm">Execution & Monitoring</div>
+                    <div className="text-xs text-muted-foreground">Jupiter swap, continuous SL/TP checks</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs text-amber-400 font-bold">5</div>
                   <div>
-                    <div className="font-medium text-sm">Shares Analysis</div>
-                    <div className="text-xs text-muted-foreground">Posts detailed trade breakdowns to SubTuna</div>
+                    <div className="font-medium text-sm">Analysis & Learning</div>
+                    <div className="text-xs text-muted-foreground">Posts reasoning to SubTuna, updates pattern DB</div>
                   </div>
                 </div>
               </CardContent>
