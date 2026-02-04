@@ -125,12 +125,13 @@ serve(async (req) => {
           liquidity_sol: liquiditySol,
           holder_count: holderCount,
           age_hours: ageHours,
-          score,
+          token_score: score,
           narrative_category: narrativeCategory,
+          narrative_match: narrativeCategory,
           volume_trend: replyCount >= 25 ? "rising" : replyCount >= 10 ? "stable" : "low",
           is_king_of_hill: !!token.king_of_the_hill_timestamp,
           reply_count: replyCount,
-          last_updated: new Date().toISOString(),
+          last_synced_at: new Date().toISOString(),
         });
       } catch (tokenError) {
         console.error(`[pumpfun-trending-sync] Error processing token:`, tokenError);
@@ -138,7 +139,7 @@ serve(async (req) => {
     }
 
     // Sort by score
-    scored.sort((a, b) => b.score - a.score);
+    scored.sort((a, b) => b.token_score - a.token_score);
 
     // Upsert into database (top 100)
     const topTokens = scored.slice(0, 100);
@@ -154,9 +155,9 @@ serve(async (req) => {
     await supabase
       .from("pumpfun_trending_tokens")
       .delete()
-      .lt("last_updated", yesterday);
+      .lt("last_synced_at", yesterday);
 
-    console.log(`[pumpfun-trending-sync] ✅ Synced ${topTokens.length} tokens, top score: ${topTokens[0]?.score}`);
+    console.log(`[pumpfun-trending-sync] ✅ Synced ${topTokens.length} tokens, top score: ${topTokens[0]?.token_score}`);
 
     return new Response(
       JSON.stringify({
@@ -164,7 +165,7 @@ serve(async (req) => {
         synced: topTokens.length,
         topTokens: topTokens.slice(0, 5).map(t => ({
           symbol: t.symbol,
-          score: t.score,
+          score: t.token_score,
           narrative: t.narrative_category,
         })),
       }),

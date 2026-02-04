@@ -59,9 +59,9 @@ serve(async (req) => {
     const { data: trendingTokens } = await supabase
       .from("pumpfun_trending_tokens")
       .select("*")
-      .gte("score", 60)
+      .gte("token_score", 60)
       .gte("liquidity_sol", MIN_LIQUIDITY_SOL)
-      .order("score", { ascending: false })
+      .order("token_score", { ascending: false })
       .limit(20);
 
     if (!trendingTokens || trendingTokens.length === 0) {

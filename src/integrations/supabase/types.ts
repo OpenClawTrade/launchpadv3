@@ -3112,49 +3112,70 @@ export type Database = {
       }
       pumpfun_trending_tokens: {
         Row: {
+          age_hours: number | null
           created_timestamp: number | null
+          description: string | null
           holder_count: number | null
           id: string
           image_url: string | null
           is_king_of_hill: boolean | null
           last_synced_at: string | null
+          liquidity_sol: number | null
           market_cap_sol: number | null
           mint_address: string
           name: string | null
+          narrative_category: string | null
           narrative_match: string | null
+          price_sol: number | null
+          reply_count: number | null
           symbol: string | null
           token_score: number | null
           virtual_sol_reserves: number | null
+          volume_trend: string | null
         }
         Insert: {
+          age_hours?: number | null
           created_timestamp?: number | null
+          description?: string | null
           holder_count?: number | null
           id?: string
           image_url?: string | null
           is_king_of_hill?: boolean | null
           last_synced_at?: string | null
+          liquidity_sol?: number | null
           market_cap_sol?: number | null
           mint_address: string
           name?: string | null
+          narrative_category?: string | null
           narrative_match?: string | null
+          price_sol?: number | null
+          reply_count?: number | null
           symbol?: string | null
           token_score?: number | null
           virtual_sol_reserves?: number | null
+          volume_trend?: string | null
         }
         Update: {
+          age_hours?: number | null
           created_timestamp?: number | null
+          description?: string | null
           holder_count?: number | null
           id?: string
           image_url?: string | null
           is_king_of_hill?: boolean | null
           last_synced_at?: string | null
+          liquidity_sol?: number | null
           market_cap_sol?: number | null
           mint_address?: string
           name?: string | null
+          narrative_category?: string | null
           narrative_match?: string | null
+          price_sol?: number | null
+          reply_count?: number | null
           symbol?: string | null
           token_score?: number | null
           virtual_sol_reserves?: number | null
+          volume_trend?: string | null
         }
         Relationships: []
       }

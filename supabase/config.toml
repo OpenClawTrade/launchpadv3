@@ -254,3 +254,18 @@ verify_jwt = false
 
 [functions.promo-mention-reply]
 verify_jwt = false
+
+[functions.trading-agent-create]
+verify_jwt = false
+
+[functions.trading-agent-list]
+verify_jwt = false
+
+[functions.trading-agent-execute]
+verify_jwt = false
+
+[functions.trading-agent-monitor]
+verify_jwt = false
+
+[functions.pumpfun-trending-sync]
+verify_jwt = false
