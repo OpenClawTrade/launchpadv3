@@ -570,18 +570,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error(`Failed to create token record: ${tokenError.message}`);
     }
 
-    console.log(`[create-fun][${VERSION}] Token saved to DB`, { tokenId, mintAddress, deployerAddress, imageUrl: imageUrl?.slice(0, 50), elapsed: Date.now() - startTime });
+    console.log(`[create-fun][${VERSION}] Token saved to tokens table`, { tokenId, mintAddress, deployerAddress, imageUrl: imageUrl?.slice(0, 50), elapsed: Date.now() - startTime });
 
-    // Update deployer_wallet column (fire-and-forget since column is optional)
-    if (deployerKeypair) {
-      supabase
-        .from('fun_tokens')
-        .update({ deployer_wallet: deployerAddress })
-        .eq('id', tokenId)
-        .then(({ error }) => {
-          if (error) console.log('[create-fun] Failed to update deployer_wallet:', error);
-          else console.log(`[create-fun] deployer_wallet updated for token ${tokenId}`);
-        });
+    // === ALSO INSERT INTO fun_tokens TABLE ===
+    // The frontend and API use fun_tokens, so we need to ensure it's populated with all metadata
+    const { creatorUsername } = req.body;
+    const { data: funTokenResult, error: funTokenError } = await supabase
+      .from('fun_tokens')
+      .upsert({
+        id: tokenId,
+        name: name.slice(0, 50),
+        ticker: ticker.toUpperCase().slice(0, 10),
+        description: description || `${name} - A fun meme coin!`,
+        image_url: imageUrl || null,
+        website_url: finalWebsiteUrl,
+        twitter_url: finalTwitterUrl,
+        telegram_url: telegramUrl || null,
+        discord_url: discordUrl || null,
+        creator_wallet: feeRecipientWallet || null,
+        deployer_wallet: deployerAddress,
+        mint_address: mintAddress,
+        dbc_pool_address: dbcPoolAddress,
+        status: 'active',
+        price_sol: initialPrice,
+        market_cap_sol: virtualSol,
+        bonding_progress: 0,
+        holder_count: 0,
+        trading_fee_bps: TRADING_FEE_BPS,
+        fee_mode: tokenFeeMode,
+        chain: 'solana',
+      }, {
+        onConflict: 'mint_address',
+        ignoreDuplicates: false,
+      })
+      .select('id')
+      .single();
+
+    if (funTokenError) {
+      console.error(`[create-fun][${VERSION}] fun_tokens insert failed (non-fatal):`, funTokenError.message);
+    } else {
+      console.log(`[create-fun][${VERSION}] ✅ fun_tokens saved`, { id: funTokenResult?.id || tokenId, elapsed: Date.now() - startTime });
+    }
+
+    // Update deployer_wallet column if we had a fresh deployer (fire-and-forget for backward compat)
+    if (deployerKeypair && !funTokenError) {
+      // Already set in upsert above, no need for separate update
+      console.log(`[create-fun][${VERSION}] deployer_wallet set for token ${tokenId}`);
     }
 
     // Mark vanity address as used (fire-and-forget)
