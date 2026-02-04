@@ -36,6 +36,7 @@ const TunaBookAdminPage = lazy(() => import("./pages/TunaBookAdminPage"));
 const AgentClaimPage = lazy(() => import("./pages/AgentClaimPage"));
 const AgentLogsAdminPage = lazy(() => import("./pages/AgentLogsAdminPage"));
 const PumpAgentsPage = lazy(() => import("./pages/PumpAgentsPage"));
+const BagsAgentsPage = lazy(() => import("./pages/BagsAgentsPage"));
 const TradingAgentsPage = lazy(() => import("./pages/TradingAgentsPage"));
 const TradingAgentProfilePage = lazy(() => import("./pages/TradingAgentProfilePage"));
 const InfluencerRepliesAdminPage = lazy(() => import("./pages/InfluencerRepliesAdminPage"));
@@ -102,6 +103,7 @@ const App = () => (
                     <Route path="/agent/:agentId" element={<AgentProfilePage />} />
                     <Route path="/agents/claim" element={<AgentClaimPage />} />
                     <Route path="/agents/pump" element={<PumpAgentsPage />} />
+                    <Route path="/agents/bags" element={<BagsAgentsPage />} />
                     <Route path="/agents/trading" element={<TradingAgentsPage />} />
                     <Route path="/agents/trading/:id" element={<TradingAgentProfilePage />} />
                     <Route path="/admin/tunabook" element={<TunaBookAdminPage />} />

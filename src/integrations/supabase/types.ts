@@ -755,6 +755,44 @@ export type Database = {
           },
         ]
       }
+      bags_fee_claims: {
+        Row: {
+          claimed_sol: number
+          created_at: string | null
+          distributed: boolean | null
+          fun_token_id: string | null
+          id: string
+          mint_address: string
+          signature: string | null
+        }
+        Insert: {
+          claimed_sol?: number
+          created_at?: string | null
+          distributed?: boolean | null
+          fun_token_id?: string | null
+          id?: string
+          mint_address: string
+          signature?: string | null
+        }
+        Update: {
+          claimed_sol?: number
+          created_at?: string | null
+          distributed?: boolean | null
+          fun_token_id?: string | null
+          id?: string
+          mint_address?: string
+          signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bags_fee_claims_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       base_buybacks: {
         Row: {
           created_at: string | null
@@ -1705,6 +1743,9 @@ export type Database = {
           agent_fee_share_bps: number | null
           agent_id: string | null
           api_account_id: string | null
+          bags_creator: string | null
+          bags_pool_address: string | null
+          bags_signature: string | null
           bonding_progress: number | null
           chain: string | null
           chain_id: number | null
@@ -1753,6 +1794,9 @@ export type Database = {
           agent_fee_share_bps?: number | null
           agent_id?: string | null
           api_account_id?: string | null
+          bags_creator?: string | null
+          bags_pool_address?: string | null
+          bags_signature?: string | null
           bonding_progress?: number | null
           chain?: string | null
           chain_id?: number | null
@@ -1801,6 +1845,9 @@ export type Database = {
           agent_fee_share_bps?: number | null
           agent_id?: string | null
           api_account_id?: string | null
+          bags_creator?: string | null
+          bags_pool_address?: string | null
+          bags_signature?: string | null
           bonding_progress?: number | null
           chain?: string | null
           chain_id?: number | null
