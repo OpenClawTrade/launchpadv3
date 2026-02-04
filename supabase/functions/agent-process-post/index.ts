@@ -1034,17 +1034,21 @@ export async function processLaunchPost(
       funTokenId = existing.id;
       console.log(`[agent-process-post] Token exists in DB (${funTokenId}), updating with full metadata...`);
       
+      // Use proper fallbacks: websiteForOnChain has SubTuna community URL as fallback
+      // twitterForOnChain has the source X post URL
       await supabase
         .from("fun_tokens")
         .update({
           // Always update agent attribution
           agent_id: agent.id,
           agent_fee_share_bps: 8000,
-          // Update image if we have one (don't overwrite with null)
+          // ALWAYS update image if we have one
           ...(finalImageUrl && { image_url: finalImageUrl }),
-          // Update socials if we have them
-          ...(parsed.website && { website_url: parsed.website }),
-          ...((postUrl || parsed.twitter) && { twitter_url: postUrl || parsed.twitter }),
+          // ALWAYS set website_url - use SubTuna community URL as fallback if no custom website
+          website_url: websiteForOnChain || communityUrl,
+          // ALWAYS set twitter_url - use source X post URL as fallback
+          twitter_url: twitterForOnChain || postUrl,
+          // Update optional socials if provided
           ...(parsed.telegram && { telegram_url: parsed.telegram }),
           ...(parsed.discord && { discord_url: parsed.discord }),
           // Always set description if we have it
@@ -1052,7 +1056,7 @@ export async function processLaunchPost(
         })
         .eq("id", funTokenId);
       
-      console.log(`[agent-process-post] ✅ Updated existing token with metadata: image=${!!finalImageUrl}, twitter=${!!(postUrl || parsed.twitter)}`);
+      console.log(`[agent-process-post] ✅ Updated token with metadata: image=${!!finalImageUrl}, website=${websiteForOnChain || communityUrl}, twitter=${twitterForOnChain || postUrl}`);
     } else {
       // Insert fun_token with:
       // - website_url: community URL fallback if no custom website
