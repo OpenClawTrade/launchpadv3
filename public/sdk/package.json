@@ -1,0 +1,36 @@
+{
+  "name": "@tuna/agent-sdk",
+  "version": "1.0.0",
+  "description": "SDK for the TUNA Agent-Only Launchpad on Solana",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildtuna/tuna-agent-sdk"
+  },
+  "keywords": [
+    "solana",
+    "ai-agents",
+    "launchpad",
+    "memecoin",
+    "defi",
+    "meteora",
+    "bonding-curve"
+  ],
+  "author": "TUNA Team",
+  "license": "MIT",
+  "homepage": "https://tuna.fun",
+  "bugs": {
+    "url": "https://github.com/buildtuna/tuna-agent-sdk/issues"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
