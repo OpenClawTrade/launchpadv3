@@ -11,7 +11,6 @@ const corsHeaders = {
 // Constants
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const MAX_REPLIES_PER_RUN = 1; // Only 1 tweet per minute to avoid bans
-const MAX_REPLIES_PER_HOUR = 20;
 const AUTHOR_COOLDOWN_HOURS = 6;
 const MAX_REPLIES_PER_THREAD = 3;
 const REPLY_SIGNATURE = "Tuna Launchpad for AI Agents on Solana.";
@@ -427,20 +426,7 @@ serve(async (req) => {
       });
     }
 
-    // Check hourly rate limit
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { count: recentReplies } = await supabase
-      .from("promo_mention_replies")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", oneHourAgo)
-      .eq("status", "sent");
-
-    if ((recentReplies || 0) >= MAX_REPLIES_PER_HOUR) {
-      debug.scanStoppedReason = `Hourly limit reached: ${recentReplies}/${MAX_REPLIES_PER_HOUR}`;
-      return new Response(JSON.stringify({ ok: true, debug }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Hourly limit removed - no rate limiting
 
     // QUEUE-BASED APPROACH: Pull pre-validated tweets from the queue
     // The promo-mention-scan function runs every 2 minutes and populates the queue
@@ -493,76 +479,60 @@ serve(async (req) => {
       }
 
       if (!skipDueToCooldown) {
-        // Recheck hourly limit
-        const { count: currentCount } = await supabase
-          .from("promo_mention_replies")
-          .select("*", { count: "exact", head: true })
-          .gte("created_at", oneHourAgo)
-          .eq("status", "sent");
+        const username = queuedTweet.tweet_author || "user";
+        const replyText = await generateReply(queuedTweet.tweet_text || "", username, false);
 
-        if ((currentCount || 0) >= MAX_REPLIES_PER_HOUR) {
-          debug.scanStoppedReason = "Hourly limit reached";
-          // Put back in queue
+        if (!replyText) {
+          debug.errors.push(`Failed to generate reply for tweet ${queuedTweet.tweet_id}`);
           await supabase
             .from("promo_mention_queue")
-            .update({ status: "pending", processed_at: null })
+            .update({ status: "skipped" })
             .eq("id", queuedTweet.id);
         } else {
-          const username = queuedTweet.tweet_author || "user";
-          const replyText = await generateReply(queuedTweet.tweet_text || "", username, false);
+          const result = await postReply(
+            queuedTweet.tweet_id,
+            replyText,
+            TWITTERAPI_IO_KEY,
+            X_FULL_COOKIE,
+            TWITTER_PROXY
+          );
 
-          if (!replyText) {
-            debug.errors.push(`Failed to generate reply for tweet ${queuedTweet.tweet_id}`);
-            await supabase
-              .from("promo_mention_queue")
-              .update({ status: "skipped" })
-              .eq("id", queuedTweet.id);
-          } else {
-            const result = await postReply(
-              queuedTweet.tweet_id,
-              replyText,
-              TWITTERAPI_IO_KEY,
-              X_FULL_COOKIE,
-              TWITTER_PROXY
-            );
+          // Record in database
+          await supabase.from("promo_mention_replies").insert({
+            tweet_id: queuedTweet.tweet_id,
+            tweet_author: username,
+            tweet_author_id: queuedTweet.tweet_author_id || null,
+            tweet_text: queuedTweet.tweet_text,
+            conversation_id: queuedTweet.conversation_id || queuedTweet.tweet_id,
+            reply_id: result.replyId || null,
+            reply_text: replyText,
+            reply_type: "initial",
+            mention_type: queuedTweet.mention_type,
+            status: result.success ? "sent" : "failed",
+            error_message: result.error || null,
+          });
 
-            // Record in database
-            await supabase.from("promo_mention_replies").insert({
-              tweet_id: queuedTweet.tweet_id,
-              tweet_author: username,
-              tweet_author_id: queuedTweet.tweet_author_id || null,
-              tweet_text: queuedTweet.tweet_text,
-              conversation_id: queuedTweet.conversation_id || queuedTweet.tweet_id,
-              reply_id: result.replyId || null,
-              reply_text: replyText,
-              reply_type: "initial",
-              mention_type: queuedTweet.mention_type,
-              status: result.success ? "sent" : "failed",
-              error_message: result.error || null,
-            });
+          // Mark queue entry as sent
+          await supabase
+            .from("promo_mention_queue")
+            .update({ status: result.success ? "sent" : "skipped" })
+            .eq("id", queuedTweet.id);
 
-            // Mark queue entry as sent
-            await supabase
-              .from("promo_mention_queue")
-              .update({ status: result.success ? "sent" : "skipped" })
-              .eq("id", queuedTweet.id);
-
-            // Also record in twitter_bot_replies for cross-dedup
-            if (result.success) {
-              try {
-                await supabase.from("twitter_bot_replies").insert({
-                  tweet_id: queuedTweet.tweet_id,
-                  reply_tweet_id: result.replyId,
-                  reply_type: "promo_mention",
-                });
-              } catch {
-                // Ignore cross-dedup insert errors
-              }
-
-              debug.repliesSent++;
-            } else {
-              debug.errors.push(`Reply failed for ${queuedTweet.tweet_id}: ${result.error}`);
+          // Also record in twitter_bot_replies for cross-dedup
+          if (result.success) {
+            try {
+              await supabase.from("twitter_bot_replies").insert({
+                tweet_id: queuedTweet.tweet_id,
+                reply_tweet_id: result.replyId,
+                reply_type: "promo_mention",
+              });
+            } catch {
+              // Ignore cross-dedup insert errors
             }
+
+            debug.repliesSent++;
+          } else {
+            debug.errors.push(`Reply failed for ${queuedTweet.tweet_id}: ${result.error}`);
           }
         }
       }
