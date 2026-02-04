@@ -25,6 +25,47 @@ const BOT_USERNAMES = new Set([
   "tunaagents",
 ]);
 
+// twitterapi.io expects base64(JSON(cookieMap)) for static sessions in some endpoints.
+// Reuse the proven cookie formatting approach from twitter-auto-reply.
+const stripQuotes = (v: string) => v.replace(/^['"]+|['"]+$/g, "").trim();
+
+const parseCookieString = (raw: string): Record<string, string> => {
+  const out: Record<string, string> = {};
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split("=");
+    if (!k) continue;
+    const val = rest.join("=");
+    if (val) out[k.trim()] = stripQuotes(val);
+  }
+  return out;
+};
+
+const buildLoginCookiesBase64FromEnv = (args: {
+  xFullCookie?: string | null;
+  xAuthToken?: string | null;
+  xCt0Token?: string | null;
+}): string | null => {
+  const { xFullCookie, xAuthToken, xCt0Token } = args;
+
+  if (xFullCookie && xFullCookie.trim()) {
+    const cookies = parseCookieString(xFullCookie.trim());
+    if (cookies.auth_token && cookies.ct0) {
+      return btoa(JSON.stringify(cookies));
+    }
+  }
+
+  if (xAuthToken && xCt0Token) {
+    const authVal = stripQuotes(xAuthToken.trim());
+    const ct0Val = stripQuotes(xCt0Token.trim());
+    if (authVal && ct0Val) {
+      return btoa(JSON.stringify({ auth_token: authVal, ct0: ct0Val }));
+    }
+  }
+
+  return null;
+};
+
 interface Tweet {
   id: string;
   text: string;
@@ -182,9 +223,13 @@ async function postReply(
   proxy: string
 ): Promise<{ success: boolean; replyId?: string; error?: string }> {
   try {
-    const loginCookies = btoa(cookie);
+    // Prefer the JSON cookie-map encoding (most reliable), then fall back to raw cookie string.
+    const loginCookies =
+      buildLoginCookiesBase64FromEnv({ xFullCookie: cookie }) ?? btoa(cookie);
+
     const response = await fetchWithTimeout(
-      `${TWITTERAPI_BASE}/twitter/tweet/create_v2`,
+      // Use the endpoint/payload that is currently working in twitter-auto-reply.
+      `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
       {
         method: "POST",
         headers: {
@@ -192,7 +237,7 @@ async function postReply(
           "X-API-Key": apiKey,
         },
         body: JSON.stringify({
-          text: replyText,
+          tweet_text: replyText,
           reply_to_tweet_id: tweetId,
           login_cookies: loginCookies,
           ...(proxy && { proxy }),
@@ -201,13 +246,23 @@ async function postReply(
       20000
     );
 
-    const data = await response.json();
+    const rawText = await response.text();
+    const data = (() => {
+      try {
+        return JSON.parse(rawText);
+      } catch {
+        return null;
+      }
+    })();
 
     if (!response.ok) {
-      return { success: false, error: data.message || `HTTP ${response.status}` };
+      const apiMsg =
+        (data && (data.message || data.error || data.msg)) ||
+        (rawText ? rawText.slice(0, 300) : null);
+      return { success: false, error: apiMsg || `HTTP ${response.status}` };
     }
 
-    const replyId = data.data?.tweet?.rest_id || data.tweet_id || data.id;
+    const replyId = data?.data?.tweet?.rest_id || data?.tweet_id || data?.id;
     return { success: true, replyId };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
