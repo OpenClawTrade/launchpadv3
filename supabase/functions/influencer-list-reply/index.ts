@@ -154,15 +154,26 @@ serve(async (req) => {
       if (!username) continue;
 
       try {
+        const tweetsUrl = `https://api.twitterapi.io/twitter/user/last_tweets?userName=${username}`;
         const tweetsResponse = await fetch(
-          `https://api.twitterapi.io/twitter/user/last_tweets?userName=${username}`,
+          tweetsUrl,
           { headers: { "X-API-Key": TWITTERAPI_IO_KEY } }
         );
 
-        if (!tweetsResponse.ok) continue;
+        if (!tweetsResponse.ok) {
+          console.log(`Failed to fetch tweets for ${username}: ${tweetsResponse.status}`);
+          continue;
+        }
 
         const tweetsData = await tweetsResponse.json();
-        const tweets = tweetsData.tweets || [];
+        const tweets = tweetsData.tweets || tweetsData.data || [];
+        
+        // Log first member's response structure for debugging
+        if (totalTweetsFetched === 0 && members.indexOf(member) === 0) {
+          console.log(`First member ${username} response keys:`, Object.keys(tweetsData));
+          console.log(`Tweets array length: ${tweets.length}, raw sample:`, JSON.stringify(tweetsData).substring(0, 500));
+        }
+        
         totalTweetsFetched += tweets.length;
 
         for (const tweet of tweets) {
