@@ -4162,14 +4162,20 @@ export type Database = {
           exit_reason: string | null
           id: string
           investment_sol: number
+          market_conditions: string | null
           opened_at: string | null
           realized_pnl_sol: number | null
+          risk_assessment: string | null
           status: string | null
+          stop_loss_price_sol: number | null
+          strategy_adjustments: string | null
+          target_price_sol: number | null
           token_address: string
           token_image_url: string | null
           token_name: string | null
           token_symbol: string | null
           trading_agent_id: string
+          trailing_stop_active: boolean | null
           unrealized_pnl_pct: number | null
           unrealized_pnl_sol: number | null
         }
@@ -4184,14 +4190,20 @@ export type Database = {
           exit_reason?: string | null
           id?: string
           investment_sol: number
+          market_conditions?: string | null
           opened_at?: string | null
           realized_pnl_sol?: number | null
+          risk_assessment?: string | null
           status?: string | null
+          stop_loss_price_sol?: number | null
+          strategy_adjustments?: string | null
+          target_price_sol?: number | null
           token_address: string
           token_image_url?: string | null
           token_name?: string | null
           token_symbol?: string | null
           trading_agent_id: string
+          trailing_stop_active?: boolean | null
           unrealized_pnl_pct?: number | null
           unrealized_pnl_sol?: number | null
         }
@@ -4206,14 +4218,20 @@ export type Database = {
           exit_reason?: string | null
           id?: string
           investment_sol?: number
+          market_conditions?: string | null
           opened_at?: string | null
           realized_pnl_sol?: number | null
+          risk_assessment?: string | null
           status?: string | null
+          stop_loss_price_sol?: number | null
+          strategy_adjustments?: string | null
+          target_price_sol?: number | null
           token_address?: string
           token_image_url?: string | null
           token_name?: string | null
           token_symbol?: string | null
           trading_agent_id?: string
+          trailing_stop_active?: boolean | null
           unrealized_pnl_pct?: number | null
           unrealized_pnl_sol?: number | null
         }
@@ -4227,14 +4245,73 @@ export type Database = {
           },
         ]
       }
+      trading_agent_strategy_reviews: {
+        Row: {
+          confidence_level: number | null
+          created_at: string | null
+          deprecated_rules: string[] | null
+          id: string
+          key_insights: string | null
+          new_rules: string[] | null
+          review_type: string
+          strategy_adjustments: string | null
+          total_pnl_at_review: number | null
+          trades_analyzed: number | null
+          trading_agent_id: string
+          win_rate_at_review: number | null
+        }
+        Insert: {
+          confidence_level?: number | null
+          created_at?: string | null
+          deprecated_rules?: string[] | null
+          id?: string
+          key_insights?: string | null
+          new_rules?: string[] | null
+          review_type?: string
+          strategy_adjustments?: string | null
+          total_pnl_at_review?: number | null
+          trades_analyzed?: number | null
+          trading_agent_id: string
+          win_rate_at_review?: number | null
+        }
+        Update: {
+          confidence_level?: number | null
+          created_at?: string | null
+          deprecated_rules?: string[] | null
+          id?: string
+          key_insights?: string | null
+          new_rules?: string[] | null
+          review_type?: string
+          strategy_adjustments?: string | null
+          total_pnl_at_review?: number | null
+          trades_analyzed?: number | null
+          trading_agent_id?: string
+          win_rate_at_review?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trading_agent_strategy_reviews_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trading_agent_trades: {
         Row: {
+          ai_reasoning: string | null
           amount_sol: number
           amount_tokens: number
+          confidence_score: number | null
           created_at: string | null
+          entry_analysis: string | null
           error_message: string | null
           execution_time_ms: number | null
+          exit_analysis: string | null
           id: string
+          lessons_learned: string | null
+          market_context: string | null
           narrative_match: string | null
           position_id: string | null
           price_per_token: number
@@ -4242,6 +4319,7 @@ export type Database = {
           slippage_actual: number | null
           status: string | null
           strategy_used: string | null
+          subtuna_post_id: string | null
           token_address: string
           token_name: string | null
           token_score: number | null
@@ -4249,12 +4327,18 @@ export type Database = {
           trading_agent_id: string
         }
         Insert: {
+          ai_reasoning?: string | null
           amount_sol: number
           amount_tokens: number
+          confidence_score?: number | null
           created_at?: string | null
+          entry_analysis?: string | null
           error_message?: string | null
           execution_time_ms?: number | null
+          exit_analysis?: string | null
           id?: string
+          lessons_learned?: string | null
+          market_context?: string | null
           narrative_match?: string | null
           position_id?: string | null
           price_per_token: number
@@ -4262,6 +4346,7 @@ export type Database = {
           slippage_actual?: number | null
           status?: string | null
           strategy_used?: string | null
+          subtuna_post_id?: string | null
           token_address: string
           token_name?: string | null
           token_score?: number | null
@@ -4269,12 +4354,18 @@ export type Database = {
           trading_agent_id: string
         }
         Update: {
+          ai_reasoning?: string | null
           amount_sol?: number
           amount_tokens?: number
+          confidence_score?: number | null
           created_at?: string | null
+          entry_analysis?: string | null
           error_message?: string | null
           execution_time_ms?: number | null
+          exit_analysis?: string | null
           id?: string
+          lessons_learned?: string | null
+          market_context?: string | null
           narrative_match?: string | null
           position_id?: string | null
           price_per_token?: number
@@ -4282,6 +4373,7 @@ export type Database = {
           slippage_actual?: number | null
           status?: string | null
           strategy_used?: string | null
+          subtuna_post_id?: string | null
           token_address?: string
           token_name?: string | null
           token_score?: number | null
@@ -4297,6 +4389,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "trading_agent_trades_subtuna_post_id_fkey"
+            columns: ["subtuna_post_id"]
+            isOneToOne: false
+            referencedRelation: "subtuna_posts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "trading_agent_trades_trading_agent_id_fkey"
             columns: ["trading_agent_id"]
             isOneToOne: false
@@ -4309,6 +4408,11 @@ export type Database = {
         Row: {
           agent_id: string | null
           avatar_url: string | null
+          avg_hold_time_minutes: number | null
+          avoided_patterns: string[] | null
+          best_trade_sol: number | null
+          consecutive_losses: number | null
+          consecutive_wins: number | null
           created_at: string | null
           creator_profile_id: string | null
           creator_wallet: string | null
@@ -4316,7 +4420,9 @@ export type Database = {
           fun_token_id: string | null
           id: string
           last_deposit_at: string | null
+          last_strategy_review: string | null
           last_trade_at: string | null
+          learned_patterns: Json | null
           losing_trades: number | null
           max_concurrent_positions: number | null
           max_position_size_sol: number | null
@@ -4324,6 +4430,7 @@ export type Database = {
           preferred_narratives: string[] | null
           status: string | null
           stop_loss_pct: number | null
+          strategy_notes: string | null
           strategy_type: string | null
           take_profit_pct: number | null
           ticker: string
@@ -4331,16 +4438,23 @@ export type Database = {
           total_profit_sol: number | null
           total_trades: number | null
           trading_capital_sol: number | null
+          trading_style: string | null
           unrealized_pnl_sol: number | null
           updated_at: string | null
           wallet_address: string
           wallet_private_key_encrypted: string
           win_rate: number | null
           winning_trades: number | null
+          worst_trade_sol: number | null
         }
         Insert: {
           agent_id?: string | null
           avatar_url?: string | null
+          avg_hold_time_minutes?: number | null
+          avoided_patterns?: string[] | null
+          best_trade_sol?: number | null
+          consecutive_losses?: number | null
+          consecutive_wins?: number | null
           created_at?: string | null
           creator_profile_id?: string | null
           creator_wallet?: string | null
@@ -4348,7 +4462,9 @@ export type Database = {
           fun_token_id?: string | null
           id?: string
           last_deposit_at?: string | null
+          last_strategy_review?: string | null
           last_trade_at?: string | null
+          learned_patterns?: Json | null
           losing_trades?: number | null
           max_concurrent_positions?: number | null
           max_position_size_sol?: number | null
@@ -4356,6 +4472,7 @@ export type Database = {
           preferred_narratives?: string[] | null
           status?: string | null
           stop_loss_pct?: number | null
+          strategy_notes?: string | null
           strategy_type?: string | null
           take_profit_pct?: number | null
           ticker: string
@@ -4363,16 +4480,23 @@ export type Database = {
           total_profit_sol?: number | null
           total_trades?: number | null
           trading_capital_sol?: number | null
+          trading_style?: string | null
           unrealized_pnl_sol?: number | null
           updated_at?: string | null
           wallet_address: string
           wallet_private_key_encrypted: string
           win_rate?: number | null
           winning_trades?: number | null
+          worst_trade_sol?: number | null
         }
         Update: {
           agent_id?: string | null
           avatar_url?: string | null
+          avg_hold_time_minutes?: number | null
+          avoided_patterns?: string[] | null
+          best_trade_sol?: number | null
+          consecutive_losses?: number | null
+          consecutive_wins?: number | null
           created_at?: string | null
           creator_profile_id?: string | null
           creator_wallet?: string | null
@@ -4380,7 +4504,9 @@ export type Database = {
           fun_token_id?: string | null
           id?: string
           last_deposit_at?: string | null
+          last_strategy_review?: string | null
           last_trade_at?: string | null
+          learned_patterns?: Json | null
           losing_trades?: number | null
           max_concurrent_positions?: number | null
           max_position_size_sol?: number | null
@@ -4388,6 +4514,7 @@ export type Database = {
           preferred_narratives?: string[] | null
           status?: string | null
           stop_loss_pct?: number | null
+          strategy_notes?: string | null
           strategy_type?: string | null
           take_profit_pct?: number | null
           ticker?: string
@@ -4395,12 +4522,14 @@ export type Database = {
           total_profit_sol?: number | null
           total_trades?: number | null
           trading_capital_sol?: number | null
+          trading_style?: string | null
           unrealized_pnl_sol?: number | null
           updated_at?: string | null
           wallet_address?: string
           wallet_private_key_encrypted?: string
           win_rate?: number | null
           winning_trades?: number | null
+          worst_trade_sol?: number | null
         }
         Relationships: [
           {
