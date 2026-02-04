@@ -64,10 +64,6 @@ export default function TradingAgentsPage() {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/30 mb-4">
-            <Bot className="h-5 w-5 text-amber-400" />
-            <span className="text-amber-400 font-medium">Autonomous Trading</span>
-          </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 bg-clip-text text-transparent">
               Trading Agents
