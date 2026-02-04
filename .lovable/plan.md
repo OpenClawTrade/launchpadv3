@@ -1,89 +1,137 @@
 
-# Prevent Duplicate Token Launches – Implementation Plan
+# Fix: Prevent SubTuna Communities for Non-Agent Tokens
 
-## Problem Analysis
+## Problem Summary
 
-Two $WARP tokens were created on-chain and saved to the database 6 seconds apart from the **Token Launcher UI** flow:
+Tokens launched via the standard UI (like WARP) are incorrectly showing SubTuna community pages even though:
+1. They have no `agent_id`
+2. No actual `subtuna` record exists in the database
 
-| Token | Created At | Mint Address |
-|-------|------------|--------------|
-| Warp #1 | 04:30:20 | BmWiYBWY57p7i1Cw97HXvCYNz5vfoU4CiBBynPEVxXjp |
-| Warp #2 | 04:30:26 | RukXn7hY3CAD6VjSt3G4gFoy8aAAHPHMr1YFct6LHfs |
+**Root Causes:**
 
-### Root Causes Identified
-
-1. **No client-side idempotency key** – Each launch generates a brand-new mint on-chain; there is no way to link two requests as belonging to the same "launch intent."
-
-2. **Frontend timeout triggers false failure** – The 35-second timeout in `TokenLauncher.tsx` can fire before the on-chain confirmation completes. The user sees an error and clicks Launch again while the first is still processing.
-
-3. **No backend pre-launch lock** – The backend only checks for duplicate `mint_address` *after* on-chain creation, which cannot catch two parallel attempts.
-
-4. **Missing unique constraints** – The `fun_tokens` table lacks any constraint on `mint_address` or a short-lived cooldown key.
+| Issue | Location | Impact |
+|-------|----------|--------|
+| Virtual community fallback | `useSubTuna.ts` lines 125-144 | Any token ticker renders as a "community" |
+| Auto-populated website URL | `create-fun.ts`, `fun-create/index.ts` | On-chain metadata points to `/t/:ticker` for all tokens |
 
 ---
 
-## Solution: Idempotency Key + Ticker-Wallet Cooldown
+## Solution
 
-Implement a two-layer approach per the user's preferences:
+### Phase 1: Frontend – Stop Rendering Virtual Communities
 
-| Layer | Description |
-|-------|-------------|
-| **Idempotency key** | Client generates a UUID once per launch attempt; if the same key arrives twice the backend reuses the in-progress/completed result |
-| **Ticker-wallet cooldown** | Block launching the same ticker from the same wallet within 10 minutes as an extra safety net |
+**File: `src/hooks/useSubTuna.ts`**
+
+Change the fallback logic to return `null` instead of a virtual object when no real `subtuna` record exists. This will cause `SubTunaPage` to show "Community Not Found" and guide users to the correct trade page.
+
+**Current behavior (lines 125-144):**
+```typescript
+if (error || !subtuna) {
+  // Returns a fake community object from token data
+  return {
+    id: "",
+    name: `t/${funToken.ticker}`,
+    memberCount: 0,
+    postCount: 0,
+    ...
+  };
+}
+```
+
+**New behavior:**
+```typescript
+if (error || !subtuna) {
+  // No real SubTuna community exists - return null
+  // This makes SubTunaPage show "Community Not Found"
+  return null;
+}
+```
 
 ---
 
-## Implementation Steps
+### Phase 2: Frontend – Better "Not Found" UX
 
-### Phase 1 – Database Changes ✅ COMPLETED
+**File: `src/pages/SubTunaPage.tsx`**
 
-**Created migration with:**
-- New `launch_idempotency_locks` table for tracking in-flight and completed attempts
-- Partial unique index `idx_prevent_dup_processing` on `(lower(ticker), creator_wallet)` for processing status
-- Unique constraint on `fun_tokens.mint_address` as last line of defense
-- RLS enabled (backend-only access via SECURITY DEFINER functions)
+Enhance the "Community Not Found" section to provide a helpful redirect:
 
-### Phase 2 – Backend RPC Functions ✅ COMPLETED
+```typescript
+if (!subtuna) {
+  // Check if a token exists for this ticker
+  const { data: token } = await supabase
+    .from("fun_tokens")
+    .select("mint_address")
+    .ilike("ticker", ticker)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
 
-Created two RPC functions:
+  // If token exists, show a link to the trade page instead
+  return (
+    <div>
+      <h2>No Community Yet</h2>
+      <p>This token doesn't have an AI-powered community.</p>
+      {token?.mint_address && (
+        <Link to={`/launchpad/${token.mint_address}`}>
+          <Button>Trade ${ticker} instead</Button>
+        </Link>
+      )}
+    </div>
+  );
+}
+```
 
-1. **`backend_acquire_launch_lock`**
-   - Atomically acquires a lock or returns existing result
-   - Handles: in_progress, already_completed, cooldown, and new lock scenarios
+---
 
-2. **`backend_complete_launch_lock`**
-   - Marks lock as completed/failed with results
+### Phase 3: Backend – Conditional Website URL
 
-3. **`cleanup_old_launch_locks`**
-   - Deletes stale locks older than 1 hour
+Stop auto-populating the SubTuna URL for non-agent token launches.
 
-### Phase 3 – Edge Function Changes ✅ COMPLETED
+**Files to update:**
 
-**Updated `supabase/functions/fun-create/index.ts`:**
-- Accepts optional `idempotencyKey` in request body
-- Acquires lock before calling Vercel pool creation API
-- Returns existing result for duplicate requests
-- Returns 409 for in-progress requests
-- Returns cooldown info for recently completed launches
-- Marks lock as completed/failed on finish
+| File | Change |
+|------|--------|
+| `api/pool/create-fun.ts` | Only use SubTuna URL if `agentId` is provided |
+| `supabase/functions/fun-create/index.ts` | Same conditional logic |
+| `supabase/functions/api-launch-token/index.ts` | Same conditional logic |
 
-### Phase 4 – Frontend Changes ✅ COMPLETED
+**Example fix for `fun-create/index.ts`:**
+```typescript
+// Only use SubTuna URL for agent launches
+const finalWebsiteUrl = websiteUrl 
+  || (agentId ? `https://tuna.fun/t/${ticker.toUpperCase()}` : undefined);
+const finalTwitterUrl = twitterUrl || 'https://x.com/BuildTuna';
+```
 
-**Updated `src/components/launchpad/TokenLauncher.tsx`:**
-- Generates stable idempotency key via `useState(() => crypto.randomUUID())`
-- Passes `idempotencyKey` in request body
-- Handles 409 "in progress" response with user-friendly toast
-- Increased timeout from 35s to 60s
-- Regenerates idempotency key on successful launch
+This ensures:
+- Agent-launched tokens get the community URL in metadata
+- Standard UI launches do NOT get auto-populated community URLs
 
-**Updated `src/pages/ClaudeLauncherPage.tsx`:**
-- Same idempotency key pattern applied
+---
+
+### Phase 4: Navigation – Enforce Agent-Only SubTuna Links
+
+The current navigation logic in `TokenCard`, `TokenTable`, `KingOfTheHill`, and `JustLaunched` is **correct**—it only links to `/t/:ticker` when `agent_id` exists or `launchpad_type === 'pumpfun'`. No changes needed here.
+
+However, we should verify there are no other entry points creating SubTuna links for non-agent tokens.
+
+---
+
+## Summary of Changes
+
+| File | Change |
+|------|--------|
+| `src/hooks/useSubTuna.ts` | Return `null` instead of virtual community when no `subtuna` record exists |
+| `src/pages/SubTunaPage.tsx` | Improve "Not Found" UX with redirect to trade page |
+| `api/pool/create-fun.ts` | Only auto-populate SubTuna URL when `agentId` is present |
+| `supabase/functions/fun-create/index.ts` | Same conditional logic |
+| `supabase/functions/api-launch-token/index.ts` | Same conditional logic |
 
 ---
 
 ## Expected Outcome
 
-- ✅ Double-clicks or timeout retries return the same result instead of creating duplicates
-- ✅ Same ticker+wallet blocked for 10 minutes after a successful launch
-- ✅ On-chain funds protected from accidental duplicate deployments
-- ✅ Clear user feedback when a launch is in progress
+- Navigating to `/t/WARP` shows "No Community Yet" with a "Trade $WARP" button
+- New non-agent tokens won't have `/t/:ticker` in their on-chain metadata
+- Agent-launched tokens continue to work as expected with real communities
+- Clear separation between AI-powered communities and standard token listings
