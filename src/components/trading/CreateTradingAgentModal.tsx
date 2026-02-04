@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import { useCreateTradingAgent } from "@/hooks/useTradingAgents";
 
 const formSchema = z.object({
@@ -72,7 +71,6 @@ const strategies = [
 
 export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAgentModalProps) {
   const { toast } = useToast();
-  const { solanaAddress, login, isAuthenticated } = useAuth();
   const createAgent = useCreateTradingAgent();
   const [createdAgent, setCreatedAgent] = useState<{
     name: string;
@@ -103,15 +101,6 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
   };
 
   const onSubmit = async (values: FormValues) => {
-    if (!solanaAddress) {
-      toast({
-        title: "Wallet Required",
-        description: "Please connect your wallet to create a trading agent.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const result = await createAgent.mutateAsync({
         name: values.name,
@@ -119,7 +108,6 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
         description: values.description,
         strategy: values.strategy,
         personalityPrompt: values.personalityPrompt,
-        creatorWallet: solanaAddress,
       });
 
       if (result.success) {
@@ -225,15 +213,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
           </DialogDescription>
         </DialogHeader>
 
-        {!isAuthenticated ? (
-          <div className="py-8 text-center space-y-4">
-            <p className="text-muted-foreground">Connect your wallet to create a trading agent</p>
-            <Button onClick={() => login()} className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black">
-              Connect Wallet
-            </Button>
-          </div>
-        ) : (
-          <Form {...form}>
+        <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Strategy Selection */}
               <FormField
@@ -380,7 +360,6 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
               </p>
             </form>
           </Form>
-        )}
       </DialogContent>
     </Dialog>
   );

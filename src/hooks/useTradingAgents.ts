@@ -7,7 +7,7 @@ export interface CreateAgentInput {
   description?: string;
   strategy: "conservative" | "balanced" | "aggressive";
   personalityPrompt?: string;
-  creatorWallet: string;
+  creatorWallet?: string;
 }
 
 export interface TradingAgent {

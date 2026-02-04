@@ -41,12 +41,8 @@ serve(async (req) => {
       creatorWallet,
     } = body;
 
-    if (!creatorWallet) {
-      return new Response(
-        JSON.stringify({ error: "creatorWallet is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // creatorWallet is optional - can be used for future creator tracking
+    // Trading agents generate their own wallets for autonomous trading
 
     // Generate trading wallet
     const tradingWallet = Keypair.generate();
