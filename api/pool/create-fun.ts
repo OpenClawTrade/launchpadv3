@@ -263,14 +263,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // === FIX: Only auto-populate SubTuna URL for agent launches ===
-    // Non-agent tokens should NOT get the /t/:ticker URL since they don't have communities
-    // The caller (edge function) passes agentId when it's an agent launch
+    // === FIX: Always auto-populate SubTuna URL for ALL launches ===
+    // Every token gets a SubTuna community page at /t/:ticker
     const { agentId } = req.body;
     const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' 
       ? websiteUrl 
-      : (agentId ? `https://tuna.fun/t/${ticker.toUpperCase()}` : undefined);
-    const finalTwitterUrl = twitterUrl && twitterUrl.trim() !== '' ? twitterUrl : 'https://x.com/BuildTuna';
+      : `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    
+    // === FIX: Validate Twitter URL format - reject broken /i/status/ format ===
+    // Valid format: https://x.com/{username}/status/{id}
+    // Invalid format: https://x.com/i/status/{id} (missing username)
+    const rawTwitterUrl = twitterUrl?.trim() || '';
+    const isValidTwitterUrl = rawTwitterUrl !== '' && 
+      rawTwitterUrl.includes('x.com/') && 
+      !rawTwitterUrl.includes('/i/status/');
+    const finalTwitterUrl = isValidTwitterUrl ? rawTwitterUrl : undefined;
 
     if (!serverSideSign) {
       return res.status(400).json({ error: 'This endpoint requires serverSideSign=true' });
