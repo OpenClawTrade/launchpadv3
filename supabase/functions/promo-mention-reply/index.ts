@@ -101,7 +101,8 @@ async function fetchWithTimeout(
 
 async function searchMentions(apiKey: string): Promise<Tweet[]> {
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
-  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw) -is:retweet");
+  // Only find original tweets that directly mention us, not replies in threads
+  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw) -is:retweet -is:reply");
   searchUrl.searchParams.set("queryType", "Latest");
 
   try {
