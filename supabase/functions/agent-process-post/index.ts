@@ -389,7 +389,11 @@ function assignParsedField(data: Partial<ParsedLaunchData>, key: string, value: 
       break;
     case "description":
     case "desc":
-      data.description = trimmedValue.slice(0, 500);
+      // Strip t.co URLs from user-provided descriptions
+      data.description = trimmedValue
+        .replace(/https?:\/\/t\.co\/\S+/gi, '')
+        .trim()
+        .slice(0, 500);
       break;
     case "image":
     case "logo":

@@ -501,10 +501,15 @@ Launch your unique Solana Agent from TUNA dot Fun`;
     const twitterUrl = `https://x.com/${mention.author.userName}/status/${mention.id}`;
     const websiteUrl = `https://tuna.fun/t/${tokenConcept.ticker.toUpperCase()}`;
 
+    // Final sanitization of description before token creation
+    const sanitizedDescription = tokenConcept.description
+      .replace(/https?:\/\/t\.co\/\S+/gi, '')
+      .trim();
+    
     const tokenResult = await createToken({
       name: tokenConcept.name,
       ticker: tokenConcept.ticker,
-      description: tokenConcept.description,
+      description: sanitizedDescription,
       imageUrl: hostedImageUrl, // ALWAYS hosted URL, never raw
       creatorWallet: validSolanaAddress || null,
       creatorUsername: mention.author.userName,
@@ -629,9 +634,12 @@ async function generateTokenFromTweet(
   apiKey: string
 ): Promise<{ name: string; ticker: string; description: string } | null> {
   try {
+    // Strip ALL t.co URLs from tweet text before AI processing to prevent pollution
+    const cleanedTweetText = tweetText.replace(/https?:\/\/t\.co\/\S+/gi, '').trim();
+    
     const prompt = `Based on this tweet requesting a meme token creation, generate a creative memecoin concept.
 
-Tweet: "${tweetText}"
+Tweet: "${cleanedTweetText}"
 ${imageUrl ? `(Tweet includes an image)` : ""}
 
 Create a fun, memeable token inspired by the tweet's content, theme, or vibe.
@@ -639,7 +647,7 @@ Create a fun, memeable token inspired by the tweet's content, theme, or vibe.
 REQUIREMENTS:
 1. Name: Single word, catchy, max 12 chars (like Pepe, Doge, Wojak, Bonk)
 2. Ticker: 3-5 uppercase letters derived from the name
-3. Description: Fun, trendy description with 1-2 emojis, max 100 chars
+3. Description: Fun, trendy description with 1-2 emojis, max 100 chars. DO NOT include any URLs.
 
 Return ONLY valid JSON:
 {"name": "TokenName", "ticker": "TICK", "description": "Fun description here 🚀"}`;
@@ -653,7 +661,7 @@ Return ONLY valid JSON:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a creative meme coin generator. Return only valid JSON, no markdown." },
+          { role: "system", content: "You are a creative meme coin generator. Return only valid JSON, no markdown. NEVER include URLs in descriptions." },
           { role: "user", content: prompt },
         ],
         temperature: 0.9,
@@ -675,10 +683,18 @@ Return ONLY valid JSON:
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
+    
+    // Clean t.co URLs from AI-generated description as a fallback
+    const cleanDescription = (parsed.description || "A fun meme coin! 🚀")
+      .replace(/https?:\/\/t\.co\/\S+/gi, '')
+      .replace(/\.\.\./g, '')
+      .trim()
+      .slice(0, 100);
+    
     return {
       name: parsed.name?.slice(0, 12) || "MemeToken",
       ticker: (parsed.ticker || parsed.name?.slice(0, 4) || "MEME").toUpperCase().slice(0, 5),
-      description: parsed.description?.slice(0, 100) || "A fun meme coin! 🚀",
+      description: cleanDescription,
     };
   } catch (error) {
     console.error("[mention-launcher] generateTokenFromTweet error:", error);
