@@ -7,6 +7,20 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
+function guessImageMimeType(url: string): string {
+  const u = url.toLowerCase();
+  // Strip query/hash for extension checks
+  const clean = u.split('#')[0].split('?')[0];
+
+  if (clean.endsWith('.png')) return 'image/png';
+  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+  if (clean.endsWith('.webp')) return 'image/webp';
+  if (clean.endsWith('.gif')) return 'image/gif';
+
+  // Safe default: most of our hosted images are jpeg
+  return 'image/jpeg';
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -168,6 +182,8 @@ Deno.serve(async (req) => {
       validImageUrl = '';
     }
 
+    const imageMimeType = validImageUrl ? guessImageMimeType(validImageUrl) : 'image/png';
+
     // Build Metaplex-standard metadata JSON
     // See: https://docs.metaplex.com/programs/token-metadata/token-standard
     // Append #TUNA hashtag for Solscan visibility
@@ -205,7 +221,7 @@ Deno.serve(async (req) => {
         files: validImageUrl ? [
           {
             uri: validImageUrl,
-            type: 'image/png',
+            type: imageMimeType,
           },
         ] : [],
         category: 'image',
