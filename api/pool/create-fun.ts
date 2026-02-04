@@ -247,18 +247,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker' });
     }
 
+    // === STRICT: Reject missing or invalid images ===
+    if (!imageUrl || imageUrl.trim() === '') {
+      console.error(`[create-fun][${VERSION}] Rejected missing image for ${ticker}`);
+      return res.status(400).json({ 
+        error: 'Image URL is required. All tokens must have an image.' 
+      });
+    }
+
     // === FIX: Reject base64 images - they must be uploaded to storage first ===
-    if (imageUrl && imageUrl.startsWith('data:')) {
+    if (imageUrl.startsWith('data:')) {
       console.error(`[create-fun][${VERSION}] Rejected base64 image for ${ticker}`);
       return res.status(400).json({ 
-        error: 'Base64 images not allowed. Please upload to storage first.' 
+        error: 'Base64 images not allowed. Please upload to storage first using the agent-upload endpoint.' 
       });
     }
 
     // === FIX: Auto-populate socials when not provided ===
     // This ensures all tokens have proper metadata for Axiom/DEXTools/Birdeye
-    const finalWebsiteUrl = websiteUrl || `https://tuna.fun/t/${ticker.toUpperCase()}`;
-    const finalTwitterUrl = twitterUrl || 'https://x.com/BuildTuna';
+    const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' ? websiteUrl : `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    const finalTwitterUrl = twitterUrl && twitterUrl.trim() !== '' ? twitterUrl : 'https://x.com/BuildTuna';
 
     if (!serverSideSign) {
       return res.status(400).json({ error: 'This endpoint requires serverSideSign=true' });

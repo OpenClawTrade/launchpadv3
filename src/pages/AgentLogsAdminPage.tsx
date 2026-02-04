@@ -25,6 +25,8 @@ import {
   MagnifyingGlass,
   Coins,
   UsersThree,
+  Image as ImageIcon,
+  Link as LinkIcon,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -86,14 +88,28 @@ interface SubTunaRecord {
   created_at: string;
 }
 
+interface LaunchEvent {
+  id: string;
+  platform: string;
+  post_id: string;
+  post_author: string | null;
+  stage: string;
+  success: boolean;
+  details: Record<string, any>;
+  error_message: string | null;
+  created_at: string;
+}
+
 export default function AgentLogsAdminPage() {
-  const [activeTab, setActiveTab] = useState("mentions");
+  const [activeTab, setActiveTab] = useState("diagnostics");
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
   const [tokenJobs, setTokenJobs] = useState<TokenJob[]>([]);
   const [funTokens, setFunTokens] = useState<FunToken[]>([]);
   const [subTunas, setSubTunas] = useState<SubTunaRecord[]>([]);
+  const [launchEvents, setLaunchEvents] = useState<LaunchEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
+  const [selectedLaunchId, setSelectedLaunchId] = useState<string | null>(null);
 
   const fetchSocialPosts = useCallback(async () => {
     setIsLoading(true);
@@ -177,6 +193,21 @@ export default function AgentLogsAdminPage() {
     }
   }, []);
 
+  const fetchLaunchEvents = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("x_launch_events")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+      setLaunchEvents((data || []) as LaunchEvent[]);
+    } catch (err) {
+      console.error("Error fetching launch events:", err);
+    }
+  }, []);
+
   const triggerScan = async () => {
     setIsLoading(true);
     try {
@@ -191,6 +222,7 @@ export default function AgentLogsAdminPage() {
         `Scan complete: ${data?.processed || 0} posts processed`
       );
       await fetchSocialPosts();
+      await fetchLaunchEvents();
     } catch (err) {
       console.error("Error triggering scan:", err);
       toast.error("Failed to trigger scan");
@@ -204,7 +236,8 @@ export default function AgentLogsAdminPage() {
     fetchTokenJobs();
     fetchFunTokens();
     fetchSubTunas();
-  }, [fetchSocialPosts, fetchTokenJobs, fetchFunTokens, fetchSubTunas]);
+    fetchLaunchEvents();
+  }, [fetchSocialPosts, fetchTokenJobs, fetchFunTokens, fetchSubTunas, fetchLaunchEvents]);
 
   useEffect(() => {
     refreshAll();
@@ -258,6 +291,19 @@ export default function AgentLogsAdminPage() {
     }
   };
 
+  // Group launch events by post_id
+  const eventsByPost = launchEvents.reduce((acc, event) => {
+    if (!acc[event.post_id]) {
+      acc[event.post_id] = [];
+    }
+    acc[event.post_id].push(event);
+    return acc;
+  }, {} as Record<string, LaunchEvent[]>);
+
+  const uniqueLaunchAttempts = Object.keys(eventsByPost).length;
+  const successfulImageUploads = launchEvents.filter(e => e.stage === 'image_upload_ok' && e.success).length;
+  const failedImageUploads = launchEvents.filter(e => e.stage === 'image_upload_failed' || (e.stage === 'image_missing' && !e.success)).length;
+
   const stats = {
     totalMentions: socialPosts.length,
     successfulLaunches: socialPosts.filter((p) => p.status === "launched")
@@ -269,6 +315,9 @@ export default function AgentLogsAdminPage() {
     totalTokens: funTokens.length,
     agentTokens: funTokens.filter((t) => t.agent_id).length,
     totalSubTunas: subTunas.length,
+    launchAttempts: uniqueLaunchAttempts,
+    imageUploadsOk: successfulImageUploads,
+    imageUploadsFailed: failedImageUploads,
   };
 
   return (
@@ -358,7 +407,11 @@ export default function AgentLogsAdminPage() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-secondary/50 border border-border">
+          <TabsList className="bg-secondary/50 border border-border flex-wrap">
+            <TabsTrigger value="diagnostics" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <ImageIcon className="h-4 w-4" />
+              Diagnostics ({stats.launchAttempts})
+            </TabsTrigger>
             <TabsTrigger value="mentions" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <TwitterLogo className="h-4 w-4" />
               Mentions ({socialPosts.length})
@@ -376,6 +429,141 @@ export default function AgentLogsAdminPage() {
               SubTunas ({subTunas.length})
             </TabsTrigger>
           </TabsList>
+
+          {/* X Launch Diagnostics Tab */}
+          <TabsContent value="diagnostics">
+            <Card className="bg-card/50 border-border">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5" />
+                  X Launch Pipeline Diagnostics
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Stage-by-stage tracking for every X-triggered launch. See exactly where image uploads or token creation failed.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {/* Quick Stats */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="bg-secondary/30 rounded p-3">
+                    <div className="text-lg font-bold">{stats.launchAttempts}</div>
+                    <div className="text-xs text-muted-foreground">Launch Attempts</div>
+                  </div>
+                  <div className="bg-primary/10 rounded p-3">
+                    <div className="text-lg font-bold text-primary">{stats.imageUploadsOk}</div>
+                    <div className="text-xs text-muted-foreground">Images Hosted</div>
+                  </div>
+                  <div className="bg-destructive/10 rounded p-3">
+                    <div className="text-lg font-bold text-destructive">{stats.imageUploadsFailed}</div>
+                    <div className="text-xs text-muted-foreground">Image Failures</div>
+                  </div>
+                </div>
+
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border">
+                        <TableHead>Time</TableHead>
+                        <TableHead>Author</TableHead>
+                        <TableHead>Stage</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Details</TableHead>
+                        <TableHead>Error</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {launchEvents.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="text-muted-foreground">
+                              No launch events yet. Events are logged when processing X mentions.
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        launchEvents.map((event) => (
+                          <TableRow key={event.id} className="border-border">
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDate(event.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <TwitterLogo className="h-3 w-3 text-primary" />
+                                <span className="text-sm">
+                                  @{event.post_author || "unknown"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={
+                                event.stage.includes('ok') || event.stage === 'create_token_ok' || event.stage === 'reply_sent'
+                                  ? "bg-primary/20 text-primary border-primary/30"
+                                  : event.stage.includes('failed') || event.stage.includes('missing')
+                                  ? "bg-destructive/20 text-destructive border-destructive/30"
+                                  : "bg-secondary/50"
+                              }>
+                                {event.stage}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {event.success ? (
+                                <CheckCircle className="h-4 w-4 text-primary" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-xs max-w-[200px] space-y-1">
+                                {event.details?.hosted_url && (
+                                  <a
+                                    href={event.details.hosted_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-primary hover:underline"
+                                  >
+                                    <ImageIcon className="h-3 w-3" />
+                                    View Image
+                                  </a>
+                                )}
+                                {event.details?.raw_url && !event.details?.hosted_url && (
+                                  <span className="text-muted-foreground truncate block">
+                                    Raw: {event.details.raw_url.slice(0, 30)}...
+                                  </span>
+                                )}
+                                {event.details?.mint_address && (
+                                  <a
+                                    href={`https://solscan.io/token/${event.details.mint_address}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-primary hover:underline"
+                                  >
+                                    <LinkIcon className="h-3 w-3" />
+                                    {event.details.mint_address.slice(0, 8)}...
+                                  </a>
+                                )}
+                                {event.details?.byte_size && (
+                                  <span className="text-muted-foreground">
+                                    {(event.details.byte_size / 1024).toFixed(1)}KB
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {event.error_message && (
+                                <span className="text-xs text-destructive max-w-[200px] truncate block">
+                                  {event.error_message}
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="mentions">
             <Card className="bg-card/50 border-border">

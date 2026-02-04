@@ -7,18 +7,15 @@ const corsHeaders = {
 };
 
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
-const MAX_LAUNCHES_PER_HOUR = 2; // Per X user
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const MENTION_COOLDOWN_MINUTES = 1; // Between processing mentions - 1 minute
+const MAX_LAUNCHES_PER_HOUR = 2;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const MENTION_COOLDOWN_MINUTES = 1;
 
 // Solana address regex (base58, 32-44 chars)
 const SOLANA_ADDRESS_REGEX = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;
 
-// Keywords that indicate token creation request
-const LAUNCH_KEYWORDS = [
-  "create", "launch", "make", "deploy", "mint", "generate", "build", "spawn",
-  "coin", "token", "meme", "memecoin"
-];
+// Launch command patterns (case-insensitive)
+const LAUNCH_COMMANDS = [/!tunalaunch/i, /!launchtuna/i];
 
 interface Tweet {
   id: string;
@@ -34,6 +31,99 @@ interface Tweet {
   quotedTweet?: Tweet;
 }
 
+interface LaunchEventLogger {
+  log: (stage: string, success: boolean, details?: Record<string, any>, errorMessage?: string) => Promise<void>;
+}
+
+function createEventLogger(supabase: any, postId: string, postAuthor: string | null): LaunchEventLogger {
+  return {
+    log: async (stage: string, success: boolean, details?: Record<string, any>, errorMessage?: string) => {
+      try {
+        await supabase.from("x_launch_events").insert({
+          platform: "twitter",
+          post_id: postId,
+          post_author: postAuthor,
+          stage,
+          success,
+          details: details || {},
+          error_message: errorMessage || null,
+        });
+        console.log(`[mention-launcher] 📝 Event: ${stage} | success=${success}${errorMessage ? ` | error=${errorMessage}` : ""}`);
+      } catch (err) {
+        console.error(`[mention-launcher] Failed to log event:`, err);
+      }
+    },
+  };
+}
+
+// Fetch and re-host an image to permanent storage
+async function rehostImage(
+  rawUrl: string,
+  supabase: any,
+  ticker: string
+): Promise<{ success: boolean; hostedUrl?: string; contentType?: string; byteSize?: number; error?: string }> {
+  const startTime = Date.now();
+  
+  try {
+    // Follow redirects (handles t.co shortlinks)
+    const response = await fetch(rawUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "image/*,*/*;q=0.8",
+      },
+      redirect: "follow",
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status} fetching image` };
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.startsWith("image/")) {
+      return { success: false, error: `Invalid content-type: ${contentType}` };
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const byteSize = arrayBuffer.byteLength;
+
+    if (byteSize > 5 * 1024 * 1024) {
+      return { success: false, error: `Image too large: ${(byteSize / 1024 / 1024).toFixed(2)}MB` };
+    }
+
+    if (byteSize < 1000) {
+      return { success: false, error: `Image too small: ${byteSize} bytes (likely error page)` };
+    }
+
+    // Determine extension
+    let ext = "png";
+    if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = "jpg";
+    else if (contentType.includes("gif")) ext = "gif";
+    else if (contentType.includes("webp")) ext = "webp";
+
+    const fileName = `x-launches/${Date.now()}-${ticker.toUpperCase()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("post-images")
+      .upload(fileName, new Uint8Array(arrayBuffer), {
+        contentType,
+        upsert: true,
+        cacheControl: "31536000",
+      });
+
+    if (uploadError) {
+      return { success: false, error: `Upload failed: ${uploadError.message}` };
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from("post-images").getPublicUrl(fileName);
+
+    console.log(`[mention-launcher] ✅ Image rehosted in ${Date.now() - startTime}ms: ${publicUrl}`);
+
+    return { success: true, hostedUrl: publicUrl, contentType, byteSize };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown fetch error" };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -41,20 +131,19 @@ serve(async (req) => {
 
   const TWITTERAPI_IO_KEY = Deno.env.get("TWITTERAPI_IO_KEY");
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const X_FULL_COOKIE = Deno.env.get("X_FULL_COOKIE"); // Full cookie header from browser
-  const X_AUTH_TOKEN = Deno.env.get("X_AUTH_TOKEN"); // Fallback
-  const X_CT0_TOKEN = Deno.env.get("X_CT0_TOKEN"); // Fallback
+  const X_FULL_COOKIE = Deno.env.get("X_FULL_COOKIE");
+  const X_AUTH_TOKEN = Deno.env.get("X_AUTH_TOKEN");
+  const X_CT0_TOKEN = Deno.env.get("X_CT0_TOKEN");
   const TWITTER_PROXY = Deno.env.get("TWITTER_PROXY");
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const METEORA_API_URL = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
 
-  // Require X_FULL_COOKIE or fallback to individual tokens
   const hasAuth = !!X_FULL_COOKIE || (!!X_AUTH_TOKEN && !!X_CT0_TOKEN);
   if (!TWITTERAPI_IO_KEY || !LOVABLE_API_KEY || !hasAuth) {
     console.error("[mention-launcher] ❌ Missing required API keys");
     return new Response(
-      JSON.stringify({ success: false, error: "Missing API configuration", hasFullCookie: !!X_FULL_COOKIE, hasTokens: !!X_AUTH_TOKEN && !!X_CT0_TOKEN }),
+      JSON.stringify({ success: false, error: "Missing API configuration" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -86,8 +175,14 @@ serve(async (req) => {
         .order("launched_at", { ascending: false })
         .limit(50);
 
+      const { data: events } = await supabase
+        .from("x_launch_events")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
       return new Response(
-        JSON.stringify({ success: true, requests, rateLimits }),
+        JSON.stringify({ success: true, requests, rateLimits, events }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -115,15 +210,8 @@ serve(async (req) => {
 
     console.log("[mention-launcher] 🔍 Searching for @buildtuna mentions...");
 
-    // Search for mentions of @buildtuna using multiple queries to catch more
-    // Include quote tweets and various mention formats
-    const searchQueries = [
-      "@buildtuna",
-      "to:buildtuna", 
-      "\"buildtuna\"",
-      "buildtuna -from:buildtuna",
-    ];
-    
+    // Search for mentions
+    const searchQueries = ["@buildtuna", "to:buildtuna"];
     let allTweets: Tweet[] = [];
     const seenIds = new Set<string>();
 
@@ -148,15 +236,13 @@ serve(async (req) => {
               allTweets.push(t);
             }
           }
-        } else {
-          console.log(`[mention-launcher] ⚠️ Query "${query}" failed: ${searchResponse.status}`);
         }
       } catch (err) {
         console.log(`[mention-launcher] ⚠️ Query "${query}" error: ${err}`);
       }
     }
 
-    // Also try to get mentions via user mentions endpoint (more reliable than search)
+    // Also try mentions endpoint
     try {
       const mentionsUrl = new URL(`${TWITTERAPI_BASE}/twitter/user/mentions`);
       mentionsUrl.searchParams.set("userName", "buildtuna");
@@ -177,9 +263,6 @@ serve(async (req) => {
             allTweets.push(t);
           }
         }
-      } else {
-        const errText = await mentionsResponse.text();
-        console.log(`[mention-launcher] ⚠️ Mentions endpoint failed: ${mentionsResponse.status} - ${errText.slice(0, 200)}`);
       }
     } catch (err) {
       console.log(`[mention-launcher] ⚠️ Mentions endpoint error: ${err}`);
@@ -187,11 +270,6 @@ serve(async (req) => {
 
     const tweets = allTweets;
     console.log(`[mention-launcher] 📊 Total unique mention tweets: ${tweets.length}`);
-    
-    // Log all tweet IDs for debugging
-    if (tweets.length > 0) {
-      console.log(`[mention-launcher] 📋 Tweet IDs: ${tweets.map(t => t.id).join(', ')}`);
-    }
 
     if (tweets.length === 0) {
       return new Response(
@@ -209,7 +287,6 @@ serve(async (req) => {
     
     const processedIds = new Set((processedTweets || []).map(t => t.tweet_id));
 
-    // Also check twitter_bot_replies for any we've already replied to
     const { data: repliedTweets } = await supabase
       .from("twitter_bot_replies")
       .select("tweet_id")
@@ -230,33 +307,24 @@ serve(async (req) => {
       }
     };
 
-    // Filter to unprocessed mentions with launch intent
+    // Filter to unprocessed mentions with explicit launch command
     const eligibleMentions = tweets.filter(t => {
-      if (processedIds.has(t.id) || repliedIds.has(t.id)) {
-        console.log(`[mention-launcher] ⏭️ Skipping ${t.id} - already processed/replied`);
-        return false;
-      }
+      if (processedIds.has(t.id) || repliedIds.has(t.id)) return false;
       if (t.author?.userName?.toLowerCase() === "buildtuna") return false;
       if (!t.text || t.text.length < 10) return false;
+      if (!isRecentTweet(t)) return false;
       
-      // Check if tweet is recent enough
-      if (!isRecentTweet(t)) {
-        console.log(`[mention-launcher] ⏰ Skipping ${t.id} - too old (>${MENTION_MAX_AGE_MINUTES} min)`);
-        return false;
+      // STRICT: Require explicit !tunalaunch or !launchtuna command
+      const hasLaunchCommand = LAUNCH_COMMANDS.some(pattern => pattern.test(t.text));
+      
+      if (!hasLaunchCommand) {
+        console.log(`[mention-launcher] 📝 Tweet ${t.id} - no launch command found`);
       }
       
-      // Check for launch intent keywords
-      const textLower = t.text.toLowerCase();
-      const hasLaunchIntent = LAUNCH_KEYWORDS.some(keyword => textLower.includes(keyword));
-      
-      if (!hasLaunchIntent) {
-        console.log(`[mention-launcher] 📝 Tweet ${t.id} by @${t.author?.userName}: "${t.text.slice(0, 80)}..." - NO launch keywords`);
-      }
-      
-      return hasLaunchIntent;
+      return hasLaunchCommand;
     });
 
-    console.log(`[mention-launcher] ✅ ${eligibleMentions.length} eligible mentions with launch intent`);
+    console.log(`[mention-launcher] ✅ ${eligibleMentions.length} eligible mentions with launch command`);
 
     if (eligibleMentions.length === 0) {
       return new Response(
@@ -267,7 +335,16 @@ serve(async (req) => {
 
     // Process first eligible mention
     const mention = eligibleMentions[0];
+    const logger = createEventLogger(supabase, mention.id, mention.author?.userName || null);
+    
     console.log(`[mention-launcher] 🎯 Processing mention from @${mention.author.userName}: "${mention.text.slice(0, 100)}..."`);
+
+    // Log: Tweet detected
+    await logger.log("detected", true, {
+      tweet_text: mention.text.slice(0, 500),
+      media_urls: mention.mediaUrls || [],
+      created_at: mention.createdAt,
+    });
 
     // Check rate limit for this X user
     const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
@@ -278,9 +355,8 @@ serve(async (req) => {
       .gte("launched_at", oneHourAgo);
 
     if (userLaunches && userLaunches.length >= MAX_LAUNCHES_PER_HOUR) {
-      console.log(`[mention-launcher] ⚠️ Rate limit for @${mention.author.userName}: ${userLaunches.length} launches in last hour`);
+      await logger.log("rate_limited", false, { launches_count: userLaunches.length });
       
-      // Reply with rate limit message
       const rateLimitReply = `@${mention.author.userName} You've already launched ${userLaunches.length} tokens in the last hour. Please wait a bit before creating more! 🕐
 
 Launch your unique Solana Agent from TUNA dot Fun`;
@@ -293,7 +369,6 @@ Launch your unique Solana Agent from TUNA dot Fun`;
         TWITTER_PROXY,
       });
 
-      // Mark as processed
       await supabase.from("x_pending_requests").insert({
         tweet_id: mention.id,
         x_user_id: mention.author.id,
@@ -308,60 +383,21 @@ Launch your unique Solana Agent from TUNA dot Fun`;
       );
     }
 
-    // Extract Solana address from tweet (optional now - user can claim via OAuth later)
-    const solanaAddresses = mention.text.match(SOLANA_ADDRESS_REGEX) || [];
-    const validSolanaAddress = solanaAddresses.find(addr => 
-      addr.length >= 32 && addr.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(addr)
-    );
-
-    // Get image URL if present
-    const imageUrl = mention.mediaUrls?.[0] || null;
-
-    // No longer require wallet - launches can be claimed via X OAuth later
-    // The username is stored for claim flow
-    console.log(`[mention-launcher] 👤 Launch request from @${mention.author.userName}${validSolanaAddress ? ` with wallet ${validSolanaAddress}` : ' (walletless - claimable via OAuth)'}`);
-
-    // Generate token concept from tweet content using AI
-    const tokenConcept = await generateTokenFromTweet(mention.text, imageUrl, LOVABLE_API_KEY);
+    // === STRICT IMAGE REQUIREMENT ===
+    const rawImageUrl = mention.mediaUrls?.[0] || null;
     
-    if (!tokenConcept) {
-      console.error("[mention-launcher] ❌ Failed to generate token concept");
-      return new Response(
-        JSON.stringify({ success: false, error: "Failed to generate token" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`[mention-launcher] 🎨 Generated token: ${tokenConcept.name} ($${tokenConcept.ticker})`);
-
-    // Generate image if not provided
-    let finalImageUrl = imageUrl;
-    if (!finalImageUrl) {
-      finalImageUrl = await generateTokenImage(tokenConcept.name, tokenConcept.description, LOVABLE_API_KEY);
-    }
-
-    // Create the token via fun-create
-    // If no wallet provided, use a placeholder - creator claims via OAuth later
-    const tokenResult = await createToken({
-      name: tokenConcept.name,
-      ticker: tokenConcept.ticker,
-      description: tokenConcept.description,
-      imageUrl: finalImageUrl,
-      creatorWallet: validSolanaAddress || null, // Can be null for walletless launches
-      creatorUsername: mention.author.userName, // Store for OAuth claim
-      twitterUrl: `https://x.com/${mention.author.userName}/status/${mention.id}`,
-      supabase,
-      METEORA_API_URL,
-    });
-
-    if (!tokenResult.success) {
-      console.error("[mention-launcher] ❌ Token creation failed:", tokenResult.error);
+    if (!rawImageUrl) {
+      await logger.log("image_missing", false, {}, "No image attached to tweet");
       
-      // Reply with error
-      const errorReply = `@${mention.author.userName} Sorry, there was an issue creating your token. Please try again later! 🙏
+      const noImageReply = `@${mention.author.userName} Please attach an image to your tweet! 🖼️
+
+To launch a token, reply again with:
+• Your image attached
+• !LAUNCHTUNA command
 
 Launch your unique Solana Agent from TUNA dot Fun`;
-      await postReply(mention.id, errorReply, null, {
+      
+      await postReply(mention.id, noImageReply, null, {
         TWITTERAPI_IO_KEY,
         X_FULL_COOKIE,
         X_AUTH_TOKEN,
@@ -378,14 +414,150 @@ Launch your unique Solana Agent from TUNA dot Fun`;
       });
 
       return new Response(
+        JSON.stringify({ success: false, error: "No image attached" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    await logger.log("image_found", true, { raw_url: rawImageUrl });
+
+    // === RE-HOST IMAGE TO PERMANENT STORAGE ===
+    // Generate token concept first to get ticker for filename
+    const tokenConcept = await generateTokenFromTweet(mention.text, rawImageUrl, LOVABLE_API_KEY);
+    
+    if (!tokenConcept) {
+      await logger.log("token_generation_failed", false, {}, "AI failed to generate token concept");
+      
+      await supabase.from("x_pending_requests").insert({
+        tweet_id: mention.id,
+        x_user_id: mention.author.id,
+        x_username: mention.author.userName,
+        original_tweet_text: mention.text,
+        status: "failed",
+      });
+
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to generate token" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[mention-launcher] 🎨 Generated token: ${tokenConcept.name} ($${tokenConcept.ticker})`);
+
+    // Re-host the attached image
+    const rehostResult = await rehostImage(rawImageUrl, supabase, tokenConcept.ticker);
+    
+    if (!rehostResult.success) {
+      await logger.log("image_upload_failed", false, {
+        raw_url: rawImageUrl,
+        error: rehostResult.error,
+      }, rehostResult.error);
+      
+      const uploadFailReply = `@${mention.author.userName} Sorry, we couldn't process your image. Please try again with a different image! 🖼️
+
+Launch your unique Solana Agent from TUNA dot Fun`;
+      
+      await postReply(mention.id, uploadFailReply, null, {
+        TWITTERAPI_IO_KEY,
+        X_FULL_COOKIE,
+        X_AUTH_TOKEN,
+        X_CT0_TOKEN,
+        TWITTER_PROXY,
+      });
+
+      await supabase.from("x_pending_requests").insert({
+        tweet_id: mention.id,
+        x_user_id: mention.author.id,
+        x_username: mention.author.userName,
+        original_tweet_text: mention.text,
+        original_tweet_image_url: rawImageUrl,
+        status: "failed",
+      });
+
+      return new Response(
+        JSON.stringify({ success: false, error: `Image upload failed: ${rehostResult.error}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const hostedImageUrl = rehostResult.hostedUrl!;
+    
+    await logger.log("image_upload_ok", true, {
+      raw_url: rawImageUrl,
+      hosted_url: hostedImageUrl,
+      content_type: rehostResult.contentType,
+      byte_size: rehostResult.byteSize,
+    });
+
+    // Extract Solana address from tweet (optional - can claim via OAuth later)
+    const solanaAddresses = mention.text.match(SOLANA_ADDRESS_REGEX) || [];
+    const validSolanaAddress = solanaAddresses.find(addr => 
+      addr.length >= 32 && addr.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(addr)
+    );
+
+    console.log(`[mention-launcher] 👤 Launch from @${mention.author.userName}${validSolanaAddress ? ` wallet ${validSolanaAddress}` : ' (walletless)'}`);
+
+    // === CREATE TOKEN WITH MANDATORY SOCIALS ===
+    const twitterUrl = `https://x.com/${mention.author.userName}/status/${mention.id}`;
+    const websiteUrl = `https://tuna.fun/t/${tokenConcept.ticker.toUpperCase()}`;
+
+    const tokenResult = await createToken({
+      name: tokenConcept.name,
+      ticker: tokenConcept.ticker,
+      description: tokenConcept.description,
+      imageUrl: hostedImageUrl, // ALWAYS hosted URL, never raw
+      creatorWallet: validSolanaAddress || null,
+      creatorUsername: mention.author.userName,
+      twitterUrl,
+      websiteUrl,
+      supabase,
+      METEORA_API_URL,
+    });
+
+    if (!tokenResult.success) {
+      await logger.log("create_token_failed", false, {
+        hosted_image_url: hostedImageUrl,
+        twitter_url: twitterUrl,
+        website_url: websiteUrl,
+      }, tokenResult.error);
+      
+      const errorReply = `@${mention.author.userName} Sorry, there was an issue creating your token. Please try again later! 🙏
+
+Launch your unique Solana Agent from TUNA dot Fun`;
+      await postReply(mention.id, errorReply, null, {
+        TWITTERAPI_IO_KEY,
+        X_FULL_COOKIE,
+        X_AUTH_TOKEN,
+        X_CT0_TOKEN,
+        TWITTER_PROXY,
+      });
+
+      await supabase.from("x_pending_requests").insert({
+        tweet_id: mention.id,
+        x_user_id: mention.author.id,
+        x_username: mention.author.userName,
+        original_tweet_text: mention.text,
+        original_tweet_image_url: rawImageUrl,
+        status: "failed",
+      });
+
+      return new Response(
         JSON.stringify({ success: false, error: tokenResult.error }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    await logger.log("create_token_ok", true, {
+      mint_address: tokenResult.mintAddress,
+      trade_url: tokenResult.tradeUrl,
+      hosted_image_url: hostedImageUrl,
+      twitter_url: twitterUrl,
+      website_url: websiteUrl,
+    });
+
     console.log(`[mention-launcher] 🚀 Token created! CA: ${tokenResult.mintAddress}`);
 
-    // Reply with success and token details (include token image)
+    // Reply with success (include hosted image)
     const successReply = `@${mention.author.userName} Your token is LIVE! 🚀
 
 $${tokenConcept.ticker} - ${tokenConcept.name}
@@ -397,13 +569,17 @@ You'll receive 50-80% of all trading fees! 💰
 
 Launch your unique Solana Agent from TUNA dot Fun`;
 
-    await postReply(mention.id, successReply, finalImageUrl, {
+    const replyResult = await postReply(mention.id, successReply, hostedImageUrl, {
       TWITTERAPI_IO_KEY,
       X_FULL_COOKIE,
       X_AUTH_TOKEN,
       X_CT0_TOKEN,
       TWITTER_PROXY,
     });
+
+    await logger.log("reply_sent", replyResult.success, {
+      reply_tweet_id: replyResult.tweetId,
+    }, replyResult.success ? undefined : "Failed to post reply");
 
     // Record the launch for rate limiting
     await supabase.from("x_bot_rate_limits").insert({
@@ -417,7 +593,7 @@ Launch your unique Solana Agent from TUNA dot Fun`;
       x_user_id: mention.author.id,
       x_username: mention.author.userName,
       original_tweet_text: mention.text,
-      original_tweet_image_url: imageUrl,
+      original_tweet_image_url: rawImageUrl,
       status: "completed",
       completed_at: new Date().toISOString(),
     });
@@ -431,6 +607,7 @@ Launch your unique Solana Agent from TUNA dot Fun`;
           name: tokenConcept.name,
           ticker: tokenConcept.ticker,
           mintAddress: tokenResult.mintAddress,
+          hostedImageUrl,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -491,7 +668,6 @@ Return ONLY valid JSON:
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim() || "";
     
-    // Parse JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("[mention-launcher] No JSON in AI response:", content);
@@ -510,51 +686,16 @@ Return ONLY valid JSON:
   }
 }
 
-// Generate token image using AI
-async function generateTokenImage(
-  name: string,
-  description: string,
-  apiKey: string
-): Promise<string | null> {
-  try {
-    const prompt = `Create a simple meme mascot for "${name}" crypto token. ${description}. Cartoon style, expressive face, solid background, no text.`;
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("[mention-launcher] Image generation failed:", response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    // Extract image URL from response
-    const imageUrl = data.choices?.[0]?.message?.content;
-    return imageUrl || null;
-  } catch (error) {
-    console.error("[mention-launcher] generateTokenImage error:", error);
-    return null;
-  }
-}
-
-// Create token via fun-create edge function
+// Create token via fun-create
 async function createToken(params: {
   name: string;
   ticker: string;
   description: string;
-  imageUrl: string | null;
-  creatorWallet: string | null; // Can be null for walletless launches
-  creatorUsername: string; // Username for OAuth claim
+  imageUrl: string;
+  creatorWallet: string | null;
+  creatorUsername: string;
   twitterUrl: string;
+  websiteUrl: string;
   supabase: any;
   METEORA_API_URL: string | undefined;
 }): Promise<{ success: boolean; mintAddress?: string; tradeUrl?: string; error?: string }> {
@@ -572,10 +713,9 @@ async function createToken(params: {
         description: params.description,
         imageUrl: params.imageUrl,
         twitterUrl: params.twitterUrl,
-        // IMPORTANT: don't inject a default website when the user didn't provide one
-        websiteUrl: null,
-        feeRecipientWallet: params.creatorWallet, // Can be null
-        creatorUsername: params.creatorUsername, // For OAuth claim
+        websiteUrl: params.websiteUrl,
+        feeRecipientWallet: params.creatorWallet,
+        creatorUsername: params.creatorUsername,
         serverSideSign: true,
       }),
     });
@@ -629,7 +769,6 @@ async function postReply(
   }
 ): Promise<{ success: boolean; tweetId?: string }> {
   try {
-    // Build login_cookies from X_FULL_COOKIE or fallback to individual tokens
     let loginCookies: Record<string, string>;
     if (config.X_FULL_COOKIE) {
       loginCookies = parseCookieString(config.X_FULL_COOKIE);
@@ -651,7 +790,6 @@ async function postReply(
       login_cookies: loginCookiesB64,
     };
 
-    // Add media if provided
     if (mediaUrl) {
       body.media_url = mediaUrl;
     }
