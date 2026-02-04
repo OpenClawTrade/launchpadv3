@@ -25,6 +25,11 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    const API_ENCRYPTION_KEY = Deno.env.get("API_ENCRYPTION_KEY");
+    if (!API_ENCRYPTION_KEY) {
+      throw new Error("API_ENCRYPTION_KEY not configured");
+    }
+
     const body = await req.json();
     const {
       name,
@@ -47,16 +52,9 @@ serve(async (req) => {
     const tradingWallet = Keypair.generate();
     const walletAddress = tradingWallet.publicKey.toBase58();
     
-    // Encrypt private key using treasury key (first 32 chars as encryption key)
-    const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
-    if (!treasuryPrivateKey) {
-      throw new Error("TREASURY_PRIVATE_KEY not configured");
-    }
-    
+    // Encrypt private key using AES-256-GCM
     const privateKeyBase58 = bs58.encode(tradingWallet.secretKey);
-    // Simple XOR encryption with treasury key (in production, use proper AES)
-    const encryptionKey = treasuryPrivateKey.slice(0, 32).padEnd(32, '0');
-    const encrypted = xorEncrypt(privateKeyBase58, encryptionKey);
+    const encrypted = await aesEncrypt(privateKeyBase58, API_ENCRYPTION_KEY);
 
     // Generate name/ticker/description with AI if not provided
     let finalName = name;
@@ -150,7 +148,7 @@ serve(async (req) => {
           title: `🤖 ${finalName} is now live!`,
           content: `## Welcome to my trading community!
 
-I'm **${finalName}**, an autonomous trading agent built to navigate the pump.fun markets.
+I'm **${finalName}**, an autonomous trading agent built to navigate the crypto markets.
 
 ### 📊 My Strategy
 - **Style**: ${strategy.toUpperCase()}
@@ -159,13 +157,14 @@ I'm **${finalName}**, an autonomous trading agent built to navigate the pump.fun
 - **Max Positions**: ${strategy === "conservative" ? "2" : strategy === "aggressive" ? "5" : "3"}
 
 ### 🧠 How I Work
-1. I analyze trending tokens on pump.fun using AI
-2. I learn from every trade - wins AND losses
-3. I post detailed analysis of each trade here
-4. I continuously adapt my strategy based on performance
+1. I analyze trending tokens using AI scoring (0-100)
+2. I execute trades via Jupiter DEX with internal SL/TP management
+3. I learn from every trade - wins AND losses
+4. I post detailed analysis of each trade here
+5. I continuously adapt my strategy based on performance
 
 ### 💰 Get Involved
-To activate my trading, I need initial capital. Once funded, I'll start trading autonomously and share all my moves here.
+To activate my trading, I need initial capital. Once funded with at least 0.5 SOL, I'll start trading autonomously and share all my moves here.
 
 **My Wallet**: \`${walletAddress}\`
 
@@ -196,7 +195,7 @@ Let's make some gains together! 🚀`,
           id: subtuna.id,
           ticker: subtuna.ticker,
         } : null,
-        message: `Trading agent created! Fund wallet ${walletAddress} with SOL to activate trading.`,
+        message: `Trading agent created! Fund wallet ${walletAddress} with at least 0.5 SOL to activate trading.`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -210,12 +209,68 @@ Let's make some gains together! 🚀`,
   }
 });
 
-function xorEncrypt(data: string, key: string): string {
-  let result = '';
-  for (let i = 0; i < data.length; i++) {
-    result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return btoa(result);
+// AES-256-GCM encryption using Web Crypto API
+async function aesEncrypt(plaintext: string, keyString: string): Promise<string> {
+  // Create a proper 256-bit key from the key string using SHA-256
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(keyString);
+  const keyHash = await crypto.subtle.digest("SHA-256", keyData);
+  
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyHash,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt"]
+  );
+
+  // Generate random 12-byte IV
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  
+  // Encrypt the plaintext
+  const plaintextBytes = encoder.encode(plaintext);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    plaintextBytes
+  );
+
+  // Combine IV + ciphertext and encode as base64
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  
+  return btoa(String.fromCharCode(...combined));
+}
+
+// AES-256-GCM decryption - exported for use in other functions
+export async function aesDecrypt(encryptedBase64: string, keyString: string): Promise<string> {
+  // Create the same 256-bit key from the key string
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(keyString);
+  const keyHash = await crypto.subtle.digest("SHA-256", keyData);
+  
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyHash,
+    { name: "AES-GCM" },
+    false,
+    ["decrypt"]
+  );
+
+  // Decode base64 and split IV + ciphertext
+  const combined = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+
+  // Decrypt
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext
+  );
+
+  return new TextDecoder().decode(decrypted);
 }
 
 async function hashApiKey(apiKey: string): Promise<string> {
@@ -289,6 +344,6 @@ Respond in JSON format:
   return {
     name: input.name || `TradeBot_${Date.now().toString(36)}`,
     ticker: input.ticker || "TBOT",
-    description: input.description || `An autonomous ${input.strategy} trading agent on pump.fun.`,
+    description: input.description || `An autonomous ${input.strategy} trading agent.`,
   };
 }

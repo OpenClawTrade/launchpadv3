@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Connection, Keypair, VersionedTransaction } from "https://esm.sh/@solana/web3.js@1.98.0";
+import bs58 from "https://esm.sh/bs58@5.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +14,9 @@ const STRATEGIES = {
   balanced: { stopLoss: 20, takeProfit: 50 },
   aggressive: { stopLoss: 30, takeProfit: 100 },
 };
+
+const WSOL_MINT = "So11111111111111111111111111111111111111112";
+const SLIPPAGE_BPS = 500; // 5%
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -30,6 +35,18 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    const API_ENCRYPTION_KEY = Deno.env.get("API_ENCRYPTION_KEY");
+    if (!API_ENCRYPTION_KEY) {
+      throw new Error("API_ENCRYPTION_KEY not configured");
+    }
+
+    const HELIUS_RPC_URL = Deno.env.get("HELIUS_RPC_URL");
+    if (!HELIUS_RPC_URL) {
+      throw new Error("HELIUS_RPC_URL not configured");
+    }
+
+    const connection = new Connection(HELIUS_RPC_URL, "confirmed");
+
     // Get all open positions with agent info
     const { data: positions, error: posError } = await supabase
       .from("trading_agent_positions")
@@ -40,6 +57,7 @@ serve(async (req) => {
           total_trades, winning_trades, losing_trades, win_rate,
           consecutive_wins, consecutive_losses, best_trade_sol, worst_trade_sol,
           learned_patterns, avoided_patterns, preferred_narratives,
+          wallet_private_key_encrypted,
           agent:agents(id, name, avatar_url)
         )
       `)
@@ -97,9 +115,36 @@ serve(async (req) => {
         const hitTakeProfit = pnlPct >= strategy.takeProfit;
 
         if (hitStopLoss || hitTakeProfit) {
-          // Time to close position
+          // Time to close position - execute real Jupiter swap
           const closeReason = hitStopLoss ? "stop_loss" : "take_profit";
-          const realizedPnl = unrealizedPnl;
+
+          // Decrypt agent's wallet private key
+          const agentKeypair = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
+          if (!agentKeypair) {
+            console.error(`[trading-agent-monitor] Failed to decrypt wallet for ${agent.name}`);
+            continue;
+          }
+
+          // Execute Jupiter swap: Token -> SOL
+          const tokenDecimals = await getTokenDecimals(connection, position.token_address);
+          const amountToSell = Math.floor(position.amount_tokens * Math.pow(10, tokenDecimals));
+
+          const swapResult = await executeJupiterSwap(
+            connection,
+            agentKeypair,
+            position.token_address,
+            WSOL_MINT,
+            amountToSell,
+            SLIPPAGE_BPS
+          );
+
+          if (!swapResult.success) {
+            console.error(`[trading-agent-monitor] Sell swap failed for ${agent.name}:`, swapResult.error);
+            continue;
+          }
+
+          const solReceived = (swapResult.outputAmount || currentValue);
+          const realizedPnl = solReceived - position.investment_sol;
 
           // Get AI analysis for the exit
           const exitAnalysis = await generateExitAnalysis(
@@ -139,7 +184,7 @@ serve(async (req) => {
               token_address: position.token_address,
               token_name: position.token_name,
               trade_type: "sell",
-              amount_sol: currentValue,
+              amount_sol: solReceived,
               amount_tokens: position.amount_tokens,
               price_per_token: currentPrice,
               strategy_used: agent.strategy_type,
@@ -148,6 +193,7 @@ serve(async (req) => {
               lessons_learned: exitAnalysis.lessonsLearned,
               market_context: exitAnalysis.marketContext,
               status: "confirmed",
+              signature: swapResult.signature,
             })
             .select()
             .single();
@@ -191,7 +237,7 @@ serve(async (req) => {
           await supabase
             .from("trading_agents")
             .update({
-              trading_capital_sol: (agent.trading_capital_sol || 0) + currentValue,
+              trading_capital_sol: (agent.trading_capital_sol || 0) + solReceived,
               total_profit_sol: (agent.total_profit_sol || 0) + realizedPnl,
               total_trades: newTotalTrades,
               winning_trades: newWinningTrades,
@@ -218,7 +264,8 @@ serve(async (req) => {
               exitAnalysis,
               realizedPnl,
               pnlPct,
-              closeReason
+              closeReason,
+              swapResult.signature
             );
           }
 
@@ -240,13 +287,14 @@ serve(async (req) => {
             closeReason,
             pnlPct: pnlPct.toFixed(2),
             realizedPnl: realizedPnl.toFixed(6),
+            signature: swapResult.signature,
           });
 
           closedCount++;
           if (hitStopLoss) stopLossCount++;
           if (hitTakeProfit) takeProfitCount++;
 
-          console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol}: ${closeReason} (${pnlPct.toFixed(2)}%)`);
+          console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol}: ${closeReason} (${pnlPct.toFixed(2)}%) sig: ${swapResult.signature}`);
         }
 
       } catch (positionError) {
@@ -275,18 +323,157 @@ serve(async (req) => {
   }
 });
 
+async function decryptWallet(encryptedKey: string, encryptionKey: string): Promise<Keypair | null> {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(encryptionKey);
+    const keyHash = await crypto.subtle.digest("SHA-256", keyData);
+    
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyHash,
+      { name: "AES-GCM" },
+      false,
+      ["decrypt"]
+    );
+
+    const combined = Uint8Array.from(atob(encryptedKey), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      ciphertext
+    );
+
+    const privateKeyBase58 = new TextDecoder().decode(decrypted);
+    const secretKey = bs58.decode(privateKeyBase58);
+    return Keypair.fromSecretKey(secretKey);
+  } catch (error) {
+    console.error("[trading-agent-monitor] Wallet decryption failed:", error);
+    return null;
+  }
+}
+
+async function getTokenDecimals(connection: Connection, mintAddress: string): Promise<number> {
+  try {
+    const { PublicKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
+    const mintPubkey = new PublicKey(mintAddress);
+    const mintInfo = await connection.getParsedAccountInfo(mintPubkey);
+    const data = mintInfo.value?.data;
+    if (data && typeof data === "object" && "parsed" in data) {
+      return data.parsed.info.decimals || 6;
+    }
+    return 6; // Default to 6 decimals
+  } catch {
+    return 6;
+  }
+}
+
+async function executeJupiterSwap(
+  connection: Connection,
+  payer: Keypair,
+  inputMint: string,
+  outputMint: string,
+  amount: number,
+  slippageBps: number
+): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string }> {
+  try {
+    // Get quote from Jupiter
+    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
+    const quoteResponse = await fetch(quoteUrl);
+    
+    if (!quoteResponse.ok) {
+      return { success: false, error: `Quote failed: ${quoteResponse.status}` };
+    }
+
+    const quote = await quoteResponse.json();
+    const outputAmount = parseInt(quote.outAmount) / 1e9; // SOL has 9 decimals
+
+    // Get swap transaction
+    const swapResponse = await fetch("https://quote-api.jup.ag/v6/swap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quoteResponse: quote,
+        userPublicKey: payer.publicKey.toBase58(),
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: "auto",
+      }),
+    });
+
+    if (!swapResponse.ok) {
+      return { success: false, error: `Swap request failed: ${swapResponse.status}` };
+    }
+
+    const swapData = await swapResponse.json();
+    const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
+    const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+
+    // Sign and send transaction
+    transaction.sign([payer]);
+    
+    const signature = await connection.sendTransaction(transaction, {
+      skipPreflight: true,
+      maxRetries: 3,
+    });
+
+    // Confirm transaction with retries
+    let confirmed = false;
+    for (let i = 0; i < 30; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const status = await connection.getSignatureStatus(signature);
+      if (status.value?.confirmationStatus === "confirmed" || status.value?.confirmationStatus === "finalized") {
+        confirmed = true;
+        break;
+      }
+      if (status.value?.err) {
+        return { success: false, error: `Transaction error: ${JSON.stringify(status.value.err)}` };
+      }
+    }
+
+    if (!confirmed) {
+      return { success: false, error: "Transaction confirmation timeout" };
+    }
+
+    return { success: true, signature, outputAmount };
+
+  } catch (error) {
+    console.error("[trading-agent-monitor] Jupiter swap error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown swap error" };
+  }
+}
+
 async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, number>> {
   const priceMap = new Map<string, number>();
   
   try {
-    // Fetch from pump.fun API or our cache
+    // Try Jupiter price API first (more reliable)
     for (const address of tokenAddresses) {
+      try {
+        const response = await fetch(`https://price.jup.ag/v6/price?ids=${address}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data?.[address]?.price) {
+            // Jupiter returns USD price, convert to SOL (approximate)
+            const solPrice = 150; // TODO: Fetch real SOL price
+            priceMap.set(address, data.data[address].price / solPrice);
+            continue;
+          }
+        }
+      } catch {
+        // Fall through to pump.fun API
+      }
+
+      // Fallback: pump.fun API
       try {
         const response = await fetch(`https://frontend-api.pump.fun/coins/${address}`);
         if (response.ok) {
           const data = await response.json();
-          if (data.usd_market_cap && data.total_supply) {
-            const priceSol = (data.usd_market_cap / data.total_supply) / 150; // Approximate SOL price
+          if (data.virtual_sol_reserves && data.virtual_token_reserves) {
+            const priceSol = (data.virtual_sol_reserves / 1e9) / (data.virtual_token_reserves / 1e6);
             priceMap.set(address, priceSol);
           }
         }
@@ -405,7 +592,8 @@ async function postExitToSubTuna(
   analysis: any,
   realizedPnl: number,
   pnlPct: number,
-  closeReason: string
+  closeReason: string,
+  signature?: string
 ) {
   try {
     const { data: subtuna } = await supabase
@@ -439,6 +627,8 @@ async function postExitToSubTuna(
 | Hold Time | ${holdTimeMinutes} minutes |
 | Close Reason | ${closeReason.replace("_", " ").toUpperCase()} |
 
+${signature ? `### 🔗 Transaction\n\`${signature}\`\n` : ""}
+
 ### 🎯 Original Entry Thesis
 ${position.entry_reason || "Not recorded"}
 
@@ -460,7 +650,7 @@ ${analysis.reasoning}
 - Total Trades: ${agent.total_trades || 0}
 - Consecutive ${isWin ? "Wins" : "Losses"}: ${isWin ? (agent.consecutive_wins || 0) + 1 : (agent.consecutive_losses || 0) + 1}
 
-*Autonomous trade by ${agent.name}. Each trade teaches us something new.*`;
+*Autonomous trade by ${agent.name} via Jupiter DEX. Each trade teaches us something new.*`;
 
     const { data: post } = await supabase
       .from("subtuna_posts")
