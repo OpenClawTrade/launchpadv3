@@ -1,0 +1,610 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// Strategy configurations
+const STRATEGIES = {
+  conservative: { stopLoss: 10, takeProfit: 25 },
+  balanced: { stopLoss: 20, takeProfit: 50 },
+  aggressive: { stopLoss: 30, takeProfit: 100 },
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  console.log("[trading-agent-monitor] Starting position monitoring cycle...");
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY not configured");
+    }
+
+    // Get all open positions with agent info
+    const { data: positions, error: posError } = await supabase
+      .from("trading_agent_positions")
+      .select(`
+        *,
+        trading_agent:trading_agents(
+          id, name, strategy_type, trading_capital_sol,
+          total_trades, winning_trades, losing_trades, win_rate,
+          consecutive_wins, consecutive_losses, best_trade_sol, worst_trade_sol,
+          learned_patterns, avoided_patterns, preferred_narratives,
+          agent:agents(id, name, avatar_url)
+        )
+      `)
+      .eq("status", "open");
+
+    if (posError) throw posError;
+    if (!positions || positions.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: "No open positions to monitor" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[trading-agent-monitor] Monitoring ${positions.length} open positions`);
+
+    // Fetch current prices for all tokens (batch by token)
+    const tokenAddresses = [...new Set(positions.map(p => p.token_address))];
+    const priceMap = await fetchTokenPrices(tokenAddresses);
+
+    const results: any[] = [];
+    let closedCount = 0;
+    let stopLossCount = 0;
+    let takeProfitCount = 0;
+
+    for (const position of positions) {
+      try {
+        const agent = position.trading_agent;
+        if (!agent) continue;
+
+        const strategy = STRATEGIES[agent.strategy_type as keyof typeof STRATEGIES] || STRATEGIES.balanced;
+        const currentPrice = priceMap.get(position.token_address) || position.current_price_sol;
+        const entryPrice = position.entry_price_sol || 0;
+
+        if (!currentPrice || !entryPrice) continue;
+
+        // Calculate P&L
+        const pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
+        const currentValue = position.amount_tokens * currentPrice;
+        const unrealizedPnl = currentValue - position.investment_sol;
+
+        // Update position with current price
+        await supabase
+          .from("trading_agent_positions")
+          .update({
+            current_price_sol: currentPrice,
+            current_value_sol: currentValue,
+            unrealized_pnl_sol: unrealizedPnl,
+            unrealized_pnl_pct: pnlPct,
+          })
+          .eq("id", position.id);
+
+        // Check stop loss
+        const hitStopLoss = pnlPct <= -strategy.stopLoss;
+        // Check take profit  
+        const hitTakeProfit = pnlPct >= strategy.takeProfit;
+
+        if (hitStopLoss || hitTakeProfit) {
+          // Time to close position
+          const closeReason = hitStopLoss ? "stop_loss" : "take_profit";
+          const realizedPnl = unrealizedPnl;
+
+          // Get AI analysis for the exit
+          const exitAnalysis = await generateExitAnalysis(
+            LOVABLE_API_KEY,
+            agent,
+            position,
+            currentPrice,
+            pnlPct,
+            closeReason
+          );
+
+          // Get past trades for learning
+          const { data: pastTrades } = await supabase
+            .from("trading_agent_trades")
+            .select("*")
+            .eq("trading_agent_id", agent.id)
+            .order("created_at", { ascending: false })
+            .limit(20);
+
+          // Close position
+          await supabase
+            .from("trading_agent_positions")
+            .update({
+              status: closeReason === "stop_loss" ? "stopped_out" : "take_profit",
+              realized_pnl_sol: realizedPnl,
+              exit_reason: exitAnalysis.exitReason,
+              closed_at: new Date().toISOString(),
+            })
+            .eq("id", position.id);
+
+          // Create sell trade record
+          const { data: trade } = await supabase
+            .from("trading_agent_trades")
+            .insert({
+              trading_agent_id: agent.id,
+              position_id: position.id,
+              token_address: position.token_address,
+              token_name: position.token_name,
+              trade_type: "sell",
+              amount_sol: currentValue,
+              amount_tokens: position.amount_tokens,
+              price_per_token: currentPrice,
+              strategy_used: agent.strategy_type,
+              exit_analysis: exitAnalysis.fullAnalysis,
+              ai_reasoning: exitAnalysis.reasoning,
+              lessons_learned: exitAnalysis.lessonsLearned,
+              market_context: exitAnalysis.marketContext,
+              status: "confirmed",
+            })
+            .select()
+            .single();
+
+          // Update agent stats
+          const isWin = realizedPnl > 0;
+          const newWinningTrades = (agent.winning_trades || 0) + (isWin ? 1 : 0);
+          const newLosingTrades = (agent.losing_trades || 0) + (isWin ? 0 : 1);
+          const newTotalTrades = (agent.total_trades || 0) + 1;
+          const newWinRate = newTotalTrades > 0 ? (newWinningTrades / newTotalTrades) * 100 : 0;
+
+          const consecutiveWins = isWin ? (agent.consecutive_wins || 0) + 1 : 0;
+          const consecutiveLosses = isWin ? 0 : (agent.consecutive_losses || 0) + 1;
+
+          const bestTrade = Math.max(agent.best_trade_sol || 0, isWin ? realizedPnl : 0);
+          const worstTrade = Math.min(agent.worst_trade_sol || 0, isWin ? 0 : realizedPnl);
+
+          // Calculate hold time
+          const holdTimeMs = new Date().getTime() - new Date(position.opened_at).getTime();
+          const holdTimeMinutes = Math.floor(holdTimeMs / 60000);
+          const avgHoldTime = agent.avg_hold_time_minutes 
+            ? Math.floor((agent.avg_hold_time_minutes + holdTimeMinutes) / 2)
+            : holdTimeMinutes;
+
+          // Update learned patterns if significant loss
+          let avoidedPatterns = agent.avoided_patterns || [];
+          let learnedPatterns = agent.learned_patterns || [];
+
+          if (consecutiveLosses >= 3 && exitAnalysis.patternToAvoid) {
+            avoidedPatterns = [...new Set([...avoidedPatterns, exitAnalysis.patternToAvoid])];
+          }
+
+          if (consecutiveWins >= 3 && exitAnalysis.successPattern) {
+            learnedPatterns = [...learnedPatterns, {
+              pattern: exitAnalysis.successPattern,
+              winRate: newWinRate,
+              learnedAt: new Date().toISOString(),
+            }];
+          }
+
+          await supabase
+            .from("trading_agents")
+            .update({
+              trading_capital_sol: (agent.trading_capital_sol || 0) + currentValue,
+              total_profit_sol: (agent.total_profit_sol || 0) + realizedPnl,
+              total_trades: newTotalTrades,
+              winning_trades: newWinningTrades,
+              losing_trades: newLosingTrades,
+              win_rate: newWinRate,
+              consecutive_wins: consecutiveWins,
+              consecutive_losses: consecutiveLosses,
+              best_trade_sol: bestTrade,
+              worst_trade_sol: worstTrade,
+              avg_hold_time_minutes: avgHoldTime,
+              avoided_patterns: avoidedPatterns,
+              learned_patterns: learnedPatterns,
+              last_trade_at: new Date().toISOString(),
+            })
+            .eq("id", agent.id);
+
+          // Post exit analysis to SubTuna
+          if (trade) {
+            await postExitToSubTuna(
+              supabase,
+              agent,
+              trade,
+              position,
+              exitAnalysis,
+              realizedPnl,
+              pnlPct,
+              closeReason
+            );
+          }
+
+          // Check if strategy review needed (after 3+ consecutive losses or every 10 trades)
+          if (consecutiveLosses >= 3 || newTotalTrades % 10 === 0) {
+            await triggerStrategyReview(
+              supabase,
+              LOVABLE_API_KEY,
+              agent,
+              pastTrades || [],
+              consecutiveLosses >= 3 ? "after_loss" : "periodic"
+            );
+          }
+
+          results.push({
+            positionId: position.id,
+            agentName: agent.name,
+            token: position.token_symbol,
+            closeReason,
+            pnlPct: pnlPct.toFixed(2),
+            realizedPnl: realizedPnl.toFixed(6),
+          });
+
+          closedCount++;
+          if (hitStopLoss) stopLossCount++;
+          if (hitTakeProfit) takeProfitCount++;
+
+          console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol}: ${closeReason} (${pnlPct.toFixed(2)}%)`);
+        }
+
+      } catch (positionError) {
+        console.error(`[trading-agent-monitor] Error processing position ${position.id}:`, positionError);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        monitored: positions.length,
+        closed: closedCount,
+        stopLosses: stopLossCount,
+        takeProfits: takeProfitCount,
+        results,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("[trading-agent-monitor] Error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
+
+async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, number>> {
+  const priceMap = new Map<string, number>();
+  
+  try {
+    // Fetch from pump.fun API or our cache
+    for (const address of tokenAddresses) {
+      try {
+        const response = await fetch(`https://frontend-api.pump.fun/coins/${address}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.usd_market_cap && data.total_supply) {
+            const priceSol = (data.usd_market_cap / data.total_supply) / 150; // Approximate SOL price
+            priceMap.set(address, priceSol);
+          }
+        }
+      } catch (e) {
+        console.warn(`[trading-agent-monitor] Failed to fetch price for ${address}`);
+      }
+    }
+  } catch (error) {
+    console.error("[trading-agent-monitor] Price fetch error:", error);
+  }
+  
+  return priceMap;
+}
+
+async function generateExitAnalysis(
+  apiKey: string,
+  agent: any,
+  position: any,
+  currentPrice: number,
+  pnlPct: number,
+  closeReason: string
+): Promise<{
+  exitReason: string;
+  reasoning: string;
+  fullAnalysis: string;
+  lessonsLearned: string;
+  marketContext: string;
+  patternToAvoid: string | null;
+  successPattern: string | null;
+}> {
+  const isWin = pnlPct > 0;
+  const holdTimeMs = new Date().getTime() - new Date(position.opened_at).getTime();
+  const holdTimeMinutes = Math.floor(holdTimeMs / 60000);
+
+  const prompt = `You are ${agent.name}, a trading agent analyzing a closed position.
+
+## Position Details
+- Token: ${position.token_symbol} (${position.token_name})
+- Entry Price: ${position.entry_price_sol} SOL
+- Exit Price: ${currentPrice} SOL
+- P&L: ${pnlPct.toFixed(2)}% (${isWin ? "WIN" : "LOSS"})
+- Hold Time: ${holdTimeMinutes} minutes
+- Close Reason: ${closeReason}
+- Entry Reason: ${position.entry_reason || "Not recorded"}
+- Entry Narrative: ${position.entry_narrative || "Not recorded"}
+- Initial Risk Assessment: ${position.risk_assessment || "Not recorded"}
+
+## Your Trading Stats
+- Overall Win Rate: ${agent.win_rate?.toFixed(1) || 0}%
+- Consecutive ${isWin ? "Wins" : "Losses"}: ${isWin ? agent.consecutive_wins : agent.consecutive_losses}
+- Strategy: ${agent.strategy_type}
+
+## Instructions
+Analyze this trade result and provide insights for learning. Be honest about mistakes if it was a loss.
+Focus on what you can learn to improve future trades.
+
+Respond in this exact JSON format:
+{
+  "exitReason": "2-3 sentences explaining why you exited at this point",
+  "reasoning": "4-6 sentences of detailed reasoning about the trade outcome",
+  "fullAnalysis": "Complete 200-300 word analysis discussing: 1) What went right/wrong, 2) Market factors that influenced the outcome, 3) Whether your entry thesis was correct, 4) What you would do differently next time",
+  "lessonsLearned": "2-3 specific lessons from this trade that you will apply going forward",
+  "marketContext": "Current market context and how it affected this trade",
+  "patternToAvoid": ${!isWin ? '"One specific pattern to avoid based on this loss (or null if not applicable)"' : "null"},
+  "successPattern": ${isWin ? '"One specific pattern that led to success (or null if not applicable)"' : "null"}
+}`;
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are an expert crypto trading analyst. Always respond with valid JSON only." },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) {
+      throw new Error("Could not parse AI response");
+    }
+
+    return JSON.parse(jsonMatch[0]);
+  } catch (error) {
+    console.error("[trading-agent-monitor] Exit analysis error:", error);
+    return {
+      exitReason: closeReason === "stop_loss" ? "Stop loss triggered" : "Take profit target reached",
+      reasoning: `Position closed due to ${closeReason}. P&L: ${pnlPct.toFixed(2)}%`,
+      fullAnalysis: `This trade ${isWin ? "was successful" : "resulted in a loss"}. Analysis unavailable due to system error.`,
+      lessonsLearned: isWin ? "Continue with current strategy" : "Review entry criteria more carefully",
+      marketContext: "Market context unavailable",
+      patternToAvoid: null,
+      successPattern: null,
+    };
+  }
+}
+
+async function postExitToSubTuna(
+  supabase: any,
+  agent: any,
+  trade: any,
+  position: any,
+  analysis: any,
+  realizedPnl: number,
+  pnlPct: number,
+  closeReason: string
+) {
+  try {
+    const { data: subtuna } = await supabase
+      .from("subtuna")
+      .select("id")
+      .eq("agent_id", agent.agent?.id)
+      .single();
+
+    if (!subtuna) return;
+
+    const isWin = realizedPnl > 0;
+    const emoji = isWin ? "🟢" : "🔴";
+    const status = closeReason === "stop_loss" ? "STOPPED OUT" : closeReason === "take_profit" ? "PROFIT TAKEN" : "CLOSED";
+    
+    const holdTimeMs = new Date().getTime() - new Date(position.opened_at).getTime();
+    const holdTimeMinutes = Math.floor(holdTimeMs / 60000);
+
+    const title = `${emoji} ${status} $${position.token_symbol} | ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%`;
+
+    const content = `## Trade Closed: ${isWin ? "✅ Victory" : "❌ Lesson Learned"}
+
+**$${position.token_symbol}** - ${isWin ? "Profitable Exit" : "Loss Recorded"}
+
+### 📊 Trade Summary
+| Metric | Value |
+|--------|-------|
+| Entry Price | ${position.entry_price_sol?.toFixed(10)} SOL |
+| Exit Price | ${trade.price_per_token?.toFixed(10)} SOL |
+| P&L % | ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}% |
+| P&L SOL | ${realizedPnl >= 0 ? "+" : ""}${realizedPnl.toFixed(6)} SOL |
+| Hold Time | ${holdTimeMinutes} minutes |
+| Close Reason | ${closeReason.replace("_", " ").toUpperCase()} |
+
+### 🎯 Original Entry Thesis
+${position.entry_reason || "Not recorded"}
+
+### 🧠 Exit Analysis
+${analysis.fullAnalysis}
+
+### 📚 Lessons Learned
+${analysis.lessonsLearned}
+
+### 📈 Market Context
+${analysis.marketContext}
+
+### 🔮 Going Forward
+${analysis.reasoning}
+
+---
+**Updated Stats:**
+- Win Rate: ${agent.win_rate?.toFixed(1) || 0}%
+- Total Trades: ${agent.total_trades || 0}
+- Consecutive ${isWin ? "Wins" : "Losses"}: ${isWin ? (agent.consecutive_wins || 0) + 1 : (agent.consecutive_losses || 0) + 1}
+
+*Autonomous trade by ${agent.name}. Each trade teaches us something new.*`;
+
+    const { data: post } = await supabase
+      .from("subtuna_posts")
+      .insert({
+        subtuna_id: subtuna.id,
+        author_agent_id: agent.agent?.id,
+        title,
+        content,
+        post_type: "text",
+        is_agent_post: true,
+      })
+      .select()
+      .single();
+
+    if (post) {
+      await supabase
+        .from("trading_agent_trades")
+        .update({ subtuna_post_id: post.id })
+        .eq("id", trade.id);
+    }
+
+  } catch (error) {
+    console.error("[trading-agent-monitor] SubTuna post error:", error);
+  }
+}
+
+async function triggerStrategyReview(
+  supabase: any,
+  apiKey: string,
+  agent: any,
+  pastTrades: any[],
+  reviewType: string
+) {
+  try {
+    const tradeSummary = pastTrades.slice(0, 20).map(t => ({
+      token: t.token_name,
+      type: t.trade_type,
+      pnl: t.realized_pnl_sol,
+      won: (t.realized_pnl_sol || 0) > 0,
+      narrative: t.narrative_match,
+      lessonsLearned: t.lessons_learned,
+    }));
+
+    const wins = tradeSummary.filter(t => t.won).length;
+    const losses = tradeSummary.filter(t => !t.won).length;
+
+    const prompt = `You are ${agent.name}, reviewing your trading performance.
+
+## Trading Stats
+- Total Trades: ${agent.total_trades}
+- Win Rate: ${agent.win_rate?.toFixed(1)}%
+- Consecutive Losses: ${agent.consecutive_losses}
+- Strategy: ${agent.strategy_type}
+- Current Capital: ${agent.trading_capital_sol} SOL
+- Total P&L: ${agent.total_profit_sol} SOL
+
+## Recent 20 Trades
+${JSON.stringify(tradeSummary, null, 2)}
+
+## Current Patterns
+- Avoided: ${JSON.stringify(agent.avoided_patterns || [])}
+- Preferred Narratives: ${JSON.stringify(agent.preferred_narratives || [])}
+- Learned Patterns: ${JSON.stringify(agent.learned_patterns || [])}
+
+## Review Trigger: ${reviewType}
+
+## Instructions
+Conduct a thorough strategy review. Analyze what's working and what's not.
+Provide actionable adjustments to improve performance.
+
+Respond in JSON format:
+{
+  "keyInsights": "3-4 key insights from analyzing your trades (150+ words)",
+  "strategyAdjustments": "Specific adjustments to make to your strategy",
+  "newRules": ["Rule 1 to add", "Rule 2 to add"],
+  "deprecatedRules": ["Rule to stop following"],
+  "confidenceLevel": 0-100,
+  "narrativesToFocus": ["narrative1", "narrative2"],
+  "narrativesToAvoid": ["narrative to avoid"]
+}`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are a professional trading strategist. Always respond with valid JSON." },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) return;
+
+    const review = JSON.parse(jsonMatch[0]);
+
+    // Save strategy review
+    await supabase
+      .from("trading_agent_strategy_reviews")
+      .insert({
+        trading_agent_id: agent.id,
+        review_type: reviewType,
+        trades_analyzed: tradeSummary.length,
+        win_rate_at_review: agent.win_rate,
+        total_pnl_at_review: agent.total_profit_sol,
+        key_insights: review.keyInsights,
+        strategy_adjustments: review.strategyAdjustments,
+        new_rules: review.newRules,
+        deprecated_rules: review.deprecatedRules,
+        confidence_level: review.confidenceLevel,
+      });
+
+    // Update agent with new preferences
+    const updatedPreferences = {
+      preferred_narratives: [...new Set([
+        ...(agent.preferred_narratives || []),
+        ...(review.narrativesToFocus || [])
+      ])],
+      avoided_patterns: [...new Set([
+        ...(agent.avoided_patterns || []),
+        ...(review.narrativesToAvoid || [])
+      ])],
+      strategy_notes: review.strategyAdjustments,
+      last_strategy_review: new Date().toISOString(),
+    };
+
+    await supabase
+      .from("trading_agents")
+      .update(updatedPreferences)
+      .eq("id", agent.id);
+
+    console.log(`[trading-agent-monitor] ✅ Strategy review completed for ${agent.name}`);
+
+  } catch (error) {
+    console.error("[trading-agent-monitor] Strategy review error:", error);
+  }
+}
