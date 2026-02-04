@@ -337,20 +337,20 @@
     box-shadow: 0 0 20px hsl(43 96% 56% / 0.3), 0 0 40px hsl(43 96% 56% / 0.1);
   }
 
-  /* Subtle gold accent for Trading Agents button */
-  @keyframes goldPulse {
+  /* Soft blue accent for Trading Agents button */
+  @keyframes bluePulse {
     0%, 100% {
-      box-shadow: 0 0 3px rgba(180, 140, 60, 0.2);
+      box-shadow: 0 0 4px rgba(100, 149, 237, 0.25);
     }
     50% {
-      box-shadow: 0 0 6px rgba(180, 140, 60, 0.35);
+      box-shadow: 0 0 8px rgba(100, 149, 237, 0.4);
     }
   }
 
   .gold-pulse-btn {
-    background: linear-gradient(135deg, #a08040 0%, #8a7035 100%);
-    border: 1px solid #b8a060;
-    animation: goldPulse 4s ease-in-out infinite;
+    background: linear-gradient(135deg, #4a7fc7 0%, #3a6aad 100%);
+    border: 1px solid #5a8fd7;
+    animation: bluePulse 4s ease-in-out infinite;
     color: #fff;
   }
 
