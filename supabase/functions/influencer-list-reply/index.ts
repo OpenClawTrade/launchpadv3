@@ -166,12 +166,33 @@ serve(async (req) => {
         }
 
         const tweetsData = await tweetsResponse.json();
-        const tweets = tweetsData.tweets || tweetsData.data || [];
+        
+        // Handle various API response formats
+        let tweets: any[] = [];
+        if (Array.isArray(tweetsData)) {
+          tweets = tweetsData;
+        } else if (Array.isArray(tweetsData.tweets)) {
+          tweets = tweetsData.tweets;
+        } else if (Array.isArray(tweetsData.data)) {
+          tweets = tweetsData.data;
+        } else if (tweetsData.timeline?.instructions) {
+          // Twitter API v2 timeline format
+          for (const inst of tweetsData.timeline.instructions) {
+            if (inst.entries) {
+              for (const entry of inst.entries) {
+                if (entry.content?.itemContent?.tweet_results?.result) {
+                  tweets.push(entry.content.itemContent.tweet_results.result);
+                }
+              }
+            }
+          }
+        }
         
         // Log first member's response structure for debugging
-        if (totalTweetsFetched === 0 && members.indexOf(member) === 0) {
-          console.log(`First member ${username} response keys:`, Object.keys(tweetsData));
-          console.log(`Tweets array length: ${tweets.length}, raw sample:`, JSON.stringify(tweetsData).substring(0, 500));
+        if (members.indexOf(member) === 0) {
+          console.log(`First member ${username} response type: ${typeof tweetsData}, isArray: ${Array.isArray(tweetsData)}`);
+          console.log(`Response keys: ${Object.keys(tweetsData || {}).join(', ')}`);
+          console.log(`Extracted tweets count: ${tweets.length}`);
         }
         
         totalTweetsFetched += tweets.length;
