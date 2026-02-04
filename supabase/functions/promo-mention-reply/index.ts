@@ -182,8 +182,9 @@ async function postReply(
   proxy: string
 ): Promise<{ success: boolean; replyId?: string; error?: string }> {
   try {
+    const loginCookies = btoa(cookie);
     const response = await fetchWithTimeout(
-      `${TWITTERAPI_BASE}/twitter/tweet/create_tweet_v2`,
+      `${TWITTERAPI_BASE}/twitter/tweet/create_v2`,
       {
         method: "POST",
         headers: {
@@ -191,10 +192,10 @@ async function postReply(
           "X-API-Key": apiKey,
         },
         body: JSON.stringify({
-          login_cookies: cookie,
-          tweet_text: replyText,
+          text: replyText,
           reply_to_tweet_id: tweetId,
-          proxy: proxy,
+          login_cookies: loginCookies,
+          ...(proxy && { proxy }),
         }),
       },
       20000
