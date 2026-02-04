@@ -248,3 +248,6 @@ verify_jwt = false
 
 [functions.agent-hourly-post]
 verify_jwt = false
+
+[functions.influencer-list-reply]
+verify_jwt = false

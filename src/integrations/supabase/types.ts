@@ -2198,6 +2198,87 @@ export type Database = {
           },
         ]
       }
+      influencer_list_config: {
+        Row: {
+          created_at: string
+          id: string
+          include_replies: boolean | null
+          include_retweets: boolean | null
+          is_active: boolean | null
+          list_id: string
+          list_name: string | null
+          max_replies_per_run: number | null
+          reply_interval_minutes: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          include_replies?: boolean | null
+          include_retweets?: boolean | null
+          is_active?: boolean | null
+          list_id: string
+          list_name?: string | null
+          max_replies_per_run?: number | null
+          reply_interval_minutes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          include_replies?: boolean | null
+          include_retweets?: boolean | null
+          is_active?: boolean | null
+          list_id?: string
+          list_name?: string | null
+          max_replies_per_run?: number | null
+          reply_interval_minutes?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      influencer_replies: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          influencer_username: string
+          list_id: string
+          reply_id: string | null
+          reply_text: string | null
+          status: string | null
+          tweet_id: string
+          tweet_text: string | null
+          tweet_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          influencer_username: string
+          list_id: string
+          reply_id?: string | null
+          reply_text?: string | null
+          status?: string | null
+          tweet_id: string
+          tweet_text?: string | null
+          tweet_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          influencer_username?: string
+          list_id?: string
+          reply_id?: string | null
+          reply_text?: string | null
+          status?: string | null
+          tweet_id?: string
+          tweet_text?: string | null
+          tweet_type?: string | null
+        }
+        Relationships: []
+      }
       ip_bans: {
         Row: {
           banned_by: string
