@@ -76,6 +76,8 @@ interface Tweet {
     isGoldVerified?: boolean;
     verified?: boolean;
     verifiedType?: string;
+    followers?: number;
+    followersCount?: number;
   };
   createdAt?: string;
   conversationId?: string;
@@ -108,8 +110,8 @@ async function fetchWithTimeout(
 
 async function searchMentions(apiKey: string): Promise<Tweet[]> {
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
-  // Search for tweets mentioning our accounts + @Solana
-  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @Solana) -is:retweet -is:reply");
+  // Search for tweets mentioning our accounts + @Solana + $SOL cashtag
+  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @Solana OR $SOL) -is:retweet -is:reply");
   searchUrl.searchParams.set("queryType", "Latest");
 
   try {
@@ -277,18 +279,37 @@ async function postReply(
   }
 }
 
-function determineMentionType(text: string): "moltbook" | "openclaw" | "solana" | "both" | "multiple" {
+function determineMentionType(text: string): "moltbook" | "openclaw" | "solana" | "sol_cashtag" | "both" | "multiple" {
   const hasMoltbook = text.toLowerCase().includes("@moltbook");
   const hasOpenclaw = text.toLowerCase().includes("@openclaw");
   const hasSolana = text.toLowerCase().includes("@solana");
+  const hasSolCashtag = text.includes("$SOL") || text.includes("$sol");
   
-  const count = [hasMoltbook, hasOpenclaw, hasSolana].filter(Boolean).length;
+  const count = [hasMoltbook, hasOpenclaw, hasSolana, hasSolCashtag].filter(Boolean).length;
   if (count > 2) return "multiple";
   if (hasMoltbook && hasOpenclaw) return "both";
   if (hasMoltbook) return "moltbook";
   if (hasOpenclaw) return "openclaw";
   if (hasSolana) return "solana";
+  if (hasSolCashtag) return "sol_cashtag";
   return "openclaw"; // fallback
+}
+
+// Check if tweet only mentions $SOL (no @moltbook, @openclaw, @Solana)
+function isOnlySolCashtagMention(text: string): boolean {
+  const hasMoltbook = text.toLowerCase().includes("@moltbook");
+  const hasOpenclaw = text.toLowerCase().includes("@openclaw");
+  const hasSolana = text.toLowerCase().includes("@solana");
+  const hasSolCashtag = text.includes("$SOL") || text.includes("$sol");
+  
+  return hasSolCashtag && !hasMoltbook && !hasOpenclaw && !hasSolana;
+}
+
+// Get follower count from tweet author
+function getFollowerCount(tweet: Tweet): number {
+  const author = tweet.author;
+  if (!author) return 0;
+  return author.followersCount || author.followers || 0;
 }
 
 function isRecentTweet(createdAt: string | undefined, maxAgeMinutes: number): boolean {
@@ -447,6 +468,15 @@ serve(async (req) => {
       if (!hasVerificationBadge(tweet)) {
         console.log(`Skipping unverified account ${tweet.author?.userName}: "${tweet.text.substring(0, 50)}..."`);
         continue;
+      }
+
+      // For $SOL-only mentions, require at least 1000 followers
+      if (isOnlySolCashtagMention(tweet.text)) {
+        const followers = getFollowerCount(tweet);
+        if (followers < 1000) {
+          console.log(`Skipping $SOL mention with low followers (${followers}) from ${tweet.author?.userName}`);
+          continue;
+        }
       }
 
       const username = tweet.author?.userName?.toLowerCase() || "";
