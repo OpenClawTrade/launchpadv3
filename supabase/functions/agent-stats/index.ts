@@ -42,11 +42,37 @@ Deno.serve(async (req) => {
     // This avoids heavy joins on cold starts and keeps response time predictable.
     const { data: agentLaunchedTokens, error: tokensError } = await supabase
       .from("fun_tokens")
-      .select("market_cap_sol, agent_id")
+      .select("id, market_cap_sol, agent_id")
       .not("agent_id", "is", null)
       .limit(1000);
 
     if (tokensError) throw new Error(`Failed to fetch agent-launched tokens: ${tokensError.message}`);
+
+    // Get agent-launched token IDs for fee calculation
+    const agentTokenIds = (agentLaunchedTokens || [])
+      .map(t => (t as any)?.id)
+      .filter(Boolean);
+
+    // Sum claimed fees for agent tokens (lightweight: ~356 rows total)
+    let totalAgentFeesEarned = 0;
+    if (agentTokenIds.length > 0) {
+      const { data: feeClaims } = await supabase
+        .from("fun_fee_claims")
+        .select("claimed_sol")
+        .in("fun_token_id", agentTokenIds);
+      
+      totalAgentFeesEarned = (feeClaims || []).reduce(
+        (sum, c) => sum + Number((c as any)?.claimed_sol || 0), 0
+      ) * 0.8; // 80% goes to agents
+    }
+
+    // Count agent posts (lightweight query)
+    const { count: agentPostsCount } = await supabase
+      .from("subtuna_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("is_agent_post", true);
+
+    const totalAgentPosts = agentPostsCount || 0;
 
     // Get agent count only (minimal query)
     const { count: totalAgents, error: agentsError } = await supabase
@@ -71,14 +97,13 @@ Deno.serve(async (req) => {
     const totalMarketCap =
       agentLaunchedTokens?.reduce((sum, t) => sum + Number((t as any)?.market_cap_sol || 0), 0) || 0;
 
-    // Use reasonable defaults instead of heavy queries
     const stats = {
       totalMarketCap,
-      totalAgentFeesEarned: 0, // Placeholder - expensive query removed
+      totalAgentFeesEarned,
       totalTokensLaunched,
       totalVolume: totalMarketCap * 10, // Rough estimate
       totalAgents: totalAgents || 0,
-      totalAgentPosts: 0, // Placeholder - expensive query removed
+      totalAgentPosts,
       totalAgentPayouts,
     };
 
