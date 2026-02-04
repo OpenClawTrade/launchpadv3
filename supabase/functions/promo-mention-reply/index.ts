@@ -101,8 +101,8 @@ async function fetchWithTimeout(
 
 async function searchMentions(apiKey: string): Promise<Tweet[]> {
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
-  // Only find original tweets that directly mention us, not replies in threads
-  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw) -is:retweet -is:reply");
+  // Search for tweets mentioning our accounts + @Solana
+  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @Solana) -is:retweet -is:reply");
   searchUrl.searchParams.set("queryType", "Latest");
 
   try {
@@ -270,12 +270,18 @@ async function postReply(
   }
 }
 
-function determineMentionType(text: string): "moltbook" | "openclaw" | "both" {
+function determineMentionType(text: string): "moltbook" | "openclaw" | "solana" | "both" | "multiple" {
   const hasMoltbook = text.toLowerCase().includes("@moltbook");
   const hasOpenclaw = text.toLowerCase().includes("@openclaw");
+  const hasSolana = text.toLowerCase().includes("@solana");
+  
+  const count = [hasMoltbook, hasOpenclaw, hasSolana].filter(Boolean).length;
+  if (count > 2) return "multiple";
   if (hasMoltbook && hasOpenclaw) return "both";
   if (hasMoltbook) return "moltbook";
-  return "openclaw";
+  if (hasOpenclaw) return "openclaw";
+  if (hasSolana) return "solana";
+  return "openclaw"; // fallback
 }
 
 function isRecentTweet(createdAt: string | undefined, maxAgeMinutes: number): boolean {
@@ -283,6 +289,22 @@ function isRecentTweet(createdAt: string | undefined, maxAgeMinutes: number): bo
   const tweetTime = new Date(createdAt).getTime();
   const now = Date.now();
   return now - tweetTime < maxAgeMinutes * 60 * 1000;
+}
+
+// Check if a tweet is actually a reply (even if API doesn't filter correctly)
+function isActuallyReply(tweet: Tweet): boolean {
+  // If inReplyToTweetId is set, it's definitely a reply
+  if (tweet.inReplyToTweetId) return true;
+  
+  // If tweet text starts with @username pattern, it's likely a reply
+  // (replies typically start with @username they're replying to)
+  const text = tweet.text.trim();
+  if (text.startsWith("@") && !text.startsWith("@moltbook") && !text.startsWith("@openclaw") && !text.startsWith("@Solana")) {
+    // Starts with @ but not one of our monitored accounts = it's a reply to someone else
+    return true;
+  }
+  
+  return false;
 }
 
 serve(async (req) => {
@@ -388,6 +410,13 @@ serve(async (req) => {
 
       // Skip old tweets
       if (!isRecentTweet(tweet.createdAt, thirtyMinutesAgo)) continue;
+
+      // CRITICAL: Skip tweets that are actually replies (even if API didn't filter them)
+      // We only want to reply to ORIGINAL tweets that mention us, not comments in threads
+      if (isActuallyReply(tweet)) {
+        console.log(`Skipping reply tweet ${tweet.id}: "${tweet.text.substring(0, 50)}..."`);
+        continue;
+      }
 
       const username = tweet.author?.userName?.toLowerCase() || "";
 
