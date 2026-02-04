@@ -199,6 +199,12 @@ export default function FunLauncherPage() {
                 TUNA Agents
               </Button>
             </Link>
+            <Link to="/agents/trading">
+              <Button size="sm" className="gold-pulse-btn font-bold rounded-lg h-9 px-3 text-sm">
+                <TrendingUp className="h-4 w-4 mr-1.5" />
+                Trading Agents
+              </Button>
+            </Link>
             
             {/* Visitors Online */}
             <div className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-secondary/50 border border-border">
@@ -247,6 +253,10 @@ export default function FunLauncherPage() {
                   </Link>
                   <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-white text-sm font-medium">TUNA Agents</span>
+                  </Link>
+                  <Link to="/agents/trading" className="flex items-center gap-2 px-4 py-2.5 rounded-lg gold-pulse-btn transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-sm font-bold">Trading Agents</span>
                   </Link>
                 </nav>
               </SheetContent>
