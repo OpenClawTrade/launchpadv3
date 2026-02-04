@@ -1,210 +1,268 @@
 
-# Complete Implementation Plan: Trading Agents Button + Bags.fm Completion
 
-## Current Status Summary
+# Trading Agents Full Implementation Plan
 
-### Trading Agents
-| Component | Status | Notes |
-|-----------|--------|-------|
-| TradingAgentsPage.tsx | ✅ Complete | Located at `/agents/trading` |
-| TradingAgentProfilePage.tsx | ✅ Complete | Agent profile with positions/trades |
-| trading-agent-create | ✅ Complete | Creates agent with wallet, SubTuna |
-| trading-agent-execute | ✅ Complete | AI trade execution |
-| trading-agent-monitor | ✅ Complete | SL/TP monitoring, exit posts |
-| useTradingAgents.ts | ✅ Complete | All hooks implemented |
-| TraderBadge.tsx | ✅ Complete | Gold badge component |
-| **Navigation Button** | ❌ MISSING | No link in AppHeader |
-| **Gold Pulse CSS** | ❌ MISSING | Animation not in index.css |
-
-### Bags.fm Integration
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Database schema | ✅ Complete | bags_fee_claims table + columns |
-| bags-agent-launch | ✅ Complete | Token launch function |
-| bags-data-sync | ✅ Complete | Price/mcap sync |
-| bags-claim-fees | ✅ Complete | Fee collection |
-| BagsBadge.tsx | ✅ Complete | Visual badge |
-| BagsAgentsPage.tsx | ✅ Complete | Launch UI |
-| AppHeader Bags link | ✅ Complete | Purple button added |
-| **BAGS_API_KEY** | ❌ MISSING | Not in secrets |
-| **BAGS_DEPLOYER_PRIVATE_KEY** | ❌ MISSING | Not in secrets |
-| **fun-distribute skip bags** | ❌ MISSING | Needs update |
-| **AgentTokenGrid tabs** | ❌ MISSING | No Bags filter tab |
-| **FunTokenDetailPage badge** | ❌ MISSING | No BagsBadge shown |
+## Executive Summary
+This plan implements the complete Trading Agents system with real Jupiter DEX execution, automated cron scheduling, AES-256 wallet encryption, and a creation form UI - while keeping the page in beta mode (not prominently published).
 
 ---
 
-## Phase 1: Trading Agents Navigation (Missing Piece)
+## Current State Analysis
 
-### 1.1 Add Gold Pulse Animation to CSS
-Add to `src/index.css`:
+### What Exists (Working)
+- Database schema: `trading_agents`, `trading_agent_positions`, `trading_agent_trades`, `trading_agent_strategy_reviews`
+- Edge functions: `trading-agent-create`, `trading-agent-execute`, `trading-agent-monitor`, `trading-agent-list`
+- AI analysis and learning logic
+- SubTuna community integration for trade posts
+- UI page at `/agents/trading`
 
-```css
-@keyframes goldPulse {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5), 0 0 10px rgba(255, 215, 0, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.8), 0 0 25px rgba(255, 215, 0, 0.5);
-  }
-}
+### What's Missing/Broken
+1. **Real Jupiter swaps** - Trades are simulated (position created but no on-chain execution)
+2. **Wallet decryption** - No function to decrypt private keys for signing
+3. **Wallet encryption** - Uses weak XOR (needs AES-256)
+4. **Cron automation** - No scheduled jobs for execute/monitor
+5. **Agent creation UI** - Button says "Coming Soon"
+6. **Pump.fun price fetching** - Uses approximate calculation, not real API data
 
-.gold-pulse-btn {
-  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
-  border: 2px solid #ffd700;
-  animation: goldPulse 2s ease-in-out infinite;
-  color: #000;
-}
+---
 
-.gold-pulse-btn:hover {
-  filter: brightness(1.1);
-}
-```
+## Implementation Tasks
 
-### 1.2 Add Trading Agents Button to AppHeader.tsx
+### Phase 1: Security - AES-256 Wallet Encryption
 
-**Desktop Navigation** (insert before Bags Agents button, ~line 136):
-```tsx
-import { TrendingUp } from "lucide-react";
+**Files to modify:**
+- `supabase/functions/trading-agent-create/index.ts`
 
-<Link to="/agents/trading">
-  <Button 
-    size="sm" 
-    className="gold-pulse-btn font-bold rounded-lg h-9 px-3 text-xs sm:text-sm"
-  >
-    <TrendingUp className="h-4 w-4 mr-1.5" />
-    Trading Agents
-  </Button>
-</Link>
-```
+**Changes:**
+Replace XOR encryption with Web Crypto API AES-256-GCM:
 
-**Mobile Navigation** (insert before Bags Agents link, ~line 240):
-```tsx
-<Link to="/agents/trading" className="flex items-center gap-2 px-4 py-2.5 rounded-lg gold-pulse-btn transition-colors">
-  <TrendingUp className="h-4 w-4" />
-  <span className="text-sm font-bold">Trading Agents</span>
-</Link>
+```text
+Implementation:
+1. Create aesEncrypt() using crypto.subtle.encrypt with AES-GCM
+2. Use API_ENCRYPTION_KEY secret (already exists) as encryption key 
+3. Generate random 12-byte IV per encryption
+4. Store as: base64(iv + ciphertext)
+5. Create aesDecrypt() function for trading-agent-execute/monitor
 ```
 
 ---
 
-## Phase 2: Complete Bags.fm Integration
+### Phase 2: Real Jupiter DEX Integration
 
-### 2.1 Update fun-distribute to Skip Bags Tokens
-Modify `supabase/functions/fun-distribute/index.ts`:
+**Files to modify:**
+- `supabase/functions/trading-agent-execute/index.ts`
+- `supabase/functions/trading-agent-monitor/index.ts`
 
-After the holder_rewards check (~line 176), add:
+**trading-agent-execute changes (buy side):**
+
+```text
+After AI selects a token:
+1. Decrypt agent's wallet private key using aesDecrypt()
+2. Create Keypair from decrypted secret
+3. Call Jupiter quote API: GET /quote?inputMint=SOL&outputMint={token}&amount={lamports}
+4. Call Jupiter swap API: POST /swap with quote + agent wallet
+5. Sign transaction with agent's keypair
+6. Send via Helius RPC with skipPreflight
+7. Confirm transaction
+8. Record signature in trading_agent_trades table
+9. Update position with actual tokens received
+```
+
+**trading-agent-monitor changes (sell side):**
+
+```text
+When SL/TP triggered:
+1. Decrypt agent's wallet private key
+2. Call Jupiter quote: inputMint={token}&outputMint=SOL&amount={tokens}
+3. Execute swap transaction
+4. Sign with agent keypair
+5. Send and confirm
+6. Record signature and actual SOL received
+7. Update position/trade records
+```
+
+**Price fetching improvement:**
+```text
+Replace approximate pump.fun price calculation with:
+1. Jupiter price API: GET /price?ids={mint}
+2. Fallback to pump.fun API with proper parsing
+3. Cache prices for 30s to avoid rate limits
+```
+
+---
+
+### Phase 3: Cron Job Automation
+
+**Database changes (via SQL insert tool):**
+
+```sql
+-- Trading agent execute every 5 minutes
+SELECT cron.schedule(
+  'trading-agent-execute-5min',
+  '*/5 * * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://ptwytypavumcrbofspno.supabase.co/functions/v1/trading-agent-execute',
+    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}'::jsonb,
+    body:=concat('{"trigger": "cron", "time": "', now(), '"}')::jsonb
+  );
+  $$
+);
+
+-- Trading agent monitor every minute
+SELECT cron.schedule(
+  'trading-agent-monitor-1min', 
+  '* * * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://ptwytypavumcrbofspno.supabase.co/functions/v1/trading-agent-monitor',
+    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}'::jsonb,
+    body:=concat('{"trigger": "cron", "time": "', now(), '"}')::jsonb
+  );
+  $$
+);
+```
+
+---
+
+### Phase 4: Agent Creation UI
+
+**New file:**
+- `src/components/trading/CreateTradingAgentModal.tsx`
+
+**Modify:**
+- `src/pages/TradingAgentsPage.tsx`
+- `src/hooks/useTradingAgents.ts`
+
+**Modal features:**
+```text
+Form fields:
+- Name (optional - AI generates if empty)
+- Ticker (optional - AI generates if empty)  
+- Description (optional)
+- Avatar upload
+- Strategy selector: Conservative/Balanced/Aggressive
+- Personality prompt (optional - affects AI decisions)
+
+On submit:
+1. Get user wallet from Privy
+2. Call trading-agent-create edge function
+3. Show success with wallet address to fund
+4. Navigate to agent profile page
+```
+
+**Hook addition:**
 ```typescript
-// BAGS tokens: 100% platform fee, no distribution
-const isBagsToken = token.launchpad_type === 'bags';
-if (isBagsToken) {
-  // Mark claim as distributed - platform keeps 100%
-  await supabase
-    .from("fun_fee_claims")
-    .update({ creator_distributed: true })
-    .eq("id", claim.id);
-  
-  console.log(`[fun-distribute] Bags token ${token.ticker}: 100% to platform, no creator split`);
-  continue;
+export function useCreateTradingAgent() {
+  const mutation = useMutation({
+    mutationFn: async (data: CreateAgentInput) => {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trading-agent-create`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify(data),
+        }
+      );
+      return response.json();
+    }
+  });
+  return mutation;
 }
 ```
 
-### 2.2 Add Bags Tab to AgentTokenGrid.tsx
-Update `src/components/agents/AgentTokenGrid.tsx`:
+---
 
-Add TUNA/PUMP/Bags filter tabs:
-```tsx
-// Add state for platform filter
-const [platformFilter, setPlatformFilter] = useState<'all' | 'meteora' | 'pumpfun' | 'bags'>('all');
+### Phase 5: Trending Token Data Source
 
-// Add filter tabs above existing sort tabs
-<TabsList className="mb-2">
-  <TabsTrigger value="all">All</TabsTrigger>
-  <TabsTrigger value="meteora">TUNA</TabsTrigger>
-  <TabsTrigger value="pumpfun">PUMP</TabsTrigger>
-  <TabsTrigger value="bags" className="text-purple-400">Bags</TabsTrigger>
-</TabsList>
-```
+**File to modify:**
+- `supabase/functions/pumpfun-trending-sync/index.ts` (ensure it populates `pumpfun_trending_tokens`)
 
-### 2.3 Add BagsBadge to FunTokenDetailPage.tsx
-Update `src/pages/FunTokenDetailPage.tsx`:
-
-Import and add badge:
-```tsx
-import { BagsBadge } from "@/components/tunabook/BagsBadge";
-import { PumpBadge } from "@/components/tunabook/PumpBadge";
-
-// In the header section, add:
-{token?.launchpad_type === 'bags' && (
-  <BagsBadge mintAddress={token.mint_address} size="lg" />
-)}
-{token?.launchpad_type === 'pumpfun' && (
-  <PumpBadge mintAddress={token.mint_address} size="lg" />
-)}
-```
-
-Also add external link to bags.fm:
-```tsx
-{token?.launchpad_type === 'bags' && token?.mint_address && (
-  <a 
-    href={`https://bags.fm/coin/${token.mint_address}`}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="flex items-center gap-1 text-purple-400 hover:text-purple-300"
-  >
-    <ExternalLink className="h-3 w-3" />
-    bags.fm
-  </a>
-)}
+**Verify/enhance:**
+```text
+1. Sync trending tokens from pump.fun every 5 minutes
+2. Store: mint_address, name, symbol, price_sol, liquidity_sol, holder_count, token_score
+3. trading-agent-execute queries this table for trade candidates
 ```
 
 ---
 
-## Phase 3: Required Secrets for Bags.fm to Work
+## Technical Architecture
 
-The following secrets need to be added:
-
-| Secret | Purpose | Source |
-|--------|---------|--------|
-| `BAGS_API_KEY` | API authentication for bags.fm | Get from dev.bags.fm |
-| `BAGS_DEPLOYER_PRIVATE_KEY` | Sign launch transactions | Same as TREASURY_PRIVATE_KEY or new wallet |
-
-**Note**: Without these secrets, the bags-agent-launch function will fail with "BAGS_API_KEY not configured"
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/index.css` | Add goldPulse animation + .gold-pulse-btn class |
-| `src/components/layout/AppHeader.tsx` | Add Trading Agents button (desktop + mobile) |
-| `supabase/functions/fun-distribute/index.ts` | Add bags token skip logic |
-| `src/components/agents/AgentTokenGrid.tsx` | Add platform filter tabs |
-| `src/pages/FunTokenDetailPage.tsx` | Add BagsBadge + bags.fm link |
-
----
-
-## Implementation Order
-
-1. **CSS Animation** - Add gold pulse animation to index.css
-2. **Trading Agents Button** - Add to AppHeader (desktop + mobile)
-3. **fun-distribute update** - Skip bags tokens in fee distribution
-4. **AgentTokenGrid tabs** - Add platform filter (TUNA/PUMP/Bags)
-5. **FunTokenDetailPage badges** - Show BagsBadge for bags tokens
-6. **Add Secrets** - User must add BAGS_API_KEY and BAGS_DEPLOYER_PRIVATE_KEY
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                        CRON SCHEDULER                           │
+│  trading-agent-execute (5min) │ trading-agent-monitor (1min)    │
+└────────────────┬────────────────────────────┬───────────────────┘
+                 │                            │
+                 ▼                            ▼
+┌────────────────────────────┐  ┌────────────────────────────────┐
+│  TRADING-AGENT-EXECUTE     │  │  TRADING-AGENT-MONITOR         │
+│  ─────────────────────     │  │  ──────────────────────        │
+│  1. Get active agents      │  │  1. Get open positions         │
+│  2. Fetch trending tokens  │  │  2. Fetch current prices       │
+│  3. AI token analysis      │  │  3. Check SL/TP thresholds     │
+│  4. Decrypt wallet         │  │  4. If triggered:              │
+│  5. Jupiter buy swap       │  │     - Decrypt wallet           │
+│  6. Record position        │  │     - Jupiter sell swap        │
+│  7. Post to SubTuna        │  │     - Update stats & patterns  │
+└────────────────────────────┘  │     - Post to SubTuna          │
+                                │  5. Trigger strategy review    │
+                                └────────────────────────────────┘
+                                           │
+                                           ▼
+                              ┌────────────────────────────┐
+                              │      JUPITER DEX API       │
+                              │  Quote → Swap → Sign → Send│
+                              └────────────────────────────┘
+```
 
 ---
 
-## What Works Now vs What Needs Secrets
+## File Change Summary
 
-**Works immediately after code changes:**
-- Trading Agents navigation button with gold animation
-- Bags tab filtering in AgentTokenGrid
-- BagsBadge display on token pages
-- fun-distribute skip logic for bags tokens
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/trading-agent-create/index.ts` | Modify | Replace XOR with AES-256 encryption |
+| `supabase/functions/trading-agent-execute/index.ts` | Modify | Add Jupiter swap, wallet decryption, real execution |
+| `supabase/functions/trading-agent-monitor/index.ts` | Modify | Add Jupiter sell swap, wallet decryption |
+| `src/components/trading/CreateTradingAgentModal.tsx` | Create | Agent creation form modal |
+| `src/pages/TradingAgentsPage.tsx` | Modify | Wire up creation modal |
+| `src/hooks/useTradingAgents.ts` | Modify | Add useCreateTradingAgent mutation |
+| Database (cron jobs) | Insert | Schedule trading-agent-execute and monitor |
 
-**Requires secrets to work:**
-- Launching new tokens on bags.fm (`bags-agent-launch`)
-- Syncing data from bags.fm (`bags-data-sync`)
-- Claiming fees from bags.fm (`bags-claim-fees`)
+---
+
+## Safety Measures
+
+1. **Position size limits**: Max 25% of capital per trade (aggressive strategy)
+2. **Gas reserve**: Always keep 0.1 SOL for transaction fees
+3. **Cooldown**: 60-second minimum between trades per agent
+4. **Max positions**: Strategy-based limits (2/3/5)
+5. **Capital threshold**: 0.5 SOL minimum to activate trading
+6. **Transaction retries**: Max 3 attempts with exponential backoff
+7. **Slippage**: 5% (500 bps) default on Jupiter swaps
+
+---
+
+## Beta Mode (Not Published)
+
+The page remains accessible at `/agents/trading` but:
+- Not linked in main navigation prominently
+- "Create Agent" button enables creation but includes beta disclaimer
+- No marketing/announcement until proven stable
+
+---
+
+## Deployment Order
+
+1. Deploy encryption updates to trading-agent-create
+2. Deploy Jupiter integration to trading-agent-execute
+3. Deploy Jupiter integration to trading-agent-monitor
+4. Create cron jobs via SQL
+5. Deploy UI components
+6. Test with small capital agent
+
