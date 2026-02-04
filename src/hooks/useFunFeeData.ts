@@ -112,7 +112,7 @@ export function useFunDistributions() {
           fun_token:fun_tokens(name, ticker, image_url)
         `)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(20); // Reduced from 100 - only show recent
 
       if (error) throw error;
       return (data || []).map((item: any) => ({
