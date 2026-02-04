@@ -108,7 +108,7 @@ serve(async (req) => {
     // Fetch list members
     console.log(`Fetching members from list ${config.list_id}...`);
     const membersResponse = await fetch(
-      `https://api.twitterapi.io/twitter/list/members?listId=${config.list_id}`,
+      `https://api.twitterapi.io/twitter/list/members?list_id=${config.list_id}`,
       { headers: { "X-API-Key": TWITTERAPI_IO_KEY } }
     );
 
