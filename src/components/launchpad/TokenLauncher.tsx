@@ -71,6 +71,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
 
+  // Idempotency key to prevent duplicate launches - regenerated on successful launch or ticker change
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+
   const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom" | "holders">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
@@ -234,8 +237,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         imageUrlLength: imageUrlToSend?.length,
       });
 
-      // Hard timeout so we never get stuck with "nothing happens"
-      const timeoutMs = 35_000;
+      // Hard timeout so we never get stuck with "nothing happens" - increased to 60s for on-chain confirmation
+      const timeoutMs = 60_000;
       const invokePromise = supabase.functions.invoke("fun-create", {
         body: {
           name: tokenToLaunch.name,
@@ -247,6 +250,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           telegramUrl: tokenToLaunch.telegramUrl,
           discordUrl: tokenToLaunch.discordUrl,
           creatorWallet: walletAddress,
+          idempotencyKey, // Prevent duplicate launches
         },
       });
 
@@ -280,6 +284,22 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           throw new Error('Rate limited. Please wait a few minutes before launching again.');
         }
         throw new Error(`Server error: ${msg}`);
+      }
+      
+      // Handle in-progress response (duplicate request while still processing)
+      if (!data?.success && data?.inProgress) {
+        toast({ 
+          title: "Launch In Progress", 
+          description: "This token is already being created. Please wait.",
+        });
+        debugLog('info', 'Duplicate launch detected - in progress');
+        return;
+      }
+
+      // Handle cooldown response (same ticker+wallet within 10 minutes)
+      if (data?.cooldown && data?.success) {
+        debugLog('info', 'Cooldown response - token already created recently', { mintAddress: data.mintAddress });
+        // Still show success - the token exists
       }
       
       if (!data?.success) {
@@ -316,13 +336,14 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
 
       toast({ title: "🚀 Token Launched!", description: `${tokenToLaunch.name} is now live on Solana!` });
 
-      // Clear form
+      // Clear form and regenerate idempotency key for next launch
       setMeme(null);
       clearBanner();
       setCustomToken({ name: "", ticker: "", description: "", imageUrl: "", websiteUrl: "", twitterUrl: "", telegramUrl: "", discordUrl: "" });
       setCustomImageFile(null);
       setCustomImagePreview(null);
       setWalletAddress("");
+      setIdempotencyKey(crypto.randomUUID()); // New key for next launch attempt
       onLaunchSuccess();
     } catch (error) {
       let errorMessage = error instanceof Error ? error.message : "Failed to launch token";

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const VERSION = "v1.2.1";
+const VERSION = "v1.3.0";
 const DEPLOYED_AT = new Date().toISOString();
 
 const corsHeaders = {
@@ -34,6 +34,17 @@ function isBlockedName(name: string): boolean {
   return BLOCKED_PATTERNS.some(pattern => pattern.test(name));
 }
 
+// Type for lock result from RPC
+interface LockResult {
+  acquired: boolean;
+  reason?: string;
+  existing?: {
+    result_mint_address: string;
+    result_token_id: string;
+  } | null;
+  cooldown_remaining_seconds?: number;
+}
+
 serve(async (req) => {
   const startTime = Date.now();
   
@@ -49,10 +60,15 @@ serve(async (req) => {
 
   console.log(`[fun-create][${VERSION}] Request received`, { clientIP, deployed: DEPLOYED_AT, elapsed: 0 });
 
+  let acquiredIdempotencyKey: string | null = null;
+  // Use untyped client for flexibility with RPC calls
+  // deno-lint-ignore no-explicit-any
+  let supabase: any = null;
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Rate limit check
     const MAX_LAUNCHES_PER_HOUR = 2;
@@ -84,7 +100,7 @@ serve(async (req) => {
 
     console.log(`[fun-create][${VERSION}] Rate limit check passed`, { elapsed: Date.now() - startTime });
 
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet, feeMode } = await req.json();
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, creatorWallet, feeMode, idempotencyKey } = await req.json();
 
     if (!name || !ticker || !creatorWallet) {
       return new Response(
@@ -109,6 +125,75 @@ serve(async (req) => {
     }
 
     console.log(`[fun-create][${VERSION}] Validated inputs`, { name, ticker, elapsed: Date.now() - startTime });
+
+    // === IDEMPOTENCY LOCK: Prevent duplicate launches ===
+    const finalIdempotencyKey = idempotencyKey || crypto.randomUUID();
+    console.log(`[fun-create][${VERSION}] Acquiring idempotency lock`, { 
+      idempotencyKey: finalIdempotencyKey, 
+      ticker: ticker.toUpperCase(),
+      elapsed: Date.now() - startTime 
+    });
+
+    const { data: lockResultRaw, error: lockError } = await supabase.rpc('backend_acquire_launch_lock', {
+      p_idempotency_key: finalIdempotencyKey,
+      p_creator_wallet: creatorWallet,
+      p_ticker: ticker.toUpperCase(),
+    });
+
+    const lockResult = lockResultRaw as LockResult | null;
+
+    if (lockError) {
+      console.error(`[fun-create][${VERSION}] Lock acquisition error`, { error: lockError.message });
+      // Don't block on lock errors, continue with launch (graceful degradation)
+    } else if (lockResult && !lockResult.acquired) {
+      const reason = lockResult.reason;
+      console.log(`[fun-create][${VERSION}] Lock not acquired`, { reason, lockResult, elapsed: Date.now() - startTime });
+
+      if (reason === 'already_completed' && lockResult.existing) {
+        // Return the already-completed result
+        return new Response(
+          JSON.stringify({
+            success: true,
+            tokenId: lockResult.existing.result_token_id,
+            mintAddress: lockResult.existing.result_mint_address,
+            message: 'Token already created (duplicate request)',
+            solscanUrl: `https://solscan.io/token/${lockResult.existing.result_mint_address}`,
+            tradeUrl: `/token/${lockResult.existing.result_token_id || lockResult.existing.result_mint_address}`,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (reason === 'in_progress') {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'A launch for this ticker is already in progress. Please wait.',
+            inProgress: true,
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (reason === 'cooldown' && lockResult.existing) {
+        const cooldownMins = Math.ceil((lockResult.cooldown_remaining_seconds || 600) / 60);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            tokenId: lockResult.existing.result_token_id,
+            mintAddress: lockResult.existing.result_mint_address,
+            message: `Token was recently created. Next launch available in ${cooldownMins} minutes.`,
+            solscanUrl: `https://solscan.io/token/${lockResult.existing.result_mint_address}`,
+            tradeUrl: `/token/${lockResult.existing.result_token_id || lockResult.existing.result_mint_address}`,
+            cooldown: true,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      acquiredIdempotencyKey = finalIdempotencyKey;
+      console.log(`[fun-create][${VERSION}] Lock acquired`, { idempotencyKey: finalIdempotencyKey, elapsed: Date.now() - startTime });
+    }
 
     // Upload base64 image if provided
     let storedImageUrl = imageUrl;
@@ -140,6 +225,15 @@ serve(async (req) => {
 
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
     if (!meteoraApiUrl) {
+      // Mark lock as failed if we acquired one
+      if (acquiredIdempotencyKey && supabase) {
+        await supabase.rpc('backend_complete_launch_lock', {
+          p_idempotency_key: acquiredIdempotencyKey,
+          p_mint_address: null,
+          p_token_id: null,
+          p_success: false,
+        }).catch(() => {});
+      }
       throw new Error("METEORA_API_URL not configured");
     }
 
@@ -185,6 +279,16 @@ serve(async (req) => {
         error: upstreamError,
         elapsed: Date.now() - startTime,
       });
+
+      // Mark lock as failed
+      if (acquiredIdempotencyKey && supabase) {
+        await supabase.rpc('backend_complete_launch_lock', {
+          p_idempotency_key: acquiredIdempotencyKey,
+          p_mint_address: null,
+          p_token_id: null,
+          p_success: false,
+        }).catch(() => {});
+      }
 
       return new Response(
         JSON.stringify({
@@ -257,11 +361,23 @@ serve(async (req) => {
           await supabase.from("holder_reward_pool").insert({
             fun_token_id: funTokenId,
             accumulated_sol: 0,
-          }).then(({ error }) => {
+          }).then(({ error }: { error: Error | null }) => {
             if (error) console.warn(`[fun-create] Failed to init holder pool:`, error.message);
           });
         }
       }
+    }
+
+    // === COMPLETE LOCK: Mark as successful ===
+    if (acquiredIdempotencyKey && supabase) {
+      await supabase.rpc('backend_complete_launch_lock', {
+        p_idempotency_key: acquiredIdempotencyKey,
+        p_mint_address: mintAddress || null,
+        p_token_id: funTokenId,
+        p_success: true,
+      }).catch((err: Error) => {
+        console.warn(`[fun-create][${VERSION}] Failed to complete lock`, { error: err.message });
+      });
     }
 
     // Return Vercel's response directly - it has all the data we need
@@ -286,6 +402,16 @@ serve(async (req) => {
       error: message,
       elapsed: Date.now() - startTime,
     });
+
+    // Mark lock as failed on exception
+    if (acquiredIdempotencyKey && supabase) {
+      await supabase.rpc('backend_complete_launch_lock', {
+        p_idempotency_key: acquiredIdempotencyKey,
+        p_mint_address: null,
+        p_token_id: null,
+        p_success: false,
+      }).catch(() => {});
+    }
 
     return new Response(
       JSON.stringify({
