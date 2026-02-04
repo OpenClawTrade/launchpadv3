@@ -133,6 +133,16 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
               Governance
             </Button>
           </Link>
+          
+          <Link to="/agents/bags">
+            <Button 
+              size="sm" 
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg h-9 px-3 text-xs sm:text-sm font-medium"
+            >
+              <List className="h-4 w-4 mr-1.5" weight="bold" />
+              Bags Agents
+            </Button>
+          </Link>
 
           {isAuthenticated && solanaAddress ? (
             <div className="flex items-center gap-1">
@@ -226,6 +236,11 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                   <Link to="/governance" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
                     <Scales className="h-4 w-4 text-primary-foreground" weight="bold" />
                     <span className="text-primary-foreground text-sm font-medium">Governance</span>
+                  </Link>
+                  
+                  <Link to="/agents/bags" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-colors">
+                    <List className="h-4 w-4 text-white" weight="bold" />
+                    <span className="text-white text-sm font-medium">Bags Agents</span>
                   </Link>
                   
                   <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
