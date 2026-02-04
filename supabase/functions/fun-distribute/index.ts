@@ -168,10 +168,23 @@ serve(async (req) => {
       const claimedSol = Number(claim.claimed_sol) || 0;
       if (claimedSol <= 0) continue;
 
-      // Determine token type: Agent, API, holder_rewards, or regular creator
+      // Determine token type: Agent, API, holder_rewards, bags, or regular creator
       const isAgentToken = !!token.agent_id;
       const isApiToken = !!token.api_account_id && !isAgentToken; // Agent takes priority
       const isHolderRewards = token.fee_mode === 'holder_rewards' || token.fee_mode === 'holders';
+      const isBagsToken = token.launchpad_type === 'bags';
+      
+      // BAGS tokens: 100% platform fee, no creator distribution
+      if (isBagsToken) {
+        // Mark claim as distributed - platform keeps 100%
+        await supabase
+          .from("fun_fee_claims")
+          .update({ creator_distributed: true })
+          .eq("id", claim.id);
+        
+        console.log(`[fun-distribute] Bags token ${token.ticker}: 100% to platform, no creator split`);
+        continue;
+      }
       
       if (isHolderRewards) {
         // HOLDER REWARDS MODE: Route 50% to holder_reward_pool instead of creator

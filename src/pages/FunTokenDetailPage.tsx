@@ -24,9 +24,12 @@ import {
   RefreshCw,
   ArrowLeft,
   Users,
-  Timer
+  Timer,
+  Briefcase
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { BagsBadge } from "@/components/tunabook/BagsBadge";
+import { PumpBadge } from "@/components/tunabook/PumpBadge";
 
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD = 85;
@@ -225,6 +228,12 @@ export default function FunTokenDetailPage() {
                     💎 Holder Rewards
                   </Badge>
                 )}
+                {(token as any).launchpad_type === 'bags' && (
+                  <BagsBadge mintAddress={token.mint_address || undefined} size="md" />
+                )}
+                {(token as any).launchpad_type === 'pumpfun' && (
+                  <PumpBadge mintAddress={token.mint_address || undefined} size="md" />
+                )}
               </div>
 
               {/* Creator */}
@@ -290,6 +299,19 @@ export default function FunTokenDetailPage() {
                     <span className="hidden xs:inline">Axiom</span>
                   </Button>
                 </a>
+                {(token as any).launchpad_type === 'bags' && token.mint_address && (
+                  <a
+                    href={`https://bags.fm/coin/${token.mint_address}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex"
+                  >
+                    <Button size="sm" className="h-8 gap-1.5 px-3 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border-0">
+                      <Briefcase className="h-3.5 w-3.5" />
+                      <span className="hidden xs:inline">bags.fm</span>
+                    </Button>
+                  </a>
+                )}
               </div>
             </div>
           </div>
