@@ -49,6 +49,15 @@ Deno.serve(async (req) => {
       console.error("[agent-stats] Agents count error:", agentsError.message);
     }
 
+    // Get total agent payouts (lightweight query on ~250 rows)
+    const { data: payoutRows } = await supabase
+      .from("agent_fee_distributions")
+      .select("amount_sol");
+
+    const totalAgentPayouts = payoutRows?.reduce(
+      (sum, r) => sum + Number(r.amount_sol || 0), 0
+    ) || 0;
+
     const totalTokensLaunched = agentLaunchedTokens?.length || 0;
     const totalMarketCap =
       agentLaunchedTokens?.reduce((sum, t) => sum + Number((t as any)?.market_cap_sol || 0), 0) || 0;
@@ -61,7 +70,7 @@ Deno.serve(async (req) => {
       totalVolume: totalMarketCap * 10, // Rough estimate
       totalAgents: totalAgents || 0,
       totalAgentPosts: 0, // Placeholder - expensive query removed
-      totalAgentPayouts: 0, // Placeholder - expensive query removed
+      totalAgentPayouts,
     };
 
     // Cache the result
