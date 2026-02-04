@@ -25,6 +25,7 @@ import {
   Bot,
 } from "lucide-react";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
+import { BagsBadge } from "@/components/tunabook/BagsBadge";
 
 interface TokenTableProps {
   solPrice: number | null;
@@ -65,9 +66,10 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
     const isPromoted = promotedTokenIds?.has(token.id) || false;
     const isHolderRewards = token.fee_mode === 'holders';
     const isPumpFun = token.launchpad_type === 'pumpfun';
+    const isBags = token.launchpad_type === 'bags';
     
-    // pump.fun tokens always link to SubTuna (they all have communities)
-    const tradeUrl = isPumpFun 
+    // pump.fun and bags tokens always link to SubTuna
+    const tradeUrl = (isPumpFun || isBags)
       ? `/t/${token.ticker}` 
       : token.agent_id 
         ? `/t/${token.ticker}` 
@@ -104,14 +106,21 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
                                     <Bot className="h-3 w-3 text-purple-400" />
                                   </span>
                                 )}
-                                {isPumpFun && (
+                                {isPumpFun ? (
                                   <PumpBadge 
                                     mintAddress={token.mint_address ?? undefined} 
                                     showText={false} 
                                     size="sm"
                                     className="px-0 py-0 bg-transparent hover:bg-transparent"
                                   />
-                                )}
+                                ) : isBags ? (
+                                  <BagsBadge 
+                                    mintAddress={token.mint_address ?? undefined} 
+                                    showText={false} 
+                                    size="sm"
+                                    className="px-0 py-0 bg-transparent hover:bg-transparent"
+                                  />
+                                ) : null}
                               </span>
               <span className="text-xs text-muted-foreground">${token.ticker}</span>
             </div>
@@ -221,9 +230,10 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
                   const isPromoted = promotedTokenIds?.has(token.id) || false;
                   const isHolderRewards = token.fee_mode === 'holders';
                   const isPumpFun = token.launchpad_type === 'pumpfun';
+                  const isBags = token.launchpad_type === 'bags';
                   
-                  // pump.fun tokens always link to SubTuna (they all have communities)
-                  const tradeUrl = isPumpFun 
+                  // pump.fun and bags tokens link to SubTuna
+                  const tradeUrl = (isPumpFun || isBags)
                     ? `/t/${token.ticker}` 
                     : token.agent_id 
                       ? `/t/${token.ticker}` 
@@ -252,14 +262,21 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
                                   <Bot className="h-3 w-3 text-purple-400" />
                                 </span>
                               )}
-                              {isPumpFun && (
+                              {isPumpFun ? (
                                 <PumpBadge 
                                   mintAddress={token.mint_address ?? undefined} 
                                   showText={false} 
                                   size="sm"
                                   className="px-0 py-0 bg-transparent hover:bg-transparent"
                                 />
-                              )}
+                              ) : isBags ? (
+                                <BagsBadge 
+                                  mintAddress={token.mint_address ?? undefined} 
+                                  showText={false} 
+                                  size="sm"
+                                  className="px-0 py-0 bg-transparent hover:bg-transparent"
+                                />
+                              ) : null}
                             </span>
                             <span className="gate-token-ticker">${token.ticker}</span>
                           </div>

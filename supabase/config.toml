@@ -269,3 +269,12 @@ verify_jwt = false
 
 [functions.pumpfun-trending-sync]
 verify_jwt = false
+
+[functions.bags-agent-launch]
+verify_jwt = false
+
+[functions.bags-data-sync]
+verify_jwt = false
+
+[functions.bags-claim-fees]
+verify_jwt = false

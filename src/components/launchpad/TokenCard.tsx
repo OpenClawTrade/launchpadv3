@@ -9,6 +9,7 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { TrendingUp, TrendingDown, Users, Clock, ChevronRight, Zap, Sparkles, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
+import { BagsBadge } from "@/components/tunabook/BagsBadge";
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   const usdValue = marketCapSol * solPrice;
@@ -36,9 +37,10 @@ export function TokenCard({ token }: TokenCardProps) {
   const tradingFeePct = ((token as any).trading_fee_bps || 200) / 100; // Convert bps to %
   const isHolderRewards = token.fee_mode === 'holder_rewards';
   const isPumpFun = token.launchpad_type === 'pumpfun';
+  const isBags = token.launchpad_type === 'bags';
   
-  // Trade URL logic - pump.fun tokens link to SubTuna (they all have communities)
-  const tradeUrl = isPumpFun 
+  // Trade URL logic - pump.fun and bags tokens link to SubTuna (they all have communities)
+  const tradeUrl = (isPumpFun || isBags)
     ? `/t/${token.ticker}` 
     : token.agent_id 
       ? `/t/${token.ticker}` 
@@ -113,9 +115,11 @@ export function TokenCard({ token }: TokenCardProps) {
                   💎 HOLDER
                 </Badge>
               )}
-              {/* Mutually exclusive: pump.fun badge takes priority, then agent badge */}
+              {/* Mutually exclusive: pump.fun badge, bags badge, then agent badge */}
               {isPumpFun ? (
                 <PumpBadge mintAddress={token.mint_address} />
+              ) : isBags ? (
+                <BagsBadge mintAddress={token.mint_address} />
               ) : token.agent_id ? (
                 <span 
                   className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full"
