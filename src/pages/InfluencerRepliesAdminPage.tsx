@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { RefreshCw, CheckCircle, XCircle, Clock, MessageSquare, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { InfluencerRunDebugCard, type ManualRunDebugState } from "@/components/admin/InfluencerRunDebugCard";
 
 interface InfluencerReply {
   id: string;
@@ -33,6 +36,7 @@ interface ListConfig {
 
 export default function InfluencerRepliesAdminPage() {
   const queryClient = useQueryClient();
+  const [manualRunState, setManualRunState] = useState<ManualRunDebugState | null>(null);
 
   const { data: statusData, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
     queryKey: ["influencer-status"],
@@ -87,22 +91,77 @@ export default function InfluencerRepliesAdminPage() {
   });
 
   const triggerManualRun = async () => {
+    const startedAtMs = Date.now();
+    const startedAt = new Date(startedAtMs).toISOString();
+
     toast.info("Triggering manual run...");
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/influencer-list-reply`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/influencer-list-reply`;
+
+      const response = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+          timeoutMs: 30000,
+        },
       );
-      const data = await response.json();
-      if (data.error) {
-        toast.error(data.error);
-      } else {
-        toast.success(`Processed ${data.processed || 0} tweets, ${data.successful || 0} successful`);
-        refetchStatus();
-        queryClient.invalidateQueries({ queryKey: ["influencer-replies"] });
+
+      const rawText = await response.text();
+      let data: any = null;
+      try {
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        data = null;
       }
+
+      const finishedAtMs = Date.now();
+      const finishedAt = new Date(finishedAtMs).toISOString();
+
+      if (!response.ok || data?.error) {
+        const message = data?.error || `HTTP ${response.status} from backend function`;
+        setManualRunState({
+          kind: "error",
+          startedAt,
+          finishedAt,
+          durationMs: finishedAtMs - startedAtMs,
+          httpStatus: response.status,
+          message,
+          rawText,
+        });
+        toast.error(message);
+        return;
+      }
+
+      setManualRunState({
+        kind: "success",
+        startedAt,
+        finishedAt,
+        durationMs: finishedAtMs - startedAtMs,
+        httpStatus: response.status,
+        data,
+        rawText,
+      });
+
+      toast.success(`Processed ${data.processed || 0} tweets, ${data.successful || 0} successful`);
+      refetchStatus();
+      queryClient.invalidateQueries({ queryKey: ["influencer-replies"] });
     } catch (err) {
-      toast.error("Failed to trigger run");
+      const finishedAtMs = Date.now();
+      const finishedAt = new Date(finishedAtMs).toISOString();
+      const message = err instanceof Error ? err.message : "Failed to trigger run";
+
+      setManualRunState({
+        kind: "error",
+        startedAt,
+        finishedAt,
+        durationMs: finishedAtMs - startedAtMs,
+        name: err instanceof Error ? err.name : undefined,
+        message,
+      });
+
+      toast.error(message);
     }
   };
 
@@ -222,6 +281,9 @@ export default function InfluencerRepliesAdminPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Manual run debug */}
+        <InfluencerRunDebugCard state={manualRunState} />
 
         {/* Replies Table */}
         <Card>
