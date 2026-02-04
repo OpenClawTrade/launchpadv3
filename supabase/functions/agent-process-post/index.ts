@@ -893,15 +893,31 @@ export async function processLaunchPost(
     const isReply = !!(postUrl && postUrl.includes("/status/") && rawContent.includes("@"));
     const styleSourceUsername = isReply && postAuthor ? postAuthor : (postAuthor || undefined);
     
-    console.log(`[agent-process-post] Pre-creating SubTuna community for ${cleanSymbol}`);
+    // Check if ticker already exists in subtuna and generate unique ticker if needed
+    let finalTicker = cleanSymbol;
+    const { data: existingSubtuna } = await supabase
+      .from("subtuna")
+      .select("id")
+      .eq("ticker", cleanSymbol)
+      .limit(1)
+      .maybeSingle();
+    
+    if (existingSubtuna) {
+      // Ticker already exists, append random number to make it unique
+      const randomSuffix = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
+      finalTicker = `${cleanSymbol}${randomSuffix}`;
+      console.log(`[agent-process-post] Ticker ${cleanSymbol} exists, using unique ticker: ${finalTicker}`);
+    }
+    
+    console.log(`[agent-process-post] Pre-creating SubTuna community for ${finalTicker}`);
     
     const { data: preCreatedSubtuna, error: preSubtunaError } = await supabase
       .from("subtuna")
       .insert({
         fun_token_id: null, // Will be linked after launch
         agent_id: agent.id,
-        ticker: cleanSymbol,
-        name: `t/${cleanSymbol}`,
+        ticker: finalTicker,
+        name: `t/${finalTicker}`,
         description: parsed.description || `Welcome to the official community for $${cleanSymbol}!`,
         icon_url: finalImageUrl,
         style_source_username: styleSourceUsername?.replace("@", "") || null,
@@ -909,8 +925,8 @@ export async function processLaunchPost(
       .select("id, ticker")
       .single();
 
-    // Generate community URL for on-chain metadata
-    const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${cleanSymbol}` : null;
+    // Generate community URL for on-chain metadata (use finalTicker for unique URL)
+    const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${finalTicker}` : null;
     
     if (preCreatedSubtuna) {
       console.log(`[agent-process-post] ✅ SubTuna pre-created: ${communityUrl}`);
