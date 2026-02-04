@@ -2,26 +2,11 @@ import { Link } from "react-router-dom";
 import { Rocket, Clock, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useSolPrice } from "@/hooks/useSolPrice";
+import { useJustLaunched, type JustLaunchedToken } from "@/hooks/useJustLaunched";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
-
-interface Token {
-  id: string;
-  name: string;
-  ticker: string;
-  image_url?: string | null;
-  mint_address?: string | null;
-  market_cap_sol?: number | null;
-  created_at: string;
-  agent_id?: string | null;
-  status?: string | null;
-  launchpad_type?: string | null;
-}
-
-interface JustLaunchedProps {
-  tokens: Token[];
-}
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   const usdValue = marketCapSol * solPrice;
@@ -35,7 +20,7 @@ function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   }
 }
 
-function JustLaunchedCard({ token }: { token: Token }) {
+function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
   const { solPrice } = useSolPrice();
   const linkPath = token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address || token.id}`;
 
@@ -88,15 +73,40 @@ function JustLaunchedCard({ token }: { token: Token }) {
   );
 }
 
-export function JustLaunched({ tokens }: JustLaunchedProps) {
-  // Filter tokens created in the last 24 hours, sort by newest first
-  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
-  const recentTokens = tokens
-    .filter(t => new Date(t.created_at).getTime() > twentyFourHoursAgo)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 10);
+export function JustLaunched() {
+  // Use dedicated hook that fetches ONLY 10 recent tokens
+  const { tokens, isLoading } = useJustLaunched();
 
-  if (recentTokens.length === 0) {
+  if (isLoading) {
+    return (
+      <div className="w-full">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Rocket className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold">Just Launched</h2>
+          <span className="text-sm text-muted-foreground hidden sm:inline">— Last 24 Hours</span>
+        </div>
+        <div className="flex gap-3 pb-3 overflow-hidden">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex-shrink-0 w-[160px] sm:w-[180px] p-3 rounded-lg border border-border bg-card/80">
+              <div className="flex items-center gap-2.5 mb-2">
+                <Skeleton className="w-9 h-9 rounded-lg" />
+                <div className="flex-1 space-y-1">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-2 w-10" />
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-3 w-10" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (tokens.length === 0) {
     return null;
   }
 
@@ -110,7 +120,7 @@ export function JustLaunched({ tokens }: JustLaunchedProps) {
       
       <ScrollArea className="w-full">
         <div className="flex gap-3 pb-3">
-          {recentTokens.map((token) => (
+          {tokens.map((token) => (
             <JustLaunchedCard key={token.id} token={token} />
           ))}
         </div>

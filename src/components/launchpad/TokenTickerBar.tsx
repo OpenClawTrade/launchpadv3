@@ -1,21 +1,11 @@
 import { Link } from "react-router-dom";
+import { useTickerTokens } from "@/hooks/useTickerTokens";
 
-interface TickerToken {
-  id: string;
-  ticker: string;
-  image_url: string | null;
-  price_sol?: number | null;
-  price_change_24h?: number | null;
-  created_at?: string;
-}
+export function TokenTickerBar() {
+  // Use dedicated hook that fetches ONLY 15 tokens
+  const { tokens, isLoading } = useTickerTokens();
 
-interface TokenTickerBarProps {
-  tokens?: TickerToken[];
-}
-
-export function TokenTickerBar({ tokens = [] }: TokenTickerBarProps) {
-  // Use tokens passed from parent - eliminates duplicate query
-  if (tokens.length === 0) {
+  if (isLoading || tokens.length === 0) {
     return null;
   }
 

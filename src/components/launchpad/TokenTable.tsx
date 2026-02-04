@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import {
@@ -25,38 +26,24 @@ import {
 } from "lucide-react";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 
-interface Token {
-  id: string;
-  name: string;
-  ticker: string;
-  image_url: string | null;
-  mint_address: string | null;
-  market_cap_sol?: number | null;
-  price_sol?: number;
-  price_change_24h?: number | null;
-  volume_24h_sol?: number;
-  holder_count?: number | null;
-  bonding_progress?: number | null;
-  created_at?: string | null;
-  fee_mode?: string | null; // 'standard' or 'holders'
-  agent_id?: string | null;
-  launchpad_type?: string | null;
-}
-
 interface TokenTableProps {
-  tokens: Token[];
-  isLoading: boolean;
   solPrice: number | null;
   promotedTokenIds?: Set<string>;
   onPromote?: (tokenId: string, name: string, ticker: string) => void;
 }
 
-export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPromote }: TokenTableProps) {
+export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTableProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const pageSize = 15;
+
+  // Server-side pagination - fetches ONLY tokens for current page
+  const { tokens, totalCount, isLoading, refetch } = useFunTokensPaginated(page, pageSize);
+
+  // Calculate total pages from server count
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -73,10 +60,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
     return `$${usd.toFixed(0)}`;
   };
 
-  const totalPages = Math.ceil(tokens.length / pageSize);
-  const paginatedTokens = tokens.slice((page - 1) * pageSize, page * pageSize);
-
-  const MobileTokenCard = ({ token, index }: { token: Token; index: number }) => {
+  const MobileTokenCard = ({ token, index }: { token: typeof tokens[number]; index: number }) => {
     const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
     const isPromoted = promotedTokenIds?.has(token.id) || false;
     const isHolderRewards = token.fee_mode === 'holders';
@@ -194,10 +178,10 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
         <div className="divide-y divide-border">
           {isLoading ? (
             Array.from({ length: 10 }).map((_, i) => <MobileLoadingSkeleton key={i} />)
-          ) : paginatedTokens.length === 0 ? (
+          ) : tokens.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No tokens launched yet. Be the first!</div>
           ) : (
-            paginatedTokens.map((token, index) => <MobileTokenCard key={token.id} token={token} index={(page - 1) * pageSize + index} />)
+            tokens.map((token, index) => <MobileTokenCard key={token.id} token={token} index={(page - 1) * pageSize + index} />)
           )}
         </div>
       ) : (
@@ -229,10 +213,10 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
                     <td><Skeleton className="h-4 w-16" /></td>
                   </tr>
                 ))
-              ) : paginatedTokens.length === 0 ? (
+              ) : tokens.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">No tokens launched yet. Be the first!</td></tr>
               ) : (
-                paginatedTokens.map((token, index) => {
+                tokens.map((token, index) => {
                   const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
                   const isPromoted = promotedTokenIds?.has(token.id) || false;
                   const isHolderRewards = token.fee_mode === 'holders';
@@ -308,7 +292,7 @@ export function TokenTable({ tokens, isLoading, solPrice, promotedTokenIds, onPr
 
       {totalPages > 1 && (
         <div className="gate-pagination flex-wrap gap-2">
-          <span className="gate-pagination-info text-xs sm:text-sm">Page {page} of {totalPages} ({tokens.length} tokens)</span>
+          <span className="gate-pagination-info text-xs sm:text-sm">Page {page} of {totalPages} ({totalCount} tokens)</span>
           <div className="gate-pagination-buttons">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="gate-page-btn"><ChevronLeft className="h-4 w-4" /> Prev</button>
             <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="gate-page-btn">Next <ChevronRight className="h-4 w-4" /></button>
