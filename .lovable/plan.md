@@ -1,137 +1,113 @@
 
-# Fix: Prevent SubTuna Communities for Non-Agent Tokens
+# Fix: Agent Fees Earned Shows $0
 
 ## Problem Summary
 
-Tokens launched via the standard UI (like WARP) are incorrectly showing SubTuna community pages even though:
-1. They have no `agent_id`
-2. No actual `subtuna` record exists in the database
+The "Agent Fees Earned" stat on the Agents page displays $0, and "Agent Posts" also shows 0. This is because these values are **hardcoded as placeholders** in the `agent-stats` edge function, with a comment indicating "expensive query removed."
 
-**Root Causes:**
+**Current Code (lines 74-82):**
+```typescript
+const stats = {
+  totalMarketCap,
+  totalAgentFeesEarned: 0, // Placeholder - expensive query removed
+  totalTokensLaunched,
+  totalVolume: totalMarketCap * 10, // Rough estimate
+  totalAgents: totalAgents || 0,
+  totalAgentPosts: 0, // Placeholder - expensive query removed
+  totalAgentPayouts,
+};
+```
 
-| Issue | Location | Impact |
-|-------|----------|--------|
-| Virtual community fallback | `useSubTuna.ts` lines 125-144 | Any token ticker renders as a "community" |
-| Auto-populated website URL | `create-fun.ts`, `fun-create/index.ts` | On-chain metadata points to `/t/:ticker` for all tokens |
+## Root Cause Analysis
+
+The queries were removed for performance, but the data is actually **very lightweight**:
+
+| Table | Row Count | Query Impact |
+|-------|-----------|--------------|
+| `fun_fee_claims` | 356 rows | Trivial |
+| `subtuna_posts` (is_agent_post=true) | 5,311 rows | Light |
+
+**Expected Values:**
+- Agent Fees Earned: **~8.58 SOL** (calculated from `fun_fee_claims` with 0.8 multiplier)
+- Agent Posts: **5,311**
 
 ---
 
 ## Solution
 
-### Phase 1: Frontend – Stop Rendering Virtual Communities
+Update `supabase/functions/agent-stats/index.ts` to calculate both stats using efficient queries.
 
-**File: `src/hooks/useSubTuna.ts`**
+### Changes to `agent-stats/index.ts`
 
-Change the fallback logic to return `null` instead of a virtual object when no real `subtuna` record exists. This will cause `SubTunaPage` to show "Community Not Found" and guide users to the correct trade page.
+**1. Add Agent Fees Calculation:**
 
-**Current behavior (lines 125-144):**
+Query `fun_fee_claims` for agent-launched tokens and apply the 80% agent share:
+
 ```typescript
-if (error || !subtuna) {
-  // Returns a fake community object from token data
-  return {
-    id: "",
-    name: `t/${funToken.ticker}`,
-    memberCount: 0,
-    postCount: 0,
-    ...
-  };
+// Get agent-launched token IDs (already fetched above)
+const agentTokenIds = (agentLaunchedTokens || [])
+  .map(t => t.id)
+  .filter(Boolean);
+
+// Sum claimed fees for agent tokens (lightweight: ~356 rows total)
+let totalAgentFeesEarned = 0;
+if (agentTokenIds.length > 0) {
+  const { data: feeClaims } = await supabase
+    .from("fun_fee_claims")
+    .select("claimed_sol")
+    .in("fun_token_id", agentTokenIds);
+  
+  totalAgentFeesEarned = (feeClaims || []).reduce(
+    (sum, c) => sum + Number(c.claimed_sol || 0), 0
+  ) * 0.8; // 80% goes to agents
 }
 ```
 
-**New behavior:**
+**2. Add Agent Posts Count:**
+
 ```typescript
-if (error || !subtuna) {
-  // No real SubTuna community exists - return null
-  // This makes SubTunaPage show "Community Not Found"
-  return null;
-}
+// Count agent posts (lightweight query with index on is_agent_post)
+const { count: agentPostsCount } = await supabase
+  .from("subtuna_posts")
+  .select("id", { count: "exact", head: true })
+  .eq("is_agent_post", true);
+
+const totalAgentPosts = agentPostsCount || 0;
 ```
+
+**3. Update Stats Object:**
+
+```typescript
+const stats = {
+  totalMarketCap,
+  totalAgentFeesEarned, // Now calculated dynamically
+  totalTokensLaunched,
+  totalVolume: totalMarketCap * 10,
+  totalAgents: totalAgents || 0,
+  totalAgentPosts, // Now calculated dynamically
+  totalAgentPayouts,
+};
+```
+
+### Technical Notes
+
+- **Performance**: The existing 5-minute in-memory cache already protects against heavy query loads
+- **Consistency**: Uses the same calculation logic as `agent-me` and `agent-heartbeat` (sum of `claimed_sol` × 0.8)
+- **Accuracy**: Queries the `fun_fee_claims` table which is the documented source of truth for fee data
 
 ---
 
-### Phase 2: Frontend – Better "Not Found" UX
-
-**File: `src/pages/SubTunaPage.tsx`**
-
-Enhance the "Community Not Found" section to provide a helpful redirect:
-
-```typescript
-if (!subtuna) {
-  // Check if a token exists for this ticker
-  const { data: token } = await supabase
-    .from("fun_tokens")
-    .select("mint_address")
-    .ilike("ticker", ticker)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  // If token exists, show a link to the trade page instead
-  return (
-    <div>
-      <h2>No Community Yet</h2>
-      <p>This token doesn't have an AI-powered community.</p>
-      {token?.mint_address && (
-        <Link to={`/launchpad/${token.mint_address}`}>
-          <Button>Trade ${ticker} instead</Button>
-        </Link>
-      )}
-    </div>
-  );
-}
-```
-
----
-
-### Phase 3: Backend – Conditional Website URL
-
-Stop auto-populating the SubTuna URL for non-agent token launches.
-
-**Files to update:**
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `api/pool/create-fun.ts` | Only use SubTuna URL if `agentId` is provided |
-| `supabase/functions/fun-create/index.ts` | Same conditional logic |
-| `supabase/functions/api-launch-token/index.ts` | Same conditional logic |
-
-**Example fix for `fun-create/index.ts`:**
-```typescript
-// Only use SubTuna URL for agent launches
-const finalWebsiteUrl = websiteUrl 
-  || (agentId ? `https://tuna.fun/t/${ticker.toUpperCase()}` : undefined);
-const finalTwitterUrl = twitterUrl || 'https://x.com/BuildTuna';
-```
-
-This ensures:
-- Agent-launched tokens get the community URL in metadata
-- Standard UI launches do NOT get auto-populated community URLs
-
----
-
-### Phase 4: Navigation – Enforce Agent-Only SubTuna Links
-
-The current navigation logic in `TokenCard`, `TokenTable`, `KingOfTheHill`, and `JustLaunched` is **correct**—it only links to `/t/:ticker` when `agent_id` exists or `launchpad_type === 'pumpfun'`. No changes needed here.
-
-However, we should verify there are no other entry points creating SubTuna links for non-agent tokens.
-
----
-
-## Summary of Changes
-
-| File | Change |
-|------|--------|
-| `src/hooks/useSubTuna.ts` | Return `null` instead of virtual community when no `subtuna` record exists |
-| `src/pages/SubTunaPage.tsx` | Improve "Not Found" UX with redirect to trade page |
-| `api/pool/create-fun.ts` | Only auto-populate SubTuna URL when `agentId` is present |
-| `supabase/functions/fun-create/index.ts` | Same conditional logic |
-| `supabase/functions/api-launch-token/index.ts` | Same conditional logic |
+| `supabase/functions/agent-stats/index.ts` | Replace placeholder values with actual queries for fees and posts |
 
 ---
 
 ## Expected Outcome
 
-- Navigating to `/t/WARP` shows "No Community Yet" with a "Trade $WARP" button
-- New non-agent tokens won't have `/t/:ticker` in their on-chain metadata
-- Agent-launched tokens continue to work as expected with real communities
-- Clear separation between AI-powered communities and standard token listings
+After deployment:
+- "Agent Fees Earned" will show approximately **~$X** (8.58 SOL × current SOL price)
+- "Agent Posts" will show **5,311**
+- Stats will continue to be cached for 5 minutes to maintain performance
