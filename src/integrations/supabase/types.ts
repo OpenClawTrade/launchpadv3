@@ -340,6 +340,7 @@ export type Database = {
           total_fees_claimed_sol: number | null
           total_fees_earned_sol: number | null
           total_tokens_launched: number | null
+          trading_agent_id: string | null
           twitter_handle: string | null
           updated_at: string | null
           verified_at: string | null
@@ -370,6 +371,7 @@ export type Database = {
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
           total_tokens_launched?: number | null
+          trading_agent_id?: string | null
           twitter_handle?: string | null
           updated_at?: string | null
           verified_at?: string | null
@@ -400,13 +402,22 @@ export type Database = {
           total_fees_claimed_sol?: number | null
           total_fees_earned_sol?: number | null
           total_tokens_launched?: number | null
+          trading_agent_id?: string | null
           twitter_handle?: string | null
           updated_at?: string | null
           verified_at?: string | null
           wallet_address?: string
           writing_style?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agents_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_request_log: {
         Row: {
@@ -1713,6 +1724,7 @@ export type Database = {
           holder_count: number | null
           id: string
           image_url: string | null
+          is_trading_agent_token: boolean | null
           last_distribution_at: string | null
           launchpad_type: string | null
           market_cap_sol: number | null
@@ -1730,6 +1742,7 @@ export type Database = {
           ticker: string
           total_fees_claimed: number | null
           total_fees_earned: number | null
+          trading_agent_id: string | null
           trading_fee_bps: number | null
           twitter_url: string | null
           updated_at: string | null
@@ -1759,6 +1772,7 @@ export type Database = {
           holder_count?: number | null
           id?: string
           image_url?: string | null
+          is_trading_agent_token?: boolean | null
           last_distribution_at?: string | null
           launchpad_type?: string | null
           market_cap_sol?: number | null
@@ -1776,6 +1790,7 @@ export type Database = {
           ticker: string
           total_fees_claimed?: number | null
           total_fees_earned?: number | null
+          trading_agent_id?: string | null
           trading_fee_bps?: number | null
           twitter_url?: string | null
           updated_at?: string | null
@@ -1805,6 +1820,7 @@ export type Database = {
           holder_count?: number | null
           id?: string
           image_url?: string | null
+          is_trading_agent_token?: boolean | null
           last_distribution_at?: string | null
           launchpad_type?: string | null
           market_cap_sol?: number | null
@@ -1822,6 +1838,7 @@ export type Database = {
           ticker?: string
           total_fees_claimed?: number | null
           total_fees_earned?: number | null
+          trading_agent_id?: string | null
           trading_fee_bps?: number | null
           twitter_url?: string | null
           updated_at?: string | null
@@ -1841,6 +1858,13 @@ export type Database = {
             columns: ["api_account_id"]
             isOneToOne: false
             referencedRelation: "api_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fun_tokens_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "trading_agents"
             referencedColumns: ["id"]
           },
         ]
@@ -3086,6 +3110,54 @@ export type Database = {
           },
         ]
       }
+      pumpfun_trending_tokens: {
+        Row: {
+          created_timestamp: number | null
+          holder_count: number | null
+          id: string
+          image_url: string | null
+          is_king_of_hill: boolean | null
+          last_synced_at: string | null
+          market_cap_sol: number | null
+          mint_address: string
+          name: string | null
+          narrative_match: string | null
+          symbol: string | null
+          token_score: number | null
+          virtual_sol_reserves: number | null
+        }
+        Insert: {
+          created_timestamp?: number | null
+          holder_count?: number | null
+          id?: string
+          image_url?: string | null
+          is_king_of_hill?: boolean | null
+          last_synced_at?: string | null
+          market_cap_sol?: number | null
+          mint_address: string
+          name?: string | null
+          narrative_match?: string | null
+          symbol?: string | null
+          token_score?: number | null
+          virtual_sol_reserves?: number | null
+        }
+        Update: {
+          created_timestamp?: number | null
+          holder_count?: number | null
+          id?: string
+          image_url?: string | null
+          is_king_of_hill?: boolean | null
+          last_synced_at?: string | null
+          market_cap_sol?: number | null
+          mint_address?: string
+          name?: string | null
+          narrative_match?: string | null
+          symbol?: string | null
+          token_score?: number | null
+          virtual_sol_reserves?: number | null
+        }
+        Relationships: []
+      }
       reports: {
         Row: {
           created_at: string
@@ -4043,6 +4115,317 @@ export type Database = {
           },
         ]
       }
+      trading_agent_fee_deposits: {
+        Row: {
+          amount_sol: number
+          created_at: string | null
+          id: string
+          signature: string | null
+          source: string | null
+          trading_agent_id: string
+        }
+        Insert: {
+          amount_sol: number
+          created_at?: string | null
+          id?: string
+          signature?: string | null
+          source?: string | null
+          trading_agent_id: string
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string | null
+          id?: string
+          signature?: string | null
+          source?: string | null
+          trading_agent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trading_agent_fee_deposits_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trading_agent_positions: {
+        Row: {
+          amount_tokens: number
+          closed_at: string | null
+          current_price_sol: number | null
+          current_value_sol: number | null
+          entry_narrative: string | null
+          entry_price_sol: number
+          entry_reason: string | null
+          exit_reason: string | null
+          id: string
+          investment_sol: number
+          opened_at: string | null
+          realized_pnl_sol: number | null
+          status: string | null
+          token_address: string
+          token_image_url: string | null
+          token_name: string | null
+          token_symbol: string | null
+          trading_agent_id: string
+          unrealized_pnl_pct: number | null
+          unrealized_pnl_sol: number | null
+        }
+        Insert: {
+          amount_tokens: number
+          closed_at?: string | null
+          current_price_sol?: number | null
+          current_value_sol?: number | null
+          entry_narrative?: string | null
+          entry_price_sol: number
+          entry_reason?: string | null
+          exit_reason?: string | null
+          id?: string
+          investment_sol: number
+          opened_at?: string | null
+          realized_pnl_sol?: number | null
+          status?: string | null
+          token_address: string
+          token_image_url?: string | null
+          token_name?: string | null
+          token_symbol?: string | null
+          trading_agent_id: string
+          unrealized_pnl_pct?: number | null
+          unrealized_pnl_sol?: number | null
+        }
+        Update: {
+          amount_tokens?: number
+          closed_at?: string | null
+          current_price_sol?: number | null
+          current_value_sol?: number | null
+          entry_narrative?: string | null
+          entry_price_sol?: number
+          entry_reason?: string | null
+          exit_reason?: string | null
+          id?: string
+          investment_sol?: number
+          opened_at?: string | null
+          realized_pnl_sol?: number | null
+          status?: string | null
+          token_address?: string
+          token_image_url?: string | null
+          token_name?: string | null
+          token_symbol?: string | null
+          trading_agent_id?: string
+          unrealized_pnl_pct?: number | null
+          unrealized_pnl_sol?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trading_agent_positions_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trading_agent_trades: {
+        Row: {
+          amount_sol: number
+          amount_tokens: number
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          narrative_match: string | null
+          position_id: string | null
+          price_per_token: number
+          signature: string | null
+          slippage_actual: number | null
+          status: string | null
+          strategy_used: string | null
+          token_address: string
+          token_name: string | null
+          token_score: number | null
+          trade_type: string
+          trading_agent_id: string
+        }
+        Insert: {
+          amount_sol: number
+          amount_tokens: number
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          narrative_match?: string | null
+          position_id?: string | null
+          price_per_token: number
+          signature?: string | null
+          slippage_actual?: number | null
+          status?: string | null
+          strategy_used?: string | null
+          token_address: string
+          token_name?: string | null
+          token_score?: number | null
+          trade_type: string
+          trading_agent_id: string
+        }
+        Update: {
+          amount_sol?: number
+          amount_tokens?: number
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          narrative_match?: string | null
+          position_id?: string | null
+          price_per_token?: number
+          signature?: string | null
+          slippage_actual?: number | null
+          status?: string | null
+          strategy_used?: string | null
+          token_address?: string
+          token_name?: string | null
+          token_score?: number | null
+          trade_type?: string
+          trading_agent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trading_agent_trades_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "trading_agent_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trading_agent_trades_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trading_agents: {
+        Row: {
+          agent_id: string | null
+          avatar_url: string | null
+          created_at: string | null
+          creator_profile_id: string | null
+          creator_wallet: string | null
+          description: string | null
+          fun_token_id: string | null
+          id: string
+          last_deposit_at: string | null
+          last_trade_at: string | null
+          losing_trades: number | null
+          max_concurrent_positions: number | null
+          max_position_size_sol: number | null
+          name: string
+          preferred_narratives: string[] | null
+          status: string | null
+          stop_loss_pct: number | null
+          strategy_type: string | null
+          take_profit_pct: number | null
+          ticker: string
+          total_invested_sol: number | null
+          total_profit_sol: number | null
+          total_trades: number | null
+          trading_capital_sol: number | null
+          unrealized_pnl_sol: number | null
+          updated_at: string | null
+          wallet_address: string
+          wallet_private_key_encrypted: string
+          win_rate: number | null
+          winning_trades: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          avatar_url?: string | null
+          created_at?: string | null
+          creator_profile_id?: string | null
+          creator_wallet?: string | null
+          description?: string | null
+          fun_token_id?: string | null
+          id?: string
+          last_deposit_at?: string | null
+          last_trade_at?: string | null
+          losing_trades?: number | null
+          max_concurrent_positions?: number | null
+          max_position_size_sol?: number | null
+          name: string
+          preferred_narratives?: string[] | null
+          status?: string | null
+          stop_loss_pct?: number | null
+          strategy_type?: string | null
+          take_profit_pct?: number | null
+          ticker: string
+          total_invested_sol?: number | null
+          total_profit_sol?: number | null
+          total_trades?: number | null
+          trading_capital_sol?: number | null
+          unrealized_pnl_sol?: number | null
+          updated_at?: string | null
+          wallet_address: string
+          wallet_private_key_encrypted: string
+          win_rate?: number | null
+          winning_trades?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          avatar_url?: string | null
+          created_at?: string | null
+          creator_profile_id?: string | null
+          creator_wallet?: string | null
+          description?: string | null
+          fun_token_id?: string | null
+          id?: string
+          last_deposit_at?: string | null
+          last_trade_at?: string | null
+          losing_trades?: number | null
+          max_concurrent_positions?: number | null
+          max_position_size_sol?: number | null
+          name?: string
+          preferred_narratives?: string[] | null
+          status?: string | null
+          stop_loss_pct?: number | null
+          strategy_type?: string | null
+          take_profit_pct?: number | null
+          ticker?: string
+          total_invested_sol?: number | null
+          total_profit_sol?: number | null
+          total_trades?: number | null
+          trading_capital_sol?: number | null
+          unrealized_pnl_sol?: number | null
+          updated_at?: string | null
+          wallet_address?: string
+          wallet_private_key_encrypted?: string
+          win_rate?: number | null
+          winning_trades?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trading_agents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trading_agents_creator_profile_id_fkey"
+            columns: ["creator_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trading_agents_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       treasury_fee_claims: {
         Row: {
           claimed_at: string | null
@@ -4718,6 +5101,15 @@ export type Database = {
         Args: { p_api_account_id: string; p_token_id: string }
         Returns: boolean
       }
+      backend_close_trading_position: {
+        Args: {
+          p_exit_price_sol: number
+          p_exit_reason: string
+          p_position_id: string
+          p_status?: string
+        }
+        Returns: undefined
+      }
       backend_complete_agent_verification: {
         Args: {
           p_agent_id: string
@@ -4856,6 +5248,19 @@ export type Database = {
         }
         Returns: string
       }
+      backend_create_trading_agent: {
+        Args: {
+          p_avatar_url: string
+          p_creator_wallet?: string
+          p_description: string
+          p_name: string
+          p_strategy_type?: string
+          p_ticker: string
+          p_wallet_address: string
+          p_wallet_private_key_encrypted: string
+        }
+        Returns: string
+      }
       backend_fail_sniper_trade: {
         Args: { p_error_message: string; p_id: string }
         Returns: undefined
@@ -4923,6 +5328,10 @@ export type Database = {
         }
         Returns: string
       }
+      backend_link_trading_agent_token: {
+        Args: { p_fun_token_id: string; p_trading_agent_id: string }
+        Returns: undefined
+      }
       backend_manage_webhook: {
         Args: {
           p_action: string
@@ -4939,6 +5348,21 @@ export type Database = {
         Args: { p_keypair_id: string; p_token_id: string }
         Returns: undefined
       }
+      backend_open_trading_position: {
+        Args: {
+          p_amount_tokens: number
+          p_entry_narrative?: string
+          p_entry_price_sol: number
+          p_entry_reason: string
+          p_investment_sol: number
+          p_token_address: string
+          p_token_image_url: string
+          p_token_name: string
+          p_token_symbol: string
+          p_trading_agent_id: string
+        }
+        Returns: string
+      }
       backend_record_base_buyback: {
         Args: {
           p_eth_amount: number
@@ -4954,6 +5378,36 @@ export type Database = {
           p_creator_wallet: string
           p_fun_token_id: string
           p_tx_hash: string
+        }
+        Returns: string
+      }
+      backend_record_trading_agent_deposit: {
+        Args: {
+          p_amount_sol: number
+          p_signature?: string
+          p_source?: string
+          p_trading_agent_id: string
+        }
+        Returns: string
+      }
+      backend_record_trading_agent_trade: {
+        Args: {
+          p_amount_sol: number
+          p_amount_tokens: number
+          p_error_message?: string
+          p_execution_time_ms?: number
+          p_narrative_match?: string
+          p_position_id: string
+          p_price_per_token: number
+          p_signature?: string
+          p_slippage_actual?: number
+          p_status?: string
+          p_strategy_used?: string
+          p_token_address: string
+          p_token_name: string
+          p_token_score?: number
+          p_trade_type: string
+          p_trading_agent_id: string
         }
         Returns: string
       }
@@ -5049,6 +5503,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      backend_upsert_pumpfun_trending: {
+        Args: {
+          p_created_timestamp: number
+          p_holder_count: number
+          p_image_url: string
+          p_is_king_of_hill: boolean
+          p_market_cap_sol: number
+          p_mint_address: string
+          p_name: string
+          p_narrative_match?: string
+          p_symbol: string
+          p_token_score: number
+          p_virtual_sol_reserves: number
+        }
+        Returns: undefined
+      }
       backend_upsert_token_holding: {
         Args: {
           p_balance_delta: number
@@ -5134,6 +5604,24 @@ export type Database = {
           suggestion_score: number
           username: string
           verified_type: string
+        }[]
+      }
+      get_trading_agents_leaderboard: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          fun_token_id: string
+          id: string
+          name: string
+          status: string
+          strategy_type: string
+          ticker: string
+          total_profit_sol: number
+          total_trades: number
+          trading_capital_sol: number
+          unrealized_pnl_sol: number
+          win_rate: number
         }[]
       }
       get_treasury_claims_summary: {
