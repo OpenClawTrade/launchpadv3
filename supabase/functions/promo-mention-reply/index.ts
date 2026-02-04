@@ -442,148 +442,127 @@ serve(async (req) => {
       });
     }
 
-    // Search for mentions
-    const tweets = await searchMentions(TWITTERAPI_IO_KEY);
-    debug.tweetsSearched = tweets.length;
+    // QUEUE-BASED APPROACH: Pull pre-validated tweets from the queue
+    // The promo-mention-scan function runs every 2 minutes and populates the queue
+    // This function just picks from the queue and sends replies immediately
+    
+    // Get oldest pending tweet from queue
+    const { data: queuedTweets, error: queueError } = await supabase
+      .from("promo_mention_queue")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(1);
 
-    // Filter eligible tweets
-    const thirtyMinutesAgo = 30;
-    const eligibleTweets: Tweet[] = [];
+    debug.tweetsSearched = queuedTweets?.length || 0;
+    debug.eligibleTweets = queuedTweets?.length || 0;
 
-    for (const tweet of tweets) {
-      // Stop if we already have enough eligible tweets (only need 1)
-      if (eligibleTweets.length >= MAX_REPLIES_PER_RUN) break;
+    if (queueError) {
+      debug.errors.push(`Queue fetch error: ${queueError.message}`);
+    }
 
-      // Skip old tweets
-      if (!isRecentTweet(tweet.createdAt, thirtyMinutesAgo)) continue;
+    const queuedTweet = queuedTweets?.[0];
 
-      // CRITICAL: Skip tweets that are actually replies (even if API didn't filter them)
-      // We only want to reply to ORIGINAL tweets that mention us, not comments in threads
-      if (isActuallyReply(tweet)) {
-        console.log(`Skipping reply tweet ${tweet.id}: "${tweet.text.substring(0, 50)}..."`);
-        continue;
-      }
+    if (queuedTweet) {
+      // Mark as processing to prevent race conditions
+      await supabase
+        .from("promo_mention_queue")
+        .update({ status: "processing", processed_at: new Date().toISOString() })
+        .eq("id", queuedTweet.id);
 
-      // CRITICAL: Only reply to verified accounts (blue or gold badge)
-      if (!hasVerificationBadge(tweet)) {
-        console.log(`Skipping unverified account ${tweet.author?.userName}: "${tweet.text.substring(0, 50)}..."`);
-        continue;
-      }
-
-      // For $SOL-only mentions, require at least 1000 followers
-      if (isOnlySolCashtagMention(tweet.text)) {
-        const followers = getFollowerCount(tweet);
-        if (followers < 1000) {
-          console.log(`Skipping $SOL mention with low followers (${followers}) from ${tweet.author?.userName}`);
-          continue;
-        }
-      }
-
-      const username = tweet.author?.userName?.toLowerCase() || "";
-
-      // Skip bots
-      if (BOT_USERNAMES.has(username)) continue;
-
-      // Skip if contains our signature (self-reply prevention)
-      if (tweet.text.includes(REPLY_SIGNATURE)) continue;
-
-      // Check if already replied
-      const { data: existing } = await supabase
-        .from("promo_mention_replies")
-        .select("id")
-        .eq("tweet_id", tweet.id)
-        .single();
-
-      if (existing) continue;
-
-      // Cross-check with twitter_bot_replies
-      const { data: botReplied } = await supabase
-        .from("twitter_bot_replies")
-        .select("id")
-        .eq("tweet_id", tweet.id)
-        .single();
-
-      if (botReplied) continue;
-
-      // Author cooldown check
-      if (tweet.author?.id) {
+      // Author cooldown check (still do this at reply time)
+      let skipDueToCooldown = false;
+      if (queuedTweet.tweet_author_id) {
         const cooldownTime = new Date(
           Date.now() - AUTHOR_COOLDOWN_HOURS * 60 * 60 * 1000
         ).toISOString();
         const { count: authorRecent } = await supabase
           .from("promo_mention_replies")
           .select("*", { count: "exact", head: true })
-          .eq("tweet_author_id", tweet.author.id)
+          .eq("tweet_author_id", queuedTweet.tweet_author_id)
           .eq("reply_type", "initial")
           .gte("created_at", cooldownTime);
 
-        if ((authorRecent || 0) > 0) continue;
+        if ((authorRecent || 0) > 0) {
+          skipDueToCooldown = true;
+          await supabase
+            .from("promo_mention_queue")
+            .update({ status: "skipped" })
+            .eq("id", queuedTweet.id);
+        }
       }
 
-      eligibleTweets.push(tweet);
-    }
+      if (!skipDueToCooldown) {
+        // Recheck hourly limit
+        const { count: currentCount } = await supabase
+          .from("promo_mention_replies")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", oneHourAgo)
+          .eq("status", "sent");
 
-    debug.eligibleTweets = eligibleTweets.length;
-
-    // Process only 1 tweet per run (cron runs every minute)
-    const tweetToProcess = eligibleTweets[0];
-    
-    if (tweetToProcess) {
-      // Recheck hourly limit
-      const { count: currentCount } = await supabase
-        .from("promo_mention_replies")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", oneHourAgo)
-        .eq("status", "sent");
-
-      if ((currentCount || 0) >= MAX_REPLIES_PER_HOUR) {
-        debug.scanStoppedReason = "Hourly limit reached";
-      } else {
-        const username = tweetToProcess.author?.userName || "user";
-        const replyText = await generateReply(tweetToProcess.text, username, false);
-
-        if (!replyText) {
-          debug.errors.push(`Failed to generate reply for tweet ${tweetToProcess.id}`);
+        if ((currentCount || 0) >= MAX_REPLIES_PER_HOUR) {
+          debug.scanStoppedReason = "Hourly limit reached";
+          // Put back in queue
+          await supabase
+            .from("promo_mention_queue")
+            .update({ status: "pending", processed_at: null })
+            .eq("id", queuedTweet.id);
         } else {
-          const result = await postReply(
-            tweetToProcess.id,
-            replyText,
-            TWITTERAPI_IO_KEY,
-            X_FULL_COOKIE,
-            TWITTER_PROXY
-          );
+          const username = queuedTweet.tweet_author || "user";
+          const replyText = await generateReply(queuedTweet.tweet_text || "", username, false);
 
-          // Record in database
-          const mentionType = determineMentionType(tweetToProcess.text);
-          await supabase.from("promo_mention_replies").insert({
-            tweet_id: tweetToProcess.id,
-            tweet_author: username,
-            tweet_author_id: tweetToProcess.author?.id || null,
-            tweet_text: tweetToProcess.text.substring(0, 500),
-            conversation_id: tweetToProcess.conversationId || tweetToProcess.id,
-            reply_id: result.replyId || null,
-            reply_text: replyText,
-            reply_type: "initial",
-            mention_type: mentionType,
-            status: result.success ? "sent" : "failed",
-            error_message: result.error || null,
-          });
-
-          // Also record in twitter_bot_replies for cross-dedup
-          if (result.success) {
-            try {
-              await supabase.from("twitter_bot_replies").insert({
-                tweet_id: tweetToProcess.id,
-                reply_tweet_id: result.replyId,
-                reply_type: "promo_mention",
-              });
-            } catch {
-              // Ignore cross-dedup insert errors
-            }
-
-            debug.repliesSent++;
+          if (!replyText) {
+            debug.errors.push(`Failed to generate reply for tweet ${queuedTweet.tweet_id}`);
+            await supabase
+              .from("promo_mention_queue")
+              .update({ status: "skipped" })
+              .eq("id", queuedTweet.id);
           } else {
-            debug.errors.push(`Reply failed for ${tweetToProcess.id}: ${result.error}`);
+            const result = await postReply(
+              queuedTweet.tweet_id,
+              replyText,
+              TWITTERAPI_IO_KEY,
+              X_FULL_COOKIE,
+              TWITTER_PROXY
+            );
+
+            // Record in database
+            await supabase.from("promo_mention_replies").insert({
+              tweet_id: queuedTweet.tweet_id,
+              tweet_author: username,
+              tweet_author_id: queuedTweet.tweet_author_id || null,
+              tweet_text: queuedTweet.tweet_text,
+              conversation_id: queuedTweet.conversation_id || queuedTweet.tweet_id,
+              reply_id: result.replyId || null,
+              reply_text: replyText,
+              reply_type: "initial",
+              mention_type: queuedTweet.mention_type,
+              status: result.success ? "sent" : "failed",
+              error_message: result.error || null,
+            });
+
+            // Mark queue entry as sent
+            await supabase
+              .from("promo_mention_queue")
+              .update({ status: result.success ? "sent" : "skipped" })
+              .eq("id", queuedTweet.id);
+
+            // Also record in twitter_bot_replies for cross-dedup
+            if (result.success) {
+              try {
+                await supabase.from("twitter_bot_replies").insert({
+                  tweet_id: queuedTweet.tweet_id,
+                  reply_tweet_id: result.replyId,
+                  reply_type: "promo_mention",
+                });
+              } catch {
+                // Ignore cross-dedup insert errors
+              }
+
+              debug.repliesSent++;
+            } else {
+              debug.errors.push(`Reply failed for ${queuedTweet.tweet_id}: ${result.error}`);
+            }
           }
         }
       }
