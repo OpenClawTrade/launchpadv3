@@ -7,7 +7,7 @@ import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
-import { Menu } from "lucide-react";
+import { Menu, TrendingUp } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
 import pumpfunIcon from "@/assets/pumpfun-icon.webp";
 
@@ -61,6 +61,12 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
                 TUNA Agents
               </Button>
             </Link>
+            <Link to="/agents/trading">
+              <Button size="sm" className="gold-pulse-btn font-bold rounded-lg h-9 px-3 text-sm">
+                <TrendingUp className="h-4 w-4 mr-1.5" />
+                Trading Agents
+              </Button>
+            </Link>
             <Link to="/agents/pump">
               <Button size="sm" className="bg-[#00ff00] hover:bg-[#00cc00] text-black rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
                 <img src={pumpfunIcon} alt="" className="w-4 h-4" />
@@ -112,6 +118,10 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
                   </Link>
                   <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-white text-sm font-medium">TUNA Agents</span>
+                  </Link>
+                  <Link to="/agents/trading" className="flex items-center gap-2 px-4 py-2.5 rounded-lg gold-pulse-btn transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-sm font-bold">Trading Agents</span>
                   </Link>
                   <Link to="/agents/pump" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#00ff00] hover:bg-[#00cc00] transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <img src={pumpfunIcon} alt="" className="w-4 h-4" />
