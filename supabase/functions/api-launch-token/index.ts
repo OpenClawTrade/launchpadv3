@@ -108,8 +108,9 @@ serve(async (req) => {
     // Validate trading fee (10-1000 bps = 0.1% to 10%)
     const tradingFeeBps = Math.max(10, Math.min(1000, body.tradingFeeBps || 200));
 
-    // === FIX: Auto-populate socials when not provided ===
-    const finalWebsiteUrl = body.websiteUrl || `https://tuna.fun/t/${body.ticker.toUpperCase()}`;
+    // === FIX: Only auto-populate SubTuna URL for agent launches ===
+    // API-launched tokens don't have agent communities, so don't use /t/:ticker
+    const finalWebsiteUrl = body.websiteUrl || undefined;
     const finalTwitterUrl = body.twitterUrl || 'https://x.com/BuildTuna';
 
     // Call Vercel API to create the token

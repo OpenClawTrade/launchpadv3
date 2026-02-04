@@ -263,9 +263,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // === FIX: Auto-populate socials when not provided ===
-    // This ensures all tokens have proper metadata for Axiom/DEXTools/Birdeye
-    const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' ? websiteUrl : `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    // === FIX: Only auto-populate SubTuna URL for agent launches ===
+    // Non-agent tokens should NOT get the /t/:ticker URL since they don't have communities
+    // The caller (edge function) passes agentId when it's an agent launch
+    const { agentId } = req.body;
+    const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' 
+      ? websiteUrl 
+      : (agentId ? `https://tuna.fun/t/${ticker.toUpperCase()}` : undefined);
     const finalTwitterUrl = twitterUrl && twitterUrl.trim() !== '' ? twitterUrl : 'https://x.com/BuildTuna';
 
     if (!serverSideSign) {

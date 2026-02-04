@@ -123,25 +123,10 @@ export function useSubTuna(ticker?: string) {
         .single();
 
       if (error || !subtuna) {
-        // No SubTuna yet - return basic info from token
-        return {
-          id: "",
-          name: `t/${funToken.ticker}`,
-          memberCount: 0,
-          postCount: 0,
-          createdAt: new Date().toISOString(),
-          funToken: {
-            id: funToken.id,
-            ticker: funToken.ticker,
-            name: funToken.name,
-            imageUrl: funToken.image_url,
-            marketCapSol: funToken.market_cap_sol,
-            priceSol: funToken.price_sol,
-            priceChange24h: funToken.price_change_24h,
-            mintAddress: funToken.mint_address,
-            launchpadType: funToken.launchpad_type,
-          },
-        };
+        // No real SubTuna community exists - return null
+        // This makes SubTunaPage show "Community Not Found" 
+        // and directs users to the trade page instead
+        return null;
       }
 
       return {
