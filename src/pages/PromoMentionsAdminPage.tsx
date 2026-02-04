@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Play, ExternalLink, MessageCircle, Users, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, Play, ExternalLink, MessageCircle, Users, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { InfluencerRunDebugCard, type ManualRunDebugState } from "@/components/admin/InfluencerRunDebugCard";
 
@@ -174,19 +174,28 @@ export default function PromoMentionsAdminPage() {
               Automated replies to @moltbook and @openclaw mentions
             </p>
           </div>
-          <Button onClick={handleRunNow} disabled={isRunning}>
-            {isRunning ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Running...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Run Now
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["promo-mention-replies"] })}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+            <Button onClick={handleRunNow} disabled={isRunning}>
+              {isRunning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run Now
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -339,18 +348,24 @@ export default function PromoMentionsAdminPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-muted-foreground hover:text-foreground"
+                              title="View original tweet"
                             >
                               <ExternalLink className="w-4 h-4" />
                             </a>
-                            {reply.reply_id && (
+                            {reply.reply_id ? (
                               <a
                                 href={`https://x.com/i/status/${reply.reply_id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-400 hover:text-blue-300"
+                                className="text-green-400 hover:text-green-300"
+                                title="View our reply"
                               >
-                                <MessageCircle className="w-4 h-4" />
+                                <MessageCircle className="w-4 h-4 fill-current" />
                               </a>
+                            ) : (
+                              <span className="text-muted-foreground/50" title="No reply sent">
+                                <MessageCircle className="w-4 h-4" />
+                              </span>
                             )}
                           </div>
                         </TableCell>
