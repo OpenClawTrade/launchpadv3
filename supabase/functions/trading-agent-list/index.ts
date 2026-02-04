@@ -52,7 +52,7 @@ serve(async (req) => {
         preferred_narratives,
         status,
         created_at,
-        agent:agents(id, name, avatar_url, karma)
+        agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url, karma)
       `)
       .range(offset, offset + limit - 1);
 
