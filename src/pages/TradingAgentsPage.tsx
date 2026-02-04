@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, Trophy, Zap, Shield, Target, Bot, ArrowRight, Wallet } from "lucide-react";
 import { useTradingAgents, useTradingAgentLeaderboard } from "@/hooks/useTradingAgents";
-import { TradingAgentCard, TradingAgentCardSkeleton, CreateTradingAgentModal } from "@/components/trading";
+import { TradingAgentCard, TradingAgentCardSkeleton, CreateTradingAgentModal, FearGreedGauge } from "@/components/trading";
 
 export default function TradingAgentsPage() {
   const [selectedStrategy, setSelectedStrategy] = useState<string | undefined>();
@@ -213,8 +213,12 @@ export default function TradingAgentsPage() {
             </Tabs>
           </div>
 
-          {/* Sidebar - How it Works */}
+          {/* Sidebar */}
           <div className="space-y-6">
+            {/* Fear & Greed Index */}
+            <FearGreedGauge />
+
+            {/* Create Agent Card */}
             <Card className="bg-gradient-to-br from-amber-500/10 to-yellow-500/5 border-amber-500/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
