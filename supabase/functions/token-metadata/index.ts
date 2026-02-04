@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
       discord_url?: string;
       status?: string;
       creator_wallet: string;
+      created_at?: string;
     }
 
     // Fetch token from database - check tokens, fun_tokens, and pending_token_metadata
@@ -120,6 +121,7 @@ Deno.serve(async (req) => {
         },
       };
       
+      // No cache for fallback - external platforms should retry quickly
       return new Response(
         JSON.stringify(fallbackMetadata),
         { 
@@ -131,8 +133,33 @@ Deno.serve(async (req) => {
         }
       );
     }
-
+      
     console.log(`[token-metadata] Found token in ${tokenSource}:`, token.name, 'website:', token.website_url, 'twitter:', token.twitter_url);
+    
+    // Determine cache duration based on token age and source
+    let cacheMaxAge = 3600; // Default 1 hour for established tokens
+    
+    if (tokenSource === 'pending_token_metadata') {
+      // Pending tokens - no cache, always fresh
+      cacheMaxAge = 0;
+      console.log('[token-metadata] Pending token, using no-cache');
+    } else {
+      // Check if token was created within last 10 minutes
+      const createdAt = token.created_at ? new Date(token.created_at) : null;
+      if (createdAt) {
+        const ageMs = Date.now() - createdAt.getTime();
+        const tenMinutesMs = 10 * 60 * 1000;
+        if (ageMs < tenMinutesMs) {
+          // New token - short cache for rapid updates on external platforms
+          cacheMaxAge = 60;
+          console.log(`[token-metadata] New token (age: ${Math.round(ageMs / 1000)}s), using short cache: ${cacheMaxAge}s`);
+        }
+      }
+    }
+    
+    const cacheControl = cacheMaxAge === 0 
+      ? 'no-cache, no-store' 
+      : `public, max-age=${cacheMaxAge}`;
 
     // Validate image URL - skip t.co shortlinks (they're redirects, not images)
     let validImageUrl = token.image_url || '';
@@ -214,7 +241,7 @@ Deno.serve(async (req) => {
       (metadata.properties as Record<string, unknown>).links = links;
     }
 
-    console.log('[token-metadata] Returning metadata for:', token.name);
+    console.log('[token-metadata] Returning metadata for:', token.name, 'with cache:', cacheControl);
 
     return new Response(
       JSON.stringify(metadata),
@@ -222,7 +249,7 @@ Deno.serve(async (req) => {
         status: 200, 
         headers: {
           ...corsHeaders,
-          'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+          'Cache-Control': cacheControl,
         }
       }
     );
