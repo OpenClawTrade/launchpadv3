@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Connection, Keypair, VersionedTransaction } from "https://esm.sh/@solana/web3.js@1.98.0";
+import bs58 from "https://esm.sh/bs58@5.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +19,8 @@ const MIN_CAPITAL_SOL = 0.5;
 const GAS_RESERVE_SOL = 0.1;
 const MIN_LIQUIDITY_SOL = 20;
 const COOLDOWN_SECONDS = 60;
+const SLIPPAGE_BPS = 500; // 5%
+const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -34,6 +38,18 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY not configured");
     }
+
+    const API_ENCRYPTION_KEY = Deno.env.get("API_ENCRYPTION_KEY");
+    if (!API_ENCRYPTION_KEY) {
+      throw new Error("API_ENCRYPTION_KEY not configured");
+    }
+
+    const HELIUS_RPC_URL = Deno.env.get("HELIUS_RPC_URL");
+    if (!HELIUS_RPC_URL) {
+      throw new Error("HELIUS_RPC_URL not configured");
+    }
+
+    const connection = new Connection(HELIUS_RPC_URL, "confirmed");
 
     // Get active trading agents with sufficient capital
     const { data: agents, error: agentsError } = await supabase
@@ -152,12 +168,36 @@ serve(async (req) => {
         const selectedToken = availableTokens.find(t => t.mint_address === aiAnalysis.selectedToken);
         if (!selectedToken) continue;
 
-        // Calculate stop loss and take profit prices
-        const entryPrice = selectedToken.price_sol || 0.000001;
-        const stopLossPrice = entryPrice * (1 - strategy.stopLoss / 100);
-        const takeProfitPrice = entryPrice * (1 + strategy.takeProfit / 100);
+        // Decrypt agent's wallet private key
+        const agentKeypair = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
+        if (!agentKeypair) {
+          console.error(`[trading-agent-execute] Failed to decrypt wallet for ${agent.name}`);
+          continue;
+        }
 
-        // Create position record (simulated trade - actual Jupiter swap would go here)
+        // Execute Jupiter swap: SOL -> Token
+        const swapResult = await executeJupiterSwap(
+          connection,
+          agentKeypair,
+          WSOL_MINT,
+          selectedToken.mint_address,
+          Math.floor(positionSize * 1e9), // Convert SOL to lamports
+          SLIPPAGE_BPS
+        );
+
+        if (!swapResult.success) {
+          console.error(`[trading-agent-execute] Swap failed for ${agent.name}:`, swapResult.error);
+          continue;
+        }
+
+        const tokensReceived = swapResult.outputAmount || (positionSize / (selectedToken.price_sol || 0.000001));
+        const actualPrice = positionSize / tokensReceived;
+
+        // Calculate stop loss and take profit prices
+        const stopLossPrice = actualPrice * (1 - strategy.stopLoss / 100);
+        const takeProfitPrice = actualPrice * (1 + strategy.takeProfit / 100);
+
+        // Create position record
         const { data: position, error: posError } = await supabase
           .from("trading_agent_positions")
           .insert({
@@ -166,9 +206,9 @@ serve(async (req) => {
             token_name: selectedToken.name,
             token_symbol: selectedToken.symbol,
             token_image_url: selectedToken.image_url,
-            entry_price_sol: entryPrice,
-            current_price_sol: entryPrice,
-            amount_tokens: positionSize / entryPrice,
+            entry_price_sol: actualPrice,
+            current_price_sol: actualPrice,
+            amount_tokens: tokensReceived,
             investment_sol: positionSize,
             current_value_sol: positionSize,
             entry_reason: aiAnalysis.entryReason,
@@ -194,16 +234,17 @@ serve(async (req) => {
             token_name: selectedToken.name,
             trade_type: "buy",
             amount_sol: positionSize,
-            amount_tokens: positionSize / entryPrice,
-            price_per_token: entryPrice,
+            amount_tokens: tokensReceived,
+            price_per_token: actualPrice,
             strategy_used: agent.strategy_type,
             narrative_match: aiAnalysis.narrative,
-            token_score: selectedToken.score,
+            token_score: selectedToken.token_score,
             entry_analysis: aiAnalysis.fullAnalysis,
             ai_reasoning: aiAnalysis.reasoning,
             market_context: aiAnalysis.marketContext,
             confidence_score: aiAnalysis.confidence,
             status: "confirmed",
+            signature: swapResult.signature,
           })
           .select()
           .single();
@@ -222,7 +263,9 @@ serve(async (req) => {
           .eq("id", agent.id);
 
         // Post to SubTuna community
-        await postTradeToSubTuna(supabase, agent, trade, selectedToken, aiAnalysis, "buy");
+        if (swapResult.signature) {
+          await postTradeToSubTuna(supabase, agent, trade, selectedToken, aiAnalysis, swapResult.signature);
+        }
 
         results.push({
           agentId: agent.id,
@@ -230,10 +273,12 @@ serve(async (req) => {
           action: "buy",
           token: selectedToken.symbol,
           amount: positionSize,
+          tokensReceived,
+          signature: swapResult.signature,
           analysis: aiAnalysis.reasoning,
         });
 
-        console.log(`[trading-agent-execute] ✅ ${agent.name} bought ${selectedToken.symbol} for ${positionSize.toFixed(4)} SOL`);
+        console.log(`[trading-agent-execute] ✅ ${agent.name} bought ${selectedToken.symbol} for ${positionSize.toFixed(4)} SOL (${swapResult.signature})`);
 
       } catch (agentError) {
         console.error(`[trading-agent-execute] Error processing agent ${agent.name}:`, agentError);
@@ -253,6 +298,115 @@ serve(async (req) => {
     );
   }
 });
+
+async function decryptWallet(encryptedKey: string, encryptionKey: string): Promise<Keypair | null> {
+  try {
+    // AES-256-GCM decryption
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(encryptionKey);
+    const keyHash = await crypto.subtle.digest("SHA-256", keyData);
+    
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyHash,
+      { name: "AES-GCM" },
+      false,
+      ["decrypt"]
+    );
+
+    const combined = Uint8Array.from(atob(encryptedKey), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      ciphertext
+    );
+
+    const privateKeyBase58 = new TextDecoder().decode(decrypted);
+    const secretKey = bs58.decode(privateKeyBase58);
+    return Keypair.fromSecretKey(secretKey);
+  } catch (error) {
+    console.error("[trading-agent-execute] Wallet decryption failed:", error);
+    return null;
+  }
+}
+
+async function executeJupiterSwap(
+  connection: Connection,
+  payer: Keypair,
+  inputMint: string,
+  outputMint: string,
+  amountLamports: number,
+  slippageBps: number
+): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string }> {
+  try {
+    // Get quote from Jupiter
+    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${slippageBps}`;
+    const quoteResponse = await fetch(quoteUrl);
+    
+    if (!quoteResponse.ok) {
+      return { success: false, error: `Quote failed: ${quoteResponse.status}` };
+    }
+
+    const quote = await quoteResponse.json();
+    const outputAmount = parseInt(quote.outAmount) / 1e6; // Assuming 6 decimals for most tokens
+
+    // Get swap transaction
+    const swapResponse = await fetch("https://quote-api.jup.ag/v6/swap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quoteResponse: quote,
+        userPublicKey: payer.publicKey.toBase58(),
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: "auto",
+      }),
+    });
+
+    if (!swapResponse.ok) {
+      return { success: false, error: `Swap request failed: ${swapResponse.status}` };
+    }
+
+    const swapData = await swapResponse.json();
+    const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
+    const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+
+    // Sign and send transaction
+    transaction.sign([payer]);
+    
+    const signature = await connection.sendTransaction(transaction, {
+      skipPreflight: true,
+      maxRetries: 3,
+    });
+
+    // Confirm transaction with retries
+    let confirmed = false;
+    for (let i = 0; i < 30; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const status = await connection.getSignatureStatus(signature);
+      if (status.value?.confirmationStatus === "confirmed" || status.value?.confirmationStatus === "finalized") {
+        confirmed = true;
+        break;
+      }
+      if (status.value?.err) {
+        return { success: false, error: `Transaction error: ${JSON.stringify(status.value.err)}` };
+      }
+    }
+
+    if (!confirmed) {
+      return { success: false, error: "Transaction confirmation timeout" };
+    }
+
+    return { success: true, signature, outputAmount };
+
+  } catch (error) {
+    console.error("[trading-agent-execute] Jupiter swap error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown swap error" };
+  }
+}
 
 async function analyzeTokensWithAI(
   apiKey: string,
@@ -291,7 +445,7 @@ async function analyzeTokensWithAI(
     address: t.mint_address,
     name: t.name,
     symbol: t.symbol,
-    score: t.score,
+    score: t.token_score,
     liquidity: t.liquidity_sol,
     holders: t.holder_count,
     narrative: t.narrative_category,
@@ -299,7 +453,7 @@ async function analyzeTokensWithAI(
     volume_trend: t.volume_trend,
   }));
 
-  const prompt = `You are ${agent.name}, an autonomous trading agent on pump.fun with a ${agent.strategy_type} strategy.
+  const prompt = `You are ${agent.name}, an autonomous trading agent with a ${agent.strategy_type} strategy.
 
 ## Your Trading Profile
 - Win Rate: ${winRate.toFixed(1)}%
@@ -416,7 +570,7 @@ async function postTradeToSubTuna(
   trade: any,
   token: any,
   analysis: any,
-  tradeType: "buy" | "sell"
+  signature: string
 ) {
   try {
     // Find agent's SubTuna community
@@ -430,23 +584,23 @@ async function postTradeToSubTuna(
       console.log("[trading-agent-execute] No SubTuna found for agent");
       return;
     }
-
-    const emoji = tradeType === "buy" ? "🔵" : "🟢";
-    const action = tradeType === "buy" ? "ENTERED" : "EXITED";
     
-    const title = `${emoji} ${action} $${token.symbol} @ ${trade.price_per_token?.toFixed(10)} SOL`;
+    const title = `🔵 ENTERED $${token.symbol} @ ${trade.price_per_token?.toFixed(10)} SOL`;
     
     const content = `## Trade Analysis
 
-**${tradeType === "buy" ? "Entry" : "Exit"} Position: $${token.symbol}**
+**Entry Position: $${token.symbol}**
 
 ### 📊 Trade Details
 - **Amount**: ${trade.amount_sol?.toFixed(4)} SOL
 - **Tokens**: ${trade.amount_tokens?.toLocaleString()}
 - **Price**: ${trade.price_per_token?.toFixed(10)} SOL
-- **Token Score**: ${token.score}/100
+- **Token Score**: ${token.token_score}/100
 - **Strategy**: ${agent.strategy_type}
 - **Confidence**: ${analysis.confidence}%
+
+### 🔗 Transaction
+\`${signature}\`
 
 ### 🧠 My Analysis
 ${analysis.fullAnalysis}
@@ -463,7 +617,7 @@ ${analysis.riskAssessment}
 ${analysis.marketContext}
 
 ---
-*This is an autonomous trade executed by ${agent.name}. Past performance does not guarantee future results.*`;
+*This is an autonomous trade executed by ${agent.name} via Jupiter DEX. Past performance does not guarantee future results.*`;
 
     const { data: post, error: postError } = await supabase
       .from("subtuna_posts")

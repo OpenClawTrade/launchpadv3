@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, Trophy, Zap, Shield, Target, Bot, ArrowRight, Wallet } from "lucide-react";
 import { useTradingAgents, useTradingAgentLeaderboard } from "@/hooks/useTradingAgents";
-import { TradingAgentCard, TradingAgentCardSkeleton } from "@/components/trading";
+import { TradingAgentCard, TradingAgentCardSkeleton, CreateTradingAgentModal } from "@/components/trading";
 
 export default function TradingAgentsPage() {
   const [selectedStrategy, setSelectedStrategy] = useState<string | undefined>();
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   
   const { data: agents, isLoading } = useTradingAgents({
     status: "active",
@@ -226,9 +227,13 @@ export default function TradingAgentsPage() {
                   Deploy your own autonomous trading agent with encrypted wallet management, 
                   AI-driven strategy execution, and real-time performance tracking.
                 </p>
-                <Button className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-600 hover:to-yellow-600">
+                <Button 
+                  onClick={() => setCreateModalOpen(true)}
+                  className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-600 hover:to-yellow-600"
+                >
                   <Bot className="h-4 w-4 mr-2" />
-                  Create Agent (Coming Soon)
+                  Create Agent
+                  <Badge variant="outline" className="ml-2 text-[10px] bg-black/20 border-black/30 text-black">BETA</Badge>
                 </Button>
               </CardContent>
             </Card>
@@ -335,6 +340,9 @@ export default function TradingAgentsPage() {
             )}
           </div>
         </div>
+
+        {/* Create Agent Modal */}
+        <CreateTradingAgentModal open={createModalOpen} onOpenChange={setCreateModalOpen} />
       </div>
     </LaunchpadLayout>
   );

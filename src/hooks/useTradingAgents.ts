@@ -1,5 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+
+export interface CreateAgentInput {
+  name?: string;
+  ticker?: string;
+  description?: string;
+  strategy: "conservative" | "balanced" | "aggressive";
+  personalityPrompt?: string;
+  creatorWallet: string;
+}
 
 export interface TradingAgent {
   id: string;
@@ -238,5 +247,36 @@ export function useStrategyReviews(agentId: string) {
       return data;
     },
     enabled: !!agentId,
+  });
+}
+
+export function useCreateTradingAgent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateAgentInput) => {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trading-agent-create`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify(data),
+        }
+      );
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create trading agent");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trading-agents"] });
+      queryClient.invalidateQueries({ queryKey: ["trading-agent-leaderboard"] });
+    },
   });
 }
