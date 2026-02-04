@@ -2225,6 +2225,39 @@ export type Database = {
         }
         Relationships: []
       }
+      launch_idempotency_locks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          creator_wallet: string
+          idempotency_key: string
+          result_mint_address: string | null
+          result_token_id: string | null
+          status: string
+          ticker: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          creator_wallet: string
+          idempotency_key: string
+          result_mint_address?: string | null
+          result_token_id?: string | null
+          status?: string
+          ticker: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          creator_wallet?: string
+          idempotency_key?: string
+          result_mint_address?: string | null
+          result_token_id?: string | null
+          status?: string
+          ticker?: string
+        }
+        Relationships: []
+      }
       launch_rate_limits: {
         Row: {
           id: string
@@ -4496,6 +4529,14 @@ export type Database = {
       }
       admin_toggle_lock_post: { Args: { _post_id: string }; Returns: boolean }
       admin_toggle_pin_post: { Args: { _post_id: string }; Returns: boolean }
+      backend_acquire_launch_lock: {
+        Args: {
+          p_creator_wallet: string
+          p_idempotency_key: string
+          p_ticker: string
+        }
+        Returns: Json
+      }
       backend_attribute_token_to_api: {
         Args: { p_api_account_id: string; p_token_id: string }
         Returns: boolean
@@ -4509,6 +4550,15 @@ export type Database = {
           p_signature: string
         }
         Returns: boolean
+      }
+      backend_complete_launch_lock: {
+        Args: {
+          p_idempotency_key: string
+          p_mint_address: string
+          p_success: boolean
+          p_token_id: string
+        }
+        Returns: undefined
       }
       backend_complete_token_job: {
         Args: {
@@ -4835,6 +4885,7 @@ export type Database = {
       can_pin_posts: { Args: { _user_id: string }; Returns: boolean }
       cleanup_old_bot_replies: { Args: never; Returns: undefined }
       cleanup_old_debug_logs: { Args: never; Returns: undefined }
+      cleanup_old_launch_locks: { Args: never; Returns: undefined }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_visitor_sessions: { Args: never; Returns: undefined }
       generate_post_slug: { Args: { title: string }; Returns: string }
