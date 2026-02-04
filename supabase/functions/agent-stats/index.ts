@@ -29,6 +29,15 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get total token count (fast exact count query)
+    const { count: totalTokensCount, error: countError } = await supabase
+      .from("fun_tokens")
+      .select("id", { count: "exact", head: true });
+
+    if (countError) {
+      console.error("[agent-stats] Token count error:", countError.message);
+    }
+
     // Fast path: use fun_tokens.agent_id instead of joining agent_tokens -> fun_tokens.
     // This avoids heavy joins on cold starts and keeps response time predictable.
     const { data: agentLaunchedTokens, error: tokensError } = await supabase
@@ -58,7 +67,7 @@ Deno.serve(async (req) => {
       (sum, r) => sum + Number(r.amount_sol || 0), 0
     ) || 0;
 
-    const totalTokensLaunched = agentLaunchedTokens?.length || 0;
+    const totalTokensLaunched = totalTokensCount || 0;
     const totalMarketCap =
       agentLaunchedTokens?.reduce((sum, t) => sum + Number((t as any)?.market_cap_sol || 0), 0) || 0;
 
