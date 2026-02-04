@@ -17,6 +17,12 @@
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
         { "key": "Access-Control-Allow-Headers", "value": "authorization, x-client-info, apikey, content-type, x-vanity-secret" }
       ]
+    },
+    {
+      "source": "/skill.md",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+      ]
     }
   ]
 }
