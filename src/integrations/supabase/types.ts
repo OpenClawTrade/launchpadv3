@@ -2937,6 +2937,54 @@ export type Database = {
         }
         Relationships: []
       }
+      promo_mention_replies: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          mention_type: string | null
+          reply_id: string | null
+          reply_text: string | null
+          reply_type: string
+          status: string
+          tweet_author: string
+          tweet_author_id: string | null
+          tweet_id: string
+          tweet_text: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          mention_type?: string | null
+          reply_id?: string | null
+          reply_text?: string | null
+          reply_type?: string
+          status?: string
+          tweet_author: string
+          tweet_author_id?: string | null
+          tweet_id: string
+          tweet_text?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          mention_type?: string | null
+          reply_id?: string | null
+          reply_text?: string | null
+          reply_type?: string
+          status?: string
+          tweet_author?: string
+          tweet_author_id?: string | null
+          tweet_id?: string
+          tweet_text?: string | null
+        }
+        Relationships: []
+      }
       pumpfun_fee_claims: {
         Row: {
           claimed_at: string | null
