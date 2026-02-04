@@ -498,17 +498,83 @@ async function replyToTweet(
   try {
     console.log(`[agent-scan-twitter] 📤 Attempting reply to @${username || "unknown"} (tweet ${tweetId})`);
 
+    const extractHttpStatus = (err?: string): number | null => {
+      if (!err) return null;
+      const m = err.match(/HTTP\s+(\d{3})/i);
+      if (!m) return null;
+      const n = Number(m[1]);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const isTransientError = (err?: string): boolean => {
+      if (!err) return false;
+      const status = extractHttpStatus(err);
+      if (status) return status === 429 || status >= 500;
+      const msg = err.toLowerCase();
+      return (
+        msg.includes("timeout") ||
+        msg.includes("gateway") ||
+        msg.includes("etimedout") ||
+        msg.includes("econnreset") ||
+        msg.includes("temporarily")
+      );
+    };
+
+    const sleepWithJitter = async (ms: number) => {
+      const jitter = Math.floor(Math.random() * 200);
+      await sleep(ms + jitter);
+    };
+
+    const runWithRetries = async <T extends { ok: boolean; replyId?: string; error?: string }>(
+      label: string,
+      fn: () => Promise<T>,
+      maxAttempts = 2
+    ): Promise<T> => {
+      let last: T | null = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const res = await fn();
+        last = res;
+        if (res.ok && res.replyId) return res;
+
+        const transient = isTransientError(res.error);
+        if (!transient || attempt === maxAttempts) return res;
+
+        const backoffMs = 600 * Math.pow(2, attempt - 1);
+        console.warn(
+          `[agent-scan-twitter] 🔁 ${label} transient failure (attempt ${attempt}/${maxAttempts}): ${String(res.error).slice(0, 180)}; retrying in ~${backoffMs}ms`
+        );
+        await sleepWithJitter(backoffMs);
+      }
+      // Should never reach here
+      return last as T;
+    };
+
     // ATTEMPT 0: Official X API with OAuth 1.0a (highest priority - most reliable)
     if (oauthCreds?.consumerKey && oauthCreds?.accessToken) {
       console.log("[agent-scan-twitter] Trying Official X API (OAuth 1.0a)...");
-      const oauthResult = await replyViaOfficialApi(
-        tweetId,
-        text,
-        oauthCreds.consumerKey,
-        oauthCreds.consumerSecret,
-        oauthCreds.accessToken,
-        oauthCreds.accessTokenSecret
-      );
+      const oauthResult = await (async () => {
+        // Retry only on transient failures (429/5xx/timeouts)
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          const res = await replyViaOfficialApi(
+            tweetId,
+            text,
+            oauthCreds.consumerKey,
+            oauthCreds.consumerSecret,
+            oauthCreds.accessToken,
+            oauthCreds.accessTokenSecret
+          );
+
+          if (res.success && res.replyId) return res;
+          if (!isTransientError(res.error) || attempt === 2) return res;
+
+          const backoffMs = 600 * Math.pow(2, attempt - 1);
+          console.warn(
+            `[agent-scan-twitter] 🔁 Official X API transient failure (attempt ${attempt}/2): ${String(res.error).slice(0, 180)}; retrying in ~${backoffMs}ms`
+          );
+          await sleepWithJitter(backoffMs);
+        }
+        return { success: false, error: "Unknown OAuth retry error" } as { success: boolean; replyId?: string; error?: string };
+      })();
       
       if (oauthResult.success && oauthResult.replyId) {
         console.log(`[agent-scan-twitter] ✅ Reply sent via Official X API to @${username || "unknown"}: ${oauthResult.replyId}`);
@@ -540,7 +606,10 @@ async function replyToTweet(
     // twitterapi.io changed endpoints; /twitter/tweet/create started returning 404.
     // Use the currently working endpoints (create_tweet_v2 / post_tweet).
 
-    const tryCreateTweetV2 = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
+    const sendViaTwitterApiIo = async (
+      attachMediaUrl?: string
+    ): Promise<{ success: boolean; replyId?: string; error?: string }> => {
+      const tryCreateTweetV2 = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
       if (!loginCookies) return { ok: false, error: "Missing login_cookies" };
 
       // Build request body with optional media attachment
@@ -552,9 +621,9 @@ async function replyToTweet(
       };
       
       // Attach image if provided (twitterapi.io supports media_url parameter)
-      if (mediaUrl) {
-        requestBody.media_url = mediaUrl;
-        console.log(`[agent-scan-twitter] 📷 Attaching image to reply: ${mediaUrl.slice(0, 60)}...`);
+      if (attachMediaUrl) {
+        requestBody.media_url = attachMediaUrl;
+        console.log(`[agent-scan-twitter] 📷 Attaching image to reply: ${attachMediaUrl.slice(0, 60)}...`);
       }
 
       const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
@@ -580,7 +649,7 @@ async function replyToTweet(
       return { ok: true, replyId };
     };
 
-    const tryPostTweetLoginCookies = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
+      const tryPostTweetLoginCookies = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
       if (!loginCookies) return { ok: false, error: "Missing login_cookies" };
 
       // Build request body with optional media attachment
@@ -592,8 +661,8 @@ async function replyToTweet(
       };
       
       // Attach image if provided
-      if (mediaUrl) {
-        requestBody.media_url = mediaUrl;
+      if (attachMediaUrl) {
+        requestBody.media_url = attachMediaUrl;
       }
 
       const response = await fetch(`${TWITTERAPI_BASE}/twitter/post_tweet`, {
@@ -619,7 +688,7 @@ async function replyToTweet(
       return { ok: true, replyId };
     };
 
-    const tryPostTweetAuthSession = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
+      const tryPostTweetAuthSession = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
       if (!authSession?.authToken || !authSession?.ct0) {
         return { ok: false, error: "Missing auth_session (X_AUTH_TOKEN / X_CT0_TOKEN)" };
       }
@@ -655,8 +724,12 @@ async function replyToTweet(
       return { ok: true, replyId };
     };
     
-    // Attempt 1: create_tweet_v2 (best)
-    const v2Attempt = await tryCreateTweetV2();
+      // Attempt 1: create_tweet_v2 (best)
+      const v2Attempt = await runWithRetries(
+        `create_tweet_v2${attachMediaUrl ? ":media" : ""}`,
+        tryCreateTweetV2,
+        2
+      );
     if (v2Attempt.ok && v2Attempt.replyId) {
       console.log(`[agent-scan-twitter] ✅ Reply sent to @${username || "unknown"}: ${v2Attempt.replyId}`);
       return { success: true, replyId: v2Attempt.replyId };
@@ -664,7 +737,11 @@ async function replyToTweet(
     console.warn(`[agent-scan-twitter] ⚠️ create_tweet_v2 failed: ${v2Attempt.error}`);
 
     // Attempt 2: post_tweet with login_cookies
-    const postAttempt = await tryPostTweetLoginCookies();
+      const postAttempt = await runWithRetries(
+        `post_tweet(login_cookies)${attachMediaUrl ? ":media" : ""}`,
+        tryPostTweetLoginCookies,
+        2
+      );
     if (postAttempt.ok && postAttempt.replyId) {
       console.log(`[agent-scan-twitter] ✅ Reply sent to @${username || "unknown"}: ${postAttempt.replyId}`);
       return { success: true, replyId: postAttempt.replyId };
@@ -674,15 +751,37 @@ async function replyToTweet(
     // Attempt 3 (fallback): post_tweet with auth_session
     if (authSession) {
       console.warn(`[agent-scan-twitter] ⚠️ Cookie methods failed, trying post_tweet with auth_session...`);
-      const fallback = await tryPostTweetAuthSession();
+        const fallback = await runWithRetries(
+          `post_tweet(auth_session)${attachMediaUrl ? ":media" : ""}`,
+          tryPostTweetAuthSession,
+          2
+        );
       if (fallback.ok && fallback.replyId) {
         console.log(`[agent-scan-twitter] ✅ Reply sent (fallback) to @${username || "unknown"}: ${fallback.replyId}`);
         return { success: true, replyId: fallback.replyId };
       }
-      return { success: false, error: `All attempts failed. Last error: ${fallback.error}` };
+        return { success: false, error: `All attempts failed. Last error: ${fallback.error}` };
     }
 
-    return { success: false, error: `All attempts failed. Last error: ${postAttempt.error}` };
+      return { success: false, error: `All attempts failed. Last error: ${postAttempt.error}` };
+    };
+
+    // twitterapi.io attempt: try with media first, then fall back to text-only if media breaks.
+    const primary = await sendViaTwitterApiIo(mediaUrl);
+    if (primary.success && primary.replyId) return primary;
+
+    if (mediaUrl) {
+      console.warn(
+        `[agent-scan-twitter] 🛟 Reply with media failed for tweet ${tweetId}; retrying once without media to ensure we still respond.`
+      );
+      const noMedia = await sendViaTwitterApiIo(undefined);
+      if (noMedia.success && noMedia.replyId) return noMedia;
+
+      const err = `All twitterapi.io attempts failed with media and without media. With media: ${primary.error}; without media: ${noMedia.error}`;
+      return { success: false, error: err };
+    }
+
+    return primary;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error(`[agent-scan-twitter] ❌ REPLY EXCEPTION to @${username || "unknown"} (tweet ${tweetId}):`, errorMsg);
