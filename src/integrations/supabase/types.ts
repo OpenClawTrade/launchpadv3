@@ -2937,6 +2937,54 @@ export type Database = {
         }
         Relationships: []
       }
+      promo_mention_queue: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          follower_count: number | null
+          id: string
+          is_verified: boolean | null
+          mention_type: string | null
+          processed_at: string | null
+          status: string | null
+          tweet_author: string | null
+          tweet_author_id: string | null
+          tweet_created_at: string | null
+          tweet_id: string
+          tweet_text: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          follower_count?: number | null
+          id?: string
+          is_verified?: boolean | null
+          mention_type?: string | null
+          processed_at?: string | null
+          status?: string | null
+          tweet_author?: string | null
+          tweet_author_id?: string | null
+          tweet_created_at?: string | null
+          tweet_id: string
+          tweet_text?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          follower_count?: number | null
+          id?: string
+          is_verified?: boolean | null
+          mention_type?: string | null
+          processed_at?: string | null
+          status?: string | null
+          tweet_author?: string | null
+          tweet_author_id?: string | null
+          tweet_created_at?: string | null
+          tweet_id?: string
+          tweet_text?: string | null
+        }
+        Relationships: []
+      }
       promo_mention_replies: {
         Row: {
           conversation_id: string | null
@@ -5015,6 +5063,7 @@ export type Database = {
       cleanup_old_bot_replies: { Args: never; Returns: undefined }
       cleanup_old_debug_logs: { Args: never; Returns: undefined }
       cleanup_old_launch_locks: { Args: never; Returns: undefined }
+      cleanup_old_promo_queue: { Args: never; Returns: undefined }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_visitor_sessions: { Args: never; Returns: undefined }
       generate_post_slug: { Args: { title: string }; Returns: string }
