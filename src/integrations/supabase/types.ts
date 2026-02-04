@@ -4355,6 +4355,42 @@ export type Database = {
         }
         Relationships: []
       }
+      x_launch_events: {
+        Row: {
+          created_at: string
+          details: Json | null
+          error_message: string | null
+          id: string
+          platform: string
+          post_author: string | null
+          post_id: string
+          stage: string
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          platform?: string
+          post_author?: string | null
+          post_id: string
+          stage: string
+          success?: boolean
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          platform?: string
+          post_author?: string | null
+          post_id?: string
+          stage?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
       x_pending_requests: {
         Row: {
           completed_at: string | null
