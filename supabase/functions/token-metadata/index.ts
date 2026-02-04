@@ -62,11 +62,27 @@ Deno.serve(async (req) => {
       created_at?: string;
     }
 
-    // Fetch token from database - check tokens, fun_tokens, and pending_token_metadata
+    // Fetch token from database.
+    // IMPORTANT: We try to read pending_token_metadata and MERGE it into the canonical row.
+    // Rationale: during the first seconds/minutes after a launch, the canonical row may exist
+    // but be partially populated (image/socials arriving later). Using pending as a fallback
+    // prevents external indexers from ever seeing a "blank" token.
+
+    // 1) pending_token_metadata (best-effort, may not exist)
+    const { data: pendingToken, error: pendingError } = await supabase
+      .from('pending_token_metadata')
+      .select('*')
+      .eq('mint_address', mintAddress)
+      .maybeSingle();
+
+    if (pendingError) {
+      console.log('[token-metadata] Pending metadata lookup error (non-fatal):', pendingError.message);
+    }
+
+    // 2) canonical token row from tokens or fun_tokens
     let token: TokenData | null = null;
     let tokenSource = 'tokens';
-    
-    // First try the tokens table (launchpad tokens)
+
     const { data: launchpadToken, error: launchpadError } = await supabase
       .from('tokens')
       .select('*')
@@ -77,41 +93,61 @@ Deno.serve(async (req) => {
       token = launchpadToken as TokenData;
       tokenSource = 'tokens';
     } else {
-      // If not found, check the fun_tokens table (FUN launcher tokens)
       const { data: funToken, error: funError } = await supabase
         .from('fun_tokens')
         .select('*')
         .eq('mint_address', mintAddress)
         .maybeSingle();
-      
+
       if (funToken && !funError) {
         token = funToken as TokenData;
         tokenSource = 'fun_tokens';
-      } else {
-        // Finally, check pending_token_metadata (Phantom launch in-flight)
-        const { data: pendingToken, error: pendingError } = await supabase
-          .from('pending_token_metadata')
-          .select('*')
-          .eq('mint_address', mintAddress)
-          .maybeSingle();
-        
-        if (pendingToken && !pendingError) {
-          console.log('[token-metadata] Found pending metadata for:', mintAddress);
-          token = {
-            name: pendingToken.name,
-            ticker: pendingToken.ticker,
-            description: pendingToken.description,
-            image_url: pendingToken.image_url,
-            website_url: pendingToken.website_url,
-            twitter_url: pendingToken.twitter_url,
-            telegram_url: pendingToken.telegram_url,
-            discord_url: pendingToken.discord_url,
-            status: 'launching',
-            creator_wallet: pendingToken.creator_wallet || '',
-          };
-          tokenSource = 'pending_token_metadata';
-        }
       }
+    }
+
+    // 3) If we only have pending metadata, synthesize token from it.
+    if (!token && pendingToken && !pendingError) {
+      console.log('[token-metadata] Found pending metadata for:', mintAddress);
+      token = {
+        name: pendingToken.name,
+        ticker: pendingToken.ticker,
+        description: pendingToken.description,
+        image_url: pendingToken.image_url,
+        website_url: pendingToken.website_url,
+        twitter_url: pendingToken.twitter_url,
+        telegram_url: pendingToken.telegram_url,
+        discord_url: pendingToken.discord_url,
+        status: 'launching',
+        creator_wallet: pendingToken.creator_wallet || '',
+      };
+      tokenSource = 'pending_token_metadata';
+    }
+
+    // 4) Merge pending fields into canonical row when canonical exists but fields are missing.
+    if (token && pendingToken && !pendingError && tokenSource !== 'pending_token_metadata') {
+      const pick = (primary?: string, fallback?: string | null) => {
+        const p = typeof primary === 'string' ? primary.trim() : '';
+        const f = typeof fallback === 'string' ? fallback.trim() : '';
+        return p || f || undefined;
+      };
+
+      token = {
+        ...token,
+        // Prefer canonical name/symbol, but fill from pending if missing (should be rare)
+        name: pick((token as any).name, pendingToken.name) || (token as any).name,
+        ticker: pick((token as any).ticker, pendingToken.ticker) || (token as any).ticker,
+        description: pick((token as any).description, pendingToken.description) || (token as any).description,
+        image_url: pick((token as any).image_url, pendingToken.image_url),
+        website_url: pick((token as any).website_url, pendingToken.website_url),
+        twitter_url: pick((token as any).twitter_url, pendingToken.twitter_url),
+        telegram_url: pick((token as any).telegram_url, pendingToken.telegram_url),
+        discord_url: pick((token as any).discord_url, pendingToken.discord_url),
+        creator_wallet: pick((token as any).creator_wallet, pendingToken.creator_wallet) || (token as any).creator_wallet,
+      } as TokenData;
+
+      // If we had to fill any field from pending, keep cache very short to encourage rapid refresh.
+      // (We still compute cache below; this flag influences it.)
+      (token as any).__filled_from_pending = true;
     }
 
     // If token not found anywhere, return a fallback
@@ -158,6 +194,12 @@ Deno.serve(async (req) => {
       cacheMaxAge = 0;
       console.log('[token-metadata] Pending token, using no-cache');
     } else {
+      // If we had to backfill from pending metadata, keep cache short.
+      if ((token as any)?.__filled_from_pending) {
+        cacheMaxAge = 60;
+        console.log('[token-metadata] Canonical row backfilled from pending metadata, using short cache: 60s');
+      }
+
       // Check if token was created within last 10 minutes
       const createdAt = token.created_at ? new Date(token.created_at) : null;
       if (createdAt) {
