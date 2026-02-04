@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useFunTokens } from "@/hooks/useFunTokens";
+import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions } from "@/hooks/useFunFeeData";
 import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
@@ -79,7 +79,7 @@ export default function FunLauncherPage() {
   const { solPrice } = useSolPrice();
   const { solanaAddress } = useAuth();
   const isMobile = useIsMobile();
-  const { tokens, isLoading: tokensLoading, refetch } = useFunTokens();
+  const { tokens, totalCount, isLoading: tokensLoading, refetch } = useFunTokensPaginated(1, 100);
   const { chain, chainConfig, isSolana, isChainEnabled } = useChainRoute();
   const { setChain } = useChain();
 
@@ -270,21 +270,21 @@ export default function FunLauncherPage() {
       {/* Ticker Bar - only show for Solana */}
       {isSolana && (
         <div className="mt-4">
-          <TokenTickerBar tokens={tokens} />
+          <TokenTickerBar />
         </div>
       )}
 
       {/* King of the Hill - only show for Solana */}
       {isSolana && (
         <div className="max-w-[1400px] mx-auto px-4 pt-6">
-          <KingOfTheHill tokens={tokens} isLoading={tokensLoading} />
+          <KingOfTheHill />
         </div>
       )}
 
       {/* Just Launched - only show for Solana */}
-      {isSolana && tokens.length > 0 && (
+      {isSolana && (
         <div className="max-w-[1400px] mx-auto px-4 pt-4">
-          <JustLaunched tokens={tokens} />
+          <JustLaunched />
         </div>
       )}
 
@@ -317,7 +317,7 @@ export default function FunLauncherPage() {
         {/* Stats Row - only show for Solana */}
         {isSolana && (
           <StatsCards
-            totalTokens={tokens.length}
+            totalTokens={totalCount}
             totalAgents={agentStats?.totalAgents ?? 0}
             totalClaimed={totalClaimed}
             totalPayouts={totalPayouts}
@@ -373,11 +373,8 @@ export default function FunLauncherPage() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Tokens Tab */}
               <TabsContent value="tokens">
                 <TokenTable 
-                  tokens={tokens} 
-                  isLoading={tokensLoading} 
                   solPrice={solPrice}
                   promotedTokenIds={new Set(activePromotions?.map(p => p.fun_token_id) || [])}
                   onPromote={(tokenId, name, ticker) => {

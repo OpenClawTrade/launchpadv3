@@ -5,43 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { Crown, Copy, CheckCircle, Users, Clock, Gem, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSolPrice } from "@/hooks/useSolPrice";
+import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
-
-interface FunToken {
-  id: string;
-  name: string;
-  ticker: string;
-  image_url: string | null;
-  mint_address: string | null;
-  dbc_pool_address: string | null;
-  status: string;
-  bonding_progress?: number;
-  market_cap_sol?: number;
-  holder_count?: number;
-  trading_fee_bps?: number;
-  fee_mode?: string | null;
-  agent_id?: string;
-  launchpad_type?: string;
-  created_at: string;
-}
-
-interface KingOfTheHillProps {
-  tokens?: FunToken[];
-  isLoading?: boolean;
-}
 
 const GRADUATION_THRESHOLD = 85;
 
-function TokenCard({ token, rank }: { token: any; rank: number }) {
+function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { solPrice } = useSolPrice();
-
-  // Reduced animation frequency - only trigger on hover instead of continuous intervals
-  // This eliminates constant JS timers and reduces CPU usage significantly
 
   const copyAddress = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -54,21 +29,13 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
     }
   };
 
-  // Use bonding_progress directly from the hook (already 0-100 range)
   const progress = token.bonding_progress ?? 0;
   const marketCapUsd = (token.market_cap_sol ?? 0) * (solPrice || 0);
-  
-  // Calculate real SOL reserves from progress percentage
   const realSolReserves = (progress / 100) * GRADUATION_THRESHOLD;
-  
-  // Trading fee percentage (default 2%)
   const tradingFeePct = (token.trading_fee_bps ?? 200) / 100;
-  
-  // Check if token has holder rewards
   const isHolderRewards = token.fee_mode === 'holders';
   const isPumpFun = token.launchpad_type === 'pumpfun';
   
-  // Trade URL logic - pump.fun tokens link to SubTuna (they all have communities)
   const tradeUrl = isPumpFun 
     ? `/t/${token.ticker}` 
     : token.agent_id 
@@ -95,7 +62,6 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
         getRankStyles(rank)
       )}
     >
-      {/* Rank Badge */}
       <div 
         className={cn(
           "absolute -top-1.5 -left-1.5 sm:-top-2 sm:-left-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold shadow-md z-10",
@@ -105,7 +71,6 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
         #{rank}
       </div>
 
-      {/* Header: Image + Name + CA */}
       <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
         <div className="relative flex-shrink-0">
           {token.image_url ? (
@@ -139,7 +104,7 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
             )}
             {isPumpFun && (
               <PumpBadge 
-                mintAddress={token.mint_address} 
+                mintAddress={token.mint_address ?? undefined} 
                 showText={false} 
                 size="sm"
                 className="px-0 py-0 bg-transparent hover:bg-transparent"
@@ -149,7 +114,6 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
           <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>
         </div>
 
-        {/* Copy CA Button */}
         <button
           onClick={copyAddress}
           className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
@@ -164,7 +128,6 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
         </button>
       </div>
 
-      {/* Stats Row */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mb-2 sm:mb-3 text-[10px] sm:text-sm">
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground">MC:</span>
@@ -176,7 +139,6 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
           <Users className="w-3 h-3 text-muted-foreground" />
           <span className="font-semibold">{token.holder_count ?? 0}</span>
         </div>
-        {/* Trading fee badge */}
         <Badge 
           variant="outline" 
           className={cn(
@@ -188,7 +150,6 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
         </Badge>
       </div>
 
-      {/* Progress */}
       <div className="mb-2 sm:mb-3">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] sm:text-xs text-muted-foreground">Progress</span>
@@ -208,7 +169,6 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
         />
       </div>
 
-      {/* Footer */}
       <div className="flex items-center justify-between text-[9px] sm:text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
           <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
@@ -222,21 +182,9 @@ function TokenCard({ token, rank }: { token: any; rank: number }) {
   );
 }
 
-export function KingOfTheHill({ tokens: propTokens, isLoading: propLoading }: KingOfTheHillProps) {
-  // Use props instead of calling useFunTokens - eliminates duplicate query
-  const isLoading = propLoading ?? false;
-
-  // Filter to active tokens and sort by bonding_progress (highest first), take top 3
-  const tokens = useMemo(() => {
-    if (!propTokens || propTokens.length === 0) return [];
-    
-    return propTokens
-      .filter(t => t.status === "active")
-      .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0))
-      .slice(0, 3);
-  }, [propTokens]);
-
-  // No error state needed - parent handles errors
+export function KingOfTheHill() {
+  // Use dedicated hook that fetches ONLY 3 tokens
+  const { tokens, isLoading } = useKingOfTheHill();
 
   if (isLoading) {
     return (
