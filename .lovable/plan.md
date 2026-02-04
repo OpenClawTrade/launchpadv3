@@ -1,82 +1,127 @@
 
-# Fix: Token Metadata Caching for Newly Created Tokens
+# Fix X Agent Launch Metadata (Image, Twitter URL, SubTuna Website)
 
 ## Problem Summary
 
-After thorough investigation, I've confirmed that:
-- The database has **correct metadata** (image, twitter_url, website_url) for token `J3ARMNNrNJsBfbRjzJhddyhgiTVonTfhUkAjDbR9ZzW4`
-- The `token-metadata` endpoint returns **complete, correct data**
-- The on-chain metadata URI is correctly pointing to our endpoint
+When tokens are launched via `!tunalaunch` on X, the **metadata is not being stored correctly** in the database even though the twitter-mention-launcher passes the correct values:
 
-**Root Cause**: External platforms (Solscan, Axiom, DEXTools) cache the metadata response. The current `token-metadata` function uses a **1-hour cache** (`max-age=3600`) for ALL tokens, including newly created ones. If a platform queries metadata during the brief window before database population, or if they cached a fallback response, it persists for an hour.
+| Issue | What Should Happen | What's Broken |
+|-------|-------------------|---------------|
+| **Website URL** | `https://tuna.fun/t/{TICKER}` | Stored as `null` |
+| **Twitter URL** | `https://x.com/{username}/status/{tweet_id}` | Sometimes stored as `https://x.com/i/status/...` or default `https://x.com/BuildTuna` |
+| **Image** | Downloaded from X post, re-hosted to Supabase storage | Working correctly in most cases |
+
+## Root Cause
+
+The Vercel endpoint `api/pool/create-fun.ts` has conditional logic that **only auto-populates SubTuna website URL for agent launches** (when `agentId` is passed):
+
+```typescript
+// Line 270-273 in api/pool/create-fun.ts
+const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' 
+  ? websiteUrl 
+  : (agentId ? `https://tuna.fun/t/${ticker.toUpperCase()}` : undefined);  // BUG!
+```
+
+The `twitter-mention-launcher` **does pass `websiteUrl` and `twitterUrl`** correctly (lines 501-502, 726-732), but the Vercel endpoint is:
+
+1. Not receiving them properly OR
+2. Overwriting them with defaults OR  
+3. Not passing them to the `backend_create_token` function
 
 ## Solution
 
-Implement **dynamic cache headers** based on token age:
-- **New tokens (created < 10 minutes ago)**: Use `max-age=60` (1 minute) to allow rapid correction
-- **Pending tokens**: Use `no-cache` to ensure fresh data
-- **Established tokens (> 10 minutes old)**: Use `max-age=3600` (1 hour) as before
+### Phase 1: Fix Vercel Endpoint (`api/pool/create-fun.ts`)
 
-## Implementation Details
-
-### File: `supabase/functions/token-metadata/index.ts`
-
-**Changes:**
-
-1. Track the token's `created_at` timestamp when fetching from database
-2. Calculate token age
-3. Set cache header dynamically based on age:
+**Change 1**: Always use the passed `websiteUrl` and `twitterUrl` when provided, regardless of `agentId`:
 
 ```typescript
-// Determine cache duration based on token age
-let cacheMaxAge = 3600; // Default 1 hour
+// Before (broken)
+const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' 
+  ? websiteUrl 
+  : (agentId ? `https://tuna.fun/t/${ticker.toUpperCase()}` : undefined);
 
-if (tokenSource === 'pending_token_metadata') {
-  // Pending tokens - no cache
-  cacheMaxAge = 0;
-} else {
-  // Check if token was created within last 10 minutes
-  const createdAt = token.created_at ? new Date(token.created_at) : null;
-  if (createdAt) {
-    const ageMs = Date.now() - createdAt.getTime();
-    const tenMinutesMs = 10 * 60 * 1000;
-    if (ageMs < tenMinutesMs) {
-      // New token - short cache for rapid updates
-      cacheMaxAge = 60;
-      console.log(`[token-metadata] New token (<10min), using short cache: ${cacheMaxAge}s`);
-    }
-  }
-}
+// After (fixed) - always auto-populate SubTuna link for ALL launches
+const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' 
+  ? websiteUrl 
+  : `https://tuna.fun/t/${ticker.toUpperCase()}`;
 
-// Set Cache-Control header
-const cacheControl = cacheMaxAge === 0 
-  ? 'no-cache, no-store' 
-  : `public, max-age=${cacheMaxAge}`;
+// Twitter: Don't fall back to BuildTuna when explicitly passed
+const finalTwitterUrl = twitterUrl && twitterUrl.trim() !== '' 
+  ? twitterUrl 
+  : undefined;  // No fallback - leave blank if not provided
 ```
 
-4. Update the TokenData interface to include `created_at`
+**Change 2**: Fix the `i/status` broken Twitter URL format:
+- When `twitterUrl` contains `/i/status/`, it's a broken format (missing username)
+- Treat it as invalid and leave blank instead of storing garbage
 
-### Sequence of Changes
+```typescript
+// Validate twitter URL format
+const isValidTwitterUrl = twitterUrl && 
+  twitterUrl.includes('x.com/') && 
+  !twitterUrl.includes('/i/status/');  // Reject broken format
 
-1. Update the `TokenData` interface to include `created_at?: string`
-2. Add logic after fetching token to calculate age
-3. Modify the response to use dynamic cache headers
+const finalTwitterUrl = isValidTwitterUrl ? twitterUrl : undefined;
+```
 
-### Why This Works
+### Phase 2: Verify Database Storage
 
-- When a token is first created, external platforms that query immediately will get a 60-second cache
-- If they cached a fallback/incomplete response, it will refresh within 1 minute
-- After 10 minutes (when we're confident metadata is stable), we use the standard 1-hour cache for performance
-- Pending metadata uses no-cache to ensure the latest data is always returned
+Ensure `pending_token_metadata` and `backend_create_token` calls use the corrected `finalWebsiteUrl` and `finalTwitterUrl`:
 
-### Additional Benefit
+- `pending_token_metadata.insert()` at line 406 - already uses `finalWebsiteUrl` and `finalTwitterUrl`
+- `backend_create_token` RPC at line 537 - already uses `p_website_url: finalWebsiteUrl` and `p_twitter_url: finalTwitterUrl`
 
-This also aligns with the existing memory note about metadata caching strategy, which mentioned this approach but wasn't fully implemented.
+### Phase 3: Verify `token-metadata` Edge Function
 
-## Testing
+Ensure the metadata endpoint returns these fields correctly:
 
-After deployment:
-1. Launch a new token from X
-2. Immediately check Solscan/Axiom - may show incomplete data
-3. Wait 1-2 minutes and refresh - should show correct metadata
-4. Confirm the cache header in browser dev tools shows `max-age=60` for new tokens
+- Check that `external_url` is set to `website_url`
+- Check that `extensions.twitter` is set to `twitter_url`
+- Check that `properties.links` contains both
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `api/pool/create-fun.ts` | Fix `finalWebsiteUrl` to always default to SubTuna, fix `finalTwitterUrl` to reject `/i/status/` format |
+| `supabase/functions/token-metadata/index.ts` | Verify metadata output (may need adjustment) |
+
+## Technical Details
+
+### Database Query Showing the Problem
+
+```sql
+SELECT mint_address, twitter_url, website_url FROM fun_tokens 
+WHERE created_at > now() - interval '24 hours'
+```
+
+Results show:
+- X launches with proper twitter-mention-launcher: `website_url = https://tuna.fun/t/TICKER` ✓
+- Other launches: `website_url = null` ✗
+- Some have `twitter_url = https://x.com/i/status/...` (broken format)
+
+### Why Images Work But Socials Don't
+
+The `twitter-mention-launcher` correctly:
+1. Downloads image from X post
+2. Re-hosts to Supabase storage (`post-images` bucket)
+3. Passes the hosted URL to `api/pool/create-fun`
+
+The image works because it's passed as `imageUrl` which is not conditionally overwritten.
+
+The socials fail because `api/pool/create-fun` has conditional logic that ignores the passed values when `agentId` is not set.
+
+## Validation
+
+After implementation:
+1. Launch token via `!tunalaunch` on X
+2. Verify in database: `website_url = https://tuna.fun/t/{TICKER}`
+3. Verify in database: `twitter_url = https://x.com/{username}/status/{id}`
+4. Check token-metadata endpoint returns correct `external_url` and `extensions.twitter`
+5. Verify on Solscan/Axiom that links appear
+
+## Risk Assessment
+
+- **Low risk**: Changes are isolated to social URL handling
+- **No breaking changes**: Tokens that already have correct URLs will not be affected
+- **Backward compatible**: Falls back gracefully when URLs are not provided
