@@ -1,253 +1,107 @@
 
-# @moltbook/@openclaw Promo Mention Reply System
 
-## Overview
+## Fix: Clean Up Twitter-Launched Token Metadata
 
-Create an automated Twitter reply system that monitors tweets mentioning `@moltbook` or `@openclaw`, generates human-like conversational AI replies ending with "Tuna Launchpad for AI Agents on Solana.", and engages in follow-up conversations with users who reply (up to 2 additional replies per thread).
+### Problem Identified
 
----
+After investigating, I found that:
 
-## Architecture
+1. **Token `3XD8FSUuxLH4gGTQQdF3jai6TRc1isKihN8N1pFYYsWw` (ATUNA) actually HAS correct metadata** in the database:
+   - Image: ✅ `https://ptwytypavumcrbofspno.supabase.co/storage/v1/object/public/post-images/fun-tokens/x-2018942040143167496-1770188286623-atuna.jpg`
+   - The `token-metadata` endpoint correctly returns all metadata
 
-```text
-┌───────────────────────────────────────────────────────────────────┐
-│                 pg_cron Job (Every 1 Minute)                       │
-│         net.http_post → promo-mention-reply Edge Function          │
-└───────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                 promo-mention-reply Edge Function                  │
-│  1. Search: "(@moltbook OR @openclaw) -is:retweet" via            │
-│     twitterapi.io advanced_search (same as !launchtuna)           │
-│  2. Filter: tweets from last 30 min, not already replied          │
-│  3. Check for follow-up replies to our previous responses         │
-│  4. Generate AI reply via Lovable AI (openai/gpt-5-mini)          │
-│  5. Post reply via twitterapi.io create_tweet_v2                  │
-│  6. Track in promo_mention_replies table                          │
-└───────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                   promo_mention_replies Table                      │
-│  - Deduplication via unique tweet_id                              │
-│  - Thread tracking via conversation_id                            │
-│  - Max 3 replies per thread (initial + 2 follow-ups)              │
-│  - Cross-check with twitter_bot_replies                           │
-└───────────────────────────────────────────────────────────────────┘
+2. **The issue is description pollution** - AI-generated descriptions contain t.co URLs from tweets:
+   ```
+   "AnonTuna: The digital sushi rogue! 🍣💻 Stealing hearts & hacking charts! 🚀... https://t.co/dfqm07GCuA"
+   ```
+
+3. **Multiple tokens are affected** - PayTuna, WhaleFin, Sushi Shark, AstroTUNA, ElonTuna, SwapTuna, and others all have t.co URLs in descriptions.
+
+### Root Cause
+
+In `twitter-mention-launcher/index.ts`, the `generateTokenFromTweet` function passes the full tweet text (including t.co links) to the AI, and the AI sometimes echoes these URLs in the description it generates.
+
+### Implementation Plan
+
+#### 1. Sanitize AI Input in `twitter-mention-launcher`
+**File:** `supabase/functions/twitter-mention-launcher/index.ts`
+
+Strip t.co URLs from tweet text BEFORE sending to AI:
+```typescript
+async function generateTokenFromTweet(tweetText, imageUrl, apiKey) {
+  // Strip all t.co URLs from tweet text before AI processing
+  const cleanedTweetText = tweetText.replace(/https?:\/\/t\.co\/\S+/gi, '').trim();
+  
+  const prompt = `Based on this tweet requesting a meme token creation...
+  Tweet: "${cleanedTweetText}"
+  ...`;
+}
 ```
 
----
-
-## Database Schema
-
-### New Table: `promo_mention_replies`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key (auto-generated) |
-| tweet_id | text | Unique - the tweet we replied to |
-| tweet_author | text | Username of tweet author |
-| tweet_author_id | text | Author's X user ID |
-| tweet_text | text | Original tweet content (truncated) |
-| conversation_id | text | Thread root ID for grouping follow-ups |
-| reply_id | text | Our reply's tweet ID |
-| reply_text | text | What we replied |
-| reply_type | text | "initial" / "followup_1" / "followup_2" |
-| mention_type | text | "moltbook" / "openclaw" / "both" |
-| status | text | "pending" / "sent" / "failed" |
-| error_message | text | Error details if failed |
-| created_at | timestamptz | When we created this record |
-
-**Indexes:**
-- Unique constraint on `tweet_id`
-- Index on `conversation_id` for thread lookups
-- Index on `tweet_author_id` for author rate limiting
-
----
-
-## Edge Function: `promo-mention-reply`
-
-### Search Strategy (using twitterapi.io)
-
-Following the exact pattern from `twitter-mention-launcher` and `agent-scan-twitter`:
-
+#### 2. Sanitize AI Output
+Also strip t.co URLs from the AI-generated description as a fallback:
 ```typescript
-const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
-searchUrl.searchParams.set("query", "(@moltbook OR @openclaw) -is:retweet");
-searchUrl.searchParams.set("queryType", "Latest");
+return {
+  name: parsed.name?.slice(0, 12) || "MemeToken",
+  ticker: (parsed.ticker || parsed.name?.slice(0, 4) || "MEME").toUpperCase().slice(0, 5),
+  // Clean t.co URLs from AI-generated description
+  description: (parsed.description || "A fun meme coin! 🚀")
+    .replace(/https?:\/\/t\.co\/\S+/gi, '')
+    .replace(/\.\.\./g, '')
+    .trim()
+    .slice(0, 100),
+};
+```
 
-const response = await fetch(searchUrl.toString(), {
-  headers: { "X-API-Key": TWITTERAPI_IO_KEY }
+#### 3. Add Sanitization in `agent-process-post`
+**File:** `supabase/functions/agent-process-post/index.ts`
+
+Clean user-provided descriptions too:
+```typescript
+case "description":
+case "desc":
+  // Strip t.co URLs from user-provided descriptions
+  data.description = trimmedValue
+    .replace(/https?:\/\/t\.co\/\S+/gi, '')
+    .trim()
+    .slice(0, 500);
+  break;
+```
+
+#### 4. Sanitize Before Token Creation API
+In the `createToken` call, ensure description is cleaned:
+```typescript
+const tokenResult = await createToken({
+  ...
+  description: tokenConcept.description.replace(/https?:\/\/t\.co\/\S+/gi, '').trim(),
+  ...
 });
 ```
 
-### Deduplication Layers
+### Technical Details
 
-1. **Primary**: Skip if `tweet_id` already in `promo_mention_replies`
-2. **Cross-check**: Skip if `tweet_id` in `twitter_bot_replies`
-3. **Bot filter**: Skip tweets from buildtuna, tunalaunch, moltbook, openclaw
-4. **Signature filter**: Skip tweets containing our tagline
-5. **Hourly limit**: Max 20 replies per hour globally
-6. **Author limit**: Max 1 initial reply per author per 6 hours
+- **Regex used:** `https?:\/\/t\.co\/\S+` - matches both http and https t.co shortlinks
+- **Global flag `gi`** - replaces all occurrences, case-insensitive
+- **Three layers of protection:**
+  1. Clean input before AI generation
+  2. Clean AI output after generation  
+  3. Clean final description before on-chain submission
 
-### Follow-up Reply Logic
+### Files to Modify
 
-After processing new mentions, scan for replies TO our previous tweets:
-1. Query `promo_mention_replies` for recent `reply_id` values where `reply_type != 'followup_2'`
-2. For each, search for replies to that tweet
-3. If the original author replied and we haven't hit 3 total replies in that thread, respond
+1. `supabase/functions/twitter-mention-launcher/index.ts`
+   - Add t.co cleanup in `generateTokenFromTweet` function
+   - Add cleanup in `createToken` call
 
-### AI Reply Generation
+2. `supabase/functions/agent-process-post/index.ts`
+   - Add t.co cleanup in `assignParsedField` for description field
+   - Add cleanup before API call
 
-Using Lovable AI (no API key required):
-
-```typescript
-const prompt = `You are a friendly crypto community member. Generate a short, 
-conversational reply (max 250 chars) to this tweet. Be relevant and add value.
-Do NOT be promotional or spammy. Sound human and authentic.
-
-Tweet by @${username}: "${tweetText}"
-
-End your reply with exactly: "Tuna Launchpad for AI Agents on Solana."
-
-Reply:`;
-
-const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    model: "openai/gpt-5-mini",
-    messages: [{ role: "user", content: prompt }],
-    max_tokens: 100,
-  }),
-});
-```
-
-### Reply Posting
-
-Using the same twitterapi.io endpoints as existing functions:
-
-```typescript
-const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "X-API-Key": TWITTERAPI_IO_KEY,
-  },
-  body: JSON.stringify({
-    login_cookies: loginCookiesBase64,
-    tweet_text: replyText,
-    reply_to_tweet_id: tweetId,
-    proxy: TWITTER_PROXY,
-  }),
-});
-```
-
----
-
-## Admin Dashboard: `/admin/promo-mentions`
-
-Similar to the existing Influencer Replies admin page:
-
-### Features
-- **Stats cards**: Replies/Hour, Successful, Failed, Threads Active
-- **Enable/Disable toggle**: Controls `ENABLE_PROMO_MENTIONS` behavior
-- **Recent replies table** with:
-  - Tweet author, original text, our reply
-  - Reply type badge (initial/followup_1/followup_2)  
-  - Status badge (sent/failed/pending)
-  - Links to view on X
-- **Run Now button** with debug output panel
-- **Configuration card** showing limits and settings
-
----
-
-## Cron Job Setup
-
-Schedule a 1-minute cron to catch fresh tweets:
-
-```sql
-SELECT cron.schedule(
-  'promo-mention-reply-1min',
-  '* * * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://ptwytypavumcrbofspno.supabase.co/functions/v1/promo-mention-reply',
-    headers := '{"Content-Type": "application/json"}'::jsonb,
-    body := '{}'::jsonb
-  );
-  $$
-);
-```
-
----
-
-## Safety Measures
-
-1. **Kill switch**: `ENABLE_PROMO_MENTIONS` env var must be "true"
-2. **Master kill switch**: Respects existing `ENABLE_X_POSTING` 
-3. **Rate limits**:
-   - 20 replies per hour maximum
-   - 1 initial reply per author per 6 hours
-   - Max 3 replies per conversation thread
-4. **Bot detection**: Skip known bot accounts
-5. **Self-reply prevention**: Never reply to own tweets
-6. **Cron lock**: Prevent concurrent executions using `cron_locks` table
-7. **Time budget**: 25-second max execution to avoid gateway timeouts
-
----
-
-## Files to Create/Modify
-
-| File | Action | Purpose |
-|------|--------|---------|
-| Migration SQL | Execute | Create `promo_mention_replies` table |
-| `supabase/functions/promo-mention-reply/index.ts` | Create | Main edge function |
-| `src/pages/PromoMentionsAdminPage.tsx` | Create | Admin dashboard |
-| `src/App.tsx` | Modify | Add route for admin page |
-| Cron SQL | Execute | Schedule 1-minute job |
-
----
-
-## Verification Steps
+### Testing
 
 After implementation:
-1. Deploy edge function
-2. Create database table and cron job
-3. Set `ENABLE_PROMO_MENTIONS=true` in secrets
-4. Navigate to `/admin/promo-mentions`
-5. Click "Run Now" to test
-6. Verify debug panel shows tweets found
-7. Check `promo_mention_replies` table for records
-8. Verify reply appears on X
-9. Test follow-up by replying to the bot's reply
-10. Confirm max 2 follow-ups enforced
+1. Launch a test token from X with an image attached
+2. Verify the description in `fun_tokens` table doesn't contain t.co URLs
+3. Verify the `token-metadata` endpoint returns clean descriptions
+4. Check external platforms (Axiom, Solscan) display metadata correctly
 
----
-
-## Technical Details for Reference
-
-### Reply Format Examples
-
-**Initial Reply:**
-```
-Great insight on agent development! The intersection of AI and 
-on-chain execution is fascinating. Tuna Launchpad for AI Agents on Solana.
-```
-
-**Follow-up Reply:**
-```
-Exactly! That's why transparent tokenomics matter so much in this space. 
-Tuna Launchpad for AI Agents on Solana.
-```
-
-### Environment Variables Required
-- `TWITTERAPI_IO_KEY` (already configured)
-- `X_FULL_COOKIE` (already configured)
-- `TWITTER_PROXY` (already configured)
-- `LOVABLE_API_KEY` (already configured)
-- `ENABLE_PROMO_MENTIONS` (new - to be added)
