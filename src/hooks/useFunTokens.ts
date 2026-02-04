@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { filterHiddenTokens } from "@/lib/hiddenTokens";
 
@@ -17,7 +18,7 @@ const poolCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 60000; // 60 seconds cache - matches server-side cache
 
 // LocalStorage hydration so tokens render instantly even if the DB request is slow/cold
-const FUN_TOKENS_CACHE_KEY = "funTokensCache:v1";
+const FUN_TOKENS_CACHE_KEY = "funTokensCache:v2";
 const FUN_TOKENS_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 
 interface FunToken {
@@ -37,8 +38,8 @@ interface FunToken {
   holder_count?: number;
   market_cap_sol?: number;
   bonding_progress?: number;
-  trading_fee_bps?: number; // Custom trading fee in basis points
-  fee_mode?: string | null; // 'standard' or 'holders' - for holder rewards tokens
+  trading_fee_bps?: number;
+  fee_mode?: string | null;
   last_distribution_at: string | null;
   created_at: string;
   updated_at: string;
@@ -54,10 +55,6 @@ interface UseFunTokensResult {
   refetch: () => Promise<void>;
 }
 
-const BASE_POLL_INTERVAL_MS = 60_000; // 60 seconds for DB refresh (was 30s)
-const LIVE_POLL_INTERVAL_MS = 60_000; // 60 seconds for live data (was 15s) - matches server cache
-const LIVE_BATCH_SIZE = 10; // Larger batches = fewer iterations
-
 const DEFAULT_LIVE: LiveFields = {
   holder_count: 0,
   market_cap_sol: 30,
@@ -70,55 +67,34 @@ type FunTokensCachePayload = {
   tokens: FunToken[];
 };
 
-function readFunTokensCache(): { tokens: FunToken[]; timestamp: number } | null {
+function readFunTokensCache(): FunToken[] | undefined {
   try {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined") return undefined;
     const raw = localStorage.getItem(FUN_TOKENS_CACHE_KEY);
-    if (!raw) return null;
+    if (!raw) return undefined;
     const parsed = JSON.parse(raw) as FunTokensCachePayload;
-    if (!parsed?.ts || !Array.isArray(parsed.tokens)) return null;
-    // Don't return expired cache, but also don't return empty arrays
+    if (!parsed?.ts || !Array.isArray(parsed.tokens)) return undefined;
     if (Date.now() - parsed.ts > FUN_TOKENS_CACHE_TTL) {
-      localStorage.removeItem(FUN_TOKENS_CACHE_KEY); // Clean up expired cache
-      return null;
-    }
-    if (parsed.tokens.length === 0) return null; // Don't use empty cache
-    return { tokens: parsed.tokens, timestamp: parsed.ts };
-  } catch {
-    localStorage.removeItem(FUN_TOKENS_CACHE_KEY); // Clean up corrupt cache
-    return null;
-  }
-}
-
-// Clear stale cache - call this when DB returns empty but cache has data
-function clearFunTokensCache() {
-  try {
-    if (typeof window !== "undefined") {
       localStorage.removeItem(FUN_TOKENS_CACHE_KEY);
+      return undefined;
     }
+    if (parsed.tokens.length === 0) return undefined;
+    return parsed.tokens;
   } catch {
-    // ignore
+    localStorage.removeItem(FUN_TOKENS_CACHE_KEY);
+    return undefined;
   }
 }
 
 function writeFunTokensCache(tokens: FunToken[]) {
   try {
     if (typeof window === "undefined") return;
-    // Only cache non-empty arrays
     if (tokens.length === 0) return;
     const payload: FunTokensCachePayload = { ts: Date.now(), tokens };
     localStorage.setItem(FUN_TOKENS_CACHE_KEY, JSON.stringify(payload));
   } catch {
     // ignore storage errors
   }
-}
-
-function isAbortError(err: unknown): boolean {
-  return (
-    (err instanceof DOMException && err.name === "AbortError") ||
-    (err instanceof Error && err.name === "AbortError") ||
-    (err instanceof Error && /aborted|abort/i.test(err.message))
-  );
 }
 
 function buildFunPoolStateUrl(poolAddress: string, mintAddress?: string | null): string {
@@ -130,7 +106,6 @@ function buildFunPoolStateUrl(poolAddress: string, mintAddress?: string | null):
   return `${base}/functions/v1/fun-pool-state?${params.toString()}`;
 }
 
-// Fetch pool state via backend function (Helius RPC decode)
 async function fetchPoolStateDirect(
   poolAddress: string,
   mintAddress?: string | null,
@@ -161,9 +136,7 @@ async function fetchPoolStateDirect(
       signal,
     });
 
-    if (!response.ok) {
-      return null; // Silent fail - use cached/default data
-    }
+    if (!response.ok) return null;
 
     const data = await response.json();
 
@@ -183,208 +156,92 @@ async function fetchPoolStateDirect(
       bonding_progress: normalized.bondingProgress ?? DEFAULT_LIVE.bonding_progress,
       holder_count: normalized.holderCount ?? DEFAULT_LIVE.holder_count,
     };
-  } catch (e) {
-    // Silent fail - use cached/default data
+  } catch {
     return null;
   }
 }
 
+// Core fetch function - used by React Query
+async function fetchFunTokensFromDB(): Promise<FunToken[]> {
+  const { data: funTokens, error: fetchError } = await supabase
+    .from("fun_tokens")
+    .select(`
+      id, name, ticker, description, image_url, creator_wallet, mint_address,
+      dbc_pool_address, status, price_sol, price_change_24h, volume_24h_sol,
+      total_fees_earned, holder_count, market_cap_sol, bonding_progress,
+      trading_fee_bps, fee_mode, last_distribution_at, created_at, updated_at
+    `)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (fetchError) throw fetchError;
+
+  const mapped = (funTokens || []).map((t) => ({
+    ...t,
+    holder_count: t.holder_count ?? DEFAULT_LIVE.holder_count,
+    market_cap_sol: t.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
+    bonding_progress: t.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
+    price_sol: t.price_sol ?? DEFAULT_LIVE.price_sol,
+  })) as FunToken[];
+
+  const filtered = filterHiddenTokens(mapped);
+  
+  // Persist to localStorage for next visit
+  writeFunTokensCache(filtered);
+  
+  return filtered;
+}
+
+// Query key for React Query
+const FUN_TOKENS_QUERY_KEY = ["fun-tokens-list"];
+
 export function useFunTokens(): UseFunTokensResult {
-  const initialCacheRef = useRef(readFunTokensCache());
-  const initialCache = initialCacheRef.current;
+  const queryClient = useQueryClient();
+  const lastUpdateRef = useRef(new Date());
 
-  const [tokens, setTokens] = useState<FunToken[]>(() => initialCache?.tokens ?? []);
-  const [isLoading, setIsLoading] = useState(() => !(initialCache?.tokens?.length));
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState(() =>
-    initialCache?.timestamp ? new Date(initialCache.timestamp) : new Date()
-  );
-
-  const hadCacheOnInitRef = useRef(!!initialCache?.tokens?.length);
-
-  const tokensRef = useRef<FunToken[]>([]);
-  const liveRefreshSeq = useRef(0);
-
-  useEffect(() => {
-    tokensRef.current = tokens;
-  }, [tokens]);
-
-  const mergeLive = useCallback((token: FunToken, live: Partial<LiveFields>): FunToken => {
-    return {
-      ...token,
-      holder_count: live.holder_count ?? token.holder_count ?? DEFAULT_LIVE.holder_count,
-      market_cap_sol: live.market_cap_sol ?? token.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
-      bonding_progress: live.bonding_progress ?? token.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
-      price_sol: live.price_sol ?? token.price_sol ?? DEFAULT_LIVE.price_sol,
-    };
-  }, []);
-
-  const fetchBaseTokens = useCallback(async (): Promise<FunToken[]> => {
-    // OPTIMIZED: Only fetch essential columns, limit to 100 most recent
-    // This reduces payload size and query time significantly
-    const { data: funTokens, error: fetchError } = await supabase
-      .from("fun_tokens")
-      .select(`
-        id, name, ticker, description, image_url, creator_wallet, mint_address,
-        dbc_pool_address, status, price_sol, price_change_24h, volume_24h_sol,
-        total_fees_earned, holder_count, market_cap_sol, bonding_progress,
-        trading_fee_bps, fee_mode, last_distribution_at, created_at, updated_at
-      `)
-      .order("created_at", { ascending: false })
-      .limit(100); // Limit to most recent 100 tokens
-
-    if (fetchError) {
-      throw fetchError;
-    }
-
-    // Map DB rows to FunToken - use cached DB values if available, else defaults
-    const mapped = (funTokens || []).map((t) => ({
-      ...t,
-      holder_count: t.holder_count ?? DEFAULT_LIVE.holder_count,
-      market_cap_sol: t.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
-      bonding_progress: t.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
-      price_sol: t.price_sol ?? DEFAULT_LIVE.price_sol,
-    })) as FunToken[];
-    
-    // Filter out hidden/spam tokens
-    return filterHiddenTokens(mapped);
-  }, []);
-
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Fetch live data from backend function (Helius RPC decode)
-  const fetchLiveForToken = useCallback(
-    async (token: FunToken): Promise<Partial<LiveFields> | null> => {
-      if (!token.dbc_pool_address) return null;
-      return fetchPoolStateDirect(
-        token.dbc_pool_address,
-        token.mint_address,
-        abortControllerRef.current?.signal
-      );
-    },
-    []
-  );
-  // OPTIMIZED: Only fetch live data for a SINGLE token when explicitly requested
-  // The main token list now relies entirely on DB-cached values from the cron job
-  // This eliminates the 500+ RPC calls that were causing rate limiting (429 errors)
-  const refreshLiveData = useCallback(
-    async (opts?: { onlyTokenId?: string }) => {
-      // Only allow single-token refreshes to prevent mass RPC calls
-      if (!opts?.onlyTokenId) {
-        // Bulk refresh is now disabled - DB cache handles this via cron
-        return;
-      }
-
-      const currentSeq = ++liveRefreshSeq.current;
-      const base = tokensRef.current;
-      const token = base.find((t) => t.id === opts.onlyTokenId);
-      
-      if (!token?.dbc_pool_address || token.dbc_pool_address.length <= 30) return;
-
-      const live = await fetchLiveForToken(token);
-
-      // Ignore stale refreshes
-      if (currentSeq !== liveRefreshSeq.current) return;
-
-      if (!live) return;
-
-      setTokens((prev) => {
-        const next = prev.map((t) => (t.id === token.id ? mergeLive(t, live) : t));
-        tokensRef.current = next;
-        return next;
-      });
-
-      setLastUpdate(new Date());
-    },
-    [fetchLiveForToken, mergeLive]
-  );
-
-  const fetchTokens = useCallback(async (isInitial = false) => {
-    if (isInitial) setIsLoading(true);
-    try {
-      const base = await fetchBaseTokens();
-      
-      // CRITICAL: If DB returns empty but we showed cached data, clear the stale cache
-      // This ensures the UI syncs with DB truth after data wipes
-      if (base.length === 0 && tokensRef.current.length > 0) {
-        clearFunTokensCache();
-        setTokens([]);
-        tokensRef.current = [];
-        setLastUpdate(new Date());
-        setError(null);
-        return;
-      }
-      
-      // Write to cache immediately after successful fetch (only if non-empty)
-      if (base.length > 0) {
-        writeFunTokensCache(base);
-      }
-      
-      // CRITICAL: Merge base data with existing live data to prevent overwriting
-      setTokens((prev) => {
-        if (prev.length === 0) {
-          // First load - use base with defaults
-          tokensRef.current = base;
-          return base;
+  // React Query with aggressive caching
+  const {
+    data: tokens = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: FUN_TOKENS_QUERY_KEY,
+    queryFn: fetchFunTokensFromDB,
+    // CRITICAL: These settings make data appear instantly
+    staleTime: 1000 * 60 * 2, // Data is fresh for 2 minutes - no refetch
+    gcTime: 1000 * 60 * 30, // Keep in cache for 30 minutes
+    refetchOnWindowFocus: false, // Don't refetch on tab switch
+    refetchOnMount: false, // Don't refetch if we have data
+    refetchInterval: 1000 * 60, // Background refresh every 60s
+    // Use localStorage as initial data for instant render
+    initialData: readFunTokensCache,
+    initialDataUpdatedAt: () => {
+      // Tell React Query when the cached data was last updated
+      const cached = localStorage.getItem(FUN_TOKENS_CACHE_KEY);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as FunTokensCachePayload;
+          return parsed.ts;
+        } catch {
+          return 0;
         }
-        
-        // Create a map of existing tokens with their live data
-        const existingMap = new Map(prev.map(t => [t.id, t]));
-        
-        // Merge: use base for DB fields, but preserve live fields from existing
-        const merged = base.map(baseToken => {
-          const existing = existingMap.get(baseToken.id);
-          if (existing) {
-            // Preserve live fields (holder_count, market_cap_sol, bonding_progress, price_sol)
-            return {
-              ...baseToken,
-              holder_count: existing.holder_count,
-              market_cap_sol: existing.market_cap_sol,
-              bonding_progress: existing.bonding_progress,
-              price_sol: existing.price_sol !== DEFAULT_LIVE.price_sol ? existing.price_sol : baseToken.price_sol,
-            };
-          }
-          return baseToken;
-        });
-        
-        tokensRef.current = merged;
-        return merged;
-      });
-      
-      setError(null);
-      setLastUpdate(new Date());
-    } catch (err) {
-      // If we timed out but already have cached tokens, keep UI instant and silent.
-      if (isAbortError(err) && tokensRef.current.length > 0) {
-        return;
       }
-      console.error("[useFunTokens] Fetch error:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch tokens");
-    } finally {
-      if (isInitial) setIsLoading(false);
-    }
-  }, [fetchBaseTokens]);
+      return 0;
+    },
+  });
 
-  // Initial DB fetch
+  // Update lastUpdate when data changes
   useEffect(() => {
-    // If we have localStorage cache, don't flip into a global loading state.
-    fetchTokens(!hadCacheOnInitRef.current);
-  }, [fetchTokens]);
-
-  // Trigger live data refresh AFTER initial DB load completes (background)
-  const hasInitialLoadedRef = useRef(false);
-  useEffect(() => {
-    if (!isLoading && tokens.length > 0 && !hasInitialLoadedRef.current) {
-      hasInitialLoadedRef.current = true;
-      // Background refresh - don't block UI
-      refreshLiveData();
+    if (tokens.length > 0) {
+      lastUpdateRef.current = new Date();
     }
-  }, [isLoading, tokens.length, refreshLiveData]);
+  }, [tokens]);
 
   // Realtime subscription for inserts/updates/deletes
   useEffect(() => {
     const channel = supabase
-      .channel("fun-tokens-realtime")
+      .channel("fun-tokens-realtime-v2")
       .on(
         "postgres_changes",
         {
@@ -393,34 +250,38 @@ export function useFunTokens(): UseFunTokensResult {
           table: "fun_tokens",
         },
         (payload) => {
-          if (payload.eventType === "INSERT") {
-            const newToken = payload.new as FunToken;
-            const withDefaults = mergeLive(newToken, DEFAULT_LIVE);
-            setTokens((prev) => {
-              const next = [withDefaults, ...prev];
-              tokensRef.current = next;
-              return next;
-            });
-            // Immediately enrich the new token if it has a pool
-            void refreshLiveData({ onlyTokenId: newToken.id });
-            setLastUpdate(new Date());
-          } else if (payload.eventType === "UPDATE") {
-            const updatedToken = payload.new as FunToken;
-            setTokens((prev) => {
-              const next = prev.map((t) => (t.id === updatedToken.id ? { ...t, ...updatedToken } : t));
-              tokensRef.current = next;
-              return next;
-            });
-            setLastUpdate(new Date());
-          } else if (payload.eventType === "DELETE") {
-            const deletedId = (payload.old as any).id as string;
-            setTokens((prev) => {
-              const next = prev.filter((t) => t.id !== deletedId);
-              tokensRef.current = next;
-              return next;
-            });
-            setLastUpdate(new Date());
-          }
+          // Update React Query cache directly for instant UI updates
+          queryClient.setQueryData<FunToken[]>(FUN_TOKENS_QUERY_KEY, (prev) => {
+            if (!prev) return prev;
+
+            if (payload.eventType === "INSERT") {
+              const newToken = payload.new as FunToken;
+              const withDefaults = {
+                ...newToken,
+                holder_count: newToken.holder_count ?? DEFAULT_LIVE.holder_count,
+                market_cap_sol: newToken.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
+                bonding_progress: newToken.bonding_progress ?? DEFAULT_LIVE.bonding_progress,
+                price_sol: newToken.price_sol ?? DEFAULT_LIVE.price_sol,
+              };
+              const updated = [withDefaults, ...prev];
+              writeFunTokensCache(updated);
+              return updated;
+            } else if (payload.eventType === "UPDATE") {
+              const updatedToken = payload.new as FunToken;
+              const updated = prev.map((t) =>
+                t.id === updatedToken.id ? { ...t, ...updatedToken } : t
+              );
+              writeFunTokensCache(updated);
+              return updated;
+            } else if (payload.eventType === "DELETE") {
+              const deletedId = (payload.old as any).id as string;
+              const updated = prev.filter((t) => t.id !== deletedId);
+              writeFunTokensCache(updated);
+              return updated;
+            }
+            return prev;
+          });
+          lastUpdateRef.current = new Date();
         }
       )
       .subscribe();
@@ -428,33 +289,17 @@ export function useFunTokens(): UseFunTokensResult {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [mergeLive, refreshLiveData]);
+  }, [queryClient]);
 
-  // Base token list refresh (db) - less frequent, preserves live data
-  useEffect(() => {
-    const interval = setInterval(() => {
-      void fetchTokens(false); // Don't reset loading state
-    }, BASE_POLL_INTERVAL_MS);
-
-    return () => clearInterval(interval);
-  }, [fetchTokens]);
-
-  // Live fields refresh (pool state) - fast
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // avoid burning resources when tab isn't visible
-      if (document.visibilityState !== "visible") return;
-      void refreshLiveData();
-    }, LIVE_POLL_INTERVAL_MS);
-
-    return () => clearInterval(interval);
-  }, [refreshLiveData]);
+  const handleRefetch = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   return {
     tokens,
-    isLoading,
-    error,
-    lastUpdate,
-    refetch: () => fetchTokens(true),
+    isLoading: isLoading && tokens.length === 0, // Only show loading if we have no data
+    error: error ? (error instanceof Error ? error.message : "Failed to fetch tokens") : null,
+    lastUpdate: lastUpdateRef.current,
+    refetch: handleRefetch,
   };
 }
