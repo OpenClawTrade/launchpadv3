@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // Rate limits: 20 replies per hour = ~4 per 10-minute cycle
 const MAX_REPLIES_PER_RUN = 4;
-const TWEET_RECENCY_MINUTES = 60; // Look at tweets from last hour
+const TWEET_RECENCY_HOURS = 24; // Look at tweets from last 24 hours
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -142,7 +142,12 @@ serve(async (req) => {
 
     // Collect eligible tweets from all members
     const eligibleTweets: any[] = [];
-    const cutoffTime = Date.now() - TWEET_RECENCY_MINUTES * 60 * 1000;
+    const cutoffTime = Date.now() - TWEET_RECENCY_HOURS * 60 * 60 * 1000;
+
+    let totalTweetsFetched = 0;
+    let skippedAlreadyReplied = 0;
+    let skippedTooOld = 0;
+    let skippedType = 0;
 
     for (const member of members) {
       const username = member.userName || member.username || member.screen_name;
@@ -158,14 +163,23 @@ serve(async (req) => {
 
         const tweetsData = await tweetsResponse.json();
         const tweets = tweetsData.tweets || [];
+        totalTweetsFetched += tweets.length;
 
         for (const tweet of tweets) {
           const tweetId = tweet.id || tweet.id_str;
-          if (!tweetId || repliedTweetIds.has(tweetId)) continue;
+          if (!tweetId) continue;
+          
+          if (repliedTweetIds.has(tweetId)) {
+            skippedAlreadyReplied++;
+            continue;
+          }
 
-          // Check recency
+          // Check recency - expand to 24 hours
           const tweetDate = new Date(tweet.createdAt || tweet.created_at).getTime();
-          if (tweetDate < cutoffTime) continue;
+          if (tweetDate < cutoffTime) {
+            skippedTooOld++;
+            continue;
+          }
 
           // Determine tweet type
           let tweetType = "original";
@@ -173,10 +187,16 @@ serve(async (req) => {
           const isReply = tweet.isReply || tweet.in_reply_to_status_id || tweet.inReplyToId;
 
           if (isRetweet) {
-            if (!config.include_retweets) continue;
+            if (!config.include_retweets) {
+              skippedType++;
+              continue;
+            }
             tweetType = "retweet";
           } else if (isReply) {
-            if (!config.include_replies) continue;
+            if (!config.include_replies) {
+              skippedType++;
+              continue;
+            }
             tweetType = "reply";
           }
 
@@ -199,6 +219,8 @@ serve(async (req) => {
         console.error(`Error fetching tweets for ${username}:`, err);
       }
     }
+
+    console.log(`Tweet stats: fetched=${totalTweetsFetched}, skippedOld=${skippedTooOld}, skippedReplied=${skippedAlreadyReplied}, skippedType=${skippedType}`);
 
     console.log(`Found ${eligibleTweets.length} eligible tweets`);
 
