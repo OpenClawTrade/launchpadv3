@@ -1,107 +1,82 @@
 
+# Fix: Token Metadata Caching for Newly Created Tokens
 
-## Fix: Clean Up Twitter-Launched Token Metadata
+## Problem Summary
 
-### Problem Identified
+After thorough investigation, I've confirmed that:
+- The database has **correct metadata** (image, twitter_url, website_url) for token `J3ARMNNrNJsBfbRjzJhddyhgiTVonTfhUkAjDbR9ZzW4`
+- The `token-metadata` endpoint returns **complete, correct data**
+- The on-chain metadata URI is correctly pointing to our endpoint
 
-After investigating, I found that:
+**Root Cause**: External platforms (Solscan, Axiom, DEXTools) cache the metadata response. The current `token-metadata` function uses a **1-hour cache** (`max-age=3600`) for ALL tokens, including newly created ones. If a platform queries metadata during the brief window before database population, or if they cached a fallback response, it persists for an hour.
 
-1. **Token `3XD8FSUuxLH4gGTQQdF3jai6TRc1isKihN8N1pFYYsWw` (ATUNA) actually HAS correct metadata** in the database:
-   - Image: ✅ `https://ptwytypavumcrbofspno.supabase.co/storage/v1/object/public/post-images/fun-tokens/x-2018942040143167496-1770188286623-atuna.jpg`
-   - The `token-metadata` endpoint correctly returns all metadata
+## Solution
 
-2. **The issue is description pollution** - AI-generated descriptions contain t.co URLs from tweets:
-   ```
-   "AnonTuna: The digital sushi rogue! 🍣💻 Stealing hearts & hacking charts! 🚀... https://t.co/dfqm07GCuA"
-   ```
+Implement **dynamic cache headers** based on token age:
+- **New tokens (created < 10 minutes ago)**: Use `max-age=60` (1 minute) to allow rapid correction
+- **Pending tokens**: Use `no-cache` to ensure fresh data
+- **Established tokens (> 10 minutes old)**: Use `max-age=3600` (1 hour) as before
 
-3. **Multiple tokens are affected** - PayTuna, WhaleFin, Sushi Shark, AstroTUNA, ElonTuna, SwapTuna, and others all have t.co URLs in descriptions.
+## Implementation Details
 
-### Root Cause
+### File: `supabase/functions/token-metadata/index.ts`
 
-In `twitter-mention-launcher/index.ts`, the `generateTokenFromTweet` function passes the full tweet text (including t.co links) to the AI, and the AI sometimes echoes these URLs in the description it generates.
+**Changes:**
 
-### Implementation Plan
+1. Track the token's `created_at` timestamp when fetching from database
+2. Calculate token age
+3. Set cache header dynamically based on age:
 
-#### 1. Sanitize AI Input in `twitter-mention-launcher`
-**File:** `supabase/functions/twitter-mention-launcher/index.ts`
-
-Strip t.co URLs from tweet text BEFORE sending to AI:
 ```typescript
-async function generateTokenFromTweet(tweetText, imageUrl, apiKey) {
-  // Strip all t.co URLs from tweet text before AI processing
-  const cleanedTweetText = tweetText.replace(/https?:\/\/t\.co\/\S+/gi, '').trim();
-  
-  const prompt = `Based on this tweet requesting a meme token creation...
-  Tweet: "${cleanedTweetText}"
-  ...`;
+// Determine cache duration based on token age
+let cacheMaxAge = 3600; // Default 1 hour
+
+if (tokenSource === 'pending_token_metadata') {
+  // Pending tokens - no cache
+  cacheMaxAge = 0;
+} else {
+  // Check if token was created within last 10 minutes
+  const createdAt = token.created_at ? new Date(token.created_at) : null;
+  if (createdAt) {
+    const ageMs = Date.now() - createdAt.getTime();
+    const tenMinutesMs = 10 * 60 * 1000;
+    if (ageMs < tenMinutesMs) {
+      // New token - short cache for rapid updates
+      cacheMaxAge = 60;
+      console.log(`[token-metadata] New token (<10min), using short cache: ${cacheMaxAge}s`);
+    }
+  }
 }
+
+// Set Cache-Control header
+const cacheControl = cacheMaxAge === 0 
+  ? 'no-cache, no-store' 
+  : `public, max-age=${cacheMaxAge}`;
 ```
 
-#### 2. Sanitize AI Output
-Also strip t.co URLs from the AI-generated description as a fallback:
-```typescript
-return {
-  name: parsed.name?.slice(0, 12) || "MemeToken",
-  ticker: (parsed.ticker || parsed.name?.slice(0, 4) || "MEME").toUpperCase().slice(0, 5),
-  // Clean t.co URLs from AI-generated description
-  description: (parsed.description || "A fun meme coin! 🚀")
-    .replace(/https?:\/\/t\.co\/\S+/gi, '')
-    .replace(/\.\.\./g, '')
-    .trim()
-    .slice(0, 100),
-};
-```
+4. Update the TokenData interface to include `created_at`
 
-#### 3. Add Sanitization in `agent-process-post`
-**File:** `supabase/functions/agent-process-post/index.ts`
+### Sequence of Changes
 
-Clean user-provided descriptions too:
-```typescript
-case "description":
-case "desc":
-  // Strip t.co URLs from user-provided descriptions
-  data.description = trimmedValue
-    .replace(/https?:\/\/t\.co\/\S+/gi, '')
-    .trim()
-    .slice(0, 500);
-  break;
-```
+1. Update the `TokenData` interface to include `created_at?: string`
+2. Add logic after fetching token to calculate age
+3. Modify the response to use dynamic cache headers
 
-#### 4. Sanitize Before Token Creation API
-In the `createToken` call, ensure description is cleaned:
-```typescript
-const tokenResult = await createToken({
-  ...
-  description: tokenConcept.description.replace(/https?:\/\/t\.co\/\S+/gi, '').trim(),
-  ...
-});
-```
+### Why This Works
 
-### Technical Details
+- When a token is first created, external platforms that query immediately will get a 60-second cache
+- If they cached a fallback/incomplete response, it will refresh within 1 minute
+- After 10 minutes (when we're confident metadata is stable), we use the standard 1-hour cache for performance
+- Pending metadata uses no-cache to ensure the latest data is always returned
 
-- **Regex used:** `https?:\/\/t\.co\/\S+` - matches both http and https t.co shortlinks
-- **Global flag `gi`** - replaces all occurrences, case-insensitive
-- **Three layers of protection:**
-  1. Clean input before AI generation
-  2. Clean AI output after generation  
-  3. Clean final description before on-chain submission
+### Additional Benefit
 
-### Files to Modify
+This also aligns with the existing memory note about metadata caching strategy, which mentioned this approach but wasn't fully implemented.
 
-1. `supabase/functions/twitter-mention-launcher/index.ts`
-   - Add t.co cleanup in `generateTokenFromTweet` function
-   - Add cleanup in `createToken` call
+## Testing
 
-2. `supabase/functions/agent-process-post/index.ts`
-   - Add t.co cleanup in `assignParsedField` for description field
-   - Add cleanup before API call
-
-### Testing
-
-After implementation:
-1. Launch a test token from X with an image attached
-2. Verify the description in `fun_tokens` table doesn't contain t.co URLs
-3. Verify the `token-metadata` endpoint returns clean descriptions
-4. Check external platforms (Axiom, Solscan) display metadata correctly
-
+After deployment:
+1. Launch a new token from X
+2. Immediately check Solscan/Axiom - may show incomplete data
+3. Wait 1-2 minutes and refresh - should show correct metadata
+4. Confirm the cache header in browser dev tools shows `max-age=60` for new tokens
