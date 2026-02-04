@@ -317,7 +317,7 @@ export default function FunLauncherPage() {
         {/* Stats Row - only show for Solana */}
         {isSolana && (
           <StatsCards
-            totalTokens={totalCount}
+            totalTokens={agentStats?.totalTokensLaunched ?? totalCount}
             totalAgents={agentStats?.totalAgents ?? 0}
             totalClaimed={totalClaimed}
             totalPayouts={totalPayouts}
