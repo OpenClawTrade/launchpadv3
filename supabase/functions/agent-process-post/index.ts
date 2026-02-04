@@ -1021,6 +1021,31 @@ export async function processLaunchPost(
     const mintAddress = result.mintAddress as string;
     const dbcPoolAddress = result.dbcPoolAddress as string | null;
 
+    // === SAFETY NET: Ensure pending metadata exists for external indexers ===
+    // The Vercel API should have already inserted this, but we upsert as backup
+    // This prevents race conditions where indexers cache empty responses
+    try {
+      await supabase
+        .from("pending_token_metadata")
+        .upsert({
+          mint_address: mintAddress,
+          name: cleanName,
+          ticker: cleanSymbol,
+          description: parsed.description || `${cleanName} - Launched via TUNA Agents`,
+          image_url: finalImageUrl,
+          website_url: websiteForOnChain || communityUrl,
+          twitter_url: twitterForOnChain || postUrl,
+          telegram_url: parsed.telegram || null,
+          discord_url: parsed.discord || null,
+          creator_wallet: parsed.wallet || null,
+          expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hour expiry
+        }, { onConflict: 'mint_address' });
+      
+      console.log(`[agent-process-post] ✅ Pending metadata safety net inserted for ${mintAddress}`);
+    } catch (pendingErr) {
+      console.warn(`[agent-process-post] ⚠️ Pending metadata safety insert failed (non-fatal):`, pendingErr);
+    }
+
     // Get or create fun_token record
     let funTokenId: string | null = null;
 

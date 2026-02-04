@@ -423,7 +423,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               telegram_url: telegramUrl || null,
               discord_url: discordUrl || null,
               creator_wallet: feeRecipientWallet || treasuryAddress,
-              expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min expiry
+              expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hour expiry
             });
           
           if (pendingError) {
