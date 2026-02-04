@@ -29,12 +29,20 @@ interface DebugInfo {
   scanStoppedReason: string;
 }
 
+interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+}
+
 export function PromoMentionsPanel() {
   const [replies, setReplies] = useState<PromoMentionReply[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isTriggering, setIsTriggering] = useState(false);
   const [lastRunDebug, setLastRunDebug] = useState<DebugInfo | null>(null);
   const [lastRunTime, setLastRunTime] = useState<string | null>(null);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   const fetchReplies = useCallback(async () => {
     setIsLoading(true);
@@ -51,6 +59,33 @@ export function PromoMentionsPanel() {
       console.error("Error fetching promo mention replies:", err);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchLogs = useCallback(async () => {
+    setIsLoadingLogs(true);
+    try {
+      // Fetch edge function logs from analytics
+      const { data, error } = await supabase
+        .from("function_edge_logs" as any)
+        .select("timestamp, event_message, metadata")
+        .ilike("event_message", "%promo%")
+        .order("timestamp", { ascending: false })
+        .limit(50);
+
+      if (!error && data) {
+        const parsedLogs: LogEntry[] = data.map((log: any) => ({
+          timestamp: log.timestamp,
+          level: log.metadata?.[0]?.level || "info",
+          message: log.event_message || "",
+        }));
+        setLogs(parsedLogs);
+      }
+    } catch (err) {
+      console.error("Error fetching logs:", err);
+      // Fallback: just show last run debug info
+    } finally {
+      setIsLoadingLogs(false);
     }
   }, []);
 
@@ -92,7 +127,8 @@ export function PromoMentionsPanel() {
 
   useEffect(() => {
     fetchReplies();
-  }, [fetchReplies]);
+    fetchLogs();
+  }, [fetchReplies, fetchLogs]);
 
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString();
 
@@ -272,6 +308,48 @@ export function PromoMentionsPanel() {
         </CardContent>
       </Card>
 
+      {/* Edge Function Logs */}
+      <Card className="bg-[#12121a] border-[#1a1a1f]">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white text-sm">Edge Function Logs</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={fetchLogs}
+              disabled={isLoadingLogs}
+              className="h-7"
+            >
+              <ArrowClockwise className={`h-3 w-3 ${isLoadingLogs ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {lastRunDebug?.errors && lastRunDebug.errors.length > 0 ? (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {lastRunDebug.errors.map((err, i) => (
+                <div
+                  key={i}
+                  className="font-mono text-xs p-2 rounded bg-red-500/10 border border-red-500/20 text-red-400"
+                >
+                  {err}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-500 text-sm">
+              Run the function to see logs. Check Lovable Cloud backend logs for detailed function output.
+            </div>
+          )}
+          
+          <div className="mt-4 p-3 rounded bg-[#0d0d0f] border border-[#1a1a1f]">
+            <div className="text-xs text-gray-500 mb-2">Tip: For full logs, check:</div>
+            <code className="text-xs text-purple-400 break-all">
+              Backend → Edge Functions → promo-mention-reply → Logs
+            </code>
+          </div>
+        </CardContent>
+      </Card>
       {/* Replies List */}
       <Card className="bg-[#12121a] border-[#1a1a1f]">
         <CardHeader>
