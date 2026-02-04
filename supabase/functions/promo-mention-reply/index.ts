@@ -69,7 +69,14 @@ const buildLoginCookiesBase64FromEnv = (args: {
 interface Tweet {
   id: string;
   text: string;
-  author?: { userName?: string; id?: string };
+  author?: {
+    userName?: string;
+    id?: string;
+    isBlueVerified?: boolean;
+    isGoldVerified?: boolean;
+    verified?: boolean;
+    verifiedType?: string;
+  };
   createdAt?: string;
   conversationId?: string;
   inReplyToTweetId?: string;
@@ -307,6 +314,24 @@ function isActuallyReply(tweet: Tweet): boolean {
   return false;
 }
 
+// Check if the author has a blue or gold verification badge
+function hasVerificationBadge(tweet: Tweet): boolean {
+  const author = tweet.author;
+  if (!author) return false;
+  
+  // Check for blue or gold verification
+  if (author.isBlueVerified === true) return true;
+  if (author.isGoldVerified === true) return true;
+  if (author.verified === true) return true;
+  
+  // Some APIs return verifiedType as a string
+  if (author.verifiedType && ["blue", "gold", "business", "government"].includes(author.verifiedType.toLowerCase())) {
+    return true;
+  }
+  
+  return false;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -415,6 +440,12 @@ serve(async (req) => {
       // We only want to reply to ORIGINAL tweets that mention us, not comments in threads
       if (isActuallyReply(tweet)) {
         console.log(`Skipping reply tweet ${tweet.id}: "${tweet.text.substring(0, 50)}..."`);
+        continue;
+      }
+
+      // CRITICAL: Only reply to verified accounts (blue or gold badge)
+      if (!hasVerificationBadge(tweet)) {
+        console.log(`Skipping unverified account ${tweet.author?.userName}: "${tweet.text.substring(0, 50)}..."`);
         continue;
       }
 
