@@ -395,41 +395,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         console.log(`[create-fun][${VERSION}] Pool prepared`, { mintAddress, dbcPoolAddress, deployerAddress, txCount: transactions.length, elapsed: Date.now() - startTime });
 
-        // === PRE-POPULATE METADATA BEFORE ON-CHAIN TX ===
-        // CRITICAL: Insert metadata BEFORE sending transactions so that external platforms
-        // (Axiom, DEXTools, Birdeye) that immediately fetch the on-chain metadata URI
-        // will find valid data instead of a fallback/empty response.
-        // The token-metadata edge function checks pending_token_metadata first.
-        console.log(`[create-fun][${VERSION}] Pre-populating pending metadata for immediate availability...`, { elapsed: Date.now() - startTime });
+        // === UPLOAD STATIC METADATA JSON TO STORAGE BEFORE ON-CHAIN TX ===
+        // CRITICAL: External indexers (Solscan, Axiom, DEXTools, Birdeye) immediately fetch
+        // the on-chain metadata URI. By using a static .json file in storage, we ensure
+        // maximum compatibility with all indexers (they prefer static assets over dynamic endpoints).
+        console.log(`[create-fun][${VERSION}] Uploading static metadata JSON to storage...`, { elapsed: Date.now() - startTime });
         
         try {
-          // Delete any existing entry for this mint (in case of retry)
+          // Build Metaplex-compatible JSON metadata
+          const tokenName = name.slice(0, 32);
+          const tokenSymbol = ticker.toUpperCase().slice(0, 10);
+          const tokenDescription = description || `${tokenName} - A fun meme coin!`;
+          const tokenImage = imageUrl || '';
+          
+          // Detect image MIME type from URL extension
+          const imageExt = tokenImage.split('.').pop()?.toLowerCase() || 'png';
+          const mimeTypes: Record<string, string> = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'webp': 'image/webp',
+            'svg': 'image/svg+xml',
+          };
+          const imageMimeType = mimeTypes[imageExt] || 'image/png';
+          
+          const metadataJson = {
+            name: tokenName,
+            symbol: tokenSymbol,
+            description: tokenDescription,
+            image: tokenImage,
+            external_url: finalWebsiteUrl || '',
+            seller_fee_basis_points: 0,
+            properties: {
+              files: tokenImage ? [{ uri: tokenImage, type: imageMimeType }] : [],
+              category: 'image',
+              creators: [],
+            },
+            extensions: {
+              website: finalWebsiteUrl || undefined,
+              twitter: finalTwitterUrl || undefined,
+            },
+          };
+          
+          // Upload to storage bucket (post-images/token-metadata/<mint>.json)
+          const jsonPath = `token-metadata/${mintAddress}.json`;
+          const jsonBlob = new Blob([JSON.stringify(metadataJson, null, 2)], { type: 'application/json' });
+          
+          const { error: uploadError } = await supabase.storage
+            .from('post-images')
+            .upload(jsonPath, jsonBlob, {
+              contentType: 'application/json',
+              upsert: true,
+              cacheControl: '60', // 1-minute cache initially
+            });
+          
+          if (uploadError) {
+            console.warn(`[create-fun][${VERSION}] ⚠️ Failed to upload static metadata (non-fatal):`, uploadError.message);
+          } else {
+            console.log(`[create-fun][${VERSION}] ✅ Static metadata JSON uploaded: token-metadata/${mintAddress}.json`);
+          }
+          
+          // Also insert into pending_token_metadata for in-app fallback
           await supabase
             .from('pending_token_metadata')
             .delete()
             .eq('mint_address', mintAddress);
           
-          // Insert pending metadata with all fields (using auto-populated socials)
           const { error: pendingError } = await supabase
             .from('pending_token_metadata')
             .insert({
               mint_address: mintAddress,
-              name: name.slice(0, 32),
-              ticker: ticker.toUpperCase().slice(0, 10),
-              description: description || `${name} - A fun meme coin!`,
-              image_url: imageUrl || null,
+              name: tokenName,
+              ticker: tokenSymbol,
+              description: tokenDescription,
+              image_url: tokenImage || null,
               website_url: finalWebsiteUrl,
               twitter_url: finalTwitterUrl,
               telegram_url: telegramUrl || null,
               discord_url: discordUrl || null,
               creator_wallet: feeRecipientWallet || treasuryAddress,
-              expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hour expiry
+              expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
             });
           
           if (pendingError) {
-            console.warn(`[create-fun][${VERSION}] ⚠️ Failed to pre-populate metadata (non-fatal):`, pendingError.message);
-          } else {
-            console.log(`[create-fun][${VERSION}] ✅ Pending metadata inserted for ${mintAddress}`);
+            console.warn(`[create-fun][${VERSION}] ⚠️ Failed to insert pending metadata:`, pendingError.message);
           }
         } catch (pendingMetaError) {
           console.warn(`[create-fun][${VERSION}] ⚠️ Pending metadata insert failed (non-fatal):`, pendingMetaError);
