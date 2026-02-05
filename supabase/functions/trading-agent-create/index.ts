@@ -174,20 +174,32 @@ serve(async (req) => {
        }
      } catch (launchError) {
        console.error("[trading-agent-create] Token launch error:", launchError);
-       // Continue without token
+      // Token launch failed - abort the entire process
+      // Clean up: delete the trading agent and agent records
+      await supabase.from("agents").delete().eq("id", agent.id);
+      await supabase.from("trading_agents").delete().eq("id", tradingAgent.id);
+      
+      throw new Error(`Token launch failed: ${launchError instanceof Error ? launchError.message : "Unknown error"}`);
      }
 
-     // Update fun_tokens with agent links if token was created
-     if (tokenId) {
-       await supabase
-         .from("fun_tokens")
-         .update({
-           agent_id: agent.id,
-           trading_agent_id: tradingAgent.id,
-           agent_fee_share_bps: 8000, // 80% to agent
-         })
-         .eq("id", tokenId);
+     // Token launch is REQUIRED - if we got here without a mint, abort
+     if (!mintAddress) {
+       // Clean up: delete the trading agent and agent records
+       await supabase.from("agents").delete().eq("id", agent.id);
+       await supabase.from("trading_agents").delete().eq("id", tradingAgent.id);
+       
+       throw new Error("Token launch failed - no mint address returned. Trading agent creation aborted.");
      }
+
+     // Update fun_tokens with agent links
+     await supabase
+       .from("fun_tokens")
+       .update({
+         agent_id: agent.id,
+         trading_agent_id: tradingAgent.id,
+         agent_fee_share_bps: 8000, // 80% to agent
+       })
+       .eq("id", tokenId);
 
      // Create SubTuna community WITH fun_token_id linked
      const { data: subtuna } = await supabase
