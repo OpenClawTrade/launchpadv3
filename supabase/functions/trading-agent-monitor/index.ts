@@ -18,6 +18,15 @@ const STRATEGIES = {
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 const SLIPPAGE_BPS = 500; // 5%
 
+// Jito Block Engines for MEV-protected execution
+const JITO_BLOCK_ENGINES = [
+  'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
+  'https://amsterdam.mainnet.block-engine.jito.wtf/api/v1/bundles',
+  'https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles',
+  'https://ny.mainnet.block-engine.jito.wtf/api/v1/bundles',
+  'https://tokyo.mainnet.block-engine.jito.wtf/api/v1/bundles',
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -129,7 +138,7 @@ serve(async (req) => {
           const tokenDecimals = await getTokenDecimals(connection, position.token_address);
           const amountToSell = Math.floor(position.amount_tokens * Math.pow(10, tokenDecimals));
 
-          const swapResult = await executeJupiterSwap(
+          const swapResult = await executeJupiterSwapWithJito(
             connection,
             agentKeypair,
             position.token_address,
@@ -450,6 +459,10 @@ async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, n
   const priceMap = new Map<string, number>();
   
   try {
+    // Fetch real SOL price first
+    const solPrice = await fetchSolPrice();
+    console.log(`[trading-agent-monitor] Using SOL price: $${solPrice.toFixed(2)}`);
+
     // Try Jupiter price API first (more reliable)
     for (const address of tokenAddresses) {
       try {
@@ -457,8 +470,7 @@ async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, n
         if (response.ok) {
           const data = await response.json();
           if (data.data?.[address]?.price) {
-            // Jupiter returns USD price, convert to SOL (approximate)
-            const solPrice = 150; // TODO: Fetch real SOL price
+            // Jupiter returns USD price, convert to SOL
             priceMap.set(address, data.data[address].price / solPrice);
             continue;
           }
@@ -486,6 +498,204 @@ async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, n
   }
   
   return priceMap;
+}
+
+// Fetch real SOL price from multiple sources
+async function fetchSolPrice(): Promise<number> {
+  // Try Jupiter first (most reliable for Solana ecosystem)
+  try {
+    const response = await fetch('https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112');
+    if (response.ok) {
+      const data = await response.json();
+      const price = data.data?.['So11111111111111111111111111111111111111112']?.price;
+      if (price && typeof price === 'number' && price > 0) {
+        return price;
+      }
+    }
+  } catch (e) {
+    console.warn('[trading-agent-monitor] Jupiter SOL price fetch failed');
+  }
+  
+  // Fallback: CoinGecko
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.solana?.usd) {
+        return data.solana.usd;
+      }
+    }
+  } catch (e) {
+    console.warn('[trading-agent-monitor] CoinGecko SOL price fetch failed');
+  }
+  
+  // Fallback: Binance
+  try {
+    const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT');
+    if (response.ok) {
+      const data = await response.json();
+      const price = parseFloat(data.price);
+      if (!isNaN(price) && price > 0) {
+        return price;
+      }
+    }
+  } catch (e) {
+    console.warn('[trading-agent-monitor] Binance SOL price fetch failed');
+  }
+  
+  // Final fallback: PyTH
+  try {
+    const response = await fetch('https://hermes.pyth.network/api/latest_price_feeds?ids[]=0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d');
+    if (response.ok) {
+      const data = await response.json();
+      if (data[0]?.price?.price) {
+        const price = parseFloat(data[0].price.price) * Math.pow(10, data[0].price.expo);
+        if (!isNaN(price) && price > 0) {
+          return price;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[trading-agent-monitor] Pyth SOL price fetch failed');
+  }
+  
+  throw new Error('Unable to fetch SOL price from any source');
+}
+
+// MEV-protected swap via Jito bundles
+async function executeJupiterSwapWithJito(
+  connection: Connection,
+  payer: Keypair,
+  inputMint: string,
+  outputMint: string,
+  amount: number,
+  slippageBps: number
+): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string }> {
+  try {
+    // Get quote from Jupiter
+    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
+    const quoteResponse = await fetch(quoteUrl);
+    
+    if (!quoteResponse.ok) {
+      return { success: false, error: `Quote failed: ${quoteResponse.status}` };
+    }
+
+    const quote = await quoteResponse.json();
+    const outputAmount = parseInt(quote.outAmount) / 1e9; // SOL has 9 decimals
+
+    // Get swap transaction with high priority fees
+    const swapResponse = await fetch("https://quote-api.jup.ag/v6/swap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quoteResponse: quote,
+        userPublicKey: payer.publicKey.toBase58(),
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: { 
+          priorityLevelWithMaxLamports: {
+            maxLamports: 5_000_000, // 0.005 SOL max priority fee
+            priorityLevel: "veryHigh"
+          }
+        },
+      }),
+    });
+
+    if (!swapResponse.ok) {
+      return { success: false, error: `Swap request failed: ${swapResponse.status}` };
+    }
+
+    const swapData = await swapResponse.json();
+    const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
+    const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+
+    // Get fresh blockhash
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    transaction.message.recentBlockhash = blockhash;
+
+    // Sign transaction
+    transaction.sign([payer]);
+
+    // Try Jito bundle first for MEV protection
+    const blockEngine = JITO_BLOCK_ENGINES[Math.floor(Math.random() * JITO_BLOCK_ENGINES.length)];
+    const serializedTx = bs58.encode(transaction.serialize());
+
+    console.log(`[trading-agent-monitor] Submitting to Jito: ${blockEngine}`);
+
+    try {
+      const jitoResponse = await fetch(blockEngine, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'sendBundle',
+          params: [[serializedTx]],
+        }),
+      });
+
+      const jitoResult = await jitoResponse.json();
+
+      if (!jitoResult.error && jitoResult.result) {
+        console.log('[trading-agent-monitor] Jito bundle submitted:', jitoResult.result);
+        
+        // Wait for bundle confirmation
+        const signature = bs58.encode(transaction.signatures[0]);
+        let confirmed = false;
+        
+        for (let i = 0; i < 30; i++) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const status = await connection.getSignatureStatus(signature);
+          if (status.value?.confirmationStatus === "confirmed" || status.value?.confirmationStatus === "finalized") {
+            confirmed = true;
+            break;
+          }
+          if (status.value?.err) {
+            break;
+          }
+        }
+
+        if (confirmed) {
+          console.log('[trading-agent-monitor] ✅ Jito bundle confirmed:', signature);
+          return { success: true, signature, outputAmount };
+        }
+      }
+      
+      console.warn('[trading-agent-monitor] Jito bundle failed, falling back to standard send');
+    } catch (jitoError) {
+      console.warn('[trading-agent-monitor] Jito error, falling back:', jitoError);
+    }
+
+    // Fallback to standard send
+    const signature = await connection.sendTransaction(transaction, {
+      skipPreflight: true,
+      maxRetries: 5,
+    });
+
+    // Confirm with retries
+    let confirmed = false;
+    for (let i = 0; i < 30; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const status = await connection.getSignatureStatus(signature);
+      if (status.value?.confirmationStatus === "confirmed" || status.value?.confirmationStatus === "finalized") {
+        confirmed = true;
+        break;
+      }
+      if (status.value?.err) {
+        return { success: false, error: `Transaction error: ${JSON.stringify(status.value.err)}` };
+      }
+    }
+
+    if (!confirmed) {
+      return { success: false, error: "Transaction confirmation timeout" };
+    }
+
+    return { success: true, signature, outputAmount };
+
+  } catch (error) {
+    console.error("[trading-agent-monitor] Jupiter swap error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown swap error" };
+  }
 }
 
 async function generateExitAnalysis(
