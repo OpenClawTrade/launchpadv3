@@ -71,6 +71,68 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// AES-256-GCM encryption for storing deployer private keys
+async function encryptPrivateKey(secretKey: Uint8Array): Promise<string> {
+  const encryptionKey = process.env.API_ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    throw new Error('API_ENCRYPTION_KEY not configured');
+  }
+  
+  // Generate random IV (12 bytes for GCM)
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  
+  // Import key from string
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(encryptionKey.padEnd(32, '0').slice(0, 32)),
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  
+  // Encrypt
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    keyMaterial,
+    secretKey
+  );
+  
+  // Combine IV + ciphertext
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  
+  // Return as base64
+  return Buffer.from(combined).toString('base64');
+}
+
+// Store deployer keypair for dust recovery
+async function storeDeployerKeypair(
+  supabase: ReturnType<typeof createClient>,
+  deployerKeypair: Keypair,
+  tokenMint: string,
+  fundedSol: number
+): Promise<void> {
+  const walletAddress = deployerKeypair.publicKey.toBase58();
+  const encryptedKey = await encryptPrivateKey(deployerKeypair.secretKey);
+  
+  const { error } = await supabase
+    .from('deployer_wallets')
+    .insert({
+      wallet_address: walletAddress,
+      encrypted_private_key: encryptedKey,
+      token_mint: tokenMint,
+      funded_sol: fundedSol,
+      remaining_sol: fundedSol, // Initial estimate, updated by scan
+    });
+  
+  if (error) {
+    throw new Error(`Failed to store deployer keypair: ${error.message}`);
+  }
+  
+  console.log(`[create-fun] Stored deployer keypair for dust recovery: ${walletAddress}`);
+}
+
 // Generate and fund a fresh deployer wallet for each launch
 // This provides better on-chain attribution and prevents wallet clustering
 async function fundFreshDeployer(
@@ -667,10 +729,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log(`[create-fun][${VERSION}] ✅ fun_tokens saved`, { id: funTokenResult?.id || tokenId, elapsed: Date.now() - startTime });
     }
 
-    // Update deployer_wallet column if we had a fresh deployer (fire-and-forget for backward compat)
-    if (deployerKeypair && !funTokenError) {
-      // Already set in upsert above, no need for separate update
-      console.log(`[create-fun][${VERSION}] deployer_wallet set for token ${tokenId}`);
+    // Store encrypted deployer keypair for dust recovery (fire-and-forget)
+    if (deployerKeypair) {
+      console.log(`[create-fun][${VERSION}] Storing deployer keypair for dust recovery...`);
+      storeDeployerKeypair(supabase, deployerKeypair, mintAddress, LAUNCH_FUNDING_SOL).catch(e =>
+        console.log(`[create-fun] Failed to store deployer keypair:`, e instanceof Error ? e.message : e)
+      );
     }
 
     // Mark vanity address as used (fire-and-forget)
