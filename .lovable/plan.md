@@ -1,253 +1,297 @@
 
+# Complete Trading Agent System Implementation
 
-# Professional MEV-Speed Trading Agent System
+## Current State Analysis
 
-## ✅ Implementation Status: COMPLETE
+Based on my code exploration, here's what EXISTS vs what's MISSING:
 
-All critical issues have been fixed and deployed:
-- ✅ Hardcoded SOL price ($150) replaced with real-time Jupiter/CoinGecko/Binance/Pyth fetch
-- ✅ Jito bundle execution integrated for MEV-protected trades
-- ✅ sol-price fallback removed - now returns error instead of wrong price
-- ✅ High priority fees enabled (0.005 SOL max)
-
-## Critical Issues Found
-
-| Issue | Location | Current Value | Real Value | Impact |
-|-------|----------|---------------|------------|--------|
-| **Hardcoded SOL Price** | `trading-agent-monitor/index.ts:461` | `$150` | `~$90` | **40% P&L calculation error** |
-| **Fallback SOL Price** | `sol-price/index.ts:103,113` | `$150` | `~$90` | Wrong fallback when APIs fail |
-| **No Jito Integration** | `trading-agent-monitor/execute` | Standard TX | N/A | Vulnerable to front-running |
-| **Slow Polling** | cron jobs | 1-5 min intervals | N/A | Miss rapid price movements |
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Trading Agent CRUD | ✅ Exists | Create, read, list agents working |
+| Agent Profile Page | ✅ Exists | `/agents/trading/:id` fully implemented |
+| Cron Jobs | ✅ Exists | `trading-agent-execute` (5min) + `trading-agent-monitor` (1min) already scheduled |
+| Fee Deposits Table | ✅ Exists | `trading_agent_fee_deposits` table exists but **EMPTY** |
+| Fee Routing | ❌ MISSING | `fun-distribute` routes to agents table, NOT trading_agent wallets |
+| Status Field | ⚠️ Partial | Agents have `status` but no `pending` → `active` auto-activation |
+| Funding Progress UI | ❌ MISSING | No visual progress bar for 0.5 SOL threshold |
+| High-Frequency Polling | ❌ MISSING | Monitor runs once per minute, not 15-second internal loops |
+| pumpfun-trending-sync | ⚠️ Unknown | Need to verify cron exists |
 
 ## Implementation Plan
 
-### Phase 1: Fix Critical SOL Price Bug (Immediate)
+### Phase 1: Fix Fee Routing to Trading Agent Wallets
 
-**File: `supabase/functions/trading-agent-monitor/index.ts`**
+**File: `supabase/functions/fun-distribute/index.ts`**
 
-Replace hardcoded price at line 461 with real-time fetch:
+Currently, `fun-distribute` routes 80% of agent token fees to `agent_fee_distributions` table. But Trading Agents need fees routed to their **trading wallets** for autonomous trading.
 
-```typescript
-// NEW: Fetch real SOL price helper
-async function fetchSolPrice(): Promise<number> {
-  // Try Jupiter first (most reliable for Solana)
-  try {
-    const response = await fetch('https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112');
-    if (response.ok) {
-      const data = await response.json();
-      const price = data.data?.['So11111111111111111111111111111111111111112']?.price;
-      if (price && typeof price === 'number' && price > 0) return price;
-    }
-  } catch {}
-  
-  // Fallback: CoinGecko
-  try {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
-    if (response.ok) {
-      const data = await response.json();
-      if (data.solana?.usd) return data.solana.usd;
-    }
-  } catch {}
-  
-  // Fallback: Binance
-  try {
-    const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT');
-    if (response.ok) {
-      const data = await response.json();
-      const price = parseFloat(data.price);
-      if (!isNaN(price)) return price;
-    }
-  } catch {}
-  
-  throw new Error('Unable to fetch SOL price from any source');
-}
+**Changes Required:**
+1. Detect if an agent is a Trading Agent (has entry in `trading_agents` table)
+2. If Trading Agent: transfer SOL directly to `trading_agents.wallet_address` on-chain
+3. Record deposit in `trading_agent_fee_deposits` table
+4. Update `trading_agents.trading_capital_sol` balance
+5. Auto-activate agent when balance reaches 0.5 SOL
 
-// Then in fetchTokenPrices():
-const solPrice = await fetchSolPrice(); // Instead of: const solPrice = 150;
 ```
+// Pseudocode for fun-distribute enhancement:
+if (isAgentToken && group.agentId) {
+  // Check if this agent has a trading agent profile
+  const { data: tradingAgent } = await supabase
+    .from("trading_agents")
+    .select("id, wallet_address, trading_capital_sol, status")
+    .eq("agent_id", group.agentId)
+    .single();
 
-**File: `supabase/functions/sol-price/index.ts`**
-
-Remove hardcoded `$150` fallbacks - throw error instead when all sources fail:
-
-```typescript
-// Lines 102-108: Remove the $150 fallback
-// Instead of returning price: 150, throw an error or return the last known price
-if (cachedPrice) {
-  return Response with cachedPrice (stale: true)
-}
-throw new Error('Unable to fetch SOL price');
-```
-
-### Phase 2: Integrate Jito Bundle Execution
-
-**File: `supabase/functions/trading-agent-monitor/index.ts`**
-
-Replace `executeJupiterSwap` with MEV-protected version:
-
-```typescript
-// Jito Block Engines (add at top of file)
-const JITO_BLOCK_ENGINES = [
-  'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://amsterdam.mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://ny.mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://tokyo.mainnet.block-engine.jito.wtf/api/v1/bundles',
-];
-
-async function executeJupiterSwapWithJito(
-  connection: Connection,
-  payer: Keypair,
-  inputMint: string,
-  outputMint: string,
-  amount: number,
-  slippageBps: number
-): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string }> {
-  // Get Jupiter quote
-  const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
-  const quoteResponse = await fetch(quoteUrl);
-  const quote = await quoteResponse.json();
-
-  // Get swap transaction with high priority
-  const swapResponse = await fetch("https://quote-api.jup.ag/v6/swap", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      quoteResponse: quote,
-      userPublicKey: payer.publicKey.toBase58(),
-      wrapAndUnwrapSol: true,
-      dynamicComputeUnitLimit: true,
-      prioritizationFeeLamports: { 
-        priorityLevelWithMaxLamports: {
-          maxLamports: 5_000_000, // 0.005 SOL max
-          priorityLevel: "veryHigh"
-        }
-      },
-    }),
-  });
-
-  const swapData = await swapResponse.json();
-  const transaction = VersionedTransaction.deserialize(
-    Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0))
-  );
-
-  // Get fresh blockhash and sign
-  const { blockhash } = await connection.getLatestBlockhash('confirmed');
-  transaction.message.recentBlockhash = blockhash;
-  transaction.sign([payer]);
-
-  // Submit via Jito Bundle
-  const blockEngine = JITO_BLOCK_ENGINES[Math.floor(Math.random() * JITO_BLOCK_ENGINES.length)];
-  const serializedTx = bs58.encode(transaction.serialize());
-
-  const jitoResponse = await fetch(blockEngine, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'sendBundle',
-      params: [[serializedTx]],
-    }),
-  });
-
-  const jitoResult = await jitoResponse.json();
-
-  if (jitoResult.error) {
-    // Fallback to standard send if Jito fails
-    const signature = await connection.sendTransaction(transaction, {
-      skipPreflight: true,
-      maxRetries: 5,
+  if (tradingAgent) {
+    // This is a Trading Agent - send SOL directly to trading wallet
+    const transferTx = await sendSolToTradingWallet(
+      treasuryKeypair,
+      tradingAgent.wallet_address,
+      recipientAmount
+    );
+    
+    // Record in trading_agent_fee_deposits
+    await supabase.from("trading_agent_fee_deposits").insert({
+      trading_agent_id: tradingAgent.id,
+      amount_sol: recipientAmount,
+      source: "fee_distribution",
+      signature: transferTx,
     });
-    // Wait for confirmation...
-    return { success: true, signature, outputAmount };
+    
+    // Update trading capital
+    const newCapital = tradingAgent.trading_capital_sol + recipientAmount;
+    await supabase.from("trading_agents").update({
+      trading_capital_sol: newCapital,
+      last_deposit_at: new Date().toISOString(),
+      // Auto-activate when threshold reached
+      status: newCapital >= 0.5 ? "active" : "pending",
+    }).eq("id", tradingAgent.id);
+    
+    continue; // Skip normal agent distribution
   }
-
-  // Wait for Jito bundle confirmation
-  const signature = bs58.encode(transaction.signatures[0]);
-  // Poll for confirmation...
   
-  return { success: true, signature, outputAmount };
+  // Regular agent - existing logic
 }
 ```
 
-**File: `supabase/functions/trading-agent-execute/index.ts`**
+### Phase 2: Create Funding Progress Bar Component
 
-Apply the same Jito integration for buy orders.
+**New File: `src/components/trading/TradingAgentFundingBar.tsx`**
 
-### Phase 3: High-Frequency Polling (Free Alternative to WebSockets)
+A visual progress bar showing:
+- Current balance vs 0.5 SOL threshold
+- "Accumulating Fees" / "Ready to Trade" status
+- Percentage complete
+- Animated progress fill
 
-Since Edge Functions have a 60-second max runtime, we'll use more aggressive polling:
+```
+// TradingAgentFundingBar.tsx
+interface FundingBarProps {
+  currentBalance: number;
+  threshold?: number; // default 0.5 SOL
+  status: "pending" | "active" | "paused";
+}
 
-**Update monitoring frequency:**
-- Current: 1-minute cron for monitor, 5-minute for execute
-- New: 15-second polling for price checks within monitor function
+// Visual states:
+// - pending + < threshold: Yellow bar, "Accumulating Fees (X/0.5 SOL)"
+// - pending + >= threshold: Green bar, "Activating..."
+// - active: Green checkmark, "Trading Active"
+// - paused: Gray bar, "Paused"
+```
+
+### Phase 3: Update TradingAgentCard with Funding Status
+
+**File: `src/components/trading/TradingAgentCard.tsx`**
+
+Add the funding progress bar for agents in "pending" status:
+
+```
+// Inside TradingAgentCard, after the Capital section:
+{agent.status === "pending" && (
+  <TradingAgentFundingBar 
+    currentBalance={agent.trading_capital_sol || 0}
+    status={agent.status}
+  />
+)}
+
+{agent.status === "active" && (
+  <div className="flex items-center gap-1 text-xs text-green-400">
+    <CheckCircle className="h-3 w-3" />
+    Trading Active
+  </div>
+)}
+```
+
+### Phase 4: Update TradingAgentProfilePage with Funding Section
+
+**File: `src/pages/TradingAgentProfilePage.tsx`**
+
+Add a prominent funding status section at the top of the profile:
+
+```
+// After the stats cards, before tabs:
+{agent.status === "pending" && (
+  <Card className="bg-amber-500/5 border-amber-500/30 mb-8">
+    <CardContent className="p-6">
+      <div className="flex items-center gap-4">
+        <div className="p-3 rounded-full bg-amber-500/20">
+          <Wallet className="h-8 w-8 text-amber-400" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-lg mb-2">Agent Funding Progress</h3>
+          <TradingAgentFundingBar 
+            currentBalance={agent.trading_capital_sol || 0}
+            status={agent.status}
+          />
+          <p className="text-sm text-muted-foreground mt-2">
+            This agent will start trading autonomously once fees from token swaps 
+            accumulate to 0.5 SOL in its trading wallet.
+          </p>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+)}
+```
+
+### Phase 5: High-Frequency Polling in Monitor Function
+
+**File: `supabase/functions/trading-agent-monitor/index.ts`**
+
+Add internal 15-second polling loop to maximize the 60-second Edge Function runtime:
+
+```
+// At the start of the handler:
+const startTime = Date.now();
+const MAX_RUNTIME_MS = 50000; // 50 seconds, leave 10s buffer
+const POLL_INTERVAL_MS = 15000; // 15 seconds
+
+let totalChecks = 0;
+let totalTrades = 0;
+
+while (Date.now() - startTime < MAX_RUNTIME_MS) {
+  console.log(`[trading-agent-monitor] Check #${++totalChecks}...`);
+  
+  // Existing monitoring logic here...
+  // ...fetch positions, check SL/TP, execute sells...
+  
+  // Wait before next check (skip if near timeout)
+  if (Date.now() - startTime + POLL_INTERVAL_MS < MAX_RUNTIME_MS) {
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+  } else {
+    break;
+  }
+}
+
+console.log(`[trading-agent-monitor] Completed ${totalChecks} checks in ${Date.now() - startTime}ms`);
+```
+
+### Phase 6: Add pumpfun-trending-sync Cron Job
+
+**Action:** Create cron job if it doesn't exist
+
+```sql
+SELECT cron.schedule(
+  'pumpfun-trending-sync-every-3-min',
+  '*/3 * * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://ptwytypavumcrbofspno.supabase.co/functions/v1/pumpfun-trending-sync',
+    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}'::jsonb,
+    body:='{"trigger": "cron"}'::jsonb
+  );
+  $$
+);
+```
+
+### Phase 7: Extend TradingAgent Type with Funding Fields
+
+**File: `src/hooks/useTradingAgents.ts`**
+
+Add new fields to the interface:
 
 ```typescript
-// In trading-agent-monitor: Check prices more frequently per invocation
-// Batch check all positions every 15 seconds within the function's runtime
-async function monitorWithHighFrequency(positions, supabase, connection, ...) {
-  const startTime = Date.now();
-  const MAX_RUNTIME = 50000; // 50 seconds (leave 10s buffer)
+export interface TradingAgent {
+  // ... existing fields ...
   
-  while (Date.now() - startTime < MAX_RUNTIME) {
-    // Fetch current prices
-    const priceMap = await fetchTokenPrices(tokenAddresses);
-    
-    // Check SL/TP for each position
-    for (const position of positions) {
-      const triggered = checkTriggers(position, priceMap);
-      if (triggered) {
-        await executeJupiterSwapWithJito(...);
-      }
-    }
-    
-    // Wait 15 seconds before next check
-    await new Promise(r => setTimeout(r, 15000));
-  }
+  // Funding status fields
+  last_deposit_at: string | null;
+  funding_progress: number; // Calculated: trading_capital_sol / 0.5 * 100
+  is_funded: boolean; // trading_capital_sol >= 0.5
 }
 ```
 
-### Phase 4: Future Enhancement - Birdeye WebSocket (Optional)
+**File: `supabase/functions/trading-agent-list/index.ts`**
 
-For sub-second monitoring, add Birdeye API integration:
+Calculate funding progress in the response:
 
-**Required:** Add `BIRDEYE_API_KEY` secret
+```typescript
+const enrichedAgents = agents?.map(agent => ({
+  ...agent,
+  openPositions: posCountMap.get(agent.id) || 0,
+  roi: ...,
+  // Add funding info
+  funding_progress: Math.min(100, ((agent.trading_capital_sol || 0) / 0.5) * 100),
+  is_funded: (agent.trading_capital_sol || 0) >= 0.5,
+}));
+```
 
-**New file:** `supabase/functions/trading-agent-price-stream/index.ts`
+## Files to Create/Modify
 
-This would provide:
-- Real-time price streaming
-- OHLCV candle data for AI analysis
-- Trade flow detection (whale buys/sells)
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/fun-distribute/index.ts` | **Modify** | Add Trading Agent wallet routing + auto-activation |
+| `src/components/trading/TradingAgentFundingBar.tsx` | **Create** | Visual funding progress component |
+| `src/components/trading/TradingAgentCard.tsx` | **Modify** | Add funding status bar |
+| `src/components/trading/index.ts` | **Modify** | Export new component |
+| `src/pages/TradingAgentProfilePage.tsx` | **Modify** | Add funding section |
+| `supabase/functions/trading-agent-monitor/index.ts` | **Modify** | Add 15-second internal polling loop |
+| `supabase/functions/trading-agent-list/index.ts` | **Modify** | Add funding_progress field |
+| `src/hooks/useTradingAgents.ts` | **Modify** | Add funding fields to interface |
 
-**Cost:** $49/month for Birdeye starter tier
+## Database Changes
 
-## Files to Modify
+No schema changes needed - `trading_agent_fee_deposits` table already exists with correct structure.
 
-| File | Changes | Priority |
-|------|---------|----------|
-| `supabase/functions/trading-agent-monitor/index.ts` | Fix $150 bug, add Jito, high-frequency polling | **CRITICAL** |
-| `supabase/functions/trading-agent-execute/index.ts` | Add Jito bundle submission for buys | **HIGH** |
-| `supabase/functions/sol-price/index.ts` | Remove $150 fallback | **HIGH** |
+## Visual Design: Funding Progress Bar
 
-## Expected Results After Implementation
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│  ⚡ Funding Progress                                                  │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│  │
+│  │                    32%                                       │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  0.16 / 0.5 SOL • Trading starts when funded                        │
+└──────────────────────────────────────────────────────────────────────┘
 
-| Metric | Before | After |
-|--------|--------|-------|
-| **Price Accuracy** | 40% error | <1% error |
-| **SL/TP Check Frequency** | Every 1 minute | Every 15 seconds |
-| **Trade Execution** | Standard (front-runnable) | Jito MEV-protected |
-| **Block Inclusion Speed** | 2-10 slots | 1-2 slots |
+// Active state:
+┌──────────────────────────────────────────────────────────────────────┐
+│  ✅ Trading Active                                                    │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │████████████████████████████████████████████████████████████████│  │
+│  │                    100%                                      │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  0.85 SOL capital • 3 open positions                                │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
-## Cost Summary
+## Expected Behavior After Implementation
 
-| Service | Cost | Notes |
-|---------|------|-------|
-| Jito Bundles | FREE | 0.001-0.01 SOL tip per trade (deducted from trade) |
-| Jupiter API | FREE | Unlimited |
-| Helius RPC | Already configured | Paid tier active |
-| Birdeye (future) | $49/mo | Optional for real-time WebSocket |
+1. **User creates Trading Agent** → Status: `pending`, Balance: 0 SOL
+2. **Users trade agent's token** → Fees accumulate in treasury
+3. **fun-distribute cron runs** → Detects Trading Agent, sends SOL to trading wallet
+4. **trading_agent_fee_deposits** → Record created for each deposit
+5. **trading_agents.trading_capital_sol** → Balance increases
+6. **UI shows progress bar** → Users see "0.32 / 0.5 SOL (64%)"
+7. **Balance reaches 0.5 SOL** → Status auto-updates to `active`
+8. **trading-agent-execute cron** → Starts executing trades
+9. **UI shows "Trading Active"** → Green checkmark, open positions count
 
-**Total additional monthly cost: $0** (tips are per-trade from agent wallets)
+## Cost Impact
 
+- **Zero additional cost** - Uses existing infrastructure
+- Jito tips (0.001-0.01 SOL per trade) paid from trading wallet
+- SOL transfer gas (~0.000005 SOL per deposit) paid from treasury
