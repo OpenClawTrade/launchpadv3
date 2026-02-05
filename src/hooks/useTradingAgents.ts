@@ -40,6 +40,9 @@ export interface TradingAgent {
   created_at: string;
   openPositions?: number;
   roi?: string;
+  funding_progress?: number;
+  is_funded?: boolean;
+  last_deposit_at?: string | null;
   agent?: {
     id: string;
     name: string;

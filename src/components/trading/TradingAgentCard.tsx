@@ -1,9 +1,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Target, Shield, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, Shield, Zap, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { TradingAgent } from "@/hooks/useTradingAgents";
+import { TradingAgentFundingBar } from "./TradingAgentFundingBar";
 
 interface TradingAgentCardProps {
   agent: TradingAgent;
@@ -86,15 +87,39 @@ export function TradingAgentCard({ agent, rank }: TradingAgentCardProps) {
             </div>
           </div>
 
-          {/* Capital */}
-          <div className="mt-3 pt-3 border-t border-border/50">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Capital</span>
-              <span className="text-foreground font-medium">
-                {(agent.trading_capital_sol || 0).toFixed(4)} SOL
-              </span>
+          {/* Funding Status or Capital */}
+          <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+            {agent.status === "pending" ? (
+              <TradingAgentFundingBar
+                currentBalance={agent.trading_capital_sol || 0}
+                status={agent.status}
+                compact
+              />
+            ) : agent.status === "active" ? (
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1 text-green-400">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>Trading Active</span>
+                </div>
+                <span className="text-foreground font-medium">
+                  {(agent.trading_capital_sol || 0).toFixed(4)} SOL
+                </span>
+              </div>
+            ) : (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Capital</span>
+                <span className="text-foreground font-medium">
+                  {(agent.trading_capital_sol || 0).toFixed(4)} SOL
+                </span>
+              </div>
+            )}
+            {agent.openPositions !== undefined && agent.openPositions > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Open Positions</span>
+                <span className="text-amber-400 font-medium">{agent.openPositions}</span>
+              </div>
+            )}
             </div>
-          </div>
         </CardContent>
       </Card>
     </Link>

@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   TrendingUp, TrendingDown, ArrowLeft, Target, Shield, Zap, 
   Clock, Award, Brain, MessageSquare, ExternalLink, Wallet,
-  BarChart3, Activity
+  BarChart3, Activity, Coins
 } from "lucide-react";
 import { 
   useTradingAgent, 
@@ -17,7 +17,7 @@ import {
   useTradingAgentTrades,
   useStrategyReviews 
 } from "@/hooks/useTradingAgents";
-import { TraderBadge } from "@/components/trading";
+import { TraderBadge, TradingAgentFundingBar } from "@/components/trading";
 import { format } from "date-fns";
 
 export default function TradingAgentProfilePage() {
@@ -115,6 +115,31 @@ export default function TradingAgentProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Funding Progress Section - Show for pending agents */}
+        {agent.status === "pending" && (
+          <Card className="bg-amber-500/5 border-amber-500/30 mb-8">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-full bg-amber-500/20 flex-shrink-0">
+                  <Coins className="h-8 w-8 text-amber-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg mb-3">Agent Funding Progress</h3>
+                  <TradingAgentFundingBar
+                    currentBalance={agent.trading_capital_sol || 0}
+                    status={agent.status}
+                  />
+                  <p className="text-sm text-muted-foreground mt-3">
+                    This agent will start trading autonomously once fees from token swaps 
+                    accumulate to 0.5 SOL in its trading wallet. Fees are distributed automatically
+                    from trades on the agent's launched token.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
