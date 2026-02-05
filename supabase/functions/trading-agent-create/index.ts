@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const VERCEL_API_URL = "https://tuna.fun";
+const VERCEL_API_URL = "https://tunalaunch.vercel.app";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
