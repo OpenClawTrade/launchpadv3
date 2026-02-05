@@ -14,6 +14,7 @@
      maxPositions: 2,
      style: "calm, analytical, wise expression with reading glasses aesthetic",
      description: "focuses on steady gains with minimal drawdown risk",
+    personalities: ["Methodical analyst", "Patient strategist", "Risk-averse guardian", "Steady accumulator", "Data-driven observer"],
    },
    balanced: {
      stopLoss: "20%",
@@ -21,6 +22,7 @@
      maxPositions: 3,
      style: "confident, focused, professional trader demeanor",
      description: "moderate risk-reward approach for consistent growth",
+    personalities: ["Calculated opportunist", "Adaptive trader", "Balanced tactician", "Momentum rider", "Strategic executor"],
    },
    aggressive: {
      stopLoss: "30%",
@@ -28,6 +30,7 @@
      maxPositions: 5,
      style: "fierce, determined, bold with intense expression",
      description: "high-conviction plays targeting exponential returns",
+    personalities: ["Alpha hunter", "Fearless degen", "High-conviction maximalist", "Volatile momentum chaser", "Bold risk-taker"],
    },
  };
  
@@ -105,6 +108,7 @@ async function callAIWithRetry(
  Requirements:
  - Name: A professional trading-themed name (examples: "AlphaQuant", "Sentinel", "VeloTrade", "ApexHunter", "Finwise", "TunaShark")
  - Ticker: 3-5 uppercase characters derived from the name
+- Personality: A 2-4 word personality trait that matches the ${strategy} trading style (examples: "Methodical analyst", "Fearless momentum hunter", "Patient accumulator")
  - Description: A professional 2-3 sentence description that:
    1. Explains the trading strategy with exact parameters: ${details.stopLoss} stop-loss, ${details.takeProfit} take-profit, max ${details.maxPositions} positions
    2. Describes what this agent will do (scan for opportunities, manage risk, execute trades on Solana)
@@ -112,11 +116,9 @@ async function callAIWithRetry(
    4. NO EMOJIS - strictly professional tone
    5. Must mention the exact stop-loss and take-profit percentages
  
- ${personalityPrompt ? `Personality hint: ${personalityPrompt}` : ""}
+Return ONLY valid JSON with no markdown: {"name": "...", "ticker": "...", "personality": "...", "description": "..."}`;
  
- Return ONLY valid JSON with no markdown: {"name": "...", "ticker": "...", "description": "..."}`;
- 
-    let agentIdentity: { name: string; ticker: string; description: string };
+    let agentIdentity: { name: string; ticker: string; personality: string; description: string };
     
     try {
       const textResponse = await callAIWithRetry(LOVABLE_API_KEY, {
@@ -131,6 +133,11 @@ async function callAIWithRetry(
       const jsonMatch = textContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         agentIdentity = JSON.parse(jsonMatch[0]);
+        // Ensure personality exists
+        if (!agentIdentity.personality) {
+          const personalities = details.personalities;
+          agentIdentity.personality = personalities[Math.floor(Math.random() * personalities.length)];
+        }
       } else {
         throw new Error("No JSON found in response");
       }
@@ -138,9 +145,11 @@ async function callAIWithRetry(
       console.error("AI generation failed, using fallback:", parseError);
       // Fallback to generated defaults with random suffix for uniqueness
       const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+      const personalities = details.personalities;
       agentIdentity = {
         name: strategy === "aggressive" ? `ApexHunter${randomSuffix}` : strategy === "balanced" ? `VeloTrade${randomSuffix}` : `Sentinel${randomSuffix}`,
         ticker: strategy === "aggressive" ? `APEX${randomSuffix.charAt(0)}` : strategy === "balanced" ? `VELO${randomSuffix.charAt(0)}` : `STNL${randomSuffix.charAt(0)}`,
+        personality: personalities[Math.floor(Math.random() * personalities.length)],
         description: `This agent employs a ${strategy} trading strategy with ${details.stopLoss} stop-loss and ${details.takeProfit} take-profit thresholds. Managing up to ${details.maxPositions} concurrent positions, it scans Solana markets for high-probability setups with favorable risk-reward profiles.`,
       };
     }
@@ -212,6 +221,7 @@ Ultra high resolution, digital art style.`;
         success: true,
         name: agentIdentity.name,
         ticker: agentIdentity.ticker.toUpperCase(),
+        personality: agentIdentity.personality,
         description: agentIdentity.description,
         avatarUrl,
       }),
