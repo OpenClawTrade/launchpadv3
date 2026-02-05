@@ -13,6 +13,8 @@ export interface JustLaunchedToken {
   agent_id?: string | null;
   status?: string | null;
   launchpad_type?: string | null;
+  trading_agent_id?: string | null;
+  is_trading_agent_token?: boolean;
   created_at: string;
 }
 
@@ -30,7 +32,7 @@ async function fetchJustLaunched(): Promise<JustLaunchedToken[]> {
     .from("fun_tokens")
     .select(`
       id, name, ticker, image_url, mint_address, market_cap_sol,
-      agent_id, status, launchpad_type, created_at
+      agent_id, status, launchpad_type, trading_agent_id, is_trading_agent_token, created_at
     `)
     .gte("created_at", twentyFourHoursAgo)
     .order("created_at", { ascending: false })

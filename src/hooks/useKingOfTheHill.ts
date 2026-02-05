@@ -25,6 +25,8 @@ export interface KingToken {
   fee_mode?: string | null;
   agent_id?: string | null;
   launchpad_type?: string | null;
+  trading_agent_id?: string | null;
+  is_trading_agent_token?: boolean;
   created_at: string;
 }
 
@@ -41,7 +43,7 @@ async function fetchKingOfTheHill(): Promise<KingToken[]> {
     .select(`
       id, name, ticker, image_url, mint_address, dbc_pool_address, status,
       bonding_progress, market_cap_sol, holder_count, trading_fee_bps, fee_mode,
-      agent_id, launchpad_type, created_at
+      agent_id, launchpad_type, trading_agent_id, is_trading_agent_token, created_at
     `)
     .eq("status", "active")
     .order("bonding_progress", { ascending: false })

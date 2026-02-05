@@ -7,6 +7,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
+import { BagsBadge } from "@/components/tunabook/BagsBadge";
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   const usdValue = marketCapSol * solPrice;
@@ -22,7 +23,11 @@ function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
 
 function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
   const { solPrice } = useSolPrice();
-  const linkPath = token.agent_id ? `/t/${token.ticker}` : `/launchpad/${token.mint_address || token.id}`;
+  const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
+  const isBags = token.launchpad_type === 'bags';
+  const linkPath = (token.agent_id || isTradingAgent || token.launchpad_type === 'pumpfun' || isBags) 
+    ? `/t/${token.ticker}` 
+    : `/launchpad/${token.mint_address || token.id}`;
 
   return (
     <Link
@@ -52,8 +57,24 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
             {token.name}
             {token.launchpad_type === 'pumpfun' ? (
               <PumpBadge size="sm" showText={false} mintAddress={token.mint_address ?? undefined} />
+            ) : isBags ? (
+              <BagsBadge showText={false} mintAddress={token.mint_address ?? undefined} />
+            ) : isTradingAgent ? (
+              <span 
+                title="Trading Agent Token" 
+                className="flex items-center gap-0.5 bg-amber-500/20 text-amber-400 px-1 py-0 rounded-full flex-shrink-0"
+              >
+                <Bot className="w-2.5 h-2.5" />
+                <span className="text-[8px] font-medium">TRADER</span>
+              </span>
             ) : token.agent_id ? (
-              <Bot className="w-3 h-3 text-purple-400 flex-shrink-0" />
+              <span 
+                title="AI Agent Token" 
+                className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1 py-0 rounded-full flex-shrink-0"
+              >
+                <Bot className="w-2.5 h-2.5" />
+                <span className="text-[8px] font-medium">AI</span>
+              </span>
             ) : null}
           </h3>
           <span className="text-[10px] text-muted-foreground">${token.ticker}</span>

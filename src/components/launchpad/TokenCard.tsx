@@ -24,7 +24,7 @@ function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
 }
 
 interface TokenCardProps {
-  token: Token & { trading_fee_bps?: number; fee_mode?: 'creator' | 'holder_rewards'; agent_id?: string | null; launchpad_type?: string | null };
+  token: Token & { trading_fee_bps?: number; fee_mode?: 'creator' | 'holder_rewards'; agent_id?: string | null; launchpad_type?: string | null; trading_agent_id?: string | null; is_trading_agent_token?: boolean };
 }
 
 export function TokenCard({ token }: TokenCardProps) {
@@ -38,9 +38,10 @@ export function TokenCard({ token }: TokenCardProps) {
   const isHolderRewards = token.fee_mode === 'holder_rewards';
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
+  const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
   
   // Trade URL logic - pump.fun and bags tokens link to SubTuna (they all have communities)
-  const tradeUrl = (isPumpFun || isBags)
+  const tradeUrl = (isPumpFun || isBags || isTradingAgent)
     ? `/t/${token.ticker}` 
     : token.agent_id 
       ? `/t/${token.ticker}` 
@@ -120,6 +121,14 @@ export function TokenCard({ token }: TokenCardProps) {
                 <PumpBadge mintAddress={token.mint_address} />
               ) : isBags ? (
                 <BagsBadge mintAddress={token.mint_address} />
+              ) : isTradingAgent ? (
+                <span 
+                  className="flex items-center gap-0.5 bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full"
+                  title="Trading Agent Token"
+                >
+                  <Bot className="h-3 w-3" />
+                  <span className="text-[10px] font-medium">TRADER</span>
+                </span>
               ) : token.agent_id ? (
                 <span 
                   className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full"
