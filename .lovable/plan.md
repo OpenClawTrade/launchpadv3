@@ -1,6 +1,23 @@
 
 # Fix Token Image and Metadata Reliability for X Launches
 
+## ✅ IMPLEMENTED (2026-02-05)
+
+All fixes have been deployed:
+
+### Changes Made
+
+1. **`twitter-mention-launcher`**: Added `expandTcoUrl()` function to expand t.co shortlinks BEFORE re-hosting. If expansion fails, launch is blocked with clear error message.
+
+2. **`agent-process-post`**: 
+   - Added `expandTcoUrl()` - attempts to expand t.co links instead of silently skipping
+   - Added `isValidFinalImageUrl()` - strict validation after re-hosting to catch any remaining invalid URLs
+   - Added fallback image sync after token creation - ensures `fun_tokens.image_url` is populated even if initial insert missed it
+
+3. **Enhanced logging at every stage** for easier debugging
+
+---
+
 ## Problem Summary
 
 Some tokens launched via X/Twitter have **NULL image_url** in the database even though they successfully launched on-chain. This causes external explorers (Solscan, DexScreener, Birdeye) to show tokens without images.
