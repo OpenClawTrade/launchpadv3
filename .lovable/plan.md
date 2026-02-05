@@ -1,139 +1,193 @@
 
-# Fix EQM Trading Agent Token Linking
+# Fix Trading Agent Profile Page Navigation & Display
 
-## Problem
-The EQM trading agent was created successfully and its token launched on-chain (visible on Axiom with $4.7K market cap and trading activity), but the database linkages are broken:
-- The token exists in `tokens` table but NOT in `fun_tokens`
-- The `trading_agents` record has `mint_address: NULL` and `fun_token_id: NULL`
-- Fee claiming doesn't work because `fun-claim-fees` only queries `fun_tokens`
+## Problem Summary
 
-## Solution Overview
+The Trading Agent profile page at `/agents/trading/edbc62a6-156d-44c0-87f8-ee306c0ea354` shows "Agent Not Found" despite the agent existing in the database. Additionally:
+- The Funding tab shows "No agents currently in funding phase" even with pending agents
+- EQBM trading agent has no SubTuna community
+- Navigation from cards in the Trading Agents page goes to wrong destinations
 
-### Step 1: Insert EQM into fun_tokens
-Create a `fun_tokens` record linking to the existing on-chain token and trading agent.
+## Root Causes Identified
 
-**Data to insert:**
-| Field | Value |
-|-------|-------|
-| name | Equilibrium |
-| ticker | EQM |
-| mint_address | `3AWXpAzsky7ZCwSkLRGyLhhmEMcE56GUeyh5Z2JwyqMV` |
-| dbc_pool_address | `6TRwCoJxaP72QWMT9Zunv5m5fT9EkGJ3gakPqcMYiPm5` |
-| status | active |
-| agent_id | `1b1dc89e-1d93-4f4f-bb17-c70f6e194512` |
-| trading_agent_id | `421ed8a7-422a-43c1-b6ec-41f458f26faa` |
-| is_trading_agent_token | true |
-| agent_fee_share_bps | 8000 (80% to agent) |
+1. **Edge Function Not Deployed**: The `trading-agent-list` edge function returns 404 - it needs to be deployed
+2. **Missing SubTuna Community**: The EQBM trading agent has no `subtuna` record
+3. **Data Query Issues**: The `useTradingAgent` hook may be hitting cache issues or RLS restrictions
 
-### Step 2: Update trading_agents record
-Link the trading agent to its token.
+## Solution
 
-**Updates:**
-- `mint_address` → `3AWXpAzsky7ZCwSkLRGyLhhmEMcE56GUeyh5Z2JwyqMV`
-- `fun_token_id` → (the new fun_tokens.id from Step 1)
+### Step 1: Deploy the Trading Agent List Edge Function
 
-### Step 3: Create SubTuna community
-Create the community page so users can view and discuss the agent.
+The `trading-agent-list` function exists in code but returns 404. Deploy it:
 
-### Step 4: Update King of the Hill logic
-Modify `useKingOfTheHill.ts` to include newly launched trading agent tokens, guaranteeing visibility even with low bonding progress.
-
----
-
-## Technical Details
-
-### Database Changes (SQL Migrations)
-
-**Insert into fun_tokens:**
-```sql
-INSERT INTO fun_tokens (
-  name, ticker, mint_address, dbc_pool_address, status,
-  agent_id, trading_agent_id, is_trading_agent_token, agent_fee_share_bps,
-  price_sol, market_cap_sol, bonding_progress
-)
-VALUES (
-  'Equilibrium', 'EQM', '3AWXpAzsky7ZCwSkLRGyLhhmEMcE56GUeyh5Z2JwyqMV',
-  '6TRwCoJxaP72QWMT9Zunv5m5fT9EkGJ3gakPqcMYiPm5', 'active',
-  '1b1dc89e-1d93-4f4f-bb17-c70f6e194512', '421ed8a7-422a-43c1-b6ec-41f458f26faa',
-  true, 8000, 0.00000003, 30, 0
-)
-RETURNING id;
+```text
+supabase/functions/trading-agent-list/index.ts
 ```
 
-**Update trading_agents:**
-```sql
-UPDATE trading_agents
-SET 
-  mint_address = '3AWXpAzsky7ZCwSkLRGyLhhmEMcE56GUeyh5Z2JwyqMV',
-  fun_token_id = '<new_fun_token_id>'
-WHERE id = '421ed8a7-422a-43c1-b6ec-41f458f26faa';
-```
+This will enable the Funding and Active tabs to properly fetch and display trading agents.
 
-**Create SubTuna community:**
+### Step 2: Create SubTuna Community for EQBM
+
+Insert the missing community record so users can access `/t/EQBM`:
+
 ```sql
-INSERT INTO subtuna (name, ticker, description, icon_url, agent_id, fun_token_id)
+INSERT INTO subtuna (name, ticker, description, icon_url, agent_id)
 VALUES (
-  'Equilibrium', 'EQM', 'Official community for Equilibrium - Autonomous Trading Agent',
-  '<avatar_url_from_trading_agents>',
-  '1b1dc89e-1d93-4f4f-bb17-c70f6e194512',
-  '<new_fun_token_id>'
+  'Equilibrium', 
+  'EQBM', 
+  'Official community for Equilibrium - Autonomous Trading Agent powered by AI',
+  'https://ptwytypavumcrbofspno.supabase.co/storage/v1/object/public/trading-agents/eqbm-1770278381592.png',
+  '9dd65f5d-caae-4ee1-bbd6-1794940c7e62'
 );
 ```
 
-### Frontend Changes
+### Step 3: Enhance the Trading Agent Profile Page
 
-**File: `src/hooks/useKingOfTheHill.ts`**
+The existing `TradingAgentProfilePage.tsx` already has comprehensive features:
+- Stats cards (Trading Capital, P&L, Win Rate, Total Trades, Avg Hold Time)
+- Strategy info (Stop Loss, Take Profit, Max Positions)
+- Tabs for Positions, Trade History, AI Insights
+- Funding progress bar for pending agents
+- Link to SubTuna community
 
-Update the query to include a "newly launched trading agent" slot in King of the Hill:
+**Additions needed:**
+
+1. **Add "About" tab** with detailed strategy explanation
+2. **Add link to trade the agent's token** (already exists but conditional on `mint_address`)
+3. **Make SubTuna link always visible** using ticker
+
+**File: `src/pages/TradingAgentProfilePage.tsx`**
 
 ```typescript
-// Modified fetchKingOfTheHill function
-async function fetchKingOfTheHill(): Promise<KingToken[]> {
-  // Fetch top 2 by bonding progress
-  const { data: topTokens, error } = await supabase
-    .from("fun_tokens")
-    .select(`...`)
-    .eq("status", "active")
-    .order("bonding_progress", { ascending: false })
-    .limit(3);
-
-  // Fetch newest trading agent token (last 24 hours)
-  const { data: newestTradingAgent } = await supabase
-    .from("fun_tokens")
-    .select(`...`)
-    .eq("status", "active")
-    .eq("is_trading_agent_token", true)
-    .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  // Merge: top tokens + newest trading agent (deduplicated)
-  const merged = [...(topTokens || [])];
-  if (newestTradingAgent?.[0]) {
-    const exists = merged.some(t => t.id === newestTradingAgent[0].id);
-    if (!exists) {
-      merged.push(newestTradingAgent[0]);
-    }
-  }
-
-  return filterHiddenTokens(merged.slice(0, 3));
-}
+// Line ~116-120: Update SubTuna link to always show for trading agents
+{agent.ticker && (
+  <Link to={`/t/${agent.ticker}`} className="flex items-center gap-1 text-amber-400 hover:underline">
+    <MessageSquare className="h-4 w-4" />
+    <span>t/{agent.ticker}</span>
+  </Link>
+)}
 ```
 
----
+Add new "Strategy" tab content:
+```typescript
+<TabsTrigger value="strategy" className="gap-1">
+  <Shield className="h-4 w-4" />
+  Strategy
+</TabsTrigger>
 
-## Outcome
+<TabsContent value="strategy">
+  <Card className="bg-card/50 border-border/50">
+    <CardHeader>
+      <CardTitle>Trading Strategy Details</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-6">
+      {/* Strategy Type Explanation */}
+      <div className="p-4 rounded-lg bg-secondary/30">
+        <h3 className="font-semibold mb-2 flex items-center gap-2">
+          <StrategyIcon className={strategyInfo.color} />
+          {strategyInfo.label} Strategy
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          {strategyDescriptions[agent.strategy_type]}
+        </p>
+      </div>
+      
+      {/* Risk Parameters */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="p-4 rounded-lg border border-border/50">
+          <h4 className="text-sm font-medium mb-3">Risk Parameters</h4>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Stop Loss</span>
+              <span className="text-red-400">-{agent.stop_loss_pct}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Take Profit</span>
+              <span className="text-green-400">+{agent.take_profit_pct}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Max Positions</span>
+              <span>{agent.max_concurrent_positions}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-4 rounded-lg border border-border/50">
+          <h4 className="text-sm font-medium mb-3">Execution</h4>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">DEX</span>
+              <span>Jupiter V6</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Protection</span>
+              <span>Jito Bundles</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Monitoring</span>
+              <span>Every 15s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
+```
 
-After these changes:
-1. EQM appears in the trading agents list with correct CA and link
-2. Fee claiming starts working (next `fun-claim-fees` cron run)
-3. Fees flow to the trading agent wallet (80% share)
-4. Agent activates when 0.5 SOL threshold is reached
-5. King of the Hill includes new trading agent tokens for 24 hours
+### Step 4: Fix the useTradingAgent Hook
+
+Ensure the hook properly handles the data fetch:
+
+**File: `src/hooks/useTradingAgents.ts`**
+
+```typescript
+// Line 141-159: Add better error handling and logging
+export function useTradingAgent(id: string) {
+  return useQuery({
+    queryKey: ["trading-agent", id],
+    queryFn: async () => {
+      console.log("[useTradingAgent] Fetching agent:", id);
+      
+      const { data, error } = await supabase
+        .from("trading_agents")
+        .select(`
+          *,
+          agent:agents!agent_id(id, name, avatar_url, karma)
+        `)
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[useTradingAgent] Error:", error);
+        throw error;
+      }
+      
+      console.log("[useTradingAgent] Result:", data);
+      return data as TradingAgent;
+    },
+    enabled: !!id && id.length === 36, // Only run for valid UUIDs
+    staleTime: 30_000,
+    retry: 2,
+  });
+}
+```
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| Database | Insert `fun_tokens` record, update `trading_agents`, create `subtuna` |
-| `src/hooks/useKingOfTheHill.ts` | Add logic to include newest trading agent token |
+| `supabase/functions/trading-agent-list/index.ts` | Deploy (no code changes needed) |
+| Database | Insert SubTuna community for EQBM |
+| `src/pages/TradingAgentProfilePage.tsx` | Add Strategy tab, fix SubTuna link visibility |
+| `src/hooks/useTradingAgents.ts` | Improve error handling, fix foreign key reference |
+
+## Expected Outcome
+
+After implementation:
+1. Clicking a trading agent card navigates to `/agents/trading/:id` showing full profile
+2. Profile page displays all agent info: stats, positions, trades, AI insights, strategy details
+3. Link to SubTuna community always visible
+4. Link to trade the agent's token visible when mint_address exists
+5. Funding tab properly shows pending agents
+6. Active tab shows active trading agents
