@@ -98,22 +98,36 @@ serve(async (req) => {
       });
     }
 
-    // Ultimate fallback
+    // No cached price and all sources failed - return error
+    console.error("[sol-price] All price sources failed, no cache available");
     return new Response(JSON.stringify({
-      price: 150,
-      change24h: 0,
-      fallback: true,
+      error: "Unable to fetch SOL price from any source",
+      price: null,
     }), {
+      status: 503,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
     console.error("[sol-price] Error:", error);
+    
+    // Return cached price if available, otherwise error
+    if (cachedPrice) {
+      return new Response(JSON.stringify({
+        price: cachedPrice.price,
+        change24h: cachedPrice.change24h,
+        error: true,
+        stale: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
     return new Response(JSON.stringify({
-      price: cachedPrice?.price || 150,
-      change24h: cachedPrice?.change24h || 0,
-      error: true,
+      error: error instanceof Error ? error.message : "Unknown error",
+      price: null,
     }), {
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

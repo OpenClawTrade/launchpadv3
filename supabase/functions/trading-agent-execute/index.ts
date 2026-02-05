@@ -22,6 +22,15 @@ const COOLDOWN_SECONDS = 60;
 const SLIPPAGE_BPS = 500; // 5%
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
+// Jito Block Engines for MEV-protected execution
+const JITO_BLOCK_ENGINES = [
+  'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
+  'https://amsterdam.mainnet.block-engine.jito.wtf/api/v1/bundles',
+  'https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles',
+  'https://ny.mainnet.block-engine.jito.wtf/api/v1/bundles',
+  'https://tokyo.mainnet.block-engine.jito.wtf/api/v1/bundles',
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -176,7 +185,7 @@ serve(async (req) => {
         }
 
         // Execute Jupiter swap: SOL -> Token
-        const swapResult = await executeJupiterSwap(
+        const swapResult = await executeJupiterSwapWithJito(
           connection,
           agentKeypair,
           WSOL_MINT,
@@ -333,7 +342,7 @@ async function decryptWallet(encryptedKey: string, encryptionKey: string): Promi
   }
 }
 
-async function executeJupiterSwap(
+async function executeJupiterSwapWithJito(
   connection: Connection,
   payer: Keypair,
   inputMint: string,
@@ -353,7 +362,7 @@ async function executeJupiterSwap(
     const quote = await quoteResponse.json();
     const outputAmount = parseInt(quote.outAmount) / 1e6; // Assuming 6 decimals for most tokens
 
-    // Get swap transaction
+    // Get swap transaction with high priority fees
     const swapResponse = await fetch("https://quote-api.jup.ag/v6/swap", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -362,7 +371,12 @@ async function executeJupiterSwap(
         userPublicKey: payer.publicKey.toBase58(),
         wrapAndUnwrapSol: true,
         dynamicComputeUnitLimit: true,
-        prioritizationFeeLamports: "auto",
+        prioritizationFeeLamports: { 
+          priorityLevelWithMaxLamports: {
+            maxLamports: 5_000_000, // 0.005 SOL max priority fee
+            priorityLevel: "veryHigh"
+          }
+        },
       }),
     });
 
@@ -374,15 +388,70 @@ async function executeJupiterSwap(
     const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
     const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
 
-    // Sign and send transaction
+    // Get fresh blockhash
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    transaction.message.recentBlockhash = blockhash;
+
+    // Sign transaction
     transaction.sign([payer]);
-    
+
+    // Try Jito bundle first for MEV protection
+    const blockEngine = JITO_BLOCK_ENGINES[Math.floor(Math.random() * JITO_BLOCK_ENGINES.length)];
+    const serializedTx = bs58.encode(transaction.serialize());
+
+    console.log(`[trading-agent-execute] Submitting to Jito: ${blockEngine}`);
+
+    try {
+      const jitoResponse = await fetch(blockEngine, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'sendBundle',
+          params: [[serializedTx]],
+        }),
+      });
+
+      const jitoResult = await jitoResponse.json();
+
+      if (!jitoResult.error && jitoResult.result) {
+        console.log('[trading-agent-execute] Jito bundle submitted:', jitoResult.result);
+        
+        // Wait for bundle confirmation
+        const signature = bs58.encode(transaction.signatures[0]);
+        let confirmed = false;
+        
+        for (let i = 0; i < 30; i++) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const status = await connection.getSignatureStatus(signature);
+          if (status.value?.confirmationStatus === "confirmed" || status.value?.confirmationStatus === "finalized") {
+            confirmed = true;
+            break;
+          }
+          if (status.value?.err) {
+            break;
+          }
+        }
+
+        if (confirmed) {
+          console.log('[trading-agent-execute] ✅ Jito bundle confirmed:', signature);
+          return { success: true, signature, outputAmount };
+        }
+      }
+      
+      console.warn('[trading-agent-execute] Jito bundle failed, falling back to standard send');
+    } catch (jitoError) {
+      console.warn('[trading-agent-execute] Jito error, falling back:', jitoError);
+    }
+
+    // Fallback to standard send
     const signature = await connection.sendTransaction(transaction, {
       skipPreflight: true,
-      maxRetries: 3,
+      maxRetries: 5,
     });
 
-    // Confirm transaction with retries
+    // Confirm with retries
     let confirmed = false;
     for (let i = 0; i < 30; i++) {
       await new Promise(resolve => setTimeout(resolve, 1000));
