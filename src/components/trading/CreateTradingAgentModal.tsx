@@ -20,7 +20,7 @@ const formSchema = z.object({
   ticker: z.string().max(6).optional(),
   description: z.string().max(500).optional(),
   strategy: z.enum(["conservative", "balanced", "aggressive"]),
-  personalityPrompt: z.string().max(200).optional(),
+  personality: z.string().max(200).optional(),
    twitterUrl: z.string().url().optional().or(z.literal("")),
 });
 
@@ -93,7 +93,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
       name: "",
       ticker: "",
       description: "",
-      personalityPrompt: "",
+      personality: "",
        twitterUrl: "",
     },
   });
@@ -113,7 +113,6 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
            },
            body: JSON.stringify({
              strategy: form.getValues("strategy"),
-             personalityPrompt: form.getValues("personalityPrompt"),
            }),
          }
        );
@@ -122,6 +121,9 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
          form.setValue("name", result.name);
          form.setValue("ticker", result.ticker);
          form.setValue("description", result.description);
+          if (result.personality) {
+            form.setValue("personality", result.personality);
+          }
          if (result.avatarUrl) {
            setGeneratedAvatar(result.avatarUrl);
          }
@@ -158,7 +160,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
         ticker: values.ticker,
         description: values.description,
         strategy: values.strategy,
-        personalityPrompt: values.personalityPrompt,
+        personalityPrompt: values.personality,
          avatarUrl: generatedAvatar || undefined,
          twitterUrl: values.twitterUrl || undefined,
       });
@@ -430,18 +432,19 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
 
               <FormField
                 control={form.control}
-                name="personalityPrompt"
+                name="personality"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Personality Hint (optional)</FormLabel>
+                    <FormLabel>Personality (auto-generated)</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="e.g. 'Analytical and cautious' or 'Bold risk-taker'" 
+                        placeholder="Generated with character" 
+                        disabled
                         {...field} 
                       />
                     </FormControl>
                     <FormDescription>
-                      Influences how the agent communicates and makes decisions
+                      AI-generated personality trait based on strategy
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
