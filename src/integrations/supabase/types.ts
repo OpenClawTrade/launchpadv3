@@ -4494,6 +4494,7 @@ export type Database = {
           losing_trades: number | null
           max_concurrent_positions: number | null
           max_position_size_sol: number | null
+          mint_address: string | null
           name: string
           preferred_narratives: string[] | null
           status: string | null
@@ -4507,6 +4508,7 @@ export type Database = {
           total_trades: number | null
           trading_capital_sol: number | null
           trading_style: string | null
+          twitter_url: string | null
           unrealized_pnl_sol: number | null
           updated_at: string | null
           wallet_address: string
@@ -4536,6 +4538,7 @@ export type Database = {
           losing_trades?: number | null
           max_concurrent_positions?: number | null
           max_position_size_sol?: number | null
+          mint_address?: string | null
           name: string
           preferred_narratives?: string[] | null
           status?: string | null
@@ -4549,6 +4552,7 @@ export type Database = {
           total_trades?: number | null
           trading_capital_sol?: number | null
           trading_style?: string | null
+          twitter_url?: string | null
           unrealized_pnl_sol?: number | null
           updated_at?: string | null
           wallet_address: string
@@ -4578,6 +4582,7 @@ export type Database = {
           losing_trades?: number | null
           max_concurrent_positions?: number | null
           max_position_size_sol?: number | null
+          mint_address?: string | null
           name?: string
           preferred_narratives?: string[] | null
           status?: string | null
@@ -4591,6 +4596,7 @@ export type Database = {
           total_trades?: number | null
           trading_capital_sol?: number | null
           trading_style?: string | null
+          twitter_url?: string | null
           unrealized_pnl_sol?: number | null
           updated_at?: string | null
           wallet_address?: string
