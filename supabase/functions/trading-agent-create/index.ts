@@ -74,7 +74,7 @@ serve(async (req) => {
       finalDescription = description || generated.description;
     }
 
-     // Create the trading agent record with status "launching"
+     // Create the trading agent record with status "pending"
     const { data: tradingAgent, error: taError } = await supabase
       .from("trading_agents")
       .insert({
@@ -86,7 +86,7 @@ serve(async (req) => {
         wallet_private_key_encrypted: encrypted,
         strategy_type: strategy,
         trading_style: personalityPrompt || `${strategy} trading approach`,
-         status: "launching",
+         status: "pending",
         trading_capital_sol: 0,
         stop_loss_pct: strategy === "conservative" ? 10 : strategy === "aggressive" ? 30 : 20,
         take_profit_pct: strategy === "conservative" ? 25 : strategy === "aggressive" ? 100 : 50,
