@@ -1,90 +1,128 @@
 
-# Plan: Disable Fresh Deployer for Trading Agent Token Launches
+# Deployer Dust Recovery System
 
-## Problem
-The current token launch system (`api/pool/create-fun.ts`) always uses the `USE_FRESH_DEPLOYER` flag from config, which:
-1. Generates a new random Keypair for each launch
-2. Funds it with 0.05 SOL from the treasury
-3. Uses this fresh wallet as the deployer/fee payer
+## Current Situation
 
-This is problematic for trading agent launches because it wastes SOL and adds unnecessary complexity. You want trading agent tokens to deploy directly from the main treasury wallet.
+After investigating the codebase, I found a critical issue:
 
----
+**The private keys for fresh deployer wallets are NOT stored.**
 
-## Solution
-Add a `useFreshDeployer` parameter to the API that allows callers to override the global config. The trading-agent-create function will pass `useFreshDeployer: false` to deploy directly from treasury.
-
----
-
-## Technical Changes
-
-### 1. `api/pool/create-fun.ts` — Add parameter to control fresh deployer
-
-**Current behavior (line ~305):**
+The `fundFreshDeployer()` function in `api/pool/create-fun.ts` (line 81):
 ```typescript
-if (USE_FRESH_DEPLOYER) {
-  deployerKeypair = await fundFreshDeployer(...);
-}
+const deployerKeypair = Keypair.generate(); // Ephemeral - never saved!
 ```
 
-**New behavior:**
-```typescript
-// Accept useFreshDeployer from request body, default to global config
-const { useFreshDeployer = USE_FRESH_DEPLOYER } = req.body;
+This means:
+- **65 unique fresh deployer wallets** were created across 176 token launches
+- **~3.25 SOL is permanently stranded** (65 wallets × 0.05 SOL each)
+- There is NO way to recover this dust without the private keys
 
-if (useFreshDeployer) {
-  deployerKeypair = await fundFreshDeployer(...);
-}
+---
+
+## What I Can Build
+
+Since past dust is unrecoverable, I'll implement a system to **prevent future losses** and **enable recovery going forward**:
+
+### 1. Store Deployer Keys for Future Launches
+Modify `api/pool/create-fun.ts` to save the deployer private key (encrypted) to the database after each launch.
+
+**New database table:** `deployer_wallets`
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| wallet_address | text | Public key |
+| encrypted_private_key | text | Base58-encoded private key (encrypted) |
+| token_mint | text | Associated token mint address |
+| funded_sol | numeric | Initial funding amount |
+| remaining_sol | numeric | Last known balance (updated on scan) |
+| reclaimed_at | timestamp | When dust was reclaimed |
+| created_at | timestamp | When wallet was created |
+
+### 2. Encryption for Private Keys
+Use a server-side encryption key (new secret: `DEPLOYER_ENCRYPTION_KEY`) to encrypt/decrypt private keys at rest.
+
+### 3. Admin Page: Deployer Dust Recovery
+Create `/admin/deployer-dust` with:
+- Password protection (same pattern as Treasury Admin)
+- List all tracked deployer wallets with current balances
+- "Scan Balances" button to check all wallets on-chain
+- "Reclaim All" button to transfer dust back to treasury
+- Total recoverable SOL summary
+
+### 4. Backend Function: `deployer-dust-reclaim`
+- Fetches all unreclaimed deployer wallets from database
+- Decrypts private keys
+- For each wallet with balance > 0.001 SOL:
+  - Creates transfer transaction to treasury
+  - Signs with deployer key
+  - Submits to network
+  - Marks as reclaimed in database
+
+---
+
+## Files to Create/Modify
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `api/pool/create-fun.ts` | Modify | Save encrypted deployer key after launch |
+| `supabase/functions/deployer-dust-scan/index.ts` | Create | Scan deployer wallet balances |
+| `supabase/functions/deployer-dust-reclaim/index.ts` | Create | Transfer dust back to treasury |
+| `src/pages/DeployerDustAdminPage.tsx` | Create | Admin UI for recovery |
+| `src/App.tsx` | Modify | Add route for admin page |
+
+**Database migration:**
+- Create `deployer_wallets` table with proper RLS policies
+
+---
+
+## Security Considerations
+
+1. **Private keys are encrypted at rest** using AES-256 with a server-side secret
+2. **Admin page is password protected** (same as Treasury Admin)
+3. **RLS policies prevent public access** to the deployer_wallets table
+4. **Only edge functions with service role** can decrypt keys
+
+---
+
+## Technical Flow
+
+```text
+Token Launch Flow:
+┌─────────────────────────────────────────────────────────────┐
+│  1. Generate fresh deployer keypair                         │
+│  2. Fund with 0.05 SOL from treasury                        │
+│  3. Use for token creation transactions                     │
+│  4. ENCRYPT private key with DEPLOYER_ENCRYPTION_KEY        │
+│  5. Store in deployer_wallets table                         │
+│  6. After tx completes, dust remains (~0.02-0.04 SOL)       │
+└─────────────────────────────────────────────────────────────┘
+
+Dust Recovery Flow:
+┌─────────────────────────────────────────────────────────────┐
+│  1. Admin clicks "Scan Balances" on admin page              │
+│  2. Edge function fetches all deployer wallets from DB      │
+│  3. Checks on-chain balance for each                        │
+│  4. Updates remaining_sol in database                       │
+│  5. Admin clicks "Reclaim All"                              │
+│  6. Edge function decrypts keys, transfers dust to treasury │
+│  7. Marks wallets as reclaimed                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-This change:
-- Adds `useFreshDeployer` as an optional request parameter
-- Defaults to the global `USE_FRESH_DEPLOYER` config if not specified
-- Allows individual callers to opt-out by passing `useFreshDeployer: false`
+---
 
-### 2. `supabase/functions/trading-agent-create/index.ts` — Pass flag to disable fresh deployer
+## Estimated Recovery (Future)
 
-**Change the launch call (line ~140):**
-```typescript
-const launchResponse = await fetch(`${VERCEL_API_URL}/api/pool/create-fun`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    name: finalName,
-    ticker: finalTicker,
-    description: finalDescription,
-    imageUrl: finalAvatarUrl,
-    websiteUrl,
-    twitterUrl: finalTwitterUrl,
-    serverSideSign: true,
-    agentId: agent.id,
-    useFreshDeployer: false,  // ADD THIS - Deploy from treasury directly
-  }),
-});
-```
+With this system in place:
+- Each launch leaves ~0.02-0.04 SOL dust
+- After 100 future launches: ~2-4 SOL recoverable
+- Automated monthly reclaim keeps treasury topped up
 
 ---
 
-## Files to Modify
+## Required Secret
 
-| File | Change |
-|------|--------|
-| `api/pool/create-fun.ts` | Add `useFreshDeployer` parameter extraction (line ~238), use it instead of global config (line ~305) |
-| `supabase/functions/trading-agent-create/index.ts` | Add `useFreshDeployer: false` to the launch request body (line ~143) |
+Before implementation, you'll need to add:
+- `DEPLOYER_ENCRYPTION_KEY` - A 32-character random string for AES-256 encryption
 
----
-
-## Benefits
-1. **Saves SOL**: No 0.05 SOL funding per trading agent token launch
-2. **Cleaner attribution**: Trading agent tokens are clearly deployed by the treasury
-3. **Backward compatible**: Existing launches still use fresh deployer by default
-4. **Simple change**: Only 2 files, minimal code changes
-
----
-
-## Testing
-After implementation:
-1. Create a new trading agent via the UI
-2. Check the console logs — should NOT show "Generating fresh deployer wallet..."
-3. Verify the token's `creator_wallet` in the database matches the treasury address
-4. Confirm on Solscan that the transaction fee payer is the treasury wallet
+I'll prompt you to add this secret during implementation.
