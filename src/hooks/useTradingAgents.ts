@@ -9,6 +9,7 @@ export interface CreateAgentInput {
   personalityPrompt?: string;
   creatorWallet?: string;
    avatarUrl?: string;
+   twitterUrl?: string;
 }
 
 export interface TradingAgent {
@@ -49,6 +50,8 @@ export interface TradingAgent {
     avatar_url: string | null;
     karma: number;
   };
+   mint_address?: string | null;
+   twitter_url?: string | null;
 }
 
 export interface TradingPosition {

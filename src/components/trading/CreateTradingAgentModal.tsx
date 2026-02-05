@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Bot, Shield, Target, Zap, Copy, Check, Wallet, Loader2, Sparkles } from "lucide-react";
+ import { Bot, Shield, Target, Zap, Copy, Check, Wallet, Loader2, Sparkles, ExternalLink, Coins } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Link } from "react-router-dom";
+import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +21,7 @@ const formSchema = z.object({
   description: z.string().max(500).optional(),
   strategy: z.enum(["conservative", "balanced", "aggressive"]),
   personalityPrompt: z.string().max(200).optional(),
+   twitterUrl: z.string().url().optional().or(z.literal("")),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -77,6 +80,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
     name: string;
     walletAddress: string;
     ticker: string;
+     mintAddress?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
    const [isGenerating, setIsGenerating] = useState(false);
@@ -90,6 +94,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
       ticker: "",
       description: "",
       personalityPrompt: "",
+       twitterUrl: "",
     },
   });
 
@@ -155,6 +160,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
         strategy: values.strategy,
         personalityPrompt: values.personalityPrompt,
          avatarUrl: generatedAvatar || undefined,
+         twitterUrl: values.twitterUrl || undefined,
       });
 
       if (result.success) {
@@ -162,6 +168,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
           name: result.tradingAgent.name,
           walletAddress: result.tradingAgent.walletAddress,
           ticker: result.tradingAgent.ticker,
+           mintAddress: result.tradingAgent.mintAddress,
         });
         toast({
           title: "Trading Agent Created!",
@@ -228,15 +235,42 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
               </code>
             </div>
 
-            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
-              <div className="flex items-center gap-2 mb-2">
-                <Wallet className="h-4 w-4 text-amber-400" />
-                <span className="font-medium text-amber-400">Activation Required</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Send at least <strong className="text-foreground">0.5 SOL</strong> to the trading wallet address above to activate autonomous trading.
-              </p>
-            </div>
+             {/* Funding Progress */}
+             <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+               <div className="flex items-center gap-2 mb-3">
+                 <Coins className="h-4 w-4 text-amber-400" />
+                 <span className="font-medium text-amber-400">Funding Progress</span>
+               </div>
+               <div className="space-y-2">
+                 <Progress value={0} className="h-2" />
+                 <div className="flex justify-between text-xs">
+                   <span className="text-muted-foreground">0 / 0.5 SOL</span>
+                   <span className="text-muted-foreground">0%</span>
+                 </div>
+               </div>
+               <p className="text-xs text-muted-foreground mt-3">
+                 Fees from token swaps will automatically fund the trading wallet.
+                 Trading activates once 0.5 SOL is reached.
+               </p>
+             </div>
+
+             {/* Quick Links */}
+             <div className="grid grid-cols-2 gap-3">
+               {createdAgent.mintAddress && (
+                 <Link to={`/launchpad/${createdAgent.mintAddress}`} onClick={handleClose}>
+                   <Button variant="outline" className="w-full gap-2">
+                     <ExternalLink className="h-4 w-4" />
+                     Trade Token
+                   </Button>
+                 </Link>
+               )}
+               <Link to={`/t/${createdAgent.ticker}`} onClick={handleClose}>
+                 <Button variant="outline" className="w-full gap-2">
+                   <Bot className="h-4 w-4" />
+                   Community
+                 </Button>
+               </Link>
+             </div>
 
             <Button onClick={handleClose} className="w-full">
               Done
@@ -413,6 +447,26 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
                   </FormItem>
                 )}
               />
+
+               <FormField
+                 control={form.control}
+                 name="twitterUrl"
+                 render={({ field }) => (
+                   <FormItem>
+                     <FormLabel>X/Twitter URL (optional)</FormLabel>
+                     <FormControl>
+                       <Input 
+                         placeholder="https://x.com/yourprofile" 
+                         {...field} 
+                       />
+                     </FormControl>
+                     <FormDescription>
+                       Link to X profile for on-chain token metadata
+                     </FormDescription>
+                     <FormMessage />
+                   </FormItem>
+                 )}
+               />
 
               {/* Submit */}
               <div className="flex gap-3">

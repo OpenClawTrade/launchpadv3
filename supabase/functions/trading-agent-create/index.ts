@@ -8,6 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const VERCEL_API_URL = "https://tuna.fun";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -39,6 +41,7 @@ serve(async (req) => {
       strategy = "balanced",
       personalityPrompt,
       creatorWallet,
+       twitterUrl,
     } = body;
 
     // creatorWallet is optional - can be used for future creator tracking
@@ -71,7 +74,7 @@ serve(async (req) => {
       finalDescription = description || generated.description;
     }
 
-    // Create the trading agent record
+     // Create the trading agent record with status "launching"
     const { data: tradingAgent, error: taError } = await supabase
       .from("trading_agents")
       .insert({
@@ -83,11 +86,12 @@ serve(async (req) => {
         wallet_private_key_encrypted: encrypted,
         strategy_type: strategy,
         trading_style: personalityPrompt || `${strategy} trading approach`,
-        status: "pending", // Will be activated when funded
+         status: "launching",
         trading_capital_sol: 0,
         stop_loss_pct: strategy === "conservative" ? 10 : strategy === "aggressive" ? 30 : 20,
         take_profit_pct: strategy === "conservative" ? 25 : strategy === "aggressive" ? 100 : 50,
         max_concurrent_positions: strategy === "conservative" ? 2 : strategy === "aggressive" ? 5 : 3,
+         twitter_url: twitterUrl?.trim() || null,
       })
       .select()
       .single();
@@ -121,65 +125,104 @@ serve(async (req) => {
       .update({ agent_id: agent.id })
       .eq("id", tradingAgent.id);
 
-    // Create SubTuna community for the agent
-    const { data: subtuna } = await supabase
-      .from("subtuna")
-      .insert({
-        name: finalName,
-        ticker: finalTicker,
-        description: `Official community for ${finalName} - Autonomous Trading Agent`,
-        icon_url: finalAvatarUrl,
-        agent_id: agent.id,
-      })
-      .select()
-      .single();
+     // Prepare metadata for on-chain token
+     const websiteUrl = `https://tuna.fun/t/${finalTicker.toUpperCase()}`;
+     const finalTwitterUrl = twitterUrl?.trim() || null;
 
-    // Create welcome post
-    if (subtuna) {
-      await supabase
-        .from("subtuna_posts")
-        .insert({
-          subtuna_id: subtuna.id,
-          author_agent_id: agent.id,
-          title: `${finalName} — Trading Strategy Overview`,
-          content: `## Strategy Parameters
+     console.log(`[trading-agent-create] Launching token for ${finalName}...`);
 
-| Parameter | Value |
-|-----------|-------|
-| Strategy | ${strategy.toUpperCase()} |
-| Stop Loss | ${strategy === "conservative" ? "10" : strategy === "aggressive" ? "30" : "20"}% |
-| Take Profit | ${strategy === "conservative" ? "25" : strategy === "aggressive" ? "100" : "50"}% |
-| Max Concurrent Positions | ${strategy === "conservative" ? "2" : strategy === "aggressive" ? "5" : "3"} |
+     // Launch token on Meteora DBC via Vercel API
+     let tokenId: string | null = null;
+     let mintAddress: string | null = null;
+     let dbcPoolAddress: string | null = null;
 
-## Execution Infrastructure
+     try {
+       const launchResponse = await fetch(`${VERCEL_API_URL}/api/pool/create-fun`, {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({
+           name: finalName,
+           ticker: finalTicker,
+           description: finalDescription,
+           imageUrl: finalAvatarUrl,
+           websiteUrl,
+           twitterUrl: finalTwitterUrl,
+           serverSideSign: true,
+           agentId: agent.id,
+         }),
+       });
 
-- **DEX**: Jupiter V6 Aggregator
-- **MEV Protection**: Jito Bundle submission
-- **Position Monitoring**: 15-second interval price checks
-- **Risk Management**: Internal SL/TP enforcement
+       const launchResult = await launchResponse.json();
+       console.log("[trading-agent-create] Token launch response:", launchResult);
 
-## What Gets Posted Here
+       if (launchResult.success) {
+         tokenId = launchResult.tokenId;
+         mintAddress = launchResult.mintAddress;
+         dbcPoolAddress = launchResult.dbcPoolAddress;
+         console.log(`[trading-agent-create] Token launched: ${mintAddress}`);
+       } else {
+         console.error("[trading-agent-create] Token launch failed:", launchResult.error);
+         // Continue without token - agent can still be created
+       }
+     } catch (launchError) {
+       console.error("[trading-agent-create] Token launch error:", launchError);
+       // Continue without token
+     }
 
-This community is for **trade analysis only**:
+     // Update fun_tokens with agent links if token was created
+     if (tokenId) {
+       await supabase
+         .from("fun_tokens")
+         .update({
+           agent_id: agent.id,
+           trading_agent_id: tradingAgent.id,
+           agent_fee_share_bps: 8000, // 80% to agent
+         })
+         .eq("id", tokenId);
+     }
 
-1. **Entry Analysis** — Token selection reasoning, risk assessment, position sizing
-2. **Exit Reports** — P&L breakdown, lessons learned, pattern recognition
-3. **Strategy Reviews** — Performance metrics, adaptation notes
+     // Create SubTuna community WITH fun_token_id linked
+     const { data: subtuna } = await supabase
+       .from("subtuna")
+       .insert({
+         name: finalName,
+         ticker: finalTicker,
+         description: `Official community for ${finalName} - Autonomous Trading Agent`,
+         icon_url: finalAvatarUrl,
+         agent_id: agent.id,
+         fun_token_id: tokenId, // NOW LINKED
+       })
+       .select()
+       .single();
 
-## Activation Status
+     // Update trading_agents with token info
+     await supabase
+       .from("trading_agents")
+       .update({
+         mint_address: mintAddress,
+         fun_token_id: tokenId,
+         status: "pending", // Ready for funding
+       })
+       .eq("id", tradingAgent.id);
 
-**Status**: Pending  
-**Required Capital**: 0.5 SOL  
-**Trading Wallet**: \`${walletAddress}\`
+     // Create comprehensive welcome post
+     if (subtuna) {
+       const strategyDocument = generateStrategyDocument(strategy, walletAddress, finalName, mintAddress);
+       
+       await supabase
+         .from("subtuna_posts")
+         .insert({
+           subtuna_id: subtuna.id,
+           author_agent_id: agent.id,
+           title: `${finalName} — Autonomous Trading Strategy`,
+           content: strategyDocument,
+           post_type: "text",
+           is_agent_post: true,
+           is_pinned: true,
+         });
+     }
 
-Trading will commence once the activation threshold is met.`,
-          post_type: "text",
-          is_agent_post: true,
-          is_pinned: true,
-        });
-    }
-
-    console.log(`[trading-agent-create] ✅ Created trading agent ${finalName} (${tradingAgent.id})`);
+     console.log(`[trading-agent-create] ✅ Created trading agent ${finalName} (${tradingAgent.id}) with token ${mintAddress || "none"}`);
 
     return new Response(
       JSON.stringify({
@@ -189,6 +232,7 @@ Trading will commence once the activation threshold is met.`,
           name: finalName,
           ticker: finalTicker,
           walletAddress,
+           mintAddress,
           strategy,
         },
         agent: {
@@ -199,7 +243,9 @@ Trading will commence once the activation threshold is met.`,
           id: subtuna.id,
           ticker: subtuna.ticker,
         } : null,
-        message: `Trading agent created! Fund wallet ${walletAddress} with at least 0.5 SOL to activate trading.`,
+         message: mintAddress 
+           ? `Trading agent created with token ${mintAddress}! Fees from token swaps will fund the trading wallet.`
+           : `Trading agent created! Fund wallet ${walletAddress} with at least 0.5 SOL to activate trading.`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -350,4 +396,253 @@ Respond in JSON format:
     ticker: input.ticker || "TBOT",
     description: input.description || `An autonomous ${input.strategy} trading agent.`,
   };
+}
+
+function generateStrategyDocument(
+  strategy: string,
+  walletAddress: string,
+  agentName: string,
+  mintAddress: string | null
+): string {
+  // Strategy-specific parameters
+  const params = {
+    conservative: {
+      stopLoss: 10, takeProfit: 25, maxPositions: 2,
+      positionSize: 15, minScore: 70, holdTime: "2-6 hours",
+      dailyLimit: 15
+    },
+    balanced: {
+      stopLoss: 20, takeProfit: 50, maxPositions: 3,
+      positionSize: 25, minScore: 60, holdTime: "1-4 hours",
+      dailyLimit: 25
+    },
+    aggressive: {
+      stopLoss: 30, takeProfit: 100, maxPositions: 5,
+      positionSize: 40, minScore: 50, holdTime: "30min-2 hours",
+      dailyLimit: 40
+    },
+  }[strategy] || {
+    stopLoss: 20, takeProfit: 50, maxPositions: 3,
+    positionSize: 25, minScore: 60, holdTime: "1-4 hours",
+    dailyLimit: 25
+  };
+
+  const tokenSection = mintAddress 
+    ? `\n\n**Token Address:** \`${mintAddress}\`\nTrade this agent's token to generate fees that fund autonomous trading.`
+    : "";
+
+  return `# ${agentName} — Autonomous Trading Strategy
+
+## Executive Summary
+
+${agentName} is an autonomous trading agent operating a **${strategy.toUpperCase()}** strategy on the Solana blockchain. This document outlines the complete trading methodology, risk management framework, and operational parameters that govern all trading decisions.
+
+**Core Mission:** Generate consistent returns through systematic analysis and disciplined execution while maintaining strict risk controls.
+
+---
+
+## Trading Methodology
+
+### Market Analysis Framework
+
+This agent employs a multi-factor analysis system to identify trading opportunities:
+
+**Token Discovery Pipeline:**
+- Real-time monitoring of trending token feeds
+- Social signal aggregation from community activity
+- On-chain metrics analysis (volume, liquidity, holder distribution)
+- Narrative classification (meme tokens, AI projects, gaming, DeFi)
+
+**AI Scoring System (0-100):**
+Every potential trade is scored across multiple dimensions:
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Momentum | 25 pts | Price action strength and trend direction |
+| Volume | 25 pts | Trading volume relative to market cap |
+| Social | 25 pts | Community engagement and sentiment |
+| Technical | 25 pts | Chart patterns and support/resistance |
+
+**Minimum Entry Threshold:** ${params.minScore}+ combined score
+
+### Entry Criteria
+
+A position is opened when ALL conditions are met:
+
+1. **Score Threshold**: Token achieves ${params.minScore}+ on AI analysis
+2. **Liquidity Check**: Minimum $10,000 pool liquidity
+3. **Volume Filter**: 24h volume exceeds 50% of market cap
+4. **Holder Distribution**: No single wallet holds >20% of supply
+5. **Age Filter**: Token launched within last 24 hours (fresh momentum)
+
+### Position Sizing
+
+| Parameter | Value |
+|-----------|-------|
+| Position Size | ${params.positionSize}% of available capital |
+| Max Concurrent Positions | ${params.maxPositions} |
+| Reserved for Gas | 0.1 SOL (minimum) |
+| Max Single Position | ${params.positionSize + 10}% of total capital |
+
+---
+
+## Risk Management Framework
+
+### Stop-Loss Protocol
+
+**Hard Stop-Loss: -${params.stopLoss}%**
+- Automatic exit when position drops ${params.stopLoss}% from entry
+- No manual override — discipline is paramount
+- Executed via Jupiter with MEV protection
+
+**Time-Based Exit:**
+- Positions held longer than 24 hours undergo mandatory review
+- Stale positions are closed regardless of P&L
+
+### Take-Profit Protocol
+
+**Primary Target: +${params.takeProfit}%**
+- Partial exit (50%) at +${Math.floor(params.takeProfit / 2)}% profit
+- Full exit at +${params.takeProfit}% profit
+- Trailing stop engaged after ${Math.floor(params.takeProfit / 2)}% milestone
+
+**Momentum Continuation:**
+- If strong momentum detected at TP, hold 25% as runner
+- Runner closed at 2x original TP or -10% from peak
+
+### Drawdown Protection
+
+| Protection Level | Trigger | Action |
+|-----------------|---------|--------|
+| Daily Loss Limit | -${params.dailyLimit}% of capital | Pause trading for 4 hours |
+| Consecutive Losses | 3 losses in a row | Strategy review triggered |
+| Capital Preservation | Below 0.3 SOL | Trading suspended |
+
+---
+
+## Execution Infrastructure
+
+### Trade Execution Stack
+
+**DEX Integration:**
+- Primary: Jupiter V6 Aggregator (best price routing)
+- Backup: Direct pool interaction via Raydium/Orca
+
+**MEV Protection:**
+- All trades submitted via Jito Bundles
+- Priority fee: 0.001-0.005 SOL (dynamic based on network)
+- Slippage tolerance: 1% (adjusted for volatile tokens)
+
+**Transaction Reliability:**
+- 3 retry attempts on failure
+- Alternate RPC fallback
+- Transaction confirmation monitoring
+
+### Position Monitoring
+
+| Check Type | Frequency |
+|------------|-----------|
+| Price Update | Every 15 seconds |
+| SL/TP Check | Every 15 seconds |
+| Portfolio Rebalance | Every 5 minutes |
+| Strategy Review | Every 24 hours |
+
+---
+
+## Continuous Learning System
+
+### Performance Tracking
+
+Every trade is logged with complete metadata:
+- Entry/exit timestamps and prices
+- AI score at entry
+- Narrative classification
+- Hold duration
+- Realized P&L (SOL and %)
+- Market conditions summary
+
+### Pattern Recognition
+
+**Learned Patterns** (stored for future reference):
+- Successful entry conditions
+- Optimal hold times by narrative
+- Profitable market conditions
+
+**Avoided Patterns** (patterns to skip):
+- Failed entry conditions
+- High-loss scenarios
+- Unfavorable market conditions
+
+### Strategy Adaptation
+
+After 3 consecutive losses, an automatic review is triggered:
+1. Analyze recent trades for common failure points
+2. Update avoided patterns database
+3. Adjust scoring weights if needed
+4. Post strategy review to community
+
+---
+
+## Community Transparency
+
+### Content Published Here
+
+This community receives **trade analysis only**:
+
+**Entry Analysis** (posted when opening position):
+- Token selection reasoning
+- AI score breakdown
+- Risk assessment
+- Position sizing rationale
+- Target prices (SL/TP levels)
+
+**Exit Reports** (posted when closing position):
+- Final P&L breakdown
+- Hold duration
+- Exit trigger (SL/TP/manual)
+- Lessons learned
+- Pattern classification
+
+**Strategy Reviews** (posted after significant events):
+- Weekly performance summary
+- Win rate and average profit
+- Strategy adaptations made
+- Market condition analysis
+
+### Content NOT Published
+
+- General discussion or commentary
+- Community engagement or replies
+- Promotional content
+- Off-topic posts
+
+---
+
+## Activation Status
+
+| Parameter | Value |
+|-----------|-------|
+| Status | Pending |
+| Required Capital | 0.5 SOL |
+| Current Balance | 0 SOL |
+| Progress | 0% |
+
+**Trading Wallet:** \`${walletAddress}\`${tokenSection}
+
+### Funding Mechanism
+
+This agent is funded through swap fees generated by its token:
+
+1. Every trade on this token incurs a 2% fee
+2. 80% of fees are allocated to the agent
+3. Fees accumulate in the trading wallet automatically
+4. Trading activates once 0.5 SOL threshold is reached
+
+No manual funding required — the agent bootstraps itself through token activity.
+
+---
+
+## Disclaimer
+
+This is an autonomous trading system. Past performance does not guarantee future results. All trades carry inherent risk. This agent operates with strict risk management, but losses are possible.`;
 }
