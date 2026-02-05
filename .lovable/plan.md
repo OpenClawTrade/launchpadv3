@@ -1,72 +1,42 @@
 
-# Fix: Display Trading Agents with "Pending" Status
+# Fix: Trading Agent Profile Page "Not Found" Error
 
 ## Problem Identified
-The trading agent "Equilibrium" (EQBM) is not appearing on the Trading Agents page because:
-- Its status is `pending` (awaiting 0.5 SOL funding threshold)
-- The page only fetches and displays agents with `status: 'active'`
-- There's no tab or section for pending/funding agents
+The Trading Agent Profile page shows "Not Found" because the Supabase query uses an **inner join** (`!` syntax) on the `agents` table. Since the Equilibrium trading agent has `agent_id = NULL`, the inner join returns no results.
 
-## Solution Overview
-Add a "Funding" tab to the Trading Agents page that displays agents awaiting activation, allowing users to see and fund newly created trading agents.
-
----
-
-## Implementation Steps
-
-### 1. Update TradingAgentsPage.tsx
-Add a new "Funding" tab alongside "Active" and "Top Performers":
-- Add a new query hook for pending agents
-- Create a third tab showing agents with `status: 'pending'`
-- Display the funding progress bar for each pending agent
-- Show a message explaining these agents need funding to activate
-
-### 2. Update useTradingAgents Hook (Optional Enhancement)
-Consider removing the hardcoded `status: "active"` filter so the page can dynamically switch between statuses based on tab selection.
-
----
-
-## Technical Details
-
-**File: `src/pages/TradingAgentsPage.tsx`**
-
-Changes needed:
-```
-1. Add second query for pending agents:
-   const { data: pendingAgents } = useTradingAgents({
-     status: "pending",
-     limit: 12,
-   });
-
-2. Add "Funding" tab trigger:
-   <TabsTrigger value="funding">
-     Funding ({pendingAgents?.length || 0})
-   </TabsTrigger>
-
-3. Add TabsContent for funding:
-   <TabsContent value="funding">
-     {pendingAgents?.map(agent => (
-       <TradingAgentCard agent={agent} />
-     ))}
-   </TabsContent>
+**Current query (line 104):**
+```typescript
+agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url, karma)
 ```
 
-**Component Behavior:**
-- The `TradingAgentCard` already handles pending status and displays the `TradingAgentFundingBar`
-- No changes needed to the card component
+The `!` forces an inner join, meaning if `agent_id` is NULL, no row is returned.
 
 ---
 
-## Alternative Quick Fix
-If you prefer, we can simply update the agent's status to `active` in the database immediately. This is a one-time fix but doesn't solve the broader UX issue of showing pending agents.
+## Solution
+Change the query to use a **left join** by removing the `!` syntax:
 
-```sql
-UPDATE trading_agents 
-SET status = 'active' 
-WHERE id = 'edbc62a6-156d-44c0-87f8-ee306c0ea354';
+**File: `src/hooks/useTradingAgents.ts`**
+
+```typescript
+// Change from:
+agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url, karma)
+
+// Change to:
+agent:agents(id, name, avatar_url, karma)
 ```
 
+This allows the query to return the trading agent even when `agent_id` is NULL, with `agent` being null in the response.
+
 ---
 
-## Recommendation
-Implement the "Funding" tab solution - it properly supports the trading agent lifecycle where new agents start as pending and need community funding before activation.
+## Additional Consideration
+The `TradingAgentProfilePage.tsx` already handles `agent` being undefined in many places (e.g., `agent?.agent?.name`), so no additional changes should be needed there. The page will display the trading agent's own data (name, ticker, avatar_url) from the `trading_agents` table regardless of whether an associated AI agent exists.
+
+---
+
+## Files to Modify
+1. **`src/hooks/useTradingAgents.ts`** - Line 104: Remove `!` from the agents join
+
+## Technical Note
+The same pattern is used in `useTradingAgentLeaderboard` (line 160) and `useTradingAgents` list endpoint. These should also be updated for consistency, though they may work differently since they filter by `status: 'active'`.
