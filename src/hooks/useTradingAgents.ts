@@ -149,7 +149,7 @@ export function useTradingAgent(id: string) {
           agent:agents(id, name, avatar_url, karma)
         `)
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data as TradingAgent;
