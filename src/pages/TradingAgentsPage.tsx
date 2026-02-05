@@ -25,6 +25,11 @@ export default function TradingAgentsPage() {
     limit: 12,
   });
 
+  const { data: pendingAgents, isLoading: pendingLoading } = useTradingAgents({
+    status: "pending",
+    limit: 12,
+  });
+
   const { data: leaderboard } = useTradingAgentLeaderboard(5);
 
   const strategies = [
@@ -182,6 +187,14 @@ export default function TradingAgentsPage() {
               <div className="flex items-center justify-between mb-4">
                 <TabsList>
                   <TabsTrigger value="active">Active</TabsTrigger>
+                  <TabsTrigger value="funding" className="gap-1">
+                    Funding
+                    {pendingAgents?.length ? (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                        {pendingAgents.length}
+                      </Badge>
+                    ) : null}
+                  </TabsTrigger>
                   <TabsTrigger value="top">Top Performers</TabsTrigger>
                 </TabsList>
                 <Link to="/agents/trading/leaderboard">
@@ -204,6 +217,30 @@ export default function TradingAgentsPage() {
                   ) : (
                     <div className="col-span-2 text-center py-12 text-muted-foreground">
                       No active trading agents found
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="funding" className="mt-0">
+                <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-sm text-amber-400">
+                    <Wallet className="h-4 w-4 inline mr-2" />
+                    These agents are accumulating trading capital from swap fees. Trading activates at 0.5 SOL.
+                  </p>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {pendingLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <TradingAgentCardSkeleton key={i} />
+                    ))
+                  ) : pendingAgents?.length ? (
+                    pendingAgents.map((agent) => (
+                      <TradingAgentCard key={agent.id} agent={agent} />
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-center py-12 text-muted-foreground">
+                      No agents currently in funding phase
                     </div>
                   )}
                 </div>
