@@ -1,297 +1,643 @@
 
-# Complete Trading Agent System Implementation
+# Complete Trading Agent System Implementation Plan
+
+## Executive Summary
+
+This plan implements the full Trading Agent creation flow that integrates **token launch**, **SubTuna community creation**, **fee routing**, and **autonomous trading activation** into a single automated pipeline.
+
+---
 
 ## Current State Analysis
 
-Based on my code exploration, here's what EXISTS vs what's MISSING:
+| Component | Status | Gap |
+|-----------|--------|-----|
+| Agent + Wallet Creation | Works | Status starts as `pending` correctly |
+| AI Generation | Works | Generates name/ticker/description/avatar |
+| SubTuna Creation | Works | **NOT linked to token** (`fun_token_id` is NULL) |
+| Token Launch | **MISSING** | No token is created during agent creation |
+| Twitter URL Field | **MISSING** | UI doesn't capture user's X profile |
+| Fee Distribution | Works | Already routes 80% to trading agent wallet |
+| Auto-activation | Works | Triggers at 0.5 SOL threshold |
+| Funding Bar UI | Works | TradingAgentFundingBar component exists |
+| Welcome Post | Too Brief | Needs comprehensive professional content |
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Trading Agent CRUD | ✅ Exists | Create, read, list agents working |
-| Agent Profile Page | ✅ Exists | `/agents/trading/:id` fully implemented |
-| Cron Jobs | ✅ Exists | `trading-agent-execute` (5min) + `trading-agent-monitor` (1min) already scheduled |
-| Fee Deposits Table | ✅ Exists | `trading_agent_fee_deposits` table exists but **EMPTY** |
-| Fee Routing | ❌ MISSING | `fun-distribute` routes to agents table, NOT trading_agent wallets |
-| Status Field | ⚠️ Partial | Agents have `status` but no `pending` → `active` auto-activation |
-| Funding Progress UI | ❌ MISSING | No visual progress bar for 0.5 SOL threshold |
-| High-Frequency Polling | ❌ MISSING | Monitor runs once per minute, not 15-second internal loops |
-| pumpfun-trending-sync | ⚠️ Unknown | Need to verify cron exists |
+---
 
-## Implementation Plan
+## Implementation Phases
 
-### Phase 1: Fix Fee Routing to Trading Agent Wallets
+### Phase 1: Database Migration
 
-**File: `supabase/functions/fun-distribute/index.ts`**
-
-Currently, `fun-distribute` routes 80% of agent token fees to `agent_fee_distributions` table. But Trading Agents need fees routed to their **trading wallets** for autonomous trading.
-
-**Changes Required:**
-1. Detect if an agent is a Trading Agent (has entry in `trading_agents` table)
-2. If Trading Agent: transfer SOL directly to `trading_agents.wallet_address` on-chain
-3. Record deposit in `trading_agent_fee_deposits` table
-4. Update `trading_agents.trading_capital_sol` balance
-5. Auto-activate agent when balance reaches 0.5 SOL
-
-```
-// Pseudocode for fun-distribute enhancement:
-if (isAgentToken && group.agentId) {
-  // Check if this agent has a trading agent profile
-  const { data: tradingAgent } = await supabase
-    .from("trading_agents")
-    .select("id, wallet_address, trading_capital_sol, status")
-    .eq("agent_id", group.agentId)
-    .single();
-
-  if (tradingAgent) {
-    // This is a Trading Agent - send SOL directly to trading wallet
-    const transferTx = await sendSolToTradingWallet(
-      treasuryKeypair,
-      tradingAgent.wallet_address,
-      recipientAmount
-    );
-    
-    // Record in trading_agent_fee_deposits
-    await supabase.from("trading_agent_fee_deposits").insert({
-      trading_agent_id: tradingAgent.id,
-      amount_sol: recipientAmount,
-      source: "fee_distribution",
-      signature: transferTx,
-    });
-    
-    // Update trading capital
-    const newCapital = tradingAgent.trading_capital_sol + recipientAmount;
-    await supabase.from("trading_agents").update({
-      trading_capital_sol: newCapital,
-      last_deposit_at: new Date().toISOString(),
-      // Auto-activate when threshold reached
-      status: newCapital >= 0.5 ? "active" : "pending",
-    }).eq("id", tradingAgent.id);
-    
-    continue; // Skip normal agent distribution
-  }
-  
-  // Regular agent - existing logic
-}
-```
-
-### Phase 2: Create Funding Progress Bar Component
-
-**New File: `src/components/trading/TradingAgentFundingBar.tsx`**
-
-A visual progress bar showing:
-- Current balance vs 0.5 SOL threshold
-- "Accumulating Fees" / "Ready to Trade" status
-- Percentage complete
-- Animated progress fill
-
-```
-// TradingAgentFundingBar.tsx
-interface FundingBarProps {
-  currentBalance: number;
-  threshold?: number; // default 0.5 SOL
-  status: "pending" | "active" | "paused";
-}
-
-// Visual states:
-// - pending + < threshold: Yellow bar, "Accumulating Fees (X/0.5 SOL)"
-// - pending + >= threshold: Green bar, "Activating..."
-// - active: Green checkmark, "Trading Active"
-// - paused: Gray bar, "Paused"
-```
-
-### Phase 3: Update TradingAgentCard with Funding Status
-
-**File: `src/components/trading/TradingAgentCard.tsx`**
-
-Add the funding progress bar for agents in "pending" status:
-
-```
-// Inside TradingAgentCard, after the Capital section:
-{agent.status === "pending" && (
-  <TradingAgentFundingBar 
-    currentBalance={agent.trading_capital_sol || 0}
-    status={agent.status}
-  />
-)}
-
-{agent.status === "active" && (
-  <div className="flex items-center gap-1 text-xs text-green-400">
-    <CheckCircle className="h-3 w-3" />
-    Trading Active
-  </div>
-)}
-```
-
-### Phase 4: Update TradingAgentProfilePage with Funding Section
-
-**File: `src/pages/TradingAgentProfilePage.tsx`**
-
-Add a prominent funding status section at the top of the profile:
-
-```
-// After the stats cards, before tabs:
-{agent.status === "pending" && (
-  <Card className="bg-amber-500/5 border-amber-500/30 mb-8">
-    <CardContent className="p-6">
-      <div className="flex items-center gap-4">
-        <div className="p-3 rounded-full bg-amber-500/20">
-          <Wallet className="h-8 w-8 text-amber-400" />
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-lg mb-2">Agent Funding Progress</h3>
-          <TradingAgentFundingBar 
-            currentBalance={agent.trading_capital_sol || 0}
-            status={agent.status}
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            This agent will start trading autonomously once fees from token swaps 
-            accumulate to 0.5 SOL in its trading wallet.
-          </p>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-)}
-```
-
-### Phase 5: High-Frequency Polling in Monitor Function
-
-**File: `supabase/functions/trading-agent-monitor/index.ts`**
-
-Add internal 15-second polling loop to maximize the 60-second Edge Function runtime:
-
-```
-// At the start of the handler:
-const startTime = Date.now();
-const MAX_RUNTIME_MS = 50000; // 50 seconds, leave 10s buffer
-const POLL_INTERVAL_MS = 15000; // 15 seconds
-
-let totalChecks = 0;
-let totalTrades = 0;
-
-while (Date.now() - startTime < MAX_RUNTIME_MS) {
-  console.log(`[trading-agent-monitor] Check #${++totalChecks}...`);
-  
-  // Existing monitoring logic here...
-  // ...fetch positions, check SL/TP, execute sells...
-  
-  // Wait before next check (skip if near timeout)
-  if (Date.now() - startTime + POLL_INTERVAL_MS < MAX_RUNTIME_MS) {
-    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
-  } else {
-    break;
-  }
-}
-
-console.log(`[trading-agent-monitor] Completed ${totalChecks} checks in ${Date.now() - startTime}ms`);
-```
-
-### Phase 6: Add pumpfun-trending-sync Cron Job
-
-**Action:** Create cron job if it doesn't exist
+Add new columns to `trading_agents` table for token linking:
 
 ```sql
-SELECT cron.schedule(
-  'pumpfun-trending-sync-every-3-min',
-  '*/3 * * * *',
-  $$
-  SELECT net.http_post(
-    url:='https://ptwytypavumcrbofspno.supabase.co/functions/v1/pumpfun-trending-sync',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}'::jsonb,
-    body:='{"trigger": "cron"}'::jsonb
-  );
-  $$
-);
+ALTER TABLE trading_agents 
+ADD COLUMN IF NOT EXISTS mint_address TEXT,
+ADD COLUMN IF NOT EXISTS twitter_url TEXT;
 ```
 
-### Phase 7: Extend TradingAgent Type with Funding Fields
+The `fun_token_id` column already exists in the table.
+
+---
+
+### Phase 2: Update CreateTradingAgentModal UI
+
+**File: `src/components/trading/CreateTradingAgentModal.tsx`**
+
+**Changes:**
+
+1. Add Twitter/X URL input field to the form schema:
+```typescript
+const formSchema = z.object({
+  // ... existing fields ...
+  twitterUrl: z.string().url().optional().or(z.literal("")),
+});
+```
+
+2. Add form field after description:
+```text
+┌────────────────────────────────────────────────────────────┐
+│  X/Twitter URL (optional)                                   │
+│  ┌────────────────────────────────────────────────────────┐│
+│  │ https://x.com/yourprofile                              ││
+│  └────────────────────────────────────────────────────────┘│
+│  Link your X profile for token metadata                    │
+└────────────────────────────────────────────────────────────┘
+```
+
+3. Pass `twitterUrl` to the mutation call
+
+4. Update success screen to show:
+   - Token mint address with copy button
+   - Link to trade: `/launchpad/{mintAddress}`
+   - Link to SubTuna: `/t/{TICKER}`
+   - Funding progress bar (0 / 0.5 SOL)
+
+---
+
+### Phase 3: Update useTradingAgents Hook
 
 **File: `src/hooks/useTradingAgents.ts`**
 
-Add new fields to the interface:
+Add `twitterUrl` to the `CreateAgentInput` interface:
+
+```typescript
+export interface CreateAgentInput {
+  name?: string;
+  ticker?: string;
+  description?: string;
+  strategy: "conservative" | "balanced" | "aggressive";
+  personalityPrompt?: string;
+  creatorWallet?: string;
+  avatarUrl?: string;
+  twitterUrl?: string;  // NEW
+}
+```
+
+Add `mint_address` and `twitter_url` to `TradingAgent` interface:
 
 ```typescript
 export interface TradingAgent {
   // ... existing fields ...
-  
-  // Funding status fields
-  last_deposit_at: string | null;
-  funding_progress: number; // Calculated: trading_capital_sol / 0.5 * 100
-  is_funded: boolean; // trading_capital_sol >= 0.5
+  mint_address: string | null;
+  twitter_url: string | null;
 }
 ```
 
-**File: `supabase/functions/trading-agent-list/index.ts`**
+---
 
-Calculate funding progress in the response:
+### Phase 4: Integrate Token Launch into Edge Function
+
+**File: `supabase/functions/trading-agent-create/index.ts`**
+
+This is the core change. The function will:
+
+1. Generate wallet (existing)
+2. Generate identity with AI (existing)
+3. Create `trading_agents` with status `"launching"`
+4. Create `agents` record (existing)
+5. **NEW: Call Vercel API `/api/pool/create-fun` to launch token**
+6. **NEW: Update `fun_tokens` with `agent_id` and `trading_agent_id`**
+7. **NEW: Create SubTuna WITH `fun_token_id` linked**
+8. **NEW: Update `trading_agents` with `mint_address`, `fun_token_id`, status `"pending"`**
+9. Post comprehensive welcome message (enhanced)
+
+**Token Launch Call:**
+```typescript
+// Prepare metadata
+const websiteUrl = `https://tuna.fun/t/${finalTicker.toUpperCase()}`;
+const twitterUrl = body.twitterUrl?.trim() || null;
+
+// Call Vercel API
+const launchResponse = await fetch(`${VERCEL_API_URL}/api/pool/create-fun`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name: finalName,
+    ticker: finalTicker,
+    description: finalDescription,
+    imageUrl: finalAvatarUrl,
+    websiteUrl,           // SubTuna community URL
+    twitterUrl,           // User-provided X profile (or null)
+    serverSideSign: true,
+    agentId: agent.id,    // Link to agents record
+  }),
+});
+
+const launchResult = await launchResponse.json();
+if (!launchResult.success) {
+  throw new Error(`Token launch failed: ${launchResult.error}`);
+}
+
+const { tokenId, mintAddress, dbcPoolAddress } = launchResult;
+```
+
+**Update fun_tokens with agent links:**
+```typescript
+await supabase
+  .from("fun_tokens")
+  .update({
+    agent_id: agent.id,
+    trading_agent_id: tradingAgent.id,
+    agent_fee_share_bps: 8000,  // 80% to agent
+  })
+  .eq("id", tokenId);
+```
+
+**Create SubTuna with token link:**
+```typescript
+const { data: subtuna } = await supabase
+  .from("subtuna")
+  .insert({
+    name: finalName,
+    ticker: finalTicker,
+    description: `Official community for ${finalName} - Autonomous Trading Agent`,
+    icon_url: finalAvatarUrl,
+    agent_id: agent.id,
+    fun_token_id: tokenId,  // NOW LINKED
+  })
+  .select()
+  .single();
+```
+
+**Update trading_agents with token info:**
+```typescript
+await supabase
+  .from("trading_agents")
+  .update({
+    mint_address: mintAddress,
+    fun_token_id: tokenId,
+    twitter_url: twitterUrl,
+    status: "pending",
+  })
+  .eq("id", tradingAgent.id);
+```
+
+---
+
+### Phase 5: Enhanced Professional Welcome Post
+
+**File: `supabase/functions/trading-agent-create/index.ts`**
+
+Replace the current brief welcome post with a comprehensive trading strategy document. Create a helper function:
 
 ```typescript
-const enrichedAgents = agents?.map(agent => ({
-  ...agent,
-  openPositions: posCountMap.get(agent.id) || 0,
-  roi: ...,
-  // Add funding info
-  funding_progress: Math.min(100, ((agent.trading_capital_sol || 0) / 0.5) * 100),
-  is_funded: (agent.trading_capital_sol || 0) >= 0.5,
-}));
+function generateStrategyDocument(
+  strategy: string,
+  walletAddress: string,
+  agentName: string
+): string {
+  // Strategy-specific parameters
+  const params = {
+    conservative: {
+      stopLoss: 10, takeProfit: 25, maxPositions: 2,
+      positionSize: 15, minScore: 70, holdTime: "2-6 hours"
+    },
+    balanced: {
+      stopLoss: 20, takeProfit: 50, maxPositions: 3,
+      positionSize: 25, minScore: 60, holdTime: "1-4 hours"
+    },
+    aggressive: {
+      stopLoss: 30, takeProfit: 100, maxPositions: 5,
+      positionSize: 40, minScore: 50, holdTime: "30min-2 hours"
+    },
+  }[strategy] || params.balanced;
+
+  return `# ${agentName} — Autonomous Trading Strategy
+
+## Executive Summary
+
+${agentName} is an autonomous trading agent operating a **${strategy.toUpperCase()}** strategy on the Solana blockchain. This document outlines the complete trading methodology, risk management framework, and operational parameters that govern all trading decisions.
+
+**Core Mission:** Generate consistent returns through systematic analysis and disciplined execution while maintaining strict risk controls.
+
+---
+
+## Trading Methodology
+
+### Market Analysis Framework
+
+This agent employs a multi-factor analysis system to identify trading opportunities:
+
+**Token Discovery Pipeline:**
+- Real-time monitoring of trending token feeds
+- Social signal aggregation from community activity
+- On-chain metrics analysis (volume, liquidity, holder distribution)
+- Narrative classification (meme tokens, AI projects, gaming, DeFi)
+
+**AI Scoring System (0-100):**
+Every potential trade is scored across multiple dimensions:
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Momentum | 25 pts | Price action strength and trend direction |
+| Volume | 25 pts | Trading volume relative to market cap |
+| Social | 25 pts | Community engagement and sentiment |
+| Technical | 25 pts | Chart patterns and support/resistance |
+
+**Minimum Entry Threshold:** ${params.minScore}+ combined score
+
+### Entry Criteria
+
+A position is opened when ALL conditions are met:
+
+1. **Score Threshold**: Token achieves ${params.minScore}+ on AI analysis
+2. **Liquidity Check**: Minimum $10,000 pool liquidity
+3. **Volume Filter**: 24h volume exceeds 50% of market cap
+4. **Holder Distribution**: No single wallet holds >20% of supply
+5. **Age Filter**: Token launched within last 24 hours (fresh momentum)
+
+### Position Sizing
+
+| Parameter | Value |
+|-----------|-------|
+| Position Size | ${params.positionSize}% of available capital |
+| Max Concurrent Positions | ${params.maxPositions} |
+| Reserved for Gas | 0.1 SOL (minimum) |
+| Max Single Position | ${params.positionSize + 10}% of total capital |
+
+---
+
+## Risk Management Framework
+
+### Stop-Loss Protocol
+
+**Hard Stop-Loss: -${params.stopLoss}%**
+- Automatic exit when position drops ${params.stopLoss}% from entry
+- No manual override — discipline is paramount
+- Executed via Jupiter with MEV protection
+
+**Time-Based Exit:**
+- Positions held longer than 24 hours undergo mandatory review
+- Stale positions are closed regardless of P&L
+
+### Take-Profit Protocol
+
+**Primary Target: +${params.takeProfit}%**
+- Partial exit (50%) at +${Math.floor(params.takeProfit / 2)}% profit
+- Full exit at +${params.takeProfit}% profit
+- Trailing stop engaged after ${Math.floor(params.takeProfit / 2)}% milestone
+
+**Momentum Continuation:**
+- If strong momentum detected at TP, hold 25% as runner
+- Runner closed at 2x original TP or -10% from peak
+
+### Drawdown Protection
+
+| Protection Level | Trigger | Action |
+|-----------------|---------|--------|
+| Daily Loss Limit | -${params.stopLoss + 5}% of capital | Pause trading for 4 hours |
+| Consecutive Losses | 3 losses in a row | Strategy review triggered |
+| Capital Preservation | Below 0.3 SOL | Trading suspended |
+
+---
+
+## Execution Infrastructure
+
+### Trade Execution Stack
+
+**DEX Integration:**
+- Primary: Jupiter V6 Aggregator (best price routing)
+- Backup: Direct pool interaction via Raydium/Orca
+
+**MEV Protection:**
+- All trades submitted via Jito Bundles
+- Priority fee: 0.001-0.005 SOL (dynamic based on network)
+- Slippage tolerance: 1% (adjusted for volatile tokens)
+
+**Transaction Reliability:**
+- 3 retry attempts on failure
+- Alternate RPC fallback
+- Transaction confirmation monitoring
+
+### Position Monitoring
+
+| Check Type | Frequency |
+|------------|-----------|
+| Price Update | Every 15 seconds |
+| SL/TP Check | Every 15 seconds |
+| Portfolio Rebalance | Every 5 minutes |
+| Strategy Review | Every 24 hours |
+
+---
+
+## Continuous Learning System
+
+### Performance Tracking
+
+Every trade is logged with complete metadata:
+- Entry/exit timestamps and prices
+- AI score at entry
+- Narrative classification
+- Hold duration
+- Realized P&L (SOL and %)
+- Market conditions summary
+
+### Pattern Recognition
+
+**Learned Patterns** (stored for future reference):
+- Successful entry conditions
+- Optimal hold times by narrative
+- Profitable market conditions
+
+**Avoided Patterns** (patterns to skip):
+- Failed entry conditions
+- High-loss scenarios
+- Unfavorable market conditions
+
+### Strategy Adaptation
+
+After 3 consecutive losses, an automatic review is triggered:
+1. Analyze recent trades for common failure points
+2. Update avoided patterns database
+3. Adjust scoring weights if needed
+4. Post strategy review to community
+
+---
+
+## Community Transparency
+
+### Content Published Here
+
+This community receives **trade analysis only**:
+
+**Entry Analysis** (posted when opening position):
+- Token selection reasoning
+- AI score breakdown
+- Risk assessment
+- Position sizing rationale
+- Target prices (SL/TP levels)
+
+**Exit Reports** (posted when closing position):
+- Final P&L breakdown
+- Hold duration
+- Exit trigger (SL/TP/manual)
+- Lessons learned
+- Pattern classification
+
+**Strategy Reviews** (posted after significant events):
+- Weekly performance summary
+- Win rate and average profit
+- Strategy adaptations made
+- Market condition analysis
+
+### Content NOT Published
+
+- General discussion or commentary
+- Community engagement or replies
+- Promotional content
+- Off-topic posts
+
+---
+
+## Activation Status
+
+| Parameter | Value |
+|-----------|-------|
+| Status | Pending |
+| Required Capital | 0.5 SOL |
+| Current Balance | 0 SOL |
+| Progress | 0% |
+
+**Trading Wallet:** \`${walletAddress}\`
+
+### Funding Mechanism
+
+This agent is funded through swap fees generated by its token:
+
+1. Every trade on this token incurs a 2% fee
+2. 80% of fees are allocated to the agent
+3. Fees accumulate in the trading wallet automatically
+4. Trading activates once 0.5 SOL threshold is reached
+
+No manual funding required — the agent bootstraps itself through token activity.
+
+---
+
+## Disclaimer
+
+This is an autonomous trading system. Past performance does not guarantee future results. All trades carry inherent risk. This agent operates with strict risk management, but losses are possible.`;
+}
 ```
+
+---
+
+### Phase 6: Update TradingAgentProfilePage
+
+**File: `src/pages/TradingAgentProfilePage.tsx`**
+
+Add token trading link in the header section:
+
+```typescript
+// After the wallet address display, add:
+{agent.mint_address && (
+  <Link 
+    to={`/launchpad/${agent.mint_address}`} 
+    className="flex items-center gap-1 text-green-400 hover:underline"
+  >
+    <Coins className="h-4 w-4" />
+    <span>Trade Token</span>
+  </Link>
+)}
+```
+
+---
+
+### Phase 7: Environment Variables
+
+The edge function needs access to the Vercel API URL. Add to secrets:
+
+```
+VERCEL_API_URL=https://tuna.fun
+```
+
+Or use the production URL for the API endpoint.
+
+---
+
+## Complete Flow After Implementation
+
+```text
+User clicks "Create Agent" on /agents/trading
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  1. Generate Identity & Wallet                                       │
+│     - AI generates name, ticker, description, avatar                 │
+│     - Generate Solana keypair (AES-256-GCM encrypted)               │
+│     - Upload avatar to storage                                       │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  2. Create Database Records                                          │
+│     - trading_agents → status: "launching"                           │
+│     - agents → for social features                                   │
+│     - Link: trading_agents.agent_id = agents.id                     │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  3. Launch Token on Meteora DBC                                      │
+│                                                                      │
+│     Call: /api/pool/create-fun                                       │
+│                                                                      │
+│     On-Chain Metadata:                                               │
+│     ┌────────────────────────────────────────────────────────────┐  │
+│     │  website_url: "https://tuna.fun/t/TICKER"  ← SubTuna        │  │
+│     │  twitter_url: "https://x.com/user"         ← User input     │  │
+│     └────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│     Treasury pays ~0.05 SOL for deployment                           │
+│     Returns: tokenId, mintAddress, dbcPoolAddress                    │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  4. Link Everything Together                                         │
+│                                                                      │
+│     fun_tokens:                                                      │
+│     - agent_id = agent.id                                            │
+│     - trading_agent_id = tradingAgent.id                            │
+│     - agent_fee_share_bps = 8000 (80%)                              │
+│                                                                      │
+│     subtuna:                                                         │
+│     - fun_token_id = tokenId  ← NOW LINKED                          │
+│                                                                      │
+│     trading_agents:                                                  │
+│     - mint_address = mintAddress                                     │
+│     - fun_token_id = tokenId                                         │
+│     - status = "pending"                                             │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  5. Post Professional Welcome Message                                │
+│     - Comprehensive trading strategy document (~150 lines)           │
+│     - Strategy parameters, risk management, execution details        │
+│     - Pinned to SubTuna community                                    │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  6. Return Success                                                   │
+│                                                                      │
+│     Response includes:                                               │
+│     - tradingAgent.walletAddress                                     │
+│     - tradingAgent.mintAddress                                       │
+│     - subtuna.ticker                                                 │
+│     - Trade URL: /launchpad/{mintAddress}                           │
+│     - Community URL: /t/{TICKER}                                    │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  7. Users Trade the Token                                            │
+│     - Token visible on launchpad                                     │
+│     - 2% swap fee collected                                          │
+│     - Fees go to Treasury                                            │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  8. fun-distribute Cron (Hourly)                                     │
+│     - Detects agent token with trading_agent_id                     │
+│     - Calculates: Agent gets 80%, Platform gets 20%                 │
+│     - Transfers SOL to trading_agents.wallet_address                │
+│     - Records in trading_agent_fee_deposits                         │
+│     - Updates trading_capital_sol                                   │
+│                                                                      │
+│     Already implemented and working!                                 │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  9. Auto-Activation at 0.5 SOL                                       │
+│     - IF trading_capital_sol >= 0.5 SOL                             │
+│     - THEN status = "active"                                         │
+│                                                                      │
+│     Already implemented in fun-distribute!                           │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  10. Trading Execution Begins                                        │
+│      - trading-agent-execute cron (5 min)                           │
+│      - Decrypts wallet, executes Jupiter swaps                      │
+│      - Posts trade analysis to SubTuna                              │
+│                                                                      │
+│      Already implemented!                                            │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Files to Create/Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `supabase/functions/fun-distribute/index.ts` | **Modify** | Add Trading Agent wallet routing + auto-activation |
-| `src/components/trading/TradingAgentFundingBar.tsx` | **Create** | Visual funding progress component |
-| `src/components/trading/TradingAgentCard.tsx` | **Modify** | Add funding status bar |
-| `src/components/trading/index.ts` | **Modify** | Export new component |
-| `src/pages/TradingAgentProfilePage.tsx` | **Modify** | Add funding section |
-| `supabase/functions/trading-agent-monitor/index.ts` | **Modify** | Add 15-second internal polling loop |
-| `supabase/functions/trading-agent-list/index.ts` | **Modify** | Add funding_progress field |
-| `src/hooks/useTradingAgents.ts` | **Modify** | Add funding fields to interface |
+| Database migration | **Create** | Add `mint_address`, `twitter_url` columns |
+| `src/components/trading/CreateTradingAgentModal.tsx` | **Modify** | Add Twitter URL field, update success screen |
+| `src/hooks/useTradingAgents.ts` | **Modify** | Add `twitterUrl` to input, `mint_address` to output |
+| `supabase/functions/trading-agent-create/index.ts` | **Major Modify** | Integrate token launch, link SubTuna, enhanced welcome post |
+| `src/pages/TradingAgentProfilePage.tsx` | **Modify** | Add trade token link |
 
-## Database Changes
+---
 
-No schema changes needed - `trading_agent_fee_deposits` table already exists with correct structure.
+## Technical Notes
 
-## Visual Design: Funding Progress Bar
+### On-Chain Metadata Result
 
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│  ⚡ Funding Progress                                                  │
-│  ┌────────────────────────────────────────────────────────────────┐  │
-│  │████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│  │
-│  │                    32%                                       │  │
-│  └────────────────────────────────────────────────────────────────┘  │
-│                                                                      │
-│  0.16 / 0.5 SOL • Trading starts when funded                        │
-└──────────────────────────────────────────────────────────────────────┘
+After implementation, external explorers will display:
 
-// Active state:
-┌──────────────────────────────────────────────────────────────────────┐
-│  ✅ Trading Active                                                    │
-│  ┌────────────────────────────────────────────────────────────────┐  │
-│  │████████████████████████████████████████████████████████████████│  │
-│  │                    100%                                      │  │
-│  └────────────────────────────────────────────────────────────────┘  │
-│                                                                      │
-│  0.85 SOL capital • 3 open positions                                │
-└──────────────────────────────────────────────────────────────────────┘
-```
+| Field | Value |
+|-------|-------|
+| **Website** | `https://tuna.fun/t/{TICKER}` (SubTuna community) |
+| **Twitter** | User-provided URL or blank |
 
-## Expected Behavior After Implementation
+The `pending_token_metadata` table is populated BEFORE the on-chain transaction, ensuring metadata is immediately available to external indexers (Birdeye, DexScreener, Solscan).
 
-1. **User creates Trading Agent** → Status: `pending`, Balance: 0 SOL
-2. **Users trade agent's token** → Fees accumulate in treasury
-3. **fun-distribute cron runs** → Detects Trading Agent, sends SOL to trading wallet
-4. **trading_agent_fee_deposits** → Record created for each deposit
-5. **trading_agents.trading_capital_sol** → Balance increases
-6. **UI shows progress bar** → Users see "0.32 / 0.5 SOL (64%)"
-7. **Balance reaches 0.5 SOL** → Status auto-updates to `active`
-8. **trading-agent-execute cron** → Starts executing trades
-9. **UI shows "Trading Active"** → Green checkmark, open positions count
+### Error Handling
 
-## Cost Impact
+If token launch fails:
+1. Roll back `trading_agents` status to `"failed"`
+2. Delete the `agents` record
+3. Return error to user with retry option
 
-- **Zero additional cost** - Uses existing infrastructure
-- Jito tips (0.001-0.01 SOL per trade) paid from trading wallet
-- SOL transfer gas (~0.000005 SOL per deposit) paid from treasury
+### Cost
+
+- Token launch: ~0.05 SOL (paid by Treasury)
+- Agent wallet: 0 SOL (generated locally)
+- Total per agent: ~0.05 SOL platform cost
+
+---
+
+## Success Metrics
+
+After implementation:
+
+1. Every Trading Agent has a tradeable token
+2. SubTuna community links to token chart
+3. Token metadata shows SubTuna URL on-chain
+4. Fees automatically fund trading wallet
+5. Agent auto-activates at 0.5 SOL
+6. Professional strategy document in SubTuna
