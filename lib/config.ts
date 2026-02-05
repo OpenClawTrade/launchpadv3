@@ -48,7 +48,7 @@ export const TOKEN_UPDATE_AUTHORITY = 1; // 1 = immutable metadata
 // Fresh deployer wallet configuration
 // Each token launch uses a unique wallet as deployer for better on-chain attribution
 export const LAUNCH_FUNDING_SOL = 0.05; // SOL to fund each fresh deployer
-export const USE_FRESH_DEPLOYER = true; // Feature flag to enable fresh deployer per launch
+export const USE_FRESH_DEPLOYER = false; // Disabled: all launches use treasury wallet directly
 
 // Environment variables with validation
 // SUPABASE_URL is required
