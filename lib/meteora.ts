@@ -354,14 +354,15 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     };
   }
 
-  // Build token metadata URI - use simple endpoint to stay under Metaplex 200 char limit
+  // Build token metadata URI - use STATIC storage URL for external indexer compatibility
   // CRITICAL: URI must be <= 200 chars for Metaplex metadata program
-  // The token-metadata endpoint will fetch data from DB or use fallback values
+  // Static .json files in storage are more reliably consumed by Solscan, Axiom, DEXTools, etc.
+  // The JSON file is uploaded by the launch API BEFORE the on-chain transaction
   const supabaseUrl = process.env.SUPABASE_URL || 'https://ptwytypavumcrbofspno.supabase.co';
   
-  // Use short URI format - just mint address, metadata fetched from DB
-  const metadataUri = `${supabaseUrl}/functions/v1/token-metadata/${mintKeypair.publicKey.toBase58()}`;
-  console.log('[meteora] Metadata URI:', metadataUri, `(${metadataUri.length} chars)`);
+  // Use static storage URL ending in .json for maximum indexer compatibility
+  const metadataUri = `${supabaseUrl}/storage/v1/object/public/post-images/token-metadata/${mintKeypair.publicKey.toBase58()}.json`;
+  console.log('[meteora] Metadata URI (static storage):', metadataUri, `(${metadataUri.length} chars)`);
 
   // Derive pool address
   const { deriveDbcPoolAddress } = await import('@meteora-ag/dynamic-bonding-curve-sdk');

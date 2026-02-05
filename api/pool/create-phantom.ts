@@ -217,6 +217,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       isPoolVanity: !!vanityKeypair,
     });
 
+    // === UPLOAD STATIC METADATA JSON TO STORAGE BEFORE RETURNING TXs ===
+    // CRITICAL: External indexers (Solscan, Axiom, DEXTools) prefer static .json files
+    console.log('[create-phantom] Uploading static metadata JSON to storage...');
+    
+    try {
+      const tokenName = name.slice(0, 32);
+      const tokenSymbol = ticker.toUpperCase().slice(0, 10);
+      const tokenDescription = description || `${tokenName} - A fun meme coin!`;
+      const tokenImage = imageUrl || '';
+      const tokenWebsite = websiteUrl || `https://tuna.fun/t/${tokenSymbol}`;
+      const tokenTwitter = twitterUrl || undefined;
+      
+      // Detect image MIME type
+      const imageExt = tokenImage.split('.').pop()?.toLowerCase() || 'png';
+      const mimeTypes: Record<string, string> = {
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+        'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml',
+      };
+      const imageMimeType = mimeTypes[imageExt] || 'image/png';
+      
+      const metadataJson = {
+        name: tokenName,
+        symbol: tokenSymbol,
+        description: tokenDescription,
+        image: tokenImage,
+        external_url: tokenWebsite,
+        seller_fee_basis_points: 0,
+        properties: {
+          files: tokenImage ? [{ uri: tokenImage, type: imageMimeType }] : [],
+          category: 'image',
+          creators: [],
+        },
+        extensions: {
+          website: tokenWebsite,
+          twitter: tokenTwitter,
+        },
+      };
+      
+      const jsonPath = `token-metadata/${mintAddress}.json`;
+      const jsonBlob = new Blob([JSON.stringify(metadataJson, null, 2)], { type: 'application/json' });
+      
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(jsonPath, jsonBlob, {
+          contentType: 'application/json',
+          upsert: true,
+          cacheControl: '60',
+        });
+      
+      if (uploadError) {
+        console.warn('[create-phantom] ⚠️ Failed to upload static metadata:', uploadError.message);
+      } else {
+        console.log('[create-phantom] ✅ Static metadata JSON uploaded:', jsonPath);
+      }
+    } catch (metaUploadError) {
+      console.warn('[create-phantom] ⚠️ Metadata upload error (non-fatal):', metaUploadError);
+    }
+
     // For Phantom launches, we need to:
     // 1. Partially sign transactions with mint/config keypairs
     // 2. Return serialized transactions for Phantom to sign as fee payer

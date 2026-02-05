@@ -127,6 +127,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     console.log('[pool/create] Meteora pool created:', { mintAddress, dbcPoolAddress });
 
+    // === UPLOAD STATIC METADATA JSON TO STORAGE BEFORE RETURNING TXs ===
+    // CRITICAL: External indexers prefer static .json files over dynamic endpoints
+    console.log('[pool/create] Uploading static metadata JSON to storage...');
+    
+    try {
+      const tokenName = name.slice(0, 32) || name;
+      const tokenSymbol = ticker.toUpperCase().slice(0, 10);
+      const tokenDescription = description || `${tokenName} - A fun meme coin!`;
+      const tokenImage = imageUrl || '';
+      const tokenWebsite = websiteUrl || `https://tuna.fun/t/${tokenSymbol}`;
+      const tokenTwitter = twitterUrl || undefined;
+      
+      // Detect image MIME type
+      const imageExt = tokenImage.split('.').pop()?.toLowerCase() || 'png';
+      const mimeTypes: Record<string, string> = {
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+        'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml',
+      };
+      const imageMimeType = mimeTypes[imageExt] || 'image/png';
+      
+      const metadataJson = {
+        name: tokenName,
+        symbol: tokenSymbol,
+        description: tokenDescription,
+        image: tokenImage,
+        external_url: tokenWebsite,
+        seller_fee_basis_points: 0,
+        properties: {
+          files: tokenImage ? [{ uri: tokenImage, type: imageMimeType }] : [],
+          category: 'image',
+          creators: [],
+        },
+        extensions: {
+          website: tokenWebsite,
+          twitter: tokenTwitter,
+        },
+      };
+      
+      const jsonPath = `token-metadata/${mintAddress}.json`;
+      const jsonBlob = new Blob([JSON.stringify(metadataJson, null, 2)], { type: 'application/json' });
+      
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(jsonPath, jsonBlob, {
+          contentType: 'application/json',
+          upsert: true,
+          cacheControl: '60',
+        });
+      
+      if (uploadError) {
+        console.warn('[pool/create] ⚠️ Failed to upload static metadata:', uploadError.message);
+      } else {
+        console.log('[pool/create] ✅ Static metadata JSON uploaded:', jsonPath);
+      }
+    } catch (metaUploadError) {
+      console.warn('[pool/create] ⚠️ Metadata upload error (non-fatal):', metaUploadError);
+    }
+
     // Calculate initial price
     const virtualSol = INITIAL_VIRTUAL_SOL;
     const virtualToken = TOTAL_SUPPLY;
