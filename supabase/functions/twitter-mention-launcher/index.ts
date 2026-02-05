@@ -17,6 +17,67 @@ const SOLANA_ADDRESS_REGEX = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;
 // Launch command patterns (case-insensitive)
 const LAUNCH_COMMANDS = [/!tunalaunch/i, /!launchtuna/i];
 
+// ============ t.co URL EXPANSION ============
+// Twitter sometimes returns t.co shortlinks instead of expanded URLs.
+// We must expand these BEFORE attempting to re-host the image.
+async function expandTcoUrl(shortUrl: string): Promise<{ success: boolean; expandedUrl?: string; error?: string }> {
+  // If not a t.co link, return as-is
+  if (!shortUrl.includes('t.co/')) {
+    return { success: true, expandedUrl: shortUrl };
+  }
+  
+  console.log(`[mention-launcher] 🔗 Expanding t.co URL: ${shortUrl}`);
+  
+  try {
+    // Use HEAD request to follow redirects without downloading content
+    const response = await fetch(shortUrl, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+    
+    // Get the final URL after all redirects
+    const finalUrl = response.url;
+    
+    console.log(`[mention-launcher] 🔗 t.co expanded: ${shortUrl} → ${finalUrl}`);
+    
+    // Validate it's actually an image URL (Twitter media CDN)
+    const isImageUrl = 
+      finalUrl.includes('pbs.twimg.com') || 
+      finalUrl.includes('/media/') ||
+      finalUrl.includes('.jpg') ||
+      finalUrl.includes('.png') ||
+      finalUrl.includes('.gif') ||
+      finalUrl.includes('.webp');
+    
+    if (!isImageUrl) {
+      console.warn(`[mention-launcher] ⚠️ t.co expanded to non-image URL: ${finalUrl}`);
+      return { success: false, error: `t.co link does not point to an image: ${finalUrl.slice(0, 60)}...` };
+    }
+    
+    return { success: true, expandedUrl: finalUrl };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : 'Unknown error';
+    console.error(`[mention-launcher] ❌ Failed to expand t.co URL: ${error}`);
+    return { success: false, error: `Failed to expand t.co URL: ${error}` };
+  }
+}
+
+// Validate image URL format before processing
+function isValidImageUrl(url: string | null): boolean {
+  if (!url || url.length < 10) return false;
+  if (!url.startsWith('https://') && !url.startsWith('http://')) return false;
+  
+  // Reject raw t.co links - they must be expanded first
+  if (url.includes('t.co/') && !url.includes('pbs.twimg.com')) {
+    return false;
+  }
+  
+  return true;
+}
+
 interface Tweet {
   id: string;
   text: string;
@@ -386,6 +447,8 @@ Launch your unique Solana Agent from TUNA dot Fun`;
     // === STRICT IMAGE REQUIREMENT ===
     const rawImageUrl = mention.mediaUrls?.[0] || null;
     
+    console.log(`[mention-launcher] 📷 Raw image URL from tweet: ${rawImageUrl || 'NONE'}`);
+    
     if (!rawImageUrl) {
       await logger.log("image_missing", false, {}, "No image attached to tweet");
       
@@ -419,7 +482,89 @@ Launch your unique Solana Agent from TUNA dot Fun`;
       );
     }
 
-    await logger.log("image_found", true, { raw_url: rawImageUrl });
+    // === EXPAND t.co SHORTLINKS ===
+    // Twitter API sometimes returns t.co links in mediaUrls instead of expanded URLs
+    let expandedImageUrl = rawImageUrl;
+    
+    if (rawImageUrl.includes('t.co/')) {
+      const expansionResult = await expandTcoUrl(rawImageUrl);
+      
+      if (!expansionResult.success) {
+        await logger.log("tco_expansion_failed", false, {
+          raw_url: rawImageUrl,
+          error: expansionResult.error,
+        }, expansionResult.error);
+        
+        const tcoFailReply = `@${mention.author.userName} Sorry, we couldn't process the image link in your tweet. Please attach the image directly (not as a link)! 🖼️
+
+Launch your unique Solana Agent from TUNA dot Fun`;
+        
+        await postReply(mention.id, tcoFailReply, null, {
+          TWITTERAPI_IO_KEY,
+          X_FULL_COOKIE,
+          X_AUTH_TOKEN,
+          X_CT0_TOKEN,
+          TWITTER_PROXY,
+        });
+
+        await supabase.from("x_pending_requests").insert({
+          tweet_id: mention.id,
+          x_user_id: mention.author.id,
+          x_username: mention.author.userName,
+          original_tweet_text: mention.text,
+          original_tweet_image_url: rawImageUrl,
+          status: "failed",
+        });
+
+        return new Response(
+          JSON.stringify({ success: false, error: `t.co expansion failed: ${expansionResult.error}` }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      expandedImageUrl = expansionResult.expandedUrl!;
+      console.log(`[mention-launcher] ✅ t.co expanded successfully: ${expandedImageUrl}`);
+    }
+
+    // Final validation before re-hosting
+    if (!isValidImageUrl(expandedImageUrl)) {
+      await logger.log("invalid_image_url", false, {
+        raw_url: rawImageUrl,
+        expanded_url: expandedImageUrl,
+      }, "Image URL is invalid after expansion");
+      
+      const invalidUrlReply = `@${mention.author.userName} Sorry, the image in your tweet isn't in a supported format. Please attach a PNG, JPG, GIF, or WebP image directly! 🖼️
+
+Launch your unique Solana Agent from TUNA dot Fun`;
+      
+      await postReply(mention.id, invalidUrlReply, null, {
+        TWITTERAPI_IO_KEY,
+        X_FULL_COOKIE,
+        X_AUTH_TOKEN,
+        X_CT0_TOKEN,
+        TWITTER_PROXY,
+      });
+
+      await supabase.from("x_pending_requests").insert({
+        tweet_id: mention.id,
+        x_user_id: mention.author.id,
+        x_username: mention.author.userName,
+        original_tweet_text: mention.text,
+        original_tweet_image_url: rawImageUrl,
+        status: "failed",
+      });
+
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid image URL format" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    await logger.log("image_found", true, { 
+      raw_url: rawImageUrl, 
+      expanded_url: expandedImageUrl,
+      was_tco: rawImageUrl !== expandedImageUrl,
+    });
 
     // === RE-HOST IMAGE TO PERMANENT STORAGE ===
     // Generate token concept first to get ticker for filename
@@ -444,12 +589,14 @@ Launch your unique Solana Agent from TUNA dot Fun`;
 
     console.log(`[mention-launcher] 🎨 Generated token: ${tokenConcept.name} ($${tokenConcept.ticker})`);
 
-    // Re-host the attached image
-    const rehostResult = await rehostImage(rawImageUrl, supabase, tokenConcept.ticker);
+    // Re-host the attached image (use expanded URL, not raw t.co)
+    console.log(`[mention-launcher] 📤 Re-hosting image: ${expandedImageUrl}`);
+    const rehostResult = await rehostImage(expandedImageUrl, supabase, tokenConcept.ticker);
     
     if (!rehostResult.success) {
       await logger.log("image_upload_failed", false, {
         raw_url: rawImageUrl,
+        expanded_url: expandedImageUrl,
         error: rehostResult.error,
       }, rehostResult.error);
       

@@ -10,6 +10,74 @@ const corsHeaders = {
 // deno-lint-ignore no-explicit-any
 type AnySupabase = SupabaseClient<any, any, any>;
 
+// ============ t.co URL EXPANSION ============
+// Expand t.co shortlinks before processing
+async function expandTcoUrl(shortUrl: string): Promise<string | null> {
+  if (!shortUrl.includes('t.co/')) {
+    return shortUrl;
+  }
+  
+  console.log(`[agent-process-post] 🔗 Expanding t.co URL: ${shortUrl}`);
+  
+  try {
+    const response = await fetch(shortUrl, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    
+    const finalUrl = response.url;
+    console.log(`[agent-process-post] 🔗 t.co expanded: ${shortUrl} → ${finalUrl}`);
+    
+    // Validate it's actually an image URL
+    const isImageUrl = 
+      finalUrl.includes('pbs.twimg.com') || 
+      finalUrl.includes('/media/') ||
+      finalUrl.includes('.jpg') ||
+      finalUrl.includes('.png') ||
+      finalUrl.includes('.gif') ||
+      finalUrl.includes('.webp');
+    
+    if (!isImageUrl) {
+      console.warn(`[agent-process-post] ⚠️ t.co expanded to non-image URL: ${finalUrl}`);
+      return null;
+    }
+    
+    return finalUrl;
+  } catch (e) {
+    console.error(`[agent-process-post] ❌ Failed to expand t.co URL:`, e);
+    return null;
+  }
+}
+
+// Validate final image URL format
+function isValidFinalImageUrl(url: string): boolean {
+  if (!url || url.length < 10) return false;
+  if (!url.startsWith('https://')) return false;
+  
+  // STRICT: Reject any remaining t.co links
+  if (url.includes('t.co/')) {
+    console.error(`[agent-process-post] ❌ REJECTED: t.co link not expanded: ${url}`);
+    return false;
+  }
+  
+  // Accept our storage or common image CDNs
+  const validPatterns = [
+    '/storage/v1/object/public/',  // Supabase storage
+    'pbs.twimg.com',               // Twitter CDN
+    'cdn.discordapp.com',          // Discord CDN
+    'i.imgur.com',                 // Imgur
+  ];
+  
+  const isValid = validPatterns.some(p => url.includes(p));
+  if (!isValid) {
+    console.warn(`[agent-process-post] ⚠️ Image URL doesn't match known patterns: ${url.slice(0, 80)}`);
+  }
+  return isValid;
+}
+
 // Image generation models to try in order (matching fun-generate pattern)
 const IMAGE_MODELS = [
   "google/gemini-2.5-flash-image-preview",
@@ -708,8 +776,16 @@ export async function processLaunchPost(
   if (finalImageUrl) {
     // Skip t.co shortlinks - they're redirects, not images
     if (finalImageUrl.startsWith("https://t.co/") || finalImageUrl.startsWith("http://t.co/")) {
-      console.log(`[agent-process-post] ⚠️ Skipping t.co shortlink: ${finalImageUrl}`);
-      finalImageUrl = null;
+      console.log(`[agent-process-post] 🔗 Detected t.co shortlink, attempting expansion: ${finalImageUrl}`);
+      const expandedUrl = await expandTcoUrl(finalImageUrl);
+      
+      if (expandedUrl) {
+        console.log(`[agent-process-post] ✅ t.co expanded successfully: ${expandedUrl}`);
+        finalImageUrl = expandedUrl;
+      } else {
+        console.log(`[agent-process-post] ❌ t.co expansion failed, blocking launch`);
+        finalImageUrl = null;
+      }
     }
     // Log the valid image URL source
     else if (!parsed.image && attachedMediaUrl) {
@@ -766,6 +842,13 @@ export async function processLaunchPost(
       console.log(`[agent-process-post] ✅ Image re-hosted for reliability: ${hosted.slice(0, 80)}...`);
     }
     finalImageUrl = hosted;
+    
+    // STRICT VALIDATION: Ensure final URL is valid after re-hosting
+    if (!isValidFinalImageUrl(finalImageUrl)) {
+      throw new Error(`Final image URL is invalid or still contains t.co: ${finalImageUrl.slice(0, 60)}`);
+    }
+    
+    console.log(`[agent-process-post] ✅ Final image URL validated: ${finalImageUrl.slice(0, 80)}...`);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown image re-hosting error";
     const errorMsg = `Could not fetch/upload your attached image (${msg}). Please re-upload the image and try again.`;
@@ -1249,6 +1332,26 @@ export async function processLaunchPost(
       .eq("id", socialPostId);
 
     const tradeUrl = `https://tuna.fun/launchpad/${mintAddress}`;
+
+    // === FALLBACK IMAGE SYNC ===
+    // Safety net: Ensure fun_tokens has the image_url from pending_token_metadata
+    // This catches edge cases where the image was stored in pending but not in fun_tokens
+    if (funTokenId && finalImageUrl) {
+      const { data: tokenCheck } = await supabase
+        .from("fun_tokens")
+        .select("image_url")
+        .eq("id", funTokenId)
+        .single();
+      
+      if (!tokenCheck?.image_url && finalImageUrl) {
+        console.log(`[agent-process-post] ⚠️ fun_tokens.image_url is NULL, syncing from finalImageUrl...`);
+        await supabase
+          .from("fun_tokens")
+          .update({ image_url: finalImageUrl })
+          .eq("id", funTokenId);
+        console.log(`[agent-process-post] ✅ Synced image_url to fun_tokens: ${finalImageUrl.slice(0, 60)}...`);
+      }
+    }
 
     console.log(
       `[agent-process-post] ✅ Token launched: ${mintAddress} from ${platform} post`
