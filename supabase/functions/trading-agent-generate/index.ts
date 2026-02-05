@@ -154,15 +154,28 @@ Return ONLY valid JSON with no markdown: {"name": "...", "ticker": "...", "perso
     }
 
     // Step 2: Generate avatar image (optional - don't fail if this fails)
+    // Pick a random vibrant color scheme for variety
+    const colorSchemes = [
+      "vibrant orange and gold with warm sunset tones",
+      "electric purple and magenta with neon accents",
+      "bright green and lime with fresh energy vibes",
+      "hot pink and coral with bold tropical feel",
+      "fiery red and orange with intense power aesthetic",
+      "golden yellow and amber with luxurious shine",
+      "emerald green and teal with nature-inspired depth",
+      "violet and lavender with mystical undertones",
+    ];
+    const randomColor = colorSchemes[Math.floor(Math.random() * colorSchemes.length)];
+
     const imagePrompt = `Create a professional trading AI agent mascot inspired by tuna fish themes.
 
 Style requirements:
 - Professional trading aesthetic with subtle chart or data elements in background
-- Teal and cyan primary color palette (brand colors)
+- ${randomColor} as the PRIMARY color palette - make it vibrant and eye-catching
 - Clean, modern design suitable for a financial trading platform
 - ${strategy.toUpperCase()} personality: ${details.style}
 - Single character, centered composition
-- Solid dark background (navy or dark teal)
+- Solid dark background that complements the color scheme
 - No text, no logos, cartoon mascot style with professional polish
 - The character should look like an expert crypto trader mascot
 - Fish/tuna inspired but anthropomorphized and professional
