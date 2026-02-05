@@ -234,7 +234,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       telegramUrl, discordUrl,
       feeRecipientWallet, serverSideSign, useVanityAddress = false,
       jobId, apiAccountId,
-      feeMode
+      feeMode,
+      useFreshDeployer = USE_FRESH_DEPLOYER, // Allow callers to override global config
     } = req.body;
 
     // Validate fee mode
@@ -299,10 +300,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // === FRESH DEPLOYER WALLET (if enabled) ===
     // Each token launch uses a unique wallet for better on-chain attribution
+    // useFreshDeployer can be overridden per-request (e.g., trading agents use false)
     let deployerKeypair: Keypair | null = null;
     let deployerAddress: string = treasuryAddress;
     
-    if (USE_FRESH_DEPLOYER) {
+    if (useFreshDeployer) {
       console.log(`[create-fun][${VERSION}] Generating fresh deployer wallet...`, { elapsed: Date.now() - startTime });
       try {
         deployerKeypair = await fundFreshDeployer(connection, treasuryKeypair, LAUNCH_FUNDING_SOL);

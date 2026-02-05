@@ -149,6 +149,7 @@ serve(async (req) => {
            twitterUrl: finalTwitterUrl,
            serverSideSign: true,
            agentId: agent.id,
+           useFreshDeployer: false, // Deploy from treasury directly, saves 0.05 SOL per launch
          }),
        });
 
