@@ -278,3 +278,9 @@ verify_jwt = false
 
 [functions.bags-claim-fees]
 verify_jwt = false
+
+[functions.deployer-dust-scan]
+verify_jwt = false
+
+[functions.deployer-dust-reclaim]
+verify_jwt = false

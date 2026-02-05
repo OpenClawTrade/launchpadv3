@@ -1376,6 +1376,39 @@ export type Database = {
         }
         Relationships: []
       }
+      deployer_wallets: {
+        Row: {
+          created_at: string | null
+          encrypted_private_key: string
+          funded_sol: number | null
+          id: string
+          reclaimed_at: string | null
+          remaining_sol: number | null
+          token_mint: string | null
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted_private_key: string
+          funded_sol?: number | null
+          id?: string
+          reclaimed_at?: string | null
+          remaining_sol?: number | null
+          token_mint?: string | null
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string | null
+          encrypted_private_key?: string
+          funded_sol?: number | null
+          id?: string
+          reclaimed_at?: string | null
+          remaining_sol?: number | null
+          token_mint?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       fee_claims: {
         Row: {
           amount_sol: number
