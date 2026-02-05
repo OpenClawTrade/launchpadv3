@@ -599,6 +599,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         trading_fee_bps: TRADING_FEE_BPS,
         fee_mode: tokenFeeMode,
         chain: 'solana',
+        // Trading agent fields - if agentId is provided, this is a trading agent token
+        agent_id: agentId || null,
+        is_trading_agent_token: !!agentId,
       }, {
         onConflict: 'mint_address',
         ignoreDuplicates: false,

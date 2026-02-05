@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
+import { BagsBadge } from "@/components/tunabook/BagsBadge";
 
 const GRADUATION_THRESHOLD = 85;
 
@@ -35,8 +36,10 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
   const tradingFeePct = (token.trading_fee_bps ?? 200) / 100;
   const isHolderRewards = token.fee_mode === 'holders';
   const isPumpFun = token.launchpad_type === 'pumpfun';
+  const isBags = token.launchpad_type === 'bags';
+  const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
   
-  const tradeUrl = isPumpFun 
+  const tradeUrl = (isPumpFun || isBags || isTradingAgent)
     ? `/t/${token.ticker}` 
     : token.agent_id 
       ? `/t/${token.ticker}` 
@@ -97,17 +100,33 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
                 <Gem className="w-3 h-3 text-accent flex-shrink-0" />
               </span>
             )}
-            {(token.agent_id || isPumpFun) && (
-              <span title="AI Agent Token" className="flex-shrink-0">
-                <Bot className="w-3 h-3 text-purple-400" />
+            {/* Trading Agent badge (amber) takes priority, then regular AI agent */}
+            {isTradingAgent ? (
+              <span 
+                title="Trading Agent Token" 
+                className="flex items-center gap-0.5 bg-amber-500/20 text-amber-400 px-1 py-0 rounded-full flex-shrink-0"
+              >
+                <Bot className="w-2.5 h-2.5" />
+                <span className="text-[8px] font-medium">TRADER</span>
               </span>
-            )}
+            ) : token.agent_id ? (
+              <span title="AI Agent Token" className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1 py-0 rounded-full flex-shrink-0">
+                <Bot className="w-2.5 h-2.5" />
+                <span className="text-[8px] font-medium">AI</span>
+              </span>
+            ) : null}
             {isPumpFun && (
               <PumpBadge 
                 mintAddress={token.mint_address ?? undefined} 
                 showText={false} 
                 size="sm"
                 className="px-0 py-0 bg-transparent hover:bg-transparent"
+              />
+            )}
+            {isBags && (
+              <BagsBadge 
+                mintAddress={token.mint_address ?? undefined} 
+                showText={false}
               />
             )}
           </h3>
