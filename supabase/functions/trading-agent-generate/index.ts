@@ -110,11 +110,10 @@ async function callAIWithRetry(
  - Ticker: 3-5 uppercase characters derived from the name
 - Personality: A 2-4 word personality trait that matches the ${strategy} trading style (examples: "Methodical analyst", "Fearless momentum hunter", "Patient accumulator")
  - Description: A professional 2-3 sentence description that:
-   1. Explains the trading strategy with exact parameters: ${details.stopLoss} stop-loss, ${details.takeProfit} take-profit, max ${details.maxPositions} positions
-   2. Describes what this agent will do (scan for opportunities, manage risk, execute trades on Solana)
-   3. Uses professional financial terminology (risk-reward, conviction, momentum, asymmetric upside)
-   4. NO EMOJIS - strictly professional tone
-   5. Must mention the exact stop-loss and take-profit percentages
+    1. MUST be under 300 characters (strict limit)
+    2. Include key parameters: ${details.stopLoss} SL, ${details.takeProfit} TP, ${details.maxPositions} max positions
+    3. Professional tone, no emojis
+    4. Be concise but informative
  
 Return ONLY valid JSON with no markdown: {"name": "...", "ticker": "...", "personality": "...", "description": "..."}`;
  
