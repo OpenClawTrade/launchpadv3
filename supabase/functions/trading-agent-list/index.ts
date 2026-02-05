@@ -52,6 +52,8 @@ serve(async (req) => {
         preferred_narratives,
         status,
         created_at,
+        mint_address,
+        twitter_url,
         agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url, karma)
       `)
       .range(offset, offset + limit - 1);
