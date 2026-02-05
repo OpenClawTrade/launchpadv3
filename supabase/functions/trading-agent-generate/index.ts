@@ -31,6 +31,52 @@
    },
  };
  
+// Helper to call AI with retry
+async function callAIWithRetry(
+  apiKey: string,
+  body: object,
+  maxRetries = 2
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      
+      if (response.ok) {
+        return response;
+      }
+      
+      // Log the error but continue retry for 5xx errors
+      const errorText = await response.text();
+      console.error(`AI request attempt ${attempt + 1} failed:`, response.status, errorText);
+      
+      if (response.status >= 500 && attempt < maxRetries) {
+        // Wait before retry (exponential backoff)
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      
+      throw new Error(`AI request failed with status ${response.status}: ${errorText}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+    }
+  }
+  
+  throw lastError || new Error("AI request failed after retries");
+}
+
  serve(async (req) => {
    if (req.method === "OPTIONS") {
      return new Response(null, { headers: corsHeaders });
@@ -70,135 +116,112 @@
  
  Return ONLY valid JSON with no markdown: {"name": "...", "ticker": "...", "description": "..."}`;
  
-     const textResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-       method: "POST",
-       headers: {
-         Authorization: `Bearer ${LOVABLE_API_KEY}`,
-         "Content-Type": "application/json",
-       },
-       body: JSON.stringify({
-         model: "google/gemini-2.5-flash",
-         messages: [{ role: "user", content: textPrompt }],
-       }),
+    let agentIdentity: { name: string; ticker: string; description: string };
+    
+    try {
+      const textResponse = await callAIWithRetry(LOVABLE_API_KEY, {
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content: textPrompt }],
+      });
+      
+      const textData = await textResponse.json();
+      const textContent = textData.choices?.[0]?.message?.content || "";
+      
+      // Parse JSON from response
+      const jsonMatch = textContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        agentIdentity = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("No JSON found in response");
+      }
+    } catch (parseError) {
+      console.error("AI generation failed, using fallback:", parseError);
+      // Fallback to generated defaults with random suffix for uniqueness
+      const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+      agentIdentity = {
+        name: strategy === "aggressive" ? `ApexHunter${randomSuffix}` : strategy === "balanced" ? `VeloTrade${randomSuffix}` : `Sentinel${randomSuffix}`,
+        ticker: strategy === "aggressive" ? `APEX${randomSuffix.charAt(0)}` : strategy === "balanced" ? `VELO${randomSuffix.charAt(0)}` : `STNL${randomSuffix.charAt(0)}`,
+        description: `This agent employs a ${strategy} trading strategy with ${details.stopLoss} stop-loss and ${details.takeProfit} take-profit thresholds. Managing up to ${details.maxPositions} concurrent positions, it scans Solana markets for high-probability setups with favorable risk-reward profiles.`,
+      };
+    }
+
+    // Step 2: Generate avatar image (optional - don't fail if this fails)
+    const imagePrompt = `Create a professional trading AI agent mascot inspired by tuna fish themes.
+
+Style requirements:
+- Professional trading aesthetic with subtle chart or data elements in background
+- Teal and cyan primary color palette (brand colors)
+- Clean, modern design suitable for a financial trading platform
+- ${strategy.toUpperCase()} personality: ${details.style}
+- Single character, centered composition
+- Solid dark background (navy or dark teal)
+- No text, no logos, cartoon mascot style with professional polish
+- The character should look like an expert crypto trader mascot
+- Fish/tuna inspired but anthropomorphized and professional
+
+Ultra high resolution, digital art style.`;
+
+    let avatarUrl: string | null = null;
+
+    try {
+      const imageResponse = await callAIWithRetry(LOVABLE_API_KEY, {
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: imagePrompt }],
+        modalities: ["image", "text"],
+      }, 1); // Only 1 retry for image
+
+      const imageData = await imageResponse.json();
+      const imageBase64 = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+      if (imageBase64 && imageBase64.startsWith("data:image")) {
+        // Upload to Supabase storage
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+
+        // Extract base64 data and convert to Uint8Array
+        const base64Data = imageBase64.split(",")[1];
+        const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
+        const fileName = `${agentIdentity.ticker.toLowerCase()}-${Date.now()}.png`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("trading-agents")
+          .upload(fileName, binaryData, {
+            contentType: "image/png",
+            upsert: false,
+          });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from("trading-agents")
+            .getPublicUrl(fileName);
+          avatarUrl = urlData.publicUrl;
+        } else {
+          console.error("Upload error:", uploadError);
+        }
+      }
+    } catch (imageError) {
+      console.error("Image generation error (continuing without avatar):", imageError);
+      // Continue without avatar - it's optional
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        name: agentIdentity.name,
+        ticker: agentIdentity.ticker.toUpperCase(),
+        description: agentIdentity.description,
+        avatarUrl,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("trading-agent-generate error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
      });
- 
-     if (!textResponse.ok) {
-       const errorText = await textResponse.text();
-       console.error("Text generation failed:", errorText);
-       throw new Error("Failed to generate agent identity");
-     }
- 
-     const textData = await textResponse.json();
-     const textContent = textData.choices?.[0]?.message?.content || "";
-     
-     // Parse JSON from response
-     let agentIdentity: { name: string; ticker: string; description: string };
-     try {
-       // Try to extract JSON from the response
-       const jsonMatch = textContent.match(/\{[\s\S]*\}/);
-       if (jsonMatch) {
-         agentIdentity = JSON.parse(jsonMatch[0]);
-       } else {
-         throw new Error("No JSON found in response");
-       }
-     } catch (parseError) {
-       console.error("Failed to parse text response:", textContent);
-       // Fallback to generated defaults
-       agentIdentity = {
-         name: strategy === "aggressive" ? "ApexHunter" : strategy === "balanced" ? "VeloTrade" : "Sentinel",
-         ticker: strategy === "aggressive" ? "APEX" : strategy === "balanced" ? "VELO" : "STNL",
-         description: `This agent employs a ${strategy} trading strategy with ${details.stopLoss} stop-loss and ${details.takeProfit} take-profit thresholds. Managing up to ${details.maxPositions} concurrent positions, it scans Solana markets for high-probability setups with favorable risk-reward profiles.`,
-       };
-     }
- 
-     // Step 2: Generate avatar image
-     const imagePrompt = `Create a professional trading AI agent mascot inspired by tuna fish themes.
- 
- Style requirements:
- - Professional trading aesthetic with subtle chart or data elements in background
- - Teal and cyan primary color palette (brand colors)
- - Clean, modern design suitable for a financial trading platform
- - ${strategy.toUpperCase()} personality: ${details.style}
- - Single character, centered composition
- - Solid dark background (navy or dark teal)
- - No text, no logos, cartoon mascot style with professional polish
- - The character should look like an expert crypto trader mascot
- - Fish/tuna inspired but anthropomorphized and professional
- 
- Ultra high resolution, digital art style.`;
- 
-     let avatarUrl: string | null = null;
- 
-     try {
-       const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-         method: "POST",
-         headers: {
-           Authorization: `Bearer ${LOVABLE_API_KEY}`,
-           "Content-Type": "application/json",
-         },
-         body: JSON.stringify({
-           model: "google/gemini-2.5-flash-image",
-           messages: [{ role: "user", content: imagePrompt }],
-           modalities: ["image", "text"],
-         }),
-       });
- 
-       if (imageResponse.ok) {
-         const imageData = await imageResponse.json();
-         const imageBase64 = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
- 
-         if (imageBase64 && imageBase64.startsWith("data:image")) {
-           // Upload to Supabase storage
-           const supabase = createClient(
-             Deno.env.get("SUPABASE_URL")!,
-             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-           );
- 
-           // Extract base64 data and convert to Uint8Array
-           const base64Data = imageBase64.split(",")[1];
-           const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
- 
-           const fileName = `${agentIdentity.ticker.toLowerCase()}-${Date.now()}.png`;
- 
-           const { error: uploadError } = await supabase.storage
-             .from("trading-agents")
-             .upload(fileName, binaryData, {
-               contentType: "image/png",
-               upsert: false,
-             });
- 
-           if (!uploadError) {
-             const { data: urlData } = supabase.storage
-               .from("trading-agents")
-               .getPublicUrl(fileName);
-             avatarUrl = urlData.publicUrl;
-           } else {
-             console.error("Upload error:", uploadError);
-           }
-         }
-       } else {
-         console.error("Image generation failed:", await imageResponse.text());
-       }
-     } catch (imageError) {
-       console.error("Image generation error:", imageError);
-       // Continue without avatar - it's optional
-     }
- 
-     return new Response(
-       JSON.stringify({
-         success: true,
-         name: agentIdentity.name,
-         ticker: agentIdentity.ticker.toUpperCase(),
-         description: agentIdentity.description,
-         avatarUrl,
-       }),
-       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-     );
-   } catch (error) {
-     console.error("trading-agent-generate error:", error);
-     return new Response(
-       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-     );
-   }
- });
