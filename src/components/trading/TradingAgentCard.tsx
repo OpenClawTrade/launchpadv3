@@ -1,17 +1,22 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Target, Shield, Zap, CheckCircle2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, Shield, Zap, CheckCircle2, Copy, Check, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { TradingAgent } from "@/hooks/useTradingAgents";
 import { TradingAgentFundingBar } from "./TradingAgentFundingBar";
-
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { formatDistanceToNow } from "date-fns";
 interface TradingAgentCardProps {
   agent: TradingAgent;
   rank?: number;
 }
 
 export function TradingAgentCard({ agent, rank }: TradingAgentCardProps) {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+  
   const isProfit = (agent.total_profit_sol || 0) >= 0;
   const strategyIcon = {
     conservative: Shield,
@@ -25,6 +30,21 @@ export function TradingAgentCard({ agent, rank }: TradingAgentCardProps) {
     balanced: "text-amber-400",
     aggressive: "text-red-400",
   }[agent.strategy_type] || "text-amber-400";
+
+  const copyCA = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (agent.mint_address) {
+      navigator.clipboard.writeText(agent.mint_address);
+      setCopied(true);
+      toast({ title: "Copied!", description: "Contract address copied" });
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const launchTime = agent.created_at 
+    ? formatDistanceToNow(new Date(agent.created_at), { addSuffix: true })
+    : null;
 
   return (
     <Link to={`/agents/trading/${agent.id}`}>
@@ -60,8 +80,32 @@ export function TradingAgentCard({ agent, rank }: TradingAgentCardProps) {
                   {agent.strategy_type}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">${agent.ticker}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs text-muted-foreground">${agent.ticker}</p>
+                {launchTime && (
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    <Clock className="h-2.5 w-2.5" />
+                    {launchTime}
+                  </span>
+                )}
+              </div>
             </div>
+
+            {/* CA Copy button */}
+            {agent.mint_address && (
+              <button
+                onClick={copyCA}
+                className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors"
+                title="Copy contract address"
+              >
+                {copied ? (
+                  <Check className="w-3 h-3 text-primary" />
+                ) : (
+                  <Copy className="w-3 h-3" />
+                )}
+                <span>CA</span>
+              </button>
+            )}
           </div>
 
           {/* Stats grid */}
