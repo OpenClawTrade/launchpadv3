@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
- import { Bot, Shield, Target, Zap, Copy, Check, Wallet, Loader2, Sparkles, ExternalLink, Coins } from "lucide-react";
+ import { Bot, Shield, Target, Zap, Copy, Check, Wallet, Loader2, Sparkles, ExternalLink, Coins, FileCode } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
@@ -81,8 +81,10 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
     walletAddress: string;
     ticker: string;
      mintAddress?: string;
+     avatarUrl?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedMint, setCopiedMint] = useState(false);
    const [isGenerating, setIsGenerating] = useState(false);
    const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null);
 
@@ -153,6 +155,14 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
     }
   };
 
+  const handleCopyMintAddress = async () => {
+    if (createdAgent?.mintAddress) {
+      await navigator.clipboard.writeText(createdAgent.mintAddress);
+      setCopiedMint(true);
+      setTimeout(() => setCopiedMint(false), 2000);
+    }
+  };
+
   const onSubmit = async (values: FormValues) => {
     try {
       const result = await createAgent.mutateAsync({
@@ -171,6 +181,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
           walletAddress: result.tradingAgent.walletAddress,
           ticker: result.tradingAgent.ticker,
            mintAddress: result.tradingAgent.mintAddress,
+           avatarUrl: result.tradingAgent.avatarUrl || generatedAvatar || undefined,
         });
         toast({
           title: "Trading Agent Created!",
@@ -209,16 +220,62 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
           
           <div className="space-y-4 py-4">
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 mb-4">
-                <Check className="h-8 w-8 text-green-400" />
-              </div>
+              {createdAgent.avatarUrl ? (
+                <img 
+                  src={createdAgent.avatarUrl} 
+                  alt={createdAgent.name}
+                  className="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-green-500/50 object-cover"
+                />
+              ) : (
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/10 border border-green-500/30 mb-4">
+                  <Check className="h-8 w-8 text-green-400" />
+                </div>
+              )}
               <h3 className="text-xl font-bold">{createdAgent.name}</h3>
               <Badge variant="outline" className="mt-2">${createdAgent.ticker}</Badge>
             </div>
 
+            {/* Contract Address (CA) - shown first */}
+            {createdAgent.mintAddress ? (
+              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-sm font-medium text-green-400 flex items-center gap-1">
+                    <FileCode className="h-4 w-4" />
+                    Contract Address (CA)
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={handleCopyMintAddress}
+                  >
+                    {copiedMint ? (
+                      <Check className="h-4 w-4 text-green-400" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <code className="text-xs break-all text-foreground">
+                  {createdAgent.mintAddress}
+                </code>
+              </div>
+            ) : (
+              <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  <FileCode className="h-4 w-4" />
+                  Token launch pending — CA will appear on profile
+                </span>
+              </div>
+            )}
+
+            {/* Trading Wallet */}
             <div className="p-4 rounded-lg bg-secondary/50 border border-border">
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-sm text-muted-foreground">Trading Wallet</span>
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Wallet className="h-4 w-4" />
+                  Trading Wallet
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"

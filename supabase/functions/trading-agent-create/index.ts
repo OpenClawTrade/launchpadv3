@@ -152,17 +152,25 @@ serve(async (req) => {
          }),
        });
 
-       const launchResult = await launchResponse.json();
-       console.log("[trading-agent-create] Token launch response:", launchResult);
+        // Check if response is JSON before parsing
+        const contentType = launchResponse.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          const text = await launchResponse.text();
+          console.error("[trading-agent-create] Token launch returned non-JSON:", text.slice(0, 200));
+          // Continue without token - agent can still be created
+        } else {
+          const launchResult = await launchResponse.json();
+          console.log("[trading-agent-create] Token launch response:", JSON.stringify(launchResult).slice(0, 500));
 
-       if (launchResult.success) {
-         tokenId = launchResult.tokenId;
-         mintAddress = launchResult.mintAddress;
-         dbcPoolAddress = launchResult.dbcPoolAddress;
-         console.log(`[trading-agent-create] Token launched: ${mintAddress}`);
-       } else {
-         console.error("[trading-agent-create] Token launch failed:", launchResult.error);
-         // Continue without token - agent can still be created
+          if (launchResult.success && launchResult.mintAddress) {
+            tokenId = launchResult.tokenId;
+            mintAddress = launchResult.mintAddress;
+            dbcPoolAddress = launchResult.dbcPoolAddress;
+            console.log(`[trading-agent-create] Token launched: ${mintAddress}`);
+          } else {
+            console.error("[trading-agent-create] Token launch failed:", launchResult.error);
+            // Continue without token - agent can still be created
+          }
        }
      } catch (launchError) {
        console.error("[trading-agent-create] Token launch error:", launchError);
@@ -233,6 +241,7 @@ serve(async (req) => {
           ticker: finalTicker,
           walletAddress,
            mintAddress,
+           avatarUrl: finalAvatarUrl,
           strategy,
         },
         agent: {
