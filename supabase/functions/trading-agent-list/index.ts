@@ -109,6 +109,8 @@ serve(async (req) => {
       roi: agent.total_invested_sol > 0
         ? ((agent.total_profit_sol || 0) / agent.total_invested_sol * 100).toFixed(2)
         : "0.00",
+      funding_progress: Math.min(100, ((agent.trading_capital_sol || 0) / 0.5) * 100),
+      is_funded: (agent.trading_capital_sol || 0) >= 0.5,
     }));
 
     // Get total count for pagination

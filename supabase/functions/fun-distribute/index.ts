@@ -353,6 +353,76 @@ serve(async (req) => {
 
       // AGENT tokens: record in agent_fee_distributions (pending - they claim when ready)
       if (isAgentToken && group.agentId) {
+        // Check if this agent is a Trading Agent (has entry in trading_agents table)
+        const { data: tradingAgent } = await supabase
+          .from("trading_agents")
+          .select("id, wallet_address, trading_capital_sol, status")
+          .eq("agent_id", group.agentId)
+          .maybeSingle();
+ 
+        if (tradingAgent) {
+          // This is a TRADING AGENT - send SOL directly to trading wallet
+          console.log(`[fun-distribute] Trading Agent detected: ${tradingAgent.id}, sending ${recipientAmount.toFixed(6)} SOL to trading wallet`);
+          
+          try {
+            // Transfer SOL to trading agent wallet
+            const transferTx = new Transaction().add(
+              SystemProgram.transfer({
+                fromPubkey: treasuryKeypair.publicKey,
+                toPubkey: new PublicKey(tradingAgent.wallet_address),
+                lamports: Math.floor(recipientAmount * 1e9),
+              })
+            );
+ 
+            const signature = await sendAndConfirmTransaction(connection, transferTx, [treasuryKeypair], {
+              commitment: "confirmed",
+            });
+ 
+            // Record in trading_agent_fee_deposits
+            await supabase.from("trading_agent_fee_deposits").insert({
+              trading_agent_id: tradingAgent.id,
+              amount_sol: recipientAmount,
+              source: "fee_distribution",
+              signature,
+            });
+ 
+            // Update trading capital and auto-activate if threshold reached
+            const newCapital = (tradingAgent.trading_capital_sol || 0) + recipientAmount;
+            const FUNDING_THRESHOLD = 0.5;
+            const newStatus = newCapital >= FUNDING_THRESHOLD ? "active" : tradingAgent.status;
+ 
+            await supabase.from("trading_agents").update({
+              trading_capital_sol: newCapital,
+              status: newStatus,
+            }).eq("id", tradingAgent.id);
+ 
+            // Mark claims as distributed
+            const claimIds = group.claims.map((c) => c.id);
+            await supabase.from("fun_fee_claims").update({ creator_distributed: true }).in("id", claimIds);
+ 
+            results.push({
+              claimIds,
+              tokenName: token.name,
+              recipientWallet: tradingAgent.wallet_address,
+              recipientType: "agent",
+              claimedSol,
+              recipientAmount,
+              platformAmount,
+              success: true,
+              signature,
+            });
+ 
+            totalDistributed += recipientAmount;
+            successCount++;
+            console.log(`[fun-distribute] ✅ Sent ${recipientAmount.toFixed(6)} SOL to Trading Agent wallet ${tradingAgent.wallet_address} (new capital: ${newCapital.toFixed(4)}, status: ${newStatus})`);
+            continue;
+          } catch (txError) {
+            console.error(`[fun-distribute] ❌ Failed to transfer to Trading Agent:`, txError);
+            // Fall through to regular agent distribution
+          }
+        }
+ 
+        // Regular agent (not a Trading Agent) - record in agent_fee_distributions
         const { error: agentDistError } = await supabase
           .from("agent_fee_distributions")
           .insert({

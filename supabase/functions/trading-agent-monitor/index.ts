@@ -18,6 +18,10 @@ const STRATEGIES = {
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 const SLIPPAGE_BPS = 500; // 5%
 
+// High-frequency polling configuration
+const MAX_RUNTIME_MS = 50000; // 50 seconds (leave 10s buffer for Edge Function timeout)
+const POLL_INTERVAL_MS = 15000; // 15 seconds between checks
+
 // Jito Block Engines for MEV-protected execution
 const JITO_BLOCK_ENGINES = [
   'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
@@ -33,6 +37,9 @@ serve(async (req) => {
   }
 
   console.log("[trading-agent-monitor] Starting position monitoring cycle...");
+  const startTime = Date.now();
+  let totalChecks = 0;
+  let totalTrades = 0;
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -56,51 +63,61 @@ serve(async (req) => {
 
     const connection = new Connection(HELIUS_RPC_URL, "confirmed");
 
-    // Get all open positions with agent info
-    const { data: positions, error: posError } = await supabase
-      .from("trading_agent_positions")
-      .select(`
-        *,
-        trading_agent:trading_agents(
-          id, name, strategy_type, trading_capital_sol,
-          total_trades, winning_trades, losing_trades, win_rate,
-          consecutive_wins, consecutive_losses, best_trade_sol, worst_trade_sol,
-          learned_patterns, avoided_patterns, preferred_narratives,
-          wallet_private_key_encrypted,
-          agent:agents(id, name, avatar_url)
-        )
-      `)
-      .eq("status", "open");
-
-    if (posError) throw posError;
-    if (!positions || positions.length === 0) {
-      return new Response(
-        JSON.stringify({ success: true, message: "No open positions to monitor" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`[trading-agent-monitor] Monitoring ${positions.length} open positions`);
-
-    // Fetch current prices for all tokens (batch by token)
-    const tokenAddresses = [...new Set(positions.map(p => p.token_address))];
-    const priceMap = await fetchTokenPrices(tokenAddresses);
-
     const results: any[] = [];
     let closedCount = 0;
     let stopLossCount = 0;
     let takeProfitCount = 0;
 
-    for (const position of positions) {
-      try {
-        const agent = position.trading_agent;
-        if (!agent) continue;
+    // High-frequency polling loop - check positions every 15 seconds
+    while (Date.now() - startTime < MAX_RUNTIME_MS) {
+      totalChecks++;
+      console.log(`[trading-agent-monitor] Check #${totalChecks} at ${Date.now() - startTime}ms...`);
 
-        const strategy = STRATEGIES[agent.strategy_type as keyof typeof STRATEGIES] || STRATEGIES.balanced;
-        const currentPrice = priceMap.get(position.token_address) || position.current_price_sol;
-        const entryPrice = position.entry_price_sol || 0;
+      // Get all open positions with agent info
+      const { data: positions, error: posError } = await supabase
+        .from("trading_agent_positions")
+        .select(`
+          *,
+          trading_agent:trading_agents(
+            id, name, strategy_type, trading_capital_sol,
+            total_trades, winning_trades, losing_trades, win_rate,
+            consecutive_wins, consecutive_losses, best_trade_sol, worst_trade_sol,
+            learned_patterns, avoided_patterns, preferred_narratives,
+            wallet_private_key_encrypted,
+            agent:agents(id, name, avatar_url)
+          )
+        `)
+        .eq("status", "open");
 
-        if (!currentPrice || !entryPrice) continue;
+      if (posError) throw posError;
+      
+      if (!positions || positions.length === 0) {
+        console.log(`[trading-agent-monitor] No open positions, waiting...`);
+        // Wait before next check
+        if (Date.now() - startTime + POLL_INTERVAL_MS < MAX_RUNTIME_MS) {
+          await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+          continue;
+        } else {
+          break;
+        }
+      }
+
+      console.log(`[trading-agent-monitor] Monitoring ${positions.length} open positions`);
+
+      // Fetch current prices for all tokens (batch by token)
+      const tokenAddresses = [...new Set(positions.map(p => p.token_address))];
+      const priceMap = await fetchTokenPrices(tokenAddresses);
+
+      for (const position of positions) {
+        try {
+          const agent = position.trading_agent;
+          if (!agent) continue;
+
+          const strategy = STRATEGIES[agent.strategy_type as keyof typeof STRATEGIES] || STRATEGIES.balanced;
+          const currentPrice = priceMap.get(position.token_address) || position.current_price_sol;
+          const entryPrice = position.entry_price_sol || 0;
+
+          if (!currentPrice || !entryPrice) continue;
 
         // Calculate P&L
         const pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
@@ -304,20 +321,33 @@ serve(async (req) => {
           if (hitTakeProfit) takeProfitCount++;
 
           console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol}: ${closeReason} (${pnlPct.toFixed(2)}%) sig: ${swapResult.signature}`);
+            totalTrades++;
         }
 
-      } catch (positionError) {
-        console.error(`[trading-agent-monitor] Error processing position ${position.id}:`, positionError);
+        } catch (positionError) {
+          console.error(`[trading-agent-monitor] Error processing position ${position.id}:`, positionError);
+        }
+      }
+
+      // Wait before next check (skip if near timeout)
+      if (Date.now() - startTime + POLL_INTERVAL_MS < MAX_RUNTIME_MS) {
+        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+      } else {
+        break;
       }
     }
+
+    const totalRuntime = Date.now() - startTime;
+    console.log(`[trading-agent-monitor] Completed ${totalChecks} checks, ${totalTrades} trades in ${totalRuntime}ms`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        monitored: positions.length,
+        totalChecks,
         closed: closedCount,
         stopLosses: stopLossCount,
         takeProfits: takeProfitCount,
+        runtimeMs: totalRuntime,
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
