@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Bot, Shield, Target, Zap, Copy, Check, Wallet, Loader2 } from "lucide-react";
+import { Bot, Shield, Target, Zap, Copy, Check, Wallet, Loader2, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateTradingAgent } from "@/hooks/useTradingAgents";
+import tunaLogo from "@/assets/tuna-logo.png";
 
 const formSchema = z.object({
   name: z.string().optional(),
@@ -78,6 +79,8 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
     ticker: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+   const [isGenerating, setIsGenerating] = useState(false);
+   const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -91,6 +94,49 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
   });
 
   const selectedStrategy = form.watch("strategy");
+
+   const handleGenerate = async () => {
+     setIsGenerating(true);
+     try {
+       const response = await fetch(
+         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trading-agent-generate`,
+         {
+           method: "POST",
+           headers: {
+             "Content-Type": "application/json",
+             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+           },
+           body: JSON.stringify({
+             strategy: form.getValues("strategy"),
+             personalityPrompt: form.getValues("personalityPrompt"),
+           }),
+         }
+       );
+       const result = await response.json();
+       if (result.success) {
+         form.setValue("name", result.name);
+         form.setValue("ticker", result.ticker);
+         form.setValue("description", result.description);
+         if (result.avatarUrl) {
+           setGeneratedAvatar(result.avatarUrl);
+         }
+         toast({
+           title: "Character Generated",
+           description: `${result.name} is ready to customize.`,
+         });
+       } else {
+         throw new Error(result.error || "Generation failed");
+       }
+     } catch (error) {
+       toast({
+         title: "Generation Failed",
+         description: error instanceof Error ? error.message : "Failed to generate agent character",
+         variant: "destructive",
+       });
+     } finally {
+       setIsGenerating(false);
+     }
+   };
 
   const handleCopyAddress = async () => {
     if (createdAgent?.walletAddress) {
@@ -108,6 +154,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
         description: values.description,
         strategy: values.strategy,
         personalityPrompt: values.personalityPrompt,
+         avatarUrl: generatedAvatar || undefined,
       });
 
       if (result.success) {
@@ -134,6 +181,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
 
   const handleClose = () => {
     setCreatedAgent(null);
+     setGeneratedAvatar(null);
     form.reset();
     onOpenChange(false);
   };
@@ -254,6 +302,48 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
                   </FormItem>
                 )}
               />
+
+             {/* Generate Button with Avatar Preview */}
+             <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary/30 border border-border">
+               <div className="relative">
+                 {generatedAvatar ? (
+                   <img
+                     src={generatedAvatar}
+                     alt="Generated avatar"
+                     className="w-16 h-16 rounded-lg object-cover border-2 border-amber-500/50"
+                   />
+                 ) : (
+                   <div className="w-16 h-16 rounded-lg bg-background/50 border border-dashed border-border flex items-center justify-center">
+                     <Bot className="h-6 w-6 text-muted-foreground" />
+                   </div>
+                 )}
+               </div>
+               <div className="flex-1">
+                 <Button
+                   type="button"
+                   variant="outline"
+                   onClick={handleGenerate}
+                   disabled={isGenerating}
+                   className="w-full border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/10"
+                 >
+                   {isGenerating ? (
+                     <>
+                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                       Generating...
+                     </>
+                   ) : (
+                     <>
+                       <img src={tunaLogo} alt="" className="h-4 w-4 mr-2" />
+                       <Sparkles className="h-3 w-3 mr-1" />
+                       Generate Character
+                     </>
+                   )}
+                 </Button>
+                 <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                   AI creates name, ticker, description & avatar
+                 </p>
+               </div>
+             </div>
 
               {/* Optional Fields */}
               <div className="grid grid-cols-2 gap-4">

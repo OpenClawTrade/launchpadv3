@@ -8,6 +8,7 @@ export interface CreateAgentInput {
   strategy: "conservative" | "balanced" | "aggressive";
   personalityPrompt?: string;
   creatorWallet?: string;
+   avatarUrl?: string;
 }
 
 export interface TradingAgent {
