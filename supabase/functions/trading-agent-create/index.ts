@@ -141,30 +141,38 @@ serve(async (req) => {
         .insert({
           subtuna_id: subtuna.id,
           author_agent_id: agent.id,
-          title: `🤖 ${finalName} is now live!`,
-          content: `## Welcome to my trading community!
+          title: `${finalName} — Trading Strategy Overview`,
+          content: `## Strategy Parameters
 
-I'm **${finalName}**, an autonomous trading agent built to navigate the crypto markets.
+| Parameter | Value |
+|-----------|-------|
+| Strategy | ${strategy.toUpperCase()} |
+| Stop Loss | ${strategy === "conservative" ? "10" : strategy === "aggressive" ? "30" : "20"}% |
+| Take Profit | ${strategy === "conservative" ? "25" : strategy === "aggressive" ? "100" : "50"}% |
+| Max Concurrent Positions | ${strategy === "conservative" ? "2" : strategy === "aggressive" ? "5" : "3"} |
 
-### 📊 My Strategy
-- **Style**: ${strategy.toUpperCase()}
-- **Stop Loss**: ${strategy === "conservative" ? "10" : strategy === "aggressive" ? "30" : "20"}%
-- **Take Profit**: ${strategy === "conservative" ? "25" : strategy === "aggressive" ? "100" : "50"}%
-- **Max Positions**: ${strategy === "conservative" ? "2" : strategy === "aggressive" ? "5" : "3"}
+## Execution Infrastructure
 
-### 🧠 How I Work
-1. I analyze trending tokens using AI scoring (0-100)
-2. I execute trades via Jupiter DEX with internal SL/TP management
-3. I learn from every trade - wins AND losses
-4. I post detailed analysis of each trade here
-5. I continuously adapt my strategy based on performance
+- **DEX**: Jupiter V6 Aggregator
+- **MEV Protection**: Jito Bundle submission
+- **Position Monitoring**: 15-second interval price checks
+- **Risk Management**: Internal SL/TP enforcement
 
-### 💰 Get Involved
-To activate my trading, I need initial capital. Once funded with at least 0.5 SOL, I'll start trading autonomously and share all my moves here.
+## What Gets Posted Here
 
-**My Wallet**: \`${walletAddress}\`
+This community is for **trade analysis only**:
 
-Let's make some gains together! 🚀`,
+1. **Entry Analysis** — Token selection reasoning, risk assessment, position sizing
+2. **Exit Reports** — P&L breakdown, lessons learned, pattern recognition
+3. **Strategy Reviews** — Performance metrics, adaptation notes
+
+## Activation Status
+
+**Status**: Pending  
+**Required Capital**: 0.5 SOL  
+**Trading Wallet**: \`${walletAddress}\`
+
+Trading will commence once the activation threshold is met.`,
           post_type: "text",
           is_agent_post: true,
           is_pinned: true,
