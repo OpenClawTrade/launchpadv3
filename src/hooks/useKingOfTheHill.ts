@@ -36,22 +36,45 @@ interface UseKingOfTheHillResult {
   error: string | null;
 }
 
-// Fetch ONLY top 3 active tokens by bonding progress
+// Fetch top tokens by bonding progress + newest trading agent token
 async function fetchKingOfTheHill(): Promise<KingToken[]> {
-  const { data, error } = await supabase
+  const selectFields = `
+    id, name, ticker, image_url, mint_address, dbc_pool_address, status,
+    bonding_progress, market_cap_sol, holder_count, trading_fee_bps, fee_mode,
+    agent_id, launchpad_type, trading_agent_id, is_trading_agent_token, created_at
+  `;
+
+  // Fetch top 3 by bonding progress
+  const { data: topTokens, error: topError } = await supabase
     .from("fun_tokens")
-    .select(`
-      id, name, ticker, image_url, mint_address, dbc_pool_address, status,
-      bonding_progress, market_cap_sol, holder_count, trading_fee_bps, fee_mode,
-      agent_id, launchpad_type, trading_agent_id, is_trading_agent_token, created_at
-    `)
+    .select(selectFields)
     .eq("status", "active")
     .order("bonding_progress", { ascending: false })
     .limit(3);
 
-  if (error) throw error;
+  if (topError) throw topError;
 
-  const mapped = (data || []).map((t) => ({
+  // Fetch newest trading agent token (last 24 hours) for guaranteed visibility
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: newestTradingAgent } = await supabase
+    .from("fun_tokens")
+    .select(selectFields)
+    .eq("status", "active")
+    .eq("is_trading_agent_token", true)
+    .gte("created_at", oneDayAgo)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  // Merge: top tokens + newest trading agent (deduplicated)
+  const merged = [...(topTokens || [])];
+  if (newestTradingAgent?.[0]) {
+    const exists = merged.some((t) => t.id === newestTradingAgent[0].id);
+    if (!exists) {
+      merged.push(newestTradingAgent[0]);
+    }
+  }
+
+  const mapped = merged.slice(0, 3).map((t) => ({
     ...t,
     holder_count: t.holder_count ?? DEFAULT_LIVE.holder_count,
     market_cap_sol: t.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
