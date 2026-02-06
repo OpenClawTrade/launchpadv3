@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
+import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
 
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD = 85;
@@ -233,6 +234,9 @@ export default function FunTokenDetailPage() {
                 )}
                 {(token as any).launchpad_type === 'pumpfun' && (
                   <PumpBadge mintAddress={token.mint_address || undefined} size="md" />
+                )}
+                {(token as any).launchpad_type === 'phantom' && (
+                  <PhantomBadge mintAddress={token.mint_address || undefined} size="md" />
                 )}
               </div>
 

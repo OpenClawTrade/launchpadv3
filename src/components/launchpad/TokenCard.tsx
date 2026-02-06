@@ -10,6 +10,7 @@ import { TrendingUp, TrendingDown, Users, Clock, ChevronRight, Zap, Sparkles, Bo
 import { formatDistanceToNow } from "date-fns";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
+import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   const usdValue = marketCapSol * solPrice;
@@ -38,6 +39,7 @@ export function TokenCard({ token }: TokenCardProps) {
   const isHolderRewards = token.fee_mode === 'holder_rewards';
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
+  const isPhantom = token.launchpad_type === 'phantom';
   const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
   
   // Trade URL logic - pump.fun and bags tokens link to SubTuna (they all have communities)
@@ -116,11 +118,13 @@ export function TokenCard({ token }: TokenCardProps) {
                   💎 HOLDER
                 </Badge>
               )}
-              {/* Mutually exclusive: pump.fun badge, bags badge, then agent badge */}
+              {/* Mutually exclusive: pump.fun badge, bags badge, phantom badge, then agent badge */}
               {isPumpFun ? (
                 <PumpBadge mintAddress={token.mint_address} />
               ) : isBags ? (
                 <BagsBadge mintAddress={token.mint_address} />
+              ) : isPhantom ? (
+                <PhantomBadge mintAddress={token.mint_address} />
               ) : isTradingAgent ? (
                 <span 
                   className="flex items-center gap-0.5 bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full"
