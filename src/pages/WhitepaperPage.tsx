@@ -284,28 +284,28 @@ wallet: YOUR_SOLANA_WALLET (optional)
               <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
                 <span className="text-muted-foreground">Network</span>
                 <div className="flex items-center gap-2">
-                  <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" className="w-5 h-5" />
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-green-400" />
                   <span className="text-foreground font-medium">Solana Mainnet-Beta</span>
                 </div>
               </div>
               <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
                 <span className="text-muted-foreground">Token Standard</span>
                 <div className="flex items-center gap-2">
-                  <img src="https://avatars.githubusercontent.com/u/84874526" alt="Metaplex" className="w-5 h-5 rounded" />
+                  <div className="w-5 h-5 rounded bg-orange-500 flex items-center justify-center text-white text-xs font-bold">M</div>
                   <span className="text-foreground font-medium">SPL Token + Metaplex</span>
                 </div>
               </div>
               <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
                 <span className="text-muted-foreground">RPC Provider</span>
                 <div className="flex items-center gap-2">
-                  <img src="https://assets.helius.dev/helius-rpc-logo.png" alt="Helius" className="w-5 h-5 rounded" />
+                  <div className="w-5 h-5 rounded bg-orange-600 flex items-center justify-center text-white text-xs font-bold">H</div>
                   <span className="text-foreground font-medium">Helius</span>
                 </div>
               </div>
               <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
                 <span className="text-muted-foreground">DEX</span>
                 <div className="flex items-center gap-2">
-                  <img src="https://app.meteora.ag/favicon.ico" alt="Meteora" className="w-5 h-5 rounded" />
+                  <div className="w-5 h-5 rounded bg-yellow-500 flex items-center justify-center text-black text-xs font-bold">⚡</div>
                   <span className="text-foreground font-medium">Meteora DBC</span>
                 </div>
               </div>
