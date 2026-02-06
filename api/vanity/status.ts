@@ -39,13 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Simple auth check
-  const authHeader = req.headers['x-vanity-secret'];
-  const expectedSecret = '123456';
-
-  if (!authHeader || authHeader !== expectedSecret) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  // Auth check removed - endpoint returns public statistics only
 
   try {
     const suffix = req.query.suffix as string | undefined;
