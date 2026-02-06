@@ -1,101 +1,54 @@
 
-# Fix CORS Errors and Edge Function Access Issues
+# Fix: Trading Agents Not Showing in Funding Tab
 
 ## Problem Summary
 
-Users are experiencing multiple errors when accessing the application:
+The "Funding" tab on `/agents/trading` shows "No agents currently in funding phase" even though there are 2 pending trading agents in the database.
 
-1. **CORS Error on `agent-idea-generate`**: Blocked by browser because preflight response doesn't allow all headers
-2. **401 Unauthorized on `/api/vanity/status`**: Missing required `x-vanity-secret` header
-3. **Similar CORS issues on other edge functions** used by the frontend
+## Root Cause
 
-## Root Causes
+The `trading-agent-list` edge function **is not deployed**. When the frontend calls:
+```
+GET /functions/v1/trading-agent-list?status=pending
+```
+It receives a **404 NOT_FOUND** error, causing the React Query to fail silently and show no agents.
 
-### Issue 1: Incomplete CORS Headers
+## Evidence
 
-The Supabase JS client sends additional headers that must be explicitly whitelisted:
-- `x-supabase-client-platform`
-- `x-supabase-client-platform-version`
-- `x-supabase-client-runtime`
-- `x-supabase-client-runtime-version`
+1. **Database has agents**: Query found 2 pending trading agents:
+   - Equilibrium (EQM) - 0.0024 SOL
+   - Equilibrium (EQBM) - 0.08 SOL
 
-**Current headers in affected functions:**
-```typescript
-"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+2. **Edge function returns 404**: 
+```
+curl /trading-agent-list?status=pending
+→ 404: "Requested function was not found"
 ```
 
-**Required headers:**
-```typescript
-"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version"
-```
-
-### Issue 2: Vanity Status Auth Check
-
-The `/api/vanity/status` endpoint expects a hardcoded secret header that the frontend doesn't appear to be sending:
-```typescript
-const authHeader = req.headers['x-vanity-secret'];
-const expectedSecret = '123456';
-```
+3. **No deployment logs**: The function has no execution logs, confirming it was never deployed.
 
 ## Solution
 
-### Step 1: Fix CORS Headers in Edge Functions
+Deploy the `trading-agent-list` edge function. The code exists at `supabase/functions/trading-agent-list/index.ts` and is correctly implemented.
 
-Update the following edge functions to include the full CORS header set:
+## Technical Details
 
-| Function | File Path |
-|----------|-----------|
-| agent-idea-generate | `supabase/functions/agent-idea-generate/index.ts` |
-| trading-agent-list | `supabase/functions/trading-agent-list/index.ts` |
-| update-profile | `supabase/functions/update-profile/index.ts` |
-| ai-chat | `supabase/functions/ai-chat/index.ts` |
-| token-metadata | `supabase/functions/token-metadata/index.ts` |
-| sol-price | `supabase/functions/sol-price/index.ts` |
+| Item | Details |
+|------|---------|
+| Function Path | `supabase/functions/trading-agent-list/index.ts` |
+| Issue | Not deployed to Lovable Cloud |
+| Fix | Deploy the edge function |
+| Expected Result | Both pending agents appear in Funding tab |
 
-**Code change for each:**
-```typescript
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-```
+## Implementation
 
-### Step 2: Fix Vanity Status Endpoint
+**Step 1**: Deploy the `trading-agent-list` edge function
 
-Either remove the hardcoded secret (if endpoint should be public) or ensure the frontend sends the correct header.
+No code changes are required - the function code is already correct with proper CORS headers. It just needs to be deployed.
 
-**Option A - Remove auth check (simpler, endpoint returns non-sensitive stats):**
-```typescript
-// Remove lines 43-48 from api/vanity/status.ts
-```
+## Verification
 
-**Option B - Keep auth but fix frontend to send header:**
-```typescript
-// In frontend when calling vanity status:
-fetch('/api/vanity/status', {
-  headers: { 'x-vanity-secret': '123456' }
-})
-```
-
-I recommend Option A since the vanity status endpoint only returns public statistics about available vanity addresses.
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `supabase/functions/agent-idea-generate/index.ts` | Update CORS headers |
-| `supabase/functions/trading-agent-list/index.ts` | Update CORS headers |
-| `supabase/functions/update-profile/index.ts` | Update CORS headers |
-| `supabase/functions/ai-chat/index.ts` | Update CORS headers |
-| `supabase/functions/token-metadata/index.ts` | Update CORS headers |
-| `supabase/functions/sol-price/index.ts` | Update CORS headers |
-| `api/vanity/status.ts` | Remove hardcoded auth check |
-
-## Expected Outcome
-
-After implementation:
-1. No more CORS errors when calling edge functions from `tuna.fun`
-2. No more 401 errors on vanity status endpoint
-3. Agent idea generation works from TunaBook page
-4. Trading agent list loads properly
-5. All other frontend-facing edge functions work without CORS issues
+After deployment:
+1. The Funding tab will show 2 agents with their funding progress bars
+2. The Active tab will work correctly for active agents
+3. The Top Performers tab will show leaderboard data
