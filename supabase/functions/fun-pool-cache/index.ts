@@ -193,20 +193,37 @@ Deno.serve(async (req) => {
     if (action === 'update') {
       console.log('[fun-pool-cache] Starting cache update...');
 
-      const { data: tokens, error } = await supabase
+      // Fetch top 30 by bonding progress (ensures King of the Hill accuracy)
+      const { data: topProgressTokens, error: topError } = await supabase
+        .from('fun_tokens')
+        .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago')
+        .eq('status', 'active')
+        .order('bonding_progress', { ascending: false })
+        .limit(30);
+
+      // Fetch newest 30 tokens (ensures new launches get updates)
+      const { data: newestTokens, error: newestError } = await supabase
         .from('fun_tokens')
         .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
-        .limit(50); // Process first 50 tokens
+        .limit(30);
 
-      if (error) {
-        console.error('[fun-pool-cache] Error fetching tokens:', error);
+      if (topError || newestError) {
+        console.error('[fun-pool-cache] Error fetching tokens:', topError || newestError);
         return new Response(JSON.stringify({ error: 'Failed to fetch tokens' }), {
           status: 500,
           headers: corsHeaders,
         });
       }
+
+      // Deduplicate and merge (max ~60 unique tokens, often overlapping)
+      const tokensMap = new Map<string, typeof topProgressTokens[0]>();
+      for (const t of [...(topProgressTokens || []), ...(newestTokens || [])]) {
+        tokensMap.set(t.id, t);
+      }
+      const tokens = Array.from(tokensMap.values());
+      console.log(`[fun-pool-cache] Processing ${tokens.length} tokens (top progress + newest merged)`);
 
       let updated = 0;
       const batchSize = 5;
