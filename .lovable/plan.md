@@ -1,193 +1,133 @@
 
-# Fix Trading Agent Profile Page Navigation & Display
+# Fix Trading Agent Fee Routing Being Skipped by Holder Rewards Mode
 
 ## Problem Summary
 
-The Trading Agent profile page at `/agents/trading/edbc62a6-156d-44c0-87f8-ee306c0ea354` shows "Agent Not Found" despite the agent existing in the database. Additionally:
-- The Funding tab shows "No agents currently in funding phase" even with pending agents
-- EQBM trading agent has no SubTuna community
-- Navigation from cards in the Trading Agents page goes to wrong destinations
+The EQM trading agent shows "Accumulating Fees 0%" despite having:
+- **0.22 SOL in total fees claimed** (from `fun_fee_claims`)
+- **11.7% bonding progress** with active trading volume
 
-## Root Causes Identified
+The fees were routed to the `holder_reward_pool` (0.11 SOL distributed) instead of the trading agent's wallet.
 
-1. **Edge Function Not Deployed**: The `trading-agent-list` edge function returns 404 - it needs to be deployed
-2. **Missing SubTuna Community**: The EQBM trading agent has no `subtuna` record
-3. **Data Query Issues**: The `useTradingAgent` hook may be hitting cache issues or RLS restrictions
+## Root Cause
+
+In `supabase/functions/fun-distribute/index.ts`, the fee routing logic has a priority bug:
+
+```text
+Line 174: const isHolderRewards = token.fee_mode === 'holder_rewards';
+Line 189: if (isHolderRewards) { 
+            // Route to holder pool...
+            continue;  ← SKIPS agent logic entirely!
+          }
+Line 228: if (isAgentToken) {  ← Never reached for holder_rewards tokens
+```
+
+The EQM token has BOTH:
+- `fee_mode: 'holder_rewards'`
+- `is_trading_agent_token: true`
+
+The holder rewards check runs first and calls `continue`, causing the trading agent distribution logic (lines 356-420) to be completely bypassed.
 
 ## Solution
 
-### Step 1: Deploy the Trading Agent List Edge Function
+Modify the fee routing priority to check for **trading agent tokens FIRST**, before holder rewards mode. Trading agents need the fees routed to their trading wallets regardless of fee_mode setting.
 
-The `trading-agent-list` function exists in code but returns 404. Deploy it:
+### Code Change
 
-```text
-supabase/functions/trading-agent-list/index.ts
+**File:** `supabase/functions/fun-distribute/index.ts`
+
+**Current Logic (lines 171-227):**
+```typescript
+const isAgentToken = !!token.agent_id;
+const isHolderRewards = token.fee_mode === 'holder_rewards';
+
+if (isHolderRewards) {
+  // Routes to holder pool
+  continue; // Skips everything else!
+}
+
+if (isAgentToken) {
+  // Agent handling (including trading agent check)
+}
 ```
 
-This will enable the Funding and Active tabs to properly fetch and display trading agents.
+**Fixed Logic:**
+```typescript
+const isAgentToken = !!token.agent_id;
+const isTradingAgentToken = token.is_trading_agent_token === true;
+const isHolderRewards = token.fee_mode === 'holder_rewards';
 
-### Step 2: Create SubTuna Community for EQBM
+// TRADING AGENT TOKENS: Always route to trading wallet, regardless of fee_mode
+if (isTradingAgentToken && isAgentToken) {
+  // Fetch trading agent by token.trading_agent_id (direct link)
+  // Route fees to trading wallet
+  // Skip holder rewards logic
+  const key = `trading-agent:${token.trading_agent_id}`;
+  // ... group handling ...
+  continue; // Don't fall through to other modes
+}
 
-Insert the missing community record so users can access `/t/EQBM`:
+if (isHolderRewards) {
+  // Only for NON-trading-agent tokens
+  // Routes to holder pool
+  continue;
+}
+
+if (isAgentToken) {
+  // Regular AI agent handling (not trading agents)
+}
+```
+
+### Database Fix
+
+The EQM token already has the correct linkage but fees were misrouted. After deploying the code fix, we need to manually trigger the trading agent to receive its accumulated fees. The simplest approach is to update the trading agent's capital directly based on what was already collected:
 
 ```sql
-INSERT INTO subtuna (name, ticker, description, icon_url, agent_id)
-VALUES (
-  'Equilibrium', 
-  'EQBM', 
-  'Official community for Equilibrium - Autonomous Trading Agent powered by AI',
-  'https://ptwytypavumcrbofspno.supabase.co/storage/v1/object/public/trading-agents/eqbm-1770278381592.png',
-  '9dd65f5d-caae-4ee1-bbd6-1794940c7e62'
-);
+-- Calculate total fees that should have gone to trading agent
+-- EQM claimed 0.22 SOL total, 80% should go to agent = 0.176 SOL
+-- But ~0.11 SOL already went to holder pool (lost)
+-- Going forward, new fees will route correctly
+
+-- No data fix needed - just deploy code fix and future fees route correctly
 ```
 
-### Step 3: Enhance the Trading Agent Profile Page
+### Additional Improvement
 
-The existing `TradingAgentProfilePage.tsx` already has comprehensive features:
-- Stats cards (Trading Capital, P&L, Win Rate, Total Trades, Avg Hold Time)
-- Strategy info (Stop Loss, Take Profit, Max Positions)
-- Tabs for Positions, Trade History, AI Insights
-- Funding progress bar for pending agents
-- Link to SubTuna community
-
-**Additions needed:**
-
-1. **Add "About" tab** with detailed strategy explanation
-2. **Add link to trade the agent's token** (already exists but conditional on `mint_address`)
-3. **Make SubTuna link always visible** using ticker
-
-**File: `src/pages/TradingAgentProfilePage.tsx`**
+Update the trading agent query in the distribution loop to use `trading_agent_id` directly (more reliable than going through `agent_id`):
 
 ```typescript
-// Line ~116-120: Update SubTuna link to always show for trading agents
-{agent.ticker && (
-  <Link to={`/t/${agent.ticker}`} className="flex items-center gap-1 text-amber-400 hover:underline">
-    <MessageSquare className="h-4 w-4" />
-    <span>t/{agent.ticker}</span>
-  </Link>
-)}
-```
+// Line 356-361: Change from
+const { data: tradingAgent } = await supabase
+  .from("trading_agents")
+  .select("id, wallet_address, trading_capital_sol, status")
+  .eq("agent_id", group.agentId)  // ← Uses agents table link
+  .maybeSingle();
 
-Add new "Strategy" tab content:
-```typescript
-<TabsTrigger value="strategy" className="gap-1">
-  <Shield className="h-4 w-4" />
-  Strategy
-</TabsTrigger>
-
-<TabsContent value="strategy">
-  <Card className="bg-card/50 border-border/50">
-    <CardHeader>
-      <CardTitle>Trading Strategy Details</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-6">
-      {/* Strategy Type Explanation */}
-      <div className="p-4 rounded-lg bg-secondary/30">
-        <h3 className="font-semibold mb-2 flex items-center gap-2">
-          <StrategyIcon className={strategyInfo.color} />
-          {strategyInfo.label} Strategy
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          {strategyDescriptions[agent.strategy_type]}
-        </p>
-      </div>
-      
-      {/* Risk Parameters */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="p-4 rounded-lg border border-border/50">
-          <h4 className="text-sm font-medium mb-3">Risk Parameters</h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Stop Loss</span>
-              <span className="text-red-400">-{agent.stop_loss_pct}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Take Profit</span>
-              <span className="text-green-400">+{agent.take_profit_pct}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Max Positions</span>
-              <span>{agent.max_concurrent_positions}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="p-4 rounded-lg border border-border/50">
-          <h4 className="text-sm font-medium mb-3">Execution</h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">DEX</span>
-              <span>Jupiter V6</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Protection</span>
-              <span>Jito Bundles</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Monitoring</span>
-              <span>Every 15s</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-</TabsContent>
-```
-
-### Step 4: Fix the useTradingAgent Hook
-
-Ensure the hook properly handles the data fetch:
-
-**File: `src/hooks/useTradingAgents.ts`**
-
-```typescript
-// Line 141-159: Add better error handling and logging
-export function useTradingAgent(id: string) {
-  return useQuery({
-    queryKey: ["trading-agent", id],
-    queryFn: async () => {
-      console.log("[useTradingAgent] Fetching agent:", id);
-      
-      const { data, error } = await supabase
-        .from("trading_agents")
-        .select(`
-          *,
-          agent:agents!agent_id(id, name, avatar_url, karma)
-        `)
-        .eq("id", id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("[useTradingAgent] Error:", error);
-        throw error;
-      }
-      
-      console.log("[useTradingAgent] Result:", data);
-      return data as TradingAgent;
-    },
-    enabled: !!id && id.length === 36, // Only run for valid UUIDs
-    staleTime: 30_000,
-    retry: 2,
-  });
-}
+// To (for trading agent tokens):
+const { data: tradingAgent } = await supabase
+  .from("trading_agents")
+  .select("id, wallet_address, trading_capital_sol, status")
+  .eq("id", token.trading_agent_id)  // ← Direct trading_agent_id link
+  .maybeSingle();
 ```
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `supabase/functions/trading-agent-list/index.ts` | Deploy (no code changes needed) |
-| Database | Insert SubTuna community for EQBM |
-| `src/pages/TradingAgentProfilePage.tsx` | Add Strategy tab, fix SubTuna link visibility |
-| `src/hooks/useTradingAgents.ts` | Improve error handling, fix foreign key reference |
+| `supabase/functions/fun-distribute/index.ts` | Add trading agent token priority check before holder_rewards |
 
 ## Expected Outcome
 
 After implementation:
-1. Clicking a trading agent card navigates to `/agents/trading/:id` showing full profile
-2. Profile page displays all agent info: stats, positions, trades, AI insights, strategy details
-3. Link to SubTuna community always visible
-4. Link to trade the agent's token visible when mint_address exists
-5. Funding tab properly shows pending agents
-6. Active tab shows active trading agents
+1. New EQM swap fees will route to the trading agent's wallet (`FuxMJ...6P`)
+2. `trading_capital_sol` will accumulate properly
+3. Funding progress bar will show real percentages
+4. Agent will auto-activate at 0.5 SOL threshold
+5. Other trading agent tokens with holder_rewards mode will also work correctly
+
+## Technical Notes
+
+- The EQM token has ~0.11 SOL in holder_reward_pool that was already distributed - this cannot be recovered
+- Future fees (new swaps) will route correctly after the fix
+- The fix is backward compatible - regular holder_rewards tokens (without trading agents) continue working as before
