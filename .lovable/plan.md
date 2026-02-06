@@ -1,116 +1,110 @@
 
 
-# Add 5000+ Follower Minimum Filter for Auto-Replies
+# Fix Community Join Using V2 Endpoint with Full Cookie
 
-## Background
+## Problem
 
-### Community Post Status
-The test post to TUNALISHOUS community failed with **Error 440** (User is not authorized). I attempted to join the community first, but the `community/join` endpoint returned **404 Not Found** - this endpoint does not exist in twitterapi.io.
+The current code uses the wrong endpoint and parameter name:
+- **Wrong endpoint**: `/twitter/community/join` (returns 404)
+- **Correct endpoint**: `/twitter/join_community_v2`
+- **Wrong param**: `login_cookies` (plural)
+- **Correct param**: `login_cookie` (singular)
 
-**Conclusion**: twitterapi.io only supports READ operations for communities (info, tweets, members, moderators). Write operations (join, post) are not supported. This is an API limitation that cannot be worked around.
+## Changes to Make
 
-### Current Auto-Reply Filtering
-The current code in `promo-mention-scan/index.ts`:
-1. Skips replies and retweets
-2. Requires verification badge (blue/gold/business/government)  
-3. Only checks followers (1000+) for `$SOL-only` mentions
-4. Skips bot usernames
+### File: `supabase/functions/test-community/index.ts`
 
-**Problem**: Verified accounts with very low followers (12, 16, 38, 71) are being queued for replies. These represent low-quality engagement.
-
----
-
-## Implementation Plan
-
-### File to Modify
-`supabase/functions/promo-mention-scan/index.ts`
-
-### Changes
-
-**Add constant at top of file (around line 15)**
+**Change 1: Fix Join endpoint URL (line 70)**
 ```typescript
-const MIN_FOLLOWER_COUNT = 5000; // Minimum followers for quality engagement
+// Before
+const response = await fetch(`${TWITTERAPI_BASE}/twitter/community/join`, {
+
+// After  
+const response = await fetch(`${TWITTERAPI_BASE}/twitter/join_community_v2`, {
 ```
 
-**Modify filter logic (lines 189-202)**
-
-Current code:
+**Change 2: Fix parameter name for Join (line 77)**
 ```typescript
-// Skip unverified
-if (!hasVerificationBadge(tweet)) {
-  debug.skipped++;
-  continue;
-}
+// Before
+body: JSON.stringify({
+  login_cookies: loginCookies,  // plural - WRONG
+  community_id: COMMUNITY_ID,
+  proxy: proxyUrl,
+}),
 
-// For $SOL-only mentions, require 1000+ followers
-if (isOnlySolCashtagMention(tweet.text)) {
-  const followers = getFollowerCount(tweet);
-  if (followers < 1000) {
-    debug.skipped++;
-    continue;
-  }
+// After
+body: JSON.stringify({
+  login_cookie: loginCookies,   // singular - CORRECT for V2
+  community_id: COMMUNITY_ID,
+  proxy: proxyUrl,
+}),
+```
+
+**Change 3: Add V2 login action for fresh cookie (optional fallback)**
+
+Add a new action block that can obtain a fresh login cookie using account credentials if the existing cookie fails:
+
+```typescript
+// ===== ACTION: V2 Login (get fresh login cookie) =====
+if (action === "login") {
+  const username = Deno.env.get("X_ACCOUNT_USERNAME");
+  const email = Deno.env.get("X_ACCOUNT_EMAIL");
+  const password = Deno.env.get("X_ACCOUNT_PASSWORD");
+  const totpSecret = Deno.env.get("X_TOTP_SECRET");
+  
+  console.log(`[test-community] Performing V2 login for ${username}...`);
+  
+  const response = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": apiKey,
+    },
+    body: JSON.stringify({
+      user_name: username,
+      email: email,
+      password: password,
+      proxy: proxyUrl,
+      totp_secret: totpSecret,
+    }),
+  });
+
+  const responseText = await response.text();
+  console.log(`[test-community] Login response: ${response.status}`);
+  
+  results.status = response.status;
+  results.response = JSON.parse(responseText);
+  // Response contains login_cookie that can be stored/used
 }
 ```
 
-New code:
-```typescript
-// Skip unverified
-if (!hasVerificationBadge(tweet)) {
-  debug.skipped++;
-  continue;
-}
+## Testing After Deploy
 
-// Require minimum 5000 followers for quality engagement
-const followers = getFollowerCount(tweet);
-if (followers < MIN_FOLLOWER_COUNT) {
-  debug.skipped++;
-  continue;
-}
-```
+1. **Join the community**:
+   ```
+   POST /test-community
+   Body: {"action": "join"}
+   ```
 
----
+2. **Post to community** (after joined):
+   ```
+   POST /test-community  
+   Body: {"action": "post", "text": "Hello from TUNA!"}
+   ```
 
-## Impact Analysis
+3. **Fallback - V2 login** (if cookie expired):
+   ```
+   POST /test-community
+   Body: {"action": "login"}
+   ```
 
-### Accounts Currently Queued That Would Be Filtered
+## Summary
 
-| Account | Followers | Status After Change |
-|---------|-----------|---------------------|
-| @reelclaw | 71 | Filtered out |
-| @runtimeking | 16 | Filtered out |
-| @jackiechen1009 | 12 | Filtered out |
-| @George123255 | 38 | Filtered out |
-| @jrwhale | 2,222 | Filtered out |
-| @ankushKun_ | 1,928 | Filtered out |
-| @tewglocks | 3,048 | Filtered out |
+| Line | Current | Fixed |
+|------|---------|-------|
+| 70 | `/twitter/community/join` | `/twitter/join_community_v2` |
+| 77 | `login_cookies` (plural) | `login_cookie` (singular) |
+| New | - | Add `login` action for fresh V2 cookie |
 
-### Accounts That Would Still Qualify
-
-| Account | Followers | Status |
-|---------|-----------|--------|
-| @vincent_koc | 11,070 | Quality engagement |
-| @Mortezabihzadeh | 12,573 | Quality engagement |
-| @SandiH_eth | 144,186 | Quality engagement |
-| @Definews_Info | 70,570 | Quality engagement |
-| @chaxbtbg | 33,353 | Quality engagement |
-
----
-
-## Execution Steps
-
-1. Edit `supabase/functions/promo-mention-scan/index.ts`
-2. Add `MIN_FOLLOWER_COUNT = 5000` constant
-3. Replace conditional `$SOL-only` check with global follower check
-4. Deploy edge function automatically
-
----
-
-## Community Posting Alternative
-
-Since twitterapi.io cannot join or post to communities, alternatives would be:
-1. **Manual posting** - Log into the X account manually and join the community, then post
-2. **Different API** - Use official Twitter API v2 with OAuth 2.0 (requires Twitter API access approval for community features)
-3. **Browser automation** - Use Puppeteer/Playwright (complex, against ToS)
-
-For now, community posting remains a manual operation.
+The full cookie from `X_FULL_COOKIE` is already being parsed and base64 encoded correctly - only the endpoint and parameter name need fixing.
 
