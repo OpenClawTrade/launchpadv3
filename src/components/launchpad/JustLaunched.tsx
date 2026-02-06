@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
+import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
 
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   const usdValue = marketCapSol * solPrice;
@@ -25,6 +26,7 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
   const { solPrice } = useSolPrice();
   const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
   const isBags = token.launchpad_type === 'bags';
+  const isPhantom = token.launchpad_type === 'phantom';
   const linkPath = (token.agent_id || isTradingAgent || token.launchpad_type === 'pumpfun' || isBags) 
     ? `/t/${token.ticker}` 
     : `/launchpad/${token.mint_address || token.id}`;
@@ -59,6 +61,8 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
               <PumpBadge size="sm" showText={false} mintAddress={token.mint_address ?? undefined} />
             ) : isBags ? (
               <BagsBadge showText={false} mintAddress={token.mint_address ?? undefined} />
+            ) : isPhantom ? (
+              <PhantomBadge showText={false} size="sm" mintAddress={token.mint_address ?? undefined} />
             ) : isTradingAgent ? (
               <span 
                 title="Trading Agent Token" 
