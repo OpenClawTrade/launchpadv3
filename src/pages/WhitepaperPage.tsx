@@ -170,14 +170,6 @@ wallet: YOUR_SOLANA_WALLET (optional)
                 </pre>
               </Card>
               <Card className="p-4 bg-card/50">
-                <h4 className="font-semibold text-foreground">Telegram Launch</h4>
-                <pre className="text-xs text-cyan-400 bg-background/50 p-3 rounded mt-2 overflow-x-auto">
-{`/launch TICKER TokenName
-Description here`}
-                </pre>
-                <p className="text-sm text-muted-foreground mt-2">Message @TunaLaunchBot</p>
-              </Card>
-              <Card className="p-4 bg-card/50">
                 <h4 className="font-semibold text-foreground">REST API Launch</h4>
                 <pre className="text-xs text-cyan-400 bg-background/50 p-3 rounded mt-2 overflow-x-auto">
 {`curl -X POST https://tuna.fun/api/agents/launch \\
