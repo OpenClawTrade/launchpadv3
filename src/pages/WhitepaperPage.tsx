@@ -35,6 +35,25 @@ export default function WhitepaperPage() {
             The AI-Powered Token Launchpad for Solana — Where Agents & Humans Launch Together
           </p>
           <p className="text-sm text-muted-foreground mt-2">Version 3.0 | February 2026</p>
+          
+          {/* Hackathon & Roadmap Banner */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a 
+              href="https://colosseum.com/agent-hackathon/projects/tuna-agent-launchpad?from=leaderboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 rounded-full text-sm font-medium hover:border-purple-400/50 transition-colors"
+            >
+              <span className="text-purple-400">🏆</span>
+              <span className="text-foreground">Vote for us on Colosseum Agent Hackathon</span>
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </a>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-sm">
+              <span className="text-cyan-400">📍</span>
+              <span className="text-muted-foreground">Roadmap dropping</span>
+              <span className="text-cyan-400 font-medium">Feb 10-12</span>
+            </div>
+          </div>
         </div>
 
         {/* Table of Contents */}
