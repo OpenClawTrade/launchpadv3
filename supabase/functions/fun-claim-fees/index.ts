@@ -25,16 +25,18 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get active fun tokens, ordered by recent activity (volume) first
-    // This ensures high-value tokens get processed before rate limits kick in
+    // Get active fun tokens, ordered by bonding progress (actual trading activity) first
+    // Then by newest first for tokens with equal progress
+    // This ensures active tokens get processed before rate limits kick in
     const { data: funTokens, error: fetchError } = await supabase
       .from("fun_tokens")
       .select("*")
       .eq("status", "active")
       .eq("chain", "solana")
       .not("dbc_pool_address", "is", null)
-      .order("volume_24h_sol", { ascending: false, nullsFirst: false })
-      .limit(100); // Process top 100 by volume to avoid rate limits
+      .order("bonding_progress", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(100); // Process top 100 by activity to avoid rate limits
 
     if (fetchError) {
       throw new Error(`Failed to fetch fun tokens: ${fetchError.message}`);
@@ -45,7 +47,7 @@ serve(async (req) => {
       (t) => t.dbc_pool_address && t.dbc_pool_address.length >= 32
     );
 
-    console.log(`[fun-claim-fees] Found ${validTokens.length} tokens to process (ordered by volume)`);
+    console.log(`[fun-claim-fees] Found ${validTokens.length} tokens to process (ordered by bonding progress)`);
 
     if (validTokens.length === 0) {
       return new Response(
