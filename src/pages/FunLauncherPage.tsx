@@ -217,15 +217,13 @@ export default function FunLauncherPage() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <a 
-              href="/TUNA_WHITEPAPER.md"
-              target="_blank" 
-              rel="noopener noreferrer"
+            <Link 
+              to="/whitepaper"
               className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-cyan-500/10 transition-colors"
               title="Read Whitepaper"
             >
               <FileText className="h-4 w-4 text-cyan-400 hover:text-cyan-300" />
-            </a>
+            </Link>
             <a 
               href="https://x.com/buildtuna" 
               target="_blank"
@@ -268,17 +266,14 @@ export default function FunLauncherPage() {
                     <TrendingUp className="h-4 w-4" />
                     <span className="text-sm font-bold">Trading Agents</span>
                   </Link>
-                  <a 
-                    href="/TUNA_WHITEPAPER.md"
-                    target="_blank" 
-                    rel="noopener noreferrer"
+                  <Link 
+                    to="/whitepaper"
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <FileText className="h-4 w-4 text-cyan-400" />
                     <span className="text-foreground text-sm font-medium">Whitepaper</span>
-                    <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
-                  </a>
+                  </Link>
                 </nav>
               </SheetContent>
             </Sheet>

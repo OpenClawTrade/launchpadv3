@@ -44,6 +44,7 @@ const PromoMentionsAdminPage = lazy(() => import("./pages/PromoMentionsAdminPage
 const DeployerDustAdminPage = lazy(() => import("./pages/DeployerDustAdminPage"));
 const ColosseumAdminPage = lazy(() => import("./pages/ColosseumAdminPage"));
 const PartnerFeesPage = lazy(() => import("./pages/PartnerFeesPage"));
+const WhitepaperPage = lazy(() => import("./pages/WhitepaperPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -117,6 +118,7 @@ const App = () => (
                     <Route path="/admin/deployer-dust" element={<DeployerDustAdminPage />} />
                     <Route path="/admin/colosseum" element={<ColosseumAdminPage />} />
                     <Route path="/partnerfees" element={<PartnerFeesPage />} />
+                    <Route path="/whitepaper" element={<WhitepaperPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

@@ -85,15 +85,13 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
             )}
           </button>
           
-          <a 
-            href="/TUNA_WHITEPAPER.md"
-            target="_blank" 
-            rel="noopener noreferrer"
+          <Link 
+            to="/whitepaper"
             className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-cyan-500/10 transition-colors"
             title="Read Whitepaper"
           >
             <FileText className="h-4 w-4 text-cyan-400 hover:text-cyan-300" weight="bold" />
-          </a>
+          </Link>
           
           <a 
             href="https://dune.com/tunalaunch/stats"
@@ -270,16 +268,13 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                   </Link>
                   
                   <div className="pt-4 border-t border-[#1a1a1f] space-y-2">
-                    <a 
-                      href="/TUNA_WHITEPAPER.md"
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                    <Link 
+                      to="/whitepaper"
                       className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1f] transition-colors"
                     >
                       <FileText className="h-5 w-5 text-cyan-400" weight="bold" />
                       <span className="text-gray-300">Whitepaper</span>
-                      <ExternalLink className="h-3 w-3 text-gray-500 ml-auto" />
-                    </a>
+                    </Link>
                     
                     <a 
                       href="https://dune.com/tunalaunch/stats" 
