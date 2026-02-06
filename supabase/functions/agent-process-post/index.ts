@@ -326,7 +326,7 @@ export function validateLaunchPost(content: string): ValidationResult {
 
   const data: Partial<ParsedLaunchData> = {};
 
-  // First try multi-line parsing
+  // First try multi-line parsing with key: value format
   const lines = content.split("\n").map((line) => line.trim());
 
   for (const line of lines) {
@@ -341,6 +341,71 @@ export function validateLaunchPost(content: string): ValidationResult {
   // If multi-line parsing didn't find required fields, try single-line parsing
   if (!data.name || !data.symbol) {
     parseSingleLine(content, data);
+  }
+  
+  // === FALLBACK: Parse bare ticker/name lines without prefixes ===
+  // Handles formats like:
+  // !tunalaunch
+  // $CRAB
+  // CRAB
+  // Description - Crawler Bot
+  if (!data.symbol || !data.name) {
+    const cleanLines = lines.filter(line => {
+      const lowerLine = line.toLowerCase();
+      // Skip the trigger line and empty lines
+      if (!line || lowerLine.includes("!tunalaunch") || lowerLine.includes("!launchtuna")) return false;
+      // Skip URLs
+      if (line.includes("http://") || line.includes("https://")) return false;
+      // Skip lines that have key: value format (already parsed)
+      if (/^\w+\s*[:=]\s*.+$/i.test(line)) return false;
+      return true;
+    });
+    
+    // Try to extract ticker from $TICKER format
+    if (!data.symbol) {
+      for (const line of cleanLines) {
+        // Match $TICKER format (common in crypto)
+        const tickerMatch = line.match(/^\$([A-Za-z0-9]{1,10})$/);
+        if (tickerMatch) {
+          data.symbol = tickerMatch[1].toUpperCase();
+          console.log(`[validateLaunchPost] Auto-detected ticker from $symbol format: ${data.symbol}`);
+          break;
+        }
+      }
+    }
+    
+    // Try to extract bare ticker (all caps, short word)
+    if (!data.symbol) {
+      for (const line of cleanLines) {
+        // Match bare TICKER format (2-10 uppercase chars, possibly at start of line)
+        const bareTickerMatch = line.match(/^([A-Z0-9]{2,10})$/);
+        if (bareTickerMatch) {
+          data.symbol = bareTickerMatch[1];
+          console.log(`[validateLaunchPost] Auto-detected bare ticker: ${data.symbol}`);
+          break;
+        }
+      }
+    }
+    
+    // If we found a symbol but no name, use symbol as name
+    if (data.symbol && !data.name) {
+      data.name = data.symbol;
+      console.log(`[validateLaunchPost] Using symbol as name: ${data.name}`);
+    }
+    
+    // Try to find description from remaining lines (anything with "description" or longer text)
+    if (!data.description) {
+      for (const line of cleanLines) {
+        const lowerLine = line.toLowerCase();
+        // Match "Description - ..." or "desc - ..." format
+        const descMatch = line.match(/^(?:description|desc)\s*[-:=]?\s*(.+)$/i);
+        if (descMatch) {
+          data.description = descMatch[1].replace(/https?:\/\/\S+/gi, '').trim().slice(0, 500);
+          console.log(`[validateLaunchPost] Extracted description: ${data.description.slice(0, 50)}...`);
+          break;
+        }
+      }
+    }
   }
 
   // Clean wallet if provided
