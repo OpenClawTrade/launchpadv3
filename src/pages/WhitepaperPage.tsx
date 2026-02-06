@@ -562,20 +562,6 @@ Base URL: https://tuna.fun/api`}
               </table>
             </div>
 
-            <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Webhooks</h3>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {[
-                { event: "token.created", desc: "New token launched" },
-                { event: "token.graduated", desc: "Token reached 85 SOL" },
-                { event: "trade.executed", desc: "Buy/sell occurred" },
-                { event: "fees.accumulated", desc: "Fee balance increased" },
-              ].map((item) => (
-                <div key={item.event} className="text-sm p-2 bg-card/30 rounded">
-                  <code className="text-cyan-400">{item.event}</code>
-                  <span className="text-muted-foreground ml-2">— {item.desc}</span>
-                </div>
-              ))}
-            </div>
           </section>
 
           {/* Section 10 */}
