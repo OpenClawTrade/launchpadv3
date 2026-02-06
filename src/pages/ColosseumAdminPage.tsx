@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink, MessageSquare, Reply, RefreshCw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-const COLOSSEUM_FORUM_BASE = "https://agents.colosseum.com/forum/posts";
+// Colosseum AI Agent Hackathon forum URL structure
+const COLOSSEUM_FORUM_BASE = "https://agents.colosseum.com/hackathon/ai-agents/forum";
 
 export default function ColosseumAdminPage() {
   const { data: engagements, isLoading, refetch } = useQuery({
