@@ -12,11 +12,21 @@ const corsHeaders = {
 const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 
 // Partner fee split configuration (3 weeks from Feb 6, 2026)
+// IMPORTANT: Only applies to tokens LAUNCHED after this date (not retroactive)
 const PARTNER_WALLET = "7Tegs2EwsK8icYHHryFvv5FwNxhQJMp2HhM2zVTq9uBh";
+const PARTNER_SPLIT_START = new Date("2026-02-06T00:00:00Z");
 const PARTNER_SPLIT_EXPIRES = new Date("2026-02-27T00:00:00Z"); // 3 weeks from Feb 6
 
 function isPartnerSplitActive(): boolean {
   return new Date() < PARTNER_SPLIT_EXPIRES;
+}
+
+// Check if a specific token qualifies for partner split (launched after agreement started)
+function isTokenEligibleForPartnerSplit(tokenCreatedAt: string | Date | null | undefined): boolean {
+  if (!isPartnerSplitActive()) return false;
+  if (!tokenCreatedAt) return false;
+  const createdDate = new Date(tokenCreatedAt);
+  return createdDate >= PARTNER_SPLIT_START;
 }
 
 // Fee distribution splits for REGULAR tokens (non-API, non-Agent)
@@ -286,7 +296,7 @@ serve(async (req) => {
       // But if partner split is active, 50% goes to partner
       if (isBagsToken) {
         // Handle partner split for bags tokens
-        if (isPartnerSplitActive()) {
+        if (isTokenEligibleForPartnerSplit(token.created_at)) {
           const partnerAmount = claimedSol * 0.5; // 50% of platform share (which is 100%)
           await sendPartnerFee(connection, treasuryKeypair, supabase, token, partnerAmount, 'bags', 'bags');
           totalPartnerDistributed += partnerAmount;
@@ -310,7 +320,7 @@ serve(async (req) => {
         let platformAmount = claimedSol * (1 - CREATOR_FEE_SHARE); // 50% platform
         
         // Partner split from platform share
-        if (isPartnerSplitActive()) {
+        if (isTokenEligibleForPartnerSplit(token.created_at)) {
           const partnerAmount = platformAmount * 0.5;
           platformAmount = platformAmount * 0.5;
           await sendPartnerFee(connection, treasuryKeypair, supabase, token, partnerAmount, 'tuna', 'holders');
@@ -463,7 +473,7 @@ serve(async (req) => {
         platformAmount = claimedSol * (1 - agentShare);
         
         // Partner split from platform share
-        if (isPartnerSplitActive()) {
+        if (isTokenEligibleForPartnerSplit(token.created_at)) {
           partnerAmount = platformAmount * 0.5;
           platformAmount = platformAmount * 0.5;
         }
@@ -477,7 +487,7 @@ serve(async (req) => {
         platformAmount = claimedSol * API_PLATFORM_FEE_SHARE;
         
         // Partner split from platform share
-        if (isPartnerSplitActive()) {
+        if (isTokenEligibleForPartnerSplit(token.created_at)) {
           partnerAmount = platformAmount * 0.5;
           platformAmount = platformAmount * 0.5;
         }
@@ -491,7 +501,7 @@ serve(async (req) => {
         platformAmount = claimedSol * (BUYBACK_FEE_SHARE + SYSTEM_FEE_SHARE);
         
         // Partner split from platform share
-        if (isPartnerSplitActive()) {
+        if (isTokenEligibleForPartnerSplit(token.created_at)) {
           partnerAmount = platformAmount * 0.5;
           platformAmount = platformAmount * 0.5;
         }
