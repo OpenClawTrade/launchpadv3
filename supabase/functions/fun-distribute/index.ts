@@ -11,6 +11,14 @@ const corsHeaders = {
 // Treasury wallet
 const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
 
+// Partner fee split configuration (3 weeks from Feb 6, 2026)
+const PARTNER_WALLET = "7Tegs2EwsK8icYHHryFvv5FwNxhQJMp2HhM2zVTq9uBh";
+const PARTNER_SPLIT_EXPIRES = new Date("2026-02-27T00:00:00Z"); // 3 weeks from Feb 6
+
+function isPartnerSplitActive(): boolean {
+  return new Date() < PARTNER_SPLIT_EXPIRES;
+}
+
 // Fee distribution splits for REGULAR tokens (non-API, non-Agent)
 const CREATOR_FEE_SHARE = 0.5;    // 50% to creator
 const BUYBACK_FEE_SHARE = 0.3;   // 30% for buybacks
@@ -34,6 +42,64 @@ const MIN_DISTRIBUTION_SOL = 0.05;
 // Maximum retries for transaction
 const MAX_TX_RETRIES = 3;
 
+// Helper function to send partner fee and record in database
+async function sendPartnerFee(
+  connection: Connection,
+  treasuryKeypair: Keypair,
+  supabase: any,
+  token: any,
+  partnerAmount: number,
+  launchpadType: string,
+  feeMode: string
+): Promise<{ success: boolean; signature?: string; error?: string }> {
+  // Skip dust amounts
+  if (partnerAmount < 0.001) {
+    console.log(`[fun-distribute] Skipping partner fee dust: ${partnerAmount.toFixed(6)} SOL`);
+    return { success: true };
+  }
+
+  try {
+    const partnerPubkey = new PublicKey(PARTNER_WALLET);
+    const lamports = Math.floor(partnerAmount * 1e9);
+
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: treasuryKeypair.publicKey,
+        toPubkey: partnerPubkey,
+        lamports,
+      })
+    );
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = treasuryKeypair.publicKey;
+
+    const signature = await sendAndConfirmTransaction(connection, transaction, [treasuryKeypair], {
+      commitment: "confirmed",
+      maxRetries: 3,
+    });
+
+    // Record in partner_fee_distributions
+    await supabase.from("partner_fee_distributions").insert({
+      fun_token_id: token?.id || null,
+      token_name: token?.name || null,
+      token_ticker: token?.ticker || null,
+      launchpad_type: launchpadType || 'tuna',
+      fee_mode: feeMode || 'creator',
+      amount_sol: partnerAmount,
+      signature,
+      status: 'completed',
+    });
+
+    console.log(`[fun-distribute] ✅ Sent ${partnerAmount.toFixed(6)} SOL to partner wallet, sig: ${signature}`);
+    return { success: true, signature };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[fun-distribute] ❌ Failed to send partner fee:`, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -41,6 +107,7 @@ serve(async (req) => {
 
   const startTime = Date.now();
   console.log("[fun-distribute] ⏰ Starting fee distribution cron job...");
+  console.log(`[fun-distribute] Partner split active: ${isPartnerSplitActive()} (expires: ${PARTNER_SPLIT_EXPIRES.toISOString()})`);
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -127,12 +194,14 @@ serve(async (req) => {
       claimedSol: number;
       recipientAmount: number;
       platformAmount: number;
+      partnerAmount?: number;
       success: boolean;
       signature?: string;
       error?: string;
     }> = [];
 
     let totalDistributed = 0;
+    let totalPartnerDistributed = 0;
     let successCount = 0;
     let failureCount = 0;
     let apiFeesRecorded = 0;
@@ -214,8 +283,17 @@ serve(async (req) => {
       }
       
       // BAGS tokens: 100% platform fee, no creator distribution
+      // But if partner split is active, 50% goes to partner
       if (isBagsToken) {
-        // Mark claim as distributed - platform keeps 100%
+        // Handle partner split for bags tokens
+        if (isPartnerSplitActive()) {
+          const partnerAmount = claimedSol * 0.5; // 50% of platform share (which is 100%)
+          await sendPartnerFee(connection, treasuryKeypair, supabase, token, partnerAmount, 'bags', 'bags');
+          totalPartnerDistributed += partnerAmount;
+          console.log(`[fun-distribute] Bags token ${token.ticker}: ${partnerAmount.toFixed(6)} SOL to partner, rest to platform`);
+        }
+        
+        // Mark claim as distributed - platform keeps rest
         await supabase
           .from("fun_fee_claims")
           .update({ creator_distributed: true })
@@ -229,6 +307,15 @@ serve(async (req) => {
         // HOLDER REWARDS MODE: Route 50% to holder_reward_pool instead of creator
         // The fun-holder-distribute cron will distribute to holders every 5 minutes
         const holderAmount = claimedSol * CREATOR_FEE_SHARE; // 50% goes to holder pool
+        let platformAmount = claimedSol * (1 - CREATOR_FEE_SHARE); // 50% platform
+        
+        // Partner split from platform share
+        if (isPartnerSplitActive()) {
+          const partnerAmount = platformAmount * 0.5;
+          platformAmount = platformAmount * 0.5;
+          await sendPartnerFee(connection, treasuryKeypair, supabase, token, partnerAmount, 'tuna', 'holders');
+          totalPartnerDistributed += partnerAmount;
+        }
         
         // Upsert into holder_reward_pool
         const { data: existingPool } = await supabase
@@ -365,29 +452,63 @@ serve(async (req) => {
       // Calculate fee splits based on token type
       let recipientAmount: number;
       let platformAmount: number;
+      let partnerAmount = 0;
 
       if (isAgentToken) {
         // Agent tokens: 80/20 split between agent and platform
-        const agentShare = (token.agent_fee_share_bps || 8000) / 10000; // Default 80%
+        // For trading agents: 50/50 split
+        const isTradingAgent = !!group.tradingAgentId;
+        const agentShare = isTradingAgent ? 0.5 : ((token.agent_fee_share_bps || 8000) / 10000); // Trading agents get 50%, regular agents get 80%
         recipientAmount = claimedSol * agentShare;
         platformAmount = claimedSol * (1 - agentShare);
+        
+        // Partner split from platform share
+        if (isPartnerSplitActive()) {
+          partnerAmount = platformAmount * 0.5;
+          platformAmount = platformAmount * 0.5;
+        }
+        
         console.log(
-          `[fun-distribute] Agent Token ${token.ticker}: ${claimedSol} SOL → Agent ${recipientAmount.toFixed(6)} (${agentShare * 100}%), Platform ${platformAmount.toFixed(6)}`
+          `[fun-distribute] ${isTradingAgent ? 'Trading' : 'Standard'} Agent Token ${token.ticker}: ${claimedSol} SOL → Agent ${recipientAmount.toFixed(6)} (${agentShare * 100}%), Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}`
         );
       } else if (isApiToken) {
         // API tokens: 50/50 split between API user and platform
         recipientAmount = claimedSol * API_USER_FEE_SHARE;
         platformAmount = claimedSol * API_PLATFORM_FEE_SHARE;
+        
+        // Partner split from platform share
+        if (isPartnerSplitActive()) {
+          partnerAmount = platformAmount * 0.5;
+          platformAmount = platformAmount * 0.5;
+        }
+        
         console.log(
-          `[fun-distribute] API Token ${token.ticker}: ${claimedSol} SOL → API User ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}`
+          `[fun-distribute] API Token ${token.ticker}: ${claimedSol} SOL → API User ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}`
         );
       } else {
         // Regular tokens: creator gets 50%, rest for buyback/system
         recipientAmount = claimedSol * CREATOR_FEE_SHARE;
         platformAmount = claimedSol * (BUYBACK_FEE_SHARE + SYSTEM_FEE_SHARE);
+        
+        // Partner split from platform share
+        if (isPartnerSplitActive()) {
+          partnerAmount = platformAmount * 0.5;
+          platformAmount = platformAmount * 0.5;
+        }
+        
         console.log(
-          `[fun-distribute] Regular Token ${token.ticker}: ${claimedSol} SOL → Creator ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}`
+          `[fun-distribute] Regular Token ${token.ticker}: ${claimedSol} SOL → Creator ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}`
         );
+      }
+
+      // Send partner fee if applicable
+      if (partnerAmount > 0) {
+        const launchpadType = token.launchpad_type || 'tuna';
+        const feeMode = isAgentToken ? 'agent' : (isApiToken ? 'api' : 'creator');
+        const partnerResult = await sendPartnerFee(connection, treasuryKeypair, supabase, token, partnerAmount, launchpadType, feeMode);
+        if (partnerResult.success) {
+          totalPartnerDistributed += partnerAmount;
+        }
       }
 
       // AGENT tokens: record in agent_fee_distributions (pending - they claim when ready)
@@ -461,6 +582,7 @@ serve(async (req) => {
               claimedSol,
               recipientAmount,
               platformAmount,
+              partnerAmount,
               success: true,
               signature,
             });
@@ -495,6 +617,7 @@ serve(async (req) => {
             claimedSol,
             recipientAmount,
             platformAmount,
+            partnerAmount,
             success: false,
             error: `DB error: ${agentDistError.message}`,
           });
@@ -532,6 +655,7 @@ serve(async (req) => {
           claimedSol,
           recipientAmount,
           platformAmount,
+          partnerAmount,
           success: true,
         });
 
@@ -565,6 +689,7 @@ serve(async (req) => {
             claimedSol,
             recipientAmount,
             platformAmount,
+            partnerAmount,
             success: false,
             error: `DB error: ${apiDistError.message}`,
           });
@@ -602,6 +727,7 @@ serve(async (req) => {
           claimedSol,
           recipientAmount,
           platformAmount,
+          partnerAmount,
           success: true,
         });
 
@@ -642,6 +768,7 @@ serve(async (req) => {
           claimedSol,
           recipientAmount,
           platformAmount,
+          partnerAmount,
           success: false,
           error: `DB error: ${distError.message}`,
         });
@@ -724,6 +851,7 @@ serve(async (req) => {
           claimedSol,
           recipientAmount,
           platformAmount,
+          partnerAmount,
           success: true,
           signature: txSignature,
         });
@@ -742,6 +870,7 @@ serve(async (req) => {
           claimedSol,
           recipientAmount,
           platformAmount,
+          partnerAmount,
           success: false,
           error: txError || "Transaction failed after retries",
         });
@@ -791,12 +920,28 @@ serve(async (req) => {
 
         // Pump.fun tokens use 80/20 split (creator/platform)
         const creatorAmount = claimedSol * 0.8;
-        const platformAmount = claimedSol * 0.2;
+        let platformAmount = claimedSol * 0.2;
+        let partnerAmount = 0;
+        
+        // Partner split from platform share
+        if (isPartnerSplitActive()) {
+          partnerAmount = platformAmount * 0.5;
+          platformAmount = platformAmount * 0.5;
+        }
+        
         const recipientWallet = token.deployer_wallet || token.creator_wallet;
 
         if (!recipientWallet) {
           console.warn(`[fun-distribute] Skipping pumpfun claim ${claim.id}: no recipient wallet`);
           continue;
+        }
+
+        // Send partner fee if applicable
+        if (partnerAmount > 0) {
+          const partnerResult = await sendPartnerFee(connection, treasuryKeypair, supabase, token, partnerAmount, 'pumpfun', 'creator');
+          if (partnerResult.success) {
+            totalPartnerDistributed += partnerAmount;
+          }
         }
 
         // Skip if below minimum
@@ -870,6 +1015,7 @@ serve(async (req) => {
             claimedSol,
             recipientAmount: creatorAmount,
             platformAmount,
+            partnerAmount,
             success: true,
             signature: txSignature,
           });
@@ -882,6 +1028,7 @@ serve(async (req) => {
             claimedSol,
             recipientAmount: creatorAmount,
             platformAmount,
+            partnerAmount,
             success: false,
             error: "Transaction failed after retries",
           });
@@ -893,7 +1040,7 @@ serve(async (req) => {
     console.log(`[fun-distribute] Pump.fun: ${pumpfunSuccessCount} distributed, ${pumpfunDistributed.toFixed(6)} SOL`);
 
     const duration = Date.now() - startTime;
-    console.log(`[fun-distribute] ✅ Complete: ${successCount} successful (${apiFeesRecorded} API fees recorded, ${pumpfunSuccessCount} pumpfun), ${failureCount} failed, ${totalDistributed.toFixed(4)} SOL distributed in ${duration}ms`);
+    console.log(`[fun-distribute] ✅ Complete: ${successCount} successful (${apiFeesRecorded} API fees recorded, ${pumpfunSuccessCount} pumpfun), ${failureCount} failed, ${totalDistributed.toFixed(4)} SOL distributed, ${totalPartnerDistributed.toFixed(4)} SOL to partner in ${duration}ms`);
 
     return new Response(
       JSON.stringify({
@@ -904,6 +1051,8 @@ serve(async (req) => {
         apiFeesRecorded,
         pumpfunDistributed: pumpfunSuccessCount,
         totalDistributedSol: totalDistributed,
+        totalPartnerDistributedSol: totalPartnerDistributed,
+        partnerSplitActive: isPartnerSplitActive(),
         durationMs: duration,
         results,
       }),

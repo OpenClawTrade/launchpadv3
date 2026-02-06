@@ -2824,6 +2824,53 @@ export type Database = {
           },
         ]
       }
+      partner_fee_distributions: {
+        Row: {
+          amount_sol: number
+          created_at: string | null
+          fee_mode: string | null
+          fun_token_id: string | null
+          id: string
+          launchpad_type: string | null
+          signature: string | null
+          status: string | null
+          token_name: string | null
+          token_ticker: string | null
+        }
+        Insert: {
+          amount_sol?: number
+          created_at?: string | null
+          fee_mode?: string | null
+          fun_token_id?: string | null
+          id?: string
+          launchpad_type?: string | null
+          signature?: string | null
+          status?: string | null
+          token_name?: string | null
+          token_ticker?: string | null
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string | null
+          fee_mode?: string | null
+          fun_token_id?: string | null
+          id?: string
+          launchpad_type?: string | null
+          signature?: string | null
+          status?: string | null
+          token_name?: string | null
+          token_ticker?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_fee_distributions_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_token_metadata: {
         Row: {
           created_at: string
