@@ -1,126 +1,101 @@
 
-# Fix: Fee Claims Not Processing for New Tokens (CRUST Issue)
+
+# Fix: King of the Hill Showing Stale Data (Mars vs Crusty Issue)
 
 ## Problem Summary
 
-CRUST and other newly launched tokens are not having their fees claimed despite having significant trading volume (3% bonding progress means ~2.6 SOL in trades).
+**Mars Ruled** (created Jan 31) appears as #1 in King of the Hill with 5.21% bonding progress, but this data is **stale** (last updated 8+ hours ago). **Crusty** (created today) shows 1.76% with fresh data, but the user reports Crusty actually has higher real activity.
 
-### Root Cause Analysis
+### Root Cause
 
-**Two interconnected issues discovered:**
+The `fun-pool-cache` edge function only updates the **50 newest tokens** (ordered by `created_at DESC`). Older tokens like Mars Ruled fall outside this window and stop receiving on-chain data updates, causing their `bonding_progress` values to become frozen at whatever level they reached when still being tracked.
 
-1. **Token Ordering Bug (Immediate Problem)**
-   - The `fun-claim-fees` job processes only the **top 100 tokens** ordered by `volume_24h_sol DESC`
-   - There are **271 active tokens** but only 100 get processed per run
-   - CRUST is **ranked #271** (dead last) because all tokens have `volume_24h_sol = 0`
-   - When all values are 0, PostgreSQL uses internal row order (oldest tokens first)
-
-2. **Volume Not Being Tracked (Underlying Cause)**
-   - The `volume_24h_sol` column in `fun_tokens` is **never updated**
-   - Swap execution only updates the legacy `tokens` table via `backend_update_token_state`
-   - The `fun_tokens` table has no corresponding volume update logic
+| Token | Created | Last Updated | Progress | Problem |
+|-------|---------|--------------|----------|---------|
+| Mars Ruled | Jan 31 | 8+ hours ago | 5.21% | STALE - not in top 50 newest |
+| Crusty | Feb 6 | 15 min ago | 1.76% | Fresh but lower due to comparison with stale data |
 
 ---
 
 ## Solution
 
-### Fix 1: Immediate — Update Ordering Logic (Priority)
+Update `fun-pool-cache` to prioritize **top tokens by bonding progress** alongside newest tokens. This ensures King of the Hill candidates always have fresh data.
 
-Change the claim job to prioritize by `bonding_progress` instead of broken `volume_24h_sol`:
+### File to Modify
 
-```text
-File: supabase/functions/fun-claim-fees/index.ts
+`supabase/functions/fun-pool-cache/index.ts`
 
-Change line 36:
-FROM: .order("volume_24h_sol", { ascending: false, nullsFirst: false })
-TO:   .order("bonding_progress", { ascending: false, nullsFirst: false })
-```
+### Changes (Lines 196-201)
 
-**Rationale:** 
-- `bonding_progress` directly reflects trading activity (it increases with each trade)
-- CRUST would immediately jump from #271 to #2 in priority
-- No schema changes required
-
-### Fix 2: Add Secondary Ordering by Age
-
-For tokens with equal progress, prioritize newest first:
-
+**Current Logic (Broken):**
 ```typescript
-.order("bonding_progress", { ascending: false, nullsFirst: false })
-.order("created_at", { ascending: false })
+const { data: tokens, error } = await supabase
+  .from('fun_tokens')
+  .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago')
+  .eq('status', 'active')
+  .order('created_at', { ascending: false })
+  .limit(50); // Only newest 50 - older leaders get stale!
 ```
 
-This ensures:
-- Active tokens (high progress) processed first
-- Among tokens with similar activity, newest get attention
-- Old inactive tokens don't clog the queue
+**Fixed Logic:**
+```typescript
+// Fetch top 30 by bonding progress (ensures KOTH accuracy)
+const { data: topProgressTokens, error: topError } = await supabase
+  .from('fun_tokens')
+  .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago')
+  .eq('status', 'active')
+  .order('bonding_progress', { ascending: false })
+  .limit(30);
 
-### Fix 3: Future Enhancement — Track Volume Properly (Optional)
+// Fetch newest 30 tokens (ensures new launches get updates)
+const { data: newestTokens, error: newestError } = await supabase
+  .from('fun_tokens')
+  .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago')
+  .eq('status', 'active')
+  .order('created_at', { ascending: false })
+  .limit(30);
 
-Create a database trigger or update the swap logic to populate `volume_24h_sol`:
+if (topError || newestError) {
+  console.error('[fun-pool-cache] Error fetching tokens:', topError || newestError);
+  return new Response(JSON.stringify({ error: 'Failed to fetch tokens' }), {
+    status: 500,
+    headers: corsHeaders,
+  });
+}
 
-```sql
--- Option A: Create update function for fun_tokens
-CREATE OR REPLACE FUNCTION backend_update_fun_token_volume(
-  p_token_id UUID,
-  p_volume_sol NUMERIC
-) RETURNS VOID AS $$
-BEGIN
-  UPDATE fun_tokens 
-  SET volume_24h_sol = COALESCE(volume_24h_sol, 0) + p_volume_sol,
-      updated_at = NOW()
-  WHERE id = p_token_id;
-END;
-$$ LANGUAGE plpgsql;
+// Deduplicate and merge (max ~60 unique tokens, often overlapping)
+const tokensMap = new Map<string, typeof topProgressTokens[0]>();
+for (const t of [...(topProgressTokens || []), ...(newestTokens || [])]) {
+  tokensMap.set(t.id, t);
+}
+const tokens = Array.from(tokensMap.values());
 ```
-
-*This is optional since Fix 1 solves the immediate problem.*
 
 ---
 
-## Implementation Steps
+## What This Fixes
 
-1. **Update `fun-claim-fees/index.ts`** — Change ordering from `volume_24h_sol` to `bonding_progress`
-2. **Deploy edge function** — Automatic on next build
-3. **Verify** — Monitor logs to confirm CRUST and other active tokens are now processed
+| Before | After |
+|--------|-------|
+| Only newest 50 tokens updated | Top 30 by progress + newest 30 updated |
+| Mars Ruled data frozen 8+ hours | Mars Ruled gets fresh on-chain data |
+| KOTH shows stale rankings | KOTH reflects real activity |
+| Old leaders never corrected | Leaders always have current data |
 
 ---
 
 ## Expected Outcome
 
-| Before | After |
-|--------|-------|
-| CRUST ranked #271, never processed | CRUST ranked #2, processed immediately |
-| Active tokens may be skipped | Active tokens prioritized by actual trading |
-| 0 claims on new tokens | Claims start accumulating |
+After deployment:
+1. Next cron run will fetch Mars Ruled's actual on-chain bonding progress
+2. If Mars has less real activity than Crusty, their positions will swap
+3. King of the Hill will always show tokens with fresh, accurate data
 
 ---
 
-## Technical Details
+## Technical Notes
 
-### Current Query (Broken)
-```typescript
-const { data: funTokens } = await supabase
-  .from("fun_tokens")
-  .select("*")
-  .eq("status", "active")
-  .eq("chain", "solana")
-  .not("dbc_pool_address", "is", null)
-  .order("volume_24h_sol", { ascending: false, nullsFirst: false }) // Always 0!
-  .limit(100);
-```
+- Total tokens processed stays ~50-60 (overlap between sets reduces duplicates)
+- No additional RPC load since we're reshuffling existing limit, not increasing it
+- Immediate fix - no database migration needed
 
-### Fixed Query
-```typescript
-const { data: funTokens } = await supabase
-  .from("fun_tokens")
-  .select("*")
-  .eq("status", "active")
-  .eq("chain", "solana")
-  .not("dbc_pool_address", "is", null)
-  .order("bonding_progress", { ascending: false, nullsFirst: false })
-  .order("created_at", { ascending: false })
-  .limit(100);
-```
-
-This single-line change fixes the immediate problem by ensuring tokens with actual trading activity (reflected in their bonding progress) are prioritized for fee claiming.
