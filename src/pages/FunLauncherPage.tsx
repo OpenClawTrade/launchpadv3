@@ -330,7 +330,7 @@ export default function FunLauncherPage() {
             totalTokens={agentStats?.totalTokensLaunched ?? totalCount}
             totalAgents={agentStats?.totalAgents ?? 0}
             totalClaimed={totalClaimed}
-            totalPayouts={totalPayouts}
+            totalAgentPosts={agentStats?.totalAgentPosts ?? 0}
             totalAgentPayouts={agentStats?.totalAgentPayouts ?? 0}
             solPrice={solPrice}
           />
