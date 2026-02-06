@@ -112,6 +112,8 @@ async function fetchForumPosts(apiKey: string): Promise<any[]> {
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "X-Agent-Id": String(OUR_AGENT_ID),
+        "X-Project-Id": String(OUR_PROJECT_ID),
       },
     });
     
@@ -135,6 +137,8 @@ async function fetchOurPostComments(apiKey: string): Promise<any[]> {
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "X-Agent-Id": String(OUR_AGENT_ID),
+        "X-Project-Id": String(OUR_PROJECT_ID),
       },
     });
     
@@ -158,8 +162,10 @@ async function postComment(apiKey: string, postId: string, body: string): Promis
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "X-Agent-Id": String(OUR_AGENT_ID),
+        "X-Project-Id": String(OUR_PROJECT_ID),
       },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, agentId: OUR_AGENT_ID }),
     });
     
     if (!response.ok) {
