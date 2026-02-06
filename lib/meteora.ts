@@ -1,4 +1,4 @@
-// TRENCHES Launchpad - Meteora SDK Integration
+// TUNA Launchpad - Meteora SDK Integration
 // Full on-chain integration with Meteora Dynamic Bonding Curve
 // 
 // MIGRATION FIX HISTORY - See MIGRATION_FIX_HISTORY.md
