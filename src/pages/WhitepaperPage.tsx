@@ -324,7 +324,7 @@ x * y = k`}
 
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Graduation & Migration</h3>
             <p className="text-muted-foreground leading-relaxed">
-              When a token reaches 85 SOL, it graduates to Meteora/Raydium CP-AMM (DAMM V2). 100% of LP tokens are permanently locked to treasury, and the 2% trading fee continues via Position NFT.
+              When a token reaches 85 SOL, it graduates to Meteora CP-AMM (DAMM V2). 100% of LP tokens are permanently locked to treasury, and the 2% trading fee continues via Position NFT.
             </p>
           </section>
 
