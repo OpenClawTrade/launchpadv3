@@ -11,6 +11,7 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
+import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
 
 const GRADUATION_THRESHOLD = 85;
 
@@ -37,6 +38,7 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
   const isHolderRewards = token.fee_mode === 'holders';
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
+  const isPhantom = token.launchpad_type === 'phantom' || (token.creator_wallet && !token.agent_id && token.launchpad_type !== 'pumpfun' && token.launchpad_type !== 'bags');
   const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
   
   const tradeUrl = (isPumpFun || isBags || isTradingAgent)
@@ -127,6 +129,13 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
               <BagsBadge 
                 mintAddress={token.mint_address ?? undefined} 
                 showText={false}
+              />
+            )}
+            {isPhantom && !isPumpFun && !isBags && (
+              <PhantomBadge 
+                mintAddress={token.mint_address ?? undefined} 
+                showText={false}
+                size="sm"
               />
             )}
           </h3>

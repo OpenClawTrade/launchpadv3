@@ -27,6 +27,7 @@ export interface KingToken {
   launchpad_type?: string | null;
   trading_agent_id?: string | null;
   is_trading_agent_token?: boolean;
+  creator_wallet?: string | null;
   created_at: string;
 }
 
@@ -41,7 +42,8 @@ async function fetchKingOfTheHill(): Promise<KingToken[]> {
   const selectFields = `
     id, name, ticker, image_url, mint_address, dbc_pool_address, status,
     bonding_progress, market_cap_sol, holder_count, trading_fee_bps, fee_mode,
-    agent_id, launchpad_type, trading_agent_id, is_trading_agent_token, created_at
+    agent_id, launchpad_type, trading_agent_id, is_trading_agent_token, created_at,
+    creator_wallet
   `;
 
   // Fetch top 3 by bonding progress
