@@ -937,8 +937,13 @@ export type Database = {
           comment_body: string | null
           comment_id: string | null
           created_at: string | null
-          engagement_type: string | null
+          engagement_type: string
+          error_message: string | null
+          http_status: number | null
           id: string
+          parent_post_id: string | null
+          response_body: string | null
+          status: string
           target_post_id: string
           target_project_name: string | null
           target_project_slug: string | null
@@ -947,8 +952,13 @@ export type Database = {
           comment_body?: string | null
           comment_id?: string | null
           created_at?: string | null
-          engagement_type?: string | null
+          engagement_type?: string
+          error_message?: string | null
+          http_status?: number | null
           id?: string
+          parent_post_id?: string | null
+          response_body?: string | null
+          status?: string
           target_post_id: string
           target_project_name?: string | null
           target_project_slug?: string | null
@@ -957,8 +967,13 @@ export type Database = {
           comment_body?: string | null
           comment_id?: string | null
           created_at?: string | null
-          engagement_type?: string | null
+          engagement_type?: string
+          error_message?: string | null
+          http_status?: number | null
           id?: string
+          parent_post_id?: string | null
+          response_body?: string | null
+          status?: string
           target_post_id?: string
           target_project_name?: string | null
           target_project_slug?: string | null

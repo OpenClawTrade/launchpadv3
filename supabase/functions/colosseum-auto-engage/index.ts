@@ -70,7 +70,6 @@ function getRandomElement<T>(arr: T[]): T {
 }
 
 function generateCommentForProject(project: { name: string; description: string; tags: string[] }): string {
-  // Determine category based on tags
   const tags = project.tags?.map(t => t.toLowerCase()) || [];
   
   if (tags.includes("trading") || tags.includes("dex")) {
@@ -89,14 +88,12 @@ function generateCommentForProject(project: { name: string; description: string;
 function generateSafeResponse(question: string): string | null {
   const lowerQuestion = question.toLowerCase();
   
-  // Check if question touches sensitive topics - don't respond
   for (const topic of SENSITIVE_TOPICS) {
     if (lowerQuestion.includes(topic)) {
-      return null; // Skip sensitive questions
+      return null;
     }
   }
   
-  // Categorize and respond
   if (lowerQuestion.includes("how") || lowerQuestion.includes("technical") || lowerQuestion.includes("architecture")) {
     return getRandomElement(SAFE_RESPONSES.technical);
   } else if (lowerQuestion.includes("stats") || lowerQuestion.includes("metrics") || lowerQuestion.includes("numbers")) {
@@ -104,6 +101,14 @@ function generateSafeResponse(question: string): string | null {
   }
   
   return getRandomElement(SAFE_RESPONSES.general);
+}
+
+interface PostResult {
+  success: boolean;
+  commentId?: string;
+  httpStatus?: number;
+  errorMessage?: string;
+  responseBody?: string;
 }
 
 async function fetchForumPosts(apiKey: string): Promise<any[]> {
@@ -118,7 +123,8 @@ async function fetchForumPosts(apiKey: string): Promise<any[]> {
     });
     
     if (!response.ok) {
-      console.error("[colosseum-auto-engage] Failed to fetch posts:", response.status);
+      const errorText = await response.text();
+      console.error(`[colosseum-auto-engage] Failed to fetch posts: ${response.status} - ${errorText}`);
       return [];
     }
     
@@ -132,7 +138,6 @@ async function fetchForumPosts(apiKey: string): Promise<any[]> {
 
 async function fetchOurPostComments(apiKey: string): Promise<any[]> {
   try {
-    // Fetch comments on our project's forum post
     const response = await fetch(`${COLOSSEUM_API_BASE}/forum/posts/${OUR_PROJECT_ID}/comments`, {
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -143,7 +148,8 @@ async function fetchOurPostComments(apiKey: string): Promise<any[]> {
     });
     
     if (!response.ok) {
-      console.error("[colosseum-auto-engage] Failed to fetch our comments:", response.status);
+      const errorText = await response.text();
+      console.error(`[colosseum-auto-engage] Failed to fetch our comments: ${response.status} - ${errorText}`);
       return [];
     }
     
@@ -155,7 +161,7 @@ async function fetchOurPostComments(apiKey: string): Promise<any[]> {
   }
 }
 
-async function postComment(apiKey: string, postId: string, body: string): Promise<{ success: boolean; commentId?: string }> {
+async function postComment(apiKey: string, postId: string, body: string): Promise<PostResult> {
   try {
     const response = await fetch(`${COLOSSEUM_API_BASE}/forum/posts/${postId}/comments`, {
       method: "POST",
@@ -168,17 +174,60 @@ async function postComment(apiKey: string, postId: string, body: string): Promis
       body: JSON.stringify({ body, agentId: OUR_AGENT_ID }),
     });
     
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("[colosseum-auto-engage] Failed to post comment:", error);
-      return { success: false };
+    const responseText = await response.text();
+    let responseData: any = null;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      // not JSON
     }
     
-    const data = await response.json();
-    return { success: true, commentId: data.comment?.id };
+    if (!response.ok) {
+      console.error(`[colosseum-auto-engage] Failed to post comment: ${response.status} - ${responseText}`);
+      return { 
+        success: false, 
+        httpStatus: response.status,
+        errorMessage: responseData?.error || responseText,
+        responseBody: responseText,
+      };
+    }
+    
+    console.log(`[colosseum-auto-engage] Successfully posted comment to post ${postId}`);
+    return { 
+      success: true, 
+      commentId: responseData?.comment?.id || responseData?.id,
+      httpStatus: response.status,
+      responseBody: responseText,
+    };
   } catch (error) {
     console.error("[colosseum-auto-engage] Error posting comment:", error);
-    return { success: false };
+    return { 
+      success: false, 
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+async function logEngagement(
+  supabase: any,
+  data: {
+    target_post_id: string;
+    target_project_name: string;
+    target_project_slug?: string;
+    comment_body: string;
+    comment_id?: string;
+    engagement_type: string;
+    status: string;
+    error_message?: string;
+    http_status?: number;
+    response_body?: string;
+  }
+) {
+  try {
+    await supabase.from("colosseum_engagement_log").insert(data);
+  } catch (err) {
+    // If unique constraint violation, it's a duplicate - that's OK
+    console.log(`[colosseum-auto-engage] Log insert result: ${err}`);
   }
 }
 
@@ -203,18 +252,22 @@ Deno.serve(async (req) => {
       commentsPosted: 0,
       repliesPosted: 0,
       skipped: 0,
+      rateLimited: false,
+      eligiblePosts: 0,
+      totalPosts: 0,
       errors: [] as string[],
     };
     
-    // 1. Comment on other projects' forum posts
+    // ====== COMMENT ON OTHER PROJECTS (1 per run max) ======
     if (action === "engage" || action === "comment") {
       const posts = await fetchForumPosts(COLOSSEUM_API_KEY);
+      results.totalPosts = posts.length;
       console.log(`[colosseum-auto-engage] Found ${posts.length} forum posts`);
       
-      // Get already engaged posts
+      // Get already engaged posts (both success and failed attempts)
       const { data: engaged } = await supabase
         .from("colosseum_engagement_log")
-        .select("target_post_id")
+        .select("target_post_id, status")
         .eq("engagement_type", "comment");
       
       const engagedPostIds = new Set((engaged || []).map(e => e.target_post_id));
@@ -222,46 +275,58 @@ Deno.serve(async (req) => {
       // Filter out our own posts and already engaged posts
       const eligiblePosts = posts.filter((post: any) => 
         post.projectId !== OUR_PROJECT_ID &&
+        post.id !== OUR_PROJECT_ID &&
         !engagedPostIds.has(String(post.id))
       );
       
+      results.eligiblePosts = eligiblePosts.length;
       console.log(`[colosseum-auto-engage] ${eligiblePosts.length} eligible posts to engage`);
       
-      // Engage with ALL eligible posts (no limit for 5-min cron)
-      const postsToEngage = eligiblePosts;
-      
-      for (const post of postsToEngage) {
+      // *** RATE LIMIT: Only post 1 comment per 5-minute cron run ***
+      if (eligiblePosts.length > 0) {
+        const post = eligiblePosts[0]; // Take the first eligible post
+        const projectName = post.projectName || post.title || `Post ${post.id}`;
+        
         const comment = generateCommentForProject({
-          name: post.projectName || post.title,
+          name: projectName,
           description: post.body || "",
           tags: post.tags || [],
         });
         
+        console.log(`[colosseum-auto-engage] Attempting to comment on: ${projectName} (ID: ${post.id})`);
+        
         const result = await postComment(COLOSSEUM_API_KEY, String(post.id), comment);
         
-        if (result.success) {
-          // Log engagement to prevent duplicates
-          await supabase.from("colosseum_engagement_log").insert({
-            target_post_id: String(post.id),
-            target_project_name: post.projectName || post.title,
-            target_project_slug: post.slug,
-            comment_body: comment,
-            comment_id: result.commentId,
-            engagement_type: "comment",
-          });
-          
-          results.commentsPosted++;
-          console.log(`[colosseum-auto-engage] Commented on: ${post.projectName || post.title}`);
-        } else {
-          results.errors.push(`Failed to comment on ${post.projectName}`);
-        }
+        // Log every attempt (success or failure)
+        await logEngagement(supabase, {
+          target_post_id: String(post.id),
+          target_project_name: projectName,
+          target_project_slug: post.slug,
+          comment_body: comment,
+          comment_id: result.commentId,
+          engagement_type: "comment",
+          status: result.success ? "success" : "failed",
+          error_message: result.errorMessage,
+          http_status: result.httpStatus,
+          response_body: result.responseBody?.slice(0, 500),
+        });
         
-        // Rate limit: wait 2 seconds between comments
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        if (result.success) {
+          results.commentsPosted = 1;
+          console.log(`[colosseum-auto-engage] ✅ Successfully commented on: ${projectName}`);
+        } else {
+          if (result.errorMessage?.includes("rate limit")) {
+            results.rateLimited = true;
+          }
+          results.errors.push(`Failed: ${projectName} - ${result.errorMessage}`);
+          console.log(`[colosseum-auto-engage] ❌ Failed to comment on: ${projectName} - ${result.errorMessage}`);
+        }
+      } else {
+        console.log(`[colosseum-auto-engage] No eligible posts to engage with`);
       }
     }
     
-    // 2. Reply to questions on our own post
+    // ====== REPLY TO QUESTIONS ON OUR POST (1 per run max) ======
     if (action === "engage" || action === "reply") {
       const comments = await fetchOurPostComments(COLOSSEUM_API_KEY);
       console.log(`[colosseum-auto-engage] Found ${comments.length} comments on our post`);
@@ -277,56 +342,69 @@ Deno.serve(async (req) => {
       // Filter comments that look like questions and haven't been replied
       const questions = comments.filter((c: any) => 
         !repliedCommentIds.has(String(c.id)) &&
-        c.agentId !== OUR_AGENT_ID && // Not our own comment
+        c.agentId !== OUR_AGENT_ID &&
         (c.body?.includes("?") || 
          c.body?.toLowerCase().includes("how") ||
          c.body?.toLowerCase().includes("what") ||
          c.body?.toLowerCase().includes("why"))
       );
       
-      console.log(`[colosseum-auto-engage] ${questions.length} questions to reply to`);
+      console.log(`[colosseum-auto-engage] ${questions.length} questions to potentially reply to`);
       
-      for (const question of questions.slice(0, 3)) { // Limit to 3 replies per run
+      // *** RATE LIMIT: Only reply to 1 question per run ***
+      if (questions.length > 0) {
+        const question = questions[0];
         const response = generateSafeResponse(question.body);
         
         if (response) {
-          // Reply to the comment (using same comment endpoint with parent)
-          const result = await postComment(COLOSSEUM_API_KEY, String(OUR_PROJECT_ID), 
-            `@${question.authorName || 'there'} ${response}`
-          );
+          const replyBody = `@${question.authorName || 'there'} ${response}`;
+          console.log(`[colosseum-auto-engage] Attempting to reply to question: ${question.body?.slice(0, 50)}...`);
+          
+          const result = await postComment(COLOSSEUM_API_KEY, String(OUR_PROJECT_ID), replyBody);
+          
+          await logEngagement(supabase, {
+            target_post_id: String(question.id),
+            target_project_name: "TUNA (self)",
+            comment_body: replyBody,
+            comment_id: result.commentId,
+            engagement_type: "reply",
+            status: result.success ? "success" : "failed",
+            error_message: result.errorMessage,
+            http_status: result.httpStatus,
+            response_body: result.responseBody?.slice(0, 500),
+          });
           
           if (result.success) {
-            await supabase.from("colosseum_engagement_log").insert({
-              target_post_id: String(question.id),
-              target_project_name: "TUNA (self)",
-              comment_body: response,
-              comment_id: result.commentId,
-              engagement_type: "reply",
-            });
-            
-            results.repliesPosted++;
+            results.repliesPosted = 1;
+            console.log(`[colosseum-auto-engage] ✅ Successfully replied to question`);
+          } else {
+            if (result.errorMessage?.includes("rate limit")) {
+              results.rateLimited = true;
+            }
+            results.errors.push(`Reply failed: ${result.errorMessage}`);
           }
         } else {
-          results.skipped++;
-          console.log(`[colosseum-auto-engage] Skipped sensitive question: ${question.body?.slice(0, 50)}...`);
+          results.skipped = 1;
+          console.log(`[colosseum-auto-engage] ⏭️ Skipped sensitive question: ${question.body?.slice(0, 50)}...`);
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     
-    // Log activity
+    // Log activity summary
     await supabase.from("colosseum_activity").insert({
       activity_type: "auto_engage",
       payload: results,
-      success: results.errors.length === 0,
+      success: results.commentsPosted > 0 || results.repliesPosted > 0,
+      error_message: results.errors.length > 0 ? results.errors.join("; ") : null,
     });
+    
+    console.log(`[colosseum-auto-engage] Run complete: ${JSON.stringify(results)}`);
     
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[colosseum-auto-engage] Error:", error);
+    console.error("[colosseum-auto-engage] Fatal error:", error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
