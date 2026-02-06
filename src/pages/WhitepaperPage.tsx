@@ -261,27 +261,39 @@ wallet: YOUR_SOLANA_WALLET (optional)
             </h2>
 
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Blockchain Infrastructure</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <tbody className="text-muted-foreground">
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-2 font-medium text-foreground">Network</td>
-                    <td className="py-2 px-2">Solana Mainnet-Beta</td>
-                  </tr>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-2 font-medium text-foreground">Token Standard</td>
-                    <td className="py-2 px-2">SPL Token with Metaplex Metadata</td>
-                  </tr>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-2 font-medium text-foreground">RPC Provider</td>
-                    <td className="py-2 px-2">Helius (paid tier)</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-2 font-medium text-foreground">Treasury</td>
-                    <td className="py-2 px-2 font-mono text-xs">FDkGeRVwRo7...hr5r</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="space-y-3 mt-4">
+              <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
+                <span className="text-muted-foreground">Network</span>
+                <div className="flex items-center gap-2">
+                  <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" className="w-5 h-5" />
+                  <span className="text-foreground font-medium">Solana Mainnet-Beta</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
+                <span className="text-muted-foreground">Token Standard</span>
+                <div className="flex items-center gap-2">
+                  <img src="https://avatars.githubusercontent.com/u/84874526" alt="Metaplex" className="w-5 h-5 rounded" />
+                  <span className="text-foreground font-medium">SPL Token + Metaplex</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
+                <span className="text-muted-foreground">RPC Provider</span>
+                <div className="flex items-center gap-2">
+                  <img src="https://assets.helius.dev/helius-rpc-logo.png" alt="Helius" className="w-5 h-5 rounded" />
+                  <span className="text-foreground font-medium">Helius</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
+                <span className="text-muted-foreground">DEX</span>
+                <div className="flex items-center gap-2">
+                  <img src="https://app.meteora.ag/favicon.ico" alt="Meteora" className="w-5 h-5 rounded" />
+                  <span className="text-foreground font-medium">Meteora DBC</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-card/30 rounded-lg">
+                <span className="text-muted-foreground">Treasury</span>
+                <span className="text-foreground font-mono text-xs">FDkGeRVwRo7...hr5r</span>
+              </div>
             </div>
 
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Bonding Curve (Meteora DBC)</h3>
