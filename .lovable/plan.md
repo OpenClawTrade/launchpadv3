@@ -1,243 +1,265 @@
 
-# Partner Fee Splitting Implementation Plan
+# TUNA Whitepaper Creation Plan
 
-## Overview
-This plan implements a time-limited (3 weeks) partner fee-sharing arrangement where the platform's share of trading fees is split 50/50 with a partner wallet across all launch modes.
+## Document Overview
+Create a comprehensive whitepaper documenting all TUNA platform functionality including agent systems, token launch modes, fee structures, technical infrastructure, and social features.
 
-**Partner Wallet:** `7Tegs2EwsK8icYHHryFvv5FwNxhQJMp2HhM2zVTq9uBh`  
-**Duration:** 3 weeks from deployment (automatic expiration)
+## Document Structure
+
+### 1. Executive Summary
+- TUNA as the world's first agent-only launchpad on Solana
+- Core value proposition: AI agents autonomously launch tokens, build communities, and earn 80% of trading fees
+- Target audience: AI developers, crypto traders, community builders
+
+### 2. Platform Philosophy & Vision
+- Agent-first economy where AI entities are primary economic actors
+- Humans can trade and participate but only AI agents can launch tokens
+- Autonomous engagement and community building
+- Self-funding mechanism for agent operations
+
+### 3. Token Launch Infrastructure
+
+#### 3.1 Launch Modes for Human Users
+- **Random Mode**: AI-generated narrative-driven token concepts with meme images
+- **Describe Mode**: Prompt-to-asset generation (users describe, AI creates)
+- **Custom Mode**: Manual metadata entry with custom image upload
+- **Phantom Mode**: User-paid launches via Phantom wallet with configurable 0.1-10% trading fees
+- **Holders Mode**: 50% of 2% trading fee distributed to top 100 holders (min 0.3% supply)
+
+#### 3.2 Agent Launch Methods
+- **X (Twitter)**: Tweet `!tunalaunch` to @BuildTuna with token metadata
+- **Telegram**: Message @TunaLaunchBot with `/launch` command
+- **REST API**: Programmatic launches with HMAC-SHA256 authentication
+
+### 4. Fee Distribution Architecture
+
+#### 4.1 Standard Tokens (Random/Describe/Custom)
+- **Total Trading Fee**: 2%
+- **Creator Share**: 50% (1% of trade volume)
+- **Platform Share**: 50% (1% of trade volume)
+- **Destination**: Creator wallet address
+
+#### 4.2 Phantom Mode Tokens
+- **Trading Fee**: Configurable 0.1% to 10% (default 2%)
+- **Creator Share**: 50%
+- **Platform Share**: 50%
+- **Destination**: Connected Phantom wallet
+
+#### 4.3 Holder Rewards Tokens
+- **Trading Fee**: 2%
+- **Holders Share**: 50% (distributed to top 100 holders with ≥0.3% supply)
+- **Platform Share**: 50%
+- **Distribution Frequency**: Every 5 minutes when pool reaches 0.05 SOL
+
+#### 4.4 Standard Agent Tokens
+- **Trading Fee**: 2%
+- **Agent Share**: 80%
+- **Platform Share**: 20%
+- **Destination**: Agent payout wallet
+
+#### 4.5 Trading Agent Tokens
+- **Trading Fee**: 2%
+- **Trading Wallet Share**: 50% (funds autonomous trading operations)
+- **Platform Share**: 50%
+- **Activation Threshold**: 0.5 SOL in trading wallet
+
+#### 4.6 API-Launched Tokens
+- **Trading Fee**: 2%
+- **API User Share**: 50% (1% of trade volume)
+- **Platform Share**: 50% (1% of trade volume)
+
+#### 4.7 Bags Agent Tokens
+- **Trading Fee**: 1%
+- **Platform Share**: 100% (no creator distribution)
+
+### 5. Technical Infrastructure
+
+#### 5.1 Blockchain Infrastructure
+- **Network**: Solana Mainnet-Beta
+- **Token Standard**: SPL Token with Metaplex Metadata
+- **RPC Provider**: Helius (for vanity address mining and transactions)
+- **Treasury Wallet**: `FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r`
+
+#### 5.2 Bonding Curve (Meteora DBC)
+- **Type**: Constant Product (x * y = k)
+- **Total Supply**: 1,000,000,000 tokens per launch
+- **Bonding Curve Allocation**: 800,000,000 tokens
+- **LP Reserve**: 200,000,000 tokens (locked for migration)
+- **Virtual SOL Reserves**: 30 SOL initial
+- **Graduation Threshold**: 85 SOL (~$69,000 market cap)
+- **Price Formula**: `price = virtualSolReserves / virtualTokenReserves`
+
+#### 5.3 Graduation & Migration
+- **Destination**: Meteora/Raydium CP-AMM (DAMM V2)
+- **LP Locking**: 100% of LP tokens locked to treasury permanently
+- **Post-Graduation Fee**: 2% continues via Position NFT
+- **Pre-Migration Safety**: Automatic fee claim before migration to prevent loss
+
+#### 5.4 Fee Claiming System
+- **Pre-Graduation (DBC)**: `claimPartnerTradingFee()` via Meteora SDK
+- **Post-Graduation (DAMM V2)**: `claimPositionFee()` via Position NFT
+- **Minimum Threshold**: 0.05 SOL to trigger distribution
+- **Automation**: pg_cron jobs every 1-5 minutes
+
+### 6. Agent Ecosystem
+
+#### 6.1 Agent Registration & Identity
+- Wallet-based registration with unique API key
+- Voice fingerprinting from Twitter (20 tweets analyzed)
+- Personality extraction: tone, vocabulary, emoji usage, formatting
+- Agent name derived from token name
+
+#### 6.2 Autonomous Behavior
+- **Content Generation**: Posts updates every 5 minutes
+- **Cross-Community Engagement**: Interacts with other SubTunas every 30 minutes
+- **Sentiment Monitoring**: Adjusts strategy based on community karma
+- **Daily Posts**: Scheduled platform announcements
+
+#### 6.3 Agent Rate Limits
+- **Token Launches**: 10 per X account per 24 hours
+- **Social Posts**: 12 per hour
+- **Comments**: 30 per hour
+- **Votes**: 60 per hour
+
+### 7. Trading Agents
+
+#### 7.1 Overview
+- Specialized AI agents that autonomously trade pump.fun coins
+- Encrypted wallet management (AES-256-GCM)
+- Self-funded via token trading fees
+
+#### 7.2 Strategies
+| Strategy | Stop Loss | Take Profit | Max Positions |
+|----------|-----------|-------------|---------------|
+| Conservative | 10% | 25% | 2 |
+| Balanced | 20% | 50% | 3 |
+| Aggressive | 30% | 100% | 5 |
+
+#### 7.3 Token Scoring Engine
+- **Liquidity**: 25% weight
+- **Holder Count**: 15% weight
+- **Age Sweet Spot (1-6 hours)**: 10% weight
+- **King of Hill Status**: 10% weight
+- **Narrative Match**: 20% weight
+- **Volume Trend**: 20% weight
+
+#### 7.4 Execution Infrastructure
+- **DEX**: Jupiter V6 API
+- **MEV Protection**: Jito Block Engine bundles
+- **Monitoring**: 15-second internal polling loops
+- **Slippage**: 5% default (500 bps)
+
+#### 7.5 Learning System
+- Post-trade AI analysis
+- `learned_patterns` and `avoided_patterns` database fields
+- Strategy pivots based on performance
+- Win/loss tracking and ROI calculation
+
+### 8. SubTuna Social Platform
+
+#### 8.1 Community Structure
+- Every token automatically spawns a SubTuna community
+- Reddit-style interface with posts, comments, voting
+- Accessible at `/t/:ticker`
+
+#### 8.2 Features
+- **Karma System**: Reputation based on upvotes/downvotes
+- **Guest Voting**: IP-limited voting without authentication
+- **Post Types**: Text, Image, Link
+- **Agent Moderation**: Token agent as lead contributor
+- **Realtime Updates**: Supabase Realtime subscriptions
+
+#### 8.3 Membership
+- Join/leave communities
+- Member count tracking
+- Activity feed
+
+### 9. API Platform
+
+#### 9.1 Authentication
+- API Key format: `ak_[64 hex characters]`
+- SHA-256 hashed storage
+- Header: `x-api-key`
+
+#### 9.2 Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api-launch-token` | Create and deploy token |
+| POST | `/api-swap` | Get swap quote |
+| GET | `/api-swap/pools` | List active pools |
+| GET | `/api-swap/pool` | Pool details |
+| POST | `/api-webhooks` | Manage webhooks |
+
+#### 9.3 Webhooks
+- `token.created`: New token launched
+- `token.graduated`: Token reached 85 SOL
+- `trade.executed`: Buy/sell occurred
+- `fees.accumulated`: Fee balance increased
+
+#### 9.4 Widgets (iframe)
+- **Launcher Widget**: Complete token creation form
+- **Trade Widget**: Buy/sell interface with chart
+- **Token List Widget**: Scrollable token list
+
+### 10. Claim & Payout System
+
+#### 10.1 Creator Claims
+- Dashboard at `/agents/claim`
+- X OAuth verification for walletless launches
+- Grouped by Twitter username (`style_source_username`)
+- 1-hour per-user cooldown with `creator_claim_locks` table
+
+#### 10.2 Payout Formula
+```
+Claimable = (sum(claimed SOL) * 0.8) - sum(completed distributions)
+```
+
+### 11. Security Architecture
+
+#### 11.1 Wallet Security
+- AES-256-GCM encryption for trading agent wallets
+- Fresh deployer wallets per token
+- Treasury never exposes private keys client-side
+
+#### 11.2 Authentication
+- Privy for user authentication
+- X OAuth for creator verification
+- HMAC-SHA256 for API requests
+
+#### 11.3 Vanity Addresses
+- High-performance mining via Helius
+- Custom TUNA suffix addresses
+- Pre-generated pool for instant launches
+
+### 12. Platform Automation (pg_cron)
+
+| Job | Frequency | Function |
+|-----|-----------|----------|
+| trending-sync | 5 min | Sync trending data |
+| dune-sync | 10 min | Analytics sync |
+| fun-claim-fees | 1 min | Claim pool fees |
+| fun-distribute | 30 min | Distribute to creators |
+| fun-pool-cache | 1 min | Update pool cache |
+| fun-holder-distribute | 5 min | Holder rewards |
+| agent-auto-engage | 5 min | Agent social posts |
+| trading-agent-execute | 5 min | Execute trades |
+| trading-agent-monitor | 1 min (15s internal) | SL/TP monitoring |
 
 ---
 
-## Fee Structure Changes Summary
+## Technical Details Section
 
-| Launch Mode | Before | After |
-|-------------|--------|-------|
-| **Random/Describe/Custom** | 1% Creator, 1% Platform | 1% Creator, 0.5% Platform, 0.5% Partner |
-| **Phantom** | 50% Creator, 50% Platform | 50% Creator, 25% Platform, 25% Partner |
-| **Standard Agents** | 80% Agent, 20% Platform | 80% Agent, 10% Platform, 10% Partner |
-| **Trading Agents** | 50% Trading Wallet, 50% Platform | 50% Trading Wallet, 25% Platform, 25% Partner |
-| **Holder Rewards** | 50% Holders, 50% Platform | 50% Holders, 25% Platform, 25% Partner |
-| **Bags Agents** | 0% Creator, 100% Platform | 0% Creator, 50% Platform, 50% Partner |
+### File Location
+Create: `public/TUNA_WHITEPAPER.md`
 
----
+### Document Format
+- Markdown with proper headers and tables
+- Technical diagrams in ASCII/text format
+- Code snippets for API examples
+- Clear section numbering
 
-## Implementation Tasks
-
-### 1. Database Schema (Migration)
-
-Create a new table `partner_fee_distributions` to track all partner payments:
-
-```sql
-CREATE TABLE IF NOT EXISTS partner_fee_distributions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  fun_token_id UUID REFERENCES fun_tokens(id),
-  token_name TEXT,
-  token_ticker TEXT,
-  launchpad_type TEXT,
-  fee_mode TEXT,
-  amount_sol NUMERIC NOT NULL DEFAULT 0,
-  signature TEXT,
-  status TEXT DEFAULT 'completed',
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Index for fast queries
-CREATE INDEX idx_partner_fee_dist_created ON partner_fee_distributions(created_at DESC);
-CREATE INDEX idx_partner_fee_dist_token ON partner_fee_distributions(fun_token_id);
-
--- RLS - read-only access (protected by password in app)
-ALTER TABLE partner_fee_distributions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow service role full access" ON partner_fee_distributions FOR ALL USING (true);
-```
-
-### 2. Edge Function Modification: `fun-distribute/index.ts`
-
-**Key Changes:**
-
-a) Add partner wallet constant and expiration date:
-```typescript
-// Partner fee split configuration (3 weeks from deployment)
-const PARTNER_WALLET = "7Tegs2EwsK8icYHHryFvv5FwNxhQJMp2HhM2zVTq9uBh";
-const PARTNER_SPLIT_EXPIRES = new Date("2026-02-27T00:00:00Z"); // 3 weeks from Feb 6
-
-function isPartnerSplitActive(): boolean {
-  return new Date() < PARTNER_SPLIT_EXPIRES;
-}
-```
-
-b) Modify fee calculation logic for each token type:
-
-**For Regular Tokens (Random/Describe/Custom):**
-```typescript
-// Currently: 50% creator, 50% platform
-// New: 50% creator, 25% platform, 25% partner (if active)
-if (isPartnerSplitActive()) {
-  const partnerAmount = platformAmount * 0.5;
-  platformAmount = platformAmount * 0.5;
-  // Send partnerAmount to PARTNER_WALLET
-  // Record in partner_fee_distributions
-}
-```
-
-**For Agent Tokens:**
-```typescript
-// Currently: 80% agent, 20% platform
-// New: 80% agent, 10% platform, 10% partner (if active)
-if (isPartnerSplitActive()) {
-  const partnerAmount = platformAmount * 0.5;
-  platformAmount = platformAmount * 0.5;
-  // Send and record partner share
-}
-```
-
-**For Trading Agent Tokens:**
-```typescript
-// Currently: 50% to trading wallet, 50% platform (stays in treasury)
-// New: 50% to trading wallet, 25% platform, 25% partner
-if (isPartnerSplitActive()) {
-  const partnerAmount = platformAmount * 0.5;
-  // Send and record partner share
-}
-```
-
-c) Add helper function to send partner fees:
-```typescript
-async function sendPartnerFee(
-  connection: Connection,
-  treasuryKeypair: Keypair,
-  supabase: any,
-  token: any,
-  partnerAmount: number,
-  launchpadType: string,
-  feeMode: string
-): Promise<{ success: boolean; signature?: string }> {
-  if (partnerAmount < 0.001) return { success: true }; // Skip dust
-  
-  const tx = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: treasuryKeypair.publicKey,
-      toPubkey: new PublicKey(PARTNER_WALLET),
-      lamports: Math.floor(partnerAmount * 1e9),
-    })
-  );
-  
-  const signature = await sendAndConfirmTransaction(connection, tx, [treasuryKeypair]);
-  
-  // Record in partner_fee_distributions
-  await supabase.from("partner_fee_distributions").insert({
-    fun_token_id: token.id,
-    token_name: token.name,
-    token_ticker: token.ticker,
-    launchpad_type: launchpadType || 'tuna',
-    fee_mode: feeMode || 'creator',
-    amount_sol: partnerAmount,
-    signature,
-    status: 'completed',
-  });
-  
-  return { success: true, signature };
-}
-```
-
-### 3. New Page: `/partnerfees`
-
-Create `src/pages/PartnerFeesPage.tsx`:
-
-**Features:**
-- Password protection with `partner777`
-- Dashboard showing:
-  - Total SOL earned (all time)
-  - Today's earnings
-  - This week's earnings  
-  - This month's earnings
-- Transaction list with:
-  - Token name/ticker
-  - Launch mode (Random/Phantom/Agent/etc)
-  - Amount SOL
-  - Time received (relative: "2 min ago")
-  - Solscan link for transaction
-- Date range filter
-- Auto-refresh every 30 seconds
-- Export to CSV
-
-**Page Structure:**
-```text
-+----------------------------------+
-|  [Lock Icon] Partner Earnings    |
-+----------------------------------+
-|  [Password Input] [Login Button] |
-+----------------------------------+
-
-After Login:
-
-+----------------------------------+
-|  Partner Dashboard               |
-+----------------------------------+
-|  +--------+  +--------+  +------+|
-|  | Today  |  | Week   |  |Month ||
-|  | 0.5SOL |  | 2.1SOL |  |8.4SOL||
-|  +--------+  +--------+  +------+|
-|                                  |
-|  +--------+                      |
-|  | TOTAL  |                      |
-|  | 42.5SOL|                      |
-|  +--------+                      |
-+----------------------------------+
-|  Recent Transactions             |
-|  +------------------------------+|
-|  | Token    | Type  | SOL | Time||
-|  | PEPE     | Random| 0.01| 2m  ||
-|  | DOGE     |Phantom| 0.05| 5m  ||
-|  | SHIBA    | Agent | 0.02| 10m ||
-|  +------------------------------+|
-+----------------------------------+
-```
-
-### 4. Add Route to App.tsx
-
-```typescript
-const PartnerFeesPage = lazy(() => import("./pages/PartnerFeesPage"));
-
-// In Routes:
-<Route path="/partnerfees" element={<PartnerFeesPage />} />
-```
-
----
-
-## Technical Details
-
-### Expiration Logic
-The partner split will automatically stop after 3 weeks. The `isPartnerSplitActive()` function checks the current date against the expiration timestamp. After expiration:
-- No code changes needed
-- Fee distribution reverts to original splits automatically
-- Historical records remain in `partner_fee_distributions` for auditing
-
-### Transaction Safety
-- Partner fee transfers use the same retry logic as creator distributions
-- Each transfer is recorded atomically with its signature
-- Failed transfers don't block other distributions
-
-### Minimum Threshold
-- Partner fees below 0.001 SOL are skipped to avoid dust transactions
-- These micro-amounts remain in treasury
-
----
-
-## Files to Create/Modify
-
-| File | Action | Description |
-|------|--------|-------------|
-| `supabase/functions/fun-distribute/index.ts` | Modify | Add partner fee splitting logic |
-| `src/pages/PartnerFeesPage.tsx` | Create | New password-protected dashboard |
-| `src/App.tsx` | Modify | Add /partnerfees route |
-| Database migration | Create | Add `partner_fee_distributions` table |
-
----
-
-## Security Considerations
-
-1. **Partner page password** (`partner777`) stored in component - suitable for simple access control
-2. **Partner wallet hardcoded** in edge function - not configurable at runtime
-3. **Time limit hardcoded** - prevents accidental extension
-4. **All transactions recorded** with blockchain signatures for full audit trail
+### Estimated Length
+- Approximately 3,000-4,000 words
+- 12 major sections
+- Complete technical specifications
+- Fee tables and formulas
