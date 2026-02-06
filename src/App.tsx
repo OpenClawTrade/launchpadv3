@@ -8,7 +8,7 @@ import { PrivyProviderWrapper } from "@/providers/PrivyProviderWrapper";
 import { ChainProvider } from "@/contexts/ChainContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
-// EVM wallet provider removed - will be added to Base-specific routes when needed
+import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
@@ -70,6 +70,7 @@ const App = () => (
     <RuntimeConfigBootstrap />
     <PrivyProviderWrapper>
       <ChainProvider>
+        <EvmWalletProvider>
           <TooltipProvider delayDuration={300}>
             <Toaster />
             <Sonner />
@@ -118,6 +119,7 @@ const App = () => (
               </BrowserRouter>
             </ErrorBoundary>
           </TooltipProvider>
+        </EvmWalletProvider>
       </ChainProvider>
     </PrivyProviderWrapper>
   </QueryClientProvider>
