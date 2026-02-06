@@ -235,7 +235,11 @@ export default function FunTokenDetailPage() {
                 {(token as any).launchpad_type === 'pumpfun' && (
                   <PumpBadge mintAddress={token.mint_address || undefined} size="md" />
                 )}
-                {(token as any).launchpad_type === 'phantom' && (
+                {/* Phantom: explicit tag OR user-paid launch (has creator_wallet, not an agent, not pump/bags) */}
+                {((token as any).launchpad_type === 'phantom' || 
+                  (token.creator_wallet && !(token as any).agent_id && 
+                   (token as any).launchpad_type !== 'pumpfun' && 
+                   (token as any).launchpad_type !== 'bags')) && (
                   <PhantomBadge mintAddress={token.mint_address || undefined} size="md" />
                 )}
               </div>

@@ -15,6 +15,7 @@ export interface JustLaunchedToken {
   launchpad_type?: string | null;
   trading_agent_id?: string | null;
   is_trading_agent_token?: boolean;
+  creator_wallet?: string | null;
   created_at: string;
 }
 
@@ -32,7 +33,8 @@ async function fetchJustLaunched(): Promise<JustLaunchedToken[]> {
     .from("fun_tokens")
     .select(`
       id, name, ticker, image_url, mint_address, market_cap_sol,
-      agent_id, status, launchpad_type, trading_agent_id, is_trading_agent_token, created_at
+      agent_id, status, launchpad_type, trading_agent_id, is_trading_agent_token,
+      creator_wallet, created_at
     `)
     .gte("created_at", twentyFourHoursAgo)
     .order("created_at", { ascending: false })
