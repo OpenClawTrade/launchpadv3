@@ -63,11 +63,45 @@ serve(async (req) => {
       results.response = JSON.parse(responseText);
     }
 
-    // ===== ACTION: Join Community =====
+    // ===== ACTION: V2 Login (get fresh login cookie) =====
+    if (action === "login") {
+      const username = Deno.env.get("X_ACCOUNT_USERNAME");
+      const email = Deno.env.get("X_ACCOUNT_EMAIL");
+      const password = Deno.env.get("X_ACCOUNT_PASSWORD");
+      const totpSecret = Deno.env.get("X_TOTP_SECRET");
+      
+      console.log(`[test-community] Performing V2 login for ${username}...`);
+      
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({
+          user_name: username,
+          email: email,
+          password: password,
+          proxy: proxyUrl,
+          totp_secret: totpSecret,
+        }),
+      });
+
+      const responseText = await response.text();
+      console.log(`[test-community] Login response: ${response.status} - ${responseText.slice(0, 500)}`);
+      
+      results.status = response.status;
+      results.response = JSON.parse(responseText);
+    }
+
+    // ===== ACTION: Join Community (V2 endpoint) =====
     if (action === "join") {
       console.log(`[test-community] Joining community ${COMMUNITY_ID}...`);
+      console.log(`[test-community] Cookie keys: ${Object.keys(loginCookiesObj).join(', ')}`);
+      console.log(`[test-community] Has auth_token: ${!!loginCookiesObj.auth_token}`);
+      console.log(`[test-community] Has ct0: ${!!loginCookiesObj.ct0}`);
       
-      const response = await fetch(`${TWITTERAPI_BASE}/twitter/community/join`, {
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/join_community_v2`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,6 +119,33 @@ serve(async (req) => {
       
       results.status = response.status;
       results.response = JSON.parse(responseText);
+      results.cookieFormat = "base64_json";
+      results.cookieKeys = Object.keys(loginCookiesObj);
+    }
+
+    // ===== ACTION: Join Community (raw cookie format test) =====
+    if (action === "join_raw") {
+      console.log(`[test-community] Joining with raw cookie format...`);
+      
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/join_community_v2`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({
+          login_cookies: fullCookie,  // Try raw cookie string
+          community_id: COMMUNITY_ID,
+          proxy: proxyUrl,
+        }),
+      });
+
+      const responseText = await response.text();
+      console.log(`[test-community] Join raw response: ${response.status} - ${responseText.slice(0, 500)}`);
+      
+      results.status = response.status;
+      results.response = JSON.parse(responseText);
+      results.cookieFormat = "raw_string";
     }
 
     // ===== ACTION: Post to Community =====
@@ -133,6 +194,29 @@ serve(async (req) => {
       
       results.status = response.status;
       results.response = JSON.parse(responseText);
+    }
+
+    // ===== ACTION: Check if BuildTuna is a member =====
+    if (action === "check_member") {
+      console.log(`[test-community] Checking if BuildTuna is a community member...`);
+      
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/community/members?community_id=${COMMUNITY_ID}`, {
+        method: "GET",
+        headers: {
+          "X-API-Key": apiKey,
+        },
+      });
+
+      const data = await response.json();
+      const members = data.members || [];
+      const buildTuna = members.find((m: { screen_name: string }) => 
+        m.screen_name?.toLowerCase() === "buildtuna"
+      );
+      
+      results.status = response.status;
+      results.isMember = !!buildTuna;
+      results.buildTunaData = buildTuna || null;
+      results.totalMembersInPage = members.length;
     }
 
     // ===== ACTION: List all endpoints (discovery) =====
