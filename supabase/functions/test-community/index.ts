@@ -156,7 +156,7 @@ serve(async (req) => {
       console.log(`[test-community] Posting to community ${COMMUNITY_ID}...`);
       console.log(`[test-community] Tweet text: ${text}`);
       
-      // Try with community_id parameter
+      // Post to community with share_with_followers=false to prevent main wall appearance
       const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
         method: "POST",
         headers: {
@@ -167,6 +167,7 @@ serve(async (req) => {
           login_cookies: loginCookies,
           tweet_text: text,
           community_id: COMMUNITY_ID,
+          share_with_followers: false, // Prevents post from appearing on main timeline
           proxy: proxyUrl,
         }),
       });
