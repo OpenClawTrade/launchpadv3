@@ -25,12 +25,16 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all active fun tokens with valid pool addresses
+    // Get active fun tokens, ordered by recent activity (volume) first
+    // This ensures high-value tokens get processed before rate limits kick in
     const { data: funTokens, error: fetchError } = await supabase
       .from("fun_tokens")
       .select("*")
       .eq("status", "active")
-      .not("dbc_pool_address", "is", null);
+      .eq("chain", "solana")
+      .not("dbc_pool_address", "is", null)
+      .order("volume_24h_sol", { ascending: false, nullsFirst: false })
+      .limit(100); // Process top 100 by volume to avoid rate limits
 
     if (fetchError) {
       throw new Error(`Failed to fetch fun tokens: ${fetchError.message}`);
@@ -41,7 +45,7 @@ serve(async (req) => {
       (t) => t.dbc_pool_address && t.dbc_pool_address.length >= 32
     );
 
-    console.log(`[fun-claim-fees] Found ${validTokens.length} active fun tokens with valid pools`);
+    console.log(`[fun-claim-fees] Found ${validTokens.length} tokens to process (ordered by volume)`);
 
     if (validTokens.length === 0) {
       return new Response(
@@ -187,8 +191,8 @@ serve(async (req) => {
           });
         }
 
-        // Small delay between claims to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Longer delay between claims to avoid rate limiting (1.5 seconds)
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
       } catch (tokenError) {
         console.error(`[fun-claim-fees] Error processing ${token.ticker}:`, tokenError);
