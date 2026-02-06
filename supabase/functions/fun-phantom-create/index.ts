@@ -119,6 +119,7 @@ Deno.serve(async (req) => {
           telegram_url: telegramUrl || null,
           discord_url: discordUrl || null,
           fee_mode: tokenFeeMode,
+          launchpad_type: 'phantom', // Tag Phantom-launched tokens
         })
         .select()
         .single();

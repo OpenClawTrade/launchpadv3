@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
+import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
 
 interface TokenTableProps {
   solPrice: number | null;
@@ -67,6 +68,7 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
     const isHolderRewards = token.fee_mode === 'holders';
     const isPumpFun = token.launchpad_type === 'pumpfun';
     const isBags = token.launchpad_type === 'bags';
+    const isPhantom = token.launchpad_type === 'phantom';
     
     // pump.fun and bags tokens always link to SubTuna
     const tradeUrl = (isPumpFun || isBags)
@@ -119,6 +121,12 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
                                     showText={false} 
                                     size="sm"
                                     className="px-0 py-0 bg-transparent hover:bg-transparent"
+                                  />
+                                ) : isPhantom ? (
+                                  <PhantomBadge 
+                                    mintAddress={token.mint_address ?? undefined} 
+                                    showText={false} 
+                                    size="sm"
                                   />
                                 ) : null}
                               </span>
@@ -231,6 +239,7 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
                   const isHolderRewards = token.fee_mode === 'holders';
                   const isPumpFun = token.launchpad_type === 'pumpfun';
                   const isBags = token.launchpad_type === 'bags';
+                  const isPhantom = token.launchpad_type === 'phantom';
                   
                   // pump.fun and bags tokens link to SubTuna
                   const tradeUrl = (isPumpFun || isBags)
@@ -275,6 +284,12 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
                                   showText={false} 
                                   size="sm"
                                   className="px-0 py-0 bg-transparent hover:bg-transparent"
+                                />
+                              ) : isPhantom ? (
+                                <PhantomBadge 
+                                  mintAddress={token.mint_address ?? undefined} 
+                                  showText={false} 
+                                  size="sm"
                                 />
                               ) : null}
                             </span>
