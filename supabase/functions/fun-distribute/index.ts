@@ -92,12 +92,12 @@ serve(async (req) => {
     }
 
     // STEP 1: Find all fee claims that haven't been distributed yet
-    // Include api_account_id, agent_id, and fee_mode to check token type
+    // Include api_account_id, agent_id, trading_agent_id, is_trading_agent_token, and fee_mode to check token type
     const { data: undistributedClaims, error: claimsError } = await supabase
       .from("fun_fee_claims")
       .select(`
         *,
-        fun_token:fun_tokens(id, name, ticker, creator_wallet, status, api_account_id, agent_id, fee_mode, agent_fee_share_bps)
+        fun_token:fun_tokens(id, name, ticker, creator_wallet, status, api_account_id, agent_id, trading_agent_id, is_trading_agent_token, fee_mode, agent_fee_share_bps, launchpad_type)
       `)
       .eq("creator_distributed", false)
       .order("claimed_at", { ascending: true });
@@ -147,6 +147,7 @@ serve(async (req) => {
         recipientType: "creator" | "api_user" | "agent";
         apiAccountId: string | null;
         agentId: string | null;
+        tradingAgentId?: string | null; // Direct link for trading agents
         claims: any[];
         claimedSol: number;
       }
@@ -168,11 +169,49 @@ serve(async (req) => {
       const claimedSol = Number(claim.claimed_sol) || 0;
       if (claimedSol <= 0) continue;
 
-      // Determine token type: Agent, API, holder_rewards, bags, or regular creator
+      // Determine token type: Trading Agent, Agent, API, holder_rewards, bags, or regular creator
+      // IMPORTANT: Trading Agent tokens take TOP priority - they need fees for trading capital
+      const isTradingAgentToken = token.is_trading_agent_token === true && !!token.trading_agent_id;
       const isAgentToken = !!token.agent_id;
       const isApiToken = !!token.api_account_id && !isAgentToken; // Agent takes priority
       const isHolderRewards = token.fee_mode === 'holder_rewards' || token.fee_mode === 'holders';
       const isBagsToken = token.launchpad_type === 'bags';
+      
+      // TRADING AGENT TOKENS: Always route to trading wallet, regardless of fee_mode
+      // This takes priority over holder_rewards because trading agents need the fees for capital
+      if (isTradingAgentToken) {
+        const { data: tradingAgent } = await supabase
+          .from("trading_agents")
+          .select("id, wallet_address, trading_capital_sol, status, name")
+          .eq("id", token.trading_agent_id)
+          .maybeSingle();
+
+        if (!tradingAgent) {
+          console.warn(`[fun-distribute] Skipping claim ${claim.id}: Trading Agent ${token.trading_agent_id} not found`);
+          continue;
+        }
+
+        const key = `trading-agent:${token.trading_agent_id}`;
+
+        const existing = groups.get(key);
+        if (existing) {
+          existing.claims.push(claim);
+          existing.claimedSol += claimedSol;
+        } else {
+          groups.set(key, {
+            token,
+            recipientWallet: tradingAgent.wallet_address,
+            recipientType: "agent",
+            apiAccountId: null,
+            agentId: token.agent_id, // Keep for compatibility
+            tradingAgentId: token.trading_agent_id, // Direct link
+            claims: [claim],
+            claimedSol,
+          });
+        }
+        console.log(`[fun-distribute] Trading Agent token ${token.ticker}: routing ${claimedSol.toFixed(6)} SOL to trading wallet`);
+        continue; // Skip other modes - trading agent takes priority
+      }
       
       // BAGS tokens: 100% platform fee, no creator distribution
       if (isBagsToken) {
@@ -352,13 +391,27 @@ serve(async (req) => {
       }
 
       // AGENT tokens: record in agent_fee_distributions (pending - they claim when ready)
-      if (isAgentToken && group.agentId) {
-        // Check if this agent is a Trading Agent (has entry in trading_agents table)
-        const { data: tradingAgent } = await supabase
-          .from("trading_agents")
-          .select("id, wallet_address, trading_capital_sol, status")
-          .eq("agent_id", group.agentId)
-          .maybeSingle();
+      if (isAgentToken && (group.tradingAgentId || group.agentId)) {
+        // Check if this is a Trading Agent - use tradingAgentId if available (more reliable)
+        let tradingAgent = null;
+        
+        if (group.tradingAgentId) {
+          // Direct lookup using trading_agent_id from fun_tokens
+          const { data } = await supabase
+            .from("trading_agents")
+            .select("id, wallet_address, trading_capital_sol, status")
+            .eq("id", group.tradingAgentId)
+            .maybeSingle();
+          tradingAgent = data;
+        } else if (group.agentId) {
+          // Fallback: lookup via agent_id (for legacy tokens)
+          const { data } = await supabase
+            .from("trading_agents")
+            .select("id, wallet_address, trading_capital_sol, status")
+            .eq("agent_id", group.agentId)
+            .maybeSingle();
+          tradingAgent = data;
+        }
  
         if (tradingAgent) {
           // This is a TRADING AGENT - send SOL directly to trading wallet
