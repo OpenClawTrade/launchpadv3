@@ -13,6 +13,7 @@ const BOT_USERNAMES = new Set([
   "buildtuna", "tunalaunch", "moltbook", "openclaw", "tuna_launch", "tunaagents",
 ]);
 const REPLY_SIGNATURE = "Tuna Launchpad for AI Agents on Solana.";
+const MIN_FOLLOWER_COUNT = 5000; // Minimum followers for quality engagement
 
 interface Tweet {
   id: string;
@@ -192,13 +193,11 @@ serve(async (req) => {
         continue;
       }
 
-      // For $SOL-only mentions, require 1000+ followers
-      if (isOnlySolCashtagMention(tweet.text)) {
-        const followers = getFollowerCount(tweet);
-        if (followers < 1000) {
-          debug.skipped++;
-          continue;
-        }
+      // Require minimum 5000 followers for quality engagement
+      const followers = getFollowerCount(tweet);
+      if (followers < MIN_FOLLOWER_COUNT) {
+        debug.skipped++;
+        continue;
       }
 
       const username = tweet.author?.userName?.toLowerCase() || "";
