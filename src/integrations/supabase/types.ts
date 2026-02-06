@@ -932,6 +932,39 @@ export type Database = {
         }
         Relationships: []
       }
+      colosseum_engagement_log: {
+        Row: {
+          comment_body: string | null
+          comment_id: string | null
+          created_at: string | null
+          engagement_type: string | null
+          id: string
+          target_post_id: string
+          target_project_name: string | null
+          target_project_slug: string | null
+        }
+        Insert: {
+          comment_body?: string | null
+          comment_id?: string | null
+          created_at?: string | null
+          engagement_type?: string | null
+          id?: string
+          target_post_id: string
+          target_project_name?: string | null
+          target_project_slug?: string | null
+        }
+        Update: {
+          comment_body?: string | null
+          comment_id?: string | null
+          created_at?: string | null
+          engagement_type?: string | null
+          id?: string
+          target_post_id?: string
+          target_project_name?: string | null
+          target_project_slug?: string | null
+        }
+        Relationships: []
+      }
       colosseum_forum_comments: {
         Row: {
           body: string
