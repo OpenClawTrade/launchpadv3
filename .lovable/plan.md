@@ -1,133 +1,101 @@
 
-# Fix Trading Agent Fee Routing Being Skipped by Holder Rewards Mode
+# Fix CORS Errors and Edge Function Access Issues
 
 ## Problem Summary
 
-The EQM trading agent shows "Accumulating Fees 0%" despite having:
-- **0.22 SOL in total fees claimed** (from `fun_fee_claims`)
-- **11.7% bonding progress** with active trading volume
+Users are experiencing multiple errors when accessing the application:
 
-The fees were routed to the `holder_reward_pool` (0.11 SOL distributed) instead of the trading agent's wallet.
+1. **CORS Error on `agent-idea-generate`**: Blocked by browser because preflight response doesn't allow all headers
+2. **401 Unauthorized on `/api/vanity/status`**: Missing required `x-vanity-secret` header
+3. **Similar CORS issues on other edge functions** used by the frontend
 
-## Root Cause
+## Root Causes
 
-In `supabase/functions/fun-distribute/index.ts`, the fee routing logic has a priority bug:
+### Issue 1: Incomplete CORS Headers
 
-```text
-Line 174: const isHolderRewards = token.fee_mode === 'holder_rewards';
-Line 189: if (isHolderRewards) { 
-            // Route to holder pool...
-            continue;  ← SKIPS agent logic entirely!
-          }
-Line 228: if (isAgentToken) {  ← Never reached for holder_rewards tokens
+The Supabase JS client sends additional headers that must be explicitly whitelisted:
+- `x-supabase-client-platform`
+- `x-supabase-client-platform-version`
+- `x-supabase-client-runtime`
+- `x-supabase-client-runtime-version`
+
+**Current headers in affected functions:**
+```typescript
+"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 ```
 
-The EQM token has BOTH:
-- `fee_mode: 'holder_rewards'`
-- `is_trading_agent_token: true`
+**Required headers:**
+```typescript
+"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version"
+```
 
-The holder rewards check runs first and calls `continue`, causing the trading agent distribution logic (lines 356-420) to be completely bypassed.
+### Issue 2: Vanity Status Auth Check
+
+The `/api/vanity/status` endpoint expects a hardcoded secret header that the frontend doesn't appear to be sending:
+```typescript
+const authHeader = req.headers['x-vanity-secret'];
+const expectedSecret = '123456';
+```
 
 ## Solution
 
-Modify the fee routing priority to check for **trading agent tokens FIRST**, before holder rewards mode. Trading agents need the fees routed to their trading wallets regardless of fee_mode setting.
+### Step 1: Fix CORS Headers in Edge Functions
 
-### Code Change
+Update the following edge functions to include the full CORS header set:
 
-**File:** `supabase/functions/fun-distribute/index.ts`
+| Function | File Path |
+|----------|-----------|
+| agent-idea-generate | `supabase/functions/agent-idea-generate/index.ts` |
+| trading-agent-list | `supabase/functions/trading-agent-list/index.ts` |
+| update-profile | `supabase/functions/update-profile/index.ts` |
+| ai-chat | `supabase/functions/ai-chat/index.ts` |
+| token-metadata | `supabase/functions/token-metadata/index.ts` |
+| sol-price | `supabase/functions/sol-price/index.ts` |
 
-**Current Logic (lines 171-227):**
+**Code change for each:**
 ```typescript
-const isAgentToken = !!token.agent_id;
-const isHolderRewards = token.fee_mode === 'holder_rewards';
-
-if (isHolderRewards) {
-  // Routes to holder pool
-  continue; // Skips everything else!
-}
-
-if (isAgentToken) {
-  // Agent handling (including trading agent check)
-}
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 ```
 
-**Fixed Logic:**
+### Step 2: Fix Vanity Status Endpoint
+
+Either remove the hardcoded secret (if endpoint should be public) or ensure the frontend sends the correct header.
+
+**Option A - Remove auth check (simpler, endpoint returns non-sensitive stats):**
 ```typescript
-const isAgentToken = !!token.agent_id;
-const isTradingAgentToken = token.is_trading_agent_token === true;
-const isHolderRewards = token.fee_mode === 'holder_rewards';
-
-// TRADING AGENT TOKENS: Always route to trading wallet, regardless of fee_mode
-if (isTradingAgentToken && isAgentToken) {
-  // Fetch trading agent by token.trading_agent_id (direct link)
-  // Route fees to trading wallet
-  // Skip holder rewards logic
-  const key = `trading-agent:${token.trading_agent_id}`;
-  // ... group handling ...
-  continue; // Don't fall through to other modes
-}
-
-if (isHolderRewards) {
-  // Only for NON-trading-agent tokens
-  // Routes to holder pool
-  continue;
-}
-
-if (isAgentToken) {
-  // Regular AI agent handling (not trading agents)
-}
+// Remove lines 43-48 from api/vanity/status.ts
 ```
 
-### Database Fix
-
-The EQM token already has the correct linkage but fees were misrouted. After deploying the code fix, we need to manually trigger the trading agent to receive its accumulated fees. The simplest approach is to update the trading agent's capital directly based on what was already collected:
-
-```sql
--- Calculate total fees that should have gone to trading agent
--- EQM claimed 0.22 SOL total, 80% should go to agent = 0.176 SOL
--- But ~0.11 SOL already went to holder pool (lost)
--- Going forward, new fees will route correctly
-
--- No data fix needed - just deploy code fix and future fees route correctly
-```
-
-### Additional Improvement
-
-Update the trading agent query in the distribution loop to use `trading_agent_id` directly (more reliable than going through `agent_id`):
-
+**Option B - Keep auth but fix frontend to send header:**
 ```typescript
-// Line 356-361: Change from
-const { data: tradingAgent } = await supabase
-  .from("trading_agents")
-  .select("id, wallet_address, trading_capital_sol, status")
-  .eq("agent_id", group.agentId)  // ← Uses agents table link
-  .maybeSingle();
-
-// To (for trading agent tokens):
-const { data: tradingAgent } = await supabase
-  .from("trading_agents")
-  .select("id, wallet_address, trading_capital_sol, status")
-  .eq("id", token.trading_agent_id)  // ← Direct trading_agent_id link
-  .maybeSingle();
+// In frontend when calling vanity status:
+fetch('/api/vanity/status', {
+  headers: { 'x-vanity-secret': '123456' }
+})
 ```
+
+I recommend Option A since the vanity status endpoint only returns public statistics about available vanity addresses.
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `supabase/functions/fun-distribute/index.ts` | Add trading agent token priority check before holder_rewards |
+| `supabase/functions/agent-idea-generate/index.ts` | Update CORS headers |
+| `supabase/functions/trading-agent-list/index.ts` | Update CORS headers |
+| `supabase/functions/update-profile/index.ts` | Update CORS headers |
+| `supabase/functions/ai-chat/index.ts` | Update CORS headers |
+| `supabase/functions/token-metadata/index.ts` | Update CORS headers |
+| `supabase/functions/sol-price/index.ts` | Update CORS headers |
+| `api/vanity/status.ts` | Remove hardcoded auth check |
 
 ## Expected Outcome
 
 After implementation:
-1. New EQM swap fees will route to the trading agent's wallet (`FuxMJ...6P`)
-2. `trading_capital_sol` will accumulate properly
-3. Funding progress bar will show real percentages
-4. Agent will auto-activate at 0.5 SOL threshold
-5. Other trading agent tokens with holder_rewards mode will also work correctly
-
-## Technical Notes
-
-- The EQM token has ~0.11 SOL in holder_reward_pool that was already distributed - this cannot be recovered
-- Future fees (new swaps) will route correctly after the fix
-- The fix is backward compatible - regular holder_rewards tokens (without trading agents) continue working as before
+1. No more CORS errors when calling edge functions from `tuna.fun`
+2. No more 401 errors on vanity status endpoint
+3. Agent idea generation works from TunaBook page
+4. Trading agent list loads properly
+5. All other frontend-facing edge functions work without CORS issues
