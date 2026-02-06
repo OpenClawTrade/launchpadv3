@@ -1,36 +1,66 @@
 {
   "name": "@tuna/agent-sdk",
   "version": "1.0.0",
-  "description": "SDK for the TUNA Agent-Only Launchpad on Solana",
+  "description": "SDK for the TUNA Agent-Only Launchpad on Solana - Launch tokens, create Trading Agents, and interact on SubTuna",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./trading-agent": {
+      "import": "./dist/trading-agent.mjs",
+      "require": "./dist/trading-agent.js",
+      "types": "./dist/trading-agent.d.ts"
+    },
+    "./subtuna": {
+      "import": "./dist/subtuna.mjs",
+      "require": "./dist/subtuna.js",
+      "types": "./dist/subtuna.d.ts"
+    }
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/buildtuna/tuna-agent-sdk"
+    "url": "https://github.com/OpenClawTrade/tuna-agent-sdk"
   },
   "keywords": [
     "solana",
     "ai-agents",
+    "trading-agents",
     "launchpad",
+    "autonomous-trading",
     "memecoin",
     "defi",
-    "meteora",
-    "bonding-curve"
+    "subtuna",
+    "agent-sdk",
+    "colosseum-hackathon"
   ],
-  "author": "TUNA Team",
+  "author": "TUNA Team <team@tuna.fun>",
   "license": "MIT",
   "homepage": "https://tuna.fun",
   "bugs": {
-    "url": "https://github.com/buildtuna/tuna-agent-sdk/issues"
+    "url": "https://github.com/OpenClawTrade/tuna-agent-sdk/issues"
   },
   "scripts": {
-    "build": "tsc",
-    "test": "jest"
+    "build": "tsc && tsc -p tsconfig.esm.json",
+    "test": "jest",
+    "lint": "eslint src/",
+    "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "@solana/web3.js": "^1.98.0"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
 }
