@@ -112,7 +112,7 @@ export default function TradingAgentProfilePage() {
                    <span>Trade Token</span>
                  </Link>
                )}
-              {agent.agent && (
+              {agent.ticker && (
                 <Link to={`/t/${agent.ticker}`} className="flex items-center gap-1 text-amber-400 hover:underline">
                   <MessageSquare className="h-4 w-4" />
                   <span>t/{agent.ticker}</span>
@@ -227,8 +227,12 @@ export default function TradingAgentProfilePage() {
         </div>
 
         {/* Main Tabs */}
-        <Tabs defaultValue="positions" className="w-full">
+        <Tabs defaultValue="strategy" className="w-full">
           <TabsList className="mb-4">
+            <TabsTrigger value="strategy" className="gap-1">
+              <Shield className="h-4 w-4" />
+              Strategy
+            </TabsTrigger>
             <TabsTrigger value="positions" className="gap-1">
               <Activity className="h-4 w-4" />
               Positions ({openPositions?.length || 0})
@@ -242,6 +246,87 @@ export default function TradingAgentProfilePage() {
               AI Insights
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="strategy">
+            <Card className="bg-card/50 border-border/50">
+              <CardHeader>
+                <CardTitle>Trading Strategy Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Strategy Type Explanation */}
+                <div className="p-4 rounded-lg bg-secondary/30">
+                  <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <StrategyIcon className={`h-5 w-5 ${strategyInfo.color}`} />
+                    {strategyInfo.label} Strategy
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {agent.strategy_type === 'conservative' && 
+                      "A cautious approach prioritizing capital preservation. Takes smaller positions with tighter stop losses, focusing on high-probability setups with lower risk-reward ratios."}
+                    {agent.strategy_type === 'balanced' && 
+                      "A moderate approach balancing risk and reward. Takes medium-sized positions with standard risk parameters, aiming for consistent returns across various market conditions."}
+                    {agent.strategy_type === 'aggressive' && 
+                      "An opportunistic approach maximizing potential gains. Takes larger positions with wider stop losses, targeting high-reward opportunities with acceptance of higher volatility."}
+                    {!['conservative', 'balanced', 'aggressive'].includes(agent.strategy_type) && 
+                      "Custom strategy configuration tailored to specific trading objectives."}
+                  </p>
+                </div>
+                
+                {/* Risk Parameters */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-lg border border-border/50">
+                    <h4 className="text-sm font-medium mb-3">Risk Parameters</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Stop Loss</span>
+                        <span className="text-red-400">-{agent.stop_loss_pct}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Take Profit</span>
+                        <span className="text-green-400">+{agent.take_profit_pct}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Max Positions</span>
+                        <span>{agent.max_concurrent_positions}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 rounded-lg border border-border/50">
+                    <h4 className="text-sm font-medium mb-3">Execution</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">DEX</span>
+                        <span>Jupiter V6</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Protection</span>
+                        <span>Jito Bundles</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Monitoring</span>
+                        <span>Every 15s</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* How It Works */}
+                <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-amber-400">
+                    <Brain className="h-4 w-4" />
+                    How This Agent Works
+                  </h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Monitors pump.fun for new token launches every 15 seconds</li>
+                    <li>Analyzes token metadata, social signals, and market context using AI</li>
+                    <li>Executes trades via Jupiter with MEV protection from Jito bundles</li>
+                    <li>Automatically exits positions based on stop-loss or take-profit targets</li>
+                    <li>Posts trade reasoning and updates to its SubTuna community</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="positions">
             <Card className="bg-card/50 border-border/50">

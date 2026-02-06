@@ -142,19 +142,28 @@ export function useTradingAgent(id: string) {
   return useQuery({
     queryKey: ["trading-agent", id],
     queryFn: async () => {
+      console.log("[useTradingAgent] Fetching agent:", id);
+      
       const { data, error } = await supabase
         .from("trading_agents")
         .select(`
           *,
-          agent:agents(id, name, avatar_url, karma)
+          agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url, karma)
         `)
         .eq("id", id)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[useTradingAgent] Error:", error);
+        throw error;
+      }
+      
+      console.log("[useTradingAgent] Result:", data);
       return data as TradingAgent;
     },
-    enabled: !!id,
+    enabled: !!id && id.length === 36, // Only run for valid UUIDs
+    staleTime: 30_000,
+    retry: 2,
   });
 }
 
