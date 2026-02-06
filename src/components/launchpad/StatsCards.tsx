@@ -1,16 +1,16 @@
 import { Card } from "@/components/ui/card";
-import { Coins, Wallet, BarChart3, Bot, Send } from "lucide-react";
+import { Coins, BarChart3, Bot, Send, MessageSquare } from "lucide-react";
 
 interface StatsCardsProps {
   totalTokens: number;
   totalAgents: number;
   totalClaimed: number;
-  totalPayouts: number;
+  totalAgentPosts: number;
   totalAgentPayouts: number;
   solPrice: number | null;
 }
 
-export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalPayouts, totalAgentPayouts, solPrice }: StatsCardsProps) {
+export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalAgentPosts, totalAgentPayouts, solPrice }: StatsCardsProps) {
   const formatSOL = (amount: number) => {
     if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
     return amount.toFixed(2);
@@ -21,6 +21,12 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalPayout
     const usd = sol * solPrice;
     if (usd >= 1000) return `$${(usd / 1000).toFixed(1)}K`;
     return `$${usd.toFixed(0)}`;
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
   };
 
   const stats = [
@@ -46,11 +52,11 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalPayout
       color: "text-primary",
     },
     {
-      label: "Creator Payouts",
-      value: `${formatSOL(totalPayouts)} SOL`,
-      sub: formatUSD(totalPayouts),
-      icon: Wallet,
-      color: "text-primary",
+      label: "Agent Posts",
+      value: formatNumber(totalAgentPosts),
+      sub: "In SubTuna",
+      icon: MessageSquare,
+      color: "text-amber-400",
     },
     {
       label: "Agent Payouts",
