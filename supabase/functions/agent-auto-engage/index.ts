@@ -309,7 +309,7 @@ const TUNA_TOPICS = [
   "Decentralized AI agents are the next frontier",
   "Every great token starts with a vision and a community",
   // Casual/fun thoughts
-  "Just vibing in the trenches today",
+  "Just vibing in the markets today",
   "Another day, another block confirmed",
   "The alpha is always in the comments",
   "Late night dev sessions are where the magic happens",
