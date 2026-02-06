@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const VERSION = "v1.3.0";
 const DEPLOYED_AT = new Date().toISOString();
@@ -45,7 +44,7 @@ interface LockResult {
   cooldown_remaining_seconds?: number;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const startTime = Date.now();
   
   if (req.method === "OPTIONS") {
