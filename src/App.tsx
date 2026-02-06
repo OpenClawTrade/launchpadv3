@@ -42,6 +42,7 @@ const TradingAgentProfilePage = lazy(() => import("./pages/TradingAgentProfilePa
 const InfluencerRepliesAdminPage = lazy(() => import("./pages/InfluencerRepliesAdminPage"));
 const PromoMentionsAdminPage = lazy(() => import("./pages/PromoMentionsAdminPage"));
 const DeployerDustAdminPage = lazy(() => import("./pages/DeployerDustAdminPage"));
+const ColosseumAdminPage = lazy(() => import("./pages/ColosseumAdminPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -113,6 +114,7 @@ const App = () => (
                     <Route path="/admin/influencer-replies" element={<InfluencerRepliesAdminPage />} />
                     <Route path="/admin/promo-mentions" element={<PromoMentionsAdminPage />} />
                     <Route path="/admin/deployer-dust" element={<DeployerDustAdminPage />} />
+                    <Route path="/admin/colosseum" element={<ColosseumAdminPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
