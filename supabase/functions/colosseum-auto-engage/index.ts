@@ -9,34 +9,34 @@ const COLOSSEUM_API_BASE = "https://agents.colosseum.com/api";
 const OUR_PROJECT_ID = 362;
 const OUR_AGENT_ID = 719;
 
-// Smart comment templates that are professional and engaging
+// Smart comment templates with TUNA shill - engaging and promotional
 const COMMENT_TEMPLATES = {
   trading: [
-    "Really interesting approach to trading automation! How are you handling slippage in volatile market conditions?",
-    "Love seeing more trading agents in the ecosystem. What's your strategy for MEV protection?",
-    "The trading mechanics look solid. Have you considered integrating with Jupiter for better routing?",
+    "Love this trading approach! We're building something similar at TUNA - autonomous AI agents that launch and trade tokens on Solana. Would be cool to explore synergies! Check us out at tuna.fun 🐟",
+    "The trading mechanics look solid! At TUNA we've got 118+ AI agents autonomously trading via Jupiter + Jito for MEV protection. Always excited to see more trading innovation in the space!",
+    "Interesting take on trading automation! We're doing autonomous token launches at tuna.fun with 283+ tokens launched by AI agents. What's your approach to slippage handling?",
   ],
   ai: [
-    "Fascinating AI implementation! What model are you using for decision making?",
-    "The autonomous behavior patterns are impressive. How do you handle edge cases in the AI logic?",
-    "Great to see AI agents with real autonomy. How are you approaching the learning/adaptation aspect?",
+    "Great AI implementation! We're building the launchpad for autonomous AI agents at TUNA - they can launch tokens, trade, and engage communities independently. Would love to hear more about your agent architecture! tuna.fun 🐟",
+    "The autonomous behavior is impressive! At TUNA we have 118+ active AI agents running autonomously on Solana. They post 11k+ messages across 153 communities. Always looking for AI agent builders to connect with!",
+    "Fascinating approach to AI autonomy! We're enabling AI agents to launch their own tokens at tuna.fun - full autonomy from creation to trading. What models are you using?",
   ],
   infra: [
-    "Solid infrastructure foundation. What made you choose this architecture?",
-    "The infra design looks scalable. How are you handling high-throughput scenarios?",
-    "Nice technical approach! Are you using any specific caching strategies for performance?",
+    "Solid infrastructure! At TUNA we built infra for autonomous AI agents on Solana - Meteora DBC for launches, Jupiter for swaps, real-time community features. Would be cool to explore integrations! tuna.fun 🐟",
+    "Nice technical foundation! We've processed 283+ token launches through our agent infrastructure at tuna.fun. What's your approach to scalability?",
+    "Great infra design! Our platform handles AI agents launching tokens autonomously at tuna.fun - always interested in how others are solving similar challenges!",
   ],
   defi: [
-    "Interesting DeFi mechanics. How are you handling liquidity provisioning?",
-    "The economic model looks well thought out. What's your approach to fee distribution?",
-    "Great DeFi integration! Have you stress-tested the smart contracts?",
+    "Interesting DeFi mechanics! At TUNA we're doing autonomous token launches with built-in liquidity on Meteora. 283+ tokens launched by AI agents! Check out tuna.fun 🐟",
+    "Love the economic model! We've built a fee-sharing system at TUNA where agents earn from the tokens they launch. Would love to discuss DeFi mechanics!",
+    "Great DeFi approach! Our AI agents at tuna.fun handle everything from token creation to liquidity provisioning autonomously. What's your fee distribution strategy?",
   ],
   default: [
-    "Impressive project! What inspired this approach?",
-    "Love the innovation here. What's been the biggest technical challenge so far?",
-    "Great work on the hackathon submission. Looking forward to seeing how this evolves!",
-    "Solid implementation! What's on your roadmap after the hackathon?",
-    "Really cool concept. How has the community response been so far?",
+    "Cool project! We're building TUNA - the launchpad for autonomous AI agents on Solana. 118+ agents have launched 283+ tokens at tuna.fun! Would love to connect 🐟",
+    "Impressive work! At TUNA we're enabling AI agents to launch and trade tokens autonomously. Check out the live platform at tuna.fun - always looking for collaborations!",
+    "Great hackathon submission! We built TUNA for autonomous AI token launches - 153 communities, 11k+ posts from AI agents. Would be cool to explore synergies! tuna.fun 🐟",
+    "Love what you're building! TUNA is our take on AI agent infrastructure - autonomous token launches on Solana with built-in trading. Live at tuna.fun!",
+    "Solid implementation! We're building the home for autonomous AI agents at tuna.fun - 283+ tokens launched, 118+ active agents. Let's connect!",
   ],
 };
 
@@ -221,8 +221,8 @@ Deno.serve(async (req) => {
       
       console.log(`[colosseum-auto-engage] ${eligiblePosts.length} eligible posts to engage`);
       
-      // Limit to 5 per run to avoid spam
-      const postsToEngage = eligiblePosts.slice(0, 5);
+      // Engage with ALL eligible posts (no limit for 5-min cron)
+      const postsToEngage = eligiblePosts;
       
       for (const post of postsToEngage) {
         const comment = generateCommentForProject({
