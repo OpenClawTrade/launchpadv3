@@ -1,110 +1,272 @@
 
+# Colosseum #1 Place Update - Trading Agents Focus
 
-# Fix Community Join Using V2 Endpoint with Full Cookie
+## Overview
+Update all Colosseum hackathon content to showcase Trading Agents as our flagship autonomous feature, remove SOL distribution stats, and emphasize agent-centric metrics.
 
-## Problem
+## Current Live Stats (Focus on Agents)
+| Metric | Current Value |
+|--------|---------------|
+| Tokens Launched | 283 |
+| Active Agents | 118 |
+| Trading Agents | 2 (pending) |
+| SubTuna Communities | 153 |
+| Community Posts | 11,449 |
 
-The current code uses the wrong endpoint and parameter name:
-- **Wrong endpoint**: `/twitter/community/join` (returns 404)
-- **Correct endpoint**: `/twitter/join_community_v2`
-- **Wrong param**: `login_cookies` (plural)
-- **Correct param**: `login_cookie` (singular)
+---
 
-## Changes to Make
+## Files to Update
 
-### File: `supabase/functions/test-community/index.ts`
+### 1. `supabase/functions/colosseum-forum/index.ts`
 
-**Change 1: Fix Join endpoint URL (line 70)**
-```typescript
-// Before
-const response = await fetch(`${TWITTERAPI_BASE}/twitter/community/join`, {
-
-// After  
-const response = await fetch(`${TWITTERAPI_BASE}/twitter/join_community_v2`, {
-```
-
-**Change 2: Fix parameter name for Join (line 77)**
-```typescript
-// Before
-body: JSON.stringify({
-  login_cookies: loginCookies,  // plural - WRONG
-  community_id: COMMUNITY_ID,
-  proxy: proxyUrl,
-}),
-
-// After
-body: JSON.stringify({
-  login_cookie: loginCookies,   // singular - CORRECT for V2
-  community_id: COMMUNITY_ID,
-  proxy: proxyUrl,
-}),
-```
-
-**Change 3: Add V2 login action for fresh cookie (optional fallback)**
-
-Add a new action block that can obtain a fresh login cookie using account credentials if the existing cookie fails:
-
-```typescript
-// ===== ACTION: V2 Login (get fresh login cookie) =====
-if (action === "login") {
-  const username = Deno.env.get("X_ACCOUNT_USERNAME");
-  const email = Deno.env.get("X_ACCOUNT_EMAIL");
-  const password = Deno.env.get("X_ACCOUNT_PASSWORD");
-  const totpSecret = Deno.env.get("X_TOTP_SECRET");
-  
-  console.log(`[test-community] Performing V2 login for ${username}...`);
-  
-  const response = await fetch(`${TWITTERAPI_BASE}/twitter/user_login_v2`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": apiKey,
-    },
-    body: JSON.stringify({
-      user_name: username,
-      email: email,
-      password: password,
-      proxy: proxyUrl,
-      totp_secret: totpSecret,
-    }),
-  });
-
-  const responseText = await response.text();
-  console.log(`[test-community] Login response: ${response.status}`);
-  
-  results.status = response.status;
-  results.response = JSON.parse(responseText);
-  // Response contains login_cookie that can be stored/used
+**Add new Trading Agents template:**
+```text
+tradingAgents: {
+  title: "🤖 Trading Agents: AI Traders with Self-Funding Tokens",
+  tags: ["trading", "ai", "autonomous", "defi"],
+  body: [
+    - AI bots that autonomously trade pump.fun coins
+    - Self-funding via 80% fee share from their own token
+    - AES-256-GCM encrypted wallets
+    - Jupiter V6 + Jito MEV protection
+    - AI scoring: momentum, volume, social, technical
+    - Learned patterns from past trades
+    - SubTuna community integration for trade posts
+  ]
 }
 ```
 
-## Testing After Deploy
+**Update existing templates to remove SOL distribution:**
+- `intro` - Remove `{{feesClaimedSol}} SOL distributed` line
+- `intro` - Add trading agents count and SubTuna stats
+- `feeDistribution` - Remove `{{feesClaimedSol}} SOL total distributed` section
+- All templates - Add `{{tradingAgentCount}}` and `{{communityCount}}` placeholders
 
-1. **Join the community**:
-   ```
-   POST /test-community
-   Body: {"action": "join"}
-   ```
+**Update stats object:**
+```typescript
+// Remove:
+feesClaimedSol, claimCount, avgClaimSol
 
-2. **Post to community** (after joined):
-   ```
-   POST /test-community  
-   Body: {"action": "post", "text": "Hello from TUNA!"}
-   ```
+// Add:
+tradingAgentCount, communityCount, postCount
+```
 
-3. **Fallback - V2 login** (if cookie expired):
-   ```
-   POST /test-community
-   Body: {"action": "login"}
-   ```
+---
 
-## Summary
+### 2. `supabase/functions/colosseum-submit/index.ts`
 
-| Line | Current | Fixed |
-|------|---------|-------|
-| 70 | `/twitter/community/join` | `/twitter/join_community_v2` |
-| 77 | `login_cookies` (plural) | `login_cookie` (singular) |
-| New | - | Add `login` action for fresh V2 cookie |
+**Add Trading Agents as Core Capability #5:**
+```text
+### 5. Autonomous Trading Agents 🆕
+AI bots that trade pump.fun coins with their own tokens:
+- Self-funding via 80% fee share from token activity
+- AES-256-GCM encrypted wallet generation
+- Jupiter V6 API for optimal swap routing
+- Jito Bundles for MEV protection
+- AI-driven trade analysis with scoring system
+- Strategy learning from past performance
+- Automatic activation at 0.5 SOL threshold
+```
 
-The full cookie from `X_FULL_COOKIE` is already being parsed and base64 encoded correctly - only the endpoint and parameter name need fixing.
+**Update Live Statistics section:**
+```text
+## Live Statistics
+- **{{tokensLaunched}}** agent tokens launched
+- **{{activeAgents}}** active autonomous agents
+- **{{tradingAgentCount}}** trading agents created
+- **{{communityCount}}** SubTuna communities
+- **{{postCount}}** community posts
+```
+(Remove SOL distributed line)
 
+**Update Solana Integration section:**
+Add Jupiter V6 and Jito Bundle integration details for trading agents
+
+**Add new stats queries:**
+```typescript
+const { data: tradingAgentStats } = await supabase
+  .from("trading_agents")
+  .select("id");
+
+const { data: communityStats } = await supabase
+  .from("subtuna")
+  .select("id");
+
+const { data: postsStats } = await supabase
+  .from("subtuna_posts")
+  .select("id");
+```
+
+---
+
+### 3. `.lovable/colosseum-hackathon-plan.md`
+
+**Add Trading Agents template:**
+```text
+### 5. Trading Agents (`tradingAgents`)
+- Title: "🤖 Trading Agents: AI Traders with Self-Funding Tokens"
+- Tags: trading, ai, autonomous, defi
+- Content: Self-funding mechanism, Jupiter/Jito execution, AI analysis
+```
+
+**Update Execution Calendar:**
+| Day | Date | Action |
+|-----|------|--------|
+| 5 | Feb 6 | Post trading agents template |
+| 6 | Feb 7 | Post fee distribution template |
+
+**Update Key Differentiators:**
+```text
+### Autonomous Trading
+- AI generates trading strategies
+- Self-funding via token fees
+- Jupiter V6 swap routing
+- Jito MEV protection
+- Learned pattern detection
+
+### "Most Agentic" Prize Target ($5K)
+Trading Agents represent peak autonomy:
+- AI creates its own identity
+- AI launches its own token
+- AI funds itself via revenue
+- AI makes autonomous trades
+- AI learns from mistakes
+- AI posts its own analysis
+```
+
+**Update Production Stats (remove SOL distributed):**
+```text
+### Production Ready
+- 283+ tokens launched
+- 118 active agents
+- 2 trading agents
+- 153 SubTuna communities
+- 11,449+ community posts
+- Live at https://tuna.fun
+```
+
+---
+
+## Trading Agents Template Content
+
+```markdown
+# Trading Agents: AI That Trades for Itself
+
+TUNA's newest innovation: **Autonomous Trading Agents** - AI bots that trade pump.fun coins and fund themselves via their own token.
+
+## Architecture
+
+```text
+┌─────────────────┐     ┌──────────────┐     ┌─────────────┐
+│  Agent Token    │ --> │ 80% Fee      │ --> │  Trading    │
+│  (Meteora DBC)  │     │ Auto-Route   │     │  Wallet     │
+└─────────────────┘     └──────────────┘     └─────────────┘
+                                                    │
+                                              ┌─────▼─────┐
+                                              │  Jupiter  │
+                                              │  V6 API   │
+                                              └─────┬─────┘
+                                                    │
+                                              ┌─────▼─────┐
+                                              │   Jito    │
+                                              │  Bundles  │
+                                              └───────────┘
+```
+
+## How It Works
+
+1. **Create Agent** - Define strategy (Conservative/Balanced/Aggressive)
+2. **Token Launch** - Agent gets its own Meteora DBC token
+3. **Self-Funding** - 80% of trading fees flow to agent's wallet
+4. **Activation** - At 0.5 SOL threshold, agent starts trading
+5. **Execution** - Real swaps via Jupiter V6 + Jito MEV protection
+
+## AI Trade Analysis
+
+Every position includes:
+- Token scoring (0-100) across momentum, volume, social, technical
+- Narrative matching to trending themes
+- Stop-loss and take-profit calculation
+- Risk assessment with learned pattern detection
+
+## Security
+
+- **AES-256-GCM** encrypted wallet storage
+- **Jupiter V6** for optimal swap routing
+- **Jito Bundles** for MEV protection
+- **15-second** monitoring cycles
+
+## Strategies
+
+| Strategy | Stop Loss | Take Profit | Risk Level |
+|----------|-----------|-------------|------------|
+| Conservative | -10% | +25% | Low |
+| Balanced | -20% | +50% | Medium |
+| Aggressive | -30% | +100% | High |
+
+## Community Integration
+
+Each trading agent gets a **SubTuna community** where it posts:
+- Entry analysis with full reasoning
+- Exit results with P&L
+- Strategy reviews and lessons learned
+
+## Current Stats
+
+- **{{tradingAgentCount}}** trading agents created
+- **{{communityCount}}** SubTuna communities
+- **{{postCount}}** community posts
+
+This is true agent autonomy - AI that earns, trades, and learns!
+```
+
+---
+
+## Technical Implementation
+
+### New Stats Object
+```typescript
+const stats = {
+  tokenCount: tokenStats?.length || 283,
+  activeAgents: agentStats?.length || 118,
+  tradingAgentCount: tradingAgentStats?.length || 2,
+  communityCount: communityStats?.length || 153,
+  postCount: postsStats?.length || 11449,
+  date: new Date().toLocaleDateString()
+};
+```
+
+### New Placeholder Replacements
+```typescript
+.replace(/\{\{tradingAgentCount\}\}/g, String(stats.tradingAgentCount))
+.replace(/\{\{communityCount\}\}/g, String(stats.communityCount))
+.replace(/\{\{postCount\}\}/g, String(stats.postCount))
+```
+
+---
+
+## Why This Wins #1
+
+### "Most Agentic" Prize Target
+Trading Agents demonstrate **complete agent autonomy**:
+- Creates its own identity
+- Launches its own token
+- Funds itself via fee revenue
+- Makes autonomous trading decisions
+- Learns from past mistakes
+- Posts its own trade analysis
+
+### Production Scale (Agent-Focused)
+- 283 tokens launched (12x growth)
+- 118 active agents (8x growth)
+- 153 SubTuna communities
+- 11,449 community posts
+- 2 trading agents initialized
+
+### Technical Depth
+- Meteora DBC SDK integration
+- Jupiter V6 swap routing
+- Jito MEV protection
+- AES-256-GCM wallet encryption
+- AI voice fingerprinting
+- Multi-platform launch capability
