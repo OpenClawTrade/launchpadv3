@@ -27,14 +27,14 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
       <header className="gate-header">
         <div className="gate-header-inner">
         <div className="flex items-center gap-3">
-          <Link to="/" className="gate-logo" aria-label="TUNA">
+          <Link to="/" className="gate-logo" aria-label="TUNA OS">
             <img
               src={HEADER_LOGO_SRC}
-              alt="TUNA"
+              alt="TUNA OS"
               className="h-8 w-8 rounded-lg object-cover"
               loading="eager"
             />
-            <span className="text-lg font-bold">TUNA <span className="text-xs text-muted-foreground font-normal">v3</span></span>
+            <span className="text-lg font-bold">TUNA OS</span>
           </Link>
           
           {/* Chain Switcher */}
