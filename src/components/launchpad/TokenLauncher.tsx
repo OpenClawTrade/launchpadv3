@@ -13,10 +13,10 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction, PublicKey } from "@solana/web3.js";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
-import { submitAndConfirmJitoBundle } from "@/lib/jitoBundle";
+import { submitAndConfirmJitoBundle, createJitoTipInstruction, JITO_CONFIG } from "@/lib/jitoBundle";
 
 import {
   Shuffle,
@@ -896,24 +896,36 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
        window.clearTimeout(stillWorkingTimer);
 
        // Transaction labels for better error messages
-       const txLabels: string[] = data?.txLabels || txBase64s.map((_, i) => 
+       const baseTxLabels: string[] = data?.txLabels || txBase64s.map((_, i) => 
          i === 0 ? "Create Config" : i === 1 ? "Create Pool" : "Dev Buy"
        );
 
-      const deserializeAnyTx = (base64: string): Transaction | VersionedTransaction => {
-        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-        try {
-          return VersionedTransaction.deserialize(bytes);
-        } catch {
-          return Transaction.from(bytes);
-        }
-      };
+       const deserializeAnyTx = (base64: string): Transaction | VersionedTransaction => {
+         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+         try {
+           return VersionedTransaction.deserialize(bytes);
+         } catch {
+           return Transaction.from(bytes);
+         }
+       };
 
-      // Deserialize all transactions (already partially signed by backend with mint/config keypairs)
-      // IMPORTANT: Do NOT modify these transactions (blockhash, add instructions) as it invalidates existing signatures
-      const txsToSign = txBase64s.map(deserializeAnyTx);
-      
-      console.log(`[Phantom Launch] Deserialized ${txsToSign.length} partially-signed transactions`);
+       // Deserialize all transactions (already partially signed by backend with mint/config keypairs)
+       // IMPORTANT: Do NOT modify these transactions (blockhash, add instructions) as it invalidates existing signatures
+       const baseTxsToSign = txBase64s.map(deserializeAnyTx);
+
+       // Jito requires the bundle to write-lock at least one official tip account.
+       // Add a small tip transfer as the first tx in the bundle (keeps the rest of the partially-signed txs untouched).
+       const tipFrom = new PublicKey(phantomWallet.address);
+       const { blockhash } = await connection.getLatestBlockhash("confirmed");
+       const tipTx = new Transaction();
+       tipTx.feePayer = tipFrom;
+       tipTx.recentBlockhash = blockhash;
+       tipTx.add(createJitoTipInstruction(tipFrom, JITO_CONFIG.DEFAULT_TIP_LAMPORTS));
+
+       const txsToSign = [tipTx, ...baseTxsToSign];
+       const txLabels: string[] = ["Jito Tip", ...baseTxLabels];
+       
+       console.log(`[Phantom Launch] Deserialized ${baseTxsToSign.length} partially-signed transactions (+ tip)`);
 
       // === ATOMIC JITO BUNDLE SIGNING ===
       // Primary path: single Phantom popup (signAllTransactions)
