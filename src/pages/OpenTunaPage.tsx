@@ -11,7 +11,8 @@ import {
   PuzzlePiece, 
   CurrencyCircleDollar, 
   BookOpen,
-  House
+  House,
+  Plug
 } from "@phosphor-icons/react";
 import { OpenTunaProvider } from "@/components/opentuna/OpenTunaContext";
 import OpenTunaHub from "@/components/opentuna/OpenTunaHub";
@@ -20,10 +21,11 @@ import OpenTunaDNA from "@/components/opentuna/OpenTunaDNA";
 import OpenTunaSonar from "@/components/opentuna/OpenTunaSonar";
 import OpenTunaMemory from "@/components/opentuna/OpenTunaMemory";
 import OpenTunaFins from "@/components/opentuna/OpenTunaFins";
+import OpenTunaIntegrations from "@/components/opentuna/OpenTunaIntegrations";
 import OpenTunaCurrent from "@/components/opentuna/OpenTunaCurrent";
 import OpenTunaDocs from "@/components/opentuna/OpenTunaDocs";
 
-const VALID_TABS = ['hub', 'hatch', 'dna', 'sonar', 'memory', 'fins', 'current', 'docs'];
+const VALID_TABS = ['hub', 'hatch', 'dna', 'sonar', 'memory', 'fins', 'integrations', 'current', 'docs'];
 
 function OpenTunaContent() {
   
@@ -116,6 +118,13 @@ function OpenTunaContent() {
             Fins
           </TabsTrigger>
           <TabsTrigger 
+            value="integrations" 
+            className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+          >
+            <Plug className="h-4 w-4 mr-2" weight="duotone" />
+            Integrations
+          </TabsTrigger>
+          <TabsTrigger 
             value="current" 
             className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-lg px-4 py-2 text-sm font-medium transition-all"
           >
@@ -148,6 +157,9 @@ function OpenTunaContent() {
         </TabsContent>
         <TabsContent value="fins" className="mt-0">
           <OpenTunaFins />
+        </TabsContent>
+        <TabsContent value="integrations" className="mt-0">
+          <OpenTunaIntegrations />
         </TabsContent>
         <TabsContent value="current" className="mt-0">
           <OpenTunaCurrent />
