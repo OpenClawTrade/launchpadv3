@@ -38,9 +38,10 @@ const getApiUrl = (): string => {
 };
 
 // Get RPC URL - use the centralized function
-import { getRpcUrl as getBaseRpcUrl } from '@/hooks/useSolanaWallet';
+import { getRpcUrl as getBaseRpcUrl } from "@/hooks/useSolanaWallet";
 
 const getRpcUrl = () => getBaseRpcUrl().url;
+const getRpcInfo = () => getBaseRpcUrl();
 
 // API request helper
 async function apiRequest<T>(
@@ -91,6 +92,71 @@ async function apiRequest<T>(
   }
 
   return data as T;
+}
+
+// Small helpers
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function waitForRuntimeConfigLoaded(timeoutMs: number = 2000) {
+  if (typeof window === "undefined") return;
+  const start = Date.now();
+  while (!(window as any).__PUBLIC_CONFIG_LOADED__ && Date.now() - start < timeoutMs) {
+    await sleep(50);
+  }
+}
+
+async function confirmSignatureWithPolling(params: {
+  connection: Connection;
+  signature: string;
+  blockhash: string;
+  lastValidBlockHeight: number;
+  timeoutMs?: number;
+}) {
+  const { connection, signature, blockhash, lastValidBlockHeight } = params;
+  const timeoutMs = params.timeoutMs ?? 90_000;
+
+  const start = Date.now();
+  let loop = 0;
+
+  while (true) {
+    const statuses = await connection.getSignatureStatuses([signature], {
+      searchTransactionHistory: true,
+    });
+
+    const status = statuses.value[0];
+    if (status?.err) {
+      throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+    }
+
+    if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
+      return;
+    }
+
+    // If we haven't seen it at all for a while, it could be expired.
+    if (loop % 10 === 0) {
+      try {
+        const height = await connection.getBlockHeight("confirmed");
+        if (height > lastValidBlockHeight) {
+          throw new Error(
+            `Transaction expired (block height ${height} > lastValidBlockHeight ${lastValidBlockHeight}). ` +
+              `Signature: ${signature} (blockhash: ${blockhash})`
+          );
+        }
+      } catch (e) {
+        // If getBlockHeight is rate-limited, don't fail confirmation polling.
+      }
+    }
+
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(
+        `Transaction was not confirmed in ${(timeoutMs / 1000).toFixed(2)} seconds. ` +
+          `It is unknown if it succeeded or failed. Check signature ${signature}.`
+      );
+    }
+
+    loop++;
+    await sleep(1200);
+  }
 }
 
 // Convert base64 to Uint8Array (browser-compatible)
@@ -251,8 +317,13 @@ export function useMeteoraApi() {
 
       // Step 2: If transactions need signing by user wallet
       if (txBase64s.length > 0 && signTransaction) {
-        const rpcUrl = getRpcUrl();
-        const connection = new Connection(rpcUrl, 'confirmed');
+        // Make sure runtime config has a chance to load (important on fresh domains with empty localStorage)
+        await waitForRuntimeConfigLoaded(2000);
+
+        const { url: rpcUrl, source: rpcSource } = getRpcInfo();
+        console.info("[useMeteoraApi] Using RPC:", rpcSource, rpcUrl);
+
+        const connection = new Connection(rpcUrl, "confirmed");
 
         // Get keypairs from backend for re-signing
         let mintKeypair: Keypair | null = null;
@@ -356,31 +427,27 @@ export function useMeteoraApi() {
             throw new Error('Transaction failed - RPC returned null signature.');
           }
 
-          // Confirm transaction
+          // Confirm transaction (robust across RPC congestion + avoids 30s default timeout)
           try {
-            const confirmation = await connection.confirmTransaction({
+            await confirmSignatureWithPolling({
+              connection,
               signature,
               blockhash,
               lastValidBlockHeight,
-            }, 'confirmed');
-            
-            if (confirmation.value.err) {
-              throw new Error(`Transaction failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
-            }
+              timeoutMs: 120_000,
+            });
           } catch (confirmError: any) {
-            // Quick status check
+            // Keep legacy fallback behavior but add context.
             const statuses = await connection.getSignatureStatuses([signature], {
               searchTransactionHistory: true,
             });
             const status = statuses.value[0];
-            
+
             if (status?.err) {
               throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
             }
-            
-            if (status?.confirmationStatus !== 'confirmed' && status?.confirmationStatus !== 'finalized') {
-              throw confirmError;
-            }
+
+            throw confirmError;
           }
 
           signatures.push(signature);
