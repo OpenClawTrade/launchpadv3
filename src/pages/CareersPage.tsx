@@ -20,6 +20,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
+import { Footer } from "@/components/layout/Footer";
 
 interface Position {
   title: string;
@@ -437,19 +438,8 @@ export default function CareersPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8 px-4">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>© 2025 TUNA OS. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
-            <Link to="/opentuna" className="hover:text-foreground transition-colors">OpenTuna</Link>
-            <Link to="/whitepaper" className="hover:text-foreground transition-colors">Whitepaper</Link>
-            <a href="https://x.com/buildtuna" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
-              X / Twitter
-            </a>
-          </div>
-        </div>
-      </footer>
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
