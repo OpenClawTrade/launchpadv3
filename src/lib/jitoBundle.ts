@@ -115,19 +115,19 @@ function getTransactionSignature(tx: Transaction | VersionedTransaction): string
     
     // Fallback: find first non-null signature in signatures array
     for (const sigPair of tx.signatures) {
-      if (sigPair.signature && sigPair.signature.length > 0) {
+      if (sigPair?.signature && sigPair.signature.length > 0) {
         return bs58.encode(sigPair.signature);
       }
     }
     
-    // Debug: log the transaction state
+    // Debug: log the transaction state (with null-safe access)
     console.error('[JitoBundle] Transaction signature state:', {
-      signatureCount: tx.signatures.length,
-      signatures: tx.signatures.map(s => ({
-        pubkey: s.publicKey.toBase58(),
-        hasSig: !!s.signature,
-        sigLen: s.signature?.length
-      }))
+      signatureCount: tx.signatures?.length ?? 0,
+      signatures: tx.signatures?.map(s => ({
+        pubkey: s?.publicKey?.toBase58?.() ?? 'undefined',
+        hasSig: !!s?.signature,
+        sigLen: s?.signature?.length ?? 0
+      })) ?? []
     });
     
     throw new Error('Transaction not signed - no valid signatures found');
