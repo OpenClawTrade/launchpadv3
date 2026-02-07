@@ -24,6 +24,7 @@ import OpenTunaFins from "@/components/opentuna/OpenTunaFins";
 import OpenTunaIntegrations from "@/components/opentuna/OpenTunaIntegrations";
 import OpenTunaCurrent from "@/components/opentuna/OpenTunaCurrent";
 import OpenTunaDocs from "@/components/opentuna/OpenTunaDocs";
+import { Footer } from "@/components/layout/Footer";
 
 const VALID_TABS = ['hub', 'hatch', 'dna', 'sonar', 'memory', 'fins', 'integrations', 'current', 'docs'];
 
@@ -168,6 +169,9 @@ function OpenTunaContent() {
           <OpenTunaDocs />
         </TabsContent>
       </Tabs>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

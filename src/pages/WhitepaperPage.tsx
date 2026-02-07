@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { Footer } from "@/components/layout/Footer";
 
 export default function WhitepaperPage() {
   return (
@@ -980,13 +981,16 @@ await agent.sonar.setMode('hunt');`}
             </div>
           </section>
 
-          {/* Footer */}
-          <footer className="text-center text-sm text-muted-foreground pt-8 border-t border-border">
+          {/* Document Footer */}
+          <div className="text-center text-sm text-muted-foreground pt-8 border-t border-border">
             <p>This whitepaper is a living document and will be updated as the TUNA platform evolves.</p>
             <p className="mt-2">© 2026 TUNA Protocol. All rights reserved.</p>
-          </footer>
+          </div>
         </div>
       </main>
+
+      {/* Site Footer */}
+      <Footer />
     </div>
   );
 }

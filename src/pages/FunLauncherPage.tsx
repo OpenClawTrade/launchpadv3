@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Footer } from "@/components/layout/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -891,6 +892,9 @@ export default function FunLauncherPage() {
           promoterWallet={solanaAddress || ""}
         />
       )}
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
