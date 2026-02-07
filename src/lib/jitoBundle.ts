@@ -6,16 +6,33 @@
  */
 
 import { Transaction, VersionedTransaction, PublicKey, SystemProgram } from '@solana/web3.js';
+import { Buffer } from 'buffer';
 import bs58 from 'bs58';
 
-// Jito Block Engine endpoints (geographically distributed)
-const JITO_BLOCK_ENGINES = [
-  'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://ny.mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://amsterdam.mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles',
-  'https://tokyo.mainnet.block-engine.jito.wtf/api/v1/bundles',
+// Jito Block Engine region roots (geographically distributed)
+// Note: JSON-RPC paths differ per method (e.g. /bundles vs /getBundleStatuses)
+const JITO_BLOCK_ENGINE_BASES = [
+  'https://mainnet.block-engine.jito.wtf:443',
+  'https://ny.mainnet.block-engine.jito.wtf:443',
+  'https://amsterdam.mainnet.block-engine.jito.wtf:443',
+  'https://frankfurt.mainnet.block-engine.jito.wtf:443',
+  'https://tokyo.mainnet.block-engine.jito.wtf:443',
 ];
+
+function getRandomBlockEngineBase(): string {
+  const index = Math.floor(Math.random() * JITO_BLOCK_ENGINE_BASES.length);
+  return JITO_BLOCK_ENGINE_BASES[index];
+}
+
+function getBundlesUrl(base: string): string {
+  return `${base}/api/v1/bundles`;
+}
+
+function getBundleStatusesUrl(base: string): string {
+  return `${base}/api/v1/getBundleStatuses`;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Jito tip accounts - one of these receives tips for priority
 const JITO_TIP_ACCOUNTS = [
@@ -62,14 +79,6 @@ export function getRandomTipAccount(): PublicKey {
 }
 
 /**
- * Get a random Jito block engine endpoint
- */
-function getRandomBlockEngine(): string {
-  const index = Math.floor(Math.random() * JITO_BLOCK_ENGINES.length);
-  return JITO_BLOCK_ENGINES[index];
-}
-
-/**
  * Create a tip instruction to pay Jito validators for priority inclusion
  */
 export function createJitoTipInstruction(
@@ -84,15 +93,12 @@ export function createJitoTipInstruction(
 }
 
 /**
- * Serialize a signed transaction for Jito bundle submission
+ * Serialize a signed transaction for Jito bundle submission.
+ * Jito recommends base64; base58 is deprecated and can cause larger payloads.
  */
 function serializeTransaction(tx: Transaction | VersionedTransaction): string {
-  if (tx instanceof VersionedTransaction) {
-    return bs58.encode(tx.serialize());
-  } else {
-    // Serialize with all signatures (requireAllSignatures: true throws if missing)
-    return bs58.encode(tx.serialize());
-  }
+  const bytes = tx.serialize();
+  return Buffer.from(bytes).toString('base64');
 }
 
 /**
@@ -173,46 +179,72 @@ export async function submitJitoBundle(
   signedTransactions: (Transaction | VersionedTransaction)[]
 ): Promise<JitoBundleResult> {
   try {
-    // Serialize all transactions to base58
+    // Serialize all transactions to base64 (recommended by Jito)
     const serializedTxs = signedTransactions.map(serializeTransaction);
     const signatures = signedTransactions.map(getTransactionSignature);
-    
+
     console.log(`[JitoBundle] Submitting bundle with ${signedTransactions.length} transactions...`);
-    
+
     // Try multiple endpoints with fallback
     let lastError: Error | null = null;
-    
+
     for (let attempt = 0; attempt < JITO_CONFIG.MAX_RETRIES; attempt++) {
-      const blockEngine = getRandomBlockEngine();
-      
+      const base = getRandomBlockEngineBase();
+      const bundlesUrl = getBundlesUrl(base);
+
       try {
-        console.log(`[JitoBundle] Attempt ${attempt + 1}/${JITO_CONFIG.MAX_RETRIES} to ${blockEngine}`);
-        
-        const response = await fetch(blockEngine, {
+        console.log(`[JitoBundle] Attempt ${attempt + 1}/${JITO_CONFIG.MAX_RETRIES} to ${bundlesUrl}`);
+
+        const response = await fetch(bundlesUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             jsonrpc: '2.0',
             id: 1,
             method: 'sendBundle',
-            params: [serializedTxs],
+            // IMPORTANT: Jito expects [ [txs...], { encoding } ]
+            params: [serializedTxs, { encoding: 'base64' }],
           }),
         });
-        
+
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const retryAfter = response.headers.get('retry-after');
+          const bodyText = await response.text().catch(() => '');
+
+          // Handle rate limiting with exponential backoff + optional Retry-After
+          if (response.status === 429) {
+            const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : 0;
+            const backoffMs = Math.min(10_000, 1000 * 2 ** attempt) + Math.floor(Math.random() * 250);
+            const waitMs = Math.max(retryAfterMs, backoffMs);
+
+            console.warn(`[JitoBundle] Rate limited (429). Waiting ${waitMs}ms before retry...`);
+            lastError = new Error(`HTTP 429: rate limited`);
+
+            if (attempt < JITO_CONFIG.MAX_RETRIES - 1) {
+              await sleep(waitMs);
+              continue;
+            }
+          }
+
+          console.error('[JitoBundle] Non-OK response:', {
+            status: response.status,
+            statusText: response.statusText,
+            body: bodyText.slice(0, 800),
+          });
+
+          throw new Error(`HTTP ${response.status}: ${bodyText || response.statusText || 'Request failed'}`);
         }
-        
+
         const result = await response.json();
-        
+
         if (result.error) {
           console.error('[JitoBundle] Bundle submission error:', result.error);
           throw new Error(result.error.message || JSON.stringify(result.error));
         }
-        
+
         const bundleId = result.result;
         console.log('[JitoBundle] Bundle submitted successfully:', bundleId);
-        
+
         return {
           success: true,
           bundleId,
@@ -221,14 +253,15 @@ export async function submitJitoBundle(
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         console.warn(`[JitoBundle] Attempt ${attempt + 1} failed:`, lastError.message);
-        
-        // Wait before retry
+
+        // Wait before retry (generic backoff for non-429)
         if (attempt < JITO_CONFIG.MAX_RETRIES - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+          const backoffMs = Math.min(8000, 750 * (attempt + 1)) + Math.floor(Math.random() * 200);
+          await sleep(backoffMs);
         }
       }
     }
-    
+
     return {
       success: false,
       error: lastError?.message || 'Failed to submit bundle after retries',
@@ -260,9 +293,10 @@ export async function waitForBundleConfirmation(
   while (Date.now() - startTime < timeoutMs) {
     try {
       // Use a random endpoint for load balancing
-      const blockEngine = getRandomBlockEngine();
+      const base = getRandomBlockEngineBase();
+      const statusesUrl = getBundleStatusesUrl(base);
       
-      const response = await fetch(blockEngine, {
+      const response = await fetch(statusesUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
