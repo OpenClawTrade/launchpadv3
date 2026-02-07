@@ -171,25 +171,68 @@ export function usePhantomWallet() {
     const provider = getProvider();
     
     if (!provider) {
+      console.error('[PhantomWallet] Provider not found');
       toast({
-        title: "Phantom not connected",
-        description: "Please connect your Phantom wallet first",
+        title: "Phantom not found",
+        description: "Please make sure Phantom wallet is installed and unlocked",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    if (!provider.isConnected) {
+      console.error('[PhantomWallet] Provider not connected');
+      toast({
+        title: "Wallet not connected",
+        description: "Please reconnect your Phantom wallet",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    if (!provider.signAndSendTransaction) {
+      console.error('[PhantomWallet] signAndSendTransaction method not available');
+      toast({
+        title: "Wallet Error",
+        description: "Phantom wallet doesn't support this operation. Please update Phantom.",
         variant: "destructive",
       });
       return null;
     }
 
     try {
-      const result = await provider.signAndSendTransaction?.(transaction);
+      console.log('[PhantomWallet] Requesting signature...');
+      const result = await provider.signAndSendTransaction(transaction);
+      console.log('[PhantomWallet] Signature result:', result);
       return result?.signature ?? null;
     } catch (error) {
       console.error('[PhantomWallet] SignAndSend error:', error);
-      toast({
-        title: "Transaction Failed",
-        description: error instanceof Error ? error.message : "Failed to send transaction",
-        variant: "destructive",
-      });
-      return null;
+      
+      // Provide more specific error messages
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('User rejected') || errorMessage.includes('cancelled')) {
+        toast({
+          title: "Transaction Rejected",
+          description: "You rejected the transaction in Phantom",
+          variant: "destructive",
+        });
+      } else if (errorMessage.includes('Insufficient')) {
+        toast({
+          title: "Insufficient SOL",
+          description: "Not enough SOL to complete this transaction",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Transaction Failed",
+          description: errorMessage.slice(0, 100),
+          variant: "destructive",
+        });
+      }
+      
+      // Re-throw so the caller knows it failed
+      throw error;
     }
   }, [getProvider, toast]);
 
