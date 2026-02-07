@@ -8,7 +8,7 @@ import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { Footer } from "@/components/layout/Footer";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
-import { Menu } from "lucide-react";
+import { Menu, TrendingUp, Bot } from "lucide-react";
 import { XLogo, Fish } from "@phosphor-icons/react";
 
 const HEADER_LOGO_SRC = "/tuna-logo.png";
@@ -53,17 +53,23 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
             </Link>
             <Link to="/trending">
               <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium">
-                Trending Narratives
+                Trending
+              </Button>
+            </Link>
+            <Link to="/api">
+              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium">
+                API
               </Button>
             </Link>
             <Link to="/agents">
-              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white rounded-lg h-9 px-3 text-sm font-medium">
-                TUNA Agents
+              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
+                <Bot className="h-4 w-4" />
+                Agents
               </Button>
             </Link>
             <Link to="/opentuna">
-              <Button size="sm" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg h-9 px-3 text-sm font-medium">
-                <Fish className="h-4 w-4 mr-1.5" weight="duotone" />
+              <Button size="sm" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
+                <Fish className="h-4 w-4" weight="duotone" />
                 OpenTuna
               </Button>
             </Link>
@@ -108,10 +114,14 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
                     <span className="text-primary-foreground text-sm font-medium">Trade</span>
                   </Link>
                   <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-foreground text-sm font-medium">Trending Narratives</span>
+                    <span className="text-foreground text-sm font-medium">Trending</span>
+                  </Link>
+                  <Link to="/api" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <span className="text-foreground text-sm font-medium">API</span>
                   </Link>
                   <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-white text-sm font-medium">TUNA Agents</span>
+                    <Bot className="h-4 w-4 text-white" />
+                    <span className="text-white text-sm font-medium">Agents</span>
                   </Link>
                   <Link to="/opentuna" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <Fish className="h-4 w-4 text-white" weight="duotone" />
