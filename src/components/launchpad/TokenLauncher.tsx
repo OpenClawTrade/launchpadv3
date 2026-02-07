@@ -800,6 +800,24 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     setIsPhantomLaunching(true);
 
     try {
+      const { url: rpcUrl } = getRpcUrl();
+      const connection = new Connection(rpcUrl, "confirmed");
+
+      // Pre-flight balance check
+      const estimatedTxFees = 0.05; // ~0.05 SOL for 3 tx rent + priority fees
+      const totalNeeded = estimatedTxFees + phantomDevBuySol;
+      const currentBalance = phantomWallet.balance ?? 0;
+      
+      if (currentBalance < totalNeeded) {
+        toast({ 
+          title: "Insufficient SOL", 
+          description: `Need ~${totalNeeded.toFixed(3)} SOL (fees + dev buy), but wallet has ${currentBalance.toFixed(3)} SOL`, 
+          variant: "destructive" 
+        });
+        setIsPhantomLaunching(false);
+        return;
+      }
+
       const imageUrl = await uploadPhantomImageIfNeeded();
       const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
         body: {
@@ -832,8 +850,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
 
       if (txBase64s.length === 0) throw new Error(data?.error || "Failed to create transaction");
 
-      const { url: rpcUrl } = getRpcUrl();
-      const connection = new Connection(rpcUrl, "confirmed");
+      // Transaction labels for better error messages
+      const txLabels: string[] = data?.txLabels || txBase64s.map((_, i) => 
+        i === 0 ? "Create Config" : i === 1 ? "Create Pool" : "Dev Buy"
+      );
 
       const deserializeAnyTx = (base64: string): Transaction | VersionedTransaction => {
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -847,24 +867,25 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       const signatures: string[] = [];
       for (let i = 0; i < txBase64s.length; i++) {
         const txBase64 = txBase64s[i];
+        const txLabel = txLabels[i] || `Transaction ${i + 1}`;
         const tx = deserializeAnyTx(txBase64);
         
-        console.log(`[Phantom Launch] Signing transaction ${i + 1}/${txBase64s.length}...`);
+        console.log(`[Phantom Launch] Signing ${txLabel} (${i + 1}/${txBase64s.length})...`);
         
         let signResult: unknown;
         try {
           signResult = await phantomWallet.signAndSendTransaction(tx as any);
         } catch (signError) {
-          console.error('[Phantom Launch] Sign error:', signError);
+          console.error(`[Phantom Launch] ${txLabel} sign error:`, signError);
           // User likely rejected the transaction
           if (signError instanceof Error && signError.message.includes('User rejected')) {
-            throw new Error("Transaction was rejected. Please approve in Phantom.");
+            throw new Error(`${txLabel} was rejected. Please approve in Phantom.`);
           }
-          throw new Error(`Signing failed: ${signError instanceof Error ? signError.message : 'Unknown error'}`);
+          throw new Error(`${txLabel} signing failed: ${signError instanceof Error ? signError.message : 'Unknown error'}`);
         }
         
         if (!signResult) {
-          throw new Error("Transaction was canceled or Phantom is not responding. Please try reconnecting your wallet.");
+          throw new Error(`${txLabel} was canceled or Phantom is not responding. Please try reconnecting your wallet.`);
         }
 
         let signature: string;
@@ -874,12 +895,25 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           signature = String(signResult);
         }
 
-        console.log(`[Phantom Launch] Transaction ${i + 1} signed:`, signature.slice(0, 16) + '...');
+        console.log(`[Phantom Launch] ${txLabel} signed:`, signature.slice(0, 16) + '...');
         signatures.push(signature);
         
-        toast({ title: `Transaction ${i + 1}/${txBase64s.length} sent`, description: "Waiting for confirmation..." });
+        toast({ title: `${txLabel} sent`, description: "Waiting for confirmation..." });
         await connection.confirmTransaction(signature, "confirmed");
-        console.log(`[Phantom Launch] Transaction ${i + 1} confirmed`);
+        
+        // CRITICAL: Verify transaction actually succeeded on-chain
+        const statusResult = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+        const txStatus = statusResult.value[0];
+        
+        if (!txStatus) {
+          console.warn(`[Phantom Launch] ${txLabel} status not found, assuming success`);
+        } else if (txStatus.err) {
+          const errMsg = typeof txStatus.err === 'object' ? JSON.stringify(txStatus.err) : String(txStatus.err);
+          console.error(`[Phantom Launch] ${txLabel} failed on-chain:`, txStatus.err);
+          throw new Error(`${txLabel} failed on-chain: ${errMsg}. Check your SOL balance.`);
+        }
+        
+        console.log(`[Phantom Launch] ${txLabel} confirmed and verified`);
       }
 
       // Phase 2: record token in DB after on-chain confirmation
@@ -1423,7 +1457,11 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       placeholder="0.00"
                       value={phantomDevBuySolInput}
                       onChange={(e) => {
-                        const next = e.target.value;
+                        let next = e.target.value;
+                        // Normalize leading decimal (e.g., ".01" -> "0.01")
+                        if (next.startsWith('.')) {
+                          next = '0' + next;
+                        }
                         if (next === "" || DEV_BUY_INPUT_RE.test(next)) {
                           setPhantomDevBuySolInput(next);
                         }

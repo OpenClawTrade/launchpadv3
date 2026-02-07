@@ -341,15 +341,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log('[create-phantom] Vanity address reserved:', vanityKeypairId);
     }
 
+    // Build transaction labels for better UX
+    const txLabels: string[] = [];
+    for (let i = 0; i < serializedTransactions.length; i++) {
+      if (i === 0) txLabels.push("Create Config");
+      else if (i === 1) txLabels.push("Create Pool");
+      else if (i === 2 && effectiveDevBuySol > 0) txLabels.push(`Dev Buy (${effectiveDevBuySol} SOL)`);
+      else txLabels.push(`Transaction ${i + 1}`);
+    }
+
     return res.status(200).json({
       success: true,
       mintAddress,
       dbcPoolAddress,
       poolAddress: dbcPoolAddress,
       unsignedTransactions: serializedTransactions,
+      txLabels, // Labels for each transaction step
       vanityKeypairId,
       requiresPhantomSignature: true,
       txCount: serializedTransactions.length,
+      devBuyRequested: effectiveDevBuySol > 0,
+      devBuySol: effectiveDevBuySol,
       message: 'Transactions prepared. Please sign with Phantom wallet.',
     });
 
