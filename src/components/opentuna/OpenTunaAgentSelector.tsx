@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -6,28 +6,63 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Fish } from "@phosphor-icons/react";
-import { OpenTunaAgent } from "@/hooks/useOpenTuna";
+import { Fish, Spinner } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+
+interface OpenTunaAgent {
+  id: string;
+  name: string;
+  status: string;
+  agent_type: string;
+}
 
 interface OpenTunaAgentSelectorProps {
-  agents: OpenTunaAgent[];
   selectedAgentId: string | null;
   onSelect: (agentId: string) => void;
-  isLoading?: boolean;
   className?: string;
 }
 
 export default function OpenTunaAgentSelector({
-  agents,
   selectedAgentId,
   onSelect,
-  isLoading,
   className,
 }: OpenTunaAgentSelectorProps) {
-  if (isLoading) {
+  const [agents, setAgents] = useState<OpenTunaAgent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAgents();
+  }, []);
+
+  const fetchAgents = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("opentuna_agents")
+        .select("id, name, status, agent_type")
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setAgents(data);
+        // Auto-select first agent if none selected
+        if (!selectedAgentId && data.length > 0) {
+          onSelect(data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch agents:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className={cn("w-48 h-9 bg-secondary/50 rounded-lg animate-pulse", className)} />
+      <div className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)}>
+        <Spinner className="h-4 w-4 animate-spin" />
+        Loading agents...
+      </div>
     );
   }
 
@@ -35,7 +70,7 @@ export default function OpenTunaAgentSelector({
     return (
       <div className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)}>
         <Fish className="h-4 w-4" weight="duotone" />
-        No agents
+        No agents found
       </div>
     );
   }
