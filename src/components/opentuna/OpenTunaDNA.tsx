@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -13,8 +12,14 @@ import {
   Target,
   Warning,
   FloppyDisk,
-  Fish
+  Fish,
+  Spinner
 } from "@phosphor-icons/react";
+import { useOpenTunaContext } from "./OpenTunaContext";
+import { useOpenTunaDNA } from "@/hooks/useOpenTuna";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Goal {
   id: string;
@@ -34,7 +39,11 @@ const SAMPLE_TRAITS = [
 ];
 
 export default function OpenTunaDNA() {
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const { selectedAgentId, agents } = useOpenTunaContext();
+  const { data: dna, isLoading } = useOpenTunaDNA(selectedAgentId);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const [personality, setPersonality] = useState("");
   const [traits, setTraits] = useState<string[]>([]);
   const [traitInput, setTraitInput] = useState("");
@@ -42,6 +51,33 @@ export default function OpenTunaDNA() {
   const [reefLimits, setReefLimits] = useState<ReefLimit[]>([]);
   const [newGoal, setNewGoal] = useState("");
   const [newLimit, setNewLimit] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Populate form when DNA data loads
+  useEffect(() => {
+    if (dna) {
+      setPersonality(dna.personality || "");
+      setTraits(dna.species_traits || []);
+      
+      // Parse migration goals
+      const parsedGoals = Array.isArray(dna.migration_goals) 
+        ? dna.migration_goals.map((g: any, i: number) => ({
+            id: crypto.randomUUID(),
+            goal: g.goal || g,
+            progress: g.progress || 0,
+            priority: g.priority || i + 1,
+          }))
+        : [];
+      setGoals(parsedGoals);
+      
+      // Parse reef limits
+      const parsedLimits = (dna.reef_limits || []).map((l: string) => ({
+        id: crypto.randomUUID(),
+        limit: l,
+      }));
+      setReefLimits(parsedLimits);
+    }
+  }, [dna]);
 
   const addTrait = (trait: string) => {
     if (trait && !traits.includes(trait)) {
@@ -81,8 +117,46 @@ export default function OpenTunaDNA() {
     setReefLimits(reefLimits.filter(l => l.id !== id));
   };
 
-  // Placeholder - no agents yet
-  if (!selectedAgent) {
+  const handleSave = async () => {
+    if (!selectedAgentId) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.functions.invoke('opentuna-dna-update', {
+        body: {
+          agentId: selectedAgentId,
+          personality,
+          speciesTraits: traits,
+          migrationGoals: goals.map(g => ({
+            goal: g.goal,
+            progress: g.progress,
+            priority: g.priority,
+          })),
+          reefLimits: reefLimits.map(l => l.limit),
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "DNA Saved",
+        description: "Agent personality and goals updated successfully.",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['opentuna-dna', selectedAgentId] });
+    } catch (error: any) {
+      toast({
+        title: "Save Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // No agent selected
+  if (!selectedAgentId || agents.length === 0) {
     return (
       <div className="max-w-3xl mx-auto">
         <Card className="opentuna-card">
@@ -92,92 +166,42 @@ export default function OpenTunaDNA() {
             <p className="text-muted-foreground mb-4">
               Hatch an agent first to configure its DNA
             </p>
-            <Button className="opentuna-button">
-              Go to Hatch
-            </Button>
           </CardContent>
         </Card>
-        
-        {/* Demo mode for UI preview */}
-        <div className="mt-8">
-          <p className="text-center text-sm text-muted-foreground mb-4">
-            Preview DNA Lab interface below:
-          </p>
-          <DNAEditor 
-            personality={personality}
-            setPersonality={setPersonality}
-            traits={traits}
-            addTrait={addTrait}
-            removeTrait={removeTrait}
-            traitInput={traitInput}
-            setTraitInput={setTraitInput}
-            goals={goals}
-            addGoal={addGoal}
-            removeGoal={removeGoal}
-            newGoal={newGoal}
-            setNewGoal={setNewGoal}
-            reefLimits={reefLimits}
-            addLimit={addLimit}
-            removeLimit={removeLimit}
-            newLimit={newLimit}
-            setNewLimit={setNewLimit}
-          />
-        </div>
       </div>
     );
   }
 
-  return (
-    <DNAEditor 
-      personality={personality}
-      setPersonality={setPersonality}
-      traits={traits}
-      addTrait={addTrait}
-      removeTrait={removeTrait}
-      traitInput={traitInput}
-      setTraitInput={setTraitInput}
-      goals={goals}
-      addGoal={addGoal}
-      removeGoal={removeGoal}
-      newGoal={newGoal}
-      setNewGoal={setNewGoal}
-      reefLimits={reefLimits}
-      addLimit={addLimit}
-      removeLimit={removeLimit}
-      newLimit={newLimit}
-      setNewLimit={setNewLimit}
-    />
-  );
-}
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <Card className="opentuna-card">
+          <CardContent className="p-8 text-center">
+            <Spinner className="h-8 w-8 text-cyan-400 mx-auto mb-3 animate-spin" />
+            <p className="text-muted-foreground">Loading DNA configuration...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-interface DNAEditorProps {
-  personality: string;
-  setPersonality: (v: string) => void;
-  traits: string[];
-  addTrait: (trait: string) => void;
-  removeTrait: (trait: string) => void;
-  traitInput: string;
-  setTraitInput: (v: string) => void;
-  goals: Goal[];
-  addGoal: () => void;
-  removeGoal: (id: string) => void;
-  newGoal: string;
-  setNewGoal: (v: string) => void;
-  reefLimits: ReefLimit[];
-  addLimit: () => void;
-  removeLimit: (id: string) => void;
-  newLimit: string;
-  setNewLimit: (v: string) => void;
-}
+  const selectedAgent = agents.find(a => a.id === selectedAgentId);
 
-function DNAEditor({
-  personality, setPersonality,
-  traits, addTrait, removeTrait, traitInput, setTraitInput,
-  goals, addGoal, removeGoal, newGoal, setNewGoal,
-  reefLimits, addLimit, removeLimit, newLimit, setNewLimit
-}: DNAEditorProps) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      {/* Agent Info */}
+      {selectedAgent && (
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+          <Fish className="h-6 w-6 text-cyan-400" weight="duotone" />
+          <div>
+            <p className="font-semibold">{selectedAgent.name}</p>
+            <p className="text-xs text-muted-foreground">
+              DNA v{dna?.version || 1} • {selectedAgent.agent_type}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* DNA Core */}
       <Card className="opentuna-card">
         <CardHeader>
@@ -312,9 +336,17 @@ function DNAEditor({
       </Card>
 
       {/* Save Button */}
-      <Button className="w-full opentuna-button">
-        <FloppyDisk className="h-4 w-4 mr-2" weight="duotone" />
-        Save DNA
+      <Button 
+        className="w-full opentuna-button" 
+        onClick={handleSave}
+        disabled={isSaving}
+      >
+        {isSaving ? (
+          <Spinner className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <FloppyDisk className="h-4 w-4 mr-2" weight="duotone" />
+        )}
+        {isSaving ? "Saving..." : "Save DNA"}
       </Button>
     </div>
   );
