@@ -102,7 +102,6 @@ Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
-    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -222,6 +221,21 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
     if (!conceptResponse.ok) {
       const errorText = await conceptResponse.text();
       console.error("[fun-generate] Concept generation failed:", errorText);
+      
+      // Handle rate limits and payment required gracefully
+      if (conceptResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ success: false, error: "AI service is busy. Please try again in a moment." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (conceptResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ success: false, error: "AI credits exhausted. Please add credits to continue." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       throw new Error("Failed to generate meme concept");
     }
 
