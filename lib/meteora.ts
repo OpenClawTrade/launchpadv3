@@ -408,7 +408,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   // Create pool with config using SDK-generated curve parameters
   // We spread curveConfig to get sqrtStartPrice, curve, migrationQuoteThreshold, etc.
   // Then override only the account-specific fields
-  const { createConfigTx, createPoolTx, swapBuyTx } = await client.pool.createConfigAndPoolWithFirstBuy({
+  const { createConfigTx, createPoolTx, swapBuyTx: rawSwapBuyTx } = await client.pool.createConfigAndPoolWithFirstBuy({
     // Account addresses
     payer: creatorPubkey,
     config: configKeypair.publicKey,
@@ -432,62 +432,91 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     firstBuyParam,
   } as any);
 
+  // ============================================================
+  // INDUSTRY STANDARD: If a dev-buy is requested, execute it in the
+  // SAME TRANSACTION as pool creation (no timing gap).
+  // ============================================================
+  let mergedDevBuyIntoPool = false;
+  let swapBuyTx = rawSwapBuyTx;
+
+  if (createPoolTx && swapBuyTx && firstBuyParam) {
+    try {
+      // Strip any compute budget instructions from the swap tx before merging.
+      const swapCoreIxs = swapBuyTx.instructions.filter(
+        (ix) => !ix.programId.equals(ComputeBudgetProgram.programId)
+      );
+
+      if (swapCoreIxs.length > 0) {
+        createPoolTx.instructions.push(...swapCoreIxs);
+        mergedDevBuyIntoPool = true;
+        console.log('[meteora] ✅ Merged dev buy swap into pool creation transaction (same tx)');
+      } else {
+        console.warn('[meteora] swapBuyTx had no non-budget instructions; not merging');
+      }
+    } catch (mergeErr) {
+      console.warn('[meteora] ⚠️ Failed to merge swap into pool tx; will keep separate swap tx', mergeErr);
+      mergedDevBuyIntoPool = false;
+    }
+  }
 
   // Get recent blockhash for all transactions with retry
   const { blockhash, lastValidBlockHeight } = await getBlockhashWithRetry(connection);
   
   // Priority fee settings for faster confirmation
   const PRIORITY_FEE_MICRO_LAMPORTS = 100_000; // 0.0001 SOL per compute unit
-  const COMPUTE_UNITS = 400_000; // 400k compute units per tx
-  
-  const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
-    microLamports: PRIORITY_FEE_MICRO_LAMPORTS,
-  });
-  const computeUnitsIx = ComputeBudgetProgram.setComputeUnitLimit({
-    units: COMPUTE_UNITS,
-  });
-  
+
+  const COMPUTE_UNITS_CONFIG = 300_000;
+  const COMPUTE_UNITS_POOL = mergedDevBuyIntoPool ? 650_000 : 400_000;
+  const COMPUTE_UNITS_SWAP = 350_000;
+
+  const makeBudgetIxs = (units: number) => {
+    const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: PRIORITY_FEE_MICRO_LAMPORTS,
+    });
+    const computeUnitsIx = ComputeBudgetProgram.setComputeUnitLimit({ units });
+    return [computeUnitsIx, priorityFeeIx];
+  };
+
   // Set blockhash, fee payer, add priority fees
   // NOTE: We do NOT pre-sign here - the caller (create-fun.ts) will sign with all required keypairs
-  // CRITICAL: Transactions MUST be sent sequentially: config first, then pool, then swap
+  // CRITICAL: Transactions MUST be sent sequentially: config first, then pool(+devBuy)
   // The config account must be initialized on-chain before pool creation references it
   const preparedTransactions: Transaction[] = [];
   
-  const addPriorityFees = (tx: Transaction) => {
-    // Prepend priority fee instructions
+  const addPriorityFees = (tx: Transaction, units: number) => {
+    const [computeUnitsIx, priorityFeeIx] = makeBudgetIxs(units);
     tx.instructions = [computeUnitsIx, priorityFeeIx, ...tx.instructions];
   };
 
   // Transaction 1: Create config account (MUST complete before pool tx)
   if (createConfigTx) {
-    addPriorityFees(createConfigTx);
+    addPriorityFees(createConfigTx, COMPUTE_UNITS_CONFIG);
     createConfigTx.recentBlockhash = blockhash;
     createConfigTx.feePayer = creatorPubkey;
-    // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(createConfigTx);
     console.log('[meteora] TX1 (createConfig): Ready for signing');
   }
 
-  // Transaction 2: Create pool (requires config account to exist on-chain)
+  // Transaction 2: Create pool (and dev buy if merged)
   if (createPoolTx) {
-    addPriorityFees(createPoolTx);
+    addPriorityFees(createPoolTx, COMPUTE_UNITS_POOL);
     createPoolTx.recentBlockhash = blockhash;
     createPoolTx.feePayer = creatorPubkey;
-    // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(createPoolTx);
-    console.log('[meteora] TX2 (createPool): Ready for signing');
+    console.log(mergedDevBuyIntoPool
+      ? '[meteora] TX2 (createPool+devBuy): Ready for signing'
+      : '[meteora] TX2 (createPool): Ready for signing'
+    );
   }
   
-  // Transaction 3: Initial buy swap (optional)
-  if (swapBuyTx) {
-    addPriorityFees(swapBuyTx);
+  // Transaction 3: Initial buy swap (optional) — only if NOT merged
+  if (swapBuyTx && !mergedDevBuyIntoPool) {
+    addPriorityFees(swapBuyTx, COMPUTE_UNITS_SWAP);
     swapBuyTx.recentBlockhash = blockhash;
     swapBuyTx.feePayer = creatorPubkey;
-    // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(swapBuyTx);
     console.log('[meteora] TX3 (swapBuy): Ready for signing');
-  } else if (firstBuyParam) {
-    // Log warning if firstBuyParam was set but no swap transaction was returned
+  } else if (!swapBuyTx && firstBuyParam) {
     console.warn('[meteora] ⚠️ firstBuyParam was set but SDK did NOT return swapBuyTx!');
     console.warn('[meteora] firstBuyParam:', JSON.stringify({
       buyer: firstBuyParam.buyer.toBase58(),
@@ -496,7 +525,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     }));
   }
 
-  console.log('[meteora] Prepared', preparedTransactions.length, 'transactions (unsigned - MUST be sent sequentially)');
+  console.log('[meteora] Prepared', preparedTransactions.length, 'transactions (unsigned)');
   console.log('[meteora] IMPORTANT: TX1 (config) must complete before TX2 (pool) is sent!');
 
   return {
