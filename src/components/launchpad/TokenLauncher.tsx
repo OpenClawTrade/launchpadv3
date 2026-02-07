@@ -799,6 +799,12 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     }
 
     setIsPhantomLaunching(true);
+    
+    // Immediate feedback so user knows something is happening
+    toast({
+      title: "🚀 Preparing Launch...",
+      description: "Creating pool transactions (this may take 10-20 seconds)",
+    });
 
     try {
       const { url: rpcUrl } = getRpcUrl();
@@ -819,7 +825,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         return;
       }
 
+      toast({ title: "Uploading image...", description: "Almost ready" });
       const imageUrl = await uploadPhantomImageIfNeeded();
+      
+      toast({ title: "Building transactions...", description: "Fetching blockhash and creating pool" });
       const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
         body: {
           name: phantomToken.name.slice(0, 32),
