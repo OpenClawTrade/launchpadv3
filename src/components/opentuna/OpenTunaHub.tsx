@@ -130,7 +130,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
   const { data: recentActivity = [], isLoading: isLoadingActivity } = useRecentActivity(agentIds, 10);
   
   const STATS = [
-    { label: "Active Agents", value: isLoadingStats ? "—" : (stats?.totalAgents?.toString() || "0"), icon: Fish, color: "text-cyan-400" },
+    { label: "Active Agents", value: isLoadingStats ? "—" : (stats?.totalAgents?.toString() || "0"), icon: Fish, color: "text-primary" },
     { label: "Pings Today", value: isLoadingStats ? "—" : (stats?.totalPingsToday?.toString() || "0"), icon: Lightning, color: "text-yellow-400" },
     { label: "Economy Volume", value: isLoadingStats ? "— SOL" : `${stats?.economyVolume?.toFixed(2) || "0"} SOL`, icon: CurrencyCircleDollar, color: "text-green-400" },
     { label: "Avg Uptime", value: isLoadingStats ? "—%" : `${stats?.avgUptime || 99}%`, icon: Clock, color: "text-blue-400" },
@@ -165,7 +165,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
           <Card key={stat.label} className="opentuna-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-cyan-500/10">
+                <div className="p-2 rounded-lg bg-primary/10">
                   <stat.icon className={`h-5 w-5 ${stat.color}`} weight="duotone" />
                 </div>
                 <div>
@@ -180,15 +180,15 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
 
       {/* Developer Quick Start */}
       <Card className="opentuna-card opentuna-glow overflow-hidden">
-        <CardHeader className="pb-3 border-b border-cyan-500/20">
+        <CardHeader className="pb-3 border-b border-primary/20">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Terminal className="h-5 w-5 text-cyan-400" weight="duotone" />
+            <Terminal className="h-5 w-5 text-primary" weight="duotone" />
             Developer Quick Start
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {/* Terminal Header */}
-          <div className="flex items-center justify-between px-4 py-2 bg-secondary/30 border-b border-cyan-500/10">
+          <div className="flex items-center justify-between px-4 py-2 bg-secondary/30 border-b border-primary/10">
             <div className="flex items-center gap-2">
               <div className="flex gap-1.5">
                 <div className="w-3 h-3 rounded-full bg-red-500/60" />
@@ -203,7 +203,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
                     className={cn(
                       "px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5",
                       sdkTab === tab.id
-                        ? "bg-cyan-500/20 text-cyan-400"
+                        ? "bg-primary/20 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                     )}
                   >
@@ -230,9 +230,9 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
 
           {/* Install Command */}
           {sdkTab !== 'keys' && (
-            <div className="px-4 py-3 bg-black/30 font-mono text-sm border-b border-cyan-500/10">
+            <div className="px-4 py-3 bg-black/30 font-mono text-sm border-b border-primary/10">
               <span className="text-muted-foreground">$</span>{' '}
-              <span className="text-cyan-400">
+              <span className="text-primary">
                 {sdkTab === 'sdk' ? 'npm install @opentuna/sdk' : 'curl -X GET https://tuna.fun/api/...'}
               </span>
             </div>
@@ -258,7 +258,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
                 <div className="flex flex-wrap gap-3">
                   <Button 
                     variant="outline" 
-                    className="border-cyan-500/30 hover:bg-cyan-500/10"
+                    className="border-primary/30 hover:bg-primary/10"
                     onClick={() => setApiKeyModalOpen(true)}
                   >
                     <Key className="h-4 w-4 mr-2" />
@@ -266,7 +266,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="border-cyan-500/30 hover:bg-cyan-500/10"
+                    className="border-primary/30 hover:bg-primary/10"
                     onClick={() => setApiKeyModalOpen(true)}
                   >
                     <ArrowSquareOut className="h-4 w-4 mr-2" />
@@ -288,10 +288,10 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
           </div>
 
           {/* Quick Links */}
-          <div className="px-4 py-3 bg-secondary/20 border-t border-cyan-500/10 flex flex-wrap gap-3">
+          <div className="px-4 py-3 bg-secondary/20 border-t border-primary/10 flex flex-wrap gap-3">
             <Button 
               variant="link" 
-              className="text-cyan-400 p-0 h-auto text-sm"
+              className="text-primary p-0 h-auto text-sm"
               onClick={() => onNavigate('docs')}
             >
               <ArrowSquareOut className="h-3.5 w-3.5 mr-1" />
@@ -299,7 +299,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
             </Button>
             <Button 
               variant="link" 
-              className="text-cyan-400 p-0 h-auto text-sm"
+              className="text-primary p-0 h-auto text-sm"
               onClick={() => onNavigate('integrations')}
             >
               <ArrowSquareOut className="h-3.5 w-3.5 mr-1" />
@@ -323,13 +323,13 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
               <button
                 key={item.step}
                 onClick={() => onNavigate(item.tab)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-cyan-500/20 transition-all group"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-primary/20 transition-all group"
               >
-                <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-bold flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
                   {item.step}
                 </span>
                 <div className="text-left">
-                  <p className="text-sm font-medium group-hover:text-cyan-400 transition-colors">{item.label}</p>
+                  <p className="text-sm font-medium group-hover:text-primary transition-colors">{item.label}</p>
                   <p className="text-xs text-muted-foreground">{item.description}</p>
                 </div>
                 {index < QUICK_START_STEPS.length - 1 && (
@@ -344,7 +344,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
       {/* Agent Types */}
       <div>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Gear className="h-5 w-5 text-cyan-400" weight="duotone" />
+          <Gear className="h-5 w-5 text-primary" weight="duotone" />
           Agent Types
         </h2>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -371,13 +371,13 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
         
         {/* General Purpose Card */}
         <Card 
-          className="opentuna-card mt-4 cursor-pointer hover:scale-[1.01] transition-all bg-gradient-to-br from-cyan-500/20 to-teal-600/10 border-cyan-500/30"
+          className="opentuna-card mt-4 cursor-pointer hover:scale-[1.01] transition-all bg-gradient-to-br from-green-500/20 to-emerald-600/10 border-primary/30"
           onClick={() => onNavigate('hatch')}
         >
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-background/50">
-                <Gear className="h-6 w-6 text-cyan-400" weight="duotone" />
+                <Gear className="h-6 w-6 text-primary" weight="duotone" />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">General Purpose</h3>
@@ -394,7 +394,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
       {/* Your Agents */}
       <div>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Fish className="h-5 w-5 text-cyan-400" weight="duotone" />
+          <Fish className="h-5 w-5 text-primary" weight="duotone" />
           Your Agents
         </h2>
         {isLoadingAgents ? (
@@ -410,7 +410,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
                 key={agent.id}
                 className={cn(
                   "opentuna-card cursor-pointer hover:scale-[1.02] transition-all",
-                  selectedAgentId === agent.id && "ring-2 ring-cyan-500"
+                  selectedAgentId === agent.id && "ring-2 ring-primary"
                 )}
                 onClick={() => {
                   setSelectedAgentId(agent.id);
@@ -419,8 +419,8 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-cyan-500/10">
-                      <Fish className="h-6 w-6 text-cyan-400" weight="duotone" />
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Fish className="h-6 w-6 text-primary" weight="duotone" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -484,7 +484,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
                 {recentActivity.map((ping) => (
                   <div 
                     key={ping.id} 
-                    className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-secondary/30 transition-colors border-b border-cyan-500/10 last:border-0"
+                    className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-secondary/30 transition-colors border-b border-primary/10 last:border-0"
                   >
                     <div className={cn(
                       "w-2 h-2 rounded-full shrink-0",
@@ -510,7 +510,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
                         {formatDistanceToNow(new Date(ping.executed_at), { addSuffix: true })}
                       </span>
                       {ping.cost_sol > 0 && (
-                        <p className="text-xs text-cyan-400">{ping.cost_sol.toFixed(4)} SOL</p>
+                        <p className="text-xs text-primary">{ping.cost_sol.toFixed(4)} SOL</p>
                       )}
                     </div>
                   </div>

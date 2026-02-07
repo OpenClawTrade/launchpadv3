@@ -177,7 +177,7 @@ export default function OpenTunaDNA() {
       <div className="max-w-3xl mx-auto">
         <Card className="opentuna-card">
           <CardContent className="p-8 text-center">
-            <Spinner className="h-8 w-8 text-cyan-400 mx-auto mb-3 animate-spin" />
+            <Spinner className="h-8 w-8 text-primary mx-auto mb-3 animate-spin" />
             <p className="text-muted-foreground">Loading DNA configuration...</p>
           </CardContent>
         </Card>
@@ -191,8 +191,8 @@ export default function OpenTunaDNA() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Agent Info */}
       {selectedAgent && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-          <Fish className="h-6 w-6 text-cyan-400" weight="duotone" />
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/10 border border-primary/20">
+          <Fish className="h-6 w-6 text-primary" weight="duotone" />
           <div>
             <p className="font-semibold">{selectedAgent.name}</p>
             <p className="text-xs text-muted-foreground">
@@ -206,7 +206,7 @@ export default function OpenTunaDNA() {
       <Card className="opentuna-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Dna className="h-5 w-5 text-cyan-400" weight="duotone" />
+            <Dna className="h-5 w-5 text-primary" weight="duotone" />
             DNA Core (Personality)
           </CardTitle>
         </CardHeader>

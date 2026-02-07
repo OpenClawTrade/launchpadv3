@@ -213,7 +213,7 @@ export default function OpenTunaFins() {
       ) : loading ? (
         <Card className="opentuna-card">
           <CardContent className="p-8 text-center">
-            <Spinner className="h-8 w-8 text-cyan-400 mx-auto mb-3 animate-spin" />
+            <Spinner className="h-8 w-8 text-primary mx-auto mb-3 animate-spin" />
             <p className="text-muted-foreground">Loading fins...</p>
           </CardContent>
         </Card>
@@ -223,7 +223,7 @@ export default function OpenTunaFins() {
           <Card className="opentuna-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <PuzzlePiece className="h-5 w-5 text-cyan-400" weight="duotone" />
+                <PuzzlePiece className="h-5 w-5 text-primary" weight="duotone" />
                 My Fin Rack ({installedFins.length} installed)
               </CardTitle>
             </CardHeader>
@@ -238,12 +238,12 @@ export default function OpenTunaFins() {
                       <div 
                         key={item.fin_id}
                         className={cn(
-                          "p-3 rounded-lg bg-secondary/50 border border-border hover:border-cyan-500/30 transition-all",
+                          "p-3 rounded-lg bg-secondary/50 border border-border hover:border-primary/30 transition-all",
                           !item.enabled && "opacity-50"
                         )}
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <Icon className="h-4 w-4 text-cyan-400" weight="duotone" />
+                          <Icon className="h-4 w-4 text-primary" weight="duotone" />
                           <span className="text-sm font-medium truncate">{item.fin.display_name}</span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -303,17 +303,17 @@ export default function OpenTunaFins() {
                     return (
                       <div 
                         key={fin.id}
-                        className="p-4 rounded-lg bg-secondary/30 border border-border hover:border-cyan-500/30 transition-all"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 rounded-lg bg-cyan-500/10">
-                              <Icon className="h-5 w-5 text-cyan-400" weight="duotone" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-semibold">{fin.display_name}</h4>
-                                {fin.is_verified && (
+                      className="p-4 rounded-lg bg-secondary/30 border border-border hover:border-primary/30 transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Icon className="h-5 w-5 text-primary" weight="duotone" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold">{fin.display_name}</h4>
+                              {fin.is_verified && (
                                   <ShieldCheck className="h-4 w-4 text-green-400" weight="fill" />
                                 )}
                               </div>
@@ -329,10 +329,10 @@ export default function OpenTunaFins() {
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-cyan-400">
-                              {fin.is_native ? "Free" : `${Number(fin.cost_sol || 0).toFixed(3)} SOL`}
-                            </p>
+                        <div className="text-right">
+                          <p className="font-semibold text-primary">
+                            {fin.is_native ? "Free" : `${Number(fin.cost_sol || 0).toFixed(3)} SOL`}
+                          </p>
                             <Button 
                               size="sm" 
                               className="mt-2 opentuna-button"
@@ -359,7 +359,7 @@ export default function OpenTunaFins() {
           {/* Fin Forge */}
           <Card className="opentuna-card border-dashed">
             <CardContent className="p-6 text-center">
-              <Sparkle className="h-10 w-10 text-cyan-400 mx-auto mb-3" weight="duotone" />
+              <Sparkle className="h-10 w-10 text-primary mx-auto mb-3" weight="duotone" />
               <h3 className="font-semibold mb-2">Fin Forge</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Analyze your agent's usage patterns and auto-generate new fins based on repeated successful sequences

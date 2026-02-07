@@ -127,7 +127,7 @@ export default function OpenTunaSonar() {
       <div className="max-w-3xl mx-auto">
         <Card className="opentuna-card">
           <CardContent className="p-8 text-center">
-            <Spinner className="h-8 w-8 text-cyan-400 mx-auto animate-spin" />
+            <Spinner className="h-8 w-8 text-primary mx-auto animate-spin" />
             <p className="text-muted-foreground mt-2">Loading Sonar configuration...</p>
           </CardContent>
         </Card>
@@ -141,9 +141,9 @@ export default function OpenTunaSonar() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Agent Info */}
       {selectedAgent && (
-        <div className="flex items-center justify-between p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+        <div className="flex items-center justify-between p-4 rounded-lg bg-primary/10 border border-primary/20">
           <div className="flex items-center gap-3">
-            <WifiHigh className="h-6 w-6 text-cyan-400" weight="duotone" />
+            <WifiHigh className="h-6 w-6 text-primary" weight="duotone" />
             <div>
               <p className="font-semibold">{selectedAgent.name}</p>
               <p className="text-xs text-muted-foreground">
@@ -173,7 +173,7 @@ export default function OpenTunaSonar() {
       <Card className="opentuna-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <WifiHigh className="h-5 w-5 text-cyan-400" weight="duotone" />
+            <WifiHigh className="h-5 w-5 text-primary" weight="duotone" />
             Select Mode
           </CardTitle>
         </CardHeader>
@@ -186,20 +186,20 @@ export default function OpenTunaSonar() {
                 disabled={updateSonar.isPending}
                 className={cn(
                   "p-4 rounded-xl border-2 text-left transition-all",
-                  "hover:border-cyan-500/50 hover:bg-cyan-500/5",
+                  "hover:border-primary/50 hover:bg-primary/5",
                   "disabled:opacity-50 disabled:cursor-not-allowed",
                   selectedMode === option.mode 
-                    ? "border-cyan-500 bg-cyan-500/10 ring-2 ring-cyan-500/30" 
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30" 
                     : "border-border"
                 )}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold">{option.label}</span>
                   {selectedMode === option.mode && (
-                    <Check className="h-4 w-4 text-cyan-400" />
+                    <Check className="h-4 w-4 text-primary" />
                   )}
                 </div>
-                <p className="text-lg font-bold text-cyan-400">{option.interval}</p>
+                <p className="text-lg font-bold text-primary">{option.interval}</p>
                 <p className="text-xs text-muted-foreground mt-1">{option.cost}</p>
               </button>
             ))}
@@ -292,9 +292,9 @@ export default function OpenTunaSonar() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {pingsLoading ? (
+        {pingsLoading ? (
             <div className="text-center py-4">
-              <Spinner className="h-6 w-6 text-cyan-400 mx-auto animate-spin" />
+              <Spinner className="h-6 w-6 text-primary mx-auto animate-spin" />
             </div>
           ) : pings && pings.length > 0 ? (
             <div className="space-y-2">

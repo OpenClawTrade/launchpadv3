@@ -160,9 +160,27 @@ const INTEGRATIONS: Integration[] = [
     name: 'DexScreener',
     description: 'Real-time charts, price data, trading volume',
     icon: ChartBar,
-    status: 'coming_soon',
+    status: 'active',
     category: 'data',
     features: ['Price charts', 'Volume data', 'Pair info'],
+  },
+  {
+    id: 'helius',
+    name: 'Helius RPC',
+    description: 'Premium Solana RPC with enhanced APIs and webhooks',
+    icon: Lightning,
+    status: 'active',
+    category: 'compute',
+    features: ['Priority fees', 'Enhanced APIs', 'Webhook support', 'DAS API'],
+  },
+  {
+    id: 'lovable_ai',
+    name: 'Lovable AI',
+    description: 'Built-in AI models for reasoning and generation - no API key needed',
+    icon: Robot,
+    status: 'active',
+    category: 'compute',
+    features: ['Gemini 2.5', 'GPT-5', 'No API key', 'Instant access'],
   },
   {
     id: 'birdeye',
@@ -215,11 +233,11 @@ function IntegrationCard({ integration }: { integration: Integration }) {
   };
 
   return (
-    <Card className="opentuna-card hover:border-cyan-500/40 transition-all group">
+    <Card className="opentuna-card hover:border-primary/40 transition-all group">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="p-2.5 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
-            <integration.icon className="h-6 w-6 text-cyan-400" weight="duotone" />
+          <div className="p-2.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+            <integration.icon className="h-6 w-6 text-primary" weight="duotone" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
@@ -275,7 +293,7 @@ export default function OpenTunaIntegrations() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Plug className="h-6 w-6 text-cyan-400" weight="duotone" />
+            <Plug className="h-6 w-6 text-primary" weight="duotone" />
             Integrations
           </h2>
           <p className="text-muted-foreground mt-1">
@@ -315,8 +333,8 @@ export default function OpenTunaIntegrations() {
               className={cn(
                 "transition-all",
                 selectedCategory === category.id 
-                  ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/30"
-                  : "border-cyan-500/20 hover:bg-cyan-500/10"
+                  ? "bg-primary/20 text-primary border-primary/40 hover:bg-primary/30"
+                  : "border-primary/20 hover:bg-primary/10"
               )}
             >
               <category.icon className="h-4 w-4 mr-1.5" weight="duotone" />
@@ -346,17 +364,17 @@ export default function OpenTunaIntegrations() {
       <Card className="opentuna-card opentuna-glow">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="p-3 rounded-xl bg-cyan-500/10">
-              <Terminal className="h-8 w-8 text-cyan-400" weight="duotone" />
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Terminal className="h-8 w-8 text-primary" weight="duotone" />
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-lg mb-1">Access All Integrations Programmatically</h3>
               <p className="text-muted-foreground text-sm">
-                Use the <code className="text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">@opentuna/sdk</code> to 
+                Use the <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">@opentuna/sdk</code> to 
                 access all integrations from your own code. Build autonomous agents that trade, post, browse, and more.
               </p>
             </div>
-            <Button variant="outline" className="border-cyan-500/30 hover:bg-cyan-500/10 shrink-0">
+            <Button variant="outline" className="border-primary/30 hover:bg-primary/10 shrink-0">
               <ArrowSquareOut className="h-4 w-4 mr-2" />
               View SDK Docs
             </Button>
