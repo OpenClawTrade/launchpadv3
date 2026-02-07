@@ -22,13 +22,10 @@ import OpenTunaMemory from "@/components/opentuna/OpenTunaMemory";
 import OpenTunaFins from "@/components/opentuna/OpenTunaFins";
 import OpenTunaCurrent from "@/components/opentuna/OpenTunaCurrent";
 import OpenTunaDocs from "@/components/opentuna/OpenTunaDocs";
-import OpenTunaAgentSelector from "@/components/opentuna/OpenTunaAgentSelector";
-import { useOpenTunaContext } from "@/components/opentuna/OpenTunaContext";
 
 const VALID_TABS = ['hub', 'hatch', 'dna', 'sonar', 'memory', 'fins', 'current', 'docs'];
 
 function OpenTunaContent() {
-  const { agents, isLoadingAgents, selectedAgentId, setSelectedAgentId } = useOpenTunaContext();
   
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.slice(1);
@@ -65,15 +62,7 @@ function OpenTunaContent() {
             Autonomous Agent OS
           </span>
           <div className="ml-auto flex items-center gap-3">
-            {/* Agent Selector - show on tabs that need it */}
-            {['dna', 'sonar', 'memory', 'fins', 'current'].includes(activeTab) && agents.length > 0 && (
-              <OpenTunaAgentSelector
-                agents={agents}
-                selectedAgentId={selectedAgentId}
-                onSelect={setSelectedAgentId}
-                isLoading={isLoadingAgents}
-              />
-            )}
+            {/* Agent Selector moved to individual tabs for simplicity */}
             <span className="text-xs text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-full border border-cyan-500/20">
               v1.0
             </span>
