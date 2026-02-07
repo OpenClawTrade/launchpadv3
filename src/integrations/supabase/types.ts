@@ -2824,6 +2824,766 @@ export type Database = {
           },
         ]
       }
+      opentuna_agents: {
+        Row: {
+          agent_type: string
+          allowed_fins: string[] | null
+          avatar_url: string | null
+          balance_sol: number | null
+          blocked_domains: string[] | null
+          created_at: string | null
+          id: string
+          last_active_at: string | null
+          name: string
+          owner_profile_id: string | null
+          owner_wallet: string
+          sandbox_type: string | null
+          status: string | null
+          total_ai_tokens_used: number | null
+          total_earned_sol: number | null
+          total_fin_calls: number | null
+          total_spent_sol: number | null
+          updated_at: string | null
+          wallet_address: string
+          wallet_private_key_encrypted: string
+        }
+        Insert: {
+          agent_type: string
+          allowed_fins?: string[] | null
+          avatar_url?: string | null
+          balance_sol?: number | null
+          blocked_domains?: string[] | null
+          created_at?: string | null
+          id?: string
+          last_active_at?: string | null
+          name: string
+          owner_profile_id?: string | null
+          owner_wallet: string
+          sandbox_type?: string | null
+          status?: string | null
+          total_ai_tokens_used?: number | null
+          total_earned_sol?: number | null
+          total_fin_calls?: number | null
+          total_spent_sol?: number | null
+          updated_at?: string | null
+          wallet_address: string
+          wallet_private_key_encrypted: string
+        }
+        Update: {
+          agent_type?: string
+          allowed_fins?: string[] | null
+          avatar_url?: string | null
+          balance_sol?: number | null
+          blocked_domains?: string[] | null
+          created_at?: string | null
+          id?: string
+          last_active_at?: string | null
+          name?: string
+          owner_profile_id?: string | null
+          owner_wallet?: string
+          sandbox_type?: string | null
+          status?: string | null
+          total_ai_tokens_used?: number | null
+          total_earned_sol?: number | null
+          total_fin_calls?: number | null
+          total_spent_sol?: number | null
+          updated_at?: string | null
+          wallet_address?: string
+          wallet_private_key_encrypted?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_agents_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_current_flows: {
+        Row: {
+          amount_sol: number
+          completed_at: string | null
+          created_at: string | null
+          expires_at: string | null
+          fin_id: string | null
+          id: string
+          memo: string
+          provider_agent_id: string | null
+          request_payload: Json | null
+          requester_agent_id: string
+          response_payload: Json | null
+          service_name: string | null
+          signature: string | null
+          status: string | null
+          tide_receipt_id: string
+        }
+        Insert: {
+          amount_sol: number
+          completed_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          fin_id?: string | null
+          id?: string
+          memo: string
+          provider_agent_id?: string | null
+          request_payload?: Json | null
+          requester_agent_id: string
+          response_payload?: Json | null
+          service_name?: string | null
+          signature?: string | null
+          status?: string | null
+          tide_receipt_id: string
+        }
+        Update: {
+          amount_sol?: number
+          completed_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          fin_id?: string | null
+          id?: string
+          memo?: string
+          provider_agent_id?: string | null
+          request_payload?: Json | null
+          requester_agent_id?: string
+          response_payload?: Json | null
+          service_name?: string | null
+          signature?: string | null
+          status?: string | null
+          tide_receipt_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_current_flows_fin_id_fkey"
+            columns: ["fin_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_fins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opentuna_current_flows_provider_agent_id_fkey"
+            columns: ["provider_agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opentuna_current_flows_requester_agent_id_fkey"
+            columns: ["requester_agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_deep_memory: {
+        Row: {
+          agent_id: string
+          content: string
+          content_tokens: unknown
+          created_at: string | null
+          embedding: string | null
+          expires_at: string | null
+          id: string
+          importance: number | null
+          last_recalled_at: string | null
+          memory_type: string
+          metadata: Json | null
+          recalled_count: number | null
+          tags: string[] | null
+        }
+        Insert: {
+          agent_id: string
+          content: string
+          content_tokens?: unknown
+          created_at?: string | null
+          embedding?: string | null
+          expires_at?: string | null
+          id?: string
+          importance?: number | null
+          last_recalled_at?: string | null
+          memory_type: string
+          metadata?: Json | null
+          recalled_count?: number | null
+          tags?: string[] | null
+        }
+        Update: {
+          agent_id?: string
+          content?: string
+          content_tokens?: unknown
+          created_at?: string | null
+          embedding?: string | null
+          expires_at?: string | null
+          id?: string
+          importance?: number | null
+          last_recalled_at?: string | null
+          memory_type?: string
+          metadata?: Json | null
+          recalled_count?: number | null
+          tags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_deep_memory_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_dna: {
+        Row: {
+          agent_id: string
+          echo_pattern: Json | null
+          fallback_model: string | null
+          id: string
+          migration_goals: Json | null
+          origin_story: string | null
+          personality: string
+          preferred_model: string | null
+          reef_limits: string[] | null
+          species_traits: string[] | null
+          updated_at: string | null
+          version: number | null
+          voice_sample: string | null
+        }
+        Insert: {
+          agent_id: string
+          echo_pattern?: Json | null
+          fallback_model?: string | null
+          id?: string
+          migration_goals?: Json | null
+          origin_story?: string | null
+          personality: string
+          preferred_model?: string | null
+          reef_limits?: string[] | null
+          species_traits?: string[] | null
+          updated_at?: string | null
+          version?: number | null
+          voice_sample?: string | null
+        }
+        Update: {
+          agent_id?: string
+          echo_pattern?: Json | null
+          fallback_model?: string | null
+          id?: string
+          migration_goals?: Json | null
+          origin_story?: string | null
+          personality?: string
+          preferred_model?: string | null
+          reef_limits?: string[] | null
+          species_traits?: string[] | null
+          updated_at?: string | null
+          version?: number | null
+          voice_sample?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_dna_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_fin_executions: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          fin_name: string
+          id: string
+          params: Json | null
+          params_hash: string
+          result_summary: string | null
+          success: boolean
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          fin_name: string
+          id?: string
+          params?: Json | null
+          params_hash: string
+          result_summary?: string | null
+          success: boolean
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          fin_name?: string
+          id?: string
+          params?: Json | null
+          params_hash?: string
+          result_summary?: string | null
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_fin_executions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_fin_rack: {
+        Row: {
+          agent_id: string
+          custom_config: Json | null
+          enabled: boolean | null
+          fin_id: string
+          id: string
+          installed_at: string | null
+          last_used_at: string | null
+          proficiency: number | null
+          times_used: number | null
+        }
+        Insert: {
+          agent_id: string
+          custom_config?: Json | null
+          enabled?: boolean | null
+          fin_id: string
+          id?: string
+          installed_at?: string | null
+          last_used_at?: string | null
+          proficiency?: number | null
+          times_used?: number | null
+        }
+        Update: {
+          agent_id?: string
+          custom_config?: Json | null
+          enabled?: boolean | null
+          fin_id?: string
+          id?: string
+          installed_at?: string | null
+          last_used_at?: string | null
+          proficiency?: number | null
+          times_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_fin_rack_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opentuna_fin_rack_fin_id_fkey"
+            columns: ["fin_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_fins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_fins: {
+        Row: {
+          avg_execution_ms: number | null
+          category: string
+          cost_sol: number | null
+          created_at: string | null
+          description: string
+          display_name: string
+          endpoint: string | null
+          handler_code: string | null
+          id: string
+          is_native: boolean | null
+          is_verified: boolean | null
+          name: string
+          permission_scope: string[] | null
+          provider_agent_id: string | null
+          provider_wallet: string | null
+          security_scan_passed: boolean | null
+          success_rate: number | null
+          total_uses: number | null
+          verified_at: string | null
+        }
+        Insert: {
+          avg_execution_ms?: number | null
+          category: string
+          cost_sol?: number | null
+          created_at?: string | null
+          description: string
+          display_name: string
+          endpoint?: string | null
+          handler_code?: string | null
+          id?: string
+          is_native?: boolean | null
+          is_verified?: boolean | null
+          name: string
+          permission_scope?: string[] | null
+          provider_agent_id?: string | null
+          provider_wallet?: string | null
+          security_scan_passed?: boolean | null
+          success_rate?: number | null
+          total_uses?: number | null
+          verified_at?: string | null
+        }
+        Update: {
+          avg_execution_ms?: number | null
+          category?: string
+          cost_sol?: number | null
+          created_at?: string | null
+          description?: string
+          display_name?: string
+          endpoint?: string | null
+          handler_code?: string | null
+          id?: string
+          is_native?: boolean | null
+          is_verified?: boolean | null
+          name?: string
+          permission_scope?: string[] | null
+          provider_agent_id?: string | null
+          provider_wallet?: string | null
+          security_scan_passed?: boolean | null
+          success_rate?: number | null
+          total_uses?: number | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_fins_provider_agent_id_fkey"
+            columns: ["provider_agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_school_members: {
+        Row: {
+          agent_id: string
+          id: string
+          joined_at: string | null
+          role: string
+          school_id: string
+          specialization: string[] | null
+        }
+        Insert: {
+          agent_id: string
+          id?: string
+          joined_at?: string | null
+          role: string
+          school_id: string
+          specialization?: string[] | null
+        }
+        Update: {
+          agent_id?: string
+          id?: string
+          joined_at?: string | null
+          role?: string
+          school_id?: string
+          specialization?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_school_members_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opentuna_school_members_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_school_tasks: {
+        Row: {
+          assigned_by: string
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string | null
+          deadline: string | null
+          error_message: string | null
+          id: string
+          priority: number | null
+          result: Json | null
+          school_id: string
+          started_at: string | null
+          status: string | null
+          task_payload: Json
+          task_type: string
+        }
+        Insert: {
+          assigned_by: string
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          deadline?: string | null
+          error_message?: string | null
+          id?: string
+          priority?: number | null
+          result?: Json | null
+          school_id: string
+          started_at?: string | null
+          status?: string | null
+          task_payload: Json
+          task_type: string
+        }
+        Update: {
+          assigned_by?: string
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          deadline?: string | null
+          error_message?: string | null
+          id?: string
+          priority?: number | null
+          result?: Json | null
+          school_id?: string
+          started_at?: string | null
+          status?: string | null
+          task_payload?: Json
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_school_tasks_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opentuna_school_tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opentuna_school_tasks_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_schools: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          lead_agent_id: string
+          name: string
+          total_tasks_completed: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          lead_agent_id: string
+          name: string
+          total_tasks_completed?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          lead_agent_id?: string
+          name?: string
+          total_tasks_completed?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_schools_lead_agent_id_fkey"
+            columns: ["lead_agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_sonar_config: {
+        Row: {
+          agent_id: string
+          cost_reset_at: string | null
+          current_daily_cost_sol: number | null
+          id: string
+          interval_minutes: number | null
+          is_paused: boolean | null
+          last_ping_at: string | null
+          max_daily_cost_sol: number | null
+          mode: string | null
+          next_ping_at: string | null
+          paused_reason: string | null
+          total_pings: number | null
+        }
+        Insert: {
+          agent_id: string
+          cost_reset_at?: string | null
+          current_daily_cost_sol?: number | null
+          id?: string
+          interval_minutes?: number | null
+          is_paused?: boolean | null
+          last_ping_at?: string | null
+          max_daily_cost_sol?: number | null
+          mode?: string | null
+          next_ping_at?: string | null
+          paused_reason?: string | null
+          total_pings?: number | null
+        }
+        Update: {
+          agent_id?: string
+          cost_reset_at?: string | null
+          current_daily_cost_sol?: number | null
+          id?: string
+          interval_minutes?: number | null
+          is_paused?: boolean | null
+          last_ping_at?: string | null
+          max_daily_cost_sol?: number | null
+          mode?: string | null
+          next_ping_at?: string | null
+          paused_reason?: string | null
+          total_pings?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_sonar_config_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_sonar_pings: {
+        Row: {
+          action: string
+          agent_id: string
+          context_snapshot: Json | null
+          cost_sol: number | null
+          error_message: string | null
+          executed_at: string | null
+          execution_result: Json | null
+          id: string
+          priority: number | null
+          reasoning: string | null
+          success: boolean | null
+          tokens_used: number | null
+        }
+        Insert: {
+          action: string
+          agent_id: string
+          context_snapshot?: Json | null
+          cost_sol?: number | null
+          error_message?: string | null
+          executed_at?: string | null
+          execution_result?: Json | null
+          id?: string
+          priority?: number | null
+          reasoning?: string | null
+          success?: boolean | null
+          tokens_used?: number | null
+        }
+        Update: {
+          action?: string
+          agent_id?: string
+          context_snapshot?: Json | null
+          cost_sol?: number | null
+          error_message?: string | null
+          executed_at?: string | null
+          execution_result?: Json | null
+          id?: string
+          priority?: number | null
+          reasoning?: string | null
+          success?: boolean | null
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_sonar_pings_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_tunanet_messages: {
+        Row: {
+          agent_id: string
+          channel: string
+          content: string
+          created_at: string | null
+          direction: string
+          external_id: string | null
+          id: string
+          metadata: Json | null
+          parent_message_id: string | null
+          processed_at: string | null
+          response_message_id: string | null
+          stream_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          channel: string
+          content: string
+          created_at?: string | null
+          direction: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          parent_message_id?: string | null
+          processed_at?: string | null
+          response_message_id?: string | null
+          stream_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          channel?: string
+          content?: string
+          created_at?: string | null
+          direction?: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          parent_message_id?: string | null
+          processed_at?: string | null
+          response_message_id?: string | null
+          stream_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_tunanet_messages_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opentuna_tunanet_messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_tunanet_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opentuna_tunanet_messages_response_message_id_fkey"
+            columns: ["response_message_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_tunanet_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_fee_distributions: {
         Row: {
           amount_sol: number
