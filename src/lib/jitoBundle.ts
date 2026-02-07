@@ -52,7 +52,7 @@ export const JITO_CONFIG = {
   PRIORITY_TIP_LAMPORTS: 5_000_000, // 0.005 SOL priority tip
   CONFIRMATION_TIMEOUT_MS: 60_000, // 60 seconds
   POLL_INTERVAL_MS: 1000, // 1 second between status checks
-  MAX_RETRIES: 3,
+  MAX_RETRIES: 5,
 };
 
 export interface JitoBundleResult {
