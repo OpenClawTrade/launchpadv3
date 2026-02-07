@@ -834,7 +834,14 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     };
 
     try {
-      const { url: rpcUrl } = getRpcUrl();
+      // Wait briefly for runtime config to load (critical on fresh domains)
+      const configStart = Date.now();
+      while (!(window as any).__PUBLIC_CONFIG_LOADED__ && Date.now() - configStart < 2000) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      
+      const { url: rpcUrl, source: rpcSource } = getRpcUrl();
+      console.log(`[Phantom Launch] Using RPC: ${rpcSource} -> ${rpcUrl.slice(0, 50)}...`);
       const connection = new Connection(rpcUrl, "confirmed");
 
       // Pre-flight balance check
@@ -950,11 +957,35 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             description: `Proceeding to next step...`,
           });
           
-          try {
-            await connection.confirmTransaction(signature, 'confirmed');
-          } catch (confirmErr) {
-            // Non-fatal - if Phantom returned signature, it likely landed
-            console.warn(`[Phantom Launch] Confirmation polling failed for ${txLabel}, continuing...`, confirmErr);
+          // Use polling-based confirmation (avoids 30s default timeout from web3.js)
+          const confirmStart = Date.now();
+          const maxConfirmMs = 90_000;
+          let confirmed = false;
+          
+          while (!confirmed && Date.now() - confirmStart < maxConfirmMs) {
+            try {
+              const statuses = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+              const status = statuses.value[0];
+              
+              if (status?.err) {
+                throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+              }
+              
+              if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+                confirmed = true;
+                console.log(`[Phantom Launch] ${txLabel} confirmed via polling`);
+                break;
+              }
+            } catch (pollErr) {
+              // Rate limit or network error - continue polling
+              console.warn(`[Phantom Launch] Confirmation poll error:`, pollErr);
+            }
+            
+            await new Promise((r) => setTimeout(r, 1500));
+          }
+          
+          if (!confirmed) {
+            console.warn(`[Phantom Launch] Confirmation polling timed out for ${txLabel}, but Phantom returned signature - continuing...`);
           }
         }
       }
