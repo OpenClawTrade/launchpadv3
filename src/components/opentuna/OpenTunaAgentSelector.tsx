@@ -79,11 +79,11 @@ export default function OpenTunaAgentSelector({
 
   return (
     <Select value={selectedAgentId || undefined} onValueChange={onSelect}>
-      <SelectTrigger className={cn("w-48 bg-secondary/50 border-cyan-500/20", className)}>
+      <SelectTrigger className={cn("w-48 bg-secondary/50 border-primary/20", className)}>
         <SelectValue placeholder="Select agent">
           {selectedAgent && (
             <span className="flex items-center gap-2">
-              <Fish className="h-4 w-4 text-cyan-400" weight="duotone" />
+              <Fish className="h-4 w-4 text-primary" weight="duotone" />
               {selectedAgent.name}
             </span>
           )}
@@ -93,7 +93,7 @@ export default function OpenTunaAgentSelector({
         {agents.map((agent) => (
           <SelectItem key={agent.id} value={agent.id}>
             <div className="flex items-center gap-2">
-              <Fish className="h-4 w-4 text-cyan-400" weight="duotone" />
+              <Fish className="h-4 w-4 text-primary" weight="duotone" />
               <span>{agent.name}</span>
               <span className={cn(
                 "text-xs px-1.5 py-0.5 rounded",

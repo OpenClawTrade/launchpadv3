@@ -149,7 +149,7 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
       <div className="max-w-2xl mx-auto">
         <Card className="opentuna-card">
           <CardContent className="p-8 text-center">
-            <Wallet className="h-12 w-12 text-cyan-400 mx-auto mb-4" weight="duotone" />
+            <Wallet className="h-12 w-12 text-primary mx-auto mb-4" weight="duotone" />
             <h3 className="text-lg font-semibold mb-2">Connect Wallet to Hatch</h3>
             <p className="text-muted-foreground mb-6">
               Connect your Solana wallet to create an OpenTuna agent
@@ -174,8 +174,8 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
               onClick={() => step.number < currentStep && setCurrentStep(step.number)}
               className={cn(
                 "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all",
-                currentStep === step.number && "bg-cyan-500 text-white",
-                currentStep > step.number && "bg-cyan-500/20 text-cyan-400 cursor-pointer hover:bg-cyan-500/30",
+                currentStep === step.number && "bg-primary text-white",
+                currentStep > step.number && "bg-primary/20 text-primary cursor-pointer hover:bg-primary/30",
                 currentStep < step.number && "bg-secondary text-muted-foreground"
               )}
             >
@@ -190,7 +190,7 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
             {index < STEPS.length - 1 && (
               <div className={cn(
                 "w-8 h-0.5 mx-2",
-                currentStep > step.number ? "bg-cyan-500/50" : "bg-secondary"
+                currentStep > step.number ? "bg-primary/50" : "bg-secondary"
               )} />
             )}
           </div>
@@ -201,7 +201,7 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
       <Card className="opentuna-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Egg className="h-5 w-5 text-cyan-400" weight="duotone" />
+            <Egg className="h-5 w-5 text-primary" weight="duotone" />
             {currentStep === 1 && "Choose Agent Type"}
             {currentStep === 2 && "Agent Identity"}
             {currentStep === 3 && "Initial DNA"}
@@ -219,7 +219,7 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
                   className={cn(
                     "p-4 rounded-xl border-2 text-left transition-all",
                     option.color,
-                    agentType === option.type && "ring-2 ring-cyan-500 border-cyan-500",
+                    agentType === option.type && "ring-2 ring-primary border-primary",
                     option.fullWidth && "col-span-2"
                   )}
                 >
@@ -309,8 +309,8 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
                   </div>
                 )}
               </div>
-              <div className="p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-                <p className="text-sm text-cyan-400">
+              <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                <p className="text-sm text-primary">
                   <Lightning className="h-4 w-4 inline mr-1" weight="fill" />
                   Your agent will be created with a new Solana wallet. Fund it to activate.
                 </p>

@@ -173,7 +173,7 @@ export default function OpenTunaCurrent() {
       ) : loading ? (
         <Card className="opentuna-card">
           <CardContent className="p-8 text-center">
-            <Spinner className="h-8 w-8 text-cyan-400 mx-auto mb-3 animate-spin" />
+            <Spinner className="h-8 w-8 text-primary mx-auto mb-3 animate-spin" />
             <p className="text-muted-foreground">Loading economy data...</p>
           </CardContent>
         </Card>
@@ -184,7 +184,7 @@ export default function OpenTunaCurrent() {
             <Card className="opentuna-card opentuna-glow">
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">Current Balance</p>
-                <p className="text-2xl font-bold text-cyan-400">
+                <p className="text-2xl font-bold text-primary">
                   {Number(agentBalance.balance_sol).toFixed(4)} SOL
                 </p>
               </CardContent>
@@ -373,10 +373,10 @@ export default function OpenTunaCurrent() {
           </Card>
 
           {/* SchoolPay Info */}
-          <Card className="opentuna-card bg-gradient-to-br from-cyan-500/10 to-teal-500/5">
+          <Card className="opentuna-card bg-gradient-to-br from-green-500/10 to-emerald-500/5">
             <CardContent className="p-6">
               <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <CurrencyCircleDollar className="h-5 w-5 text-cyan-400" weight="duotone" />
+                <CurrencyCircleDollar className="h-5 w-5 text-primary" weight="duotone" />
                 About SchoolPay (x402)
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -385,15 +385,15 @@ export default function OpenTunaCurrent() {
               </p>
               <div className="mt-4 grid sm:grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-cyan-400">0%</p>
+                  <p className="text-2xl font-bold text-primary">0%</p>
                   <p className="text-xs text-muted-foreground">Platform Fee</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-cyan-400">5 min</p>
+                  <p className="text-2xl font-bold text-primary">5 min</p>
                   <p className="text-xs text-muted-foreground">Receipt Expiry</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-cyan-400">On-chain</p>
+                  <p className="text-2xl font-bold text-primary">On-chain</p>
                   <p className="text-xs text-muted-foreground">Verification</p>
                 </div>
               </div>

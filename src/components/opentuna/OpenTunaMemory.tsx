@@ -164,9 +164,9 @@ export default function OpenTunaMemory() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Agent Info */}
       {selectedAgent && (
-        <div className="flex items-center justify-between p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+        <div className="flex items-center justify-between p-4 rounded-lg bg-primary/10 border border-primary/20">
           <div className="flex items-center gap-3">
-            <Brain className="h-6 w-6 text-cyan-400" weight="duotone" />
+            <Brain className="h-6 w-6 text-primary" weight="duotone" />
             <div>
               <p className="font-semibold">{selectedAgent.name}</p>
               <p className="text-xs text-muted-foreground">
@@ -253,7 +253,7 @@ export default function OpenTunaMemory() {
       <Card className="opentuna-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-cyan-400" weight="duotone" />
+            <Brain className="h-5 w-5 text-primary" weight="duotone" />
             Deep Memory
           </CardTitle>
         </CardHeader>
@@ -322,7 +322,7 @@ export default function OpenTunaMemory() {
       {isLoading ? (
         <Card className="opentuna-card">
           <CardContent className="p-8 text-center">
-            <Spinner className="h-8 w-8 text-cyan-400 mx-auto animate-spin" />
+            <Spinner className="h-8 w-8 text-primary mx-auto animate-spin" />
             <p className="text-muted-foreground mt-2">Loading memories...</p>
           </CardContent>
         </Card>
@@ -350,7 +350,7 @@ export default function OpenTunaMemory() {
                           <span className="text-xs text-muted-foreground">{memory.importance}/10</span>
                         </div>
                         {memory.relevanceScore !== undefined && (
-                          <span className="text-xs text-cyan-400">
+                          <span className="text-xs text-primary">
                             Score: {memory.relevanceScore.toFixed(2)}
                           </span>
                         )}

@@ -99,10 +99,10 @@ export default function OpenTunaApiKeyModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg bg-card border-cyan-500/20">
+      <DialogContent className="sm:max-w-lg bg-card border-primary/20">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
-            <Key className="h-5 w-5 text-cyan-400" weight="duotone" />
+            <Key className="h-5 w-5 text-primary" weight="duotone" />
             API Keys {agentName && <span className="text-muted-foreground">— {agentName}</span>}
           </DialogTitle>
           <DialogDescription>
@@ -172,13 +172,13 @@ export default function OpenTunaApiKeyModal({
                   placeholder="Key name (optional)"
                   value={keyName}
                   onChange={(e) => setKeyName(e.target.value)}
-                  className="bg-secondary/50 border-cyan-500/20"
+                  className="bg-secondary/50 border-primary/20"
                 />
               </div>
               <Button
                 onClick={handleGenerateKey}
                 disabled={createKeyMutation.isPending || !agentId}
-                className="bg-cyan-600 hover:bg-cyan-700"
+                className="bg-green-600 hover:bg-green-700"
               >
                 {createKeyMutation.isPending ? (
                   <Spinner className="h-4 w-4 animate-spin mr-2" />
@@ -223,7 +223,7 @@ export default function OpenTunaApiKeyModal({
 
           {/* SDK Usage Hint */}
           <div className="text-xs text-muted-foreground bg-secondary/30 rounded-lg p-3">
-            <code className="text-cyan-400">npm install @opentuna/sdk</code>
+            <code className="text-primary">npm install @opentuna/sdk</code>
             <br />
             <span className="opacity-75">
               Then: <code>new OpenTuna({"{ apiKey: 'ota_live_...' }"})</code>
@@ -251,10 +251,10 @@ function KeyRow({
   const isConfirming = confirmRevokeId === apiKey.id;
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-cyan-500/10">
+    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-primary/10">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <code className="text-sm font-mono text-cyan-400">{apiKey.key_prefix}...</code>
+          <code className="text-sm font-mono text-primary">{apiKey.key_prefix}...</code>
           {apiKey.name && (
             <Badge variant="secondary" className="text-xs">
               {apiKey.name}
