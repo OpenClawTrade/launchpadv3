@@ -1340,13 +1340,67 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Trading Fee</span>
-                    <span className="font-semibold text-primary">{(phantomTradingFee / 100).toFixed(1)}%</span>
+                    <span
+                      className={`font-semibold ${
+                        phantomTradingFee >= 900
+                          ? "text-interaction-like"
+                          : phantomTradingFee >= 600
+                            ? "text-destructive"
+                            : phantomTradingFee >= 500
+                              ? "text-binance-yellow-dark"
+                              : phantomTradingFee >= 300
+                                ? "text-warning"
+                                : "text-primary"
+                      }`}
+                    >
+                      {(phantomTradingFee / 100).toFixed(1)}%
+                    </span>
                   </div>
-                  <Slider value={[phantomTradingFee]} onValueChange={(v) => setPhantomTradingFee(v[0])} min={10} max={1000} step={10} />
+
+                  <Slider
+                    value={[phantomTradingFee]}
+                    onValueChange={(v) => setPhantomTradingFee(v[0])}
+                    min={10}
+                    max={1000}
+                    step={10}
+                    rangeClassName={
+                      phantomTradingFee >= 900
+                        ? "bg-interaction-like"
+                        : phantomTradingFee >= 600
+                          ? "bg-destructive"
+                          : phantomTradingFee >= 500
+                            ? "bg-binance-yellow-dark"
+                            : phantomTradingFee >= 300
+                              ? "bg-warning"
+                              : "bg-primary"
+                    }
+                    thumbClassName={
+                      phantomTradingFee >= 900
+                        ? "border-interaction-like"
+                        : phantomTradingFee >= 600
+                          ? "border-destructive"
+                          : phantomTradingFee >= 500
+                            ? "border-binance-yellow-dark"
+                            : phantomTradingFee >= 300
+                              ? "border-warning"
+                              : "border-primary"
+                    }
+                  />
+
                   <div className="flex justify-between text-[10px] text-muted-foreground">
                     <span>0.1%</span>
                     <span>10%</span>
                   </div>
+
+                  {phantomTradingFee >= 600 && (
+                    <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
+                      <p className="text-xs leading-snug text-muted-foreground">
+                        <span className="font-semibold text-destructive">Warning:</span>{" "}
+                        Such fees won’t generate you any volume.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Dev Buy - Atomic with pool creation to prevent frontrunning */}
