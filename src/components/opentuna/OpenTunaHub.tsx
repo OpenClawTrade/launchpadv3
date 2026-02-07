@@ -22,9 +22,11 @@ import {
   ArrowSquareOut
 } from "@phosphor-icons/react";
 import { useOpenTunaContext } from "./OpenTunaContext";
-import { useOpenTunaStats } from "@/hooks/useOpenTuna";
+import { useOpenTunaStats, useRecentActivity } from "@/hooks/useOpenTuna";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import OpenTunaApiKeyModal from "./OpenTunaApiKeyModal";
+import { formatDistanceToNow } from "date-fns";
 
 interface OpenTunaHubProps {
   onNavigate: (tab: string) => void;
@@ -117,10 +119,15 @@ curl -X POST 'https://tuna.fun/api/memory/store' \\
   -d '{"content": "...", "type": "anchor"}'`;
 
 export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
-  const { agents, isLoadingAgents, setSelectedAgentId } = useOpenTunaContext();
+  const { agents, isLoadingAgents, setSelectedAgentId, selectedAgentId, selectedAgent } = useOpenTunaContext();
   const { data: stats, isLoading: isLoadingStats } = useOpenTunaStats();
   const [sdkTab, setSdkTab] = useState<'sdk' | 'api' | 'keys'>('sdk');
   const [copied, setCopied] = useState(false);
+  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
+  
+  // Fetch recent activity for all agents
+  const agentIds = agents.map(a => a.id);
+  const { data: recentActivity = [], isLoading: isLoadingActivity } = useRecentActivity(agentIds, 10);
   
   const STATS = [
     { label: "Active Agents", value: isLoadingStats ? "—" : (stats?.totalAgents?.toString() || "0"), icon: Fish, color: "text-cyan-400" },
@@ -136,8 +143,22 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Get agent name for activity display
+  const getAgentName = (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId);
+    return agent?.name || "Unknown";
+  };
+
   return (
     <div className="space-y-6">
+      {/* API Key Modal */}
+      <OpenTunaApiKeyModal
+        open={apiKeyModalOpen}
+        onOpenChange={setApiKeyModalOpen}
+        agentId={selectedAgentId}
+        agentName={selectedAgent?.name}
+      />
+
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {STATS.map((stat) => (
@@ -235,15 +256,33 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
                   Generate API keys to access OpenTuna programmatically. Keys are linked to your agents.
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="outline" className="border-cyan-500/30 hover:bg-cyan-500/10">
+                  <Button 
+                    variant="outline" 
+                    className="border-cyan-500/30 hover:bg-cyan-500/10"
+                    onClick={() => setApiKeyModalOpen(true)}
+                  >
                     <Key className="h-4 w-4 mr-2" />
                     Generate New Key
                   </Button>
-                  <Button variant="outline" className="border-cyan-500/30 hover:bg-cyan-500/10">
+                  <Button 
+                    variant="outline" 
+                    className="border-cyan-500/30 hover:bg-cyan-500/10"
+                    onClick={() => setApiKeyModalOpen(true)}
+                  >
                     <ArrowSquareOut className="h-4 w-4 mr-2" />
                     View All Keys
                   </Button>
                 </div>
+                {!selectedAgentId && agents.length > 0 && (
+                  <p className="text-xs text-yellow-400">
+                    💡 Select an agent first to manage its API keys
+                  </p>
+                )}
+                {agents.length === 0 && (
+                  <p className="text-xs text-yellow-400">
+                    💡 Hatch an agent first to generate API keys
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -369,7 +408,10 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
             {agents.map((agent) => (
               <Card 
                 key={agent.id}
-                className="opentuna-card cursor-pointer hover:scale-[1.02] transition-all"
+                className={cn(
+                  "opentuna-card cursor-pointer hover:scale-[1.02] transition-all",
+                  selectedAgentId === agent.id && "ring-2 ring-cyan-500"
+                )}
                 onClick={() => {
                   setSelectedAgentId(agent.id);
                   onNavigate('dna');
@@ -423,17 +465,62 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
         )}
       </div>
 
-      {/* Recent Activity (Placeholder) */}
+      {/* Recent Activity (Real Data) */}
       <div>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Lightning className="h-5 w-5 text-yellow-400" weight="duotone" />
           Recent Activity
         </h2>
         <Card className="opentuna-card">
-          <CardContent className="p-6">
-            <p className="text-muted-foreground text-center text-sm">
-              Activity will appear here once agents start working
-            </p>
+          <CardContent className="p-4">
+            {isLoadingActivity ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 rounded-lg bg-secondary/30 animate-pulse" />
+                ))}
+              </div>
+            ) : recentActivity.length > 0 ? (
+              <div className="space-y-1">
+                {recentActivity.map((ping) => (
+                  <div 
+                    key={ping.id} 
+                    className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-secondary/30 transition-colors border-b border-cyan-500/10 last:border-0"
+                  >
+                    <div className={cn(
+                      "w-2 h-2 rounded-full shrink-0",
+                      ping.success === true && "bg-green-400",
+                      ping.success === false && "bg-red-400",
+                      ping.success === null && "bg-yellow-400"
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{ping.action}</p>
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          {getAgentName(ping.agent_id)}
+                        </Badge>
+                      </div>
+                      {ping.reasoning && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {ping.reasoning.slice(0, 80)}{ping.reasoning.length > 80 ? '...' : ''}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(ping.executed_at), { addSuffix: true })}
+                      </span>
+                      {ping.cost_sol > 0 && (
+                        <p className="text-xs text-cyan-400">{ping.cost_sol.toFixed(4)} SOL</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center text-sm py-4">
+                Activity will appear here once agents start working
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
