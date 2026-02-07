@@ -103,30 +103,59 @@ function getTransactionSignature(tx: Transaction | VersionedTransaction): string
     const sig = tx.signatures[0];
     // Check if signature is non-zero (signed)
     if (!sig || sig.every(b => b === 0)) {
+      console.error('[JitoBundle] VersionedTransaction signature check failed:', {
+        hasSig: !!sig,
+        isAllZeros: sig ? sig.every(b => b === 0) : true,
+        sigLength: sig?.length ?? 0,
+      });
       throw new Error('VersionedTransaction not signed');
     }
     return bs58.encode(sig);
   } else {
-    // For legacy Transaction, check the signature getter first
+    // For legacy Transaction, check the signature getter first (returns the first signature)
     const primarySig = tx.signature;
     if (primarySig && primarySig.length > 0) {
+      console.log('[JitoBundle] Found primary signature via tx.signature getter');
       return bs58.encode(primarySig);
     }
     
-    // Fallback: find first non-null signature in signatures array
-    for (const sigPair of tx.signatures) {
-      if (sigPair?.signature && sigPair.signature.length > 0) {
-        return bs58.encode(sigPair.signature);
+    // Fallback: find first non-null signature buffer in signatures array
+    for (let i = 0; i < (tx.signatures?.length ?? 0); i++) {
+      const sigPair = tx.signatures[i];
+      // Check both .signature (legacy) and raw buffer access
+      const sigBuffer = sigPair?.signature;
+      if (sigBuffer && sigBuffer.length > 0 && !sigBuffer.every((b: number) => b === 0)) {
+        console.log(`[JitoBundle] Found signature at index ${i}`);
+        return bs58.encode(sigBuffer);
       }
+    }
+    
+    // Last resort: try to serialize and extract from wire format
+    // When a transaction is signed, the signature is embedded in the serialized bytes
+    try {
+      const serialized = tx.serialize({ requireAllSignatures: false });
+      // First byte(s) indicate number of signatures, followed by 64-byte signatures
+      const numSigs = serialized[0];
+      if (numSigs > 0) {
+        const firstSig = serialized.slice(1, 65);
+        if (firstSig.length === 64 && !firstSig.every(b => b === 0)) {
+          console.log('[JitoBundle] Extracted signature from serialized transaction');
+          return bs58.encode(firstSig);
+        }
+      }
+    } catch (serializeErr) {
+      console.warn('[JitoBundle] Could not serialize to extract signature:', serializeErr);
     }
     
     // Debug: log the transaction state (with null-safe access)
     console.error('[JitoBundle] Transaction signature state:', {
       signatureCount: tx.signatures?.length ?? 0,
-      signatures: tx.signatures?.map(s => ({
+      signatures: tx.signatures?.map((s, i) => ({
+        index: i,
         pubkey: s?.publicKey?.toBase58?.() ?? 'undefined',
         hasSig: !!s?.signature,
-        sigLen: s?.signature?.length ?? 0
+        sigLen: s?.signature?.length ?? 0,
+        isAllZeros: s?.signature ? Array.from(s.signature).every((b: number) => b === 0) : true,
       })) ?? []
     });
     
