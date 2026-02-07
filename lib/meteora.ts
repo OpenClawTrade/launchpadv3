@@ -90,12 +90,15 @@ async function getBlockhashWithRetry(
  * This generates sqrtStartPrice, curve points, and migrationQuoteThreshold
  * that are compatible with external terminals for migration display
  */
-export function buildCurveConfig(tradingFeeBps: number = TRADING_FEE_BPS) {
+export function buildCurveConfig(tradingFeeBps: number = TRADING_FEE_BPS, enableDevBuy: boolean = false) {
   // Validate fee range: 10 bps (0.1%) to 1000 bps (10%)
   const MIN_FEE_BPS = 10;
   const MAX_FEE_BPS = 1000;
   const effectiveFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(tradingFeeBps)));
   console.log(`[meteora] Using trading fee: ${effectiveFeeBps} bps (${(effectiveFeeBps / 100).toFixed(1)}%)`);
+  if (enableDevBuy) {
+    console.log(`[meteora] Dev buy enabled: first swap will use minimum fee (anti-snipe protection)`);
+  }
 
   // ============================================================================
   // CRITICAL FIX: migrationQuoteThreshold must match GRADUATION_THRESHOLD_SOL.
@@ -170,6 +173,10 @@ export function buildCurveConfig(tradingFeeBps: number = TRADING_FEE_BPS) {
       },
 
       dynamicFeeEnabled: false,
+      
+      // DEV BUY: When enabled, allows pool creator to perform first swap without anti-sniper fees
+      // This is critical for atomic dev buys bundled with pool creation to prevent frontrunning
+      enableFirstSwapWithMinFee: enableDevBuy,
     });
 
   // 1) Find an upper bound where threshold >= target
@@ -275,8 +282,8 @@ export interface CreatePoolParams {
   creatorWallet: string;
   // Optional override for the on-chain `leftoverReceiver`.
   // For FUN launches, the on-chain creator is the treasury (server-side signing),
-  // but terminals (Axiom/DEXTools) often infer “project/owner” from leftoverReceiver.
-  // Setting this to the user’s wallet helps migration/graduation UI display correctly.
+  // but terminals (Axiom/DEXTools) often infer "project/owner" from leftoverReceiver.
+  // Setting this to the user's wallet helps migration/graduation UI display correctly.
   leftoverReceiverWallet?: string;
   name: string;
   ticker: string;
@@ -289,6 +296,9 @@ export interface CreatePoolParams {
   initialBuySol?: number;
   // Custom trading fee in basis points (10-1000, i.e., 0.1%-10%). Defaults to 200 (2%)
   tradingFeeBps?: number;
+  // Dev buy: When true, the first swap (dev buy) uses minimum fee to prevent frontrunning
+  // The pool creator can buy atomically with pool creation without anti-sniper fees
+  enableDevBuy?: boolean;
 }
 
 // Create a new token pool on Meteora
@@ -378,12 +388,17 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   // The SDK calculates sqrtStartPrice, curve, and migrationQuoteThreshold
   // in a way that external terminals (Axiom/DEXTools/Birdeye) can decode
   // See MIGRATION_FIX_HISTORY.md for previous failed attempts with manual calculation
-  const curveConfig = buildCurveConfig(params.tradingFeeBps);
+  // 
+  // DEV BUY: When initialBuySol > 0, we enable enableFirstSwapWithMinFee to allow
+  // the pool creator to buy atomically without anti-sniper fees (frontrun protection)
+  const hasDevBuy = (params.initialBuySol && params.initialBuySol > 0) || params.enableDevBuy;
+  const curveConfig = buildCurveConfig(params.tradingFeeBps, !!hasDevBuy);
   
   console.log('[meteora] Using SDK-generated curve config:');
   console.log('[meteora]   sqrtStartPrice:', curveConfig.sqrtStartPrice?.toString());
   console.log('[meteora]   migrationQuoteThreshold:', curveConfig.migrationQuoteThreshold?.toString());
   console.log('[meteora]   curve points:', curveConfig.curve?.length);
+  console.log('[meteora]   enableFirstSwapWithMinFee:', !!hasDevBuy);
 
   // Create pool with config using SDK-generated curve parameters
   // We spread curveConfig to get sqrtStartPrice, curve, migrationQuoteThreshold, etc.
