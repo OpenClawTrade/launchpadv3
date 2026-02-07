@@ -362,7 +362,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       txCount: serializedTransactions.length,
       devBuyRequested: effectiveDevBuySol > 0,
       devBuySol: effectiveDevBuySol,
-      message: 'Transactions prepared. Please sign with Phantom wallet.',
+      bundleMode: true, // Frontend should use Jito bundle for atomic execution
+      message: 'Transactions prepared for atomic Jito bundle. Sign all in one Phantom popup.',
     });
 
   } catch (error) {

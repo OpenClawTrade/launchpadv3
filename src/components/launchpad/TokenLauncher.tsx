@@ -13,9 +13,10 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction, PublicKey, SystemProgram } from "@solana/web3.js";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
+import { submitAndConfirmJitoBundle, createJitoTipInstruction, getRandomTipAccount, JITO_CONFIG } from "@/lib/jitoBundle";
 
 import {
   Shuffle,
@@ -864,57 +865,70 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         }
       };
 
-      const signatures: string[] = [];
-      for (let i = 0; i < txBase64s.length; i++) {
-        const txBase64 = txBase64s[i];
-        const txLabel = txLabels[i] || `Transaction ${i + 1}`;
-        const tx = deserializeAnyTx(txBase64);
-        
-        console.log(`[Phantom Launch] Signing ${txLabel} (${i + 1}/${txBase64s.length})...`);
-        
-        let signResult: unknown;
-        try {
-          signResult = await phantomWallet.signAndSendTransaction(tx as any);
-        } catch (signError) {
-          console.error(`[Phantom Launch] ${txLabel} sign error:`, signError);
-          // User likely rejected the transaction
-          if (signError instanceof Error && signError.message.includes('User rejected')) {
-            throw new Error(`${txLabel} was rejected. Please approve in Phantom.`);
-          }
-          throw new Error(`${txLabel} signing failed: ${signError instanceof Error ? signError.message : 'Unknown error'}`);
+      // Deserialize all transactions
+      const txsToSign = txBase64s.map(deserializeAnyTx);
+      
+      // Get fresh blockhash for all transactions
+      toast({ title: "Preparing atomic launch...", description: "Fetching latest blockhash" });
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+      
+      // Update blockhash on all transactions
+      for (const tx of txsToSign) {
+        if (tx instanceof Transaction) {
+          tx.recentBlockhash = blockhash;
+          tx.lastValidBlockHeight = lastValidBlockHeight;
         }
-        
-        if (!signResult) {
-          throw new Error(`${txLabel} was canceled or Phantom is not responding. Please try reconnecting your wallet.`);
-        }
-
-        let signature: string;
-        if (typeof signResult === "object" && signResult !== null && "signature" in signResult) {
-          signature = (signResult as { signature: string }).signature;
-        } else {
-          signature = String(signResult);
-        }
-
-        console.log(`[Phantom Launch] ${txLabel} signed:`, signature.slice(0, 16) + '...');
-        signatures.push(signature);
-        
-        toast({ title: `${txLabel} sent`, description: "Waiting for confirmation..." });
-        await connection.confirmTransaction(signature, "confirmed");
-        
-        // CRITICAL: Verify transaction actually succeeded on-chain
-        const statusResult = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
-        const txStatus = statusResult.value[0];
-        
-        if (!txStatus) {
-          console.warn(`[Phantom Launch] ${txLabel} status not found, assuming success`);
-        } else if (txStatus.err) {
-          const errMsg = typeof txStatus.err === 'object' ? JSON.stringify(txStatus.err) : String(txStatus.err);
-          console.error(`[Phantom Launch] ${txLabel} failed on-chain:`, txStatus.err);
-          throw new Error(`${txLabel} failed on-chain: ${errMsg}. Check your SOL balance.`);
-        }
-        
-        console.log(`[Phantom Launch] ${txLabel} confirmed and verified`);
+        // Note: VersionedTransaction blockhash is immutable, already set by backend
       }
+
+      // Add Jito tip instruction to last transaction for priority inclusion
+      const tipLamports = JITO_CONFIG.DEFAULT_TIP_LAMPORTS; // 0.001 SOL
+      const lastTx = txsToSign[txsToSign.length - 1];
+      
+      if (lastTx instanceof Transaction && phantomWallet.publicKey) {
+        const tipInstruction = createJitoTipInstruction(
+          phantomWallet.publicKey,
+          tipLamports
+        );
+        lastTx.add(tipInstruction);
+        console.log('[Phantom Launch] Added Jito tip instruction:', tipLamports / 1e9, 'SOL');
+      }
+
+      // === ATOMIC JITO BUNDLE: Single Phantom popup for all transactions ===
+      toast({ 
+        title: "Sign All Transactions", 
+        description: `Approve ${txsToSign.length} transactions in Phantom (one popup)` 
+      });
+      
+      console.log(`[Phantom Launch] Requesting batch signature for ${txsToSign.length} transactions...`);
+      
+      const signedTxs = await phantomWallet.signAllTransactions(txsToSign as Transaction[]);
+      
+      if (!signedTxs) {
+        throw new Error("Transaction signing was cancelled or failed");
+      }
+      
+      console.log('[Phantom Launch] All transactions signed, submitting Jito bundle...');
+      toast({ 
+        title: "Submitting Atomic Bundle...", 
+        description: "All transactions will execute in the same block" 
+      });
+      
+      // Submit bundle to Jito for atomic execution
+      const bundleResult = await submitAndConfirmJitoBundle(signedTxs);
+      
+      if (!bundleResult.success) {
+        console.error('[Phantom Launch] Jito bundle failed:', bundleResult.error);
+        throw new Error(bundleResult.error || "Jito bundle execution failed");
+      }
+      
+      console.log('[Phantom Launch] ✅ Jito bundle confirmed!', {
+        bundleId: bundleResult.bundleId,
+        slot: bundleResult.slot,
+        signatures: bundleResult.signatures,
+      });
+      
+      const signatures = bundleResult.signatures || [];
 
       // Phase 2: record token in DB after on-chain confirmation
       let recordedTokenId: string | undefined;

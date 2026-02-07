@@ -165,6 +165,58 @@ export function usePhantomWallet() {
     }
   }, [getProvider, toast]);
 
+  // Sign multiple transactions at once (single Phantom popup for all)
+  const signAllTransactions = useCallback(async <T extends Transaction | VersionedTransaction>(
+    transactions: T[]
+  ): Promise<T[] | null> => {
+    const provider = getProvider();
+    
+    if (!provider) {
+      toast({
+        title: "Phantom not connected",
+        description: "Please connect your Phantom wallet first",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    if (!provider.signAllTransactions) {
+      toast({
+        title: "Wallet Error",
+        description: "Phantom wallet doesn't support batch signing. Please update Phantom.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      console.log(`[PhantomWallet] Requesting batch signature for ${transactions.length} transactions...`);
+      const signedTxs = await provider.signAllTransactions(transactions);
+      console.log('[PhantomWallet] Batch signature successful');
+      return signedTxs;
+    } catch (error) {
+      console.error('[PhantomWallet] Batch sign error:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('User rejected') || errorMessage.includes('cancelled')) {
+        toast({
+          title: "Transaction Rejected",
+          description: "You rejected the transactions in Phantom",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Batch Signing Failed",
+          description: errorMessage.slice(0, 100),
+          variant: "destructive",
+        });
+      }
+      
+      throw error;
+    }
+  }, [getProvider, toast]);
+
   const signAndSendTransaction = useCallback(async (
     transaction: Transaction | VersionedTransaction
   ): Promise<string | null> => {
@@ -294,6 +346,7 @@ export function usePhantomWallet() {
     connect,
     disconnect,
     signTransaction,
+    signAllTransactions,
     signAndSendTransaction,
     refreshBalance,
     getProvider,
