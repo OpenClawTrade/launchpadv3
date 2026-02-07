@@ -261,7 +261,7 @@ export default function PromoMentionsAdminPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <div className="text-muted-foreground">Search Query</div>
-                <code className="text-xs">(@moltbook OR @openclaw) -is:retweet</code>
+                <code className="text-xs">(@moltbook OR @openclaw OR @buildtuna OR @tunalaunch)</code>
               </div>
               <div>
                 <div className="text-muted-foreground">Max Replies/Hour</div>

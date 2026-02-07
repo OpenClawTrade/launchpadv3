@@ -109,8 +109,8 @@ async function fetchWithTimeout(
 
 async function searchMentions(apiKey: string): Promise<Tweet[]> {
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
-  // Search for tweets mentioning our accounts + @Solana + $SOL cashtag
-  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @Solana OR $SOL) -is:retweet -is:reply");
+  // ONLY search for direct platform mentions - NO generic crypto terms
+  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @buildtuna OR @tunalaunch) -is:retweet -is:reply");
   searchUrl.searchParams.set("queryType", "Latest");
 
   try {
@@ -278,30 +278,20 @@ async function postReply(
   }
 }
 
-function determineMentionType(text: string): "moltbook" | "openclaw" | "solana" | "sol_cashtag" | "both" | "multiple" {
+function determineMentionType(text: string): "moltbook" | "openclaw" | "buildtuna" | "tunalaunch" | "both" | "multiple" {
   const hasMoltbook = text.toLowerCase().includes("@moltbook");
   const hasOpenclaw = text.toLowerCase().includes("@openclaw");
-  const hasSolana = text.toLowerCase().includes("@solana");
-  const hasSolCashtag = text.includes("$SOL") || text.includes("$sol");
+  const hasBuildtuna = text.toLowerCase().includes("@buildtuna");
+  const hasTunalaunch = text.toLowerCase().includes("@tunalaunch");
   
-  const count = [hasMoltbook, hasOpenclaw, hasSolana, hasSolCashtag].filter(Boolean).length;
+  const count = [hasMoltbook, hasOpenclaw, hasBuildtuna, hasTunalaunch].filter(Boolean).length;
   if (count > 2) return "multiple";
   if (hasMoltbook && hasOpenclaw) return "both";
   if (hasMoltbook) return "moltbook";
   if (hasOpenclaw) return "openclaw";
-  if (hasSolana) return "solana";
-  if (hasSolCashtag) return "sol_cashtag";
+  if (hasBuildtuna) return "buildtuna";
+  if (hasTunalaunch) return "tunalaunch";
   return "openclaw"; // fallback
-}
-
-// Check if tweet only mentions $SOL (no @moltbook, @openclaw, @Solana)
-function isOnlySolCashtagMention(text: string): boolean {
-  const hasMoltbook = text.toLowerCase().includes("@moltbook");
-  const hasOpenclaw = text.toLowerCase().includes("@openclaw");
-  const hasSolana = text.toLowerCase().includes("@solana");
-  const hasSolCashtag = text.includes("$SOL") || text.includes("$sol");
-  
-  return hasSolCashtag && !hasMoltbook && !hasOpenclaw && !hasSolana;
 }
 
 // Get follower count from tweet author

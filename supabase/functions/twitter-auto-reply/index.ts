@@ -144,13 +144,11 @@ const buildLoginCookiesBase64FromEnv = (args: {
 };
 // ============================================================
 
-// Crypto-related search terms to find relevant tweets
+// Platform-specific search terms ONLY - no generic crypto terms
 const SEARCH_QUERIES = [
-  "crypto meme coin",
-  "solana degen",
-  "memecoin launch",
-  "$SOL pump",
-  "web3 meme",
+  "AI agent token launch",
+  "bonding curve memecoin",
+  "fair launch token solana",
 ];
 
 interface Tweet {
