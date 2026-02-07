@@ -68,6 +68,27 @@ interface TokenLauncherProps {
   onShowResult: (result: LaunchResult) => void;
 }
 
+const DEV_BUY_MAX_SOL = 10;
+const DEV_BUY_DECIMALS = 2;
+const DEV_BUY_INPUT_RE = /^\d*(?:\.\d{0,2})?$/;
+
+function parseDevBuySol(raw: string): number {
+  const trimmed = raw.trim();
+  if (!trimmed) return 0;
+
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return 0;
+
+  const factor = 10 ** DEV_BUY_DECIMALS;
+  const rounded = Math.round(n * factor) / factor;
+  return Math.min(DEV_BUY_MAX_SOL, Math.max(0, rounded));
+}
+
+function formatDevBuySolInput(n: number): string {
+  if (!n) return "";
+  return n.toFixed(DEV_BUY_DECIMALS).replace(/\.?0+$/, "");
+}
+
 export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherProps) {
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
@@ -100,7 +121,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   // Phantom specific state
   const [isPhantomLaunching, setIsPhantomLaunching] = useState(false);
   const [phantomTradingFee, setPhantomTradingFee] = useState(200);
-  const [phantomDevBuySol, setPhantomDevBuySol] = useState(0); // Optional dev buy amount in SOL
+  const [phantomDevBuySolInput, setPhantomDevBuySolInput] = useState<string>(""); // Optional dev buy amount in SOL (raw input)
+  const phantomDevBuySol = parseDevBuySol(phantomDevBuySolInput);
   const [phantomSubMode, setPhantomSubMode] = useState<"random" | "describe" | "custom">("random");
   const [phantomToken, setPhantomToken] = useState<MemeToken>({
     name: "",
@@ -912,6 +934,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       setPhantomMeme(null);
       setPhantomImageFile(null);
       setPhantomImagePreview(null);
+      setPhantomDevBuySolInput("");
       onLaunchSuccess();
     } catch (error: any) {
       onShowResult({ success: false, error: error.message || "Phantom launch failed" });
@@ -919,7 +942,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     } finally {
       setIsPhantomLaunching(false);
     }
-  }, [phantomWallet, phantomToken, phantomMeme, phantomImagePreview, phantomTradingFee, toast, uploadPhantomImageIfNeeded, onLaunchSuccess, onShowResult]);
+  }, [phantomWallet, phantomToken, phantomMeme, phantomImagePreview, phantomTradingFee, phantomDevBuySol, toast, uploadPhantomImageIfNeeded, onLaunchSuccess, onShowResult]);
 
   const modes = [
     { id: "random" as const, label: "Random", icon: Shuffle },
@@ -1339,13 +1362,21 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       </div>
                     </div>
                     <Input
-                      type="number"
-                      min="0"
-                      max="10"
-                      step="0.01"
-                      placeholder="0"
-                      value={phantomDevBuySol || ''}
-                      onChange={(e) => setPhantomDevBuySol(Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))}
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="0.00"
+                      value={phantomDevBuySolInput}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (next === "" || DEV_BUY_INPUT_RE.test(next)) {
+                          setPhantomDevBuySolInput(next);
+                        }
+                      }}
+                      onBlur={() => {
+                        setPhantomDevBuySolInput(formatDevBuySolInput(parseDevBuySol(phantomDevBuySolInput)));
+                      }}
                       className="h-10 bg-secondary/50 border-0 rounded-lg pl-9 text-sm font-medium placeholder:text-muted-foreground/60"
                     />
                   </div>
