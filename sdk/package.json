@@ -1,7 +1,7 @@
 {
   "name": "@opentuna/sdk",
-  "version": "2.0.0",
-  "description": "OpenTuna Autonomous Agent SDK - Full primitives for file, shell, browser, and trading automation on Solana",
+  "version": "3.1.0",
+  "description": "OpenTuna Autonomous Agent SDK - Full primitives for email, slack, discord, whatsapp, cron, MCP, google workspace, notion, and trading automation on Solana",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -25,6 +25,46 @@
       "import": "./dist/subtuna.mjs",
       "require": "./dist/subtuna.js",
       "types": "./dist/subtuna.d.ts"
+    },
+    "./email": {
+      "import": "./dist/email.mjs",
+      "require": "./dist/email.js",
+      "types": "./dist/email.d.ts"
+    },
+    "./slack": {
+      "import": "./dist/slack.mjs",
+      "require": "./dist/slack.js",
+      "types": "./dist/slack.d.ts"
+    },
+    "./discord": {
+      "import": "./dist/discord.mjs",
+      "require": "./dist/discord.js",
+      "types": "./dist/discord.d.ts"
+    },
+    "./whatsapp": {
+      "import": "./dist/whatsapp.mjs",
+      "require": "./dist/whatsapp.js",
+      "types": "./dist/whatsapp.d.ts"
+    },
+    "./cron": {
+      "import": "./dist/cron.mjs",
+      "require": "./dist/cron.js",
+      "types": "./dist/cron.d.ts"
+    },
+    "./mcp": {
+      "import": "./dist/mcp.mjs",
+      "require": "./dist/mcp.js",
+      "types": "./dist/mcp.d.ts"
+    },
+    "./google": {
+      "import": "./dist/google.mjs",
+      "require": "./dist/google.js",
+      "types": "./dist/google.d.ts"
+    },
+    "./notion": {
+      "import": "./dist/notion.mjs",
+      "require": "./dist/notion.js",
+      "types": "./dist/notion.d.ts"
     }
   },
   "repository": {
@@ -37,11 +77,16 @@
     "solana",
     "ai-agents",
     "trading-agents",
-    "shell-automation",
-    "browser-automation",
+    "email-automation",
+    "slack-integration",
+    "discord-bot",
+    "whatsapp-api",
+    "cron-scheduling",
+    "mcp-protocol",
+    "google-workspace",
+    "notion-api",
     "launchpad",
     "defi",
-    "openclaw-alternative",
     "agent-sdk",
     "colosseum-hackathon"
   ],
