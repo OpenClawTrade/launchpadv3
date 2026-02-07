@@ -1,63 +1,60 @@
 
-# Plan: Remove Pump Agents Page
+# Plan: Update Branding to "TUNA OS"
 
 ## Overview
 
-Remove the Pump Agents page (`/agents/pump`) from the TUNA platform as it's no longer supported. This involves removing the route, navigation links, import, and the page file itself.
+Update the header logo text and website title to reflect the new "TUNA OS" branding.
 
-## Files to Modify
+## Changes Required
 
-### 1. `src/App.tsx`
+### 1. `src/components/layout/LaunchpadLayout.tsx`
 
-**Remove import (line 39):**
-```typescript
-const PumpAgentsPage = lazy(() => import("./pages/PumpAgentsPage"));
-```
-
-**Remove route (line 113):**
-```typescript
-<Route path="/agents/pump" element={<PumpAgentsPage />} />
-```
-
-### 2. `src/components/layout/LaunchpadLayout.tsx`
-
-**Remove pumpfun icon import (line 12):**
-```typescript
-import pumpfunIcon from "@/assets/pumpfun-icon.webp";
-```
-
-**Remove desktop navigation link (lines 64-69):**
+**Line 30** - Update aria-label:
 ```tsx
-<Link to="/agents/pump">
-  <Button size="sm" className="bg-[#00ff00] hover:bg-[#00cc00] text-black ...">
-    <img src={pumpfunIcon} alt="" className="w-4 h-4" />
-    PUMP Agents
-  </Button>
-</Link>
+<Link to="/" className="gate-logo" aria-label="TUNA OS">
 ```
 
-**Remove mobile navigation link (lines 122-125):**
+**Line 33-34** - Update alt text:
 ```tsx
-<Link to="/agents/pump" className="flex items-center gap-2 px-4 py-2.5 ...">
-  <img src={pumpfunIcon} alt="" className="w-4 h-4" />
-  <span className="text-black text-sm font-medium">PUMP Agents</span>
-</Link>
+alt="TUNA OS"
 ```
 
-### 3. Delete File
+**Line 37** - Change logo text from "TUNA v3" to "TUNA OS":
+```tsx
+<span className="text-lg font-bold">TUNA OS</span>
+```
 
-**Delete:** `src/pages/PumpAgentsPage.tsx`
+### 2. `index.html`
 
-## Summary of Changes
+**Line 7** - Update page title:
+```html
+<title>Tuna AI Agent Operating System</title>
+```
 
-| File | Action |
+**Line 10** - Update author meta:
+```html
+<meta name="author" content="TUNA OS" />
+```
+
+**Line 19** - Update og:site_name:
+```html
+<meta property="og:site_name" content="TUNA OS" />
+```
+
+**Lines 55, 67** - Update JSON-LD structured data name references:
+```json
+"name": "TUNA OS"
+```
+
+## Summary
+
+| File | Change |
 |------|--------|
-| `src/App.tsx` | Remove import + route |
-| `src/components/layout/LaunchpadLayout.tsx` | Remove icon import + 2 nav links |
-| `src/pages/PumpAgentsPage.tsx` | Delete file |
+| `LaunchpadLayout.tsx` | Update logo text, aria-label, and alt text to "TUNA OS" |
+| `index.html` | Update `<title>` to "Tuna AI Agent Operating System" and related meta tags |
 
 ## Result
 
-- The "PUMP Agents" button will be removed from both desktop and mobile navigation
-- The `/agents/pump` route will no longer exist (404 if accessed directly)
-- Cleaner navigation focused on TUNA Agents and OpenTuna
+- Header will display "TUNA OS" next to the logo (removing the "v3" version tag)
+- Browser tab will show "Tuna AI Agent Operating System"
+- Social previews will reflect updated branding
