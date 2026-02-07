@@ -1,367 +1,449 @@
 
-# OpenTuna Full Launch Implementation Plan
+
+# OpenTuna Full Documentation & Launch Enhancement Plan
 
 ## Executive Summary
 
-OpenTuna is **90% ready for full launch**. The core infrastructure is production-grade with 27 edge functions, complete database schema, and a unified SDK. This plan completes the remaining UI wiring, adds real activity feeds, and provides a comparison with OpenClaw for the launch announcement.
+This plan addresses three critical issues preventing OpenTuna from being a fully functional, well-documented autonomous agent platform:
+
+1. **Incomplete Documentation** - Current docs only scratch the surface of capabilities
+2. **Missing Real-World Examples** - No practical automation use cases shown
+3. **Color Scheme Mismatch** - Using cyan/teal instead of TUNA brand colors (teal is actually correct for the fish logo, but we'll use the platform's primary green for consistency)
 
 ---
 
-## What's Missing for Full Launch
+## Part 1: Color Scheme Fix (Brand Alignment)
 
-### Critical (Must Fix Now)
+### Current Issue
+OpenTuna uses cyan/teal (`text-cyan-400`, `border-cyan-500/20`) but TUNA's primary brand color is **professional green** (`152 69% 41%` / `#22c55e`).
 
-| Issue | Current State | Fix Required |
-|-------|---------------|--------------|
-| **API Key "Generate" button not wired** | Button exists but onClick is empty | Connect to `opentuna-api-key-create` edge function |
-| **API Key "View All" button not wired** | Button exists but onClick is empty | Add modal to list existing keys |
-| **Activity Feed is placeholder** | Static "Activity will appear here" | Wire to `opentuna_sonar_pings` table |
-| **WALLET_ENCRYPTION_KEY missing** | Needed for trading | (Secret exists but may need verification) |
+### Solution
+Update `src/index.css` to use the existing TUNA green primary color:
 
-### Infrastructure Already Complete
+```css
+/* OpenTuna Theme - TUNA Brand Colors */
+.opentuna-card {
+  @apply bg-card/50 border border-primary/20 hover:border-primary/40 
+         transition-all duration-200 rounded-xl;
+}
 
-All edge functions are deployed:
-- `opentuna-api-key-create` 
-- `opentuna-api-key-validate`
-- `opentuna-api-key-revoke`
-- `opentuna-fin-trade` (Jupiter V6 + Jito ready)
-- `opentuna-fin-bash` (sandboxed execution)
-- `opentuna-fin-browse` (HTTP/Browserless)
-- Plus 21 more...
+.opentuna-gradient-text {
+  @apply bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent;
+}
 
-Secrets configured: `HELIUS_RPC_URL` 
+.opentuna-glow {
+  box-shadow: 0 0 20px hsl(152 69% 41% / 0.15);
+}
+
+.opentuna-button {
+  @apply bg-gradient-to-r from-green-600 to-emerald-600 
+         hover:from-green-700 hover:to-emerald-700 
+         text-white font-medium rounded-lg;
+}
+```
+
+### Files to Update
+- `src/index.css` - Update 4 OpenTuna CSS classes
+- `src/pages/OpenTunaPage.tsx` - Replace all `cyan-*` with `primary` or `green-*`
+- `src/components/opentuna/OpenTunaHub.tsx` - Replace cyan with green
+- `src/components/opentuna/OpenTunaDocs.tsx` - Replace cyan with green
+- `src/components/opentuna/OpenTunaHatch.tsx` - Replace cyan with green
+- `src/components/opentuna/OpenTunaSonar.tsx` - Replace cyan with green
+- `src/components/opentuna/OpenTunaMemory.tsx` - Replace cyan with green
+- `src/components/opentuna/OpenTunaFins.tsx` - Replace cyan with green
+- `src/components/opentuna/OpenTunaIntegrations.tsx` - Replace cyan with green
+- `src/components/opentuna/OpenTunaCurrent.tsx` - Replace cyan with green
+- `src/components/opentuna/OpenTunaApiKeyModal.tsx` - Replace cyan with green
 
 ---
 
-## Part 1: API Key Management System
+## Part 2: Enhanced Documentation Structure
 
-### 1.1 New Hook: `useOpenTunaApiKeys`
+### Current Docs Sections (Missing Details)
+1. Getting Started - Basic overview only
+2. DNA System - Missing examples
+3. Sonar Modes - Missing decision action details
+4. Deep Memory - Missing semantic search explanation
+5. Fin Market - Missing real capability examples
+6. SchoolPay - Incomplete x402 explanation
+7. Security - Missing operational details
+8. SDK & API - Missing comprehensive examples
+9. FAQ - Only 5 questions
 
-Add to `src/hooks/useOpenTuna.ts`:
+### New Documentation Structure
 
-```typescript
-// Types
-export interface OpenTunaApiKey {
-  id: string;
-  agent_id: string;
-  key_prefix: string;
-  name: string;
-  last_used_at: string | null;
-  total_requests: number;
-  is_active: boolean;
-  created_at: string;
-}
+#### 2.1 Real-World Automation Examples (NEW SECTION)
 
-// Fetch API keys for an agent
-export function useOpenTunaApiKeys(agentId: string | null) {
-  return useQuery({
-    queryKey: ['opentuna-api-keys', agentId],
-    queryFn: async () => {
-      if (!agentId) return [];
-      
-      const { data, error } = await supabase
-        .from('opentuna_api_keys')
-        .select('*')
-        .eq('agent_id', agentId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data as OpenTunaApiKey[];
-    },
-    enabled: !!agentId,
-  });
-}
+Add detailed use cases showing what OpenTuna can actually do:
 
-// Mutation: Generate API key
-export function useCreateApiKey() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
-  return useMutation({
-    mutationFn: async (params: { agentId: string; name?: string }) => {
-      const { data, error } = await supabase.functions.invoke('opentuna-api-key-create', {
-        body: params,
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['opentuna-api-keys', variables.agentId] });
-      toast({
-        title: "API Key Generated!",
-        description: "Copy it now - it won't be shown again.",
-      });
-    },
-  });
-}
+**Trading Automations:**
+- Auto-buy new token launches on pump.fun
+- DCA (Dollar Cost Average) strategies
+- Portfolio rebalancing
+- Stop-loss / take-profit execution
+- Whale wallet copy-trading
 
-// Mutation: Revoke API key
-export function useRevokeApiKey() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
-  return useMutation({
-    mutationFn: async (params: { keyId: string; agentId: string }) => {
-      const { data, error } = await supabase.functions.invoke('opentuna-api-key-revoke', {
-        body: { keyId: params.keyId },
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['opentuna-api-keys', variables.agentId] });
-      toast({
-        title: "Key Revoked",
-        description: "This API key can no longer be used.",
-      });
-    },
-  });
-}
-```
+**Social Automations:**
+- Auto-reply to X mentions
+- Schedule posts based on market conditions
+- Community engagement tracking
+- Sentiment analysis and response
+- Influencer monitoring
 
-### 1.2 API Key Management Modal Component
+**Research Automations:**
+- Token holder analysis
+- On-chain activity monitoring
+- Market trend detection
+- News aggregation and summarization
+- Alpha hunting patterns
 
-Create `src/components/opentuna/OpenTunaApiKeyModal.tsx`:
+**Development Automations:**
+- Code generation and deployment
+- Smart contract auditing
+- API monitoring
+- Data pipeline management
+- Report generation
 
-- Modal dialog showing existing keys (prefix only: `ota_live_abc123...`)
-- "Generate New Key" button that calls the hook
-- One-time display of full key with copy button
-- Revoke button for each active key
-- Shows usage stats (total requests, last used)
+#### 2.2 Integration Deep Dives (Expanded)
 
-### 1.3 Wire OpenTunaHub Buttons
+Each integration needs a dedicated explanation with:
+- Setup requirements
+- Code examples
+- Use case scenarios
+- Limitations and gotchas
 
-Update `src/components/opentuna/OpenTunaHub.tsx` lines 238-245:
+**Current Active Integrations (12):**
+| Integration | Status | Edge Function | Capabilities |
+|-------------|--------|---------------|--------------|
+| X / Twitter | Active | agent-social-post | Post, reply, monitor |
+| Telegram | Active | agent-telegram-webhook | Bots, alerts |
+| SubTuna | Active | agent-social-* | Native social |
+| Jupiter V6 | Active | opentuna-fin-trade | Token swaps |
+| Jito MEV | Active | opentuna-fin-trade | Bundle protection |
+| pump.fun | Active | pumpfun-* | Launch monitoring |
+| Meteora DBC | Active | fun-pool-* | LP management |
+| Shell (Bash) | Active | opentuna-fin-bash | 40+ commands |
+| Browser | Active | opentuna-fin-browse | HTTP + Browserless |
+| File System | Active | opentuna-fin-read/write/edit | Full CRUD |
+| AI Models | Active | ai-chat | Gemini, GPT-5 |
+| DexScreener | Active | dexscreener-proxy | Price data |
+
+**Coming Soon (4):**
+- Discord (webhooks ready, bot integration planned)
+- Birdeye (API integration pending)
+- CoinGecko (API integration pending)
+- Pyth (Oracle integration pending)
+
+#### 2.3 SDK Documentation (Comprehensive)
+
+Expand SDK docs with complete examples:
 
 ```typescript
-// Import the new hooks and modal
-const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-const [newApiKey, setNewApiKey] = useState<string | null>(null);
+// COMPLETE SDK USAGE EXAMPLES
 
-const createKeyMutation = useCreateApiKey();
+import { OpenTuna } from '@opentuna/sdk';
 
-const handleGenerateKey = async () => {
-  if (!selectedAgentId) {
-    toast.error("Select an agent first");
-    return;
-  }
-  const result = await createKeyMutation.mutateAsync({ 
-    agentId: selectedAgentId 
-  });
-  setNewApiKey(result.apiKey);
-  setShowApiKeyModal(true);
-};
-```
+const agent = new OpenTuna({ apiKey: 'ota_live_...' });
 
----
+// === FINS (Core Primitives) ===
 
-## Part 2: Real Activity Feed
+// 1. File Operations
+const content = await agent.fins.read({ path: '/data/config.json' });
+await agent.fins.write({ path: '/output/report.txt', content: 'Analysis complete' });
+await agent.fins.edit({ path: '/config.yaml', search: 'old_value', replace: 'new_value' });
 
-### 2.1 New Hook: `useRecentActivity`
+// 2. Shell Commands (Sandboxed)
+const result = await agent.fins.bash({ 
+  command: 'curl -s https://api.example.com/data | jq .price',
+  timeout: 10000 
+});
+console.log(result.stdout); // "45.67"
 
-Add to `src/hooks/useOpenTuna.ts`:
+// 3. Browser Automation
+await agent.fins.browse({ action: 'navigate', url: 'https://pump.fun' });
+const data = await agent.fins.browse({ action: 'extract' });
+console.log(data.links); // [{text: 'New Token', href: '...'}]
 
-```typescript
-// Fetch recent activity across all user's agents
-export function useRecentActivity(agentIds: string[], limit = 10) {
-  return useQuery({
-    queryKey: ['opentuna-recent-activity', agentIds],
-    queryFn: async () => {
-      if (agentIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from('opentuna_sonar_pings')
-        .select(`
-          id,
-          agent_id,
-          action,
-          reasoning,
-          executed_at,
-          success,
-          cost_sol,
-          opentuna_agents!inner(name)
-        `)
-        .in('agent_id', agentIds)
-        .order('executed_at', { ascending: false })
-        .limit(limit);
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: agentIds.length > 0,
-    refetchInterval: 30000, // Refresh every 30s
-  });
-}
-```
+// 4. Trading (Jupiter + Jito)
+const quote = await agent.fins.trade({ 
+  action: 'quote', 
+  tokenMint: 'So11...', 
+  amountSol: 0.1 
+});
+const trade = await agent.fins.trade({ 
+  action: 'buy', 
+  tokenMint: 'So11...', 
+  amountSol: 0.1,
+  slippageBps: 300 
+});
 
-### 2.2 Activity Feed Component
+// === SONAR (Autonomous Decision Engine) ===
 
-Update the "Recent Activity" section in `OpenTunaHub.tsx` (lines 426-439):
+await agent.sonar.setMode('hunt'); // 5 min intervals
+await agent.sonar.ping(); // Trigger decision
+await agent.sonar.pause(); // Stop activity
+await agent.sonar.resume(); // Resume
 
-```typescript
-// Replace static placeholder with real data
-const agentIds = agents.map(a => a.id);
-const { data: recentActivity, isLoading: isLoadingActivity } = useRecentActivity(agentIds);
+// === MEMORY (Persistent Context) ===
 
-// Render activity cards
-{recentActivity?.map((ping) => (
-  <div key={ping.id} className="flex items-center gap-3 py-2 border-b border-cyan-500/10">
-    <div className={cn(
-      "w-2 h-2 rounded-full",
-      ping.success ? "bg-green-400" : "bg-red-400"
-    )} />
-    <div className="flex-1">
-      <p className="text-sm">{ping.action}</p>
-      <p className="text-xs text-muted-foreground">{ping.reasoning?.slice(0, 60)}...</p>
-    </div>
-    <span className="text-xs text-muted-foreground">
-      {formatDistanceToNow(new Date(ping.executed_at), { addSuffix: true })}
-    </span>
-  </div>
-))}
+await agent.memory.store({ 
+  content: 'Bullish on $SOL due to ETF approval',
+  type: 'anchor', // Permanent
+  importance: 9,
+  tags: ['analysis', 'sol', 'etf']
+});
+
+const memories = await agent.memory.recall('SOL trading patterns');
+// Returns semantically similar memories
+
+// === SCHOOL (Multi-Agent Teams) ===
+
+await agent.school.delegate('target-agent-id', 'Research $BONK token');
+await agent.school.pay('fin-execution-id'); // Pay for premium fin
+await agent.school.sync(['agent-1', 'agent-2']); // Share state
+
+// === TUNANET (Social Messaging) ===
+
+await agent.tunanet.post('x', 'Just made a profitable trade! 🎣');
+await agent.tunanet.post('telegram', 'Alert: New launch detected');
+await agent.tunanet.post('subtuna', 'Analysis: $TOKEN looking strong');
 ```
 
 ---
 
-## Part 3: Add WALLET_ENCRYPTION_KEY Secret
+## Part 3: Integrations Page Enhancement
 
-For real trading execution, the `opentuna-fin-trade` edge function needs `WALLET_ENCRYPTION_KEY` to decrypt agent private keys.
+### 3.1 Update Integration Status
 
-**Action**: Add secret via Lovable Cloud Secrets:
-- Name: `WALLET_ENCRYPTION_KEY`
-- Value: 32+ character secure random string
+Change "Coming Soon" integrations to "Active" where we have working edge functions:
+
+| Integration | Current Status | Actual Status | Evidence |
+|-------------|----------------|---------------|----------|
+| DexScreener | coming_soon | **active** | `dexscreener-proxy` edge function exists |
+| Discord | coming_soon | coming_soon | No edge function |
+| Birdeye | coming_soon | coming_soon | No edge function |
+| CoinGecko | coming_soon | coming_soon | No edge function |
+| Pyth | coming_soon | coming_soon | No edge function |
+
+### 3.2 Add Missing Integrations
+
+Add these integrations that ARE available:
+
+| Integration | Category | Edge Function |
+|-------------|----------|---------------|
+| Helius RPC | compute | HELIUS_RPC_URL configured |
+| Solana Web3 | trading | @solana/web3.js available |
+| Lovable AI | compute | ai-chat function |
+| Token Metadata | data | token-metadata function |
+
+### 3.3 Integration Detail Pages
+
+Each integration card should expand to show:
+- Setup instructions
+- Code example
+- Available actions
+- Rate limits / costs
 
 ---
 
-## Part 4: Files to Modify
+## Part 4: Expanded Docs Content
 
+### 4.1 New Doc Sections to Add
+
+```typescript
+const NEW_DOC_SECTIONS = [
+  { id: 'use-cases', title: 'Real-World Use Cases', icon: Lightbulb },
+  { id: 'trading-guide', title: 'Trading Automation', icon: ChartLineUp },
+  { id: 'social-guide', title: 'Social Automation', icon: ChatCircle },
+  { id: 'research-guide', title: 'Research Automation', icon: MagnifyingGlass },
+  { id: 'best-practices', title: 'Best Practices', icon: Sparkle },
+  { id: 'troubleshooting', title: 'Troubleshooting', icon: Bug },
+];
+```
+
+### 4.2 Use Cases Content (New)
+
+Add comprehensive real-world examples:
+
+**Trading Automation Examples:**
+1. "Degen Sniper" - Auto-buy new launches within 5 seconds
+2. "Smart DCA" - Buy $50 SOL worth daily at optimal times
+3. "Whale Watcher" - Copy trades from successful wallets
+4. "Risk Manager" - Auto-sell if position drops 20%
+
+**Social Automation Examples:**
+1. "Community Manager" - Reply to all mentions with personality
+2. "Alpha Hunter" - Monitor CT for trending narratives
+3. "Engagement Bot" - Schedule posts for optimal reach
+4. "Sentiment Analyst" - Track community mood on tokens
+
+**Research Automation Examples:**
+1. "Token Scanner" - Analyze new tokens for rug signals
+2. "Holder Tracker" - Monitor wallet concentration
+3. "News Aggregator" - Summarize crypto news daily
+4. "Pattern Detector" - Find recurring market patterns
+
+### 4.3 Trading Guide Content (New)
+
+```markdown
+## Trading Automation Guide
+
+### Getting Started with Trading Agents
+
+1. **Hatch a Trading Agent**
+   - Select "Trading" type
+   - Name: "AlphaTuna" or similar
+   - Personality: "A methodical analyst..."
+
+2. **Configure DNA Limits**
+   - Reef Limit: "Never invest more than 0.1 SOL per trade"
+   - Reef Limit: "Never trade tokens under 1 hour old"
+
+3. **Set Sonar Mode**
+   - Hunt mode for active trading (5 min intervals)
+   - ~$8/day in compute costs
+
+4. **Install Trading Fins**
+   - fin_trade (native, free)
+   - fin_browse for pump.fun monitoring
+
+### Trading Code Example
+
+await agent.fins.trade({
+  action: 'buy',
+  tokenMint: 'TokenMintAddress...',
+  amountSol: 0.05,
+  slippageBps: 500,
+  useJito: true // MEV protection
+});
+
+### Risk Management
+
+- Always set reef limits before trading
+- Start with small amounts (0.01 SOL)
+- Monitor agent activity via Sonar logs
+- Pause during high volatility
+```
+
+---
+
+## Part 5: Files to Modify
+
+### CSS & Styling (1 file)
 | File | Changes |
 |------|---------|
-| `src/hooks/useOpenTuna.ts` | Add `useOpenTunaApiKeys`, `useCreateApiKey`, `useRevokeApiKey`, `useRecentActivity` hooks |
-| `src/components/opentuna/OpenTunaHub.tsx` | Wire "Generate" and "View Keys" buttons, replace activity placeholder |
-| `src/components/opentuna/OpenTunaApiKeyModal.tsx` | **NEW** - Modal for key management |
+| `src/index.css` | Replace cyan with green in OpenTuna theme |
+
+### Page Component (1 file)
+| File | Changes |
+|------|---------|
+| `src/pages/OpenTunaPage.tsx` | Replace all cyan/teal colors with green/primary |
+
+### OpenTuna Components (11 files)
+| File | Changes |
+|------|---------|
+| `OpenTunaHub.tsx` | Color scheme + enhanced SDK examples |
+| `OpenTunaHatch.tsx` | Color scheme update |
+| `OpenTunaDNA.tsx` | Color scheme update |
+| `OpenTunaSonar.tsx` | Color scheme update |
+| `OpenTunaMemory.tsx` | Color scheme update |
+| `OpenTunaFins.tsx` | Color scheme update |
+| `OpenTunaIntegrations.tsx` | Color scheme + fix statuses + add missing integrations |
+| `OpenTunaCurrent.tsx` | Color scheme update |
+| `OpenTunaDocs.tsx` | Color scheme + add 6 new sections + expand all content |
+| `OpenTunaApiKeyModal.tsx` | Color scheme update |
+| `OpenTunaAgentSelector.tsx` | Color scheme update |
 
 ---
 
-## Part 5: OpenTuna vs OpenClaw Comparison
+## Part 6: Implementation Priority
 
-### Naming Comparison
+### Phase 1: Color Scheme (All Files)
+Update all cyan/teal references to green/primary across all 12 OpenTuna files.
 
-| Concept | OpenClaw | OpenTuna |
-|---------|----------|----------|
-| Heartbeat/Autonomy | `Heartbeat` | `Sonar` |
-| Identity/Soul | `Soul` | `DNA` |
-| Capabilities | `Skills` | `Fins` |
-| Teams | `Swarm` | `Schools` |
-| Payments | `x402` | `SchoolPay` |
-| Memory | `Memory` | `Deep Memory` |
-| Onboarding | `openclaw onboard` | `Hatch` (60 seconds) |
+### Phase 2: Integrations Enhancement
+1. Update `OpenTunaIntegrations.tsx`:
+   - Fix DexScreener status to "active"
+   - Add Helius, Lovable AI, Token Metadata integrations
+   - Add detailed feature lists for each
 
-### Technical Advantages
+### Phase 3: Documentation Expansion
+1. Update `OpenTunaDocs.tsx`:
+   - Add 6 new sections (use-cases, trading-guide, social-guide, research-guide, best-practices, troubleshooting)
+   - Expand existing sections with detailed examples
+   - Add comprehensive SDK code samples
 
-| Aspect | OpenClaw | OpenTuna |
-|--------|----------|----------|
-| **Deployment** | Self-hosted (hours of DevOps) | Cloud-native (60-second Hatch) |
-| **Key Storage** | Plaintext `.md` files | AES-256-GCM encrypted vault |
-| **Shell Access** | Full local access (dangerous) | Sandboxed Deno subprocess |
-| **Trading** | Manual/external integrations | Jupiter V6 + Jito MEV built-in |
-| **Memory Search** | SQLite local | pgvector hybrid (vector + keyword) |
-| **Social** | Gateway only | TunaNet (X, Telegram, SubTuna native) |
-
----
-
-## Part 6: Launch Announcement Tweet
-
-### Recommended Tweet (Technical Comparison)
-
-```
-OpenTuna is LIVE 🐟
-
-We rebuilt autonomous agents for Solana:
-
-🦞 OpenClaw → 🐟 OpenTuna
-Heartbeat → Sonar 🔊
-Soul → DNA 🧬
-Skills → Fins 🦈
-Swarm → Schools 🏫
-x402 → SchoolPay 💸
-
-The difference:
-✅ 60-second cloud deployment
-✅ AES-256-GCM vault (not plaintext)
-✅ Jupiter V6 + Jito MEV protection
-✅ pgvector hybrid memory
-
-SDK: npm install @opentuna/sdk
-
-tuna.fun/opentuna 🎣
-```
-
-### Alternative (Value-Focused)
-
-```
-Introducing OpenTuna — Autonomous Agents for Solana 🐟
-
-OpenClaw showed what's possible.
-We built what's production-ready.
-
-▸ Hatch in 60 seconds (not hours)
-▸ Vault-secured keys (not .md files)
-▸ Real trading (Jupiter + Jito)
-▸ Deep Memory (vector + keyword)
-▸ SchoolPay (agent-to-agent SOL)
-
-Same 6 primitives. Cloud-first security.
-
-tuna.fun/opentuna 🎣
-```
-
----
-
-## Implementation Order
-
-1. **Add new hooks** to `useOpenTuna.ts` (~5 min)
-2. **Create API Key Modal** component (~10 min)
-3. **Wire Hub buttons** to real functionality (~5 min)
-4. **Replace activity placeholder** with real feed (~5 min)
-5. **Add WALLET_ENCRYPTION_KEY** secret (~1 min)
-6. **Test full flow**: Hatch → DNA → Sonar → Generate Key → Trade
-
-Total estimated time: **~30 minutes**
+### Phase 4: Hub Enhancement
+1. Update `OpenTunaHub.tsx`:
+   - Add more detailed SDK examples
+   - Show real integration count
+   - Add "What can I build?" section
 
 ---
 
 ## Technical Details
 
-### Edge Function Endpoints (Already Deployed)
+### Color Replacement Map
 
-| Endpoint | Purpose |
-|----------|---------|
-| `opentuna-api-key-create` | Generate new SDK API key |
-| `opentuna-api-key-validate` | Validate key on SDK requests |
-| `opentuna-api-key-revoke` | Revoke existing key |
-| `opentuna-fin-trade` | Jupiter V6 + Jito trading |
-| `opentuna-fin-bash` | Sandboxed shell commands |
-| `opentuna-fin-browse` | Browser automation |
+| Old (Cyan/Teal) | New (Green/Primary) |
+|-----------------|---------------------|
+| `text-cyan-400` | `text-primary` or `text-green-400` |
+| `text-cyan-500` | `text-green-500` |
+| `bg-cyan-500/10` | `bg-primary/10` |
+| `bg-cyan-500/20` | `bg-primary/20` |
+| `border-cyan-500/20` | `border-primary/20` |
+| `border-cyan-500/30` | `border-primary/30` |
+| `hover:border-cyan-500/40` | `hover:border-primary/40` |
+| `from-cyan-400 to-teal-400` | `from-green-400 to-emerald-400` |
+| `from-cyan-600 to-teal-600` | `from-green-600 to-emerald-600` |
+| `ring-cyan-500` | `ring-primary` |
 
-### Database Tables (Already Created)
+### New Integrations to Add
 
-| Table | Purpose |
-|-------|---------|
-| `opentuna_api_keys` | SDK access keys (SHA-256 hashed) |
-| `opentuna_agent_integrations` | Per-agent integration status |
-| `opentuna_sonar_pings` | Activity log for feed |
+```typescript
+const NEW_INTEGRATIONS: Integration[] = [
+  {
+    id: 'helius',
+    name: 'Helius RPC',
+    description: 'Premium Solana RPC for fast, reliable transactions',
+    icon: Lightning,
+    status: 'active',
+    category: 'compute',
+    features: ['Priority fees', 'Enhanced APIs', 'Webhook support'],
+  },
+  {
+    id: 'lovable_ai',
+    name: 'Lovable AI',
+    description: 'Built-in AI models for reasoning and generation',
+    icon: Robot,
+    status: 'active',
+    category: 'compute',
+    features: ['Gemini 2.5', 'GPT-5', 'No API key needed'],
+  },
+  {
+    id: 'token_metadata',
+    name: 'Token Metadata',
+    description: 'Fetch on-chain token information and images',
+    icon: File,
+    status: 'active',
+    category: 'data',
+    features: ['Name & symbol', 'Decimals', 'Image URL', 'Creator info'],
+  },
+];
+```
 
 ---
 
 ## Summary
 
-OpenTuna has achieved **functional parity with OpenClaw** across all 6 core primitives. The remaining work is purely UI wiring (no new backend needed):
+This plan transforms OpenTuna from a partially-documented system into a fully-documented, launch-ready platform by:
 
-1. Connect "Generate API Key" button → `opentuna-api-key-create`
-2. Add modal to display and manage keys
-3. Replace activity placeholder with real sonar pings
-4. Verify `WALLET_ENCRYPTION_KEY` secret for trading
+1. **Fixing Colors** - Aligning with TUNA brand (green primary)
+2. **Expanding Docs** - Adding 6 new sections with real-world examples
+3. **Fixing Integrations** - Correcting statuses and adding missing ones
+4. **Adding Use Cases** - Trading, social, and research automation examples
+5. **Complete SDK Guide** - Comprehensive code examples for all primitives
 
-After these changes, OpenTuna will be **fully functional and ready for public launch**.
+Total files to modify: **12**
+Estimated implementation time: **45-60 minutes**
+
