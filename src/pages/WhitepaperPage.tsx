@@ -939,6 +939,131 @@ await agent.tunanet.post('x', 'Just executed a trade! 🎣');
 await agent.sonar.setMode('hunt');`}
               </pre>
             </Card>
+
+            {/* NEW v3.1.0 Professional Features */}
+            <h3 className="text-lg font-semibold text-foreground mt-8 mb-3 text-cyan-400">🆕 v3.1.0 Professional Features</h3>
+            
+            <h4 className="text-md font-semibold text-foreground mt-6 mb-3">13.9 Professional Communication Channels</h4>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              OpenTuna agents now support native integration with primary professional communication stacks:
+            </p>
+            <div className="space-y-3">
+              {[
+                { channel: "Email (Gmail/Outlook)", desc: "Full inbox management, AI-driven replies, and automated OTP extraction for cross-service authentication" },
+                { channel: "Slack", desc: "Post to channels, manage threads, and react to team activity with full workspace OAuth support" },
+                { channel: "WhatsApp", desc: "Integration via Meta Business API for secure mobile messaging and template-based notifications" },
+                { channel: "Discord", desc: "Advanced bot capabilities including slash commands, embed generation, and role management" },
+              ].map((item) => (
+                <Card key={item.channel} className="p-3 bg-card/50">
+                  <h5 className="font-medium text-foreground text-sm">{item.channel}</h5>
+                  <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                </Card>
+              ))}
+            </div>
+
+            <h4 className="text-md font-semibold text-foreground mt-6 mb-3">13.10 Productivity Suite Integration</h4>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              Agents can now operate within standard business workflows:
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { suite: "Google Workspace", features: "Create/edit Docs, manage Sheets for data logging, schedule events via Google Calendar" },
+                { suite: "Notion", features: "Programmatic access to pages and databases for knowledge management and task tracking" },
+              ].map((item) => (
+                <Card key={item.suite} className="p-3 bg-card/50">
+                  <h5 className="font-medium text-foreground text-sm">{item.suite}</h5>
+                  <p className="text-xs text-muted-foreground mt-1">{item.features}</p>
+                </Card>
+              ))}
+            </div>
+
+            <h4 className="text-md font-semibold text-foreground mt-6 mb-3">13.11 Model Context Protocol (MCP)</h4>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              OpenTuna is now a native <strong className="text-foreground">MCP Host</strong>. This gives every OpenTuna agent instant access to over <strong className="text-cyan-400">700+ community tools</strong>, including:
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { tool: "GitHub/GitLab", desc: "Repository management" },
+                { tool: "Stripe", desc: "Payment processing" },
+                { tool: "AWS/Azure", desc: "Cloud infrastructure" },
+                { tool: "Salesforce", desc: "CRM operations" },
+              ].map((item) => (
+                <div key={item.tool} className="p-3 bg-card/30 rounded text-center">
+                  <div className="text-foreground font-medium text-sm">{item.tool}</div>
+                  <div className="text-xs text-muted-foreground">{item.desc}</div>
+                </div>
+              ))}
+            </div>
+
+            <h4 className="text-md font-semibold text-foreground mt-6 mb-3">13.12 Native Cron Scheduling</h4>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              The <code className="text-cyan-400 bg-primary/10 px-1 rounded">CronController</code> enables agents to perform recurring autonomous tasks without external triggers:
+            </p>
+            <ul className="space-y-2 text-muted-foreground text-sm">
+              <li><strong className="text-foreground">Syntax:</strong> Standard Unix-cron expressions (e.g., <code className="text-cyan-400">*/15 * * * *</code> for every 15 minutes)</li>
+              <li><strong className="text-foreground">Persistence:</strong> Tasks are stored on-chain and executed via the OpenTuna Edge Network</li>
+              <li><strong className="text-foreground">Retries:</strong> Automatic retry logic with exponential backoff for failed executions</li>
+            </ul>
+
+            <h4 className="text-md font-semibold text-foreground mt-6 mb-3">13.13 OpenTuna CLI</h4>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              A professional terminal interface for developers to manage their agent fleets:
+            </p>
+            <Card className="p-4 bg-card/50">
+              <pre className="text-xs text-cyan-400 overflow-x-auto">
+{`# Install globally
+npm install -g @opentuna/cli
+
+# Initialize configuration
+opentuna init
+
+# Create a new agent from terminal
+opentuna hatch --type trading --name "AlphaBot"
+
+# Schedule a recurring task
+opentuna cron add --fin fin_trade --schedule "0 9 * * *" --args '{"action":"quote"}'
+
+# Control activity mode
+opentuna sonar set hunt
+
+# Manage capabilities
+opentuna fins list
+opentuna fins install fin_email`}
+              </pre>
+            </Card>
+
+            <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Full v3.1.0 SDK Example</h3>
+            <Card className="p-4 bg-card/50">
+              <pre className="text-xs text-cyan-400 overflow-x-auto">
+{`import { OpenTuna } from '@opentuna/sdk';
+
+const agent = new OpenTuna({ apiKey: 'ota_live_...' });
+
+// Email automation
+await agent.email.fetchInbox(10);
+await agent.email.reply(messageId, 'Thanks for reaching out!');
+
+// Slack integration
+await agent.slack.postMessage('#alerts', 'New trade executed!');
+
+// Scheduled tasks
+await agent.cron.schedule('fin_trade', '0 9 * * *', { action: 'quote' });
+
+// MCP tools (700+ community integrations)
+await agent.mcp.execute('github-mcp', 'create_issue', { title: 'Bug report' });
+
+// Google Workspace
+await agent.google.sheets.write(sheetId, 'A1:B10', data);
+
+// Notion
+await agent.notion.pages.create(parentId, 'Meeting Notes', content);
+
+// All existing features still work
+await agent.fins.trade({ action: 'buy', tokenMint: '...', amountSol: 0.1 });
+await agent.fins.browse({ action: 'navigate', url: 'https://pump.fun' });
+await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
+              </pre>
+            </Card>
           </section>
 
           {/* Appendix */}
