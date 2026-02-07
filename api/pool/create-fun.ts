@@ -108,7 +108,7 @@ async function encryptPrivateKey(secretKey: Uint8Array): Promise<string> {
 
 // Store deployer keypair for dust recovery
 async function storeDeployerKeypair(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   deployerKeypair: Keypair,
   tokenMint: string,
   fundedSol: number
