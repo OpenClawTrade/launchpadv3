@@ -90,21 +90,47 @@ function serializeTransaction(tx: Transaction | VersionedTransaction): string {
   if (tx instanceof VersionedTransaction) {
     return bs58.encode(tx.serialize());
   } else {
+    // Serialize with all signatures (requireAllSignatures: true throws if missing)
     return bs58.encode(tx.serialize());
   }
 }
 
 /**
- * Extract signature from a signed transaction
+ * Extract the first valid signature from a signed transaction
  */
 function getTransactionSignature(tx: Transaction | VersionedTransaction): string {
   if (tx instanceof VersionedTransaction) {
     const sig = tx.signatures[0];
+    // Check if signature is non-zero (signed)
+    if (!sig || sig.every(b => b === 0)) {
+      throw new Error('VersionedTransaction not signed');
+    }
     return bs58.encode(sig);
   } else {
-    const sig = tx.signature;
-    if (!sig) throw new Error('Transaction not signed');
-    return bs58.encode(sig);
+    // For legacy Transaction, check the signature getter first
+    const primarySig = tx.signature;
+    if (primarySig && primarySig.length > 0) {
+      return bs58.encode(primarySig);
+    }
+    
+    // Fallback: find first non-null signature in signatures array
+    for (const sigPair of tx.signatures) {
+      if (sigPair.signature && sigPair.signature.length > 0) {
+        return bs58.encode(sigPair.signature);
+      }
+    }
+    
+    // Debug: log the transaction state
+    console.error('[JitoBundle] Transaction signature state:', {
+      signatureCount: tx.signatures.length,
+      signatures: tx.signatures.map(s => ({
+        pubkey: s.publicKey.toBase58(),
+        hasSig: !!s.signature,
+        sigLen: s.signature?.length
+      }))
+    });
+    
+    throw new Error('Transaction not signed - no valid signatures found');
   }
 }
 
