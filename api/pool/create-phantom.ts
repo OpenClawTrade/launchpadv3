@@ -169,6 +169,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       feeRecipientWallet: effectiveFeeRecipient,
       tradingFeeBps,
       devBuySol: effectiveDevBuySol,
+      devBuySolType: typeof effectiveDevBuySol,
+      devBuySolFromReq: devBuySol,
       useVanityAddress,
       hasPoolVanityKeypair: !!vanityKeypair,
     });

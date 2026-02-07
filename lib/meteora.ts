@@ -349,6 +349,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     | undefined;
 
   if (params.initialBuySol && params.initialBuySol > 0) {
+    console.log('[meteora] Preparing initial buy:', params.initialBuySol, 'SOL');
     const amountIn = await prepareSwapAmountParam(
       params.initialBuySol,
       new PublicKey(WSOL_MINT),
@@ -356,12 +357,16 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     );
     // Ensure amountIn is a BN - prepareSwapAmountParam may return various types
     const buyAmountBN = amountIn instanceof BN ? amountIn : new BN(String(amountIn));
+    console.log('[meteora] Initial buy amount BN:', buyAmountBN.toString(), 'lamports');
     firstBuyParam = {
       buyer: creatorPubkey,
       buyAmount: buyAmountBN,
       minimumAmountOut: new BN(1),
       referralTokenAccount: null,
     };
+    console.log('[meteora] firstBuyParam constructed:', { buyer: creatorPubkey.toBase58(), buyAmount: buyAmountBN.toString() });
+  } else {
+    console.log('[meteora] No initial buy requested (initialBuySol:', params.initialBuySol, ')');
   }
 
   // Build token metadata URI - use STATIC storage URL for external indexer compatibility
@@ -481,6 +486,14 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     // Do NOT sign here - let the caller handle signing with all required keypairs
     preparedTransactions.push(swapBuyTx);
     console.log('[meteora] TX3 (swapBuy): Ready for signing');
+  } else if (firstBuyParam) {
+    // Log warning if firstBuyParam was set but no swap transaction was returned
+    console.warn('[meteora] ⚠️ firstBuyParam was set but SDK did NOT return swapBuyTx!');
+    console.warn('[meteora] firstBuyParam:', JSON.stringify({
+      buyer: firstBuyParam.buyer.toBase58(),
+      buyAmount: firstBuyParam.buyAmount.toString(),
+      minimumAmountOut: firstBuyParam.minimumAmountOut.toString(),
+    }));
   }
 
   console.log('[meteora] Prepared', preparedTransactions.length, 'transactions (unsigned - MUST be sent sequentially)');
