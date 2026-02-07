@@ -1435,24 +1435,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                             className="gate-input text-sm"
                           />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <Input
-                            placeholder="Telegram URL"
-                            value={phantomToken.telegramUrl || ""}
-                            onChange={(e) => setPhantomToken({ ...phantomToken, telegramUrl: e.target.value })}
-                            className="gate-input text-sm"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <Input
-                            placeholder="Discord URL"
-                            value={phantomToken.discordUrl || ""}
-                            onChange={(e) => setPhantomToken({ ...phantomToken, discordUrl: e.target.value })}
-                            className="gate-input text-sm"
-                          />
-                        </div>
                       </div>
                     </details>
 
