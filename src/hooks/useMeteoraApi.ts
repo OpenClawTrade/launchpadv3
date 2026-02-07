@@ -113,27 +113,32 @@ async function confirmSignatureWithPolling(params: {
   timeoutMs?: number;
 }) {
   const { connection, signature, blockhash, lastValidBlockHeight } = params;
-  const timeoutMs = params.timeoutMs ?? 90_000;
+  const timeoutMs = params.timeoutMs ?? 15_000; // 15 seconds - with high priority fees, should be near-instant
 
   const start = Date.now();
   let loop = 0;
 
   while (true) {
-    const statuses = await connection.getSignatureStatuses([signature], {
-      searchTransactionHistory: true,
-    });
+    try {
+      const statuses = await connection.getSignatureStatuses([signature], {
+        searchTransactionHistory: true,
+      });
 
-    const status = statuses.value[0];
-    if (status?.err) {
-      throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+      const status = statuses.value[0];
+      if (status?.err) {
+        throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+      }
+
+      if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
+        console.log(`[useMeteoraApi] Confirmed in ${Date.now() - start}ms`);
+        return;
+      }
+    } catch (e) {
+      // Rate limit or network error - continue polling
     }
 
-    if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
-      return;
-    }
-
-    // If we haven't seen it at all for a while, it could be expired.
-    if (loop % 10 === 0) {
+    // Check block height expiry every 5 loops
+    if (loop % 5 === 0 && loop > 0) {
       try {
         const height = await connection.getBlockHeight("confirmed");
         if (height > lastValidBlockHeight) {
@@ -149,13 +154,13 @@ async function confirmSignatureWithPolling(params: {
 
     if (Date.now() - start > timeoutMs) {
       throw new Error(
-        `Transaction was not confirmed in ${(timeoutMs / 1000).toFixed(2)} seconds. ` +
-          `It is unknown if it succeeded or failed. Check signature ${signature}.`
+        `Transaction was not confirmed in ${(timeoutMs / 1000).toFixed(1)} seconds. ` +
+          `Check signature ${signature} on Solscan.`
       );
     }
 
     loop++;
-    await sleep(1200);
+    await sleep(400); // Fast polling - 400ms
   }
 }
 

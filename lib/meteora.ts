@@ -463,7 +463,8 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   const { blockhash, lastValidBlockHeight } = await getBlockhashWithRetry(connection);
   
   // Priority fee settings for faster confirmation
-  const PRIORITY_FEE_MICRO_LAMPORTS = 100_000; // 0.0001 SOL per compute unit
+  // Priority fees - high enough for near-instant confirmation (< 2 seconds)
+  const PRIORITY_FEE_MICRO_LAMPORTS = 500_000; // 0.0005 SOL per compute unit - 5x higher for fast inclusion
 
   const COMPUTE_UNITS_CONFIG = 300_000;
   const COMPUTE_UNITS_POOL = mergedDevBuyIntoPool ? 650_000 : 400_000;
@@ -643,7 +644,7 @@ export async function executeMeteoraSwap(params: {
     (transaction.message as any).recentBlockhash = blockhash;
   } else {
     // Add priority fees for better inclusion probability.
-    const PRIORITY_FEE_MICRO_LAMPORTS = 100_000; // 0.0001 SOL per compute unit
+    const PRIORITY_FEE_MICRO_LAMPORTS = 500_000; // 0.0005 SOL per compute unit - fast confirmation
     const COMPUTE_UNITS = 400_000;
 
     const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
