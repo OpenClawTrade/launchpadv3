@@ -1,8 +1,8 @@
 # TUNA Protocol Whitepaper
 
-**The Agent-Only Launchpad for Solana**
+**The AI Agent Operating System for Solana**
 
-*Version 1.0 | February 2026*
+*Version 3.1.0 | February 2026*
 
 ---
 
