@@ -806,6 +806,34 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       description: "Creating pool transactions (this may take 10-20 seconds)",
     });
 
+    // If the backend is slow/unreachable, don't leave the user staring at nothing.
+    const stillWorkingTimer = window.setTimeout(() => {
+      toast({
+        title: "Still preparing…",
+        description: "If Phantom doesn't open soon, the backend may be unreachable. Keep this tab active and try again if it times out.",
+      });
+    }, 15000);
+
+    const withTimeout = async <T,>(
+      promise: Promise<T>,
+      ms: number,
+      label: string
+    ): Promise<T> => {
+      let timeoutId: number | undefined;
+      try {
+        return await Promise.race([
+          promise,
+          new Promise<T>((_, reject) => {
+            timeoutId = window.setTimeout(() => {
+              reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
+            }, ms);
+          }),
+        ]);
+      } finally {
+        if (timeoutId) window.clearTimeout(timeoutId);
+      }
+    };
+
     try {
       const { url: rpcUrl } = getRpcUrl();
       const connection = new Connection(rpcUrl, "confirmed");
@@ -826,26 +854,30 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       }
 
       toast({ title: "Uploading image...", description: "Almost ready" });
-      const imageUrl = await uploadPhantomImageIfNeeded();
+      const imageUrl = await withTimeout(uploadPhantomImageIfNeeded(), 45_000, "Image upload");
       
       toast({ title: "Building transactions...", description: "Fetching blockhash and creating pool" });
-      const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
-        body: {
-          name: phantomToken.name.slice(0, 32),
-          ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
-          description: phantomToken.description || "",
-          imageUrl,
-          websiteUrl: phantomToken.websiteUrl || "",
-          twitterUrl: phantomToken.twitterUrl || "",
-          telegramUrl: phantomToken.telegramUrl || "",
-          discordUrl: phantomToken.discordUrl || "",
-          phantomWallet: phantomWallet.address,
-          tradingFeeBps: phantomTradingFee,
-          devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
-          feeMode: feeMode || 'standard',
-          // Server will use pre-generated vanity addresses from pool
-        },
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke("fun-phantom-create", {
+          body: {
+            name: phantomToken.name.slice(0, 32),
+            ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+            description: phantomToken.description || "",
+            imageUrl,
+            websiteUrl: phantomToken.websiteUrl || "",
+            twitterUrl: phantomToken.twitterUrl || "",
+            telegramUrl: phantomToken.telegramUrl || "",
+            discordUrl: phantomToken.discordUrl || "",
+            phantomWallet: phantomWallet.address,
+            tradingFeeBps: phantomTradingFee,
+            devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
+            feeMode: feeMode || 'standard',
+            // Server will use pre-generated vanity addresses from pool
+          },
+        }),
+        60_000,
+        "Transaction preparation"
+      );
 
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || "Failed to prepare Phantom transactions");
@@ -858,12 +890,15 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             ? [data.serializedTransaction]
             : [];
 
-      if (txBase64s.length === 0) throw new Error(data?.error || "Failed to create transaction");
+       if (txBase64s.length === 0) throw new Error(data?.error || "Failed to create transaction");
 
-      // Transaction labels for better error messages
-      const txLabels: string[] = data?.txLabels || txBase64s.map((_, i) => 
-        i === 0 ? "Create Config" : i === 1 ? "Create Pool" : "Dev Buy"
-      );
+       // Backend responded — clear the "still preparing" nudge.
+       window.clearTimeout(stillWorkingTimer);
+
+       // Transaction labels for better error messages
+       const txLabels: string[] = data?.txLabels || txBase64s.map((_, i) => 
+         i === 0 ? "Create Config" : i === 1 ? "Create Pool" : "Dev Buy"
+       );
 
       const deserializeAnyTx = (base64: string): Transaction | VersionedTransaction => {
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -1003,9 +1038,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     } catch (error: any) {
       onShowResult({ success: false, error: error.message || "Phantom launch failed" });
       toast({ title: "Phantom Launch Failed", description: error.message || "Transaction failed", variant: "destructive" });
-    } finally {
-      setIsPhantomLaunching(false);
-    }
+     } finally {
+       window.clearTimeout(stillWorkingTimer);
+       setIsPhantomLaunching(false);
+     }
   }, [phantomWallet, phantomToken, phantomMeme, phantomImagePreview, phantomTradingFee, phantomDevBuySol, toast, uploadPhantomImageIfNeeded, onLaunchSuccess, onShowResult]);
 
   const modes = [
