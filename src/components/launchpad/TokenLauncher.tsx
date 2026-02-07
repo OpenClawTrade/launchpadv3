@@ -13,10 +13,10 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Connection, Transaction, VersionedTransaction, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
-import { submitAndConfirmJitoBundle, createJitoTipInstruction, getRandomTipAccount, JITO_CONFIG } from "@/lib/jitoBundle";
+import { submitAndConfirmJitoBundle } from "@/lib/jitoBundle";
 
 import {
   Shuffle,
@@ -865,34 +865,11 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         }
       };
 
-      // Deserialize all transactions
+      // Deserialize all transactions (already partially signed by backend with mint/config keypairs)
+      // IMPORTANT: Do NOT modify these transactions (blockhash, add instructions) as it invalidates existing signatures
       const txsToSign = txBase64s.map(deserializeAnyTx);
       
-      // Get fresh blockhash for all transactions
-      toast({ title: "Preparing atomic launch...", description: "Fetching latest blockhash" });
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-      
-      // Update blockhash on all transactions
-      for (const tx of txsToSign) {
-        if (tx instanceof Transaction) {
-          tx.recentBlockhash = blockhash;
-          tx.lastValidBlockHeight = lastValidBlockHeight;
-        }
-        // Note: VersionedTransaction blockhash is immutable, already set by backend
-      }
-
-      // Add Jito tip instruction to last transaction for priority inclusion
-      const tipLamports = JITO_CONFIG.DEFAULT_TIP_LAMPORTS; // 0.001 SOL
-      const lastTx = txsToSign[txsToSign.length - 1];
-      
-      if (lastTx instanceof Transaction && phantomWallet.publicKey) {
-        const tipInstruction = createJitoTipInstruction(
-          phantomWallet.publicKey,
-          tipLamports
-        );
-        lastTx.add(tipInstruction);
-        console.log('[Phantom Launch] Added Jito tip instruction:', tipLamports / 1e9, 'SOL');
-      }
+      console.log(`[Phantom Launch] Deserialized ${txsToSign.length} partially-signed transactions`);
 
       // === ATOMIC JITO BUNDLE: Single Phantom popup for all transactions ===
       toast({ 
