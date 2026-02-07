@@ -6,6 +6,7 @@ import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
+import { Footer } from "@/components/layout/Footer";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { Menu } from "lucide-react";
 import { XLogo, Fish } from "@phosphor-icons/react";
@@ -139,6 +140,9 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         {children}
       </main>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
