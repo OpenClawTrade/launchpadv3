@@ -957,9 +957,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             description: `Proceeding to next step...`,
           });
           
-          // Use polling-based confirmation (avoids 30s default timeout from web3.js)
+          // Fast confirmation polling - with high priority fees, should confirm in < 2 seconds
           const confirmStart = Date.now();
-          const maxConfirmMs = 90_000;
+          const maxConfirmMs = 15_000; // 15 seconds max - if not confirmed by then, something is wrong
           let confirmed = false;
           
           while (!confirmed && Date.now() - confirmStart < maxConfirmMs) {
@@ -973,19 +973,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
               
               if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
                 confirmed = true;
-                console.log(`[Phantom Launch] ${txLabel} confirmed via polling`);
+                console.log(`[Phantom Launch] ${txLabel} confirmed in ${Date.now() - confirmStart}ms`);
                 break;
               }
             } catch (pollErr) {
               // Rate limit or network error - continue polling
-              console.warn(`[Phantom Launch] Confirmation poll error:`, pollErr);
             }
             
-            await new Promise((r) => setTimeout(r, 1500));
+            await new Promise((r) => setTimeout(r, 400)); // Fast polling - 400ms
           }
           
           if (!confirmed) {
-            console.warn(`[Phantom Launch] Confirmation polling timed out for ${txLabel}, but Phantom returned signature - continuing...`);
+            console.warn(`[Phantom Launch] Confirmation polling timed out for ${txLabel} after ${maxConfirmMs}ms, but Phantom returned signature - continuing...`);
           }
         }
       }
