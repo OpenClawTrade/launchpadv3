@@ -534,3 +534,144 @@ export function useInstallFin() {
     },
   });
 }
+
+// ============================================================================
+// API KEY MANAGEMENT
+// ============================================================================
+
+export interface OpenTunaApiKey {
+  id: string;
+  agent_id: string;
+  key_prefix: string;
+  name: string | null;
+  last_used_at: string | null;
+  total_requests: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+// Fetch API keys for an agent
+export function useOpenTunaApiKeys(agentId: string | null) {
+  return useQuery({
+    queryKey: ['opentuna-api-keys', agentId],
+    queryFn: async () => {
+      if (!agentId) return [];
+      
+      const { data, error } = await supabase
+        .from('opentuna_api_keys')
+        .select('*')
+        .eq('agent_id', agentId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as OpenTunaApiKey[];
+    },
+    enabled: !!agentId,
+  });
+}
+
+// Mutation: Generate API key
+export function useCreateApiKey() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (params: { agentId: string; name?: string }) => {
+      const { data, error } = await supabase.functions.invoke('opentuna-api-key-create', {
+        body: params,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['opentuna-api-keys', variables.agentId] });
+      toast({
+        title: "API Key Generated!",
+        description: "Copy it now - it won't be shown again.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Key Generation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// Mutation: Revoke API key
+export function useRevokeApiKey() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (params: { keyId: string; agentId: string }) => {
+      const { data, error } = await supabase.functions.invoke('opentuna-api-key-revoke', {
+        body: { keyId: params.keyId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['opentuna-api-keys', variables.agentId] });
+      toast({
+        title: "Key Revoked",
+        description: "This API key can no longer be used.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Revoke Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// ============================================================================
+// RECENT ACTIVITY FEED
+// ============================================================================
+
+export interface RecentActivity {
+  id: string;
+  agent_id: string;
+  action: string;
+  reasoning: string | null;
+  executed_at: string;
+  success: boolean | null;
+  cost_sol: number;
+  agent_name?: string;
+}
+
+// Fetch recent activity across all user's agents
+export function useRecentActivity(agentIds: string[], limit = 10) {
+  return useQuery({
+    queryKey: ['opentuna-recent-activity', agentIds, limit],
+    queryFn: async () => {
+      if (agentIds.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from('opentuna_sonar_pings')
+        .select(`
+          id,
+          agent_id,
+          action,
+          reasoning,
+          executed_at,
+          success,
+          cost_sol
+        `)
+        .in('agent_id', agentIds)
+        .order('executed_at', { ascending: false })
+        .limit(limit);
+      
+      if (error) throw error;
+      return data as RecentActivity[];
+    },
+    enabled: agentIds.length > 0,
+    refetchInterval: 30000, // Refresh every 30s
+  });
+}
