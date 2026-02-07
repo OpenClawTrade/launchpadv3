@@ -871,16 +871,46 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       
       console.log(`[Phantom Launch] Deserialized ${txsToSign.length} partially-signed transactions`);
 
-      // === ATOMIC JITO BUNDLE: Single Phantom popup for all transactions ===
-      toast({ 
-        title: "Sign All Transactions", 
-        description: `Approve ${txsToSign.length} transactions in Phantom (one popup)` 
+      // === ATOMIC JITO BUNDLE SIGNING ===
+      // Primary path: single Phantom popup (signAllTransactions)
+      // Fallback: if Phantom rejects/blocks batch signing in this context, we sign each tx individually (still bundled to Jito)
+      toast({
+        title: "Sign Transactions",
+        description: `Approve ${txsToSign.length} transaction(s) in Phantom`,
       });
-      
+
       console.log(`[Phantom Launch] Requesting batch signature for ${txsToSign.length} transactions...`);
-      
-      const signedTxs = await phantomWallet.signAllTransactions(txsToSign as Transaction[]);
-      
+
+      let signedTxs: (Transaction | VersionedTransaction)[] | null = null;
+
+      try {
+        signedTxs = await phantomWallet.signAllTransactions(txsToSign as any);
+      } catch (batchErr) {
+        const msg = batchErr instanceof Error ? batchErr.message : String(batchErr);
+        console.warn('[Phantom Launch] Batch signing failed, will fallback if possible:', msg);
+      }
+
+      if (!signedTxs) {
+        // Fallback: sign transactions one-by-one (more popups, but still atomic once bundled)
+        toast({
+          title: "Batch signing unavailable",
+          description: "Signing transactions one-by-one (still atomic once submitted)",
+        });
+
+        const individuallySigned: (Transaction | VersionedTransaction)[] = [];
+        for (let i = 0; i < txsToSign.length; i++) {
+          const txLabel = txLabels[i] || `Transaction ${i + 1}`;
+          console.log(`[Phantom Launch] Signing ${txLabel} (${i + 1}/${txsToSign.length})...`);
+
+          const signed = await phantomWallet.signTransaction(txsToSign[i] as any);
+          if (!signed) throw new Error(`${txLabel} signing was cancelled or failed`);
+
+          individuallySigned.push(signed);
+        }
+
+        signedTxs = individuallySigned;
+      }
+
       if (!signedTxs) {
         throw new Error("Transaction signing was cancelled or failed");
       }
