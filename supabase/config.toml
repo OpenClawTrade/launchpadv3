@@ -284,3 +284,21 @@ verify_jwt = false
 
 [functions.deployer-dust-reclaim]
 verify_jwt = false
+
+[functions.opentuna-api-key-create]
+verify_jwt = false
+
+[functions.opentuna-api-key-validate]
+verify_jwt = false
+
+[functions.opentuna-api-key-revoke]
+verify_jwt = false
+
+[functions.opentuna-fin-trade]
+verify_jwt = false
+
+[functions.opentuna-fin-bash]
+verify_jwt = false
+
+[functions.opentuna-fin-browse]
+verify_jwt = false
