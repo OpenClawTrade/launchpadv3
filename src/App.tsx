@@ -9,6 +9,7 @@ import { ChainProvider } from "@/contexts/ChainContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
+import { DomainRouter } from "@/components/DomainRouter";
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
@@ -80,6 +81,7 @@ const App = () => (
             <Sonner />
             <ErrorBoundary>
               <BrowserRouter>
+                <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
                   <Routes>
                     <Route path="/" element={<FunLauncherPage />} />
