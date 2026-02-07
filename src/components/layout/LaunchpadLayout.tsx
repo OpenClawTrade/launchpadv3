@@ -8,7 +8,7 @@ import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { Menu, TrendingUp } from "lucide-react";
-import { XLogo } from "@phosphor-icons/react";
+import { XLogo, Fish } from "@phosphor-icons/react";
 import pumpfunIcon from "@/assets/pumpfun-icon.webp";
 
 const HEADER_LOGO_SRC = "/tuna-logo.png";
@@ -71,6 +71,12 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
               <Button size="sm" className="bg-[#00ff00] hover:bg-[#00cc00] text-black rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
                 <img src={pumpfunIcon} alt="" className="w-4 h-4" />
                 PUMP Agents
+              </Button>
+            </Link>
+            <Link to="/opentuna">
+              <Button size="sm" className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-lg h-9 px-3 text-sm font-medium">
+                <Fish className="h-4 w-4 mr-1.5" weight="duotone" />
+                OpenTuna
               </Button>
             </Link>
             
