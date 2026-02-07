@@ -1342,7 +1342,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       type="number"
                       min="0"
                       max="10"
-                      step="0.1"
+                      step="0.01"
                       placeholder="0"
                       value={phantomDevBuySol || ''}
                       onChange={(e) => setPhantomDevBuySol(Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))}
