@@ -500,14 +500,15 @@ serve(async (req) => {
         recipientAmount = claimedSol * CREATOR_FEE_SHARE;
         platformAmount = claimedSol * (BUYBACK_FEE_SHARE + SYSTEM_FEE_SHARE);
         
-        // Partner split from platform share
-        if (isTokenEligibleForPartnerSplit(token.created_at)) {
+        // Partner split from platform share - EXCLUDE Phantom mode tokens
+        const isPhantom = token.launchpad_type === 'phantom';
+        if (!isPhantom && isTokenEligibleForPartnerSplit(token.created_at)) {
           partnerAmount = platformAmount * 0.5;
           platformAmount = platformAmount * 0.5;
         }
         
         console.log(
-          `[fun-distribute] Regular Token ${token.ticker}: ${claimedSol} SOL → Creator ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}`
+          `[fun-distribute] ${isPhantom ? 'Phantom' : 'Regular'} Token ${token.ticker}: ${claimedSol} SOL → Creator ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}${isPhantom ? ' (partner split excluded)' : ''}`
         );
       }
 
