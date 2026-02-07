@@ -14,9 +14,14 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
-  Lightning
+  Lightning,
+  Wallet,
+  CircleNotch
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { useCreateOpenTunaAgent } from "@/hooks/useOpenTuna";
+import { useOpenTunaContext } from "./OpenTunaContext";
+import { usePrivy } from "@privy-io/react-auth";
 
 type AgentType = 'general' | 'trading' | 'social' | 'research' | 'creative';
 
@@ -71,12 +76,21 @@ const AGENT_TYPE_OPTIONS = [
   },
 ];
 
-export default function OpenTunaHatch() {
+interface OpenTunaHatchProps {
+  onSuccess?: () => void;
+}
+
+export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
+  const { login, authenticated } = usePrivy();
+  const { walletAddress, refetchAgents } = useOpenTunaContext();
+  const createAgent = useCreateOpenTunaAgent();
+  
   const [currentStep, setCurrentStep] = useState(1);
   const [agentType, setAgentType] = useState<AgentType | null>(null);
   const [agentName, setAgentName] = useState("");
   const [personality, setPersonality] = useState("");
   const [firstGoal, setFirstGoal] = useState("");
+  const [isHatching, setIsHatching] = useState(false);
 
   const canProceed = () => {
     switch (currentStep) {
@@ -99,10 +113,56 @@ export default function OpenTunaHatch() {
     }
   };
 
-  const handleHatch = () => {
-    // TODO: Implement agent creation via edge function
-    console.log("Hatching agent:", { agentType, agentName, personality, firstGoal });
+  const handleHatch = async () => {
+    if (!walletAddress || !agentType || !agentName || !personality) return;
+    
+    setIsHatching(true);
+    try {
+      await createAgent.mutateAsync({
+        name: agentName,
+        agentType,
+        ownerWallet: walletAddress,
+        personality,
+        firstGoal: firstGoal || undefined,
+      });
+      
+      // Reset form
+      setCurrentStep(1);
+      setAgentType(null);
+      setAgentName("");
+      setPersonality("");
+      setFirstGoal("");
+      
+      // Refresh agents list
+      refetchAgents();
+      
+      // Callback
+      onSuccess?.();
+    } finally {
+      setIsHatching(false);
+    }
   };
+
+  // Connect wallet prompt
+  if (!authenticated || !walletAddress) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card className="opentuna-card">
+          <CardContent className="p-8 text-center">
+            <Wallet className="h-12 w-12 text-cyan-400 mx-auto mb-4" weight="duotone" />
+            <h3 className="text-lg font-semibold mb-2">Connect Wallet to Hatch</h3>
+            <p className="text-muted-foreground mb-6">
+              Connect your Solana wallet to create an OpenTuna agent
+            </p>
+            <Button onClick={login} className="opentuna-button">
+              <Wallet className="h-4 w-4 mr-2" weight="duotone" />
+              Connect Wallet
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -280,10 +340,20 @@ export default function OpenTunaHatch() {
             ) : (
               <Button
                 onClick={handleHatch}
+                disabled={isHatching}
                 className="opentuna-button"
               >
-                <Egg className="h-4 w-4 mr-2" weight="duotone" />
-                Hatch Agent
+                {isHatching ? (
+                  <>
+                    <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
+                    Hatching...
+                  </>
+                ) : (
+                  <>
+                    <Egg className="h-4 w-4 mr-2" weight="duotone" />
+                    Hatch Agent
+                  </>
+                )}
               </Button>
             )}
           </div>
