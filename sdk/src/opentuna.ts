@@ -432,6 +432,19 @@ export class TunaNetController {
 }
 
 // ============================================================================
+// Import Professional Controllers
+// ============================================================================
+
+import { EmailController } from './email';
+import { SlackController } from './slack';
+import { DiscordController } from './discord';
+import { WhatsAppController } from './whatsapp';
+import { CronController } from './cron';
+import { McpController } from './mcp';
+import { GoogleController } from './google';
+import { NotionController } from './notion';
+
+// ============================================================================
 // Main OpenTuna Class
 // ============================================================================
 
@@ -453,13 +466,51 @@ export class OpenTuna {
   /** Multi-channel social messaging */
   public tunanet: TunaNetController;
 
+  // === NEW v3.1.0 Professional Controllers ===
+
+  /** Email automation - Gmail/Outlook inbox management */
+  public email: EmailController;
+
+  /** Slack integration - workspace messaging */
+  public slack: SlackController;
+
+  /** Discord bot - server management */
+  public discord: DiscordController;
+
+  /** WhatsApp Business API - mobile messaging */
+  public whatsapp: WhatsAppController;
+
+  /** Cron scheduling - recurring tasks */
+  public cron: CronController;
+
+  /** MCP Protocol - 700+ community tools */
+  public mcp: McpController;
+
+  /** Google Workspace - Docs, Sheets, Calendar */
+  public google: GoogleController;
+
+  /** Notion - pages and databases */
+  public notion: NotionController;
+
   constructor(config: OpenTunaConfig) {
     this.client = new ApiClient(config);
+    
+    // Core controllers
     this.fins = new FinController(this.client);
     this.sonar = new SonarController(this.client);
     this.memory = new MemoryController(this.client);
     this.school = new SchoolController(this.client);
     this.tunanet = new TunaNetController(this.client);
+    
+    // Professional controllers (v3.1.0)
+    this.email = new EmailController({ apiKey: config.apiKey, baseUrl: config.baseUrl });
+    this.slack = new SlackController({ apiKey: config.apiKey, baseUrl: config.baseUrl });
+    this.discord = new DiscordController({ apiKey: config.apiKey, baseUrl: config.baseUrl });
+    this.whatsapp = new WhatsAppController({ apiKey: config.apiKey, baseUrl: config.baseUrl });
+    this.cron = new CronController({ apiKey: config.apiKey, baseUrl: config.baseUrl });
+    this.mcp = new McpController({ apiKey: config.apiKey, baseUrl: config.baseUrl });
+    this.google = new GoogleController({ apiKey: config.apiKey, baseUrl: config.baseUrl });
+    this.notion = new NotionController({ apiKey: config.apiKey, baseUrl: config.baseUrl });
   }
 
   /**

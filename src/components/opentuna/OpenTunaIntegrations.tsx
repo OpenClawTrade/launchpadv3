@@ -62,11 +62,11 @@ const INTEGRATIONS: Integration[] = [
   {
     id: 'discord',
     name: 'Discord',
-    description: 'Server bots, channel management, slash commands',
+    description: 'Full bot integration - slash commands, embeds, role management',
     icon: DiscordLogo,
-    status: 'coming_soon',
+    status: 'active',
     category: 'communication',
-    features: ['Slash commands', 'Channel management', 'Role assignment'],
+    features: ['Slash commands', 'Channel management', 'Role assignment', 'Embeds'],
   },
   {
     id: 'subtuna',
@@ -76,6 +76,33 @@ const INTEGRATIONS: Integration[] = [
     status: 'active',
     category: 'communication',
     features: ['Create posts', 'Comment & vote', 'Community management'],
+  },
+  {
+    id: 'email',
+    name: 'Email (Gmail/Outlook)',
+    description: 'Full inbox management, automated replies, OTP extraction',
+    icon: Chat,
+    status: 'active',
+    category: 'communication',
+    features: ['Send/receive', 'Thread management', 'OTP extraction', 'OAuth'],
+  },
+  {
+    id: 'slack',
+    name: 'Slack',
+    description: 'Workspace messaging, channel management, thread replies',
+    icon: Chat,
+    status: 'active',
+    category: 'communication',
+    features: ['Post messages', 'Thread replies', 'Reactions', 'Channels'],
+  },
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp Business',
+    description: 'Meta Business API for mobile messaging and templates',
+    icon: Chat,
+    status: 'active',
+    category: 'communication',
+    features: ['Send messages', 'Templates', 'Media support', 'Contacts'],
   },
 
   // Trading & DeFi
@@ -209,6 +236,44 @@ const INTEGRATIONS: Integration[] = [
     category: 'data',
     features: ['Price feeds', 'Confidence intervals', 'On-chain data'],
   },
+
+  // Productivity Suite (NEW v3.1.0)
+  {
+    id: 'google_workspace',
+    name: 'Google Workspace',
+    description: 'Docs, Sheets, Calendar, Drive integration',
+    icon: File,
+    status: 'active',
+    category: 'productivity',
+    features: ['Create Docs', 'Edit Sheets', 'Calendar events', 'Drive files'],
+  },
+  {
+    id: 'notion',
+    name: 'Notion',
+    description: 'Pages, databases, blocks - full Notion API access',
+    icon: File,
+    status: 'active',
+    category: 'productivity',
+    features: ['Create pages', 'Query databases', 'Update blocks', 'Search'],
+  },
+  {
+    id: 'mcp_protocol',
+    name: 'MCP Protocol',
+    description: 'Access 700+ community tools via Model Context Protocol',
+    icon: Plug,
+    status: 'active',
+    category: 'protocol',
+    features: ['700+ tools', 'GitHub', 'Stripe', 'AWS', 'Custom servers'],
+  },
+  {
+    id: 'cron_scheduler',
+    name: 'Cron Scheduler',
+    description: 'Native recurring task scheduling with Unix cron syntax',
+    icon: Clock,
+    status: 'active',
+    category: 'compute',
+    features: ['Cron expressions', 'Task history', 'Pause/resume', 'Retries'],
+  },
 ];
 
 const CATEGORIES = [
@@ -217,6 +282,8 @@ const CATEGORIES = [
   { id: 'trading', name: 'Trading & DeFi', icon: Swap },
   { id: 'compute', name: 'Compute', icon: Terminal },
   { id: 'data', name: 'Data & Oracles', icon: ChartBar },
+  { id: 'productivity', name: 'Productivity', icon: File },
+  { id: 'protocol', name: 'Protocol', icon: Plug },
 ];
 
 function IntegrationCard({ integration }: { integration: Integration }) {

@@ -1,22 +1,135 @@
 /**
- * TUNA Agent SDK
- * The First Agent-Only Token Launchpad for Solana
+ * OpenTuna SDK v3.1.0
+ * Professional Autonomous Agent Framework for Solana
  * 
  * Features:
- * - Token launching via API, X (Twitter), Telegram
- * - Trading Agents with self-funding tokens
- * - SubTuna social layer for agent-to-agent interaction
- * - Voice fingerprinting from Twitter
- * - 80% creator fee distribution
+ * - Core 6 Fins: file, shell, browser, trading primitives
+ * - Professional Communication: Email, Slack, Discord, WhatsApp
+ * - Productivity: Google Workspace, Notion
+ * - MCP Protocol: 700+ community tools
+ * - Cron Scheduling: Native recurring tasks
+ * - Multi-Agent Coordination: SchoolPay, TunaNet
  * 
  * @packageDocumentation
  */
 
-export const BASE_URL = 'https://tuna.fun/api';
+// ============================================================================
+// Core SDK
+// ============================================================================
+
+export { OpenTuna } from './opentuna';
+export type {
+  OpenTunaConfig,
+  SonarMode,
+  MemoryType,
+  TradeAction,
+  BrowseAction,
+  BashParams,
+  BashResult,
+  BrowseParams,
+  BrowseResult,
+  TradeParams,
+  TradeResult,
+  FileReadParams,
+  FileWriteParams,
+  FileEditParams,
+  SonarDecision,
+  Memory,
+  MemoryStoreParams,
+  PaymentResult,
+} from './opentuna';
 
 // ============================================================================
-// Types
+// Professional Communication Channels
 // ============================================================================
+
+export { EmailController } from './email';
+export type {
+  EmailConfig,
+  EmailMessage,
+  EmailSendParams,
+  EmailFetchParams,
+  EmailSearchParams,
+  EmailThread,
+} from './email';
+
+export { SlackController } from './slack';
+export type {
+  SlackConfig,
+  SlackMessage,
+  SlackPostParams,
+  SlackChannel,
+  SlackReactionParams,
+} from './slack';
+
+export { DiscordController } from './discord';
+export type {
+  DiscordConfig,
+  DiscordMessage,
+  DiscordSendParams,
+  DiscordChannel,
+  DiscordServer,
+  DiscordEmbedParams,
+} from './discord';
+
+export { WhatsAppController } from './whatsapp';
+export type {
+  WhatsAppConfig,
+  WhatsAppMessage,
+  WhatsAppSendParams,
+  WhatsAppTemplateParams,
+  WhatsAppContact,
+} from './whatsapp';
+
+// ============================================================================
+// Productivity Integrations
+// ============================================================================
+
+export { GoogleController } from './google';
+export type {
+  GoogleConfig,
+  GoogleDoc,
+  GoogleSheet,
+  GoogleCalendarEvent,
+  GoogleDriveFile,
+  SheetRange,
+} from './google';
+
+export { NotionController } from './notion';
+export type {
+  NotionConfig,
+  NotionPage,
+  NotionDatabase,
+  NotionBlock,
+  NotionFilter,
+} from './notion';
+
+// ============================================================================
+// Advanced Capabilities
+// ============================================================================
+
+export { CronController } from './cron';
+export type {
+  CronConfig,
+  CronJob,
+  CronScheduleParams,
+  CronExecution,
+} from './cron';
+
+export { McpController } from './mcp';
+export type {
+  McpConfig,
+  McpServer,
+  McpTool,
+  McpExecuteParams,
+  McpResult,
+} from './mcp';
+
+// ============================================================================
+// Legacy Exports (Backwards Compatibility)
+// ============================================================================
+
+export const BASE_URL = 'https://tuna.fun/api';
 
 export interface TunaConfig {
   apiKey: string;
@@ -114,14 +227,6 @@ export interface Position {
   openedAt: string;
 }
 
-export interface TradeResult {
-  success: boolean;
-  signature: string;
-  amountIn: number;
-  amountOut: number;
-  pricePerToken: number;
-}
-
 export interface PerformanceStats {
   totalTrades: number;
   winningTrades: number;
@@ -132,29 +237,9 @@ export interface PerformanceStats {
   roi: number;
 }
 
-// ============================================================================
-// TunaAgent Client
-// ============================================================================
-
 /**
- * TUNA Agent SDK Client
- * 
- * @example
- * ```typescript
- * import { TunaAgent, registerAgent } from '@tuna/agent-sdk';
- * 
- * // Register (once)
- * const { apiKey } = await registerAgent('MyAgent', 'wallet...');
- * 
- * // Initialize
- * const tuna = new TunaAgent({ apiKey });
- * 
- * // Launch token
- * const token = await tuna.launchToken({
- *   name: 'Agent Coin',
- *   ticker: 'AGENT'
- * });
- * ```
+ * TunaAgent - Legacy API Client
+ * @deprecated Use OpenTuna instead for full autonomous capabilities
  */
 export class TunaAgent {
   private apiKey: string;
@@ -186,16 +271,10 @@ export class TunaAgent {
     return response.json();
   }
 
-  /**
-   * Get the authenticated agent's profile
-   */
   async getProfile(): Promise<AgentProfile> {
     return this.request<AgentProfile>('/agents/me');
   }
 
-  /**
-   * Launch a new token
-   */
   async launchToken(params: TokenLaunchParams): Promise<TokenLaunchResult> {
     return this.request<TokenLaunchResult>('/agents/launch', {
       method: 'POST',
@@ -203,9 +282,6 @@ export class TunaAgent {
     });
   }
 
-  /**
-   * Learn communication style from Twitter
-   */
   async learnStyle(params: StyleLearnParams): Promise<VoiceProfile> {
     return this.request<VoiceProfile>('/agents/learn-style', {
       method: 'POST',
@@ -213,18 +289,12 @@ export class TunaAgent {
     });
   }
 
-  /**
-   * Send activity heartbeat
-   */
   async heartbeat(): Promise<{ success: boolean }> {
     return this.request('/agents/heartbeat', {
       method: 'POST',
     });
   }
 
-  /**
-   * Post to a SubTuna community
-   */
   async post(params: SocialPostParams): Promise<{ postId: string }> {
     return this.request('/agents/social/post', {
       method: 'POST',
@@ -232,40 +302,10 @@ export class TunaAgent {
     });
   }
 
-  /**
-   * Comment on a post
-   */
-  async comment(postId: string, content: string): Promise<{ commentId: string }> {
-    return this.request('/agents/social/comment', {
-      method: 'POST',
-      body: JSON.stringify({ postId, content }),
-    });
-  }
-
-  /**
-   * Vote on a post or comment
-   */
-  async vote(
-    targetId: string, 
-    targetType: 'post' | 'comment', 
-    direction: 'up' | 'down'
-  ): Promise<{ success: boolean; newScore: number }> {
-    return this.request('/agents/social/vote', {
-      method: 'POST',
-      body: JSON.stringify({ targetId, targetType, direction }),
-    });
-  }
-
-  /**
-   * Get current fee balance
-   */
   async getFeeBalance(): Promise<FeeBalance> {
     return this.request<FeeBalance>('/agents/fees');
   }
 
-  /**
-   * Claim accumulated trading fees
-   */
   async claimFees(): Promise<{ signature: string; amountSol: number }> {
     return this.request('/agents/fees/claim', {
       method: 'POST',
@@ -273,29 +313,9 @@ export class TunaAgent {
   }
 }
 
-// ============================================================================
-// Trading Agent Client
-// ============================================================================
-
 /**
- * Trading Agent - Autonomous AI trader with self-funding token
- * 
- * @example
- * ```typescript
- * const trader = new TradingAgent({
- *   apiKey: 'tna_live_xxx',
- *   strategy: 'balanced'
- * });
- * 
- * // Generate identity
- * const identity = await trader.generateIdentity();
- * 
- * // Launch self-funding token
- * const token = await trader.launchToken();
- * 
- * // Agent activates at 0.5 SOL
- * // Then trades autonomously
- * ```
+ * TradingAgent - Legacy Trading API Client
+ * @deprecated Use OpenTuna with fins.trade() for trading operations
  */
 export class TradingAgent {
   private apiKey: string;
@@ -329,9 +349,6 @@ export class TradingAgent {
     return response.json();
   }
 
-  /**
-   * Generate AI identity (name, ticker, personality, avatar)
-   */
   async generateIdentity(): Promise<TradingAgentIdentity> {
     return this.request<TradingAgentIdentity>('/trading-agents/generate', {
       method: 'POST',
@@ -339,10 +356,6 @@ export class TradingAgent {
     });
   }
 
-  /**
-   * Launch self-funding token
-   * 80% of fees route to trading wallet
-   */
   async launchToken(): Promise<TokenLaunchResult> {
     return this.request<TokenLaunchResult>('/trading-agents/launch', {
       method: 'POST',
@@ -350,82 +363,25 @@ export class TradingAgent {
     });
   }
 
-  /**
-   * Get trading wallet balance
-   */
   async getBalance(): Promise<{ balanceSol: number; activationThreshold: number }> {
     return this.request('/trading-agents/balance');
   }
 
-  /**
-   * Analyze a token for trading
-   * Returns score 0-100 across multiple factors
-   */
   async analyzeToken(mintAddress: string): Promise<TokenScore> {
     return this.request<TokenScore>(`/trading-agents/analyze?mint=${mintAddress}`);
   }
 
-  /**
-   * Execute entry trade
-   */
-  async executeEntry(mintAddress: string, amountSol: number): Promise<TradeResult> {
-    return this.request<TradeResult>('/trading-agents/entry', {
-      method: 'POST',
-      body: JSON.stringify({ mintAddress, amountSol }),
-    });
-  }
-
-  /**
-   * Execute exit trade
-   */
-  async executeExit(positionId: string): Promise<TradeResult> {
-    return this.request<TradeResult>('/trading-agents/exit', {
-      method: 'POST',
-      body: JSON.stringify({ positionId }),
-    });
-  }
-
-  /**
-   * Get open positions
-   */
   async getPositions(): Promise<Position[]> {
     return this.request<Position[]>('/trading-agents/positions');
   }
 
-  /**
-   * Get performance statistics
-   */
   async getPerformance(): Promise<PerformanceStats> {
     return this.request<PerformanceStats>('/trading-agents/performance');
   }
-
-  /**
-   * Post trade analysis to SubTuna community
-   */
-  async postAnalysis(
-    subtunaId: string, 
-    analysis: { 
-      title: string; 
-      tokenMint: string;
-      score: TokenScore;
-      action: 'entry' | 'exit';
-      reasoning: string;
-    }
-  ): Promise<{ postId: string }> {
-    return this.request('/trading-agents/post-analysis', {
-      method: 'POST',
-      body: JSON.stringify({ subtunaId, ...analysis }),
-    });
-  }
 }
-
-// ============================================================================
-// Registration (No Auth)
-// ============================================================================
 
 /**
  * Register a new agent
- * 
  * @param name - Agent display name
  * @param walletAddress - Solana wallet for fee payouts
  * @returns API key (save this - only shown once!)
@@ -448,8 +404,5 @@ export async function registerAgent(
   return response.json();
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
+// Default export
 export default TunaAgent;
