@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +13,18 @@ import {
   PaintBrush,
   Gear,
   ArrowRight,
-  Egg
+  Egg,
+  Terminal,
+  Code,
+  Key,
+  Copy,
+  Check,
+  ArrowSquareOut
 } from "@phosphor-icons/react";
 import { useOpenTunaContext } from "./OpenTunaContext";
 import { useOpenTunaStats } from "@/hooks/useOpenTuna";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface OpenTunaHubProps {
   onNavigate: (tab: string) => void;
@@ -61,9 +69,58 @@ const QUICK_START_STEPS = [
   { step: 5, label: "Fund", description: "Deposit SOL & activate", tab: "current" },
 ];
 
+const SDK_TABS = [
+  { id: 'sdk', label: 'SDK', icon: Code },
+  { id: 'api', label: 'API', icon: Terminal },
+  { id: 'keys', label: 'API Keys', icon: Key },
+];
+
+const SDK_CODE = `import { OpenTuna } from '@opentuna/sdk';
+
+// Initialize with your API key
+const agent = new OpenTuna({ 
+  apiKey: 'ota_live_...' 
+});
+
+// Use fins programmatically
+await agent.fins.trade({ 
+  action: 'buy', 
+  tokenMint: 'So11...',
+  amountSol: 0.1 
+});
+
+// Browse the web
+await agent.fins.browse({ 
+  action: 'navigate', 
+  url: 'https://pump.fun' 
+});
+
+// Store in memory
+await agent.memory.store({ 
+  content: 'Trade executed', 
+  type: 'anchor' 
+});`;
+
+const API_CODE = `# Get agent info
+curl -X GET 'https://tuna.fun/api/agents/info' \\
+  -H 'Authorization: Bearer ota_live_...'
+
+# Execute a trade
+curl -X POST 'https://tuna.fun/api/fins/trade' \\
+  -H 'Authorization: Bearer ota_live_...' \\
+  -H 'Content-Type: application/json' \\
+  -d '{"action": "buy", "tokenMint": "...", "amountSol": 0.1}'
+
+# Store memory
+curl -X POST 'https://tuna.fun/api/memory/store' \\
+  -H 'Authorization: Bearer ota_live_...' \\
+  -d '{"content": "...", "type": "anchor"}'`;
+
 export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
   const { agents, isLoadingAgents, setSelectedAgentId } = useOpenTunaContext();
   const { data: stats, isLoading: isLoadingStats } = useOpenTunaStats();
+  const [sdkTab, setSdkTab] = useState<'sdk' | 'api' | 'keys'>('sdk');
+  const [copied, setCopied] = useState(false);
   
   const STATS = [
     { label: "Active Agents", value: isLoadingStats ? "—" : (stats?.totalAgents?.toString() || "0"), icon: Fish, color: "text-cyan-400" },
@@ -71,6 +128,13 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
     { label: "Economy Volume", value: isLoadingStats ? "— SOL" : `${stats?.economyVolume?.toFixed(2) || "0"} SOL`, icon: CurrencyCircleDollar, color: "text-green-400" },
     { label: "Avg Uptime", value: isLoadingStats ? "—%" : `${stats?.avgUptime || 99}%`, icon: Clock, color: "text-blue-400" },
   ];
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="space-y-6">
@@ -93,8 +157,121 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
         ))}
       </div>
 
-      {/* Quick Start */}
-      <Card className="opentuna-card opentuna-glow">
+      {/* Developer Quick Start */}
+      <Card className="opentuna-card opentuna-glow overflow-hidden">
+        <CardHeader className="pb-3 border-b border-cyan-500/20">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Terminal className="h-5 w-5 text-cyan-400" weight="duotone" />
+            Developer Quick Start
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {/* Terminal Header */}
+          <div className="flex items-center justify-between px-4 py-2 bg-secondary/30 border-b border-cyan-500/10">
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-500/60" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
+                <div className="w-3 h-3 rounded-full bg-green-500/60" />
+              </div>
+              <div className="flex gap-1 ml-4">
+                {SDK_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSdkTab(tab.id as any)}
+                    className={cn(
+                      "px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5",
+                      sdkTab === tab.id
+                        ? "bg-cyan-500/20 text-cyan-400"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                    )}
+                  >
+                    <tab.icon className="h-3.5 w-3.5" weight="duotone" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(sdkTab === 'sdk' ? 'npm install @opentuna/sdk' : API_CODE)}
+              className="h-7 text-xs"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 mr-1 text-green-400" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 mr-1" />
+              )}
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
+          </div>
+
+          {/* Install Command */}
+          {sdkTab !== 'keys' && (
+            <div className="px-4 py-3 bg-black/30 font-mono text-sm border-b border-cyan-500/10">
+              <span className="text-muted-foreground">$</span>{' '}
+              <span className="text-cyan-400">
+                {sdkTab === 'sdk' ? 'npm install @opentuna/sdk' : 'curl -X GET https://tuna.fun/api/...'}
+              </span>
+            </div>
+          )}
+
+          {/* Code Content */}
+          <div className="p-4 bg-black/20">
+            {sdkTab === 'sdk' && (
+              <pre className="text-xs font-mono text-muted-foreground overflow-x-auto">
+                <code>{SDK_CODE}</code>
+              </pre>
+            )}
+            {sdkTab === 'api' && (
+              <pre className="text-xs font-mono text-muted-foreground overflow-x-auto">
+                <code>{API_CODE}</code>
+              </pre>
+            )}
+            {sdkTab === 'keys' && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Generate API keys to access OpenTuna programmatically. Keys are linked to your agents.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="outline" className="border-cyan-500/30 hover:bg-cyan-500/10">
+                    <Key className="h-4 w-4 mr-2" />
+                    Generate New Key
+                  </Button>
+                  <Button variant="outline" className="border-cyan-500/30 hover:bg-cyan-500/10">
+                    <ArrowSquareOut className="h-4 w-4 mr-2" />
+                    View All Keys
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Links */}
+          <div className="px-4 py-3 bg-secondary/20 border-t border-cyan-500/10 flex flex-wrap gap-3">
+            <Button 
+              variant="link" 
+              className="text-cyan-400 p-0 h-auto text-sm"
+              onClick={() => onNavigate('docs')}
+            >
+              <ArrowSquareOut className="h-3.5 w-3.5 mr-1" />
+              Full SDK Documentation
+            </Button>
+            <Button 
+              variant="link" 
+              className="text-cyan-400 p-0 h-auto text-sm"
+              onClick={() => onNavigate('integrations')}
+            >
+              <ArrowSquareOut className="h-3.5 w-3.5 mr-1" />
+              Browse Integrations
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Start Steps */}
+      <Card className="opentuna-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Lightning className="h-5 w-5 text-yellow-400" weight="fill" />
