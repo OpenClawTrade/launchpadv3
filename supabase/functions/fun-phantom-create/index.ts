@@ -58,14 +58,18 @@ Deno.serve(async (req) => {
     // Rate limiting removed per user request
 
     const body = await req.json();
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, feeMode } = body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, feeMode, devBuySol: rawDevBuySol } = body;
     
     // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
     const MIN_FEE_BPS = 10;
     const MAX_FEE_BPS = 1000;
     const DEFAULT_FEE_BPS = 200;
     const tradingFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(Number(rawFeeBps) || DEFAULT_FEE_BPS)));
+    
+    // Validate dev buy amount (max 10 SOL to prevent abuse)
+    const devBuySol = Math.max(0, Math.min(10, Number(rawDevBuySol) || 0));
     console.log("[fun-phantom-create] Validated tradingFeeBps:", tradingFeeBps, "from raw:", rawFeeBps);
+    console.log("[fun-phantom-create] Dev buy amount:", devBuySol, "SOL");
 
     // ===== PHASE 2: Record token after confirmation =====
     if (confirmed === true && confirmedMintAddress && confirmedPoolAddress) {
@@ -264,6 +268,7 @@ Deno.serve(async (req) => {
           phantomWallet, // User's Phantom wallet as fee payer
           feeRecipientWallet: phantomWallet, // All fees go to Phantom wallet
           tradingFeeBps: tradingFeeBps || 200, // Default 2%, allow 0.1%-10%
+          devBuySol, // Dev buy amount - atomic with pool creation to prevent frontrunning
           useVanityAddress: true, // Use pre-generated TNA vanity addresses from pool
         }),
       });

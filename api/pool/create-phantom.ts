@@ -105,6 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       feeRecipientWallet,
       useVanityAddress = true,
       tradingFeeBps: rawFeeBps = 200, // Default 2%, range 10-1000 (0.1%-10%)
+      devBuySol = 0, // Optional dev buy amount in SOL (atomic with pool creation)
     } = req.body;
 
     // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
@@ -112,7 +113,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const MAX_FEE_BPS = 1000;
     const DEFAULT_FEE_BPS = 200;
     const tradingFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(Number(rawFeeBps) || DEFAULT_FEE_BPS)));
+    // Validate dev buy amount (max 10 SOL to prevent abuse)
+    const effectiveDevBuySol = Math.max(0, Math.min(10, Number(devBuySol) || 0));
     console.log('[create-phantom] Validated tradingFeeBps:', tradingFeeBps, 'from raw:', rawFeeBps);
+    console.log('[create-phantom] Dev buy amount:', effectiveDevBuySol, 'SOL');
 
     if (!name || !ticker || !phantomWallet) {
       return res.status(400).json({ error: 'Missing required fields: name, ticker, phantomWallet' });
@@ -164,6 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       phantomWallet,
       feeRecipientWallet: effectiveFeeRecipient,
       tradingFeeBps,
+      devBuySol: effectiveDevBuySol,
       useVanityAddress,
       hasPoolVanityKeypair: !!vanityKeypair,
     });
@@ -183,8 +188,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description || `${name} - A fun meme coin!`,
         imageUrl: imageUrl || undefined,
-        initialBuySol: 0,
+        initialBuySol: effectiveDevBuySol, // Dev buy amount (atomic with pool creation)
         tradingFeeBps, // Pass custom fee
+        enableDevBuy: effectiveDevBuySol > 0, // Enable first swap with min fee for dev buy
       });
       transactions = result.transactions;
       mintKeypair = vanityKeypair.keypair;
@@ -198,8 +204,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description || `${name} - A fun meme coin!`,
         imageUrl: imageUrl || undefined,
-        initialBuySol: 0,
+        initialBuySol: effectiveDevBuySol, // Dev buy amount (atomic with pool creation)
         tradingFeeBps, // Pass custom fee
+        enableDevBuy: effectiveDevBuySol > 0, // Enable first swap with min fee for dev buy
       });
       transactions = result.transactions;
       mintKeypair = result.mintKeypair;

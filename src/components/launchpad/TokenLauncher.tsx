@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
@@ -70,6 +71,7 @@ interface TokenLauncherProps {
 export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherProps) {
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
+  const { solPrice } = useSolPrice();
 
   // Idempotency key to prevent duplicate launches - regenerated on successful launch or ticker change
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
@@ -98,6 +100,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   // Phantom specific state
   const [isPhantomLaunching, setIsPhantomLaunching] = useState(false);
   const [phantomTradingFee, setPhantomTradingFee] = useState(200);
+  const [phantomDevBuySol, setPhantomDevBuySol] = useState(0); // Optional dev buy amount in SOL
   const [phantomSubMode, setPhantomSubMode] = useState<"random" | "describe" | "custom">("random");
   const [phantomToken, setPhantomToken] = useState<MemeToken>({
     name: "",
@@ -788,6 +791,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           discordUrl: phantomToken.discordUrl || "",
           phantomWallet: phantomWallet.address,
           tradingFeeBps: phantomTradingFee,
+          devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
           feeMode: feeMode || 'standard',
           // Server will use pre-generated vanity addresses from pool
         },
@@ -1320,6 +1324,34 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                     <span>0.1%</span>
                     <span>10%</span>
                   </div>
+                </div>
+
+                {/* Dev Buy - Atomic with pool creation to prevent frontrunning */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Dev Buy (optional)</span>
+                    <span className="font-semibold text-primary">{phantomDevBuySol} SOL</span>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center">
+                        <span className="text-[8px] font-bold text-white">◎</span>
+                      </div>
+                    </div>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="10"
+                      step="0.1"
+                      placeholder="0"
+                      value={phantomDevBuySol || ''}
+                      onChange={(e) => setPhantomDevBuySol(Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))}
+                      className="h-10 bg-secondary/50 border-0 rounded-lg pl-9 text-sm font-medium placeholder:text-muted-foreground/60"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Buy tokens atomically with pool creation to prevent frontrunning. Max 10 SOL.
+                  </p>
                 </div>
 
                 {/* Sub-mode selector for Phantom */}
