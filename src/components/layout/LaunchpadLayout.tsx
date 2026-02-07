@@ -9,7 +9,6 @@ import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { Menu } from "lucide-react";
 import { XLogo, Fish } from "@phosphor-icons/react";
-import pumpfunIcon from "@/assets/pumpfun-icon.webp";
 
 const HEADER_LOGO_SRC = "/tuna-logo.png";
 
@@ -59,12 +58,6 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
             <Link to="/agents">
               <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white rounded-lg h-9 px-3 text-sm font-medium">
                 TUNA Agents
-              </Button>
-            </Link>
-            <Link to="/agents/pump">
-              <Button size="sm" className="bg-[#00ff00] hover:bg-[#00cc00] text-black rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
-                <img src={pumpfunIcon} alt="" className="w-4 h-4" />
-                PUMP Agents
               </Button>
             </Link>
             <Link to="/opentuna">
@@ -118,10 +111,6 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
                   </Link>
                   <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="text-white text-sm font-medium">TUNA Agents</span>
-                  </Link>
-                  <Link to="/agents/pump" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#00ff00] hover:bg-[#00cc00] transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <img src={pumpfunIcon} alt="" className="w-4 h-4" />
-                    <span className="text-black text-sm font-medium">PUMP Agents</span>
                   </Link>
                   <Link to="/opentuna" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <Fish className="h-4 w-4 text-white" weight="duotone" />

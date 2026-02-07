@@ -36,7 +36,7 @@ const AgentProfilePage = lazy(() => import("./pages/AgentProfilePage"));
 const TunaBookAdminPage = lazy(() => import("./pages/TunaBookAdminPage"));
 const AgentClaimPage = lazy(() => import("./pages/AgentClaimPage"));
 const AgentLogsAdminPage = lazy(() => import("./pages/AgentLogsAdminPage"));
-const PumpAgentsPage = lazy(() => import("./pages/PumpAgentsPage"));
+
 const BagsAgentsPage = lazy(() => import("./pages/BagsAgentsPage"));
 
 const TradingAgentProfilePage = lazy(() => import("./pages/TradingAgentProfilePage"));
@@ -110,7 +110,7 @@ const App = () => (
                     <Route path="/agents/leaderboard" element={<AgentLeaderboardPage />} />
                     <Route path="/agent/:agentId" element={<AgentProfilePage />} />
                     <Route path="/agents/claim" element={<AgentClaimPage />} />
-                    <Route path="/agents/pump" element={<PumpAgentsPage />} />
+                    
                     <Route path="/agents/bags" element={<BagsAgentsPage />} />
                     <Route path="/agents/trading" element={<Navigate to="/agents?tab=trading" replace />} />
                     <Route path="/agents/trading/:id" element={<TradingAgentProfilePage />} />
