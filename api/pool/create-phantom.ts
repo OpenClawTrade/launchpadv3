@@ -4,12 +4,54 @@ import {
   Keypair,
   PublicKey,
   Transaction,
+  SystemProgram,
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
 import { createMeteoraPool, createMeteoraPoolWithMint } from '../../lib/meteora.js';
 import { PLATFORM_FEE_WALLET } from '../../lib/config.js';
 import { getAvailableVanityAddress, releaseVanityAddress } from '../../lib/vanityGenerator.js';
+
+// Jito tip accounts - tip must be in LAST transaction per Jito docs
+const JITO_TIP_ACCOUNTS = [
+  '96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
+  'HFqU5x63VTqvQss8hp11i4bVmkzf6HbKBJv9fYfZxTdU',
+  'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
+  'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49',
+  'DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh',
+  'ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt',
+  'DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL',
+  '3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT',
+];
+
+const JITO_TIP_LAMPORTS = 5_000_000; // 0.005 SOL tip for priority
+
+/**
+ * Add Jito tip instruction to the LAST transaction in bundle.
+ * Per Jito docs: tips MUST be in the last tx to prevent theft and ensure proper auction.
+ */
+function addJitoTipToLastTransaction(
+  transactions: Transaction[],
+  feePayer: PublicKey,
+  tipLamports: number = JITO_TIP_LAMPORTS
+): void {
+  if (transactions.length === 0) return;
+  
+  const tipAccount = new PublicKey(
+    JITO_TIP_ACCOUNTS[Math.floor(Math.random() * JITO_TIP_ACCOUNTS.length)]
+  );
+  
+  const lastTx = transactions[transactions.length - 1];
+  lastTx.add(
+    SystemProgram.transfer({
+      fromPubkey: feePayer,
+      toPubkey: tipAccount,
+      lamports: tipLamports,
+    })
+  );
+  
+  console.log(`[create-phantom] Added Jito tip (${tipLamports / 1e9} SOL) to last transaction`);
+}
 
 // Retry helper with exponential backoff for RPC rate limits
 async function getBlockhashWithRetry(
@@ -285,10 +327,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // For Phantom launches, we need to:
-    // 1. Partially sign transactions with mint/config keypairs
-    // 2. Return serialized transactions for Phantom to sign as fee payer
+    // 1. Add Jito tip instruction to the LAST transaction (per Jito docs)
+    // 2. Partially sign transactions with mint/config keypairs
+    // 3. Return serialized transactions for Phantom to sign as fee payer
     
     const phantomPubkey = new PublicKey(phantomWallet);
+    
+    // CRITICAL: Add Jito tip to LAST transaction BEFORE setting blockhash/signing
+    // This ensures the tip is embedded, not a separate tx (which Jito rejects)
+    addJitoTipToLastTransaction(transactions, phantomPubkey, JITO_TIP_LAMPORTS);
+    
     const serializedTransactions: string[] = [];
 
     // Build a map of available keypairs for partial signing
@@ -362,8 +410,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       txCount: serializedTransactions.length,
       devBuyRequested: effectiveDevBuySol > 0,
       devBuySol: effectiveDevBuySol,
-      bundleMode: true, // Frontend should use Jito bundle for atomic execution
-      message: 'Transactions prepared for atomic Jito bundle. Sign all in one Phantom popup.',
+      jitoTipEmbedded: true, // Tip is embedded in last tx, no frontend tip needed
+      jitoTipLamports: JITO_TIP_LAMPORTS,
+      message: 'Transactions prepared with Jito tip embedded in last tx. Use sequential signAndSendTransaction for reliability.',
     });
 
   } catch (error) {

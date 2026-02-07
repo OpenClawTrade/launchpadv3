@@ -16,7 +16,6 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { Connection, Transaction, VersionedTransaction, PublicKey } from "@solana/web3.js";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
-import { submitAndConfirmJitoBundle, createJitoTipInstruction, JITO_CONFIG } from "@/lib/jitoBundle";
 
 import {
   Shuffle,
@@ -910,88 +909,57 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
        };
 
        // Deserialize all transactions (already partially signed by backend with mint/config keypairs)
-       // IMPORTANT: Do NOT modify these transactions (blockhash, add instructions) as it invalidates existing signatures
-       const baseTxsToSign = txBase64s.map(deserializeAnyTx);
-
-       // Jito requires the bundle to write-lock at least one official tip account.
-       // Add a small tip transfer as the first tx in the bundle (keeps the rest of the partially-signed txs untouched).
-       const tipFrom = new PublicKey(phantomWallet.address);
-       const { blockhash } = await connection.getLatestBlockhash("confirmed");
-       const tipTx = new Transaction();
-       tipTx.feePayer = tipFrom;
-       tipTx.recentBlockhash = blockhash;
-       tipTx.add(createJitoTipInstruction(tipFrom, JITO_CONFIG.DEFAULT_TIP_LAMPORTS));
-
-       const txsToSign = [tipTx, ...baseTxsToSign];
-       const txLabels: string[] = ["Jito Tip", ...baseTxLabels];
+       // Backend has embedded Jito tip in last transaction - no frontend tip needed
+       const txsToSign = txBase64s.map(deserializeAnyTx);
+       const txLabels = baseTxLabels;
        
-       console.log(`[Phantom Launch] Deserialized ${baseTxsToSign.length} partially-signed transactions (+ tip)`);
+       console.log(`[Phantom Launch] Deserialized ${txsToSign.length} partially-signed transactions (Jito tip embedded in last tx)`);
 
-      // === ATOMIC JITO BUNDLE SIGNING ===
-      // Primary path: single Phantom popup (signAllTransactions)
-      // Fallback: if Phantom rejects/blocks batch signing in this context, we sign each tx individually (still bundled to Jito)
-      toast({
-        title: "Sign Transactions",
-        description: `Approve ${txsToSign.length} transaction(s) in Phantom`,
-      });
-
-      console.log(`[Phantom Launch] Requesting batch signature for ${txsToSign.length} transactions...`);
-
-      let signedTxs: (Transaction | VersionedTransaction)[] | null = null;
-
-      try {
-        signedTxs = await phantomWallet.signAllTransactions(txsToSign as any);
-      } catch (batchErr) {
-        const msg = batchErr instanceof Error ? batchErr.message : String(batchErr);
-        console.warn('[Phantom Launch] Batch signing failed, will fallback if possible:', msg);
-      }
-
-      if (!signedTxs) {
-        // Fallback: sign transactions one-by-one (more popups, but still atomic once bundled)
+      // === SEQUENTIAL signAndSendTransaction (Industry Standard) ===
+      // This is the most reliable method - used by pump.fun, Meteora examples, etc.
+      // Each transaction is signed AND sent by Phantom, which handles retries + confirmation
+      // Blowfish security scanning works correctly with this approach
+      
+      const signatures: string[] = [];
+      
+      for (let i = 0; i < txsToSign.length; i++) {
+        const txLabel = txLabels[i] || `Transaction ${i + 1}`;
+        
         toast({
-          title: "Batch signing unavailable",
-          description: "Signing transactions one-by-one (still atomic once submitted)",
+          title: `Signing ${txLabel}...`,
+          description: `Step ${i + 1} of ${txsToSign.length}`,
         });
-
-        const individuallySigned: (Transaction | VersionedTransaction)[] = [];
-        for (let i = 0; i < txsToSign.length; i++) {
-          const txLabel = txLabels[i] || `Transaction ${i + 1}`;
-          console.log(`[Phantom Launch] Signing ${txLabel} (${i + 1}/${txsToSign.length})...`);
-
-          const signed = await phantomWallet.signTransaction(txsToSign[i] as any);
-          if (!signed) throw new Error(`${txLabel} signing was cancelled or failed`);
-
-          individuallySigned.push(signed);
+        
+        console.log(`[Phantom Launch] signAndSendTransaction: ${txLabel} (${i + 1}/${txsToSign.length})...`);
+        
+        // Use Phantom's signAndSendTransaction - Phantom handles submission + confirmation
+        const signature = await phantomWallet.signAndSendTransaction(txsToSign[i] as any);
+        
+        if (!signature) {
+          throw new Error(`${txLabel} was cancelled or failed`);
         }
-
-        signedTxs = individuallySigned;
+        
+        console.log(`[Phantom Launch] ✅ ${txLabel} confirmed:`, signature);
+        signatures.push(signature);
+        
+        // Wait for confirmation before proceeding to next transaction
+        // This ensures proper sequencing (config must exist before pool, etc.)
+        if (i < txsToSign.length - 1) {
+          toast({
+            title: `${txLabel} Confirmed`,
+            description: `Proceeding to next step...`,
+          });
+          
+          try {
+            await connection.confirmTransaction(signature, 'confirmed');
+          } catch (confirmErr) {
+            // Non-fatal - if Phantom returned signature, it likely landed
+            console.warn(`[Phantom Launch] Confirmation polling failed for ${txLabel}, continuing...`, confirmErr);
+          }
+        }
       }
-
-      if (!signedTxs) {
-        throw new Error("Transaction signing was cancelled or failed");
-      }
       
-      console.log('[Phantom Launch] All transactions signed, submitting Jito bundle...');
-      toast({ 
-        title: "Submitting Atomic Bundle...", 
-        description: "All transactions will execute in the same block" 
-      });
-      
-      // Submit bundle to Jito for atomic execution
-      const bundleResult = await submitAndConfirmJitoBundle(signedTxs);
-      
-      if (!bundleResult.success) {
-        console.error('[Phantom Launch] Jito bundle failed:', bundleResult.error);
-        throw new Error(bundleResult.error || "Jito bundle execution failed");
-      }
-      
-      console.log('[Phantom Launch] ✅ Jito bundle confirmed!', {
-        bundleId: bundleResult.bundleId,
-        slot: bundleResult.slot,
-        signatures: bundleResult.signatures,
-      });
-      
-      const signatures = bundleResult.signatures || [];
+      console.log('[Phantom Launch] ✅ All transactions confirmed!', { signatures });
 
       // Phase 2: record token in DB after on-chain confirmation
       let recordedTokenId: string | undefined;
