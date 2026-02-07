@@ -819,10 +819,27 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       };
 
       const signatures: string[] = [];
-      for (const txBase64 of txBase64s) {
+      for (let i = 0; i < txBase64s.length; i++) {
+        const txBase64 = txBase64s[i];
         const tx = deserializeAnyTx(txBase64);
-        const signResult: unknown = await phantomWallet.signAndSendTransaction(tx as any);
-        if (!signResult) throw new Error("Transaction signing failed");
+        
+        console.log(`[Phantom Launch] Signing transaction ${i + 1}/${txBase64s.length}...`);
+        
+        let signResult: unknown;
+        try {
+          signResult = await phantomWallet.signAndSendTransaction(tx as any);
+        } catch (signError) {
+          console.error('[Phantom Launch] Sign error:', signError);
+          // User likely rejected the transaction
+          if (signError instanceof Error && signError.message.includes('User rejected')) {
+            throw new Error("Transaction was rejected. Please approve in Phantom.");
+          }
+          throw new Error(`Signing failed: ${signError instanceof Error ? signError.message : 'Unknown error'}`);
+        }
+        
+        if (!signResult) {
+          throw new Error("Transaction was canceled or Phantom is not responding. Please try reconnecting your wallet.");
+        }
 
         let signature: string;
         if (typeof signResult === "object" && signResult !== null && "signature" in signResult) {
@@ -831,8 +848,12 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           signature = String(signResult);
         }
 
+        console.log(`[Phantom Launch] Transaction ${i + 1} signed:`, signature.slice(0, 16) + '...');
         signatures.push(signature);
+        
+        toast({ title: `Transaction ${i + 1}/${txBase64s.length} sent`, description: "Waiting for confirmation..." });
         await connection.confirmTransaction(signature, "confirmed");
+        console.log(`[Phantom Launch] Transaction ${i + 1} confirmed`);
       }
 
       // Phase 2: record token in DB after on-chain confirmation
