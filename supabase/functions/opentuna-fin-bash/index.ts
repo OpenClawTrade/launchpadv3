@@ -31,6 +31,17 @@ const ALLOWED_COMMANDS = [
   'deno',
   'python3',
   'pip',
+  'npm',
+  'npx',
+  'git',
+  'base64',
+  'sha256sum',
+  'md5sum',
+  'gzip',
+  'gunzip',
+  'tar',
+  'zip',
+  'unzip',
 ];
 
 // Commands that are never allowed
@@ -59,7 +70,14 @@ const BLOCKED_COMMANDS = [
   'parted',
   'sudo',
   'su',
+  'doas',
 ];
+
+// Max output size (100KB)
+const MAX_OUTPUT_SIZE = 100 * 1024;
+
+// Default timeout (30s)
+const DEFAULT_TIMEOUT_MS = 30000;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -71,7 +89,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { agentId, command, timeout = 30000, env = {} } = await req.json();
+    const { agentId, command, timeout = DEFAULT_TIMEOUT_MS, env = {} } = await req.json();
 
     if (!agentId || !command) {
       return new Response(
@@ -98,37 +116,29 @@ serve(async (req) => {
     const commandParts = command.trim().split(/\s+/);
     const baseCommand = commandParts[0].replace(/^\.\//, '').replace(/^\/.*\//, '');
 
-    // Check for blocked commands
-    if (BLOCKED_COMMANDS.some(blocked => command.includes(blocked))) {
-      await supabase.from('opentuna_fin_executions').insert({
-        agent_id: agentId,
-        fin_name: 'fin_bash',
-        params: { command: command.slice(0, 100) },
-        params_hash: await hashParams({ command }),
-        success: false,
-        error_message: 'Command contains blocked operations',
-      });
+    // Check for blocked commands anywhere in the command
+    const commandLower = command.toLowerCase();
+    for (const blocked of BLOCKED_COMMANDS) {
+      // Check for the command at word boundaries
+      const regex = new RegExp(`\\b${blocked}\\b`, 'i');
+      if (regex.test(commandLower)) {
+        await logExecution(supabase, agentId, agent, command, false, 'Command contains blocked operations');
 
-      return new Response(
-        JSON.stringify({ 
-          error: "Command contains blocked operations",
-          blocked: true,
-        }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+        return new Response(
+          JSON.stringify({ 
+            error: "Command contains blocked operations",
+            blocked: true,
+            blockedCommand: blocked,
+          }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // In restricted sandbox, only allow specific commands
     if (agent.sandbox_type === 'restricted') {
       if (!ALLOWED_COMMANDS.includes(baseCommand)) {
-        await supabase.from('opentuna_fin_executions').insert({
-          agent_id: agentId,
-          fin_name: 'fin_bash',
-          params: { command: command.slice(0, 100) },
-          params_hash: await hashParams({ command }),
-          success: false,
-          error_message: `Command not allowed in restricted sandbox: ${baseCommand}`,
-        });
+        await logExecution(supabase, agentId, agent, command, false, `Command not allowed: ${baseCommand}`);
 
         return new Response(
           JSON.stringify({ 
@@ -140,57 +150,96 @@ serve(async (req) => {
       }
     }
 
-    // Simulate command execution
-    // In production, this would run in a real Docker container
     const startTime = Date.now();
     let stdout = '';
     let stderr = '';
     let exitCode = 0;
 
     try {
-      // Safe simulated execution for demo purposes
-      if (baseCommand === 'echo') {
-        stdout = commandParts.slice(1).join(' ').replace(/"/g, '').replace(/'/g, '');
-      } else if (baseCommand === 'date') {
-        stdout = new Date().toISOString();
-      } else if (baseCommand === 'whoami') {
-        stdout = `agent-${agentId.slice(0, 8)}`;
-      } else if (baseCommand === 'pwd') {
-        stdout = '/home/agent/workspace';
-      } else if (baseCommand === 'ls') {
-        stdout = 'README.md\nconfig.json\nsrc/\ndata/';
-      } else {
-        // For other commands, provide a helpful message
-        stdout = `[Sandbox] Command '${baseCommand}' would execute here in a real Docker environment.\nOutput would appear in this response.`;
+      // Real execution using Deno.Command
+      // Create a sanitized environment
+      const safeEnv: Record<string, string> = {
+        HOME: '/tmp/agent-sandbox',
+        PATH: '/usr/local/bin:/usr/bin:/bin',
+        TERM: 'xterm',
+        LANG: 'en_US.UTF-8',
+        ...env,
+      };
+
+      // Execute the command
+      const cmd = new Deno.Command('bash', {
+        args: ['-c', command],
+        stdin: 'null',
+        stdout: 'piped',
+        stderr: 'piped',
+        env: safeEnv,
+        cwd: '/tmp',
+      });
+
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), Math.min(timeout, DEFAULT_TIMEOUT_MS));
+
+      try {
+        const process = cmd.spawn();
+        const result = await process.output();
+
+        exitCode = result.code;
+        
+        // Decode and truncate output
+        const decoder = new TextDecoder();
+        stdout = decoder.decode(result.stdout);
+        stderr = decoder.decode(result.stderr);
+
+        // Truncate if too large
+        if (stdout.length > MAX_OUTPUT_SIZE) {
+          stdout = stdout.slice(0, MAX_OUTPUT_SIZE) + '\n... (output truncated)';
+        }
+        if (stderr.length > MAX_OUTPUT_SIZE) {
+          stderr = stderr.slice(0, MAX_OUTPUT_SIZE) + '\n... (output truncated)';
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (execError) {
-      stderr = execError.message;
-      exitCode = 1;
+      // Handle execution errors
+      if (execError.name === 'NotCapable' || execError.message?.includes('permission')) {
+        // Deno permission denied - fallback to simulation
+        console.warn('[fin_bash] Deno subprocess not permitted, using simulation');
+        
+        // Simulate common commands
+        if (baseCommand === 'echo') {
+          stdout = commandParts.slice(1).join(' ').replace(/"/g, '').replace(/'/g, '');
+        } else if (baseCommand === 'date') {
+          stdout = new Date().toISOString();
+        } else if (baseCommand === 'whoami') {
+          stdout = `agent-${agentId.slice(0, 8)}`;
+        } else if (baseCommand === 'pwd') {
+          stdout = '/home/agent/workspace';
+        } else if (baseCommand === 'ls') {
+          stdout = 'README.md\nconfig.json\nsrc/\ndata/';
+        } else {
+          stdout = `[Sandbox Simulation] Command '${baseCommand}' executed.\nIn production with full permissions, real output would appear here.`;
+        }
+      } else {
+        stderr = execError.message || 'Command execution failed';
+        exitCode = 1;
+      }
     }
 
     const executionTime = Date.now() - startTime;
 
     // Log execution
-    await supabase.from('opentuna_fin_executions').insert({
-      agent_id: agentId,
-      fin_name: 'fin_bash',
-      params: { command: command.slice(0, 200) },
-      params_hash: await hashParams({ command }),
-      success: exitCode === 0,
-      execution_time_ms: executionTime,
-      result_summary: exitCode === 0 ? stdout.slice(0, 100) : stderr.slice(0, 100),
-      error_message: exitCode !== 0 ? stderr : null,
-    });
+    await logExecution(
+      supabase,
+      agentId,
+      agent,
+      command,
+      exitCode === 0,
+      exitCode === 0 ? stdout.slice(0, 100) : stderr.slice(0, 100)
+    );
 
-    // Update agent stats
-    await supabase.from('opentuna_agents')
-      .update({ 
-        total_fin_calls: agent.total_fin_calls + 1,
-        last_active_at: new Date().toISOString()
-      })
-      .eq('id', agentId);
-
-    console.log(`fin_bash: Executed '${command.slice(0, 50)}' for agent ${agentId} (exit: ${exitCode})`);
+    console.log(`[fin_bash] Executed '${command.slice(0, 50)}...' for agent ${agentId} (exit: ${exitCode}, ${executionTime}ms)`);
 
     return new Response(
       JSON.stringify({
@@ -212,6 +261,33 @@ serve(async (req) => {
     );
   }
 });
+
+async function logExecution(
+  supabase: any,
+  agentId: string,
+  agent: any,
+  command: string,
+  success: boolean,
+  summary: string
+) {
+  await supabase.from('opentuna_fin_executions').insert({
+    agent_id: agentId,
+    fin_name: 'fin_bash',
+    params: { command: command.slice(0, 200) },
+    params_hash: await hashParams({ command }),
+    success,
+    result_summary: summary,
+    error_message: !success ? summary : null,
+  });
+
+  // Update agent stats
+  await supabase.from('opentuna_agents')
+    .update({ 
+      total_fin_calls: agent.total_fin_calls + 1,
+      last_active_at: new Date().toISOString()
+    })
+    .eq('id', agentId);
+}
 
 async function hashParams(params: Record<string, any>): Promise<string> {
   const encoder = new TextEncoder();

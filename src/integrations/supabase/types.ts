@@ -2824,6 +2824,47 @@ export type Database = {
           },
         ]
       }
+      opentuna_agent_integrations: {
+        Row: {
+          agent_id: string
+          config: Json | null
+          created_at: string | null
+          id: string
+          integration_id: string
+          is_enabled: boolean | null
+          last_used_at: string | null
+          total_uses: number | null
+        }
+        Insert: {
+          agent_id: string
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          integration_id: string
+          is_enabled?: boolean | null
+          last_used_at?: string | null
+          total_uses?: number | null
+        }
+        Update: {
+          agent_id?: string
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          integration_id?: string
+          is_enabled?: boolean | null
+          last_used_at?: string | null
+          total_uses?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_agent_integrations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opentuna_agents: {
         Row: {
           agent_type: string
@@ -2897,6 +2938,53 @@ export type Database = {
             columns: ["owner_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opentuna_api_keys: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string | null
+          revoked_at: string | null
+          total_requests: number | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name?: string | null
+          revoked_at?: string | null
+          total_requests?: number | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string | null
+          revoked_at?: string | null
+          total_requests?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opentuna_api_keys_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "opentuna_agents"
             referencedColumns: ["id"]
           },
         ]

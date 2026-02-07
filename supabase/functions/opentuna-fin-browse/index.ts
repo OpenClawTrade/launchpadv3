@@ -6,12 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Simulated browser session state
+// Browser session state (in-memory for this instance)
 const browserSessions: Map<string, {
   currentUrl: string;
-  pageContent: string;
-  screenshots: string[];
+  pageTitle: string;
   lastAction: string;
+  startedAt: string;
 }> = new Map();
 
 serve(async (req) => {
@@ -22,6 +22,8 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const browserlessUrl = Deno.env.get("BROWSERLESS_URL");
+    const browserlessToken = Deno.env.get("BROWSERLESS_TOKEN");
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const {
@@ -31,6 +33,7 @@ serve(async (req) => {
       selector,
       text,
       extractSchema,
+      waitFor,
     } = await req.json();
 
     if (!agentId || !action) {
@@ -41,7 +44,7 @@ serve(async (req) => {
     }
 
     // Validate action
-    const validActions = ['navigate', 'click', 'type', 'screenshot', 'extract', 'close'];
+    const validActions = ['navigate', 'click', 'type', 'screenshot', 'extract', 'close', 'wait'];
     if (!validActions.includes(action)) {
       return new Response(
         JSON.stringify({ error: `Invalid action. Must be one of: ${validActions.join(', ')}` }),
@@ -82,109 +85,36 @@ serve(async (req) => {
       }
     }
 
-    // Get or create browser session
-    let session = browserSessions.get(agentId);
-    if (!session) {
-      session = {
-        currentUrl: '',
-        pageContent: '',
-        screenshots: [],
-        lastAction: '',
-      };
-      browserSessions.set(agentId, session);
-    }
-
-    let result: any = {};
     const startTime = Date.now();
+    let result: any = {};
 
-    // Simulate browser actions
-    // In production, this would use Puppeteer or Playwright in a Docker container
-    switch (action) {
-      case 'navigate':
-        if (!url) {
-          return new Response(
-            JSON.stringify({ error: "url is required for navigate action" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        session.currentUrl = url;
-        session.pageContent = `[Simulated page content for ${url}]`;
-        result = {
-          success: true,
-          action: 'navigate',
-          url,
-          status: 200,
-          title: `Page: ${new URL(url).hostname}`,
-        };
-        break;
-
-      case 'click':
-        if (!selector) {
-          return new Response(
-            JSON.stringify({ error: "selector is required for click action" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        result = {
-          success: true,
-          action: 'click',
-          selector,
-          message: `Clicked element: ${selector}`,
-        };
-        break;
-
-      case 'type':
-        if (!selector || !text) {
-          return new Response(
-            JSON.stringify({ error: "selector and text are required for type action" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        result = {
-          success: true,
-          action: 'type',
-          selector,
-          textLength: text.length,
-          message: `Typed ${text.length} characters into ${selector}`,
-        };
-        break;
-
-      case 'screenshot':
-        // In production, this would capture actual screenshot
-        const screenshotId = crypto.randomUUID();
-        session.screenshots.push(screenshotId);
-        result = {
-          success: true,
-          action: 'screenshot',
-          screenshotId,
-          currentUrl: session.currentUrl,
-          message: 'Screenshot captured (simulated)',
-        };
-        break;
-
-      case 'extract':
-        // In production, this would extract data from the page
-        result = {
-          success: true,
-          action: 'extract',
-          currentUrl: session.currentUrl,
-          data: extractSchema ? { /* Would populate based on schema */ } : session.pageContent,
-          message: 'Data extracted (simulated)',
-        };
-        break;
-
-      case 'close':
-        browserSessions.delete(agentId);
-        result = {
-          success: true,
-          action: 'close',
-          message: 'Browser session closed',
-        };
-        break;
+    // Check if we have Browserless configured for real browser automation
+    if (browserlessUrl && browserlessToken) {
+      // Use Browserless.io for real browser automation
+      result = await executeBrowserlessAction({
+        browserlessUrl,
+        browserlessToken,
+        action,
+        url,
+        selector,
+        text,
+        extractSchema,
+        waitFor,
+        agentId,
+      });
+    } else {
+      // Fallback to HTTP-based web interaction (fetch + cheerio-style parsing)
+      result = await executeHttpAction({
+        action,
+        url,
+        selector,
+        text,
+        extractSchema,
+        agentId,
+      });
     }
 
     const executionTime = Date.now() - startTime;
-    session.lastAction = action;
 
     // Log execution
     await supabase.from('opentuna_fin_executions').insert({
@@ -192,7 +122,7 @@ serve(async (req) => {
       fin_name: 'fin_browse',
       params: { action, url, selector },
       params_hash: await hashParams({ action, url, selector }),
-      success: true,
+      success: result.success,
       execution_time_ms: executionTime,
       result_summary: result.message || `${action} completed`,
     });
@@ -205,13 +135,12 @@ serve(async (req) => {
       })
       .eq('id', agentId);
 
-    console.log(`fin_browse: ${action} for agent ${agentId} (${executionTime}ms)`);
+    console.log(`[fin_browse] ${action} for agent ${agentId} (${executionTime}ms)`);
 
     return new Response(
       JSON.stringify({
         ...result,
         executionTimeMs: executionTime,
-        sessionActive: browserSessions.has(agentId),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -223,6 +152,247 @@ serve(async (req) => {
     );
   }
 });
+
+// Execute action via Browserless.io
+async function executeBrowserlessAction(params: {
+  browserlessUrl: string;
+  browserlessToken: string;
+  action: string;
+  url?: string;
+  selector?: string;
+  text?: string;
+  extractSchema?: any;
+  waitFor?: number;
+  agentId: string;
+}): Promise<any> {
+  const { browserlessUrl, browserlessToken, action, url, selector, text, extractSchema, waitFor, agentId } = params;
+
+  // Build Puppeteer script to execute
+  let script: string;
+
+  switch (action) {
+    case 'navigate':
+      if (!url) throw new Error('URL required for navigate');
+      script = `
+        module.exports = async ({ page }) => {
+          await page.goto('${url}', { waitUntil: 'networkidle2', timeout: 30000 });
+          const title = await page.title();
+          const content = await page.content();
+          return { success: true, action: 'navigate', url: '${url}', title, contentLength: content.length };
+        };
+      `;
+      break;
+
+    case 'click':
+      if (!selector) throw new Error('Selector required for click');
+      script = `
+        module.exports = async ({ page }) => {
+          await page.waitForSelector('${selector}', { timeout: 10000 });
+          await page.click('${selector}');
+          return { success: true, action: 'click', selector: '${selector}', message: 'Clicked element' };
+        };
+      `;
+      break;
+
+    case 'type':
+      if (!selector || !text) throw new Error('Selector and text required for type');
+      script = `
+        module.exports = async ({ page }) => {
+          await page.waitForSelector('${selector}', { timeout: 10000 });
+          await page.type('${selector}', '${text.replace(/'/g, "\\'")}');
+          return { success: true, action: 'type', selector: '${selector}', textLength: ${text.length} };
+        };
+      `;
+      break;
+
+    case 'screenshot':
+      script = `
+        module.exports = async ({ page }) => {
+          const screenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
+          return { success: true, action: 'screenshot', screenshot, message: 'Screenshot captured' };
+        };
+      `;
+      break;
+
+    case 'extract':
+      script = `
+        module.exports = async ({ page }) => {
+          const html = await page.content();
+          const title = await page.title();
+          const url = page.url();
+          
+          // Extract text content
+          const text = await page.evaluate(() => document.body.innerText);
+          
+          // Extract links
+          const links = await page.evaluate(() => 
+            Array.from(document.querySelectorAll('a[href]')).map(a => ({
+              text: a.textContent?.trim(),
+              href: a.href
+            })).slice(0, 50)
+          );
+          
+          return { 
+            success: true, 
+            action: 'extract', 
+            title,
+            url,
+            textLength: text.length,
+            links,
+            message: 'Data extracted'
+          };
+        };
+      `;
+      break;
+
+    default:
+      return { success: false, action, message: 'Action not supported for Browserless' };
+  }
+
+  // Call Browserless function API
+  const response = await fetch(`${browserlessUrl}/function?token=${browserlessToken}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      code: script,
+      context: {},
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Browserless error:', error);
+    return { success: false, action, error: 'Browserless execution failed' };
+  }
+
+  return response.json();
+}
+
+// Fallback: Execute action via HTTP fetch
+async function executeHttpAction(params: {
+  action: string;
+  url?: string;
+  selector?: string;
+  text?: string;
+  extractSchema?: any;
+  agentId: string;
+}): Promise<any> {
+  const { action, url, selector, agentId } = params;
+
+  // Get or create session
+  let session = browserSessions.get(agentId);
+  if (!session) {
+    session = {
+      currentUrl: '',
+      pageTitle: '',
+      lastAction: '',
+      startedAt: new Date().toISOString(),
+    };
+    browserSessions.set(agentId, session);
+  }
+
+  switch (action) {
+    case 'navigate':
+      if (!url) return { success: false, error: 'URL required' };
+      
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; OpenTuna/1.0; +https://tuna.fun)',
+            'Accept': 'text/html,application/xhtml+xml',
+          },
+        });
+
+        if (!response.ok) {
+          return { success: false, action: 'navigate', error: `HTTP ${response.status}` };
+        }
+
+        const html = await response.text();
+        
+        // Extract title
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const title = titleMatch ? titleMatch[1].trim() : 'Untitled';
+
+        session.currentUrl = url;
+        session.pageTitle = title;
+        session.lastAction = 'navigate';
+
+        return {
+          success: true,
+          action: 'navigate',
+          url,
+          status: response.status,
+          title,
+          contentLength: html.length,
+          message: `Navigated to ${url}`,
+        };
+      } catch (fetchError) {
+        return { success: false, action: 'navigate', error: fetchError.message };
+      }
+
+    case 'extract':
+      if (!session.currentUrl) {
+        return { success: false, action: 'extract', error: 'No page loaded. Navigate first.' };
+      }
+
+      try {
+        const response = await fetch(session.currentUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; OpenTuna/1.0)',
+          },
+        });
+
+        const html = await response.text();
+
+        // Basic extraction
+        const links: Array<{ text: string; href: string }> = [];
+        const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi;
+        let match;
+        while ((match = linkRegex.exec(html)) !== null && links.length < 50) {
+          links.push({ href: match[1], text: match[2].trim() });
+        }
+
+        // Extract text (strip HTML)
+        const textContent = html
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 5000);
+
+        return {
+          success: true,
+          action: 'extract',
+          url: session.currentUrl,
+          title: session.pageTitle,
+          links,
+          textPreview: textContent.slice(0, 500),
+          textLength: textContent.length,
+          message: 'Data extracted via HTTP',
+        };
+      } catch (err) {
+        return { success: false, action: 'extract', error: err.message };
+      }
+
+    case 'close':
+      browserSessions.delete(agentId);
+      return { success: true, action: 'close', message: 'Session closed' };
+
+    case 'click':
+    case 'type':
+    case 'screenshot':
+      return {
+        success: false,
+        action,
+        error: `Action '${action}' requires Browserless.io. Configure BROWSERLESS_URL and BROWSERLESS_TOKEN secrets for full browser automation.`,
+        hint: 'You can still use navigate and extract actions via HTTP.',
+      };
+
+    default:
+      return { success: false, error: 'Unknown action' };
+  }
+}
 
 async function hashParams(params: Record<string, any>): Promise<string> {
   const encoder = new TextEncoder();
