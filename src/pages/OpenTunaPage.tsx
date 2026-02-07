@@ -13,6 +13,7 @@ import {
   BookOpen,
   House
 } from "@phosphor-icons/react";
+import { OpenTunaProvider } from "@/components/opentuna/OpenTunaContext";
 import OpenTunaHub from "@/components/opentuna/OpenTunaHub";
 import OpenTunaHatch from "@/components/opentuna/OpenTunaHatch";
 import OpenTunaDNA from "@/components/opentuna/OpenTunaDNA";
@@ -21,10 +22,14 @@ import OpenTunaMemory from "@/components/opentuna/OpenTunaMemory";
 import OpenTunaFins from "@/components/opentuna/OpenTunaFins";
 import OpenTunaCurrent from "@/components/opentuna/OpenTunaCurrent";
 import OpenTunaDocs from "@/components/opentuna/OpenTunaDocs";
+import OpenTunaAgentSelector from "@/components/opentuna/OpenTunaAgentSelector";
+import { useOpenTunaContext } from "@/components/opentuna/OpenTunaContext";
 
 const VALID_TABS = ['hub', 'hatch', 'dna', 'sonar', 'memory', 'fins', 'current', 'docs'];
 
-export default function OpenTunaPage() {
+function OpenTunaContent() {
+  const { agents, isLoadingAgents, selectedAgentId, setSelectedAgentId } = useOpenTunaContext();
+  
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.slice(1);
     return VALID_TABS.includes(hash) ? hash : 'hub';
@@ -59,7 +64,16 @@ export default function OpenTunaPage() {
           <span className="ml-2 text-sm text-muted-foreground hidden sm:inline">
             Autonomous Agent OS
           </span>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-3">
+            {/* Agent Selector - show on tabs that need it */}
+            {['dna', 'sonar', 'memory', 'fins', 'current'].includes(activeTab) && agents.length > 0 && (
+              <OpenTunaAgentSelector
+                agents={agents}
+                selectedAgentId={selectedAgentId}
+                onSelect={setSelectedAgentId}
+                isLoading={isLoadingAgents}
+              />
+            )}
             <span className="text-xs text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-full border border-cyan-500/20">
               v1.0
             </span>
@@ -154,5 +168,14 @@ export default function OpenTunaPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// Export wrapped with provider
+export default function OpenTunaPage() {
+  return (
+    <OpenTunaProvider>
+      <OpenTunaContent />
+    </OpenTunaProvider>
   );
 }

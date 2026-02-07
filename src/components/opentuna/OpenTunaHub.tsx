@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   Fish, 
   Lightning, 
@@ -13,17 +14,13 @@ import {
   ArrowRight,
   Egg
 } from "@phosphor-icons/react";
+import { useOpenTunaContext } from "./OpenTunaContext";
+import { useOpenTunaStats } from "@/hooks/useOpenTuna";
+import { cn } from "@/lib/utils";
 
 interface OpenTunaHubProps {
   onNavigate: (tab: string) => void;
 }
-
-const STATS = [
-  { label: "Active Agents", value: "—", icon: Fish, color: "text-cyan-400" },
-  { label: "Total Pings", value: "—", icon: Lightning, color: "text-yellow-400" },
-  { label: "Economy Volume", value: "— SOL", icon: CurrencyCircleDollar, color: "text-green-400" },
-  { label: "Avg Uptime", value: "—%", icon: Clock, color: "text-blue-400" },
-];
 
 const AGENT_TYPES = [
   { 
@@ -65,6 +62,16 @@ const QUICK_START_STEPS = [
 ];
 
 export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
+  const { agents, isLoadingAgents, setSelectedAgentId } = useOpenTunaContext();
+  const { data: stats, isLoading: isLoadingStats } = useOpenTunaStats();
+  
+  const STATS = [
+    { label: "Active Agents", value: isLoadingStats ? "—" : (stats?.totalAgents?.toString() || "0"), icon: Fish, color: "text-cyan-400" },
+    { label: "Pings Today", value: isLoadingStats ? "—" : (stats?.totalPingsToday?.toString() || "0"), icon: Lightning, color: "text-yellow-400" },
+    { label: "Economy Volume", value: isLoadingStats ? "— SOL" : `${stats?.economyVolume?.toFixed(2) || "0"} SOL`, icon: CurrencyCircleDollar, color: "text-green-400" },
+    { label: "Avg Uptime", value: isLoadingStats ? "—%" : `${stats?.avgUptime || 99}%`, icon: Clock, color: "text-blue-400" },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Stats Row */}
@@ -168,25 +175,75 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
         </Card>
       </div>
 
-      {/* Your Agents (Placeholder) */}
+      {/* Your Agents */}
       <div>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Fish className="h-5 w-5 text-cyan-400" weight="duotone" />
           Your Agents
         </h2>
-        <Card className="opentuna-card">
-          <CardContent className="p-8 text-center">
-            <Egg className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
-            <p className="text-muted-foreground mb-4">No agents yet. Hatch your first one!</p>
-            <Button 
-              onClick={() => onNavigate('hatch')}
-              className="opentuna-button"
-            >
-              <Egg className="h-4 w-4 mr-2" weight="duotone" />
-              Hatch Agent
-            </Button>
-          </CardContent>
-        </Card>
+        {isLoadingAgents ? (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-32 rounded-xl bg-secondary/30 animate-pulse" />
+            ))}
+          </div>
+        ) : agents.length > 0 ? (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {agents.map((agent) => (
+              <Card 
+                key={agent.id}
+                className="opentuna-card cursor-pointer hover:scale-[1.02] transition-all"
+                onClick={() => {
+                  setSelectedAgentId(agent.id);
+                  onNavigate('dna');
+                }}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-cyan-500/10">
+                      <Fish className="h-6 w-6 text-cyan-400" weight="duotone" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold truncate">{agent.name}</h3>
+                        <Badge 
+                          variant="secondary" 
+                          className={cn(
+                            "text-xs shrink-0",
+                            agent.status === 'active' && "bg-green-500/20 text-green-400",
+                            agent.status === 'pending' && "bg-yellow-500/20 text-yellow-400",
+                            agent.status === 'paused' && "bg-orange-500/20 text-orange-400",
+                          )}
+                        >
+                          {agent.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground capitalize">{agent.agent_type}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                        <span>{agent.balance_sol?.toFixed(3) || 0} SOL</span>
+                        <span>{agent.total_fin_calls || 0} fin calls</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="opentuna-card">
+            <CardContent className="p-8 text-center">
+              <Egg className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
+              <p className="text-muted-foreground mb-4">No agents yet. Hatch your first one!</p>
+              <Button 
+                onClick={() => onNavigate('hatch')}
+                className="opentuna-button"
+              >
+                <Egg className="h-4 w-4 mr-2" weight="duotone" />
+                Hatch Agent
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Recent Activity (Placeholder) */}
