@@ -1,225 +1,147 @@
 
-# Multi-Account X Reply Bot Admin System
+# Add Custom Image Upload to Trading Agent Creation
 
-## Overview
-Create a comprehensive admin system to manage multiple X (Twitter) reply bot accounts, allowing you to configure different proxies, credentials, and targeting rules per account, with consistent cron scheduling across all accounts.
-
-## Current System Analysis
-The existing BuildTuna reply bot has these settings:
-- **Minimum followers**: 5,000 (verified accounts only)
-- **Verification requirement**: Blue or Gold checkmark required
-- **Monitored mentions**: @moltbook, @openclaw, @buildtuna, @tunalaunch
-- **Cashtags**: Currently NOT tracked (only platform mentions)
-- **Author cooldown**: 6 hours between replies to same author
-- **Max replies per thread**: 3 (1 initial + 2 follow-ups)
+## Password Answer
+The **Trading Agent beta access password is: `TUNA`** (case-insensitive)
 
 ---
+
+## Current State
+- The trading agent creation form already has fields for custom Name and Ticker
+- Currently, users can only use AI-generated avatars via the "Generate Character" button
+- The backend (`trading-agent-create`) already accepts an `avatarUrl` parameter
 
 ## Implementation Plan
 
-### 1. Database Schema
-Create new tables to store multi-account configurations:
+### 1. Update the Form Component
 
-```sql
--- X Bot accounts configuration
-CREATE TABLE x_bot_accounts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  username TEXT NOT NULL,
-  email TEXT,
-  password_encrypted TEXT,
-  totp_secret_encrypted TEXT,
-  full_cookie_encrypted TEXT,
-  auth_token_encrypted TEXT,
-  ct0_token_encrypted TEXT,
-  proxy_url TEXT,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+**File: `src/components/trading/CreateTradingAgentModal.tsx`**
 
--- Per-account targeting rules
-CREATE TABLE x_bot_account_rules (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id UUID REFERENCES x_bot_accounts(id) ON DELETE CASCADE,
-  monitored_mentions TEXT[] DEFAULT '{}',
-  tracked_cashtags TEXT[] DEFAULT '{}',
-  min_follower_count INTEGER DEFAULT 5000,
-  require_blue_verified BOOLEAN DEFAULT true,
-  require_gold_verified BOOLEAN DEFAULT false,
-  author_cooldown_hours INTEGER DEFAULT 6,
-  max_replies_per_thread INTEGER DEFAULT 3,
-  enabled BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+Add a new section for custom image upload alongside the existing avatar preview:
 
--- Per-account reply logs
-CREATE TABLE x_bot_account_replies (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id UUID REFERENCES x_bot_accounts(id),
-  tweet_id TEXT NOT NULL,
-  tweet_author TEXT,
-  tweet_author_id TEXT,
-  tweet_text TEXT,
-  conversation_id TEXT,
-  reply_id TEXT,
-  reply_text TEXT,
-  reply_type TEXT DEFAULT 'initial',
-  status TEXT DEFAULT 'pending',
-  error_message TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+- Add a file input for image upload (accepts PNG, JPG, WebP)
+- Add a state for `customImage` (File or null)
+- Add a preview for the uploaded custom image
+- Allow user to choose between:
+  - AI-generated avatar (existing "Generate Character" flow)
+  - Custom uploaded image
 
--- Per-account tweet queue
-CREATE TABLE x_bot_account_queue (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id UUID REFERENCES x_bot_accounts(id),
-  tweet_id TEXT NOT NULL,
-  tweet_author TEXT,
-  tweet_author_id TEXT,
-  tweet_text TEXT,
-  conversation_id TEXT,
-  follower_count INTEGER,
-  is_verified BOOLEAN,
-  match_type TEXT,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  processed_at TIMESTAMPTZ,
-  UNIQUE(account_id, tweet_id)
-);
+**UI Changes:**
+- Add an "Upload Custom" button next to the avatar preview area
+- Show the uploaded image as preview when selected
+- Clear custom image when "Generate Character" is clicked (and vice versa)
+- Show file size/type validation feedback
+
+### 2. Upload Image to Storage
+
+**Flow:**
+1. When user selects an image file, validate it (max 2MB, image types only)
+2. On form submit, if `customImage` exists:
+   - Upload to Supabase storage (`agent-avatars` bucket)
+   - Get the public URL
+   - Use that URL as `avatarUrl` in the API call
+3. If no custom image, use `generatedAvatar` as before
+
+**Implementation in Modal:**
+```typescript
+const [customImageFile, setCustomImageFile] = useState<File | null>(null);
+const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
+
+const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Max 2MB", variant: "destructive" });
+      return;
+    }
+    setCustomImageFile(file);
+    setCustomImagePreview(URL.createObjectURL(file));
+    setGeneratedAvatar(null); // Clear AI avatar when custom is uploaded
+  }
+};
 ```
 
-### 2. New Edge Functions
+### 3. Create Storage Bucket (if needed)
 
-**`x-bot-scan`** - Unified scanner for all accounts:
-- Loops through active accounts
-- Applies per-account targeting rules
-- Searches for configured mentions AND cashtags
-- Queues tweets per-account
+Check if `agent-avatars` bucket exists, or use existing bucket for agent images. The bucket should allow public read access for avatar URLs.
 
-**`x-bot-reply`** - Unified replier for all accounts:
-- Processes queue per-account
-- Uses account-specific cookies/proxy
-- Respects per-account cooldowns
-- Logs replies to account-specific table
+### 4. Update Submit Handler
 
-### 3. Admin Page (`/admin/x-bots`)
+Modify `onSubmit` to:
+1. Check if `customImageFile` exists
+2. If yes, upload to storage and get URL
+3. Pass the URL (custom or generated) to the API
 
-**Features:**
-- Password-protected (same as treasury: `tuna2024treasury`)
-- Account management (add/edit/delete)
-- Per-account configuration:
-  - Credentials (username, email, password, TOTP)
-  - Cookie session (full cookie OR auth_token + ct0)
-  - Proxy URL
-  - Targeting rules
-- Live status dashboard
-- Reply history per account
-- Manual run buttons
-
-**UI Sections:**
-
-1. **Accounts List**
-   - Name, username, status, last active
-   - Quick enable/disable toggle
-   - Edit/Delete actions
-
-2. **Account Configuration Modal**
-   - Credentials tab (encrypted storage)
-   - Proxy settings
-   - Targeting rules:
-     - Mentions to follow (multi-select)
-     - Cashtags to track (e.g., $BTC, $SOL, $TUNA)
-     - Min followers (slider: 1K-50K)
-     - Verification requirements (checkboxes)
-     - Cooldown settings
-
-3. **Activity Dashboard**
-   - Per-account stats (replies today, success rate)
-   - Recent replies table
-   - Error log viewer
-
-4. **Global Controls**
-   - Master kill switch
-   - Run scan now (all accounts)
-   - Run reply now (all accounts)
-
-### 4. Cron Configuration
-Maintain existing schedule consistency:
-- **Scan**: Every 2 minutes
-- **Reply**: Every 1 minute
-- **Lock mechanism**: Per-account locks to prevent overlap
-
-### 5. Security Considerations
-- Credentials encrypted with existing WALLET_ENCRYPTION_KEY
-- Proxy per account for IP separation
-- Rate limiting per account
-- Audit logging for all actions
-
----
-
-## Technical Architecture
-
-```text
-+------------------+     +-------------------+
-|  Admin UI        |     |  Cron Scheduler   |
-|  /admin/x-bots   |     |  (pg_cron)        |
-+--------+---------+     +--------+----------+
-         |                        |
-         v                        v
-+------------------+     +-------------------+
-| x_bot_accounts   |<--->|  x-bot-scan       |
-| x_bot_rules      |     |  Edge Function    |
-+------------------+     +-------------------+
-                                  |
-                                  v
-                         +-------------------+
-                         | x_bot_account_    |
-                         | queue             |
-                         +-------------------+
-                                  |
-                                  v
-                         +-------------------+
-                         |  x-bot-reply      |
-                         |  Edge Function    |
-                         +-------------------+
-                                  |
-                                  v
-                         +-------------------+
-                         | x_bot_account_    |
-                         | replies           |
-                         +-------------------+
+```typescript
+const onSubmit = async (values: FormValues) => {
+  try {
+    let finalAvatarUrl = generatedAvatar;
+    
+    // Upload custom image if provided
+    if (customImageFile) {
+      const fileName = `trading-agent-${Date.now()}.${customImageFile.name.split('.').pop()}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("agent-avatars")
+        .upload(fileName, customImageFile, { upsert: true });
+      
+      if (uploadError) throw new Error("Failed to upload image");
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from("agent-avatars")
+        .getPublicUrl(fileName);
+      
+      finalAvatarUrl = publicUrl;
+    }
+    
+    const result = await createAgent.mutateAsync({
+      ...values,
+      avatarUrl: finalAvatarUrl || undefined,
+    });
+    // ... rest of handler
+  }
+};
 ```
 
----
+### 5. UI Layout Update
 
-## Files to Create/Modify
+The avatar section will have:
 
-### New Files:
-1. `src/pages/XBotAdminPage.tsx` - Main admin page
-2. `src/components/admin/XBotAccountsPanel.tsx` - Account list
-3. `src/components/admin/XBotAccountForm.tsx` - Add/edit form
-4. `src/components/admin/XBotRulesForm.tsx` - Targeting rules
-5. `src/components/admin/XBotActivityPanel.tsx` - Activity dashboard
-6. `src/hooks/useXBotAccounts.ts` - Data fetching hook
-7. `supabase/functions/x-bot-scan/index.ts` - Multi-account scanner
-8. `supabase/functions/x-bot-reply/index.ts` - Multi-account replier
+```
++--------------------------------------------------+
+|  [Avatar Preview]    | [Generate Character] btn  |
+|  (shows custom or    | [Upload Custom Image] btn |
+|   generated avatar)  | (hidden file input)       |
++--------------------------------------------------+
+```
 
-### Modifications:
-1. `src/App.tsx` - Add route for `/admin/x-bots`
-2. Database migration for new tables
+With clear visual indication of which mode is active.
 
 ---
 
-## Summary of Current Bot Settings (for reference)
+## Files to Modify
 
-| Setting | Current Value |
-|---------|---------------|
-| Minimum Followers | 5,000 |
-| Verification | Blue OR Gold required |
-| Monitored Mentions | @moltbook, @openclaw, @buildtuna, @tunalaunch |
-| Tracked Cashtags | None (not implemented) |
-| Author Cooldown | 6 hours |
-| Max Replies/Thread | 3 |
-| Scan Frequency | Every 2 minutes |
-| Reply Frequency | Every 1 minute |
+1. **`src/components/trading/CreateTradingAgentModal.tsx`**
+   - Add custom image upload state
+   - Add file input (hidden) with click handler
+   - Update avatar preview section to show custom OR generated
+   - Modify submit handler to upload custom image first
+   - Add clear buttons to switch between custom/generated
+
+---
+
+## Technical Details
+
+**Validation:**
+- Max file size: 2MB
+- Accepted types: image/png, image/jpeg, image/webp
+
+**Storage:**
+- Use existing Supabase storage bucket (will check for `agent-avatars` or similar)
+- Generate unique filename with timestamp
+- Get public URL after upload
+
+**UX:**
+- Clicking "Upload Custom" opens file picker
+- After upload, preview shows the custom image
+- Clicking "Generate Character" clears custom and generates AI avatar
+- User can switch between custom and generated freely before submitting
