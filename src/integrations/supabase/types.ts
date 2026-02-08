@@ -6139,6 +6139,44 @@ export type Database = {
           },
         ]
       }
+      x_bot_account_logs: {
+        Row: {
+          account_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          level: string
+          log_type: string
+          message: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          level?: string
+          log_type: string
+          message: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          level?: string
+          log_type?: string
+          message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "x_bot_account_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "x_bot_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       x_bot_account_queue: {
         Row: {
           account_id: string | null

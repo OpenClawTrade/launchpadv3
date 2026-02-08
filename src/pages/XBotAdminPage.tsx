@@ -27,10 +27,12 @@ export default function XBotAdminPage() {
     accounts,
     replies,
     queue,
+    logs,
     loading,
     fetchAccounts,
     fetchReplies,
     fetchQueue,
+    fetchLogs,
     createAccount,
     updateAccount,
     deleteAccount,
@@ -197,6 +199,7 @@ export default function XBotAdminPage() {
             account={viewingAccount}
             replies={replies}
             queue={queue}
+            logs={logs}
             onRefresh={handleRefresh}
             loading={loading}
           />

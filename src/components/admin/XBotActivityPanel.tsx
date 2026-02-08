@@ -12,17 +12,26 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ExternalLink, RefreshCw, Clock, CheckCircle, XCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ExternalLink, RefreshCw, Clock, CheckCircle, XCircle, Terminal, AlertTriangle, Info } from "lucide-react";
 import type {
   XBotAccountWithRules,
   XBotAccountReply,
   XBotQueueItem,
+  XBotAccountLog,
 } from "@/hooks/useXBotAccounts";
 
 interface XBotActivityPanelProps {
   account: XBotAccountWithRules | null;
   replies: XBotAccountReply[];
   queue: XBotQueueItem[];
+  logs: XBotAccountLog[];
   onRefresh: () => void;
   loading?: boolean;
 }
@@ -31,10 +40,12 @@ export function XBotActivityPanel({
   account,
   replies,
   queue,
+  logs,
   onRefresh,
   loading,
 }: XBotActivityPanelProps) {
   const [tab, setTab] = useState("replies");
+  const [logLevelFilter, setLogLevelFilter] = useState<string>("all");
 
   const accountReplies = account
     ? replies.filter((r) => r.account_id === account.id)
@@ -43,6 +54,14 @@ export function XBotActivityPanel({
   const accountQueue = account
     ? queue.filter((q) => q.account_id === account.id)
     : queue;
+
+  const accountLogs = account
+    ? logs.filter((l) => l.account_id === account.id)
+    : logs;
+
+  const filteredLogs = logLevelFilter === "all"
+    ? accountLogs
+    : accountLogs.filter((l) => l.level === logLevelFilter);
 
   const todayReplies = accountReplies.filter((r) => {
     const today = new Date();
@@ -71,6 +90,15 @@ export function XBotActivityPanel({
     });
   };
 
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "success":
@@ -96,6 +124,41 @@ export function XBotActivityPanel({
         );
       default:
         return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getLogLevelBadge = (level: string) => {
+    switch (level) {
+      case "error":
+        return (
+          <Badge variant="destructive" className="font-mono text-xs">
+            ERR
+          </Badge>
+        );
+      case "warn":
+        return (
+          <Badge variant="outline" className="font-mono text-xs border-amber-500 text-amber-600 dark:text-amber-400">
+            WARN
+          </Badge>
+        );
+      case "info":
+      default:
+        return (
+          <Badge variant="secondary" className="font-mono text-xs">
+            INFO
+          </Badge>
+        );
+    }
+  };
+
+  const getLogIcon = (level: string) => {
+    switch (level) {
+      case "error":
+        return <XCircle className="w-3 h-3 text-destructive" />;
+      case "warn":
+        return <AlertTriangle className="w-3 h-3 text-amber-500" />;
+      default:
+        return <Info className="w-3 h-3 text-muted-foreground" />;
     }
   };
 
@@ -130,9 +193,13 @@ export function XBotActivityPanel({
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="replies">Recent Replies</TabsTrigger>
             <TabsTrigger value="queue">Queue</TabsTrigger>
+            <TabsTrigger value="console" className="flex items-center gap-1">
+              <Terminal className="w-3 h-3" />
+              Console
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="replies">
@@ -239,6 +306,54 @@ export function XBotActivityPanel({
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="console">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Filter:</span>
+              <Select value={logLevelFilter} onValueChange={setLogLevelFilter}>
+                <SelectTrigger className="w-[120px] h-8">
+                  <SelectValue placeholder="All levels" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="info">Info</SelectItem>
+                  <SelectItem value="warn">Warning</SelectItem>
+                  <SelectItem value="error">Error</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {filteredLogs.length} entries
+              </span>
+            </div>
+            <ScrollArea className="h-[370px] rounded-md border bg-muted/30">
+              {filteredLogs.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No logs yet. Run a scan or reply to generate activity.
+                </div>
+              ) : (
+                <div className="font-mono text-xs p-2 space-y-1">
+                  {filteredLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className={`flex items-start gap-2 px-2 py-1 rounded ${
+                        log.level === "error"
+                          ? "bg-destructive/10"
+                          : log.level === "warn"
+                          ? "bg-amber-500/10"
+                          : "hover:bg-muted/50"
+                      }`}
+                    >
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {formatTime(log.created_at)}
+                      </span>
+                      {getLogLevelBadge(log.level)}
+                      <span className="flex-1">{log.message}</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </ScrollArea>
           </TabsContent>
