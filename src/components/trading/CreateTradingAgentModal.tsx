@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
- import { Bot, Shield, Target, Zap, Copy, Check, Wallet, Loader2, Sparkles, ExternalLink, Coins, FileCode } from "lucide-react";
+import { Bot, Shield, Target, Zap, Copy, Check, Wallet, Loader2, Sparkles, ExternalLink, Coins, FileCode, Upload, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
@@ -13,6 +13,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateTradingAgent } from "@/hooks/useTradingAgents";
+import { supabase } from "@/integrations/supabase/client";
 import tunaLogo from "@/assets/tuna-logo.png";
 
 const formSchema = z.object({
@@ -85,8 +86,12 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedMint, setCopiedMint] = useState(false);
-   const [isGenerating, setIsGenerating] = useState(false);
-   const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null);
+  const [customImageFile, setCustomImageFile] = useState<File | null>(null);
+  const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -102,50 +107,91 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
 
   const selectedStrategy = form.watch("strategy");
 
-   const handleGenerate = async () => {
-     setIsGenerating(true);
-     try {
-       const response = await fetch(
-         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trading-agent-generate`,
-         {
-           method: "POST",
-           headers: {
-             "Content-Type": "application/json",
-             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-           },
-           body: JSON.stringify({
-             strategy: form.getValues("strategy"),
-           }),
-         }
-       );
-       const result = await response.json();
-       if (result.success) {
-         form.setValue("name", result.name);
-         form.setValue("ticker", result.ticker);
-         form.setValue("description", result.description);
-          if (result.personality) {
-            form.setValue("personality", result.personality);
-          }
-         if (result.avatarUrl) {
-           setGeneratedAvatar(result.avatarUrl);
-         }
-         toast({
-           title: "Character Generated",
-           description: `${result.name} is ready to customize.`,
-         });
-       } else {
-         throw new Error(result.error || "Generation failed");
-       }
-     } catch (error) {
-       toast({
-         title: "Generation Failed",
-         description: error instanceof Error ? error.message : "Failed to generate agent character",
-         variant: "destructive",
-       });
-     } finally {
-       setIsGenerating(false);
-     }
-   };
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    // Clear custom image when generating AI avatar
+    setCustomImageFile(null);
+    setCustomImagePreview(null);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trading-agent-generate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            strategy: form.getValues("strategy"),
+          }),
+        }
+      );
+      const result = await response.json();
+      if (result.success) {
+        form.setValue("name", result.name);
+        form.setValue("ticker", result.ticker);
+        form.setValue("description", result.description);
+        if (result.personality) {
+          form.setValue("personality", result.personality);
+        }
+        if (result.avatarUrl) {
+          setGeneratedAvatar(result.avatarUrl);
+        }
+        toast({
+          title: "Character Generated",
+          description: `${result.name} is ready to customize.`,
+        });
+      } else {
+        throw new Error(result.error || "Generation failed");
+      }
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate agent character",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload PNG, JPG, or WebP images only",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "Image too large",
+        description: "Maximum file size is 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCustomImageFile(file);
+    setCustomImagePreview(URL.createObjectURL(file));
+    setGeneratedAvatar(null); // Clear AI avatar when custom is uploaded
+  };
+
+  const handleClearCustomImage = () => {
+    setCustomImageFile(null);
+    setCustomImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleCopyAddress = async () => {
     if (createdAgent?.walletAddress) {
@@ -165,14 +211,41 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
 
   const onSubmit = async (values: FormValues) => {
     try {
+      let finalAvatarUrl = generatedAvatar;
+
+      // Upload custom image if provided
+      if (customImageFile) {
+        setIsUploadingImage(true);
+        try {
+          const ext = customImageFile.name.split('.').pop() || 'png';
+          const fileName = `trading-agent-${Date.now()}.${ext}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("trading-agents")
+            .upload(fileName, customImageFile, { upsert: true });
+          
+          if (uploadError) {
+            throw new Error("Failed to upload image: " + uploadError.message);
+          }
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from("trading-agents")
+            .getPublicUrl(fileName);
+          
+          finalAvatarUrl = publicUrl;
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
+
       const result = await createAgent.mutateAsync({
         name: values.name,
         ticker: values.ticker,
         description: values.description,
         strategy: values.strategy,
         personalityPrompt: values.personality,
-         avatarUrl: generatedAvatar || undefined,
-         twitterUrl: values.twitterUrl || undefined,
+        avatarUrl: finalAvatarUrl || undefined,
+        twitterUrl: values.twitterUrl || undefined,
       });
 
       if (result.success) {
@@ -180,8 +253,8 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
           name: result.tradingAgent.name,
           walletAddress: result.tradingAgent.walletAddress,
           ticker: result.tradingAgent.ticker,
-           mintAddress: result.tradingAgent.mintAddress,
-           avatarUrl: result.tradingAgent.avatarUrl || generatedAvatar || undefined,
+          mintAddress: result.tradingAgent.mintAddress,
+          avatarUrl: result.tradingAgent.avatarUrl || finalAvatarUrl || undefined,
         });
         toast({
           title: "Trading Agent Created!",
@@ -201,10 +274,15 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
 
   const handleClose = () => {
     setCreatedAgent(null);
-     setGeneratedAvatar(null);
+    setGeneratedAvatar(null);
+    setCustomImageFile(null);
+    setCustomImagePreview(null);
     form.reset();
     onOpenChange(false);
   };
+
+  // Determine which avatar to display
+  const displayAvatar = customImagePreview || generatedAvatar;
 
   // Success state
   if (createdAgent) {
@@ -396,46 +474,79 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
                 )}
               />
 
-             {/* Generate Button with Avatar Preview */}
-             <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary/30 border border-border">
-               <div className="relative">
-                 {generatedAvatar ? (
-                   <img
-                     src={generatedAvatar}
-                     alt="Generated avatar"
-                     className="w-16 h-16 rounded-lg object-cover border-2 border-amber-500/50"
-                   />
-                 ) : (
-                   <div className="w-16 h-16 rounded-lg bg-background/50 border border-dashed border-border flex items-center justify-center">
-                     <Bot className="h-6 w-6 text-muted-foreground" />
-                   </div>
-                 )}
-               </div>
-               <div className="flex-1">
-                 <Button
-                   type="button"
-                   variant="outline"
-                   onClick={handleGenerate}
-                   disabled={isGenerating}
-                   className="w-full border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/10"
-                 >
-                   {isGenerating ? (
-                     <>
-                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                       Generating...
-                     </>
+             {/* Avatar Section with Generate & Upload Options */}
+             <div className="p-4 rounded-lg bg-secondary/30 border border-border space-y-3">
+               <div className="flex items-center gap-4">
+                 <div className="relative">
+                   {displayAvatar ? (
+                     <div className="relative">
+                       <img
+                         src={displayAvatar}
+                         alt="Avatar preview"
+                         className="w-16 h-16 rounded-lg object-cover border-2 border-amber-500/50"
+                       />
+                       {customImagePreview && (
+                         <button
+                           type="button"
+                           onClick={handleClearCustomImage}
+                           className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/80"
+                         >
+                           <X className="h-3 w-3" />
+                         </button>
+                       )}
+                     </div>
                    ) : (
-                     <>
-                       <img src={tunaLogo} alt="" className="h-4 w-4 mr-2" />
-                       <Sparkles className="h-3 w-3 mr-1" />
-                       Generate Character
-                     </>
+                     <div className="w-16 h-16 rounded-lg bg-background/50 border border-dashed border-border flex items-center justify-center">
+                       <Bot className="h-6 w-6 text-muted-foreground" />
+                     </div>
                    )}
-                 </Button>
-                 <p className="text-[10px] text-muted-foreground mt-1 text-center">
-                   AI creates name, ticker, description & avatar
-                 </p>
+                 </div>
+                 <div className="flex-1 space-y-2">
+                   <Button
+                     type="button"
+                     variant="outline"
+                     onClick={handleGenerate}
+                     disabled={isGenerating}
+                     className="w-full border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/10"
+                   >
+                     {isGenerating ? (
+                       <>
+                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                         Generating...
+                       </>
+                     ) : (
+                       <>
+                         <img src={tunaLogo} alt="" className="h-4 w-4 mr-2" />
+                         <Sparkles className="h-3 w-3 mr-1" />
+                         Generate Character
+                       </>
+                     )}
+                   </Button>
+                   <Button
+                     type="button"
+                     variant="outline"
+                     onClick={() => fileInputRef.current?.click()}
+                     className="w-full"
+                   >
+                     <Upload className="h-4 w-4 mr-2" />
+                     Upload Custom Image
+                   </Button>
+                   <input
+                     ref={fileInputRef}
+                     type="file"
+                     accept="image/png,image/jpeg,image/jpg,image/webp"
+                     onChange={handleImageUpload}
+                     className="hidden"
+                   />
+                 </div>
                </div>
+               <p className="text-[10px] text-muted-foreground text-center">
+                 {customImagePreview 
+                   ? "Using custom image • Click X to remove" 
+                   : generatedAvatar 
+                     ? "Using AI-generated avatar" 
+                     : "Generate a character or upload your own image (max 2MB)"}
+               </p>
              </div>
 
               {/* Optional Fields */}
@@ -540,10 +651,15 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={createAgent.isPending}
+                  disabled={createAgent.isPending || isUploadingImage}
                   className="flex-1 bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-600 hover:to-yellow-600"
                 >
-                  {createAgent.isPending ? (
+                  {isUploadingImage ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : createAgent.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Creating...
