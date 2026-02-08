@@ -103,9 +103,17 @@ async function searchTweets(apiKey: string, query: string): Promise<Tweet[]> {
   }
 }
 
-function isRecentTweet(createdAt: string | undefined, maxAgeMinutes: number): boolean {
+function isTweetAfterTimestamp(createdAt: string | undefined, lastScannedAt: string | null, maxAgeMinutes: number): boolean {
   if (!createdAt) return false;
   const tweetTime = new Date(createdAt).getTime();
+  
+  // If we have a last_scanned_at, only accept tweets after that time
+  if (lastScannedAt) {
+    const lastScanTime = new Date(lastScannedAt).getTime();
+    return tweetTime > lastScanTime;
+  }
+  
+  // Fallback: only tweets from last N minutes (for first scan)
   return Date.now() - tweetTime < maxAgeMinutes * 60 * 1000;
 }
 
@@ -218,6 +226,7 @@ serve(async (req) => {
         id,
         username,
         is_active,
+        last_scanned_at,
         x_bot_account_rules (
           monitored_mentions,
           tracked_cashtags,
@@ -240,6 +249,8 @@ serve(async (req) => {
       if (!rules?.enabled) continue;
 
       debug.accountsProcessed++;
+      const lastScannedAt = (account as any).last_scanned_at as string | null;
+      const scanStartTime = new Date().toISOString();
 
       // Log scan start
       await insertLog(supabase, account.id, "scan", "info", `Starting scan for @${account.username}`);
@@ -275,8 +286,8 @@ serve(async (req) => {
         const author = tweet.author?.userName || "unknown";
         const followers = getFollowerCount(tweet);
 
-        // Skip old tweets (only last 30 minutes)
-        if (!isRecentTweet(tweet.createdAt, 30)) {
+        // Skip tweets older than last scan (or 30 min for first scan)
+        if (!isTweetAfterTimestamp(tweet.createdAt, lastScannedAt, 30)) {
           debug.skipped++;
           skippedCount++;
           continue;
@@ -376,10 +387,17 @@ serve(async (req) => {
         }
       }
 
+      // Update last_scanned_at timestamp for this account
+      await supabase
+        .from("x_bot_accounts")
+        .update({ last_scanned_at: scanStartTime })
+        .eq("id", account.id);
+
       // Log scan summary
       await insertLog(supabase, account.id, "scan", "info", `Scan complete: ${queuedCount} queued, ${skippedCount} skipped`, {
         queued: queuedCount,
         skipped: skippedCount,
+        lastScannedAt: scanStartTime,
       });
     }
 

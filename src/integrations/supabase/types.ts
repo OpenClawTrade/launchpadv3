@@ -6349,6 +6349,7 @@ export type Database = {
           full_cookie_encrypted: string | null
           id: string
           is_active: boolean | null
+          last_scanned_at: string | null
           last_socks5_failure_at: string | null
           name: string
           password_encrypted: string | null
@@ -6367,6 +6368,7 @@ export type Database = {
           full_cookie_encrypted?: string | null
           id?: string
           is_active?: boolean | null
+          last_scanned_at?: string | null
           last_socks5_failure_at?: string | null
           name: string
           password_encrypted?: string | null
@@ -6385,6 +6387,7 @@ export type Database = {
           full_cookie_encrypted?: string | null
           id?: string
           is_active?: boolean | null
+          last_scanned_at?: string | null
           last_socks5_failure_at?: string | null
           name?: string
           password_encrypted?: string | null
