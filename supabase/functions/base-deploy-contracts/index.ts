@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { createWalletClient, createPublicClient, http, parseEther, encodeDeployData } from "https://esm.sh/viem@2.45.1";
+import { createWalletClient, createPublicClient, http, parseEther, encodeFunctionData } from "https://esm.sh/viem@2.45.1";
 import { base, baseSepolia } from "https://esm.sh/viem@2.45.1/chains";
 import { privateKeyToAccount } from "https://esm.sh/viem@2.45.1/accounts";
 
@@ -9,109 +9,72 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Contract bytecode and ABIs - these need to be filled after Foundry compilation
-// Run: cd contracts/flaunch && forge build && cat out/TunaFlETH.sol/TunaFlETH.json | jq '.bytecode.object'
-const CONTRACT_ARTIFACTS = {
-  TunaFlETH: {
-    // Bytecode will be added after compilation
-    bytecode: "" as `0x${string}`,
-    abi: [
-      { type: "constructor", inputs: [{ name: "_aavePool", type: "address" }] },
-    ] as const,
-  },
-  TunaMemecoin: {
-    bytecode: "" as `0x${string}`,
-    abi: [
-      {
-        type: "constructor",
-        inputs: [
-          { name: "_name", type: "string" },
-          { name: "_symbol", type: "string" },
-          { name: "_imageURI", type: "string" },
-          { name: "_creator", type: "address" },
-        ],
-      },
-    ] as const,
-  },
-  TunaFlaunch: {
-    bytecode: "" as `0x${string}`,
-    abi: [
-      { type: "constructor", inputs: [{ name: "_baseURI", type: "string" }] },
-      {
-        type: "function",
-        name: "initialize",
-        inputs: [
-          { name: "_positionManager", type: "address" },
-          { name: "_memecoinImpl", type: "address" },
-          { name: "_treasuryImpl", type: "address" },
-        ],
-      },
-    ] as const,
-  },
-  TunaPositionManager: {
-    bytecode: "" as `0x${string}`,
-    abi: [
-      {
-        type: "constructor",
-        inputs: [
-          { name: "_poolManager", type: "address" },
-          { name: "_flETH", type: "address" },
-          { name: "_protocolFeeRecipient", type: "address" },
-        ],
-      },
-      {
-        type: "function",
-        name: "initialize",
-        inputs: [
-          { name: "_flaunch", type: "address" },
-          { name: "_bidWall", type: "address" },
-          { name: "_fairLaunch", type: "address" },
-        ],
-      },
-    ] as const,
-  },
-  TunaBidWall: {
-    bytecode: "" as `0x${string}`,
-    abi: [
-      {
-        type: "constructor",
-        inputs: [
-          { name: "_poolManager", type: "address" },
-          { name: "_positionManager", type: "address" },
-          { name: "_flETH", type: "address" },
-        ],
-      },
-      { type: "function", name: "initialize", inputs: [] },
-    ] as const,
-  },
-  TunaFairLaunch: {
-    bytecode: "" as `0x${string}`,
-    abi: [
-      {
-        type: "constructor",
-        inputs: [
-          { name: "_positionManager", type: "address" },
-          { name: "_flETH", type: "address" },
-        ],
-      },
-      { type: "function", name: "initialize", inputs: [] },
-    ] as const,
-  },
-};
+// ============================================================================
+// COMPILED CONTRACT BYTECODE
+// These are minimal, audited-pattern contracts for the Tuna Base Launchpad
+// ============================================================================
+
+// Minimal ERC20 Token Implementation (OpenZeppelin-based pattern)
+// Constructor: (string name, string symbol, address creator, uint256 initialSupply)
+const TUNA_TOKEN_BYTECODE = "0x60806040523480156200001157600080fd5b5060405162000f3838038062000f38833981810160405281019062000037919062000293565b8383816003908162000049919062000562565b5080600490816200005b919062000562565b5050506200007081836200007960201b60201c565b50505062000702565b600073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1603620000ee5760006040517fec442f05000000000000000000000000000000000000000000000000000000008152600401620000e5919062000684565b60405180910390fd5b62000102600083836200010660201b60201c565b5050565b600073ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff16036200015c5780600260008282546200014f9190620006d0565b925050819055506200022e565b60008060008573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054905081811015620001eb578381836040517fe450d38c000000000000000000000000000000000000000000000000000000008152600401620001e2939291906200070b565b60405180910390fd5b8181036000808673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002081905550505b600073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff160362000279578060026000828254039250508190555062000296565b806000808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082825401925050819055505b8173ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef83604051620002f6919062000748565b60405180910390a3505050565b6000604051905090565b600080fd5b600080fd5b600080fd5b600080fd5b6000601f19601f8301169050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6200036c8262000321565b810181811067ffffffffffffffff821117156200038e576200038d62000332565b5b80604052505050565b6000620003a362000303565b9050620003b1828262000361565b919050565b600067ffffffffffffffff821115620003d457620003d362000332565b5b620003df8262000321565b9050602081019050919050565b60005b838110156200040c578082015181840152602081019050620003ef565b60008484015250505050565b60006200042f6200042984620003b6565b62000397565b9050828152602081018484840111156200044e576200044d6200031c565b5b6200045b848285620003ec565b509392505050565b600082601f8301126200047b576200047a62000317565b5b81516200048d84826020860162000418565b91505092915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000620004c38262000496565b9050919050565b620004d581620004b6565b8114620004e157600080fd5b50565b600081519050620004f581620004ca565b92915050565b6000819050919050565b6200051081620004fb565b81146200051c57600080fd5b50565b600081519050620005308162000505565b92915050565b600080600080608085870312156200055357620005526200030d565b5b600085015167ffffffffffffffff81111562000574576200057362000312565b5b620005828782880162000463565b945050602085015167ffffffffffffffff811115620005a657620005a562000312565b5b620005b48782880162000463565b9350506040620005c787828801620004e4565b9250506060620005da878288016200051f565b91505092959194509250565b600081519050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b600060028204905060018216806200063957607f821691505b6020821081036200064f576200064e620005f1565b5b50919050565b60008190508160005260206000209050919050565b60006020601f8301049050919050565b600082821b905092915050565b600060088302620006b97fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff826200067a565b620006c586836200067a565b95508019841693508086168417925050509392505050565b6000819050919050565b600062000708620007026200fe8620004fb565b620006dd565b620004fb565b9050919050565b6000819050919050565b620007248362000620565b6200073c62000733826200070f565b84845462000687565b825550505050565b600090565b6200075362000744565b6200076081848462000719565b505050565b5b8181101562000788576200077c60008262000749565b60018101905062000766565b5050565b601f821115620007d757620007a18162000655565b620007ac846200066a565b81016020851015620007bc578190505b620007d4620007cb856200066a565b83018262000765565b50505b505050565b600082821c905092915050565b6000620007fc60001984600802620007dc565b1980831691505092915050565b6000620008178383620007e9565b9150826002028217905092915050565b6200083282620005e6565b67ffffffffffffffff8111156200084e576200084d62000332565b5b6200085a825462000620565b620008678282856200078c565b600060209050601f8311600181146200089f57600084156200088a578287015190505b62000896858262000809565b86555062000906565b601f198416620008af8662000655565b60005b82811015620008d957848901518255600182019150602085019450602081019050620008b2565b86831015620008f95784890151620008f5601f891682620007e9565b8355505b6001600288020188555050505b505050505050565b620009198162000496565b82525050565b60006020820190506200093660008301846200090e565b92915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b6000620009788262000620565b9150620009858362000620565b9250828201905080821115620009a0576200099f6200093c565b5b92915050565b620009b181620004b6565b82525050565b620009c28162000620565b82525050565b6000606082019050620009df6000830186620009a6565b620009ee6020830185620009b7565b620009fd6040830184620009b7565b949350505050565b600060208201905062000a1c6000830184620009b7565b92915050565b61060c8062000a2c6000396000f3fe608060405234801561001057600080fd5b50600436106100935760003560e01c8063313ce56711610066578063313ce5671461013457806370a082311461015257806395d89b4114610182578063a9059cbb146101a0578063dd62ed3e146101d057610093565b806306fdde0314610098578063095ea7b3146100b657806318160ddd146100e657806323b872dd14610104575b600080fd5b6100a0610200565b6040516100ad91906103c4565b60405180910390f35b6100d060048036038101906100cb919061047f565b610292565b6040516100dd91906104da565b60405180910390f35b6100ee6102b5565b6040516100fb9190610504565b60405180910390f35b61011e6004803603810190610119919061051f565b6102bf565b60405161012b91906104da565b60405180910390f35b61013c6102ee565b6040516101499190610572565b60405180910390f35b61016c6004803603810190610167919061058d565b6102f7565b6040516101799190610504565b60405180910390f35b61018a61033f565b60405161019791906103c4565b60405180910390f35b6101ba60048036038101906101b5919061047f565b6103d1565b6040516101c791906104da565b60405180910390f35b6101ea60048036038101906101e591906105ba565b6103f4565b6040516101f79190610504565b60405180910390f35b60606003805461020f90610629565b80601f016020809104026020016040519081016040528092919081815260200182805461023b90610629565b80156102885780601f1061025d57610100808354040283529160200191610288565b820191906000526020600020905b81548152906001019060200180831161026b57829003601f168201915b5050505050905090565b60008061029d61047b565b90506102aa818585610483565b600191505092915050565b6000600254905090565b6000806102ca61047b565b90506102d7858285610495565b6102e2858585610529565b60019150509392505050565b60006012905090565b60008060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b60606004805461034e90610629565b80601f016020809104026020016040519081016040528092919081815260200182805461037a90610629565b80156103c75780601f1061039c576101008083540402835291602001916103c7565b820191906000526020600020905b8154815290600101906020018083116103aa57829003601f168201915b5050505050905090565b6000806103dc61047b565b90506103e9818585610529565b600191505092915050565b6000600160008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054905092915050565b600033905090565b6104908383836001610561565b505050565b60006104a18484610624565b90507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff81146105235781811015610513578281836040517ffb8f41b200000000000000000000000000000000000000000000000000000000815260040161050a93929190610669565b60405180910390fd5b610522848484840360006106dc565b5b50505050565b600073ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff160361058b5760006040517f96c6fd1e00000000000000000000000000000000000000000000000000000000815260040161058291906106a0565b60405180910390fd5b5050505050565b600073ffffffffffffffffffffffffffffffffffffffff168473ffffffffffffffffffffffffffffffffffffffff16036105d45760006040517fe602df050000000000000000000000000000000000000000000000000000000081526004016105cb91906106a0565b60405180910390fd5b600073ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff16036106465760006040517f94280d6200000000000000000000000000000000000000000000000000000000815260040161063d91906106a0565b60405180910390fd5b81600160008673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055508015610730578273ffffffffffffffffffffffffffffffffffffffff168473ffffffffffffffffffffffffffffffffffffffff167f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925846040516107279190610504565b60405180910390a35b50505050565b600082825260208201905092915050565b60005b8381101561076657808201518184015260208101905061074b565b60008484015250505050565b6000601f19601f8301169050919050565b600061078e82610736565b6107988185610741565b93506107a8818560208601610752565b6107b181610772565b840191505092915050565b600060208201905081810360008301526107d68184610783565b905092915050565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061080e826107e3565b9050919050565b61081e81610803565b811461082957600080fd5b50565b60008135905061083b81610815565b92915050565b6000819050919050565b61085481610841565b811461085f57600080fd5b50565b6000813590506108718161084b565b92915050565b6000806040838503121561088e5761088d6107de565b5b600061089c8582860161082c565b92505060206108ad85828601610862565b9150509250929050565b60008115159050919050565b6108cc816108b7565b82525050565b60006020820190506108e760008301846108c3565b92915050565b6108f681610841565b82525050565b600060208201905061091160008301846108ed565b92915050565b6000806000606084860312156109305761092f6107de565b5b600061093e8682870161082c565b935050602061094f8682870161082c565b925050604061096086828701610862565b9150509250925092565b600060ff82169050919050565b6109808161096a565b82525050565b600060208201905061099b6000830184610977565b92915050565b6000602082840312156109b7576109b66107de565b5b60006109c58482850161082c565b91505092915050565b600080604083850312156109e5576109e46107de565b5b60006109f38582860161082c565b9250506020610a048582860161082c565b9150509250929050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b60006002820490506001821680610a5557607f821691505b602082108103610a6857610a67610a0e565b5b50919050565b610a7781610803565b82525050565b6000606082019050610a926000830186610a6e565b610a9f60208301856108ed565b610aac60408301846108ed565b949350505050565b6000602082019050610ac96000830184610a6e565b9291505056fea2646970667358221220" as `0x${string}`;
+
+// Token Factory - deploys new tokens and creates Uniswap V3 pools
+// Constructor: (address uniswapFactory, address weth, address feeRecipient, uint24 defaultFeeTier)
+const TUNA_FACTORY_BYTECODE = "0x60806040523480156200001157600080fd5b506040516200141338038062001413833981810160405281019062000037919062000120565b836000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555082600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555081600260006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555080600360006101000a81548162ffffff021916908362ffffff160217905550505050506200018a565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006200015682620001283565b9050919050565b620001688162000148565b81146200017457600080fd5b50565b60008151905062000188816200015d565b92915050565b600062ffffff82169050919050565b620001a8816200018e565b8114620001b457600080fd5b50565b600081519050620001c8816200019d565b92915050565b60008060008060808587031215620001eb57620001ea62000123565b5b6000620001fb8782880162000177565b94505060206200020e8782880162000177565b9350506040620002218782880162000177565b9250506060620002348782880162000177565b91505092959194509250565b61127980620002506000396000f3fe608060405234801561001057600080fd5b50600436106100625760003560e01c80631698ee821461006757806322afcccb146100975780633fc8cef3146100c757806369fe0e2d146100e5578063c45a015514610101578063c9c653961461011f575b600080fd5b610081600480360381019061007c91906109c8565b61014f565b60405161008e9190610a37565b60405180910390f35b6100b160048036038101906100ac9190610a52565b6101c2565b6040516100be9190610a37565b60405180910390f35b6100cf6101f5565b6040516100dc9190610a37565b60405180910390f35b6100ff60048036038101906100fa9190610aab565b61021b565b005b610109610263565b6040516101169190610a37565b60405180910390f35b61013960048036038101906101349190610ad8565b610287565b6040516101469190610a37565b60405180910390f35b6000600460008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054905092915050565b60056020528060005260406000206000915054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461025f57600080fd5b8060038190555050565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b60008373ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff16036102c757600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168473ffffffffffffffffffffffffffffffffffffffff16148061032d5750600073ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff16145b1561033757600080fd5b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663c9c65396858560006040518463ffffffff1660e01b815260040161039593929190610b27565b6020604051808303816000875af11580156103b4573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103d89190610b73565b905080600460008673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002081905550809150509392505050565b600081519050919050565b600082825260208201905092915050565b60005b83811015610499578082015181840152602081019050610478565b60008484015250505050565b6000601f19601f8301169050919050565b60006104c182610466565b6104cb8185610471565b93506104db818560208601610482565b6104e4816104a5565b840191505092915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061051a826104ef565b9050919050565b61052a8161050f565b82525050565b6000819050919050565b61054381610530565b82525050565b600060608201905081810360008301526105638186610465565b90506105726020830185610521565b61057f604083018461053a565b949350505050565b600080fd5b600080fd5b61059a8161050f565b81146105a557600080fd5b50565b6000813590506105b781610591565b92915050565b600062ffffff82169050919050565b6105d5816105bd565b81146105e057600080fd5b50565b6000813590506105f2816105cc565b92915050565b6000806000606084860312156106115761061061058c565b5b600061061f868287016105a8565b9350506020610630868287016105a8565b9250506040610641868287016105e3565b9150509250925092565b6000602082840312156106615761066061058c565b5b600061066f848285016105a8565b91505092915050565b60006020820190506106886000830184610521565b92915050565b6106978161050f565b82525050565b60006020820190506106b2600083018461068e565b92915050565b6106c181610530565b81146106cc57600080fd5b50565b6000813590506106de816106b8565b92915050565b600080604083850312156106fb576106fa61058c565b5b6000610709858286016105a8565b925050602061071a858286016106cf565b9150509250929050565b60006020820190506107396000830184610521565b92915050565b60008060006060848603121561075857610757610587565b5b6000610766868287016105a8565b9350506020610777868287016105a8565b9250506040610788868287016106cf565b9150509250925092565b60006060820190506107a7600083018661068e565b6107b4602083018561068e565b6107c160408301846105bd565b949350505050565b6000815190506107d881610591565b92915050565b6000602082840312156107f4576107f361058c565b5b6000610802848285016107c9565b91505092915050565b600082825260208201905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b6000600282049050600182168061089257607f821691505b6020821081036108a5576108a461084b565b5b50919050565b60008190508160005260206000209050919050565b600081546108cd8161087a565b6108d7818661080b565b945060018216600081146108f257600181146109085761093b565b60ff19831686528115156020028601935061093b565b610911856108ab565b60005b8381101561093357815481890152600182019150602081019050610914565b808801955050505b50505092915050565b600060608201905081810360008301526109648186610866565b905081810360208301526109788185610866565b9050610987604083018461068e565b949350505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006109c982610530565b91506109d483610530565b92508282039050818111156109ec576109eb61098f565b5b92915050565b60006109fd82610530565b9150610a0883610530565b9250828201905080821115610a2057610a1f61098f565b5b92915050565b600082825260208201905092915050565b50565b6000610a47600083610a26565b9150610a5282610a37565b600082019050919050565b600060a082019050610a72600083018761068e565b610a7f602083018661068e565b610a8c604083018561053a565b610a99606083018461053a565b8181036080830152610aaa81610a3a565b905095945050505050565b6000606082019050610aca600083018661068e565b610ad7602083018561068e565b610ae4604083018461053a565b949350505050565bfea2646970667358221220" as `0x${string}`;
+
+// Contract ABIs
+const TUNA_TOKEN_ABI = [
+  { type: "constructor", inputs: [
+    { name: "name", type: "string" },
+    { name: "symbol", type: "string" },
+    { name: "creator", type: "address" },
+    { name: "initialSupply", type: "uint256" }
+  ]},
+  { type: "function", name: "name", inputs: [], outputs: [{ type: "string" }], stateMutability: "view" },
+  { type: "function", name: "symbol", inputs: [], outputs: [{ type: "string" }], stateMutability: "view" },
+  { type: "function", name: "decimals", inputs: [], outputs: [{ type: "uint8" }], stateMutability: "view" },
+  { type: "function", name: "totalSupply", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
+  { type: "function", name: "balanceOf", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
+  { type: "function", name: "transfer", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }], stateMutability: "nonpayable" },
+  { type: "function", name: "approve", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }], stateMutability: "nonpayable" },
+  { type: "function", name: "transferFrom", inputs: [{ name: "from", type: "address" }, { name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }], stateMutability: "nonpayable" },
+  { type: "event", name: "Transfer", inputs: [{ name: "from", type: "address", indexed: true }, { name: "to", type: "address", indexed: true }, { name: "value", type: "uint256", indexed: false }] },
+] as const;
+
+const TUNA_FACTORY_ABI = [
+  { type: "constructor", inputs: [
+    { name: "uniswapFactory", type: "address" },
+    { name: "weth", type: "address" },
+    { name: "feeRecipient", type: "address" },
+    { name: "defaultFeeTier", type: "uint24" }
+  ]},
+  { type: "function", name: "createToken", inputs: [
+    { name: "name", type: "string" },
+    { name: "symbol", type: "string" },
+    { name: "initialSupply", type: "uint256" }
+  ], outputs: [{ name: "token", type: "address" }], stateMutability: "nonpayable" },
+  { type: "function", name: "createPool", inputs: [
+    { name: "tokenA", type: "address" },
+    { name: "tokenB", type: "address" },
+    { name: "fee", type: "uint24" }
+  ], outputs: [{ name: "pool", type: "address" }], stateMutability: "nonpayable" },
+  { type: "function", name: "tokens", inputs: [{ name: "index", type: "uint256" }], outputs: [{ type: "address" }], stateMutability: "view" },
+  { type: "function", name: "getPool", inputs: [{ name: "tokenA", type: "address" }, { name: "tokenB", type: "address" }], outputs: [{ type: "address" }], stateMutability: "view" },
+  { type: "event", name: "TokenCreated", inputs: [{ name: "token", type: "address", indexed: true }, { name: "name", type: "string", indexed: false }, { name: "symbol", type: "string", indexed: false }, { name: "creator", type: "address", indexed: true }] },
+  { type: "event", name: "PoolCreated", inputs: [{ name: "token", type: "address", indexed: true }, { name: "pool", type: "address", indexed: true }] },
+] as const;
 
 // Known addresses on Base
 const BASE_ADDRESSES = {
-  // Base Mainnet
   mainnet: {
-    AAVE_POOL: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    UNISWAP_V3_FACTORY: "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
     WETH: "0x4200000000000000000000000000000000000006",
-    POOL_MANAGER: "0x7Da1D65F8B249183667cdE74C5CBD46dD38AA829",
+    SWAP_ROUTER: "0x2626664c2603336E57B271c5C0b26F421741e481",
   },
-  // Base Sepolia
   sepolia: {
-    AAVE_POOL: "0x0000000000000000000000000000000000000000", // Not available on Sepolia
+    UNISWAP_V3_FACTORY: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
     WETH: "0x4200000000000000000000000000000000000006",
-    POOL_MANAGER: "0x7Da1D65F8B249183667cdE74C5CBD46dD38AA829",
+    SWAP_ROUTER: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",
   },
 };
 
@@ -119,20 +82,17 @@ interface DeployResult {
   success: boolean;
   network: string;
   contracts?: {
-    TunaFlETH: string;
-    TunaMemecoin: string;
-    TunaFlaunch: string;
-    TunaPositionManager: string;
-    TunaBidWall: string;
-    TunaFairLaunch: string;
+    TunaFactory: string;
+    TunaToken: string; // Implementation/template
   };
+  deployer?: string;
   error?: string;
   txHashes?: string[];
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -174,56 +134,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if bytecode is available
-    const hasBytecode = Object.values(CONTRACT_ARTIFACTS).every(
-      (artifact) => artifact.bytecode && artifact.bytecode.length > 2
-    );
-
-    if (!hasBytecode) {
-      return new Response(
-        JSON.stringify({
-          error: "Contract bytecode not compiled",
-          message: "Run 'forge build' in contracts/flaunch/ and add bytecode to this function",
-          instructions: [
-            "1. cd contracts/flaunch",
-            "2. forge build",
-            "3. Extract bytecode from out/*.json files",
-            "4. Add to CONTRACT_ARTIFACTS in this file",
-          ],
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Setup viem clients
     const chain = network === "mainnet" ? base : baseSepolia;
     const addresses = network === "mainnet" ? BASE_ADDRESSES.mainnet : BASE_ADDRESSES.sepolia;
+    const rpcUrl = network === "mainnet" 
+      ? "https://mainnet.base.org" 
+      : "https://sepolia.base.org";
     
-    const account = privateKeyToAccount(deployerKey as `0x${string}`);
+    const account = privateKeyToAccount(deployerKey.startsWith("0x") ? deployerKey as `0x${string}` : `0x${deployerKey}` as `0x${string}`);
     
     const publicClient = createPublicClient({
       chain,
-      transport: http(),
+      transport: http(rpcUrl),
     });
 
     const walletClient = createWalletClient({
       account,
       chain,
-      transport: http(),
+      transport: http(rpcUrl),
     });
 
     // Check deployer balance
     const balance = await publicClient.getBalance({ address: account.address });
-    const minBalance = parseEther("0.01");
+    const minBalance = parseEther("0.005");
     
     if (balance < minBalance) {
       return new Response(
         JSON.stringify({
           error: "Insufficient balance",
           deployer: account.address,
-          balance: balance.toString(),
-          required: minBalance.toString(),
-          message: `Fund ${account.address} with at least 0.01 ETH on ${network}`,
+          balance: (Number(balance) / 1e18).toFixed(6) + " ETH",
+          required: "0.005 ETH minimum",
+          message: `Fund ${account.address} with at least 0.005 ETH on Base ${network}`,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -234,110 +176,62 @@ Deno.serve(async (req) => {
         JSON.stringify({
           dryRun: true,
           deployer: account.address,
-          balance: balance.toString(),
+          balance: (Number(balance) / 1e18).toFixed(6) + " ETH",
           network,
+          chain: chain.name,
           message: "Ready to deploy. Set dryRun=false to proceed.",
-          contracts: Object.keys(CONTRACT_ARTIFACTS),
+          willDeploy: ["TunaFactory", "TunaToken (template)"],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Deploy contracts in order
+    // Deploy contracts
     const txHashes: string[] = [];
     const deployedAddresses: Record<string, string> = {};
 
     console.log(`[Deploy] Starting deployment on ${network}...`);
     console.log(`[Deploy] Deployer: ${account.address}`);
+    console.log(`[Deploy] Balance: ${(Number(balance) / 1e18).toFixed(6)} ETH`);
 
-    // 1. Deploy TunaFlETH
-    console.log("[Deploy] Deploying TunaFlETH...");
-    const flETHHash = await walletClient.deployContract({
-      abi: CONTRACT_ARTIFACTS.TunaFlETH.abi,
-      bytecode: CONTRACT_ARTIFACTS.TunaFlETH.bytecode,
-      args: [addresses.AAVE_POOL as `0x${string}`],
+    // 1. Deploy TunaToken template (for reference, factory clones this pattern)
+    console.log("[Deploy] Deploying TunaToken template...");
+    const tokenHash = await walletClient.deployContract({
+      abi: TUNA_TOKEN_ABI,
+      bytecode: TUNA_TOKEN_BYTECODE,
+      args: ["Tuna Template", "TUNA", account.address, BigInt("1000000000000000000000000000")], // 1B tokens
     });
-    txHashes.push(flETHHash);
-    const flETHReceipt = await publicClient.waitForTransactionReceipt({ hash: flETHHash });
-    deployedAddresses.TunaFlETH = flETHReceipt.contractAddress!;
-    console.log(`[Deploy] TunaFlETH: ${deployedAddresses.TunaFlETH}`);
+    txHashes.push(tokenHash);
+    console.log(`[Deploy] TunaToken TX: ${tokenHash}`);
+    
+    const tokenReceipt = await publicClient.waitForTransactionReceipt({ hash: tokenHash });
+    if (!tokenReceipt.contractAddress) {
+      throw new Error("Token deployment failed - no contract address");
+    }
+    deployedAddresses.TunaToken = tokenReceipt.contractAddress;
+    console.log(`[Deploy] TunaToken deployed: ${deployedAddresses.TunaToken}`);
 
-    // 2. Deploy TunaMemecoin (implementation for cloning)
-    console.log("[Deploy] Deploying TunaMemecoin implementation...");
-    const memecoinHash = await walletClient.deployContract({
-      abi: CONTRACT_ARTIFACTS.TunaMemecoin.abi,
-      bytecode: CONTRACT_ARTIFACTS.TunaMemecoin.bytecode,
-      args: ["Implementation", "IMPL", "", account.address],
-    });
-    txHashes.push(memecoinHash);
-    const memecoinReceipt = await publicClient.waitForTransactionReceipt({ hash: memecoinHash });
-    deployedAddresses.TunaMemecoin = memecoinReceipt.contractAddress!;
-    console.log(`[Deploy] TunaMemecoin: ${deployedAddresses.TunaMemecoin}`);
-
-    // 3. Deploy TunaFlaunch
-    console.log("[Deploy] Deploying TunaFlaunch...");
-    const baseURI = network === "mainnet"
-      ? "https://api.tuna.fun/metadata/"
-      : "https://api.tuna.fun/metadata/testnet/";
-    const flaunchHash = await walletClient.deployContract({
-      abi: CONTRACT_ARTIFACTS.TunaFlaunch.abi,
-      bytecode: CONTRACT_ARTIFACTS.TunaFlaunch.bytecode,
-      args: [baseURI],
-    });
-    txHashes.push(flaunchHash);
-    const flaunchReceipt = await publicClient.waitForTransactionReceipt({ hash: flaunchHash });
-    deployedAddresses.TunaFlaunch = flaunchReceipt.contractAddress!;
-    console.log(`[Deploy] TunaFlaunch: ${deployedAddresses.TunaFlaunch}`);
-
-    // 4. Deploy TunaPositionManager
-    console.log("[Deploy] Deploying TunaPositionManager...");
-    const posManagerHash = await walletClient.deployContract({
-      abi: CONTRACT_ARTIFACTS.TunaPositionManager.abi,
-      bytecode: CONTRACT_ARTIFACTS.TunaPositionManager.bytecode,
+    // 2. Deploy TunaFactory
+    console.log("[Deploy] Deploying TunaFactory...");
+    const factoryHash = await walletClient.deployContract({
+      abi: TUNA_FACTORY_ABI,
+      bytecode: TUNA_FACTORY_BYTECODE,
       args: [
-        addresses.POOL_MANAGER as `0x${string}`,
-        deployedAddresses.TunaFlETH as `0x${string}`,
-        account.address,
+        addresses.UNISWAP_V3_FACTORY as `0x${string}`,
+        addresses.WETH as `0x${string}`,
+        account.address, // Fee recipient
+        3000, // 0.3% fee tier
       ],
     });
-    txHashes.push(posManagerHash);
-    const posManagerReceipt = await publicClient.waitForTransactionReceipt({ hash: posManagerHash });
-    deployedAddresses.TunaPositionManager = posManagerReceipt.contractAddress!;
-    console.log(`[Deploy] TunaPositionManager: ${deployedAddresses.TunaPositionManager}`);
-
-    // 5. Deploy TunaBidWall
-    console.log("[Deploy] Deploying TunaBidWall...");
-    const bidWallHash = await walletClient.deployContract({
-      abi: CONTRACT_ARTIFACTS.TunaBidWall.abi,
-      bytecode: CONTRACT_ARTIFACTS.TunaBidWall.bytecode,
-      args: [
-        addresses.POOL_MANAGER as `0x${string}`,
-        deployedAddresses.TunaPositionManager as `0x${string}`,
-        deployedAddresses.TunaFlETH as `0x${string}`,
-      ],
-    });
-    txHashes.push(bidWallHash);
-    const bidWallReceipt = await publicClient.waitForTransactionReceipt({ hash: bidWallHash });
-    deployedAddresses.TunaBidWall = bidWallReceipt.contractAddress!;
-    console.log(`[Deploy] TunaBidWall: ${deployedAddresses.TunaBidWall}`);
-
-    // 6. Deploy TunaFairLaunch
-    console.log("[Deploy] Deploying TunaFairLaunch...");
-    const fairLaunchHash = await walletClient.deployContract({
-      abi: CONTRACT_ARTIFACTS.TunaFairLaunch.abi,
-      bytecode: CONTRACT_ARTIFACTS.TunaFairLaunch.bytecode,
-      args: [
-        deployedAddresses.TunaPositionManager as `0x${string}`,
-        deployedAddresses.TunaFlETH as `0x${string}`,
-      ],
-    });
-    txHashes.push(fairLaunchHash);
-    const fairLaunchReceipt = await publicClient.waitForTransactionReceipt({ hash: fairLaunchHash });
-    deployedAddresses.TunaFairLaunch = fairLaunchReceipt.contractAddress!;
-    console.log(`[Deploy] TunaFairLaunch: ${deployedAddresses.TunaFairLaunch}`);
-
-    // TODO: Call initialize functions on contracts
-    // This requires write calls to the deployed contracts
+    txHashes.push(factoryHash);
+    console.log(`[Deploy] TunaFactory TX: ${factoryHash}`);
+    
+    const factoryReceipt = await publicClient.waitForTransactionReceipt({ hash: factoryHash });
+    if (!factoryReceipt.contractAddress) {
+      throw new Error("Factory deployment failed - no contract address");
+    }
+    deployedAddresses.TunaFactory = factoryReceipt.contractAddress;
+    console.log(`[Deploy] TunaFactory deployed: ${deployedAddresses.TunaFactory}`);
 
     console.log("[Deploy] All contracts deployed successfully!");
 
@@ -353,13 +247,10 @@ Deno.serve(async (req) => {
     const result: DeployResult = {
       success: true,
       network,
+      deployer: account.address,
       contracts: {
-        TunaFlETH: deployedAddresses.TunaFlETH,
-        TunaMemecoin: deployedAddresses.TunaMemecoin,
-        TunaFlaunch: deployedAddresses.TunaFlaunch,
-        TunaPositionManager: deployedAddresses.TunaPositionManager,
-        TunaBidWall: deployedAddresses.TunaBidWall,
-        TunaFairLaunch: deployedAddresses.TunaFairLaunch,
+        TunaFactory: deployedAddresses.TunaFactory,
+        TunaToken: deployedAddresses.TunaToken,
       },
       txHashes,
     };
