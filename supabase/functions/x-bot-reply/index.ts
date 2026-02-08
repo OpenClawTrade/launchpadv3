@@ -259,6 +259,8 @@ serve(async (req) => {
         auth_token_encrypted,
         ct0_token_encrypted,
         proxy_url,
+        socks5_urls,
+        current_socks5_index,
         x_bot_account_rules (
           author_cooldown_hours,
           max_replies_per_thread,
@@ -374,13 +376,27 @@ serve(async (req) => {
         replyLength: replyText.length,
       });
 
+      // Get proxy - prefer socks5_urls with rotation, then proxy_url
+      let proxyUrl = account.proxy_url || "";
+      const socks5Urls = (account as any).socks5_urls || [];
+      if (socks5Urls.length > 0) {
+        const currentIndex = (account as any).current_socks5_index || 0;
+        proxyUrl = socks5Urls[currentIndex % socks5Urls.length];
+        
+        // Rotate to next proxy for next run
+        await supabase
+          .from("x_bot_accounts")
+          .update({ current_socks5_index: (currentIndex + 1) % socks5Urls.length })
+          .eq("id", account.id);
+      }
+
       // Post reply
       const result = await postReply(
         queuedTweet.tweet_id,
         replyText,
         TWITTERAPI_IO_KEY,
         cookie,
-        account.proxy_url || ""
+        proxyUrl
       );
 
       // Record in database
