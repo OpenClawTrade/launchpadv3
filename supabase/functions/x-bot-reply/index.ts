@@ -13,6 +13,29 @@ const REPLY_SIGNATURE = "Tuna Launchpad for AI Agents on Solana.";
 
 const stripQuotes = (v: string) => v.replace(/^['"]+|['"]+$/g, "").trim();
 
+// Helper: Detect error payloads that come with HTTP 200
+const isTwitterApiErrorPayload = (postData: any): boolean => {
+  if (!postData || typeof postData !== "object") return true;
+  if (postData.success === false) return true;
+  if (postData.status === "error") return true;
+  if (typeof postData.error === "string" && postData.error.length > 0) return true;
+  if (typeof postData.msg === "string" && postData.msg.toLowerCase().includes("failed")) return true;
+  return false;
+};
+
+// Helper: Extract reply ID from various API response structures
+const extractReplyId = (postData: any): string | null => {
+  return (
+    postData?.data?.id ||
+    postData?.data?.rest_id ||
+    postData?.data?.tweet?.rest_id ||
+    postData?.data?.create_tweet?.tweet_results?.result?.rest_id ||
+    postData?.tweet_id ||
+    postData?.id ||
+    null
+  );
+};
+
 const parseCookieString = (raw: string): Record<string, string> => {
   const out: Record<string, string> = {};
   const parts = raw.split(";");
@@ -159,9 +182,13 @@ async function postReply(
   apiKey: string,
   cookie: string,
   proxy: string
-): Promise<{ success: boolean; replyId?: string; error?: string }> {
+): Promise<{ success: boolean; replyId?: string; error?: string; rawResponse?: string }> {
   try {
     const loginCookies = buildLoginCookiesBase64(cookie) ?? btoa(cookie);
+    
+    console.log(`[postReply] Posting reply to tweet ${tweetId}`);
+    console.log(`[postReply] Using proxy: ${proxy ? "yes" : "no"}`);
+    console.log(`[postReply] Cookie format: ${cookie.includes("auth_token=") ? "full_cookie" : "base64_or_raw"}`);
 
     const response = await fetchWithTimeout(
       `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
@@ -182,25 +209,54 @@ async function postReply(
     );
 
     const rawText = await response.text();
+    console.log(`[postReply] HTTP Status: ${response.status}`);
+    console.log(`[postReply] Raw response (first 500 chars): ${rawText.substring(0, 500)}`);
+    
     const data = (() => {
       try {
         return JSON.parse(rawText);
       } catch {
+        console.log(`[postReply] Failed to parse response as JSON`);
         return null;
       }
     })();
 
+    // Check HTTP status first
     if (!response.ok) {
       const apiMsg =
         (data && (data.message || data.error || data.msg)) ||
         (rawText ? rawText.slice(0, 300) : null);
-      return { success: false, error: apiMsg || `HTTP ${response.status}` };
+      console.log(`[postReply] HTTP error: ${apiMsg || response.status}`);
+      return { success: false, error: apiMsg || `HTTP ${response.status}`, rawResponse: rawText.substring(0, 500) };
     }
 
-    const replyId = data?.data?.tweet?.rest_id || data?.tweet_id || data?.id;
-    return { success: true, replyId };
+    // Check for error payloads that come with HTTP 200
+    if (isTwitterApiErrorPayload(data)) {
+      const errorMsg = data?.message || data?.error || data?.msg || "API returned error payload with HTTP 200";
+      console.log(`[postReply] Error payload detected: ${errorMsg}`);
+      return { success: false, error: errorMsg, rawResponse: rawText.substring(0, 500) };
+    }
+
+    // Extract reply ID using comprehensive helper
+    const replyId = extractReplyId(data);
+    console.log(`[postReply] Extracted replyId: ${replyId || "NULL"}`);
+    
+    // Only return success if we have a valid reply ID
+    if (!replyId) {
+      console.log(`[postReply] No reply ID found in response - treating as failure`);
+      return { 
+        success: false, 
+        error: "No reply ID returned - tweet may not have been created", 
+        rawResponse: rawText.substring(0, 500) 
+      };
+    }
+
+    console.log(`[postReply] SUCCESS - Reply posted with ID: ${replyId}`);
+    return { success: true, replyId, rawResponse: rawText.substring(0, 500) };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+    const errorMsg = e instanceof Error ? e.message : "Unknown error";
+    console.log(`[postReply] Exception: ${errorMsg}`);
+    return { success: false, error: errorMsg };
   }
 }
 
