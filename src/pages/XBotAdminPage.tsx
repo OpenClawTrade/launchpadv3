@@ -1,20 +1,22 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useXBotAccounts, type XBotAccountWithRules, type XBotAccountRules } from "@/hooks/useXBotAccounts";
 import { XBotAccountsPanel } from "@/components/admin/XBotAccountsPanel";
 import { XBotAccountForm } from "@/components/admin/XBotAccountForm";
 import { XBotRulesForm } from "@/components/admin/XBotRulesForm";
 import { XBotActivityPanel } from "@/components/admin/XBotActivityPanel";
-import { Play, RefreshCw, Shield, Power } from "lucide-react";
+import { Play, RefreshCw, Shield } from "lucide-react";
 
 const ADMIN_PASSWORD = "tuna";
+const AUTH_STORAGE_KEY = "xbot-admin-auth";
 
 export default function XBotAdminPage() {
-  const [authenticated, setAuthenticated] = useState(false);
+  const [authenticated, setAuthenticated] = useState(() => {
+    return sessionStorage.getItem(AUTH_STORAGE_KEY) === "true";
+  });
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -45,6 +47,7 @@ export default function XBotAdminPage() {
     e.preventDefault();
     if (password === ADMIN_PASSWORD) {
       setAuthenticated(true);
+      sessionStorage.setItem(AUTH_STORAGE_KEY, "true");
       setError("");
     } else {
       setError("Invalid password");
