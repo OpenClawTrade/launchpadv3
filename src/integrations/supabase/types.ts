@@ -866,6 +866,39 @@ export type Database = {
           },
         ]
       }
+      base_deployments: {
+        Row: {
+          contracts: Json
+          created_at: string
+          deployed_at: string
+          deployer: string
+          id: string
+          is_active: boolean
+          network: string
+          tx_hashes: string[]
+        }
+        Insert: {
+          contracts: Json
+          created_at?: string
+          deployed_at?: string
+          deployer: string
+          id?: string
+          is_active?: boolean
+          network: string
+          tx_hashes: string[]
+        }
+        Update: {
+          contracts?: Json
+          created_at?: string
+          deployed_at?: string
+          deployer?: string
+          id?: string
+          is_active?: boolean
+          network?: string
+          tx_hashes?: string[]
+        }
+        Relationships: []
+      }
       bookmarks: {
         Row: {
           created_at: string
