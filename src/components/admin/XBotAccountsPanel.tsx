@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -17,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, Edit, Trash2, Eye, Settings } from "lucide-react";
+import { Plus, MoreVertical, Edit, Trash2, Eye, Settings, AlertTriangle } from "lucide-react";
 import type { XBotAccountWithRules } from "@/hooks/useXBotAccounts";
 
 interface XBotAccountsPanelProps {
@@ -56,6 +57,11 @@ export function XBotAccountsPanel({
     });
   };
 
+  // Check for accounts with missing or invalid SOCKS5
+  const accountsWithSocks5Issues = accounts.filter(
+    (a) => a.is_active && (!a.proxy_url || !a.proxy_url.startsWith("socks5://"))
+  );
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -65,7 +71,16 @@ export function XBotAccountsPanel({
           Add Account
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {accountsWithSocks5Issues.length > 0 && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>SOCKS5 Warning:</strong> {accountsWithSocks5Issues.length} active account(s) have missing or expired SOCKS5 proxies.
+              Please update: {accountsWithSocks5Issues.map((a) => `@${a.username}`).join(", ")}
+            </AlertDescription>
+          </Alert>
+        )}
         {accounts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No accounts configured. Click "Add Account" to get started.
