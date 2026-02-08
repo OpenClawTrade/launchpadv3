@@ -78,8 +78,11 @@ contract TunaPositionManager is BaseHook, IPositionManager, Ownable, ReentrancyG
         uint128 liquidity
     );
 
-    /// @notice Default trading fee (1%)
-    uint24 public constant DEFAULT_TRADING_FEE = 100_00; // 1% = 10000 basis points in 1e6
+    /// @notice Default trading fee (2% total - 1% platform + 1% creator)
+    uint24 public constant DEFAULT_TRADING_FEE = 200_00; // 2% = 20000 basis points in 1e6
+    
+    /// @notice Platform fee (1% - always collected)
+    uint24 public constant PLATFORM_FEE = 100_00; // 1% = 10000 basis points in 1e6
 
     /// @notice Minimum distribution threshold
     uint public constant MIN_DISTRIBUTE_THRESHOLD = 0.001 ether;
@@ -286,27 +289,27 @@ contract TunaPositionManager is BaseHook, IPositionManager, Ownable, ReentrancyG
             return (BaseHook.afterSwap.selector, 0);
         }
 
-        // Calculate trading fee (1%)
+        // Calculate trading fee (2% total = 1% platform + 1% creator)
         bool nativeIsZero = Currency.unwrap(key.currency0) == nativeToken;
         int128 nativeDelta = nativeIsZero ? delta.amount0() : delta.amount1();
         
         if (nativeDelta < 0) {
-            // Native token going out - take fee
-            uint256 feeAmount = uint256(uint128(-nativeDelta)) / 100; // 1% fee
+            // Native token going out - take 2% fee
+            uint256 totalFee = uint256(uint128(-nativeDelta)) / 50; // 2% fee
             
-            // Split fee between creator and BidWall
-            uint24 creatorShare = creatorFee[poolId];
-            uint256 creatorFeeAmount = (feeAmount * creatorShare) / 10000;
-            uint256 bidWallFeeAmount = feeAmount - creatorFeeAmount;
+            // Fixed 50/50 split: 1% platform, 1% creator
+            uint256 platformFeeAmount = totalFee / 2; // 1% to platform
+            uint256 creatorFeeAmount = totalFee - platformFeeAmount; // 1% to creator
 
-            // Send creator share to treasury
-            if (creatorFeeAmount > 0) {
-                // In production: transfer to treasury
+            // Send platform share to protocol fee recipient
+            if (platformFeeAmount > 0) {
+                // Transfer to protocol fee recipient
+                IERC20(nativeToken).safeTransfer(protocolFeeRecipient, platformFeeAmount);
             }
 
-            // Deposit remainder to BidWall
-            if (bidWallFeeAmount > 0) {
-                bidWall.deposit(key, bidWallFeeAmount, _beforeSwapTick, nativeIsZero);
+            // Send creator share to BidWall for buyback support
+            if (creatorFeeAmount > 0) {
+                bidWall.deposit(key, creatorFeeAmount, _beforeSwapTick, nativeIsZero);
             }
         }
 

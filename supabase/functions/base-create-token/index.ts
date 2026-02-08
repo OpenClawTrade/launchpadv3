@@ -49,14 +49,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate creator fee (0-10000 bps = 0-100%)
-    const creatorFeeBps = body.creatorFeeBps ?? 8000;
-    if (creatorFeeBps < 0 || creatorFeeBps > 10000) {
-      return new Response(
-        JSON.stringify({ error: 'creatorFeeBps must be between 0 and 10000' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Fee structure: 2% total (1% platform + 1% creator - fixed split)
+    // creatorFeeBps is kept for backward compatibility but not used in fee calculation
+    const creatorFeeBps = 5000; // Fixed 50% = 1% of 2% total goes to creator
 
     // Create token via backend function
     const { data, error } = await supabase.rpc('backend_create_base_token', {
