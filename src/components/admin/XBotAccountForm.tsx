@@ -64,11 +64,28 @@ export function XBotAccountForm({
     }
   }, [open, account]);
 
+  // Validate socks5 format: either socks5://... or user:pass@host:port
+  const isValidSocks5 = (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return false;
+    // Accept socks5:// prefix or user:pass@host:port format
+    if (trimmed.startsWith("socks5://")) return true;
+    // Match pattern: user:pass@host:port
+    const simplePattern = /^[^:]+:[^@]+@[^:]+:\d+$/;
+    return simplePattern.test(trimmed);
+  };
+
+  const normalizeSocks5Url = (url: string) => {
+    const trimmed = url.trim();
+    if (trimmed.startsWith("socks5://")) return trimmed;
+    return `socks5://${trimmed}`;
+  };
+
   const handleAddSocks5 = () => {
-    if (newSocks5.trim() && newSocks5.startsWith("socks5://")) {
+    if (isValidSocks5(newSocks5)) {
       setFormData((p) => ({
         ...p,
-        socks5_urls: [...p.socks5_urls, newSocks5.trim()],
+        socks5_urls: [...p.socks5_urls, normalizeSocks5Url(newSocks5)],
       }));
       setNewSocks5("");
     }
@@ -299,7 +316,7 @@ export function XBotAccountForm({
                   <Input
                     value={newSocks5}
                     onChange={(e) => setNewSocks5(e.target.value)}
-                    placeholder="socks5://user:pass@host:port"
+                    placeholder="user:pass@host:port"
                     className="font-mono text-xs flex-1"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
@@ -313,15 +330,15 @@ export function XBotAccountForm({
                     variant="outline"
                     size="sm"
                     onClick={handleAddSocks5}
-                    disabled={!newSocks5.trim() || !newSocks5.startsWith("socks5://")}
+                    disabled={!isValidSocks5(newSocks5)}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add
                   </Button>
                 </div>
-                {newSocks5 && !newSocks5.startsWith("socks5://") && (
+                {newSocks5 && !isValidSocks5(newSocks5) && (
                   <p className="text-xs text-destructive">
-                    URL must start with socks5://
+                    Format: user:pass@host:port (e.g., cd83:cd83@216.22.49.34:59147)
                   </p>
                 )}
               </div>
