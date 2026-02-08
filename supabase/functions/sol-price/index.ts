@@ -6,6 +6,20 @@ const corsHeaders = {
 // Cache price for 30 seconds server-side
 let cachedPrice: { price: number; change24h: number; timestamp: number } | null = null;
 const CACHE_TTL = 30000; // 30 seconds
+const FETCH_TIMEOUT = 5000; // 5 second timeout per source
+
+// Fetch with timeout helper
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = FETCH_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 Deno.serve(async (req) => {
   // CORS preflight - must return 200 OK with headers
@@ -25,38 +39,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Try CoinGecko first
+    // Try Jupiter first (most reliable for Solana)
     try {
-      const cgResponse = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true",
-        { headers: { "Accept": "application/json" } }
+      const jupiterResponse = await fetchWithTimeout(
+        "https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112"
       );
       
-      if (cgResponse.ok) {
-        const data = await cgResponse.json();
-        if (data.solana?.usd) {
-          cachedPrice = {
-            price: data.solana.usd,
-            change24h: data.solana.usd_24h_change || 0,
-            timestamp: Date.now(),
-          };
-          
-          return new Response(JSON.stringify({
-            price: cachedPrice.price,
-            change24h: cachedPrice.change24h,
-            source: "coingecko",
-          }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+      if (jupiterResponse.ok) {
+        const data = await jupiterResponse.json();
+        const solData = data.data?.["So11111111111111111111111111111111111111112"];
+        if (solData?.price) {
+          const price = parseFloat(solData.price);
+          if (!isNaN(price) && price > 0) {
+            cachedPrice = {
+              price,
+              change24h: 0, // Jupiter v2 doesn't provide 24h change
+              timestamp: Date.now(),
+            };
+            
+            return new Response(JSON.stringify({
+              price: cachedPrice.price,
+              change24h: cachedPrice.change24h,
+              source: "jupiter",
+            }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
       }
     } catch (e) {
-      console.log("[sol-price] CoinGecko failed:", e);
+      console.log("[sol-price] Jupiter failed:", e instanceof Error ? e.message : e);
     }
 
-    // Fallback to Binance
+    // Try Binance second
     try {
-      const binanceResponse = await fetch(
+      const binanceResponse = await fetchWithTimeout(
         "https://api.binance.com/api/v3/ticker/24hr?symbol=SOLUSDT"
       );
       
@@ -65,7 +82,7 @@ Deno.serve(async (req) => {
         const price = parseFloat(data.lastPrice);
         const change24h = parseFloat(data.priceChangePercent);
         
-        if (!isNaN(price)) {
+        if (!isNaN(price) && price > 0) {
           cachedPrice = {
             price,
             change24h: change24h || 0,
@@ -82,11 +99,41 @@ Deno.serve(async (req) => {
         }
       }
     } catch (e) {
-      console.log("[sol-price] Binance failed:", e);
+      console.log("[sol-price] Binance failed:", e instanceof Error ? e.message : e);
     }
 
-    // Return cached price even if expired, or fallback
+    // Try CoinGecko last (most rate-limited)
+    try {
+      const cgResponse = await fetchWithTimeout(
+        "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true",
+        { headers: { "Accept": "application/json" } }
+      );
+      
+      if (cgResponse.ok) {
+        const data = await cgResponse.json();
+        if (data.solana?.usd && data.solana.usd > 0) {
+          cachedPrice = {
+            price: data.solana.usd,
+            change24h: data.solana.usd_24h_change || 0,
+            timestamp: Date.now(),
+          };
+          
+          return new Response(JSON.stringify({
+            price: cachedPrice.price,
+            change24h: cachedPrice.change24h,
+            source: "coingecko",
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    } catch (e) {
+      console.log("[sol-price] CoinGecko failed:", e instanceof Error ? e.message : e);
+    }
+
+    // Return cached price even if expired (stale data is better than no data)
     if (cachedPrice) {
+      console.log("[sol-price] Returning stale cached price");
       return new Response(JSON.stringify({
         price: cachedPrice.price,
         change24h: cachedPrice.change24h,
