@@ -48,6 +48,7 @@ const PartnerFeesPage = lazy(() => import("./pages/PartnerFeesPage"));
 const WhitepaperPage = lazy(() => import("./pages/WhitepaperPage"));
 const OpenTunaPage = lazy(() => import("./pages/OpenTunaPage"));
 const CareersPage = lazy(() => import("./pages/CareersPage"));
+const XBotAdminPage = lazy(() => import("./pages/XBotAdminPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -125,6 +126,7 @@ const App = () => (
                     <Route path="/whitepaper" element={<WhitepaperPage />} />
                     <Route path="/opentuna" element={<OpenTunaPage />} />
                     <Route path="/careers" element={<CareersPage />} />
+                    <Route path="/admin/x-bots" element={<XBotAdminPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

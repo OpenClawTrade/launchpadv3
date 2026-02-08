@@ -6139,6 +6139,216 @@ export type Database = {
           },
         ]
       }
+      x_bot_account_queue: {
+        Row: {
+          account_id: string | null
+          conversation_id: string | null
+          created_at: string | null
+          follower_count: number | null
+          id: string
+          is_verified: boolean | null
+          match_type: string | null
+          processed_at: string | null
+          status: string | null
+          tweet_author: string | null
+          tweet_author_id: string | null
+          tweet_id: string
+          tweet_text: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          follower_count?: number | null
+          id?: string
+          is_verified?: boolean | null
+          match_type?: string | null
+          processed_at?: string | null
+          status?: string | null
+          tweet_author?: string | null
+          tweet_author_id?: string | null
+          tweet_id: string
+          tweet_text?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          follower_count?: number | null
+          id?: string
+          is_verified?: boolean | null
+          match_type?: string | null
+          processed_at?: string | null
+          status?: string | null
+          tweet_author?: string | null
+          tweet_author_id?: string | null
+          tweet_id?: string
+          tweet_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "x_bot_account_queue_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "x_bot_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      x_bot_account_replies: {
+        Row: {
+          account_id: string | null
+          conversation_id: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          reply_id: string | null
+          reply_text: string | null
+          reply_type: string | null
+          status: string | null
+          tweet_author: string | null
+          tweet_author_id: string | null
+          tweet_id: string
+          tweet_text: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          reply_id?: string | null
+          reply_text?: string | null
+          reply_type?: string | null
+          status?: string | null
+          tweet_author?: string | null
+          tweet_author_id?: string | null
+          tweet_id: string
+          tweet_text?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          reply_id?: string | null
+          reply_text?: string | null
+          reply_type?: string | null
+          status?: string | null
+          tweet_author?: string | null
+          tweet_author_id?: string | null
+          tweet_id?: string
+          tweet_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "x_bot_account_replies_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "x_bot_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      x_bot_account_rules: {
+        Row: {
+          account_id: string | null
+          author_cooldown_hours: number | null
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          max_replies_per_thread: number | null
+          min_follower_count: number | null
+          monitored_mentions: string[] | null
+          require_blue_verified: boolean | null
+          require_gold_verified: boolean | null
+          tracked_cashtags: string[] | null
+        }
+        Insert: {
+          account_id?: string | null
+          author_cooldown_hours?: number | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          max_replies_per_thread?: number | null
+          min_follower_count?: number | null
+          monitored_mentions?: string[] | null
+          require_blue_verified?: boolean | null
+          require_gold_verified?: boolean | null
+          tracked_cashtags?: string[] | null
+        }
+        Update: {
+          account_id?: string | null
+          author_cooldown_hours?: number | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          max_replies_per_thread?: number | null
+          min_follower_count?: number | null
+          monitored_mentions?: string[] | null
+          require_blue_verified?: boolean | null
+          require_gold_verified?: boolean | null
+          tracked_cashtags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "x_bot_account_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "x_bot_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      x_bot_accounts: {
+        Row: {
+          auth_token_encrypted: string | null
+          created_at: string | null
+          ct0_token_encrypted: string | null
+          email: string | null
+          full_cookie_encrypted: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          password_encrypted: string | null
+          proxy_url: string | null
+          totp_secret_encrypted: string | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          auth_token_encrypted?: string | null
+          created_at?: string | null
+          ct0_token_encrypted?: string | null
+          email?: string | null
+          full_cookie_encrypted?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          password_encrypted?: string | null
+          proxy_url?: string | null
+          totp_secret_encrypted?: string | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          auth_token_encrypted?: string | null
+          created_at?: string | null
+          ct0_token_encrypted?: string | null
+          email?: string | null
+          full_cookie_encrypted?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          password_encrypted?: string | null
+          proxy_url?: string | null
+          totp_secret_encrypted?: string | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       x_bot_rate_limits: {
         Row: {
           id: string
