@@ -34,16 +34,8 @@ export function useBaseContractDeploy() {
     setDryRunResult(null);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
       const response = await supabase.functions.invoke('base-deploy-contracts', {
         body: { network, dryRun: true },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
       });
 
       if (response.error) {
@@ -69,16 +61,8 @@ export function useBaseContractDeploy() {
     setDeployResult(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
       const response = await supabase.functions.invoke('base-deploy-contracts', {
         body: { network, dryRun: false },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
       });
 
       if (response.error) {
