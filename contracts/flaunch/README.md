@@ -52,15 +52,15 @@ This is a **1:1 replica** of Flaunch.gg's contract architecture, implementing Un
 
 ### Fee Distribution
 
-Every trade incurs a **1% trading fee** split as follows:
+Every trade incurs a **2% trading fee** split as follows:
 
 ```
-Creator Fee Allocation: X% (set by creator, 0-100%)
-BidWall Allocation: (100% - X%)
+Platform Fee: 1% (fixed, always collected)
+Creator Fee: 1% (fixed, goes to BidWall for buyback support)
 ```
 
-- **Creator Share**: Converted to flETH and sent to treasury
-- **BidWall Share**: Deposited as single-sided liquidity 1 tick below spot
+- **Platform Share (1%)**: Sent to protocol fee recipient
+- **Creator Share (1%)**: Deposited to BidWall as single-sided liquidity for price support
 
 ### Progressive Bid Wall
 
