@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -25,8 +26,10 @@ import {
   Lock,
   ExternalLink,
   Loader2,
-  Search
+  Search,
+  Rocket
 } from "lucide-react";
+import { BaseDeployPanel } from "@/components/admin/BaseDeployPanel";
 
 const VERCEL_API_URL = "https://tunalaunch.vercel.app";
 const TREASURY_SECRET = "tuna-treasury-2024";
@@ -424,10 +427,10 @@ export default function TreasuryAdminPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Wallet className="w-6 h-6" />
-              Treasury Fee Recovery
+              Treasury Admin
             </h1>
             <p className="text-sm text-muted-foreground">
-              Discover and claim fees from all deployer pools
+              Manage fees and deployments
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -435,8 +438,25 @@ export default function TreasuryAdminPage() {
           </Button>
         </div>
 
-        {/* Summary Cards */}
-        {summary && (
+        <Tabs defaultValue="fees" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="fees" className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              Fee Recovery
+            </TabsTrigger>
+            <TabsTrigger value="base-deploy" className="flex items-center gap-2">
+              <Rocket className="h-4 w-4" />
+              Base Deploy
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="base-deploy" className="mt-6">
+            <BaseDeployPanel />
+          </TabsContent>
+
+          <TabsContent value="fees" className="mt-6 space-y-6">
+            {/* Summary Cards */}
+            {summary && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card>
               <CardContent className="pt-4">
@@ -679,6 +699,8 @@ export default function TreasuryAdminPage() {
             </CardContent>
           </Card>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
