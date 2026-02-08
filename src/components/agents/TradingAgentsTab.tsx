@@ -15,8 +15,8 @@ export function TradingAgentsTab() {
   const [betaPassword, setBetaPassword] = useState("");
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   
-  const BETA_PASSWORD = "TUNA";
-  const isUnlocked = betaPassword.toUpperCase() === BETA_PASSWORD;
+  const BETA_PASSWORD = "tuna";
+  const isUnlocked = betaPassword.toLowerCase() === BETA_PASSWORD;
   
   const { data: agents, isLoading } = useTradingAgents({
     status: "active",
