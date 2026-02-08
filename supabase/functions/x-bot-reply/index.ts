@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +47,28 @@ interface AccountWithCredentials {
     author_cooldown_hours: number;
     max_replies_per_thread: number;
   } | null;
+}
+
+// Logging helper
+async function insertLog(
+  supabase: SupabaseClient,
+  accountId: string,
+  logType: string,
+  level: string,
+  message: string,
+  details: Record<string, unknown> = {}
+): Promise<void> {
+  try {
+    await supabase.from("x_bot_account_logs").insert({
+      account_id: accountId,
+      log_type: logType,
+      level,
+      message,
+      details,
+    });
+  } catch (e) {
+    console.error("Failed to insert log:", e);
+  }
 }
 
 async function fetchWithTimeout(
@@ -194,6 +216,8 @@ serve(async (req) => {
     errors: [] as string[],
   };
 
+  let supabase: SupabaseClient | null = null;
+
   try {
     const ENABLE_PROMO_MENTIONS = Deno.env.get("ENABLE_PROMO_MENTIONS");
     const ENABLE_X_POSTING = Deno.env.get("ENABLE_X_POSTING");
@@ -215,7 +239,7 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Acquire lock
     const lockName = "x-bot-reply";
@@ -261,6 +285,7 @@ serve(async (req) => {
 
       if (!cookie) {
         debug.errors.push(`Account ${account.username}: No valid cookies`);
+        await insertLog(supabase, account.id, "error", "error", `No valid cookies configured for @${account.username}`);
         continue;
       }
 
@@ -277,11 +302,22 @@ serve(async (req) => {
 
       if (queueError) {
         debug.errors.push(`Queue error for ${account.username}: ${queueError.message}`);
+        await insertLog(supabase, account.id, "error", "error", `Queue fetch error: ${queueError.message}`);
         continue;
       }
 
       const queuedTweet = queuedTweets?.[0];
-      if (!queuedTweet) continue;
+      if (!queuedTweet) {
+        await insertLog(supabase, account.id, "reply", "info", `No pending tweets in queue for @${account.username}`);
+        continue;
+      }
+
+      const author = queuedTweet.tweet_author || "user";
+
+      await insertLog(supabase, account.id, "reply", "info", `Processing queued tweet by @${author}`, {
+        tweetId: queuedTweet.tweet_id,
+        matchType: queuedTweet.match_type,
+      });
 
       // Mark as processing
       await supabase
@@ -307,11 +343,17 @@ serve(async (req) => {
             .update({ status: "skipped" })
             .eq("id", queuedTweet.id);
           debug.skipped++;
+          await insertLog(supabase, account.id, "skip", "warn", `Skipped @${author}: author cooldown active (${cooldownHours}h)`, {
+            tweetId: queuedTweet.tweet_id,
+            cooldownHours,
+          });
           continue;
         }
       }
 
       // Generate reply
+      await insertLog(supabase, account.id, "reply", "info", `Generating AI reply for @${author}...`);
+      
       const username = queuedTweet.tweet_author || "user";
       const replyText = await generateReply(queuedTweet.tweet_text || "", username);
 
@@ -321,8 +363,16 @@ serve(async (req) => {
           .from("x_bot_account_queue")
           .update({ status: "skipped" })
           .eq("id", queuedTweet.id);
+        await insertLog(supabase, account.id, "error", "error", `Failed to generate reply for @${author}`, {
+          tweetId: queuedTweet.tweet_id,
+        });
         continue;
       }
+
+      await insertLog(supabase, account.id, "reply", "info", `Generated reply (${replyText.length} chars)`, {
+        tweetId: queuedTweet.tweet_id,
+        replyLength: replyText.length,
+      });
 
       // Post reply
       const result = await postReply(
@@ -356,8 +406,17 @@ serve(async (req) => {
 
       if (result.success) {
         debug.repliesSent++;
+        await insertLog(supabase, account.id, "reply", "info", `Reply posted successfully to @${author}`, {
+          tweetId: queuedTweet.tweet_id,
+          replyId: result.replyId,
+          replyPreview: replyText.substring(0, 80),
+        });
       } else {
         debug.errors.push(`Reply failed for ${account.username}: ${result.error}`);
+        await insertLog(supabase, account.id, "error", "error", `Reply failed: ${result.error}`, {
+          tweetId: queuedTweet.tweet_id,
+          error: result.error,
+        });
       }
     }
 

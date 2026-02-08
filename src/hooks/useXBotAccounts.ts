@@ -67,6 +67,16 @@ export interface XBotQueueItem {
   processed_at: string | null;
 }
 
+export interface XBotAccountLog {
+  id: string;
+  account_id: string;
+  log_type: string;
+  level: string;
+  message: string;
+  details: Record<string, unknown> | null;
+  created_at: string;
+}
+
 export interface XBotAccountWithRules extends XBotAccount {
   rules?: XBotAccountRules;
 }
@@ -75,6 +85,7 @@ export function useXBotAccounts() {
   const [accounts, setAccounts] = useState<XBotAccountWithRules[]>([]);
   const [replies, setReplies] = useState<XBotAccountReply[]>([]);
   const [queue, setQueue] = useState<XBotQueueItem[]>([]);
+  const [logs, setLogs] = useState<XBotAccountLog[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -141,6 +152,26 @@ export function useXBotAccounts() {
       setQueue(data || []);
     } catch (error) {
       console.error("Error fetching queue:", error);
+    }
+  }, []);
+
+  const fetchLogs = useCallback(async (accountId?: string) => {
+    try {
+      let query = supabase
+        .from("x_bot_account_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (accountId) {
+        query = query.eq("account_id", accountId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setLogs((data || []) as XBotAccountLog[]);
+    } catch (error) {
+      console.error("Error fetching logs:", error);
     }
   }, []);
 
@@ -290,7 +321,7 @@ export function useXBotAccounts() {
       } else {
         toast({ title: "Scan failed", description: data.error || "Unknown error", variant: "destructive" });
       }
-      await fetchQueue();
+      await Promise.all([fetchQueue(), fetchLogs()]);
     } catch (error) {
       console.error("Error running scan:", error);
       toast({ title: "Scan failed", variant: "destructive" });
@@ -316,8 +347,7 @@ export function useXBotAccounts() {
       } else {
         toast({ title: "Reply run failed", description: data.error || "Unknown error", variant: "destructive" });
       }
-      await fetchReplies();
-      await fetchQueue();
+      await Promise.all([fetchReplies(), fetchQueue(), fetchLogs()]);
     } catch (error) {
       console.error("Error running reply:", error);
       toast({ title: "Reply run failed", variant: "destructive" });
@@ -327,20 +357,22 @@ export function useXBotAccounts() {
   useEffect(() => {
     const loadAll = async () => {
       setLoading(true);
-      await Promise.all([fetchAccounts(), fetchReplies(), fetchQueue()]);
+      await Promise.all([fetchAccounts(), fetchReplies(), fetchQueue(), fetchLogs()]);
       setLoading(false);
     };
     loadAll();
-  }, [fetchAccounts, fetchReplies, fetchQueue]);
+  }, [fetchAccounts, fetchReplies, fetchQueue, fetchLogs]);
 
   return {
     accounts,
     replies,
     queue,
+    logs,
     loading,
     fetchAccounts,
     fetchReplies,
     fetchQueue,
+    fetchLogs,
     createAccount,
     updateAccount,
     deleteAccount,

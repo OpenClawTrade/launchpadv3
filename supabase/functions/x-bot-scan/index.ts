@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +40,28 @@ interface AccountWithRules {
     require_gold_verified: boolean;
     enabled: boolean;
   } | null;
+}
+
+// Logging helper
+async function insertLog(
+  supabase: SupabaseClient,
+  accountId: string,
+  logType: string,
+  level: string,
+  message: string,
+  details: Record<string, unknown> = {}
+): Promise<void> {
+  try {
+    await supabase.from("x_bot_account_logs").insert({
+      account_id: accountId,
+      log_type: logType,
+      level,
+      message,
+      details,
+    });
+  } catch (e) {
+    console.error("Failed to insert log:", e);
+  }
 }
 
 async function fetchWithTimeout(
@@ -156,6 +178,8 @@ serve(async (req) => {
     errors: [] as string[] 
   };
 
+  let supabase: SupabaseClient | null = null;
+
   try {
     const ENABLE_PROMO_MENTIONS = Deno.env.get("ENABLE_PROMO_MENTIONS");
     const ENABLE_X_POSTING = Deno.env.get("ENABLE_X_POSTING");
@@ -177,7 +201,7 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Acquire lock
     const lockName = "x-bot-scan";
@@ -217,11 +241,17 @@ serve(async (req) => {
 
       debug.accountsProcessed++;
 
+      // Log scan start
+      await insertLog(supabase, account.id, "scan", "info", `Starting scan for @${account.username}`);
+
       // Build search queries from mentions and cashtags
       const mentions = rules.monitored_mentions || [];
       const cashtags = rules.tracked_cashtags || [];
       
-      if (mentions.length === 0 && cashtags.length === 0) continue;
+      if (mentions.length === 0 && cashtags.length === 0) {
+        await insertLog(supabase, account.id, "scan", "warn", "No mentions or cashtags configured");
+        continue;
+      }
 
       // Search for mentions
       const mentionQuery = mentions.map((m: string) => `(${m})`).join(" OR ");
@@ -233,29 +263,56 @@ serve(async (req) => {
       const tweets = await searchTweets(TWITTERAPI_IO_KEY, fullQuery);
       debug.tweetsSearched += tweets.length;
 
+      await insertLog(supabase, account.id, "scan", "info", `Found ${tweets.length} tweets matching query`, {
+        query: fullQuery.substring(0, 200),
+        tweetCount: tweets.length,
+      });
+
+      let queuedCount = 0;
+      let skippedCount = 0;
+
       for (const tweet of tweets) {
+        const author = tweet.author?.userName || "unknown";
+        const followers = getFollowerCount(tweet);
+
         // Skip old tweets (only last 30 minutes)
         if (!isRecentTweet(tweet.createdAt, 30)) {
           debug.skipped++;
+          skippedCount++;
           continue;
         }
 
         // Skip replies
         if (isActuallyReply(tweet)) {
+          await insertLog(supabase, account.id, "skip", "info", `Skipped @${author}: tweet is a reply`, {
+            tweetId: tweet.id,
+          });
           debug.skipped++;
+          skippedCount++;
           continue;
         }
 
         // Check verification requirements
         if (!hasVerificationBadge(tweet, rules.require_blue_verified, rules.require_gold_verified)) {
+          await insertLog(supabase, account.id, "skip", "info", `Skipped @${author}: verification not met`, {
+            tweetId: tweet.id,
+            requireBlue: rules.require_blue_verified,
+            requireGold: rules.require_gold_verified,
+          });
           debug.skipped++;
+          skippedCount++;
           continue;
         }
 
         // Check follower count
-        const followers = getFollowerCount(tweet);
         if (followers < (rules.min_follower_count || 5000)) {
+          await insertLog(supabase, account.id, "skip", "info", `Skipped @${author}: ${followers.toLocaleString()} followers < ${rules.min_follower_count.toLocaleString()} min`, {
+            tweetId: tweet.id,
+            followers,
+            minRequired: rules.min_follower_count,
+          });
           debug.skipped++;
+          skippedCount++;
           continue;
         }
 
@@ -263,6 +320,7 @@ serve(async (req) => {
         const username = tweet.author?.userName?.toLowerCase() || "";
         if (username === account.username.toLowerCase()) {
           debug.skipped++;
+          skippedCount++;
           continue;
         }
 
@@ -287,6 +345,7 @@ serve(async (req) => {
         if (existingReply) continue;
 
         // Add to queue
+        const matchType = determineMentionType(tweet.text, mentions, cashtags);
         const { error: insertError } = await supabase.from("x_bot_account_queue").insert({
           account_id: account.id,
           tweet_id: tweet.id,
@@ -296,16 +355,32 @@ serve(async (req) => {
           conversation_id: tweet.conversationId || tweet.id,
           follower_count: followers,
           is_verified: true,
-          match_type: determineMentionType(tweet.text, mentions, cashtags),
+          match_type: matchType,
           status: "pending",
         });
 
         if (!insertError) {
           debug.queued++;
+          queuedCount++;
+          await insertLog(supabase, account.id, "match", "info", `Queued @${author} tweet (${matchType})`, {
+            tweetId: tweet.id,
+            matchType,
+            followers,
+            tweetPreview: tweet.text.substring(0, 100),
+          });
         } else {
           debug.errors.push(`Insert error: ${insertError.message}`);
+          await insertLog(supabase, account.id, "error", "error", `Failed to queue tweet: ${insertError.message}`, {
+            tweetId: tweet.id,
+          });
         }
       }
+
+      // Log scan summary
+      await insertLog(supabase, account.id, "scan", "info", `Scan complete: ${queuedCount} queued, ${skippedCount} skipped`, {
+        queued: queuedCount,
+        skipped: skippedCount,
+      });
     }
 
     // Cleanup old queue entries (older than 2 hours)
@@ -313,6 +388,12 @@ serve(async (req) => {
       .from("x_bot_account_queue")
       .delete()
       .lt("created_at", new Date(Date.now() - 7200000).toISOString());
+
+    // Cleanup old logs (older than 7 days)
+    await supabase
+      .from("x_bot_account_logs")
+      .delete()
+      .lt("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
     // Release lock
     await supabase.from("cron_locks").delete().eq("lock_name", lockName);
