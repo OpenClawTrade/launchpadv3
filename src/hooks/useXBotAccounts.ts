@@ -13,6 +13,9 @@ export interface XBotAccount {
   auth_token_encrypted: string | null;
   ct0_token_encrypted: string | null;
   proxy_url: string | null;
+  socks5_urls: string[];
+  current_socks5_index: number;
+  last_socks5_failure_at: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -155,6 +158,8 @@ export function useXBotAccounts() {
           auth_token_encrypted: account.auth_token_encrypted || null,
           ct0_token_encrypted: account.ct0_token_encrypted || null,
           proxy_url: account.proxy_url || null,
+          socks5_urls: account.socks5_urls || [],
+          current_socks5_index: 0,
           is_active: account.is_active ?? true,
         })
         .select()
@@ -201,6 +206,7 @@ export function useXBotAccounts() {
           auth_token_encrypted: account.auth_token_encrypted,
           ct0_token_encrypted: account.ct0_token_encrypted,
           proxy_url: account.proxy_url,
+          socks5_urls: account.socks5_urls,
           is_active: account.is_active,
         })
         .eq("id", id);
