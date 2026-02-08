@@ -48,14 +48,35 @@ const parseCookieString = (raw: string): Record<string, string> => {
   return out;
 };
 
-const buildLoginCookiesBase64 = (cookie: string): string | null => {
-  if (!cookie) return null;
-  
-  const cookies = parseCookieString(cookie.trim());
-  if (cookies.auth_token && cookies.ct0) {
-    return btoa(JSON.stringify(cookies));
+// Build login cookies base64 from various formats
+const buildLoginCookiesBase64 = (args: {
+  fullCookie?: string | null;
+  authToken?: string | null;
+  ct0Token?: string | null;
+}): string | null => {
+  const { fullCookie, authToken, ct0Token } = args;
+
+  // Priority 1: Full cookie header from browser
+  if (fullCookie && fullCookie.trim()) {
+    const cookies = parseCookieString(fullCookie.trim());
+    if (cookies.auth_token && cookies.ct0) {
+      console.log(`[buildLoginCookiesBase64] Using full_cookie - found auth_token and ct0`);
+      return btoa(JSON.stringify(cookies));
+    }
+    console.log(`[buildLoginCookiesBase64] full_cookie parsed but missing auth_token or ct0`);
   }
-  
+
+  // Priority 2: Individual tokens
+  if (authToken && ct0Token) {
+    const authVal = stripQuotes(authToken.trim());
+    const ct0Val = stripQuotes(ct0Token.trim());
+    if (authVal && ct0Val) {
+      console.log(`[buildLoginCookiesBase64] Using individual tokens (auth_token length: ${authVal.length}, ct0 length: ${ct0Val.length})`);
+      return btoa(JSON.stringify({ auth_token: authVal, ct0: ct0Val }));
+    }
+  }
+
+  console.log(`[buildLoginCookiesBase64] No valid cookies found`);
   return null;
 };
 
@@ -180,15 +201,13 @@ async function postReply(
   tweetId: string,
   replyText: string,
   apiKey: string,
-  cookie: string,
+  loginCookiesBase64: string,
   proxy: string
 ): Promise<{ success: boolean; replyId?: string; error?: string; rawResponse?: string }> {
   try {
-    const loginCookies = buildLoginCookiesBase64(cookie) ?? btoa(cookie);
-    
     console.log(`[postReply] Posting reply to tweet ${tweetId}`);
     console.log(`[postReply] Using proxy: ${proxy ? "yes" : "no"}`);
-    console.log(`[postReply] Cookie format: ${cookie.includes("auth_token=") ? "full_cookie" : "base64_or_raw"}`);
+    console.log(`[postReply] loginCookiesBase64 length: ${loginCookiesBase64.length}`);
 
     const response = await fetchWithTimeout(
       `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
@@ -201,7 +220,7 @@ async function postReply(
         body: JSON.stringify({
           tweet_text: replyText,
           reply_to_tweet_id: tweetId,
-          login_cookies: loginCookies,
+          login_cookies: loginCookiesBase64,
           ...(proxy && { proxy }),
         }),
       },
@@ -335,17 +354,24 @@ serve(async (req) => {
       const rules = (account as any).x_bot_account_rules?.[0];
       if (!rules?.enabled) continue;
 
-      // Get cookie - prefer full_cookie, then construct from tokens
-      let cookie = account.full_cookie_encrypted || "";
-      if (!cookie && account.auth_token_encrypted && account.ct0_token_encrypted) {
-        cookie = `auth_token=${account.auth_token_encrypted}; ct0=${account.ct0_token_encrypted}`;
-      }
+      // Build login cookies using the proper base64 format
+      const loginCookies = buildLoginCookiesBase64({
+        fullCookie: account.full_cookie_encrypted,
+        authToken: account.auth_token_encrypted,
+        ct0Token: account.ct0_token_encrypted,
+      });
 
-      if (!cookie) {
+      if (!loginCookies) {
         debug.errors.push(`Account ${account.username}: No valid cookies`);
-        await insertLog(supabase, account.id, "error", "error", `No valid cookies configured for @${account.username}`);
+        await insertLog(supabase, account.id, "error", "error", `No valid cookies configured for @${account.username}. Check that full_cookie or auth_token+ct0 are properly set.`, {
+          hasFullCookie: !!account.full_cookie_encrypted,
+          hasAuthToken: !!account.auth_token_encrypted,
+          hasCt0Token: !!account.ct0_token_encrypted,
+        });
         continue;
       }
+
+      console.log(`[x-bot-reply] Account ${account.username}: loginCookies built successfully`);
 
       debug.accountsProcessed++;
 
@@ -451,7 +477,7 @@ serve(async (req) => {
         queuedTweet.tweet_id,
         replyText,
         TWITTERAPI_IO_KEY,
-        cookie,
+        loginCookies,
         proxyUrl
       );
 
