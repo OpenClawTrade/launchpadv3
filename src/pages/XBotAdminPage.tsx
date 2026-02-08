@@ -11,7 +11,7 @@ import { XBotRulesForm } from "@/components/admin/XBotRulesForm";
 import { XBotActivityPanel } from "@/components/admin/XBotActivityPanel";
 import { Play, RefreshCw, Shield, Power } from "lucide-react";
 
-const ADMIN_PASSWORD = "tuna2024treasury";
+const ADMIN_PASSWORD = "tuna";
 
 export default function XBotAdminPage() {
   const [authenticated, setAuthenticated] = useState(false);

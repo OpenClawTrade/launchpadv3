@@ -70,7 +70,7 @@ export function XBotAccountForm({
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="basic">Basic</TabsTrigger>
               <TabsTrigger value="auth">Authentication</TabsTrigger>
-              <TabsTrigger value="proxy">Proxy</TabsTrigger>
+              <TabsTrigger value="proxy">SOCKS5</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4">
@@ -226,19 +226,19 @@ export function XBotAccountForm({
 
             <TabsContent value="proxy" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="proxy_url">Proxy URL</Label>
+                <Label htmlFor="proxy_url">SOCKS5 URL</Label>
                 <Input
                   id="proxy_url"
                   value={formData.proxy_url}
                   onChange={(e) =>
                     setFormData((p) => ({ ...p, proxy_url: e.target.value }))
                   }
-                  placeholder="http://user:pass@host:port"
+                  placeholder="socks5://user:pass@host:port"
                   className="font-mono text-xs"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Each account should have a unique proxy to avoid IP-based
-                  restrictions.
+                  Each account should have a unique SOCKS5 proxy to avoid IP-based
+                  restrictions. Format: socks5://user:pass@host:port
                 </p>
               </div>
             </TabsContent>
