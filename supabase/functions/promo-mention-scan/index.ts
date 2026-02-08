@@ -52,6 +52,7 @@ async function searchMentions(apiKey: string): Promise<Tweet[]> {
   // ONLY search for direct platform mentions - NO generic crypto terms
   searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @buildtuna OR @tunalaunch) -is:retweet -is:reply");
   searchUrl.searchParams.set("queryType", "Latest");
+  searchUrl.searchParams.set("count", "10"); // Limit to 10 results to save API credits
 
   try {
     const response = await fetchWithTimeout(
@@ -151,6 +152,18 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Skip scan if queue already has 5+ pending items (saves API credits)
+    const { count: pendingCount } = await supabase
+      .from("promo_mention_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+
+    if (pendingCount && pendingCount >= 5) {
+      return new Response(JSON.stringify({ ok: true, reason: "Queue has 5+ pending items, skipping scan", debug }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Acquire lock
     const lockName = "promo-mention-scan";
