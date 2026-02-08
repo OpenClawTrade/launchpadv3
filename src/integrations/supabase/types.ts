@@ -6306,13 +6306,16 @@ export type Database = {
           auth_token_encrypted: string | null
           created_at: string | null
           ct0_token_encrypted: string | null
+          current_socks5_index: number | null
           email: string | null
           full_cookie_encrypted: string | null
           id: string
           is_active: boolean | null
+          last_socks5_failure_at: string | null
           name: string
           password_encrypted: string | null
           proxy_url: string | null
+          socks5_urls: string[] | null
           totp_secret_encrypted: string | null
           updated_at: string | null
           username: string
@@ -6321,13 +6324,16 @@ export type Database = {
           auth_token_encrypted?: string | null
           created_at?: string | null
           ct0_token_encrypted?: string | null
+          current_socks5_index?: number | null
           email?: string | null
           full_cookie_encrypted?: string | null
           id?: string
           is_active?: boolean | null
+          last_socks5_failure_at?: string | null
           name: string
           password_encrypted?: string | null
           proxy_url?: string | null
+          socks5_urls?: string[] | null
           totp_secret_encrypted?: string | null
           updated_at?: string | null
           username: string
@@ -6336,13 +6342,16 @@ export type Database = {
           auth_token_encrypted?: string | null
           created_at?: string | null
           ct0_token_encrypted?: string | null
+          current_socks5_index?: number | null
           email?: string | null
           full_cookie_encrypted?: string | null
           id?: string
           is_active?: boolean | null
+          last_socks5_failure_at?: string | null
           name?: string
           password_encrypted?: string | null
           proxy_url?: string | null
+          socks5_urls?: string[] | null
           totp_secret_encrypted?: string | null
           updated_at?: string | null
           username?: string

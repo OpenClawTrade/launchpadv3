@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Plus, Trash2 } from "lucide-react";
 import type { XBotAccountWithRules } from "@/hooks/useXBotAccounts";
 
 interface XBotAccountFormProps {
@@ -38,8 +39,47 @@ export function XBotAccountForm({
     auth_token_encrypted: account?.auth_token_encrypted || "",
     ct0_token_encrypted: account?.ct0_token_encrypted || "",
     proxy_url: account?.proxy_url || "",
+    socks5_urls: account?.socks5_urls || [],
     is_active: account?.is_active ?? true,
   });
+  const [newSocks5, setNewSocks5] = useState("");
+
+  // Reset form when account changes
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        name: account?.name || "",
+        username: account?.username || "",
+        email: account?.email || "",
+        password_encrypted: "",
+        totp_secret_encrypted: "",
+        full_cookie_encrypted: account?.full_cookie_encrypted || "",
+        auth_token_encrypted: account?.auth_token_encrypted || "",
+        ct0_token_encrypted: account?.ct0_token_encrypted || "",
+        proxy_url: account?.proxy_url || "",
+        socks5_urls: account?.socks5_urls || [],
+        is_active: account?.is_active ?? true,
+      });
+      setNewSocks5("");
+    }
+  }, [open, account]);
+
+  const handleAddSocks5 = () => {
+    if (newSocks5.trim() && newSocks5.startsWith("socks5://")) {
+      setFormData((p) => ({
+        ...p,
+        socks5_urls: [...p.socks5_urls, newSocks5.trim()],
+      }));
+      setNewSocks5("");
+    }
+  };
+
+  const handleRemoveSocks5 = (index: number) => {
+    setFormData((p) => ({
+      ...p,
+      socks5_urls: p.socks5_urls.filter((_, i) => i !== index),
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,21 +265,65 @@ export function XBotAccountForm({
             </TabsContent>
 
             <TabsContent value="proxy" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="proxy_url">SOCKS5 URL</Label>
-                <Input
-                  id="proxy_url"
-                  value={formData.proxy_url}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, proxy_url: e.target.value }))
-                  }
-                  placeholder="socks5://user:pass@host:port"
-                  className="font-mono text-xs"
-                />
+              <div className="space-y-3">
+                <Label>SOCKS5 Proxies ({formData.socks5_urls.length})</Label>
                 <p className="text-xs text-muted-foreground">
-                  Each account should have a unique SOCKS5 proxy to avoid IP-based
-                  restrictions. Format: socks5://user:pass@host:port
+                  Add multiple SOCKS5 proxies for failover. If one fails, the bot will
+                  automatically try the next one. You can add more proxies anytime.
                 </p>
+                
+                {/* Existing proxies list */}
+                {formData.socks5_urls.length > 0 && (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {formData.socks5_urls.map((url, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <div className="flex-1 bg-muted/50 rounded px-2 py-1.5 font-mono text-xs truncate">
+                          {index + 1}. {url}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveSocks5(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new proxy */}
+                <div className="flex gap-2">
+                  <Input
+                    value={newSocks5}
+                    onChange={(e) => setNewSocks5(e.target.value)}
+                    placeholder="socks5://user:pass@host:port"
+                    className="font-mono text-xs flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddSocks5();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddSocks5}
+                    disabled={!newSocks5.trim() || !newSocks5.startsWith("socks5://")}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+                {newSocks5 && !newSocks5.startsWith("socks5://") && (
+                  <p className="text-xs text-destructive">
+                    URL must start with socks5://
+                  </p>
+                )}
               </div>
             </TabsContent>
           </Tabs>

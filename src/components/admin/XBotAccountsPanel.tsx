@@ -57,9 +57,9 @@ export function XBotAccountsPanel({
     });
   };
 
-  // Check for accounts with missing or invalid SOCKS5
+  // Check for accounts with missing SOCKS5 proxies
   const accountsWithSocks5Issues = accounts.filter(
-    (a) => a.is_active && (!a.proxy_url || !a.proxy_url.startsWith("socks5://"))
+    (a) => a.is_active && (!a.socks5_urls || a.socks5_urls.length === 0)
   );
 
   return (
