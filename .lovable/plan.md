@@ -1,147 +1,78 @@
 
-# Add Custom Image Upload to Trading Agent Creation
+# Plan: Add Process Console/Activity Log for X-Bot Accounts
 
-## Password Answer
-The **Trading Agent beta access password is: `TUNA`** (case-insensitive)
+## Overview
+Create a detailed activity log system that records all step-by-step operations for each X-Bot account, providing visibility into login status, scanning activity, tweet discovery, and reply outcomes.
 
----
-
-## Current State
-- The trading agent creation form already has fields for custom Name and Ticker
-- Currently, users can only use AI-generated avatars via the "Generate Character" button
-- The backend (`trading-agent-create`) already accepts an `avatarUrl` parameter
-
-## Implementation Plan
-
-### 1. Update the Form Component
-
-**File: `src/components/trading/CreateTradingAgentModal.tsx`**
-
-Add a new section for custom image upload alongside the existing avatar preview:
-
-- Add a file input for image upload (accepts PNG, JPG, WebP)
-- Add a state for `customImage` (File or null)
-- Add a preview for the uploaded custom image
-- Allow user to choose between:
-  - AI-generated avatar (existing "Generate Character" flow)
-  - Custom uploaded image
-
-**UI Changes:**
-- Add an "Upload Custom" button next to the avatar preview area
-- Show the uploaded image as preview when selected
-- Clear custom image when "Generate Character" is clicked (and vice versa)
-- Show file size/type validation feedback
-
-### 2. Upload Image to Storage
-
-**Flow:**
-1. When user selects an image file, validate it (max 2MB, image types only)
-2. On form submit, if `customImage` exists:
-   - Upload to Supabase storage (`agent-avatars` bucket)
-   - Get the public URL
-   - Use that URL as `avatarUrl` in the API call
-3. If no custom image, use `generatedAvatar` as before
-
-**Implementation in Modal:**
-```typescript
-const [customImageFile, setCustomImageFile] = useState<File | null>(null);
-const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
-
-const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (file) {
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "Image too large", description: "Max 2MB", variant: "destructive" });
-      return;
-    }
-    setCustomImageFile(file);
-    setCustomImagePreview(URL.createObjectURL(file));
-    setGeneratedAvatar(null); // Clear AI avatar when custom is uploaded
-  }
-};
-```
-
-### 3. Create Storage Bucket (if needed)
-
-Check if `agent-avatars` bucket exists, or use existing bucket for agent images. The bucket should allow public read access for avatar URLs.
-
-### 4. Update Submit Handler
-
-Modify `onSubmit` to:
-1. Check if `customImageFile` exists
-2. If yes, upload to storage and get URL
-3. Pass the URL (custom or generated) to the API
-
-```typescript
-const onSubmit = async (values: FormValues) => {
-  try {
-    let finalAvatarUrl = generatedAvatar;
-    
-    // Upload custom image if provided
-    if (customImageFile) {
-      const fileName = `trading-agent-${Date.now()}.${customImageFile.name.split('.').pop()}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("agent-avatars")
-        .upload(fileName, customImageFile, { upsert: true });
-      
-      if (uploadError) throw new Error("Failed to upload image");
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from("agent-avatars")
-        .getPublicUrl(fileName);
-      
-      finalAvatarUrl = publicUrl;
-    }
-    
-    const result = await createAgent.mutateAsync({
-      ...values,
-      avatarUrl: finalAvatarUrl || undefined,
-    });
-    // ... rest of handler
-  }
-};
-```
-
-### 5. UI Layout Update
-
-The avatar section will have:
-
-```
-+--------------------------------------------------+
-|  [Avatar Preview]    | [Generate Character] btn  |
-|  (shows custom or    | [Upload Custom Image] btn |
-|   generated avatar)  | (hidden file input)       |
-+--------------------------------------------------+
-```
-
-With clear visual indication of which mode is active.
+## What You'll Get
+- A new "Console" tab in the Activity Panel showing real-time logs
+- Timestamped entries for every operation (login, scan, match, reply)
+- Success/error status with detailed messages
+- Filter by log level (info, warn, error)
+- Per-account log viewing
 
 ---
 
-## Files to Modify
+## Technical Implementation
 
-1. **`src/components/trading/CreateTradingAgentModal.tsx`**
-   - Add custom image upload state
-   - Add file input (hidden) with click handler
-   - Update avatar preview section to show custom OR generated
-   - Modify submit handler to upload custom image first
-   - Add clear buttons to switch between custom/generated
+### 1. Create New Database Table
+A new `x_bot_account_logs` table to store all process events:
 
----
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | uuid | Primary key |
+| account_id | uuid | Links to x_bot_accounts |
+| log_type | text | 'login', 'scan', 'match', 'reply', 'error' |
+| level | text | 'info', 'warn', 'error' |
+| message | text | Human-readable description |
+| details | jsonb | Additional context data |
+| created_at | timestamp | When it happened |
 
-## Technical Details
+### 2. Update Edge Functions
+Modify `x-bot-scan` and `x-bot-reply` to insert log entries:
 
-**Validation:**
-- Max file size: 2MB
-- Accepted types: image/png, image/jpeg, image/webp
+**Scan function will log:**
+- "Starting scan for account @username"
+- "Found X tweets matching rules"
+- "Tweet by @author queued (match: cashtag:$TUNA)"
+- "Skipped: author below follower threshold"
 
-**Storage:**
-- Use existing Supabase storage bucket (will check for `agent-avatars` or similar)
-- Generate unique filename with timestamp
-- Get public URL after upload
+**Reply function will log:**
+- "Processing queued tweet by @author"
+- "Generating reply..."
+- "Reply posted successfully (ID: xxx)"
+- "Reply failed: rate limited"
 
-**UX:**
-- Clicking "Upload Custom" opens file picker
-- After upload, preview shows the custom image
-- Clicking "Generate Character" clears custom and generates AI avatar
-- User can switch between custom and generated freely before submitting
+### 3. Add Console Tab to UI
+New tab in `XBotActivityPanel.tsx`:
+
+```text
+┌─────────────────────────────────────────────┐
+│ [Recent Replies] [Queue] [Console]          │
+├─────────────────────────────────────────────┤
+│ Filter: [All ▼] [info] [warn] [error]       │
+├─────────────────────────────────────────────┤
+│ 14:32:15 [INFO] Starting scan for @tunab0t  │
+│ 14:32:17 [INFO] Found 3 matching tweets     │
+│ 14:32:18 [INFO] Queued: @whale_alert $TUNA  │
+│ 14:32:45 [INFO] Processing queue item...    │
+│ 14:32:46 [INFO] Generated reply (142 chars) │
+│ 14:32:48 [OK]   Reply posted: 18293847...   │
+│ 14:33:02 [WARN] Author cooldown active      │
+│ 14:33:15 [ERR]  Rate limit exceeded         │
+└─────────────────────────────────────────────┘
+```
+
+### 4. Files to Create/Modify
+
+| File | Change |
+|------|--------|
+| `supabase/migrations/xxx.sql` | Create `x_bot_account_logs` table with RLS |
+| `supabase/functions/x-bot-scan/index.ts` | Add log insertion calls |
+| `supabase/functions/x-bot-reply/index.ts` | Add log insertion calls |
+| `src/hooks/useXBotAccounts.ts` | Add `fetchLogs()` function |
+| `src/components/admin/XBotActivityPanel.tsx` | Add "Console" tab with log display |
+
+### 5. Auto-Cleanup
+- Logs older than 7 days automatically deleted during scan runs
+- Prevents database bloat while keeping recent history
