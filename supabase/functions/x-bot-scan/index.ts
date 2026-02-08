@@ -82,6 +82,7 @@ async function searchTweets(apiKey: string, query: string): Promise<Tweet[]> {
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
   searchUrl.searchParams.set("query", `${query} -is:retweet -is:reply`);
   searchUrl.searchParams.set("queryType", "Latest");
+  searchUrl.searchParams.set("count", "10"); // Limit to 10 results to save API credits
 
   try {
     const response = await fetchWithTimeout(
@@ -210,6 +211,18 @@ serve(async (req) => {
     }
 
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Skip scan if queue already has 5+ pending items (saves API credits)
+    const { count: pendingCount } = await supabase
+      .from("x_bot_account_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+
+    if (pendingCount && pendingCount >= 5) {
+      return new Response(JSON.stringify({ ok: true, reason: "Queue has 5+ pending items, skipping scan", debug }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Acquire lock
     const lockName = "x-bot-scan";
