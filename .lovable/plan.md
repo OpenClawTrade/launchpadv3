@@ -1,78 +1,79 @@
 
-# Plan: Add Process Console/Activity Log for X-Bot Accounts
+# Optimize Twitter API Credit Usage
 
-## Overview
-Create a detailed activity log system that records all step-by-step operations for each X-Bot account, providing visibility into login status, scanning activity, tweet discovery, and reply outcomes.
+## Current Problem
+The system is burning through Twitter API credits because:
+1. **x-bot-scan** runs every minute (job 41) - searches for 4 mentions + 5 cashtags
+2. **promo-mention-scan** runs every 2 minutes (job 30) - searches for 4 platform mentions
+3. Each search API call consumes credits regardless of results
+4. The `last_scanned_at` filter helps avoid duplicate processing but doesn't reduce API calls
 
-## What You'll Get
-- A new "Console" tab in the Activity Panel showing real-time logs
-- Timestamped entries for every operation (login, scan, match, reply)
-- Success/error status with detailed messages
-- Filter by log level (info, warn, error)
-- Per-account log viewing
+## Optimization Strategy
 
----
-
-## Technical Implementation
-
-### 1. Create New Database Table
-A new `x_bot_account_logs` table to store all process events:
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| id | uuid | Primary key |
-| account_id | uuid | Links to x_bot_accounts |
-| log_type | text | 'login', 'scan', 'match', 'reply', 'error' |
-| level | text | 'info', 'warn', 'error' |
-| message | text | Human-readable description |
-| details | jsonb | Additional context data |
-| created_at | timestamp | When it happened |
-
-### 2. Update Edge Functions
-Modify `x-bot-scan` and `x-bot-reply` to insert log entries:
-
-**Scan function will log:**
-- "Starting scan for account @username"
-- "Found X tweets matching rules"
-- "Tweet by @author queued (match: cashtag:$TUNA)"
-- "Skipped: author below follower threshold"
-
-**Reply function will log:**
-- "Processing queued tweet by @author"
-- "Generating reply..."
-- "Reply posted successfully (ID: xxx)"
-- "Reply failed: rate limited"
-
-### 3. Add Console Tab to UI
-New tab in `XBotActivityPanel.tsx`:
+### 1. Add Result Limiting to API Calls
+Modify the `searchTweets` function to request only the 10 most recent results instead of the default (which can be 20-100+).
 
 ```text
-┌─────────────────────────────────────────────┐
-│ [Recent Replies] [Queue] [Console]          │
-├─────────────────────────────────────────────┤
-│ Filter: [All ▼] [info] [warn] [error]       │
-├─────────────────────────────────────────────┤
-│ 14:32:15 [INFO] Starting scan for @tunab0t  │
-│ 14:32:17 [INFO] Found 3 matching tweets     │
-│ 14:32:18 [INFO] Queued: @whale_alert $TUNA  │
-│ 14:32:45 [INFO] Processing queue item...    │
-│ 14:32:46 [INFO] Generated reply (142 chars) │
-│ 14:32:48 [OK]   Reply posted: 18293847...   │
-│ 14:33:02 [WARN] Author cooldown active      │
-│ 14:33:15 [ERR]  Rate limit exceeded         │
-└─────────────────────────────────────────────┘
+searchUrl.searchParams.set("count", "10");  // Limit to 10 results
 ```
 
-### 4. Files to Create/Modify
+### 2. Reduce Scan Frequency
+Change cron schedules to be more efficient:
+- **x-bot-scan**: Every 5 minutes instead of every minute
+- **promo-mention-scan**: Every 5 minutes instead of every 2 minutes
 
-| File | Change |
-|------|--------|
-| `supabase/migrations/xxx.sql` | Create `x_bot_account_logs` table with RLS |
-| `supabase/functions/x-bot-scan/index.ts` | Add log insertion calls |
-| `supabase/functions/x-bot-reply/index.ts` | Add log insertion calls |
-| `src/hooks/useXBotAccounts.ts` | Add `fetchLogs()` function |
-| `src/components/admin/XBotActivityPanel.tsx` | Add "Console" tab with log display |
+This alone reduces API calls by ~70-80%.
 
-### 5. Auto-Cleanup
-- Logs older than 7 days automatically deleted during scan runs
-- Prevents database bloat while keeping recent history
+### 3. Consolidate Searches (Optional but Recommended)
+Currently if you have 9 search terms (4 mentions + 5 cashtags), they're combined into ONE query using OR operators - so this is already efficient. No change needed here.
+
+### 4. Skip Scan if Queue is Full
+Add logic to skip scanning if there are already enough pending items in the queue (e.g., 5+ pending tweets). This prevents wasteful scans when the reply system is behind.
+
+## Implementation Changes
+
+### Files to Modify
+
+**1. `supabase/functions/x-bot-scan/index.ts`**
+- Add `count=10` parameter to limit API results
+- Add queue-check to skip scan if queue already has 5+ pending items
+
+**2. `supabase/functions/promo-mention-scan/index.ts`**  
+- Add `count=10` parameter to limit API results
+- Add queue-check to skip scan if queue already has 5+ pending items
+
+**3. Database: Update Cron Schedules**
+Run SQL to change scan frequency:
+```sql
+-- Change x-bot-scan from every minute to every 5 minutes
+SELECT cron.alter_job(41, '*/5 * * * *');
+
+-- Change promo-mention-scan from every 2 minutes to every 5 minutes  
+SELECT cron.alter_job(30, '*/5 * * * *');
+```
+
+## Expected Credit Savings
+
+| Metric | Before | After | Savings |
+|--------|--------|-------|---------|
+| x-bot-scan calls/hour | 60 | 12 | 80% |
+| promo-mention-scan calls/hour | 30 | 12 | 60% |
+| Results per call | ~20-50 | 10 | 50-80% |
+| **Total API calls/day** | ~2,160 | ~576 | **73%** |
+
+## Technical Details
+
+The Twitter API `advanced_search` endpoint supports a `count` parameter. Combined with `queryType=Latest`, this ensures we get only the freshest 10 tweets, which is plenty for a 5-minute scan window.
+
+The queue-check optimization adds a simple SELECT before the search:
+```typescript
+const { count } = await supabase
+  .from("x_bot_account_queue")
+  .select("id", { count: "exact", head: true })
+  .eq("status", "pending");
+
+if (count >= 5) {
+  // Skip scan - queue is full enough
+  return;
+}
+```
