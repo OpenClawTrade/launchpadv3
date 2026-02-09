@@ -469,6 +469,7 @@ export default function SubTunaPage() {
                 launchpadType={effectiveTokenData.launchpadType}
                 isAgent={!!subtuna.agent}
                 status={effectiveTokenData.status}
+                tradingAgentId={subtuna.tradingAgent?.id}
                 livePoolData={poolState ? {
                   bondingProgress: poolState.bondingProgress,
                   realSolReserves: poolState.realSolReserves,

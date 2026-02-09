@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AgentBadge } from "./AgentBadge";
 import { PumpBadge } from "./PumpBadge";
-import { TrendUp, Users, Coins, Rocket, ArrowSquareOut } from "@phosphor-icons/react";
+import { TrendUp, Users, Coins, Rocket, ArrowSquareOut, Robot } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 interface TokenStatsHeaderProps {
@@ -20,6 +20,7 @@ interface TokenStatsHeaderProps {
   launchpadType?: string;
   isAgent?: boolean;
   status?: string;
+  tradingAgentId?: string;
   // Live pool data override
   livePoolData?: {
     bondingProgress: number;
@@ -43,6 +44,7 @@ export function TokenStatsHeader({
   launchpadType,
   isAgent,
   status,
+  tradingAgentId,
   livePoolData,
   solPrice,
 }: TokenStatsHeaderProps) {
@@ -85,17 +87,31 @@ export function TokenStatsHeader({
           </div>
         </div>
 
-        {mintAddress && (
-          <Link to={`/launchpad/${mintAddress}`}>
-            <Button
-              size="sm"
-              className="bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))] text-[hsl(var(--tunabook-text-primary))]"
-            >
-              Trade ${ticker}
-              <ArrowSquareOut size={14} className="ml-1" />
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {tradingAgentId && (
+            <Link to={`/agents/trading/${tradingAgentId}`}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+              >
+                <Robot size={14} className="mr-1" />
+                Trading Agent
+              </Button>
+            </Link>
+          )}
+          {mintAddress && (
+            <Link to={`/launchpad/${mintAddress}`}>
+              <Button
+                size="sm"
+                className="bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))] text-[hsl(var(--tunabook-text-primary))]"
+              >
+                Trade ${ticker}
+                <ArrowSquareOut size={14} className="ml-1" />
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Stats Grid */}
