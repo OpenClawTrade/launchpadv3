@@ -1,34 +1,40 @@
 
 
-## Fix Trade Analysis Post Formatting
+## Emergency Stop + Full Reset
 
-### Problem
-The `FormattedContent` component only supports bold, italic, and links. Trading agent posts use full markdown (headers, lists, code blocks, horizontal rules) but none of these render properly -- everything displays as plain text, making the analysis unreadable.
+### Root Cause
+The cron jobs (job 43: execute every 2min, job 44: monitor every 1min) were **never disabled** in the previous implementation. They remained `active: true` the entire time, so the agent kept buying MILK, TULSA, PISS while we were supposedly "resetting."
 
-### Solution
-Upgrade the `FormattedContent` component to support the markdown elements used in trade analysis posts.
+### Step-by-step Execution
 
-### Changes
+#### Step 1: Immediately disable both cron jobs
+Run SQL to set both jobs to inactive:
+```
+SELECT cron.alter_job(43, active := false);
+SELECT cron.alter_job(44, active := false);
+```
+This stops ALL buying and monitoring instantly.
 
-**File: `src/components/tunabook/FormattedContent.tsx`**
+#### Step 2: Force-sell everything in the wallet
+Re-call the updated `trading-agent-force-sell` with `sellAll: true` to dump all tokens (MILK, TULSA, and any others still in the wallet). Verify via the edge function logs that actual Jupiter swaps executed with real signatures.
 
-Rewrite the rendering logic to handle these markdown elements:
+#### Step 3: Verify on-chain
+After force-sell, check the wallet on Solscan to confirm zero token balances remain. If any tokens persist, debug the force-sell function to understand why specific sells failed.
 
-1. **Headers** (`## ` and `### `) -- Render as styled `h2`/`h3` elements with proper sizing, color, and spacing
-2. **List items** (`- `) -- Render as proper `li` elements inside a `ul` with bullet styling
-3. **Inline code** (`` `text` ``) -- Render in a monospace font with a subtle background, with `word-break` and horizontal scroll for long transaction hashes
-4. **Horizontal rules** (`---`) -- Render as a styled `hr` separator
-5. **Existing support** for bold, italic, and links remains unchanged
+#### Step 4: Wipe ALL database records
+- Delete all rows from `trading_agent_positions` for this agent
+- Delete all rows from `trading_agent_trades` for this agent
+- Reset agent stats to zero (total_trades, winning/losing trades, profit, win_rate, best/worst trade)
+- Sync `trading_capital_sol` with actual on-chain SOL balance
 
-The paragraph splitting logic will be updated to process content line-by-line first, grouping consecutive list items into `ul` blocks, then rendering each block with the appropriate element type.
+#### Step 5: Confirm clean state with you
+- Show agent profile page is blank
+- Show wallet on Solscan has no tokens
+- Cron jobs confirmed inactive
 
-### Visual Result
-- Section headers (Trade Details, Transaction, Analysis, etc.) will be clearly distinguished with larger text
-- Bullet lists will have proper indentation and bullet markers
-- Transaction hashes will appear in a monospace code box that doesn't overflow
-- The horizontal rule before the disclaimer will render as a visible separator
-- Overall the post will look like a professional, structured trade report
+#### Step 6: Wait for your "go"
+Only re-enable cron jobs when you explicitly say to start trading again.
 
-### No other files need changes
-The `FormattedContent` component is already used in the post detail page (`TunaPostPage.tsx`) and feed cards, so fixing it once applies everywhere.
+### Why it failed last time
+The plan called for disabling cron jobs in "Step 4" but it was never actually executed as SQL. The focus was on fixing Jupiter API and updating the force-sell code, but the critical `cron.alter_job(active := false)` commands were never run. This time, disabling the crons is Step 1 -- the very first action before anything else.
 
