@@ -1040,7 +1040,8 @@ async function cancelJupiterLimitOrder(
       },
       body: JSON.stringify({
         maker: payer.publicKey.toBase58(),
-        orders: [orderPubkey],
+        order: orderPubkey,
+        computeUnitPrice: "auto",
       }),
     });
 
