@@ -976,21 +976,23 @@ Respond in JSON format:
 
 async function checkJupiterOrderStatus(orderPubkey: string, jupiterApiKey: string): Promise<'active' | 'filled' | 'cancelled' | 'unknown'> {
   try {
+    // Use correct Jupiter Trigger API endpoint: getTriggerOrders with user param
     const response = await fetchWithRetry(
-      `${JUPITER_TRIGGER_URL}/getOrders?account=${orderPubkey}`,
+      `${JUPITER_TRIGGER_URL}/getTriggerOrders?user=${orderPubkey}&orderStatus=active`,
       { headers: { 'x-api-key': jupiterApiKey } }
     );
 
     if (!response.ok) {
-      console.warn(`[trading-agent-monitor] getOrders failed for ${orderPubkey}: ${response.status}`);
+      console.warn(`[trading-agent-monitor] getTriggerOrders failed for ${orderPubkey}: ${response.status}`);
       return 'unknown';
     }
 
     const data = await response.json();
     
     // Check if the order exists in active orders
-    if (data.orders && Array.isArray(data.orders)) {
-      const order = data.orders.find((o: any) => o.account === orderPubkey || o.orderKey === orderPubkey);
+    const orders = data.orders || data;
+    if (Array.isArray(orders)) {
+      const order = orders.find((o: any) => o.account === orderPubkey || o.orderKey === orderPubkey || o.publicKey === orderPubkey);
       if (order) {
         if (order.status === 'completed' || order.status === 'filled') return 'filled';
         if (order.status === 'cancelled') return 'cancelled';
@@ -998,17 +1000,17 @@ async function checkJupiterOrderStatus(orderPubkey: string, jupiterApiKey: strin
       }
     }
 
-    // If order not found in active list, it may have been filled or cancelled
-    // Try checking history
+    // If order not found in active list, check history
     const historyResponse = await fetchWithRetry(
-      `${JUPITER_TRIGGER_URL}/getOrders?account=${orderPubkey}&includeHistory=true`,
+      `${JUPITER_TRIGGER_URL}/getTriggerOrders?user=${orderPubkey}&orderStatus=history`,
       { headers: { 'x-api-key': jupiterApiKey } }
     );
 
     if (historyResponse.ok) {
       const histData = await historyResponse.json();
-      if (histData.orders && Array.isArray(histData.orders)) {
-        const histOrder = histData.orders.find((o: any) => o.account === orderPubkey || o.orderKey === orderPubkey);
+      const histOrders = histData.orders || histData;
+      if (Array.isArray(histOrders)) {
+        const histOrder = histOrders.find((o: any) => o.account === orderPubkey || o.orderKey === orderPubkey || o.publicKey === orderPubkey);
         if (histOrder) {
           if (histOrder.status === 'completed' || histOrder.status === 'filled') return 'filled';
           if (histOrder.status === 'cancelled') return 'cancelled';
