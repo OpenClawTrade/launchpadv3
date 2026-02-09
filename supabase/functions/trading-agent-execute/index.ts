@@ -623,13 +623,8 @@ serve(async (req) => {
           try {
             const tokenDecimals = await getTokenDecimals(connection, selectedToken.mint_address);
             
-            // Determine raw token amount for limit orders
-            let rawTokenAmount: number;
-            if (tokensReceived > 1_000_000) {
-              rawTokenAmount = Math.floor(tokensReceived);
-            } else {
-              rawTokenAmount = Math.floor(tokensReceived * Math.pow(10, tokenDecimals));
-            }
+            // Always convert human-readable tokens to raw smallest units
+            const rawTokenAmount = Math.floor(tokensReceived * Math.pow(10, tokenDecimals));
 
             // Take Profit: sell all tokens at TP price → receive SOL
             const tpSolLamports = Math.floor(takeProfitPrice * tokensReceived * 1e9);
