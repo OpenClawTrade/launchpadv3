@@ -22,11 +22,8 @@ const SLIPPAGE_BPS = 500; // 5%
 const MAX_RUNTIME_MS = 50000; // 50 seconds (leave 10s buffer for Edge Function timeout)
 const POLL_INTERVAL_MS = 15000; // 15 seconds between checks
 
-// Jupiter API endpoints with fallback
-const JUPITER_ENDPOINTS = [
-  'https://quote-api.jup.ag/v6',
-  'https://public.jupiterapi.com/v6',
-];
+// Jupiter API V1 endpoint (V6 is deprecated/sunset)
+const JUPITER_BASE_URL = 'https://api.jup.ag/swap/v1';
 
 // Jito Block Engines for MEV-protected execution
 const JITO_BLOCK_ENGINES = [
@@ -57,62 +54,78 @@ async function fetchWithRetry(
   throw new Error('All fetch retries exhausted');
 }
 
-// Get Jupiter quote with multi-endpoint fallback
+// Get Jupiter quote (V1 API with x-api-key)
 async function getJupiterQuote(
   inputMint: string,
   outputMint: string,
   amount: number,
   slippageBps: number
-): Promise<{ quote: any; endpoint: string } | null> {
-  for (const endpoint of JUPITER_ENDPOINTS) {
-    try {
-      const quoteUrl = `${endpoint}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
-      const response = await fetchWithRetry(quoteUrl);
-      if (response.ok) {
-        const quote = await response.json();
-        return { quote, endpoint };
-      }
-      console.warn(`[trading-agent-monitor] Jupiter endpoint ${endpoint} returned ${response.status}`);
-    } catch (e) {
-      console.warn(`[trading-agent-monitor] Jupiter endpoint ${endpoint} failed:`, e);
-    }
+): Promise<{ quote: any } | null> {
+  const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
+  if (!jupiterApiKey) {
+    console.error("[trading-agent-monitor] JUPITER_API_KEY not configured");
+    return null;
   }
-  return null;
+
+  try {
+    const quoteUrl = `${JUPITER_BASE_URL}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
+    const response = await fetchWithRetry(quoteUrl, {
+      headers: { 'x-api-key': jupiterApiKey }
+    });
+    if (response.ok) {
+      const quote = await response.json();
+      return { quote };
+    }
+    const errorText = await response.text();
+    console.warn(`[trading-agent-monitor] Jupiter quote returned ${response.status}: ${errorText}`);
+    return null;
+  } catch (e) {
+    console.error(`[trading-agent-monitor] Jupiter quote failed:`, e);
+    return null;
+  }
 }
 
-// Get Jupiter swap transaction with multi-endpoint fallback
+// Get Jupiter swap transaction (V1 API with x-api-key)
 async function getJupiterSwapTx(
-  endpoint: string,
   quote: any,
   userPublicKey: string
 ): Promise<{ swapTransaction: string } | null> {
-  for (const ep of [endpoint, ...JUPITER_ENDPOINTS.filter(e => e !== endpoint)]) {
-    try {
-      const response = await fetchWithRetry(`${ep}/swap`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quoteResponse: quote,
-          userPublicKey,
-          wrapAndUnwrapSol: true,
-          dynamicComputeUnitLimit: true,
-          prioritizationFeeLamports: { 
-            priorityLevelWithMaxLamports: {
-              maxLamports: 5_000_000, // 0.005 SOL max priority fee
-              priorityLevel: "veryHigh"
-            }
-          },
-        }),
-      });
-      if (response.ok) {
-        return await response.json();
-      }
-      console.warn(`[trading-agent-monitor] Jupiter swap endpoint ${ep} returned ${response.status}`);
-    } catch (e) {
-      console.warn(`[trading-agent-monitor] Jupiter swap endpoint ${ep} failed:`, e);
-    }
+  const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
+  if (!jupiterApiKey) {
+    console.error("[trading-agent-monitor] JUPITER_API_KEY not configured");
+    return null;
   }
-  return null;
+
+  try {
+    const response = await fetchWithRetry(`${JUPITER_BASE_URL}/swap`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "x-api-key": jupiterApiKey
+      },
+      body: JSON.stringify({
+        quoteResponse: quote,
+        userPublicKey,
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: { 
+          priorityLevelWithMaxLamports: {
+            maxLamports: 5_000_000, // 0.005 SOL max priority fee
+            priorityLevel: "veryHigh"
+          }
+        },
+      }),
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+    const errorText = await response.text();
+    console.warn(`[trading-agent-monitor] Jupiter swap returned ${response.status}: ${errorText}`);
+    return null;
+  } catch (e) {
+    console.error(`[trading-agent-monitor] Jupiter swap failed:`, e);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -302,7 +315,7 @@ serve(async (req) => {
               ai_reasoning: exitAnalysis.reasoning,
               lessons_learned: exitAnalysis.lessonsLearned,
               market_context: exitAnalysis.marketContext,
-              status: "confirmed",
+              status: "success",
               signature: swapResult.signature,
             })
             .select()
@@ -686,21 +699,21 @@ async function executeJupiterSwapWithJito(
   slippageBps: number
 ): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string }> {
   try {
-    // Get quote from Jupiter with multi-endpoint fallback
+    // Get quote from Jupiter V1 API
     const quoteResult = await getJupiterQuote(inputMint, outputMint, amount, slippageBps);
     
     if (!quoteResult) {
-      return { success: false, error: "All Jupiter quote endpoints failed" };
+      return { success: false, error: "Jupiter quote failed" };
     }
 
-    const { quote, endpoint } = quoteResult;
+    const { quote } = quoteResult;
     const outputAmount = parseInt(quote.outAmount) / 1e9; // SOL has 9 decimals
 
-    // Get swap transaction with multi-endpoint fallback
-    const swapData = await getJupiterSwapTx(endpoint, quote, payer.publicKey.toBase58());
+    // Get swap transaction from Jupiter V1 API
+    const swapData = await getJupiterSwapTx(quote, payer.publicKey.toBase58());
 
     if (!swapData) {
-      return { success: false, error: "All Jupiter swap endpoints failed" };
+      return { success: false, error: "Jupiter swap failed" };
     }
     const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
     const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
