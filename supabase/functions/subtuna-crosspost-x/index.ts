@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -29,7 +28,7 @@ function buildLoginCookies(fullCookie: string): string {
   return btoa(JSON.stringify(cookies));
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -110,12 +109,12 @@ serve(async (req) => {
     // Find X-Bot account linked to this SubTuna ticker
     const { data: xBotAccount } = await supabase
       .from("x_bot_accounts")
-      .select("id, username, full_cookie_encrypted, socks5_urls, current_socks5_index")
+      .select("id, username, full_cookie_encrypted, auth_token_encrypted, ct0_token_encrypted, socks5_urls, current_socks5_index")
       .eq("subtuna_ticker", subtuna.ticker)
       .eq("is_active", true)
       .single();
 
-    if (!xBotAccount || !xBotAccount.full_cookie_encrypted) {
+    if (!xBotAccount) {
       console.log(`[subtuna-crosspost-x] No linked X-Bot account for ticker: ${subtuna.ticker}`);
       return new Response(JSON.stringify({ 
         success: false, 
@@ -127,7 +126,34 @@ serve(async (req) => {
       });
     }
 
-    const loginCookies = buildLoginCookies(xBotAccount.full_cookie_encrypted);
+    // Extract auth_token and ct0 from full_cookie or from individual fields
+    let authToken: string | null = null;
+    let ct0Token: string | null = null;
+    
+    if (xBotAccount.full_cookie_encrypted) {
+      const cookies = parseCookieString(xBotAccount.full_cookie_encrypted);
+      authToken = cookies.auth_token || null;
+      ct0Token = cookies.ct0 || null;
+    }
+    
+    // Fallback to individual encrypted fields if available
+    if (!authToken && xBotAccount.auth_token_encrypted) {
+      authToken = stripQuotes(xBotAccount.auth_token_encrypted);
+    }
+    if (!ct0Token && xBotAccount.ct0_token_encrypted) {
+      ct0Token = stripQuotes(xBotAccount.ct0_token_encrypted);
+    }
+    
+    if (!authToken || !ct0Token) {
+      console.log(`[subtuna-crosspost-x] Missing auth_token or ct0 for @${xBotAccount.username}`);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: "Missing authentication credentials",
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     
     // Get proxy if available
     const proxyUrl = xBotAccount.socks5_urls?.[xBotAccount.current_socks5_index || 0] || undefined;
@@ -147,28 +173,62 @@ serve(async (req) => {
     console.log(`[subtuna-crosspost-x] Posting to X via @${xBotAccount.username}...`);
     console.log(`[subtuna-crosspost-x] Tweet text: ${tweetText.substring(0, 100)}...`);
 
-    // Post to X
-    const payload: Record<string, any> = {
+    // Post to X using create_tweet with auth_session format (correct endpoint per docs)
+    const postBody = {
       tweet_text: tweetText,
-      login_cookies: loginCookies,
+      auth_session: {
+        auth_token: authToken,
+        ct0: ct0Token,
+      },
+      ...(proxyUrl && { proxy: proxyUrl }),
     };
 
-    if (proxyUrl) {
-      payload.proxy = proxyUrl;
-    }
+    console.log(`[subtuna-crosspost-x] Using /twitter/create_tweet endpoint...`);
 
-    const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+    let response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
       method: "POST",
       headers: {
         "X-API-Key": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(postBody),
     });
 
-    const responseText = await response.text();
-    console.log(`[subtuna-crosspost-x] Response status: ${response.status}`);
-    console.log(`[subtuna-crosspost-x] Response: ${responseText.substring(0, 500)}`);
+    let responseText = await response.text();
+    console.log(`[subtuna-crosspost-x] create_tweet status: ${response.status}`);
+    console.log(`[subtuna-crosspost-x] create_tweet response: ${responseText.substring(0, 300)}`);
+
+    // If create_tweet fails, try create_tweet_v2 with login_cookies as fallback
+    let parsedResponse: any = null;
+    try {
+      parsedResponse = JSON.parse(responseText);
+    } catch {}
+    
+    if (!response.ok || parsedResponse?.status === "error") {
+      console.log(`[subtuna-crosspost-x] create_tweet failed (${parsedResponse?.message || response.status}), trying create_tweet_v2...`);
+      
+      // Build login_cookies base64
+      const loginCookies = buildLoginCookies(xBotAccount.full_cookie_encrypted || `auth_token=${authToken};ct0=${ct0Token}`);
+      
+      response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tweet_text: tweetText,
+          login_cookies: loginCookies,
+          ...(proxyUrl && { proxy: proxyUrl }),
+        }),
+      });
+      
+      responseText = await response.text();
+      console.log(`[subtuna-crosspost-x] create_tweet_v2 status: ${response.status}`);
+      console.log(`[subtuna-crosspost-x] create_tweet_v2 response: ${responseText.substring(0, 300)}`);
+    }
+
+    console.log(`[subtuna-crosspost-x] Final response status: ${response.status}`);
 
     if (!response.ok) {
       console.error(`[subtuna-crosspost-x] X API error: ${responseText}`);
@@ -198,15 +258,56 @@ serve(async (req) => {
       });
     }
 
-    // Extract tweet ID from response
+    // Extract tweet ID from response - handle various API response formats
     let tweetId: string | null = null;
+    let parseError: any = null;
+    let data: any = null;
+    
     try {
-      const data = JSON.parse(responseText);
+      data = JSON.parse(responseText);
+      console.log(`[subtuna-crosspost-x] Parsed response keys: ${Object.keys(data || {}).join(', ')}`);
+      
+      // Check for error status first
+      if (data?.status === "error") {
+        console.error(`[subtuna-crosspost-x] API error: ${data?.message || 'Unknown error'}`);
+        
+        await supabase.from("x_bot_account_logs").insert({
+          account_id: xBotAccount.id,
+          log_type: "crosspost",
+          level: "error",
+          message: `Twitter API returned error: ${data?.message}`,
+          details: {
+            postId,
+            subtunaId: subtuna.id,
+            ticker: subtuna.ticker,
+            error: data?.message,
+            responseBody: responseText.substring(0, 500),
+          },
+        });
+        
+        return new Response(JSON.stringify({
+          success: false,
+          error: data?.message || "Twitter API error",
+          details: responseText.substring(0, 200)
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // Try multiple paths to find tweet ID
       tweetId = data?.data?.create_tweet?.tweet_results?.result?.rest_id ||
+                data?.data?.rest_id ||
                 data?.data?.id || 
+                data?.rest_id ||
                 data?.id ||
                 data?.tweet_id;
-    } catch (parseError) {
+                
+      if (data?.data?.create_tweet?.tweet_results?.result) {
+        console.log(`[subtuna-crosspost-x] Found tweet_results.result: ${JSON.stringify(data.data.create_tweet.tweet_results.result).substring(0, 200)}`);
+      }
+    } catch (e) {
+      parseError = e;
       console.log(`[subtuna-crosspost-x] Response parse warning:`, parseError);
     }
 

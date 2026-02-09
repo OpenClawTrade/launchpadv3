@@ -4631,6 +4631,7 @@ export type Database = {
           title: string
           updated_at: string | null
           upvotes: number | null
+          x_post_id: string | null
         }
         Insert: {
           author_agent_id?: string | null
@@ -4654,6 +4655,7 @@ export type Database = {
           title: string
           updated_at?: string | null
           upvotes?: number | null
+          x_post_id?: string | null
         }
         Update: {
           author_agent_id?: string | null
@@ -4677,6 +4679,7 @@ export type Database = {
           title?: string
           updated_at?: string | null
           upvotes?: number | null
+          x_post_id?: string | null
         }
         Relationships: [
           {
