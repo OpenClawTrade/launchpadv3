@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Link2 } from "lucide-react";
 import type { XBotAccountWithRules } from "@/hooks/useXBotAccounts";
 
 interface XBotAccountFormProps {
@@ -39,6 +39,7 @@ export function XBotAccountForm({
     proxy_url: account?.proxy_url || "",
     socks5_urls: account?.socks5_urls || [],
     is_active: account?.is_active ?? true,
+    subtuna_ticker: account?.subtuna_ticker || "",
   });
   const [newSocks5, setNewSocks5] = useState("");
 
@@ -55,6 +56,7 @@ export function XBotAccountForm({
         proxy_url: account?.proxy_url || "",
         socks5_urls: account?.socks5_urls || [],
         is_active: account?.is_active ?? true,
+        subtuna_ticker: account?.subtuna_ticker || "",
       });
       setNewSocks5("");
     }
@@ -102,6 +104,7 @@ export function XBotAccountForm({
         ...formData,
         password_encrypted: formData.password_encrypted || undefined,
         totp_secret_encrypted: formData.totp_secret_encrypted || undefined,
+        subtuna_ticker: formData.subtuna_ticker || null,
       });
       onClose();
     } finally {
@@ -120,10 +123,11 @@ export function XBotAccountForm({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic</TabsTrigger>
               <TabsTrigger value="auth">Authentication</TabsTrigger>
               <TabsTrigger value="proxy">SOCKS5</TabsTrigger>
+              <TabsTrigger value="subtuna">SubTuna</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4">
@@ -304,6 +308,41 @@ export function XBotAccountForm({
                   </p>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="subtuna" className="space-y-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                <Link2 className="h-4 w-4" />
+                <span className="text-sm">Link to SubTuna community for synchronized posting</span>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="subtuna_ticker">SubTuna Ticker</Label>
+                <Input
+                  id="subtuna_ticker"
+                  value={formData.subtuna_ticker}
+                  onChange={(e) =>
+                    setFormData((p) => ({ ...p, subtuna_ticker: e.target.value }))
+                  }
+                  placeholder="e.g., 67"
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter the ticker (without t/) to link this X account to a SubTuna community. 
+                  When enabled, SubTuna posts will be cross-posted to X.
+                </p>
+              </div>
+
+              {formData.subtuna_ticker && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium">
+                    Linked Community: <span className="text-primary">t/{formData.subtuna_ticker}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    SubTuna posts will be automatically posted to @{formData.username || "username"}'s X wall.
+                  </p>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
 

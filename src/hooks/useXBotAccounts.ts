@@ -19,6 +19,7 @@ export interface XBotAccount {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  subtuna_ticker: string | null;
 }
 
 export interface XBotAccountRules {
@@ -192,6 +193,7 @@ export function useXBotAccounts() {
           socks5_urls: account.socks5_urls || [],
           current_socks5_index: 0,
           is_active: account.is_active ?? true,
+          subtuna_ticker: account.subtuna_ticker || null,
         })
         .select()
         .single();
@@ -239,6 +241,7 @@ export function useXBotAccounts() {
           proxy_url: account.proxy_url,
           socks5_urls: account.socks5_urls,
           is_active: account.is_active,
+          subtuna_ticker: account.subtuna_ticker,
         })
         .eq("id", id);
 
