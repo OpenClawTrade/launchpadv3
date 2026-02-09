@@ -323,6 +323,75 @@ async function closeEmptyTokenAccounts(connection: Connection, payer: Keypair): 
   return closed;
 }
 
+// Update agent stats after a successful sell
+async function updateAgentStats(
+  supabase: any,
+  agentId: string,
+  tokenAddress: string,
+  sellAmountSol: number,
+  sellTime: Date
+) {
+  try {
+    // Find the matching buy trade
+    const { data: buyTrade } = await supabase
+      .from("trading_agent_trades")
+      .select("amount_sol, created_at")
+      .eq("trading_agent_id", agentId)
+      .eq("token_address", tokenAddress)
+      .eq("trade_type", "buy")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!buyTrade) {
+      console.warn(`[force-sell] No buy trade found for ${tokenAddress}, skipping stats update`);
+      return;
+    }
+
+    const pnl = sellAmountSol - buyTrade.amount_sol;
+    const isWin = pnl >= 0;
+    const holdTimeMs = sellTime.getTime() - new Date(buyTrade.created_at).getTime();
+    const holdTimeMinutes = Math.max(1, Math.round(holdTimeMs / 60000));
+
+    // Get current agent stats
+    const { data: currentAgent } = await supabase
+      .from("trading_agents")
+      .select("total_profit_sol, winning_trades, losing_trades, total_trades, avg_hold_time_minutes, best_trade_sol, worst_trade_sol")
+      .eq("id", agentId)
+      .single();
+
+    if (!currentAgent) return;
+
+    const newTotalTrades = (currentAgent.total_trades || 0) + 1;
+    const newWinning = (currentAgent.winning_trades || 0) + (isWin ? 1 : 0);
+    const newLosing = (currentAgent.losing_trades || 0) + (isWin ? 0 : 1);
+    const newWinRate = newTotalTrades > 0 ? (newWinning / newTotalTrades) * 100 : 0;
+    const newTotalProfit = (currentAgent.total_profit_sol || 0) + pnl;
+    const oldAvg = currentAgent.avg_hold_time_minutes || 0;
+    const oldCount = currentAgent.total_trades || 0;
+    const newAvgHold = oldCount > 0
+      ? (oldAvg * oldCount + holdTimeMinutes) / newTotalTrades
+      : holdTimeMinutes;
+    const newBest = Math.max(currentAgent.best_trade_sol || -Infinity, pnl);
+    const newWorst = Math.min(currentAgent.worst_trade_sol || Infinity, pnl);
+
+    await supabase.from("trading_agents").update({
+      total_profit_sol: newTotalProfit,
+      winning_trades: newWinning,
+      losing_trades: newLosing,
+      total_trades: newTotalTrades,
+      win_rate: newWinRate,
+      avg_hold_time_minutes: Math.round(newAvgHold),
+      best_trade_sol: newBest === -Infinity ? null : newBest,
+      worst_trade_sol: newWorst === Infinity ? null : newWorst,
+    }).eq("id", agentId);
+
+    console.log(`[force-sell] 📊 Stats updated: PnL=${pnl.toFixed(6)}, W/L=${newWinning}/${newLosing}, WR=${newWinRate.toFixed(1)}%, AvgHold=${Math.round(newAvgHold)}min`);
+  } catch (err) {
+    console.error("[force-sell] Error updating agent stats:", err);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -434,6 +503,9 @@ serve(async (req) => {
               exit_reason: `Force sell (sellAll) - ${realizedPnl > 0 ? "profit" : "loss"}: ${pnlPct.toFixed(1)}%`,
               closed_at: new Date().toISOString(),
             }).eq("id", dbPosition.id);
+
+            // Update agent performance stats
+            await updateAgentStats(supabase, agentId, mint, solReceived, new Date());
 
             await supabase.from("trading_agent_trades").insert({
               trading_agent_id: agentId,
@@ -561,6 +633,9 @@ serve(async (req) => {
             status: "success",
             signature: swapResult.signature,
           });
+
+          // Update agent performance stats
+          await updateAgentStats(supabase, agentId, position.token_address, solReceived, new Date());
 
           results.push({
             positionId: position.id,
