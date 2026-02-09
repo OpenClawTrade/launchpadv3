@@ -1,55 +1,49 @@
 
 
-# Fix: Trading Agent Not Executing (Cron Jobs Inactive)
+# Fix: Open Positions PnL Not Updating
 
-## Root Cause
+## Problem
+Both open positions (Cube and PSX) show 0% PnL because token prices never update. The `current_price_sol` is stuck at the `entry_price_sol` value.
 
-Both cron jobs that drive autonomous trading are **disabled** (`active: false`):
-- Job 43 (`trading-agent-execute`, every 2 min) -- **INACTIVE**
-- Job 44 (`trading-agent-monitor`, every 1 min) -- **INACTIVE**
+**Root cause**: The `fetchTokenPrices` function in `trading-agent-monitor/index.ts` uses two price sources that both fail:
+1. **Jupiter V6 Price API** (`price.jup.ag/v6/price`) -- This API is sunset/deprecated. Fails every cycle (confirmed in logs: "Jupiter SOL price fetch failed")
+2. **pump.fun reserves API** -- Returns no usable data for these tokens (likely graduated to Meteora DBC)
 
-The agent has capital (3.87 SOL), is marked "active", and has 0 open positions. It simply isn't being triggered.
+SOL price fetching works fine via CoinGecko/Binance fallbacks -- only the per-token price resolution is broken.
 
-## Fix
+## Solution
 
-### Part 1: Re-enable cron jobs
+Update two functions in `supabase/functions/trading-agent-monitor/index.ts`:
 
-Run a SQL migration to activate both cron jobs:
+### 1. Replace `fetchTokenPrices` (lines 439-481)
 
-```sql
-UPDATE cron.job SET active = true WHERE jobid IN (43, 44);
-```
+New price resolution order:
+1. **Jupiter V2 Price API** (`api.jup.ag/price/v2`) -- The current working version, returns USD prices
+2. **DexScreener API** (`api.dexscreener.com/latest/dex/tokens/{address}`) -- Reliable for pump.fun and Meteora tokens, returns `priceNative` (SOL-denominated)
+3. **pump.fun API** -- Keep as last resort for pre-graduation tokens
+4. **Log warning** if no price found for a token (currently fails silently)
 
-This immediately resumes the 2-minute execution cycle and 1-minute monitoring cycle.
+### 2. Update `fetchSolPrice` (lines 485-543)
 
-### Part 2: Manually trigger execution to verify
-
-After enabling cron, call the `trading-agent-execute` function once to confirm it picks up tokens and trades. This will also produce logs showing:
-- How many DexScreener tokens were fetched
-- How many passed scoring (score >= 60, liquidity >= 20 SOL)
-- How many were filtered out by the re-buy prevention
-- Whether AI chose to trade
-
-## Current Token Pipeline Status
-
-The trending data (`pumpfun_trending_tokens`) is stale (last synced ~1 hour ago), but this doesn't matter because the execute function now uses **live DexScreener discovery** -- it fetches fresh token profiles and boosts directly from DexScreener on each run, scores them inline, and picks tokens under 1 hour old with score >= 60 and liquidity >= 20 SOL.
-
-## What Happens After the Fix
-
-1. Cron fires `trading-agent-execute` every 2 minutes
-2. Function fetches latest Solana tokens from DexScreener (profiles + boosts)
-3. Scores them (liquidity, holders, age, narrative, volume)
-4. Filters out the 1 previously traded token
-5. AI analyzes top candidates and picks one
-6. Executes Jupiter swap with Jito MEV protection
-7. Places TP limit order on Jupiter Trigger API
-8. Monitor cron checks SL via price polling every ~15 seconds
-
----
+Replace the dead Jupiter V6 call with:
+1. **Jupiter V2 Price API** (`api.jup.ag/price/v2?ids=So111...`) -- working endpoint
+2. Keep CoinGecko, Binance, and Pyth fallbacks as-is
 
 ### Technical Details
 
-**Database change:** Single SQL update to `cron.job` table to set `active = true` for jobs 43 and 44.
+```text
+fetchTokenPrices changes:
+- Line 450: Replace price.jup.ag/v6/price with api.jup.ag/price/v2?ids={address}
+- Add DexScreener as second source using priceNative field
+- Add console.warn when no price found for a token
 
-**No code changes required** -- all execution and monitoring logic is already deployed and functional. The issue is purely that the scheduler is turned off.
+fetchSolPrice changes:
+- Line 488: Replace price.jup.ag/v6/price with api.jup.ag/price/v2?ids=So111...
+```
+
+### Files Modified
+- `supabase/functions/trading-agent-monitor/index.ts`
+
+### Expected Outcome
+After deployment, the monitor will successfully fetch current prices for Cube and PSX tokens. The `unrealized_pnl_sol` and `unrealized_pnl_pct` columns will update every 5-second polling cycle, and the UI will display accurate PnL values.
 
