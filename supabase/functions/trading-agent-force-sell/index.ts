@@ -234,16 +234,18 @@ async function cancelAllLimitOrders(connection: Connection, payer: Keypair): Pro
     const orderKeys = orders.map((o: any) => o.publicKey || o.orderKey || o.account).filter(Boolean);
     if (orderKeys.length === 0) return 0;
 
-    const cancelResponse = await fetchWithRetry(`${JUPITER_TRIGGER_URL}/cancelOrder`, {
+    // Use /cancelOrders (plural) for batch cancellation
+    const cancelResponse = await fetchWithRetry(`${JUPITER_TRIGGER_URL}/cancelOrders`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": jupiterApiKey },
-      body: JSON.stringify({ maker: walletAddress, orders: orderKeys }),
+      body: JSON.stringify({ maker: walletAddress, computeUnitPrice: "auto" }),
     });
 
     if (cancelResponse.ok) {
       const cancelData = await cancelResponse.json();
-      const txBase64 = cancelData.transaction;
-      if (txBase64) {
+      // cancelOrders returns an array of transactions (batched in groups of 5)
+      const transactions = cancelData.transactions || (cancelData.transaction ? [cancelData.transaction] : []);
+      for (const txBase64 of transactions) {
         const txBuf = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
         const transaction = VersionedTransaction.deserialize(txBuf);
         const { blockhash } = await connection.getLatestBlockhash("confirmed");
@@ -251,9 +253,9 @@ async function cancelAllLimitOrders(connection: Connection, payer: Keypair): Pro
         transaction.sign([payer]);
         
         const sig = await connection.sendTransaction(transaction, { skipPreflight: true, maxRetries: 3 });
-        console.log(`[force-sell] ✅ Cancelled ${orderKeys.length} limit orders, sig: ${sig}`);
-        cancelled = orderKeys.length;
+        console.log(`[force-sell] ✅ Cancelled orders batch, sig: ${sig}`);
       }
+      cancelled = orderKeys.length;
     }
   } catch (e) {
     console.warn("[force-sell] Error cancelling limit orders:", e);
