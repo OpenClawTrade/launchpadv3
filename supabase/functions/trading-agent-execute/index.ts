@@ -167,6 +167,25 @@ serve(async (req) => {
       .eq("status", "active")
       .gte("trading_capital_sol", MIN_CAPITAL_SOL);
 
+    // === BUG FIX: Sync on-chain balance before trading ===
+    if (agents && agents.length > 0) {
+      for (const agent of agents) {
+        try {
+          const agentKp = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
+          if (!agentKp) continue;
+          const actualBalance = await connection.getBalance(agentKp.publicKey) / 1e9;
+          const dbCapital = agent.trading_capital_sol || 0;
+          if (Math.abs(actualBalance - dbCapital) > 0.05) {
+            console.warn(`[trading-agent-execute] Balance mismatch for ${agent.name}: DB=${dbCapital.toFixed(4)}, Chain=${actualBalance.toFixed(4)}. Syncing.`);
+            await supabase.from("trading_agents").update({ trading_capital_sol: actualBalance }).eq("id", agent.id);
+            agent.trading_capital_sol = actualBalance; // update in-memory too
+          }
+        } catch (syncErr) {
+          console.warn(`[trading-agent-execute] Balance sync failed for ${agent.name}:`, syncErr);
+        }
+      }
+    }
+
     if (agentsError) throw agentsError;
     if (!agents || agents.length === 0) {
       return new Response(
@@ -239,7 +258,29 @@ serve(async (req) => {
 
         // Filter out tokens we already have positions in
         const existingTokens = new Set(openPositions?.map(p => p.token_address) || []);
-        const availableTokens = trendingTokens.filter(t => !existingTokens.has(t.mint_address));
+        let availableTokens = trendingTokens.filter(t => !existingTokens.has(t.mint_address));
+
+        if (availableTokens.length === 0) continue;
+
+        // === BUG FIX: Race condition protection - skip tokens traded in last 5 minutes ===
+        const recentTradeChecks = await Promise.all(
+          availableTokens.map(async (t) => {
+            const { data: lastTrade } = await supabase
+              .from("trading_agent_trades")
+              .select("created_at")
+              .eq("trading_agent_id", agent.id)
+              .eq("token_address", t.mint_address)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (lastTrade && Date.now() - new Date(lastTrade.created_at).getTime() < 300000) {
+              console.log(`[trading-agent-execute] Skipping ${t.symbol} - traded within 5 min`);
+              return null;
+            }
+            return t;
+          })
+        );
+        availableTokens = recentTradeChecks.filter(Boolean);
 
         if (availableTokens.length === 0) continue;
 

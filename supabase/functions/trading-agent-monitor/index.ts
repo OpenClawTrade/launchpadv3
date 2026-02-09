@@ -250,7 +250,20 @@ serve(async (req) => {
 
           // Execute Jupiter swap: Token -> SOL
           const tokenDecimals = await getTokenDecimals(connection, position.token_address);
-          const amountToSell = Math.floor(position.amount_tokens * Math.pow(10, tokenDecimals));
+          
+          // BUG FIX: Detect if amount_tokens is already in base units
+          // If amount_tokens > 1M, it's likely already in base units (raw lamports)
+          // If amount_tokens < 1000, it's likely in decimal form and needs scaling
+          let amountToSell: number;
+          if (position.amount_tokens > 1_000_000) {
+            // Already in base units (e.g. 1.6B raw tokens)
+            amountToSell = Math.floor(position.amount_tokens);
+            console.log(`[trading-agent-monitor] Selling ${position.token_symbol}: ${amountToSell} raw tokens (already base units, decimals=${tokenDecimals})`);
+          } else {
+            // In decimal form, need to scale
+            amountToSell = Math.floor(position.amount_tokens * Math.pow(10, tokenDecimals));
+            console.log(`[trading-agent-monitor] Selling ${position.token_symbol}: ${position.amount_tokens} * 10^${tokenDecimals} = ${amountToSell} raw tokens`);
+          }
 
           const swapResult = await executeJupiterSwapWithJito(
             connection,
@@ -507,80 +520,7 @@ async function getTokenDecimals(connection: Connection, mintAddress: string): Pr
   }
 }
 
-async function executeJupiterSwap(
-  connection: Connection,
-  payer: Keypair,
-  inputMint: string,
-  outputMint: string,
-  amount: number,
-  slippageBps: number
-): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string }> {
-  try {
-    // Get quote from Jupiter
-    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
-    const quoteResponse = await fetch(quoteUrl);
-    
-    if (!quoteResponse.ok) {
-      return { success: false, error: `Quote failed: ${quoteResponse.status}` };
-    }
-
-    const quote = await quoteResponse.json();
-    const outputAmount = parseInt(quote.outAmount) / 1e9; // SOL has 9 decimals
-
-    // Get swap transaction
-    const swapResponse = await fetch("https://quote-api.jup.ag/v6/swap", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        quoteResponse: quote,
-        userPublicKey: payer.publicKey.toBase58(),
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-        prioritizationFeeLamports: "auto",
-      }),
-    });
-
-    if (!swapResponse.ok) {
-      return { success: false, error: `Swap request failed: ${swapResponse.status}` };
-    }
-
-    const swapData = await swapResponse.json();
-    const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
-    const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
-
-    // Sign and send transaction
-    transaction.sign([payer]);
-    
-    const signature = await connection.sendTransaction(transaction, {
-      skipPreflight: true,
-      maxRetries: 3,
-    });
-
-    // Confirm transaction with retries
-    let confirmed = false;
-    for (let i = 0; i < 30; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const status = await connection.getSignatureStatus(signature);
-      if (status.value?.confirmationStatus === "confirmed" || status.value?.confirmationStatus === "finalized") {
-        confirmed = true;
-        break;
-      }
-      if (status.value?.err) {
-        return { success: false, error: `Transaction error: ${JSON.stringify(status.value.err)}` };
-      }
-    }
-
-    if (!confirmed) {
-      return { success: false, error: "Transaction confirmation timeout" };
-    }
-
-    return { success: true, signature, outputAmount };
-
-  } catch (error) {
-    console.error("[trading-agent-monitor] Jupiter swap error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown swap error" };
-  }
-}
+// NOTE: Deprecated executeJupiterSwap (V6) removed. Use executeJupiterSwapWithJito (V1) instead.
 
 async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, number>> {
   const priceMap = new Map<string, number>();
