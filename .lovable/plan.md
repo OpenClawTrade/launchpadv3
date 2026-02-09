@@ -1,75 +1,75 @@
 
 
-## Reliable Wallet Scanning, Live Position Display, and Clean Sell-All
+## On-Demand Token Discovery (No Background Sync)
 
-### The Problem
+### Current Problem
+The `pumpfun-trending-sync` cron runs every 5 minutes continuously, even when no agent needs a token. This wastes API calls and, worse, fills the database with stale data that agents then buy from -- tokens that were "trending" 5 minutes ago may already be dumped.
 
-The current system has a trust gap:
-1. The force-sell function already supports `sellAll` mode that scans the wallet on-chain via `getParsedTokenAccountsByOwner` -- this is the correct approach
-2. BUT there's no UI to **see** what tokens are actually in the wallet before selling
-3. Database positions (`trading_agent_positions`) can get out of sync with on-chain reality (tokens bought but DB not updated, or tokens already sold but DB still shows "open")
-4. There's no admin "Sell All" button in the frontend -- you have to call the edge function manually
+### New Architecture
 
-### What We'll Build
+Instead of a separate background sync, the `trading-agent-execute` function itself will fetch fresh tokens from pump.fun **at the moment it needs one**, poll every 10 seconds until a qualifying token is found, then buy immediately.
 
-#### 1. New Edge Function: `trading-agent-wallet-scan`
-A read-only function that scans the agent's wallet on-chain and returns all token holdings with live data:
-- Uses `getParsedTokenAccountsByOwner` to get ALL SPL token accounts
-- For each token with a non-zero balance, fetches a Jupiter quote (token -> SOL) to get current value
-- Cross-references with `trading_agent_positions` DB table to identify tracked vs untracked tokens
-- Returns a unified list showing: mint address, token name/symbol, on-chain balance, estimated SOL value, whether it has a matching DB position
+```text
+BEFORE (two separate systems):
+  Cron (5min) --> pumpfun-trending-sync --> DB table --> Cron (2min) --> trading-agent-execute --> reads stale DB --> buys
 
-#### 2. New UI Component: "On-Chain Wallet Holdings" Panel
-Added to the `TradingAgentProfilePage` in the Positions tab, above the existing DB-based positions list:
-- A "Scan Wallet" button that calls the new edge function
-- Shows a table/card list of ALL tokens found on-chain in the wallet
-- Each row shows: token name, mint (linked to Solscan), balance, estimated value in SOL
-- Tags each token as "Tracked" (has DB position) or "Untracked" (on-chain only, no DB record)
-- Shows the wallet SOL balance as well
+AFTER (single on-demand flow):
+  Cron (2min) --> trading-agent-execute --> fetches pump.fun LIVE --> scores --> buys fresh token
+```
 
-#### 3. Admin "Sell All Tokens" Button
-A prominent button on the agent profile page (behind admin/beta check) that:
-- Calls `trading-agent-force-sell` with `sellAll: true`
-- Shows a confirmation dialog first ("This will sell ALL tokens in the wallet and close all positions")
-- Displays results after execution: which tokens sold, which failed, SOL received
-- Auto-refreshes the wallet scan and positions after completion
+### Changes
 
-#### 4. Fix Force-Sell Reliability
-Improve the existing `trading-agent-force-sell` function:
-- Add Token-2022 program support (scan both `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` AND `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`)
-- Increase slippage for truly illiquid tokens (try 15% first, retry at 25% if it fails, then 50%)
-- Add retry logic per token (up to 3 attempts with increasing slippage)
-- Close empty token accounts after selling to reclaim rent SOL
-- Log failed sells clearly so we know exactly what couldn't be sold and why
+#### 1. Modify `trading-agent-execute/index.ts`
+- Remove the query to `pumpfun_trending_tokens` table (lines 203-209)
+- Instead, add an inline loop that:
+  - Fetches `https://frontend-api.pump.fun/coins?sort=bump_order&limit=100&includeNsfw=false` directly
+  - Scores and filters tokens using the same NARRATIVES scoring logic (moved inline)
+  - If qualifying tokens found (score >= 60, liquidity >= 20 SOL), proceed to AI analysis and buy
+  - If NO qualifying tokens found, wait 10 seconds and retry
+  - Max runtime: 50 seconds (to stay within Edge Function 60s limit), so up to ~5 retries
+  - If pump.fun API is down (530 etc.), skip cycle entirely -- do NOT fall back to anything
+
+#### 2. Modify `pumpfun-trending-sync/index.ts`
+- Remove the DexScreener fallback entirely (lines 51-86)
+- Keep the function but make it lightweight: it still syncs pump.fun data to the DB for display purposes on the frontend trending page
+- But it is NO LONGER the source of trading decisions
+
+#### 3. Remove the `trending-sync-every-3-min` cron job
+- The trending sync cron can be reduced to once every 30 minutes (just for UI display), or removed entirely if trending display isn't needed
+- The critical trading data now comes from live fetches inside execute
+
+#### 4. Tighten SL polling in `trading-agent-monitor/index.ts`
+- Change `POLL_INTERVAL_MS` from `15000` to `5000` (5 seconds)
+- Change `MAX_RUNTIME_MS` to `55000` to fit more checks
 
 ### Technical Details
 
+**In `trading-agent-execute`, the new inline fetch + poll loop:**
 ```text
-+------------------+       +------------------------+       +------------------+
-| UI: Scan Button  | ----> | trading-agent-wallet-  | ----> | Solana RPC       |
-|                  |       | scan (new edge fn)     |       | (Helius)         |
-+------------------+       +------------------------+       +------------------+
-                                     |                              |
-                                     | cross-reference              | getParsedToken
-                                     v                              | AccountsByOwner
-                           +------------------------+               |
-                           | trading_agent_positions |              |
-                           | (DB table)             |              |
-                           +------------------------+       +------v-----------+
-                                                           | Jupiter V1 API   |
-+------------------+       +------------------------+      | (quote for value)|
-| UI: Sell All Btn | ----> | trading-agent-force-   |      +------------------+
-|                  |       | sell (existing, improved)|
-+------------------+       +------------------------+
+for each active agent that needs a trade:
+  attempt = 0
+  while attempt < 5 and elapsed < 50s:
+    fetch pump.fun API directly (fresh data)
+    if API fails: break (skip this cycle)
+    score all 100 tokens using NARRATIVES logic
+    filter: score >= 60, liquidity >= 20 SOL
+    exclude tokens agent already holds
+    exclude tokens traded in last 5 min
+    if qualifying tokens found:
+      pass to AI for selection
+      execute buy
+      break
+    else:
+      wait 10 seconds
+      attempt++
 ```
 
-**Files to create:**
-- `supabase/functions/trading-agent-wallet-scan/index.ts` -- new edge function
-
 **Files to modify:**
-- `supabase/functions/trading-agent-force-sell/index.ts` -- add Token-2022 support, retry with escalating slippage, rent reclaim
-- `src/pages/TradingAgentProfilePage.tsx` -- add wallet scan panel, sell-all button
-- `src/hooks/useTradingAgents.ts` -- add `useWalletScan` and `useForceSellAll` hooks
+- `supabase/functions/trading-agent-execute/index.ts` -- inline pump.fun fetch with 10s polling loop, remove DB dependency for token selection
+- `supabase/functions/pumpfun-trending-sync/index.ts` -- remove DexScreener fallback, keep for UI display only
+- `supabase/functions/trading-agent-monitor/index.ts` -- change polling from 15s to 5s
 
-**No database changes needed** -- this is purely on-chain reads + existing edge function improvements + UI.
+**No new files needed. No database changes needed.**
+
+The cron job `trending-sync-every-3-min` should be reduced to every 30 minutes or removed via the SQL editor, since it's no longer needed for trading decisions.
 
