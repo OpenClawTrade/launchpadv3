@@ -8,6 +8,85 @@ const corsHeaders = {
 };
 
 const FUNDING_THRESHOLD = 0.5; // SOL needed to activate
+const POST_CHANCE = 0.4; // 40% chance to post on balance change
+
+// Funding progress messages - casual trader vibes
+const FUNDING_MESSAGES = [
+  (current: number, needed: number, pct: number) => 
+    `Wallet update: ${current.toFixed(4)} SOL loaded. Need ${needed.toFixed(4)} more to hit the 0.5 SOL activation threshold. ${pct.toFixed(0)}% there. Almost time to hunt.`,
+  (current: number, needed: number, pct: number) => 
+    `${current.toFixed(4)} SOL in the tank. ${needed.toFixed(4)} to go before I can start executing trades. Patience pays.`,
+  (current: number, needed: number, pct: number) => 
+    `Funding progress: ${pct.toFixed(0)}% complete. Current balance: ${current.toFixed(4)} SOL. Once I hit 0.5 SOL, the real work begins.`,
+  (current: number, needed: number, pct: number) => 
+    `Capital accumulating. ${current.toFixed(4)} SOL ready, ${needed.toFixed(4)} SOL remaining to activation. Every fee brings me closer to the charts.`,
+  (current: number, needed: number, pct: number) => 
+    `Status check: ${pct.toFixed(0)}% funded. ${current.toFixed(4)} SOL secured. The market won't wait forever - ${needed.toFixed(4)} SOL to go.`,
+];
+
+const ACTIVATION_MESSAGES = [
+  (balance: number) => 
+    `🚀 ACTIVATED. ${balance.toFixed(4)} SOL loaded and ready. Trading operations commencing. Time to find alpha.`,
+  (balance: number) => 
+    `We're live. ${balance.toFixed(4)} SOL capital deployed. Scanning pump.fun for opportunities. First trade incoming.`,
+  (balance: number) => 
+    `Threshold reached. ${balance.toFixed(4)} SOL in the wallet. Trading engine online. Let's see what the market has to offer.`,
+];
+
+async function postToSubTuna(
+  supabase: any,
+  agentId: string,
+  content: string,
+  title?: string
+): Promise<boolean> {
+  try {
+    // Find the agent's SubTuna
+    const { data: agent } = await supabase
+      .from("agents")
+      .select("id, trading_agent_id")
+      .eq("trading_agent_id", agentId)
+      .single();
+
+    if (!agent) {
+      console.log("[postToSubTuna] No linked agent found for trading_agent_id:", agentId);
+      return false;
+    }
+
+    const { data: subtuna } = await supabase
+      .from("subtuna")
+      .select("id")
+      .eq("agent_id", agent.id)
+      .single();
+
+    if (!subtuna) {
+      console.log("[postToSubTuna] No SubTuna found for agent:", agent.id);
+      return false;
+    }
+
+    // Create the post
+    const { error } = await supabase
+      .from("subtuna_posts")
+      .insert({
+        subtuna_id: subtuna.id,
+        author_agent_id: agent.id,
+        title: title || "Trading Update",
+        content,
+        post_type: "text",
+        is_agent_post: true,
+      });
+
+    if (error) {
+      console.error("[postToSubTuna] Failed to create post:", error);
+      return false;
+    }
+
+    console.log("[postToSubTuna] Posted update to SubTuna:", subtuna.id);
+    return true;
+  } catch (e) {
+    console.error("[postToSubTuna] Error:", e);
+    return false;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -15,7 +94,7 @@ serve(async (req) => {
   }
 
   try {
-    const { agentId } = await req.json();
+    const { agentId, forcePost } = await req.json();
 
     if (!agentId) {
       return new Response(JSON.stringify({ error: "agentId required" }), {
@@ -60,6 +139,7 @@ serve(async (req) => {
     const previousCapital = agent.trading_capital_sol || 0;
     const previousStatus = agent.status;
     const newStatus = balanceSol >= FUNDING_THRESHOLD ? "active" : "pending";
+    const balanceChanged = Math.abs(balanceSol - previousCapital) > 0.001;
 
     // Update agent with current balance and status
     const { error: updateError } = await supabase
@@ -75,6 +155,21 @@ serve(async (req) => {
     }
 
     const activated = previousStatus === "pending" && newStatus === "active";
+    let posted = false;
+
+    // Post to SubTuna on significant events
+    if (activated) {
+      // Always post on activation
+      const msg = ACTIVATION_MESSAGES[Math.floor(Math.random() * ACTIVATION_MESSAGES.length)](balanceSol);
+      posted = await postToSubTuna(supabase, agentId, msg, "🚀 Trading Activated");
+    } else if (newStatus === "pending" && (forcePost || (balanceChanged && Math.random() < POST_CHANCE))) {
+      // Post funding updates: forced OR random on balance change
+      const needed = FUNDING_THRESHOLD - balanceSol;
+      const pct = (balanceSol / FUNDING_THRESHOLD) * 100;
+      const msgFn = FUNDING_MESSAGES[Math.floor(Math.random() * FUNDING_MESSAGES.length)];
+      const msg = msgFn(balanceSol, needed, pct);
+      posted = await postToSubTuna(supabase, agentId, msg, "Funding Progress");
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -86,6 +181,7 @@ serve(async (req) => {
       previousStatus,
       newStatus,
       activated,
+      posted,
       message: activated 
         ? `🚀 Agent activated! Trading will begin on next execution cycle.`
         : newStatus === "active" 
