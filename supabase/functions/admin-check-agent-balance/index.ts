@@ -53,14 +53,15 @@ function buildLoginCookies(fullCookie: string): string {
   return btoa(JSON.stringify(cookies));
 }
 
-// Base URL for SubTuna links
-const SUBTUNA_BASE_URL = "https://tuna.fun/t";
+// Base URLs for links
+const TRADING_AGENT_BASE_URL = "https://tuna.fun/agents/trading";
 
 // Post to X using linked X-Bot account
 async function postToX(
   supabase: any,
   ticker: string,
-  content: string
+  content: string,
+  tradingAgentId?: string
 ): Promise<{ success: boolean; tweetId?: string; error?: string }> {
   try {
     // Find X-Bot account linked to this SubTuna ticker
@@ -87,9 +88,11 @@ async function postToX(
     // Get proxy if available
     const proxyUrl = xBotAccount.socks5_urls?.[xBotAccount.current_socks5_index || 0] || undefined;
 
-    // Append SubTuna community link to content
-    const subtunaLink = `${SUBTUNA_BASE_URL}/${ticker}`;
-    const tweetContent = `${content}\n\n🐟 ${subtunaLink}`;
+    // Use trading agent link if available, otherwise SubTuna
+    const agentLink = tradingAgentId 
+      ? `${TRADING_AGENT_BASE_URL}/${tradingAgentId}`
+      : `https://tuna.fun/t/${ticker}`;
+    const tweetContent = `${content}\n\n🐟 ${agentLink}`;
 
     // twitterapi.io uses "tweet_text" not "text"
     const payload: Record<string, any> = {
@@ -277,9 +280,9 @@ serve(async (req) => {
       const result = await postToSubTuna(supabase, agentId, postContent, "🚀 Trading Activated");
       subtunaPosted = result.subtunaPosted;
       
-      // Cross-post to X if linked
+      // Cross-post to X if linked - use trading agent page link
       if (subtunaPosted && result.ticker) {
-        const xResult = await postToX(supabase, result.ticker, postContent);
+        const xResult = await postToX(supabase, result.ticker, postContent, agentId);
         xPosted = xResult.success;
         if (xResult.success) {
           console.log(`[admin-check-agent-balance] ✅ Cross-posted to X for ticker: ${result.ticker}`);
@@ -294,9 +297,9 @@ serve(async (req) => {
       const result = await postToSubTuna(supabase, agentId, postContent, "Funding Progress");
       subtunaPosted = result.subtunaPosted;
       
-      // Cross-post to X if linked
+      // Cross-post to X if linked - use trading agent page link
       if (subtunaPosted && result.ticker) {
-        const xResult = await postToX(supabase, result.ticker, postContent);
+        const xResult = await postToX(supabase, result.ticker, postContent, agentId);
         xPosted = xResult.success;
         if (xResult.success) {
           console.log(`[admin-check-agent-balance] ✅ Cross-posted to X for ticker: ${result.ticker}`);
