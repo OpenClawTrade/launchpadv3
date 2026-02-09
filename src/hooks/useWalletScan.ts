@@ -45,15 +45,16 @@ export function useWalletScan(agentId: string) {
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  const scan = async () => {
-    if (!agentId) return;
+  const scan = async (adminSecret: string) => {
+    if (!agentId || !adminSecret) return;
     setIsScanning(true);
     setScanError(null);
     try {
       const response = await supabase.functions.invoke("trading-agent-wallet-scan", {
-        body: { agentId },
+        body: { agentId, adminSecret },
       });
       if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
       setScanData(response.data as WalletScanResult);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Scan failed";
@@ -71,15 +72,16 @@ export function useForceSellAll(agentId: string) {
   const [isSelling, setIsSelling] = useState(false);
   const [sellResult, setSellResult] = useState<ForceSellResult | null>(null);
 
-  const sellAll = async () => {
-    if (!agentId) return;
+  const sellAll = async (adminSecret: string) => {
+    if (!agentId || !adminSecret) return;
     setIsSelling(true);
     setSellResult(null);
     try {
       const response = await supabase.functions.invoke("trading-agent-force-sell", {
-        body: { agentId, sellAll: true },
+        body: { agentId, sellAll: true, adminSecret },
       });
       if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
       const data = response.data as ForceSellResult;
       setSellResult(data);
       const sold = data.results?.filter((r) => r.status === "sold").length || 0;
