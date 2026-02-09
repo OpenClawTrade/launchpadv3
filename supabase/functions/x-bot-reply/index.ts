@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
-const REPLY_SIGNATURE = "Tuna Launchpad for AI Agents on Solana.";
+
 
 const stripQuotes = (v: string) => v.replace(/^['"]+|['"]+$/g, "").trim();
 
@@ -139,11 +139,9 @@ async function generateReply(
     return null;
   }
 
-  const systemPrompt = `You are a friendly crypto community member. Generate a short, conversational reply (max 200 chars before signature) to this tweet. Be relevant and add value. Do NOT be promotional or spammy. Sound human and authentic.`;
+  const systemPrompt = `You are a friendly crypto community member. Generate a short, conversational reply (max 240 chars) to this tweet. Be relevant and add value. Do NOT be promotional or spammy. Sound human and authentic. Do NOT add any taglines or signatures at the end.`;
 
   const userPrompt = `Tweet by @${username}: "${tweetText.substring(0, 500)}"
-
-End your reply with exactly: "${REPLY_SIGNATURE}"
 
 Reply:`;
 
@@ -177,17 +175,9 @@ Reply:`;
     const data = await response.json();
     let reply = data.choices?.[0]?.message?.content?.trim() || null;
 
-    // Ensure signature is present
-    if (reply && !reply.includes(REPLY_SIGNATURE)) {
-      reply = reply.substring(0, 230) + " " + REPLY_SIGNATURE;
-    }
-
     // Trim if too long
     if (reply && reply.length > 280) {
-      const sigIndex = reply.lastIndexOf(REPLY_SIGNATURE);
-      if (sigIndex > 0) {
-        reply = reply.substring(0, 280 - REPLY_SIGNATURE.length - 1) + " " + REPLY_SIGNATURE;
-      }
+      reply = reply.substring(0, 277) + "...";
     }
 
     return reply;
