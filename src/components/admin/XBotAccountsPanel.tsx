@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, Edit, Trash2, Eye, Settings, AlertTriangle } from "lucide-react";
+import { Plus, MoreVertical, Edit, Trash2, Eye, Settings, AlertTriangle, Link2 } from "lucide-react";
 import type { XBotAccountWithRules } from "@/hooks/useXBotAccounts";
 
 interface XBotAccountsPanelProps {
@@ -105,6 +105,12 @@ export function XBotAccountsPanel({
                       <span className="text-sm text-muted-foreground">
                         @{account.username}
                       </span>
+                      {account.subtuna_ticker && (
+                        <span className="flex items-center gap-1 text-xs text-primary mt-0.5">
+                          <Link2 className="h-3 w-3" />
+                          t/{account.subtuna_ticker}
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

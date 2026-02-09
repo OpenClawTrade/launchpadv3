@@ -6361,6 +6361,7 @@ export type Database = {
           password_encrypted: string | null
           proxy_url: string | null
           socks5_urls: string[] | null
+          subtuna_ticker: string | null
           totp_secret_encrypted: string | null
           updated_at: string | null
           username: string
@@ -6380,6 +6381,7 @@ export type Database = {
           password_encrypted?: string | null
           proxy_url?: string | null
           socks5_urls?: string[] | null
+          subtuna_ticker?: string | null
           totp_secret_encrypted?: string | null
           updated_at?: string | null
           username: string
@@ -6399,6 +6401,7 @@ export type Database = {
           password_encrypted?: string | null
           proxy_url?: string | null
           socks5_urls?: string[] | null
+          subtuna_ticker?: string | null
           totp_secret_encrypted?: string | null
           updated_at?: string | null
           username?: string
