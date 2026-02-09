@@ -147,6 +147,55 @@ async function postToX(
   }
 }
 
+// Check if a similar post was made recently (deduplication)
+async function isDuplicatePost(
+  supabase: any,
+  subtunaId: string,
+  content: string,
+  windowMinutes: number = 30
+): Promise<boolean> {
+  try {
+    const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+    
+    const { data: recentPosts } = await supabase
+      .from("subtuna_posts")
+      .select("id, content")
+      .eq("subtuna_id", subtunaId)
+      .eq("is_agent_post", true)
+      .gte("created_at", windowStart)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (!recentPosts || recentPosts.length === 0) {
+      return false;
+    }
+
+    // Check for exact or similar content
+    const normalizedContent = content.toLowerCase().trim();
+    for (const post of recentPosts) {
+      const normalizedPost = (post.content || "").toLowerCase().trim();
+      // Exact match
+      if (normalizedPost === normalizedContent) {
+        console.log(`[isDuplicatePost] Found exact duplicate post: ${post.id}`);
+        return true;
+      }
+      // Check for similar funding update posts (same percentage)
+      const contentPctMatch = normalizedContent.match(/(\d+)%/);
+      const postPctMatch = normalizedPost.match(/(\d+)%/);
+      if (contentPctMatch && postPctMatch && contentPctMatch[1] === postPctMatch[1]) {
+        // Same percentage funding update - likely duplicate
+        console.log(`[isDuplicatePost] Found similar percentage post: ${post.id} (${postPctMatch[1]}%)`);
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (e) {
+    console.error("[isDuplicatePost] Error:", e);
+    return false; // On error, allow the post to proceed
+  }
+}
+
 async function postToSubTuna(
   supabase: any,
   agentId: string,
@@ -175,6 +224,13 @@ async function postToSubTuna(
     if (!subtuna) {
       console.log("[postToSubTuna] No SubTuna found for agent:", agent.id);
       return { subtunaPosted: false };
+    }
+
+    // ⚠️ DEDUPLICATION CHECK - prevent posting same/similar content
+    const isDuplicate = await isDuplicatePost(supabase, subtuna.id, content);
+    if (isDuplicate) {
+      console.log("[postToSubTuna] Skipping duplicate post for SubTuna:", subtuna.id);
+      return { subtunaPosted: false, ticker: subtuna.ticker };
     }
 
     // Create the post
