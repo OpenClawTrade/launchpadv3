@@ -25,7 +25,7 @@ const POLL_INTERVAL_MS = 15000; // 15 seconds between checks
 // Jupiter API endpoints with fallback
 const JUPITER_ENDPOINTS = [
   'https://quote-api.jup.ag/v6',
-  'https://lite-api.jup.ag/v6',
+  'https://public.jupiterapi.com/v6',
 ];
 
 // Jito Block Engines for MEV-protected execution
