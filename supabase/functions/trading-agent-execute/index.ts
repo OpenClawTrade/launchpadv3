@@ -320,6 +320,20 @@ serve(async (req) => {
           continue;
         }
 
+        // === GHOST POSITION CHECK ===
+        // Count positions that failed to sell (dust sells) - these tokens are still in wallet
+        const { data: failedSells } = await supabase
+          .from("trading_agent_positions")
+          .select("id")
+          .eq("trading_agent_id", agent.id)
+          .eq("status", "sell_failed");
+
+        const ghostCount = failedSells?.length || 0;
+        if (ghostCount > 0 && openCount + ghostCount >= strategy.maxPositions) {
+          console.warn(`[trading-agent-execute] Agent ${agent.name} blocked: ${openCount} open + ${ghostCount} ghost (sell_failed) positions = ${openCount + ghostCount} >= max ${strategy.maxPositions}`);
+          continue;
+        }
+
         // Get past trades for AI learning context
         const { data: pastTrades } = await supabase
           .from("trading_agent_trades")
@@ -585,7 +599,11 @@ serve(async (req) => {
           continue;
         }
 
-        const tokensReceived = swapResult.outputAmount || (positionSize / (selectedToken.price_sol || 0.000001));
+        // swapResult.outputAmount is now RAW (smallest units) - convert to human-readable
+        const tokenDecimals = await getTokenDecimals(connection, selectedToken.mint_address);
+        const tokensReceived = swapResult.outputAmount 
+          ? swapResult.outputAmount / Math.pow(10, tokenDecimals)
+          : (positionSize / (selectedToken.price_sol || 0.000001));
         const actualPrice = positionSize / tokensReceived;
 
         // Calculate stop loss and take profit prices
@@ -789,7 +807,8 @@ async function executeJupiterSwapWithJito(
     }
 
     const { quote } = quoteResult;
-    const outputAmount = parseInt(quote.outAmount) / 1e6; // Assuming 6 decimals for most tokens
+    // Return raw amount - caller must divide by actual token decimals
+    const outputAmount = parseInt(quote.outAmount);
 
     // Get swap transaction from Jupiter V1 API
     const swapData = await getJupiterSwapTx(quote, payer.publicKey.toBase58());
