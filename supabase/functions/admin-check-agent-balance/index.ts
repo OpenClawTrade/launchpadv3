@@ -53,6 +53,9 @@ function buildLoginCookies(fullCookie: string): string {
   return btoa(JSON.stringify(cookies));
 }
 
+// Base URL for SubTuna links
+const SUBTUNA_BASE_URL = "https://launchpadv3.lovable.app/t";
+
 // Post to X using linked X-Bot account
 async function postToX(
   supabase: any,
@@ -84,9 +87,13 @@ async function postToX(
     // Get proxy if available
     const proxyUrl = xBotAccount.socks5_urls?.[xBotAccount.current_socks5_index || 0] || undefined;
 
+    // Append SubTuna community link to content
+    const subtunaLink = `${SUBTUNA_BASE_URL}/${ticker}`;
+    const tweetContent = `${content}\n\n🐟 ${subtunaLink}`;
+
     // twitterapi.io uses "tweet_text" not "text"
     const payload: Record<string, any> = {
-      tweet_text: content,
+      tweet_text: tweetContent,
       login_cookies: loginCookies,
     };
 
