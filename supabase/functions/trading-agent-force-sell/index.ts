@@ -327,7 +327,14 @@ serve(async (req) => {
   }
 
   try {
-    const { agentId, sellAll } = await req.json();
+    const { agentId, sellAll, adminSecret } = await req.json();
+    
+    // Require admin secret for security
+    const expectedSecret = Deno.env.get("TWITTER_BOT_ADMIN_SECRET");
+    if (!expectedSecret || adminSecret !== expectedSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    
     if (!agentId) {
       return new Response(JSON.stringify({ error: "agentId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

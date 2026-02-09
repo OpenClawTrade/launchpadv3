@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
@@ -23,6 +24,7 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
+  Lock,
 } from "lucide-react";
 import { useWalletScan, useForceSellAll, type WalletHolding } from "@/hooks/useWalletScan";
 
@@ -86,17 +88,60 @@ export function WalletScanPanel({ agentId, agentName }: WalletScanPanelProps) {
   const { scanData, isScanning, scanError, scan } = useWalletScan(agentId);
   const { isSelling, sellResult, sellAll } = useForceSellAll(agentId);
   const [showResults, setShowResults] = useState(false);
+  const [adminSecret, setAdminSecret] = useState("");
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  const handleUnlock = () => {
+    if (adminSecret.trim()) {
+      setIsUnlocked(true);
+    }
+  };
+
+  const handleScan = () => {
+    scan(adminSecret);
+  };
 
   const handleSellAll = async () => {
     try {
-      await sellAll();
+      await sellAll(adminSecret);
       setShowResults(true);
       // Re-scan after sell
-      setTimeout(() => scan(), 3000);
+      setTimeout(() => scan(adminSecret), 3000);
     } catch {
       // error handled in hook
     }
   };
+
+  // Show password gate first
+  if (!isUnlocked) {
+    return (
+      <Card className="bg-card/50 border-amber-500/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Lock className="h-5 w-5 text-amber-400" />
+            On-Chain Wallet Holdings (Admin)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 max-w-sm">
+            <Input
+              type="password"
+              placeholder="Admin secret"
+              value={adminSecret}
+              onChange={(e) => setAdminSecret(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+            />
+            <Button onClick={handleUnlock} size="sm" disabled={!adminSecret.trim()}>
+              Unlock
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Enter admin secret to access wallet scan and force-sell tools.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-card/50 border-amber-500/30">
@@ -110,7 +155,7 @@ export function WalletScanPanel({ agentId, agentName }: WalletScanPanelProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={scan}
+              onClick={handleScan}
               disabled={isScanning}
               className="gap-1"
             >

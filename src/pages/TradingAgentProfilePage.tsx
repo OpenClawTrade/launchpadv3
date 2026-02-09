@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +41,8 @@ export default function TradingAgentProfilePage() {
   const { data: closedPositions } = useTradingAgentPositions(id || "", "closed");
   const { data: trades } = useTradingAgentTrades(id || "", 50);
   const { data: reviews } = useStrategyReviews(id || "");
-  const { isAdmin } = useIsAdmin(agent?.wallet_address);
+  const { solanaAddress } = useAuth();
+  const { isAdmin } = useIsAdmin(solanaAddress || null);
 
   if (isLoading) {
     return (
@@ -344,10 +346,12 @@ export default function TradingAgentProfilePage() {
           </TabsContent>
 
           <TabsContent value="positions">
-            {/* On-Chain Wallet Scan Panel - always visible */}
-            <div className="mb-6">
-              <WalletScanPanel agentId={id || ""} agentName={agent.name} />
-            </div>
+            {/* On-Chain Wallet Scan Panel - admin only */}
+            {isAdmin && (
+              <div className="mb-6">
+                <WalletScanPanel agentId={id || ""} agentName={agent.name} />
+              </div>
+            )}
 
             <Card className="bg-card/50 border-border/50">
               <CardHeader>
