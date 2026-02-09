@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Connection, Keypair, VersionedTransaction } from "https://esm.sh/@solana/web3.js@1.98.0";
+import { Connection, Keypair, VersionedTransaction, PublicKey } from "https://esm.sh/@solana/web3.js@1.98.0";
 import bs58 from "https://esm.sh/bs58@5.0.0";
 
 const corsHeaders = {
@@ -11,12 +11,19 @@ const corsHeaders = {
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 const SLIPPAGE_BPS = 1500; // 15% slippage for illiquid meme coins
 const JUPITER_BASE_URL = "https://api.jup.ag/swap/v1";
+const JUPITER_TRIGGER_URL = "https://api.jup.ag/trigger/v1";
 
 const JITO_BLOCK_ENGINES = [
   "https://mainnet.block-engine.jito.wtf/api/v1/bundles",
   "https://amsterdam.mainnet.block-engine.jito.wtf/api/v1/bundles",
   "https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles",
 ];
+
+// Known non-tradeable token mints to skip
+const SKIP_MINTS = new Set([
+  WSOL_MINT, // Wrapped SOL
+  "11111111111111111111111111111111", // System program
+]);
 
 async function fetchWithRetry(url: string, options?: RequestInit, maxRetries = 3): Promise<Response> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -53,7 +60,6 @@ async function decryptWallet(encryptedKey: string, encryptionKey: string): Promi
 async function decryptWalletDualKey(encryptedKey: string): Promise<Keypair | null> {
   const API_ENCRYPTION_KEY = Deno.env.get("API_ENCRYPTION_KEY");
   const WALLET_ENCRYPTION_KEY = Deno.env.get("WALLET_ENCRYPTION_KEY");
-
   if (API_ENCRYPTION_KEY) {
     const result = await decryptWallet(encryptedKey, API_ENCRYPTION_KEY);
     if (result) return result;
@@ -65,21 +71,6 @@ async function decryptWalletDualKey(encryptedKey: string): Promise<Keypair | nul
   return null;
 }
 
-async function getTokenDecimals(connection: Connection, mintAddress: string): Promise<number> {
-  try {
-    const { PublicKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
-    const mintPubkey = new PublicKey(mintAddress);
-    const mintInfo = await connection.getParsedAccountInfo(mintPubkey);
-    const data = mintInfo.value?.data;
-    if (data && typeof data === "object" && "parsed" in data) {
-      return data.parsed.info.decimals || 6;
-    }
-    return 6;
-  } catch {
-    return 6;
-  }
-}
-
 async function getJupiterQuote(inputMint: string, outputMint: string, amount: number, slippageBps: number) {
   const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
   if (!jupiterApiKey) {
@@ -89,11 +80,8 @@ async function getJupiterQuote(inputMint: string, outputMint: string, amount: nu
   try {
     const quoteUrl = `${JUPITER_BASE_URL}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
     const response = await fetchWithRetry(quoteUrl, { headers: { "x-api-key": jupiterApiKey } });
-    if (response.ok) {
-      return await response.json();
-    }
-    const errorText = await response.text();
-    console.warn(`[force-sell] Jupiter quote ${response.status}: ${errorText}`);
+    if (response.ok) return await response.json();
+    console.warn(`[force-sell] Jupiter quote ${response.status}: ${await response.text()}`);
     return null;
   } catch (e) {
     console.error("[force-sell] Jupiter quote failed:", e);
@@ -193,23 +181,72 @@ async function executeSell(
   }
 }
 
+// Cancel all outstanding Jupiter limit orders for this wallet
+async function cancelAllLimitOrders(connection: Connection, payer: Keypair): Promise<number> {
+  const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
+  if (!jupiterApiKey) return 0;
+  
+  let cancelled = 0;
+  try {
+    const walletAddress = payer.publicKey.toBase58();
+    const response = await fetchWithRetry(
+      `${JUPITER_TRIGGER_URL}/getTriggerOrders?user=${walletAddress}&orderStatus=active`,
+      { headers: { "x-api-key": jupiterApiKey } }
+    );
+    
+    if (!response.ok) {
+      console.warn(`[force-sell] getTriggerOrders failed: ${response.status}`);
+      return 0;
+    }
+    
+    const data = await response.json();
+    const orders = data.orders || data;
+    if (!Array.isArray(orders) || orders.length === 0) {
+      console.log("[force-sell] No active limit orders to cancel");
+      return 0;
+    }
+
+    console.log(`[force-sell] Found ${orders.length} active limit orders to cancel`);
+    
+    const orderKeys = orders.map((o: any) => o.publicKey || o.orderKey || o.account).filter(Boolean);
+    if (orderKeys.length === 0) return 0;
+
+    const cancelResponse = await fetchWithRetry(`${JUPITER_TRIGGER_URL}/cancelOrder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": jupiterApiKey },
+      body: JSON.stringify({ maker: walletAddress, orders: orderKeys }),
+    });
+
+    if (cancelResponse.ok) {
+      const cancelData = await cancelResponse.json();
+      const txBase64 = cancelData.transaction;
+      if (txBase64) {
+        const txBuf = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
+        const transaction = VersionedTransaction.deserialize(txBuf);
+        const { blockhash } = await connection.getLatestBlockhash("confirmed");
+        transaction.message.recentBlockhash = blockhash;
+        transaction.sign([payer]);
+        
+        const sig = await connection.sendTransaction(transaction, { skipPreflight: true, maxRetries: 3 });
+        console.log(`[force-sell] ✅ Cancelled ${orderKeys.length} limit orders, sig: ${sig}`);
+        cancelled = orderKeys.length;
+      }
+    }
+  } catch (e) {
+    console.warn("[force-sell] Error cancelling limit orders:", e);
+  }
+  return cancelled;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { agentId } = await req.json();
+    const { agentId, sellAll } = await req.json();
     if (!agentId) {
       return new Response(JSON.stringify({ error: "agentId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // Auth check
-    const adminSecret = Deno.env.get("TWITTER_BOT_ADMIN_SECRET");
-    const authHeader = req.headers.get("x-admin-secret");
-    const apikey = req.headers.get("apikey");
-    if (authHeader !== adminSecret && apikey !== Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
-      // Allow with anon key for now (admin only endpoint in practice)
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -239,70 +276,197 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Failed to decrypt agent wallet" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    console.log(`[force-sell] Agent ${agent.name} wallet: ${agentKeypair.publicKey.toBase58()}`);
+    const walletAddress = agentKeypair.publicKey.toBase58();
+    console.log(`[force-sell] Agent ${agent.name} wallet: ${walletAddress}, sellAll=${!!sellAll}`);
 
-    // Get all open positions
-    const { data: positions, error: posError } = await supabase
-      .from("trading_agent_positions")
-      .select("*")
-      .eq("trading_agent_id", agentId)
-      .eq("status", "open");
-
-    if (posError || !positions?.length) {
-      return new Response(JSON.stringify({ message: "No open positions to close", results: [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    console.log(`[force-sell] Found ${positions.length} open positions to force-sell`);
+    // Cancel all outstanding limit orders first
+    const cancelledOrders = await cancelAllLimitOrders(connection, agentKeypair);
+    console.log(`[force-sell] Cancelled ${cancelledOrders} limit orders`);
 
     const results: any[] = [];
 
-    for (const position of positions) {
-      try {
-        console.log(`[force-sell] Selling ${position.token_name} (${position.token_address}), tokens: ${position.amount_tokens}`);
+    if (sellAll) {
+      // === SELL ALL MODE: Scan wallet for ALL token accounts ===
+      console.log(`[force-sell] sellAll mode: scanning wallet for all token holdings...`);
+      
+      const tokenProgram = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+        agentKeypair.publicKey,
+        { programId: tokenProgram }
+      );
 
-        const tokenDecimals = await getTokenDecimals(connection, position.token_address);
+      console.log(`[force-sell] Found ${tokenAccounts.value.length} token accounts in wallet`);
 
-        let amountToSell: number;
-        if (position.amount_tokens > 1_000_000) {
-          amountToSell = Math.floor(position.amount_tokens);
-        } else {
-          amountToSell = Math.floor(position.amount_tokens * Math.pow(10, tokenDecimals));
-        }
+      // Get all DB positions for cross-reference
+      const { data: dbPositions } = await supabase
+        .from("trading_agent_positions")
+        .select("*")
+        .eq("trading_agent_id", agentId)
+        .eq("status", "open");
 
-        const swapResult = await executeSell(connection, agentKeypair, position.token_address, amountToSell, SLIPPAGE_BPS);
+      const dbPositionMap = new Map((dbPositions || []).map(p => [p.token_address, p]));
 
-        if (!swapResult.success) {
-          console.error(`[force-sell] Sell failed for ${position.token_name}: ${swapResult.error}`);
-          results.push({
-            positionId: position.id,
-            token: position.token_name,
-            status: "failed",
-            error: swapResult.error,
-          });
+      for (const account of tokenAccounts.value) {
+        const parsed = account.account.data.parsed?.info;
+        if (!parsed) continue;
+
+        const mint = parsed.mint;
+        const tokenAmount = parsed.tokenAmount;
+        const balance = tokenAmount?.uiAmount || 0;
+        const rawAmount = parseInt(tokenAmount?.amount || "0");
+
+        if (rawAmount === 0 || SKIP_MINTS.has(mint)) {
+          console.log(`[force-sell] Skipping ${mint} (balance=0 or skip list)`);
           continue;
         }
 
-        const solReceived = swapResult.outputAmount || 0;
-        const realizedPnl = solReceived - position.investment_sol;
-        const pnlPct = position.investment_sol > 0 ? ((realizedPnl / position.investment_sol) * 100) : 0;
-        const isWin = realizedPnl > 0;
+        const dbPosition = dbPositionMap.get(mint);
+        const tokenName = dbPosition?.token_name || mint.slice(0, 8) + "...";
 
-        // Close position in DB
-        await supabase
-          .from("trading_agent_positions")
-          .update({
+        console.log(`[force-sell] Selling ${tokenName} (${mint}), raw amount: ${rawAmount}, ui amount: ${balance}`);
+
+        try {
+          const swapResult = await executeSell(connection, agentKeypair, mint, rawAmount, SLIPPAGE_BPS);
+
+          if (!swapResult.success) {
+            console.error(`[force-sell] Sell failed for ${tokenName}: ${swapResult.error}`);
+            results.push({ token: tokenName, mint, status: "failed", error: swapResult.error });
+            continue;
+          }
+
+          const solReceived = swapResult.outputAmount || 0;
+
+          // If there's a matching DB position, close it
+          if (dbPosition) {
+            const realizedPnl = solReceived - dbPosition.investment_sol;
+            const pnlPct = dbPosition.investment_sol > 0 ? ((realizedPnl / dbPosition.investment_sol) * 100) : 0;
+
+            await supabase.from("trading_agent_positions").update({
+              status: "closed",
+              realized_pnl_sol: realizedPnl,
+              current_value_sol: solReceived,
+              exit_reason: `Force sell (sellAll) - ${realizedPnl > 0 ? "profit" : "loss"}: ${pnlPct.toFixed(1)}%`,
+              closed_at: new Date().toISOString(),
+            }).eq("id", dbPosition.id);
+
+            await supabase.from("trading_agent_trades").insert({
+              trading_agent_id: agentId,
+              position_id: dbPosition.id,
+              token_address: mint,
+              token_name: dbPosition.token_name,
+              trade_type: "sell",
+              amount_sol: solReceived,
+              amount_tokens: dbPosition.amount_tokens,
+              price_per_token: solReceived / dbPosition.amount_tokens,
+              strategy_used: agent.strategy_type,
+              ai_reasoning: `Force-sold (sellAll). Received ${solReceived.toFixed(6)} SOL. P&L: ${realizedPnl.toFixed(6)} SOL (${pnlPct.toFixed(1)}%).`,
+              confidence_score: 100,
+              status: "success",
+              signature: swapResult.signature,
+            });
+          }
+
+          results.push({
+            token: tokenName,
+            mint,
+            status: "sold",
+            solReceived: solReceived.toFixed(6),
+            signature: swapResult.signature,
+            hadDbPosition: !!dbPosition,
+          });
+
+          console.log(`[force-sell] ✅ Sold ${tokenName}: ${solReceived.toFixed(6)} SOL, sig: ${swapResult.signature}`);
+          await new Promise(r => setTimeout(r, 2000)); // Brief pause between sells
+        } catch (err) {
+          console.error(`[force-sell] Error selling ${tokenName}:`, err);
+          results.push({ token: tokenName, mint, status: "error", error: err instanceof Error ? err.message : "Unknown" });
+        }
+      }
+
+      // Close any remaining DB positions that weren't found on-chain
+      if (dbPositions?.length) {
+        for (const pos of dbPositions) {
+          if (!results.some(r => r.mint === pos.token_address && r.status === "sold")) {
+            await supabase.from("trading_agent_positions").update({
+              status: "closed",
+              realized_pnl_sol: -pos.investment_sol,
+              current_value_sol: 0,
+              exit_reason: "Force closed (sellAll) - token not found in wallet",
+              closed_at: new Date().toISOString(),
+            }).eq("id", pos.id);
+            results.push({ token: pos.token_name, mint: pos.token_address, status: "closed_no_balance" });
+          }
+        }
+      }
+    } else {
+      // === ORIGINAL MODE: Only sell DB-tracked positions ===
+      const { data: positions, error: posError } = await supabase
+        .from("trading_agent_positions")
+        .select("*")
+        .eq("trading_agent_id", agentId)
+        .eq("status", "open");
+
+      if (posError || !positions?.length) {
+        return new Response(JSON.stringify({ message: "No open positions to close", results: [], cancelledOrders }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      console.log(`[force-sell] Found ${positions.length} open positions to force-sell`);
+
+      for (const position of positions) {
+        try {
+          console.log(`[force-sell] Selling ${position.token_name} (${position.token_address}), tokens: ${position.amount_tokens}`);
+
+          // Get actual on-chain balance for this token
+          let amountToSell: number;
+          try {
+            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+              agentKeypair.publicKey,
+              { mint: new PublicKey(position.token_address) }
+            );
+            const onChainBalance = tokenAccounts.value[0]?.account?.data?.parsed?.info?.tokenAmount;
+            if (onChainBalance && parseInt(onChainBalance.amount) > 0) {
+              amountToSell = parseInt(onChainBalance.amount);
+              console.log(`[force-sell] Using on-chain balance: ${amountToSell} (ui: ${onChainBalance.uiAmount})`);
+            } else {
+              console.warn(`[force-sell] No on-chain balance for ${position.token_name}, skipping`);
+              await supabase.from("trading_agent_positions").update({
+                status: "closed",
+                realized_pnl_sol: -position.investment_sol,
+                exit_reason: "Force closed - no on-chain balance",
+                closed_at: new Date().toISOString(),
+              }).eq("id", position.id);
+              results.push({ positionId: position.id, token: position.token_name, status: "no_balance" });
+              continue;
+            }
+          } catch {
+            // Fallback to DB amount
+            const tokenDecimals = 6;
+            amountToSell = position.amount_tokens > 1_000_000
+              ? Math.floor(position.amount_tokens)
+              : Math.floor(position.amount_tokens * Math.pow(10, tokenDecimals));
+          }
+
+          const swapResult = await executeSell(connection, agentKeypair, position.token_address, amountToSell, SLIPPAGE_BPS);
+
+          if (!swapResult.success) {
+            console.error(`[force-sell] Sell failed for ${position.token_name}: ${swapResult.error}`);
+            results.push({ positionId: position.id, token: position.token_name, status: "failed", error: swapResult.error });
+            continue;
+          }
+
+          const solReceived = swapResult.outputAmount || 0;
+          const realizedPnl = solReceived - position.investment_sol;
+          const pnlPct = position.investment_sol > 0 ? ((realizedPnl / position.investment_sol) * 100) : 0;
+
+          await supabase.from("trading_agent_positions").update({
             status: "closed",
             realized_pnl_sol: realizedPnl,
             current_value_sol: solReceived,
-            exit_reason: `Force sell - ${isWin ? "profit" : "loss"}: ${pnlPct.toFixed(1)}%`,
+            exit_reason: `Force sell - ${realizedPnl > 0 ? "profit" : "loss"}: ${pnlPct.toFixed(1)}%`,
             closed_at: new Date().toISOString(),
-          })
-          .eq("id", position.id);
+          }).eq("id", position.id);
 
-        // Insert sell trade record
-        await supabase
-          .from("trading_agent_trades")
-          .insert({
+          await supabase.from("trading_agent_trades").insert({
             trading_agent_id: agentId,
             position_id: position.id,
             token_address: position.token_address,
@@ -312,84 +476,37 @@ serve(async (req) => {
             amount_tokens: position.amount_tokens,
             price_per_token: solReceived / position.amount_tokens,
             strategy_used: agent.strategy_type,
-            ai_reasoning: `Force-sold position. Received ${solReceived.toFixed(6)} SOL. P&L: ${realizedPnl.toFixed(6)} SOL (${pnlPct.toFixed(1)}%).`,
-            exit_analysis: `Position force-closed by admin. Original investment: ${position.investment_sol} SOL. Exit value: ${solReceived.toFixed(6)} SOL.`,
+            ai_reasoning: `Force-sold. Received ${solReceived.toFixed(6)} SOL. P&L: ${realizedPnl.toFixed(6)} SOL (${pnlPct.toFixed(1)}%).`,
             confidence_score: 100,
             status: "success",
+            signature: swapResult.signature,
           });
 
-        // Update agent stats atomically
-        const newWinning = (agent.winning_trades || 0) + (isWin ? 1 : 0);
-        const newLosing = (agent.losing_trades || 0) + (isWin ? 0 : 1);
-        const newTotal = (agent.total_trades || 0) + 1;
-        const newProfit = (agent.total_profit_sol || 0) + realizedPnl;
-        const newWinRate = newTotal > 0 ? (newWinning / newTotal) * 100 : 0;
+          results.push({
+            positionId: position.id,
+            token: position.token_name,
+            status: "sold",
+            solReceived: solReceived.toFixed(6),
+            realizedPnl: realizedPnl.toFixed(6),
+            pnlPct: pnlPct.toFixed(2),
+            signature: swapResult.signature,
+          });
 
-        await supabase
-          .from("trading_agents")
-          .update({
-            total_trades: newTotal,
-            winning_trades: newWinning,
-            losing_trades: newLosing,
-            total_profit_sol: newProfit,
-            win_rate: newWinRate,
-            best_trade_sol: Math.max(agent.best_trade_sol || 0, isWin ? realizedPnl : 0),
-            worst_trade_sol: Math.min(agent.worst_trade_sol || 0, isWin ? 0 : realizedPnl),
-          })
-          .eq("id", agentId);
-
-        // Re-fetch agent for next iteration
-        const { data: updatedAgent } = await supabase
-          .from("trading_agents")
-          .select("*")
-          .eq("id", agentId)
-          .single();
-        if (updatedAgent) Object.assign(agent, updatedAgent);
-
-        results.push({
-          positionId: position.id,
-          token: position.token_name,
-          status: "sold",
-          solReceived: solReceived.toFixed(6),
-          realizedPnl: realizedPnl.toFixed(6),
-          pnlPct: pnlPct.toFixed(2),
-          signature: swapResult.signature,
-        });
-
-        console.log(`[force-sell] ✅ Sold ${position.token_name}: ${solReceived.toFixed(6)} SOL (${pnlPct.toFixed(1)}%) sig: ${swapResult.signature}`);
-
-        // Brief pause between sells
-        await new Promise(r => setTimeout(r, 2000));
-
-      } catch (posError) {
-        console.error(`[force-sell] Error selling ${position.token_name}:`, posError);
-        results.push({
-          positionId: position.id,
-          token: position.token_name,
-          status: "error",
-          error: posError instanceof Error ? posError.message : "Unknown error",
-        });
+          console.log(`[force-sell] ✅ Sold ${position.token_name}: ${solReceived.toFixed(6)} SOL (${pnlPct.toFixed(1)}%) sig: ${swapResult.signature}`);
+          await new Promise(r => setTimeout(r, 2000));
+        } catch (posError) {
+          console.error(`[force-sell] Error selling ${position.token_name}:`, posError);
+          results.push({ positionId: position.id, token: position.token_name, status: "error", error: posError instanceof Error ? posError.message : "Unknown" });
+        }
       }
     }
 
-    // Cancel any outstanding limit orders for this agent
-    try {
-      const { data: positionsWithOrders } = await supabase
-        .from("trading_agent_positions")
-        .select("limit_order_sl_pubkey, limit_order_tp_pubkey")
-        .eq("trading_agent_id", agentId)
-        .not("limit_order_sl_pubkey", "is", null);
-
-      if (positionsWithOrders?.length) {
-        console.log(`[force-sell] Found ${positionsWithOrders.length} positions with limit orders to cancel`);
-      }
-    } catch (e) {
-      console.warn("[force-sell] Error checking limit orders:", e);
-    }
-
+    const soldCount = results.filter(r => r.status === "sold").length;
     return new Response(JSON.stringify({ 
-      message: `Force-sold ${results.filter(r => r.status === "sold").length}/${positions.length} positions`,
-      results 
+      message: `Force-sold ${soldCount}/${results.length} tokens. Cancelled ${cancelledOrders} limit orders.`,
+      results,
+      cancelledOrders,
+      sellAll: !!sellAll,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {
