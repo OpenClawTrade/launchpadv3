@@ -1,104 +1,125 @@
 
 
-# Urgent Trading Agent Fix - Fast Execution & Retry Logic
+# Trading Agent 67 - Critical Fix Required
 
-## Critical Issues Found
+## Summary
 
-| Issue | Current State | Risk |
-|-------|---------------|------|
-| **No monitor cron job** | Monitor function exists but ISN'T SCHEDULED | Positions won't auto-close on SL/TP |
-| **Execute runs every 5 min** | Way too slow for meme coins | Missed entries, slow reactions |
-| **DNS failures = total failure** | No retry with alternate endpoints | Agent can't trade during DNS issues |
-| **Single Jupiter endpoint** | Only `quote-api.jup.ag` | No fallback when blocked |
+**The 0.58 SOL balance claim is incorrect.** On-chain verification shows the agent wallet actually has **2.0831 SOL**. However, trades ARE failing completely due to a deprecated API.
 
-## Implementation Plan
+---
 
-### Step 1: Create 1-Minute Monitor Cron Job
+## The Real Problem: Jupiter V6 API Sunset
 
-Add a `pg_cron` job to run `trading-agent-monitor` every minute. The function already has an internal 15-second polling loop that runs for 50 seconds, giving effective ~15-second monitoring.
+Jupiter has **deprecated and sunset the v6 API** (`quote-api.jup.ag/v6`). The new v1 API requires:
+1. New endpoint: `https://api.jup.ag/swap/v1/`
+2. **API key required** via `x-api-key` header
 
-```sql
-SELECT cron.schedule(
-  'trading-agent-monitor-1min',
-  '* * * * *', -- every minute
-  $$ SELECT net.http_post(...) $$
-);
+Current logs show both endpoints failing:
+- Primary (`quote-api.jup.ag/v6`): DNS failures and 530 errors (sunset)
+- Fallback (`public.jupiterapi.com/v6`): 404 errors
+
+---
+
+## Evidence
+
+| Check | Result |
+|-------|--------|
+| Database `trading_capital_sol` | 2.0831 SOL |
+| On-chain via Helius RPC | 2.0831 SOL |
+| Position sizing calculation | Working (0.25 SOL for 2 SOL tier) |
+| Jupiter v6 endpoint | **DEPRECATED** - returning DNS/530 errors |
+
+Logs confirm trades attempt but fail at Jupiter:
+```
+[trading-agent-execute] Swap failed for 67 Agent: All Jupiter quote endpoints failed
+Jupiter endpoint https://quote-api.jup.ag/v6 failed: dns error
+Jupiter endpoint https://public.jupiterapi.com/v6 returned 404
 ```
 
-### Step 2: Increase Execute Frequency to Every 2 Minutes
+---
 
-Change the execute cron from 5 minutes to 2 minutes for faster entries:
+## Required Fix
 
-```sql
--- Update existing job
-SELECT cron.alter_job(31, schedule => '*/2 * * * *');
-```
+### Step 1: Obtain Jupiter API Key
 
-### Step 3: Add Retry Logic with Exponential Backoff
+Jupiter now requires registration at `https://portal.jup.ag` to get an API key. This is a **free tier** available for basic usage.
 
-Update `executeJupiterSwapWithJito()` function to retry DNS failures:
+### Step 2: Add Secret to Project
 
+Add `JUPITER_API_KEY` to the project secrets.
+
+### Step 3: Migrate to V1 API
+
+Update `trading-agent-execute/index.ts` and `trading-agent-monitor/index.ts`:
+
+**FROM (deprecated):**
 ```typescript
-async function fetchWithRetry(url: string, options?: RequestInit, maxRetries = 3): Promise<Response> {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      return response;
-    } catch (error) {
-      if (attempt === maxRetries - 1) throw error;
-      // Exponential backoff: 500ms, 1s, 2s
-      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
-      console.warn(`[retry] Attempt ${attempt + 1} failed, retrying...`);
-    }
-  }
-  throw new Error('All retries exhausted');
-}
-```
-
-### Step 4: Add Multiple Jupiter API Endpoints
-
-Add fallback endpoints for Jupiter API:
-
-```typescript
-const JUPITER_QUOTE_ENDPOINTS = [
+const JUPITER_ENDPOINTS = [
   'https://quote-api.jup.ag/v6',
-  'https://quote-api.jup.ag/v6', // Primary
-  'https://lite-api.jup.ag/v6', // Lite endpoint
+  'https://public.jupiterapi.com/v6',
 ];
 
-async function getJupiterQuote(inputMint, outputMint, amount, slippage) {
-  for (const endpoint of JUPITER_QUOTE_ENDPOINTS) {
-    try {
-      const response = await fetchWithRetry(
-        `${endpoint}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippage}`
-      );
-      if (response.ok) return response.json();
-    } catch (e) {
-      console.warn(`[jupiter] Endpoint ${endpoint} failed, trying next...`);
-    }
-  }
-  throw new Error('All Jupiter endpoints failed');
-}
+// Quote call
+const quoteUrl = `${endpoint}/quote?inputMint=...`;
+const response = await fetch(quoteUrl);
+
+// Swap call  
+const response = await fetch(`${endpoint}/swap`, {...});
 ```
 
-### Step 5: Apply Same Retry Logic to Monitor Function
+**TO (current API):**
+```typescript
+const JUPITER_BASE_URL = 'https://api.jup.ag/swap/v1';
 
-Update `trading-agent-monitor/index.ts` with the same retry wrapper for Jupiter API calls.
+// All calls need x-api-key header
+const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
 
-## Technical Summary
+// Quote call
+const quoteUrl = `${JUPITER_BASE_URL}/quote?inputMint=...`;
+const response = await fetch(quoteUrl, {
+  headers: { 'x-api-key': jupiterApiKey }
+});
+
+// Swap call
+const response = await fetch(`${JUPITER_BASE_URL}/swap`, {
+  method: 'POST',
+  headers: { 
+    'Content-Type': 'application/json',
+    'x-api-key': jupiterApiKey 
+  },
+  body: JSON.stringify({...})
+});
+```
+
+---
+
+## Technical Changes
 
 | File | Changes |
 |------|---------|
-| `trading-agent-execute/index.ts` | Add `fetchWithRetry()`, multi-endpoint Jupiter support |
-| `trading-agent-monitor/index.ts` | Add `fetchWithRetry()`, multi-endpoint Jupiter support |
-| Database | Create monitor cron (1 min), update execute cron (2 min) |
+| `trading-agent-execute/index.ts` | Migrate to v1 API, add x-api-key header |
+| `trading-agent-monitor/index.ts` | Migrate to v1 API, add x-api-key header |
+| Secrets | Add `JUPITER_API_KEY` |
 
-## Expected Behavior After Fix
+---
 
-| Metric | Before | After |
-|--------|--------|-------|
-| **Position monitoring** | Manual only | Every 15 seconds (via 1-min cron with internal loop) |
-| **New trade attempts** | Every 5 minutes | Every 2 minutes |
-| **DNS failure handling** | Total failure | 3 retries with exponential backoff |
-| **Jupiter API resilience** | Single endpoint | Multiple endpoints with fallback |
+## Immediate Action Required
+
+**You need to:**
+1. Go to https://portal.jup.ag and register for a free API key
+2. Provide the API key so I can add it as a secret
+3. Then I can implement the API migration
+
+Without a Jupiter API key, trading agents **cannot execute any trades** - this is the root cause of Agent 67 being stuck.
+
+---
+
+## Clarification on "0.58 SOL"
+
+The wallet balance is verified at **2.08 SOL**. If you're seeing 0.58 SOL somewhere:
+- It may be a cached/stale UI value
+- It may be a different wallet/agent  
+- It may be an old historical balance
+
+The database and blockchain both confirm 2.0831 SOL in wallet `3uapiJAaVTr1BUcubDFBy7Q1nmdBJ9XdkgcdxWwoGZN8`.
 
