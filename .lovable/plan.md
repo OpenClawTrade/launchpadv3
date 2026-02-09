@@ -1,72 +1,60 @@
 
-# Fix X-Bot Reply: False Success Detection
 
-## Problem Identified
-The x-bot-reply function reports "success" without actually creating tweets because:
+# Plan: Create Admin Key Export Function
 
-1. **False Positive Detection**: The API returns HTTP 200 but with an error payload or empty data - the function only checks `response.ok` and doesn't validate the actual tweet creation
-2. **Missing Reply ID Extraction Paths**: Only checks `data?.data?.tweet?.rest_id || data?.tweet_id || data?.id` but the API sometimes returns the ID at different paths like `data?.data?.id` or `data?.data?.create_tweet?.tweet_results?.result?.rest_id`
-3. **No Error Payload Validation**: Doesn't check for `{success: false}` or `{status: "error"}` responses that still come with HTTP 200
-4. **No Logging of API Response**: Makes debugging impossible
+## Overview
+Build a secure admin-only edge function to decrypt and return the trading agent's private key for verification purposes.
 
-## Root Cause
-The `postReply` function in `x-bot-reply` returns `{success: true}` when:
-- `response.ok` is true (HTTP 200)
-- Even if `replyId` is undefined/null
+---
 
-## Solution
+## Implementation Steps
 
-### File to Modify: `supabase/functions/x-bot-reply/index.ts`
+### 1. Create Admin Export Edge Function
+**File**: `supabase/functions/admin-export-wallet/index.ts`
 
-### Changes:
+- Accept trading agent ID and admin secret
+- Decrypt the `wallet_private_key_encrypted` using `WALLET_ENCRYPTION_KEY`
+- Return the private key in base58 format (importable to Phantom/Solflare)
+- Require `TWITTER_BOT_ADMIN_SECRET` for authorization
 
-**1. Add Error Payload Detection (from twitter-auto-reply)**
-```typescript
-const isTwitterApiErrorPayload = (postData: any): boolean => {
-  if (!postData || typeof postData !== "object") return true;
-  if (postData.success === false) return true;
-  if (postData.status === "error") return true;
-  if (typeof postData.error === "string" && postData.error.length > 0) return true;
-  if (typeof postData.msg === "string" && postData.msg.toLowerCase().includes("failed")) return true;
-  return false;
-};
-```
+### 2. Security Measures
+- Admin secret required for access
+- Log all export attempts
+- Return key only once per request (no caching)
 
-**2. Improve Reply ID Extraction (from twitter-auto-reply)**
-```typescript
-const extractReplyId = (postData: any): string | null => {
-  return (
-    postData?.data?.id ||
-    postData?.data?.rest_id ||
-    postData?.data?.tweet?.rest_id ||
-    postData?.data?.create_tweet?.tweet_results?.result?.rest_id ||
-    postData?.tweet_id ||
-    postData?.id ||
-    null
-  );
-};
-```
-
-**3. Update postReply Function**
-- Add detailed logging of API responses
-- Use `extractReplyId` helper
-- Use `isTwitterApiErrorPayload` check
-- Only return success if we have a valid replyId
-
-**4. Add Response Logging in Main Flow**
-- Log the raw API response for debugging
-- Log success/failure with reply ID for verification
+---
 
 ## Technical Details
 
-The working `promo-mention-reply` uses the same postReply function BUT it uses the global `X_FULL_COOKIE` environment variable which is a properly formatted full cookie string. The x-bot-reply constructs cookies from individual tokens stored in the database which may not be properly formatted.
+The decryption logic already exists in other functions and follows this pattern:
 
-Additionally, we need to add a check: if replyId is null/undefined after a "successful" HTTP response, we should treat it as a failure since no tweet was actually created.
+```typescript
+async function decryptPrivateKey(encryptedKey: string): Promise<string> {
+  const encryptionKey = Deno.env.get("WALLET_ENCRYPTION_KEY");
+  // SHA-256 hash of key
+  // AES-256-GCM decrypt with IV from first 12 bytes
+  // Return base58-encoded secret key
+}
+```
 
-## Files Changed
-- `supabase/functions/x-bot-reply/index.ts` - Fix postReply logic and add logging
+---
 
-## Expected Outcome
-- Replies will only show "success" when an actual tweet is created with a valid reply ID
-- Failed API calls (even with HTTP 200) will be properly detected and logged
-- Console logs will show the actual API response for debugging
+## Usage
+
+After deployment, you can call:
+```
+POST /functions/v1/admin-export-wallet
+{
+  "agentId": "1776eabc-5e58-46e2-be1d-5300dd202b51",
+  "adminSecret": "[your admin secret]"
+}
+```
+
+Response will contain the base58 private key you can import into any Solana wallet.
+
+---
+
+## Alternative: Manual Verification
+
+If you prefer, I can also just call the decrypt function via an existing edge function and return the key directly in the response for this one-time verification.
+
