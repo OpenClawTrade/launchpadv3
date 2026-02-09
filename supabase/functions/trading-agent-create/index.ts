@@ -192,18 +192,107 @@ serve(async (req) => {
        throw new Error("Token launch failed - no mint address returned. Trading agent creation aborted.");
      }
 
-     // Update fun_tokens with agent links
-     await supabase
+     // CRITICAL: Verify the fun_tokens record actually exists
+     // The Vercel API may return success but fail to create the database record
+     console.log(`[trading-agent-create] Verifying fun_tokens record exists for tokenId: ${tokenId}`);
+     
+     const { data: existingToken, error: tokenCheckError } = await supabase
        .from("fun_tokens")
-       .update({
-         agent_id: agent.id,
-         trading_agent_id: tradingAgent.id,
-         agent_fee_share_bps: 8000, // 80% to agent
-       })
-       .eq("id", tokenId);
+       .select("id, name, mint_address")
+       .eq("id", tokenId)
+       .maybeSingle();
+
+     if (tokenCheckError) {
+       console.error("[trading-agent-create] Error checking fun_tokens:", tokenCheckError);
+     }
+
+     let finalTokenId = tokenId;
+
+     if (!existingToken) {
+       // Token record doesn't exist - create it manually
+       console.warn(`[trading-agent-create] ⚠️ fun_tokens record missing for ${tokenId}, creating manually...`);
+       
+       const { data: createdToken, error: createTokenError } = await supabase
+         .from("fun_tokens")
+         .insert({
+           id: tokenId,
+           name: finalName,
+           ticker: finalTicker,
+           description: finalDescription,
+           image_url: finalAvatarUrl,
+           mint_address: mintAddress,
+           dbc_pool_address: dbcPoolAddress,
+           creator_wallet: creatorWallet || walletAddress,
+           deployer_wallet: walletAddress,
+           agent_id: agent.id,
+           trading_agent_id: tradingAgent.id,
+           agent_fee_share_bps: 8000,
+           is_trading_agent_token: true,
+           status: "active",
+           website_url: websiteUrl,
+           twitter_url: finalTwitterUrl,
+         })
+         .select()
+         .single();
+
+       if (createTokenError) {
+         console.error("[trading-agent-create] Failed to create fun_tokens record:", createTokenError);
+         
+         // Try with a new UUID if the original one conflicts
+         const newTokenId = crypto.randomUUID();
+         const { data: retryToken, error: retryError } = await supabase
+           .from("fun_tokens")
+           .insert({
+             id: newTokenId,
+             name: finalName,
+             ticker: finalTicker,
+             description: finalDescription,
+             image_url: finalAvatarUrl,
+             mint_address: mintAddress,
+             dbc_pool_address: dbcPoolAddress,
+             creator_wallet: creatorWallet || walletAddress,
+             deployer_wallet: walletAddress,
+             agent_id: agent.id,
+             trading_agent_id: tradingAgent.id,
+             agent_fee_share_bps: 8000,
+             is_trading_agent_token: true,
+             status: "active",
+             website_url: websiteUrl,
+             twitter_url: finalTwitterUrl,
+           })
+           .select()
+           .single();
+
+         if (retryError) {
+           console.error("[trading-agent-create] Retry also failed:", retryError);
+           // Clean up and abort
+           await supabase.from("agents").delete().eq("id", agent.id);
+           await supabase.from("trading_agents").delete().eq("id", tradingAgent.id);
+           throw new Error(`Failed to create token database record: ${retryError.message}`);
+         }
+         
+         finalTokenId = newTokenId;
+         console.log(`[trading-agent-create] ✅ Created fun_tokens with new ID: ${newTokenId}`);
+       } else {
+         console.log(`[trading-agent-create] ✅ Created missing fun_tokens record: ${tokenId}`);
+       }
+     } else {
+       // Token exists - update with agent links
+       console.log(`[trading-agent-create] ✅ fun_tokens record verified: ${existingToken.id}`);
+       
+       await supabase
+         .from("fun_tokens")
+         .update({
+           agent_id: agent.id,
+           trading_agent_id: tradingAgent.id,
+           agent_fee_share_bps: 8000, // 80% to agent
+           is_trading_agent_token: true,
+         })
+         .eq("id", tokenId);
+     }
 
      // Create SubTuna community WITH fun_token_id linked
-     const { data: subtuna } = await supabase
+     const { data: subtuna, error: subtunaError } = await supabase
        .from("subtuna")
        .insert({
          name: finalName,
@@ -211,20 +300,30 @@ serve(async (req) => {
          description: `Official community for ${finalName} - Autonomous Trading Agent`,
          icon_url: finalAvatarUrl,
          agent_id: agent.id,
-         fun_token_id: tokenId, // NOW LINKED
+         fun_token_id: finalTokenId,
        })
        .select()
        .single();
 
+     if (subtunaError) {
+       console.error("[trading-agent-create] Failed to create SubTuna:", subtunaError);
+       // Non-critical - continue without subtuna
+     }
+
      // Update trading_agents with token info
-     await supabase
+     const { error: updateTaError } = await supabase
        .from("trading_agents")
        .update({
          mint_address: mintAddress,
-         fun_token_id: tokenId,
+         fun_token_id: finalTokenId,
          status: "pending", // Ready for funding
        })
        .eq("id", tradingAgent.id);
+
+     if (updateTaError) {
+       console.error("[trading-agent-create] Failed to update trading_agent with token:", updateTaError);
+       // This is critical - log but continue, the token exists on-chain
+     }
 
      // Create comprehensive welcome post
      if (subtuna) {
