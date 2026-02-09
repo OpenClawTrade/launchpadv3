@@ -419,14 +419,16 @@ export default function TradingAgentProfilePage() {
                     {trades?.map((trade) => {
                       const isBuy = trade.trade_type === "buy";
                       const isSell = trade.trade_type === "sell";
-                      // For sell trades, calculate P&L: amount_sol (exit value) - find matching buy
+                      // For sell trades, use verified PNL from Helius if available, otherwise estimate
                       const matchingBuy = isSell && trade.position_id
                         ? trades?.find(t => t.trade_type === "buy" && t.position_id === trade.position_id)
                         : null;
-                      const pnl = isSell && matchingBuy
+                      const estimatedPnl = isSell && matchingBuy
                         ? (trade.amount_sol || 0) - (matchingBuy.amount_sol || 0)
                         : isSell ? -(trade.amount_sol || 0) : null;
+                      const pnl = isSell ? (trade.verified_pnl_sol ?? estimatedPnl) : null;
                       const isPnlPositive = pnl !== null && pnl >= 0;
+                      const isVerified = isSell && trade.verified_pnl_sol !== null && trade.verified_pnl_sol !== undefined;
 
                       return (
                         <div key={trade.id} className={`p-4 rounded-lg border bg-background/50 ${
@@ -461,7 +463,12 @@ export default function TradingAgentProfilePage() {
                             </div>
                             {isSell && pnl !== null && (
                               <div>
-                                <span className="text-muted-foreground text-xs">Profit/Loss</span>
+                                <span className="text-muted-foreground text-xs flex items-center gap-1">
+                                  Profit/Loss
+                                  {isVerified && (
+                                    <span className="text-[10px] text-green-400" title="Verified on-chain via Helius">✓</span>
+                                  )}
+                                </span>
                                 <div className={`font-semibold ${isPnlPositive ? "text-green-400" : "text-red-400"}`}>
                                   {isPnlPositive ? "+" : ""}{pnl.toFixed(4)} SOL
                                 </div>
@@ -471,6 +478,30 @@ export default function TradingAgentProfilePage() {
                               <span className="text-muted-foreground text-xs">Confidence</span>
                               <div>{trade.confidence_score}%</div>
                             </div>
+                          </div>
+                          {/* Transaction signatures */}
+                          <div className="flex flex-wrap gap-2 mb-2 text-xs">
+                            {isBuy && trade.signature && (
+                              <a href={`https://solscan.io/tx/${trade.signature}`} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded">
+                                <ExternalLink className="h-3 w-3" />
+                                Buy TX: {trade.signature.slice(0, 8)}...
+                              </a>
+                            )}
+                            {isSell && trade.buy_signature && (
+                              <a href={`https://solscan.io/tx/${trade.buy_signature}`} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded">
+                                <ExternalLink className="h-3 w-3" />
+                                Buy TX: {trade.buy_signature.slice(0, 8)}...
+                              </a>
+                            )}
+                            {isSell && trade.signature && (
+                              <a href={`https://solscan.io/tx/${trade.signature}`} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-orange-400 hover:text-orange-300 bg-orange-500/10 px-2 py-0.5 rounded">
+                                <ExternalLink className="h-3 w-3" />
+                                Sell TX: {trade.signature.slice(0, 8)}...
+                              </a>
+                            )}
                           </div>
                           {trade.exit_analysis && (
                             <div className="p-3 rounded bg-muted/30 text-sm mb-2">

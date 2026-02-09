@@ -89,6 +89,10 @@ export interface TradingTrade {
   amount_sol: number;
   amount_tokens: number;
   price_per_token: number;
+  signature: string | null;
+  buy_signature: string | null;
+  verified_pnl_sol: number | null;
+  verified_at: string | null;
   strategy_used: string | null;
   narrative_match: string | null;
   token_score: number | null;

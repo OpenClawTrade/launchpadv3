@@ -5395,6 +5395,7 @@ export type Database = {
           ai_reasoning: string | null
           amount_sol: number
           amount_tokens: number
+          buy_signature: string | null
           confidence_score: number | null
           created_at: string | null
           entry_analysis: string | null
@@ -5417,11 +5418,14 @@ export type Database = {
           token_score: number | null
           trade_type: string
           trading_agent_id: string
+          verified_at: string | null
+          verified_pnl_sol: number | null
         }
         Insert: {
           ai_reasoning?: string | null
           amount_sol: number
           amount_tokens: number
+          buy_signature?: string | null
           confidence_score?: number | null
           created_at?: string | null
           entry_analysis?: string | null
@@ -5444,11 +5448,14 @@ export type Database = {
           token_score?: number | null
           trade_type: string
           trading_agent_id: string
+          verified_at?: string | null
+          verified_pnl_sol?: number | null
         }
         Update: {
           ai_reasoning?: string | null
           amount_sol?: number
           amount_tokens?: number
+          buy_signature?: string | null
           confidence_score?: number | null
           created_at?: string | null
           entry_analysis?: string | null
@@ -5471,6 +5478,8 @@ export type Database = {
           token_score?: number | null
           trade_type?: string
           trading_agent_id?: string
+          verified_at?: string | null
+          verified_pnl_sol?: number | null
         }
         Relationships: [
           {

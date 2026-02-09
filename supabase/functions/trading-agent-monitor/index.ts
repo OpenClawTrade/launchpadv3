@@ -1117,6 +1117,61 @@ async function processPositionClosure(
     })
     .eq("id", position.id);
 
+  // Find the matching buy trade to get buy_signature
+  const { data: buyTrade } = await supabase
+    .from("trading_agent_trades")
+    .select("signature")
+    .eq("position_id", position.id)
+    .eq("trade_type", "buy")
+    .single();
+
+  // Verify actual SOL received on-chain via Helius for accurate PNL
+  let verifiedPnl: number | null = null;
+  let verifiedSolReceived: number | null = null;
+  const heliusRpcUrl = Deno.env.get("HELIUS_RPC_URL");
+  if (heliusRpcUrl && signature) {
+    try {
+      const txResp = await fetch(heliusRpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getTransaction',
+          params: [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }],
+        }),
+      });
+      const txResult = await txResp.json();
+      if (txResult?.result?.meta) {
+        const meta = txResult.result.meta;
+        const accountKeys = txResult.result.transaction?.message?.accountKeys || [];
+        // Find agent wallet index in accounts
+        const agentWallet = agent.wallet_address;
+        let walletIdx = -1;
+        for (let i = 0; i < accountKeys.length; i++) {
+          const key = typeof accountKeys[i] === 'string' ? accountKeys[i] : accountKeys[i]?.pubkey;
+          if (key === agentWallet) { walletIdx = i; break; }
+        }
+        if (walletIdx >= 0 && meta.preBalances && meta.postBalances) {
+          const preBalance = meta.preBalances[walletIdx];
+          const postBalance = meta.postBalances[walletIdx];
+          // SOL change = (post - pre) in lamports, positive means received SOL
+          const solChange = (postBalance - preBalance) / 1e9;
+          // Add back the fee since it's a cost of the tx, not part of trading PNL
+          const txFee = (meta.fee || 0) / 1e9;
+          verifiedSolReceived = solChange + txFee;
+          verifiedPnl = verifiedSolReceived - position.investment_sol;
+          console.log(`[monitor] ✅ Helius verified PNL: invested=${position.investment_sol} received=${verifiedSolReceived.toFixed(6)} pnl=${verifiedPnl.toFixed(6)}`);
+        }
+      }
+    } catch (e) {
+      console.warn(`[monitor] Helius PNL verification failed, using estimate:`, e);
+    }
+  }
+
+  // Use verified values if available, otherwise fall back to estimates
+  const finalSolReceived = verifiedSolReceived ?? solReceived;
+  const finalPnl = verifiedPnl ?? realizedPnl;
+
   // Create sell trade record
   const { data: trade } = await supabase
     .from("trading_agent_trades")
@@ -1126,7 +1181,7 @@ async function processPositionClosure(
       token_address: position.token_address,
       token_name: position.token_name,
       trade_type: "sell",
-      amount_sol: solReceived,
+      amount_sol: finalSolReceived,
       amount_tokens: position.amount_tokens,
       price_per_token: currentPrice,
       strategy_used: agent.strategy_type,
@@ -1136,12 +1191,23 @@ async function processPositionClosure(
       market_context: exitAnalysis.marketContext,
       status: "success",
       signature,
+      buy_signature: buyTrade?.signature || null,
+      verified_pnl_sol: verifiedPnl,
+      verified_at: verifiedPnl !== null ? new Date().toISOString() : null,
     })
     .select()
     .single();
 
+  // Update position with verified PNL if available
+  if (verifiedPnl !== null) {
+    await supabase
+      .from("trading_agent_positions")
+      .update({ realized_pnl_sol: finalPnl })
+      .eq("id", position.id);
+  }
+
   // Update agent stats
-  const isWin = realizedPnl > 0;
+  const isWin = finalPnl > 0;
   const newWinningTrades = (agent.winning_trades || 0) + (isWin ? 1 : 0);
   const newLosingTrades = (agent.losing_trades || 0) + (isWin ? 0 : 1);
   const newTotalTrades = (agent.total_trades || 0) + 1;
@@ -1150,8 +1216,8 @@ async function processPositionClosure(
   const consecutiveWins = isWin ? (agent.consecutive_wins || 0) + 1 : 0;
   const consecutiveLosses = isWin ? 0 : (agent.consecutive_losses || 0) + 1;
 
-  const bestTrade = Math.max(agent.best_trade_sol || 0, isWin ? realizedPnl : 0);
-  const worstTrade = Math.min(agent.worst_trade_sol || 0, isWin ? 0 : realizedPnl);
+  const bestTrade = Math.max(agent.best_trade_sol || 0, isWin ? finalPnl : 0);
+  const worstTrade = Math.min(agent.worst_trade_sol || 0, isWin ? 0 : finalPnl);
 
   const holdTimeMs = new Date().getTime() - new Date(position.opened_at).getTime();
   const holdTimeMinutes = Math.floor(holdTimeMs / 60000);
@@ -1176,8 +1242,8 @@ async function processPositionClosure(
   await supabase
     .from("trading_agents")
     .update({
-      trading_capital_sol: (agent.trading_capital_sol || 0) + solReceived,
-      total_profit_sol: (agent.total_profit_sol || 0) + realizedPnl,
+      trading_capital_sol: (agent.trading_capital_sol || 0) + finalSolReceived,
+      total_profit_sol: (agent.total_profit_sol || 0) + finalPnl,
       total_trades: newTotalTrades,
       winning_trades: newWinningTrades,
       losing_trades: newLosingTrades,
