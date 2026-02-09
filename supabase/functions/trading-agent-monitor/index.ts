@@ -235,98 +235,51 @@ serve(async (req) => {
             })
             .eq("id", position.id);
 
-          // === JUPITER LIMIT ORDER MODE ===
-          // If position has on-chain limit orders, check their status instead of doing manual SL/TP
-          const hasLimitOrders = position.limit_order_sl_pubkey || position.limit_order_tp_pubkey;
+          // === HYBRID MONITORING: TP on-chain + SL via DB polling ===
+          // TP is handled on-chain via Jupiter limit order (fills when price rises)
+          // SL is ALWAYS handled via DB-based price monitoring (limit orders can't trigger on price drops)
+          const hasTPLimitOrder = position.limit_order_tp_pubkey && position.limit_order_tp_status === 'active';
           const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
 
-          if (hasLimitOrders && jupiterApiKey) {
-            let filled = false;
-            let closeReason = "";
-            let filledSignature = "";
+          // Check TP limit order status if one exists
+          if (hasTPLimitOrder && jupiterApiKey) {
+            const tpStatus = await checkJupiterOrderStatus(position.limit_order_tp_pubkey, jupiterApiKey);
+            if (tpStatus === 'filled') {
+              console.log(`[trading-agent-monitor] TP limit order FILLED for ${position.token_symbol}`);
+              await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'filled' }).eq("id", position.id);
 
-            // Check SL order status
-            if (position.limit_order_sl_pubkey && position.limit_order_sl_status === 'active') {
-              const slStatus = await checkJupiterOrderStatus(position.limit_order_sl_pubkey, jupiterApiKey);
-              if (slStatus === 'filled') {
-                filled = true;
-                closeReason = "stop_loss";
-                console.log(`[trading-agent-monitor] SL limit order FILLED for ${position.token_symbol}`);
-                // Cancel the TP order since SL triggered
-                if (position.limit_order_tp_pubkey && position.limit_order_tp_status === 'active') {
-                  const agentKp = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
-                  if (agentKp) {
-                    await cancelJupiterLimitOrder(connection, agentKp, jupiterApiKey, position.limit_order_tp_pubkey);
-                  }
-                  await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'cancelled' }).eq("id", position.id);
-                }
-                await supabase.from("trading_agent_positions").update({ limit_order_sl_status: 'filled' }).eq("id", position.id);
-              } else if (slStatus === 'cancelled') {
-                await supabase.from("trading_agent_positions").update({ limit_order_sl_status: 'cancelled' }).eq("id", position.id);
-              }
-            }
-
-            // Check TP order status
-            if (!filled && position.limit_order_tp_pubkey && position.limit_order_tp_status === 'active') {
-              const tpStatus = await checkJupiterOrderStatus(position.limit_order_tp_pubkey, jupiterApiKey);
-              if (tpStatus === 'filled') {
-                filled = true;
-                closeReason = "take_profit";
-                console.log(`[trading-agent-monitor] TP limit order FILLED for ${position.token_symbol}`);
-                // Cancel the SL order since TP triggered
-                if (position.limit_order_sl_pubkey && position.limit_order_sl_status === 'active') {
-                  const agentKp = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
-                  if (agentKp) {
-                    await cancelJupiterLimitOrder(connection, agentKp, jupiterApiKey, position.limit_order_sl_pubkey);
-                  }
-                  await supabase.from("trading_agent_positions").update({ limit_order_sl_status: 'cancelled' }).eq("id", position.id);
-                }
-                await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'filled' }).eq("id", position.id);
-              } else if (tpStatus === 'cancelled') {
-                await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'cancelled' }).eq("id", position.id);
-              }
-            }
-
-            if (filled) {
-              // Position was closed on-chain by Jupiter keepers
-              // Estimate SOL received based on the close reason
-              const solReceived = closeReason === "take_profit"
-                ? position.investment_sol * (1 + strategy.takeProfit / 100)
-                : position.investment_sol * (1 - strategy.stopLoss / 100);
+              const solReceived = position.investment_sol * (1 + strategy.takeProfit / 100);
               const realizedPnl = solReceived - position.investment_sol;
 
-              // Process the closure (AI analysis, stats update, SubTuna post)
               await processPositionClosure(
                 supabase, connection, LOVABLE_API_KEY, API_ENCRYPTION_KEY,
-                agent, position, currentPrice, pnlPct, closeReason,
-                solReceived, realizedPnl, filledSignature || "on-chain-limit-order"
+                agent, position, currentPrice, pnlPct, "take_profit",
+                solReceived, realizedPnl, "on-chain-limit-order"
               );
 
               results.push({
                 positionId: position.id,
                 agentName: agent.name,
                 token: position.token_symbol,
-                closeReason,
+                closeReason: "take_profit",
                 pnlPct: pnlPct.toFixed(2),
                 realizedPnl: realizedPnl.toFixed(6),
                 signature: "jupiter-limit-order",
               });
 
               closedCount++;
-              if (closeReason === "stop_loss") stopLossCount++;
-              if (closeReason === "take_profit") takeProfitCount++;
+              takeProfitCount++;
               totalTrades++;
-
-              console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol} via limit order: ${closeReason} (${pnlPct.toFixed(2)}%)`);
+              console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol} via TP limit order (${pnlPct.toFixed(2)}%)`);
+              continue; // Position closed, move to next
+            } else if (tpStatus === 'cancelled') {
+              await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'cancelled' }).eq("id", position.id);
             }
-
-            continue; // Skip DB-based monitoring for positions with limit orders
           }
 
-          // === FALLBACK: DB-BASED MONITORING ===
-          // For positions without limit orders, use the original SL/TP check
+          // === DB-BASED SL CHECK (always runs) + DB-BASED TP CHECK (only if no on-chain TP) ===
           const hitStopLoss = pnlPct <= -strategy.stopLoss;
-          const hitTakeProfit = pnlPct >= strategy.takeProfit;
+          const hitTakeProfit = !hasTPLimitOrder && pnlPct >= strategy.takeProfit;
 
           if (hitStopLoss || hitTakeProfit) {
             const closeReason = hitStopLoss ? "stop_loss" : "take_profit";
@@ -335,6 +288,17 @@ serve(async (req) => {
             if (!agentKeypair) {
               console.error(`[trading-agent-monitor] Failed to decrypt wallet for ${agent.name}`);
               continue;
+            }
+
+            // If SL triggered and there's an active TP limit order, cancel it first
+            if (hitStopLoss && hasTPLimitOrder && jupiterApiKey) {
+              try {
+                console.log(`[trading-agent-monitor] Cancelling TP limit order before SL market sell...`);
+                await cancelJupiterLimitOrder(connection, agentKeypair, jupiterApiKey, position.limit_order_tp_pubkey);
+                await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'cancelled' }).eq("id", position.id);
+              } catch (cancelErr) {
+                console.warn(`[trading-agent-monitor] Failed to cancel TP order, proceeding with sell:`, cancelErr);
+              }
             }
 
             const tokenDecimals = await getTokenDecimals(connection, position.token_address);

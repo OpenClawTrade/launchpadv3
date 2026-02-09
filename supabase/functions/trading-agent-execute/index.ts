@@ -385,8 +385,10 @@ serve(async (req) => {
 
         if (posError) throw posError;
 
-        // === Jupiter Limit Orders: Place on-chain SL/TP ===
-        let slOrderPubkey: string | null = null;
+        // === Jupiter Limit Orders: Place on-chain TP only ===
+        // NOTE: Stop-Loss CANNOT be a limit order — Jupiter limit orders are "sell at or above"
+        // which means an SL order (sell at LOWER price) fills immediately since market price
+        // already exceeds the SL threshold. SL is handled by DB-based polling in trading-agent-monitor.
         let tpOrderPubkey: string | null = null;
         const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
 
@@ -400,19 +402,6 @@ serve(async (req) => {
               rawTokenAmount = Math.floor(tokensReceived);
             } else {
               rawTokenAmount = Math.floor(tokensReceived * Math.pow(10, tokenDecimals));
-            }
-
-            // Stop Loss: sell all tokens at SL price → receive SOL
-            // makingAmount = raw tokens to sell, takingAmount = minimum SOL lamports to receive
-            const slSolLamports = Math.floor(stopLossPrice * tokensReceived * 1e9);
-            const slResult = await createJupiterLimitOrder(
-              connection, agentKeypair, jupiterApiKey,
-              selectedToken.mint_address, WSOL_MINT,
-              rawTokenAmount.toString(), slSolLamports.toString()
-            );
-            if (slResult) {
-              slOrderPubkey = slResult;
-              console.log(`[trading-agent-execute] ✅ SL limit order placed: ${slOrderPubkey}`);
             }
 
             // Take Profit: sell all tokens at TP price → receive SOL
@@ -431,15 +420,16 @@ serve(async (req) => {
           }
         }
 
-        // Update position with limit order pubkeys if placed
-        if (slOrderPubkey || tpOrderPubkey) {
+        // Update position with limit order info
+        // SL is always 'none' — monitored via DB-based price polling in trading-agent-monitor
+        if (tpOrderPubkey) {
           await supabase
             .from("trading_agent_positions")
             .update({
-              limit_order_sl_pubkey: slOrderPubkey,
+              limit_order_sl_pubkey: null,
               limit_order_tp_pubkey: tpOrderPubkey,
-              limit_order_sl_status: slOrderPubkey ? 'active' : 'none',
-              limit_order_tp_status: tpOrderPubkey ? 'active' : 'none',
+              limit_order_sl_status: 'none',
+              limit_order_tp_status: 'active',
             })
             .eq("id", position.id);
         }
