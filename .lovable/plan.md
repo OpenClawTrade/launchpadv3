@@ -1,90 +1,93 @@
 
-# Mobile UI Fixes + Jupiter Limit Orders for Trading Agents
 
-## Part 1: Mobile UI Improvements
+# Fix Trading Agent Data Accuracy
 
-The screenshot shows the SubTuna page (/t/67) on mobile with elements being cut off (the "Trade $6..." button is truncated). After reviewing all relevant pages, here are the mobile issues and fixes needed:
+## Problems Found
 
-### TokenStatsHeader (src/components/tunabook/TokenStatsHeader.tsx)
-- The header row has buttons that overflow on mobile. The "Trading Agent" and "Trade $TICKER" buttons get cut off.
-- **Fix**: Stack the header vertically on mobile. Move action buttons below the token info. Use smaller button text on mobile. Wrap buttons to a new line.
+After inspecting the 67 Agent's actual database records, here are the issues:
 
-### SubTunaPage (src/pages/SubTunaPage.tsx)
-- The community header section (`flex items-end gap-4`) doesn't wrap well on small screens - avatar, name, and join button fight for space.
-- Quick stats row (`flex items-center gap-6`) overflows horizontally on small screens.
-- **Fix**: Make header stack vertically on mobile. Wrap quick stats into a grid on mobile.
+1. **Token images are broken**: The `token_image_url` field stores raw pump.fun IPFS hashes (e.g., `71e1a9aa...`) instead of full URLs. The UI tries to use them as `src` directly, so no images display.
 
-### TradingAgentProfilePage (src/pages/TradingAgentProfilePage.tsx)
-- Stats cards use `grid-cols-2 md:grid-cols-5` -- 5 cards in a row is fine on desktop but 2 columns with 5 items leaves an orphan card.
-- Open positions grid uses `grid-cols-4` which is too cramped on mobile (Entry, Current, Investment, P&L all in one row).
-- Trade history grid uses `grid-cols-3` -- tight on mobile.
-- Tabs list with 4 items (Strategy, Positions, History, Insights) overflows on small screens.
-- **Fix**: Use `grid-cols-2` for position details on mobile, stack trade history vertically, make tabs scrollable horizontally.
+2. **Token symbol shows "???"**: All pump.fun tokens have `symbol: ???` by default. The UI displays `$???` which is unhelpful. Should fall back to `token_name`.
 
-### TradingAgentsPage (src/pages/TradingAgentsPage.tsx)
-- The sidebar (Create Agent, Technical Architecture, Agent Lifecycle) takes 1/3 width on desktop but on mobile it stacks below the main content which is fine, but the `lg:grid-cols-3` layout means on tablets it might look cramped.
-- Tab bar with "Full Leaderboard" button may overflow on mobile.
-- **Fix**: Ensure tab bar wraps properly. Make "Full Leaderboard" button smaller or move below tabs on mobile.
+3. **Stats not updating on position close**: The agent has `total_trades: 4`, `winning_trades: 0`, `losing_trades: 0` even though one position was closed. The monitor doesn't update win/loss counters when closing positions.
 
-### TradingAgentCard (src/components/trading/TradingAgentCard.tsx)
-- Generally looks okay but the strategy badge text can overflow.
-- **Fix**: Hide strategy text on very small screens, show icon only.
+4. **Unrealized P&L stuck at 0**: All open positions show `unrealized_pnl_sol: 0` and `unrealized_pnl_pct: 0` -- the monitor isn't updating current prices from Jupiter quotes.
 
 ---
 
-## Part 2: Jupiter Limit Orders (On-Chain SL/TP)
+## Changes
 
-Replace the internal DB-based SL/TP monitoring with Jupiter's Trigger Order API (`/trigger/v1/createOrder`) so that stop-loss and take-profit orders persist on-chain and execute automatically via Jupiter's keeper network, regardless of whether the backend is running.
+### 1. Fix token image URLs in the UI (TradingAgentProfilePage.tsx)
 
-### How It Works
+Add a helper function that detects raw IPFS hashes and prepends the correct CDN URL:
 
-1. **On Entry (trading-agent-execute)**: After the buy swap succeeds and the agent receives tokens, immediately place TWO on-chain limit orders via Jupiter Trigger API:
-   - **Stop-Loss Order**: Sell all tokens if price drops to SL level
-   - **Take-Profit Order**: Sell all tokens if price rises to TP level
+```typescript
+function resolveTokenImage(url: string | null): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith('http')) return url;
+  // Raw pump.fun IPFS hash
+  return `https://ipfs.io/ipfs/${url}`;
+}
+```
 
-2. **On Trigger Execution**: When either SL or TP hits, Jupiter's keeper network auto-executes the sell. The monitor function detects closed orders and updates the database accordingly.
+Apply this to all `<AvatarImage src={...}>` instances for positions.
 
-3. **On Manual Exit or Opposite Trigger**: When one order fills, cancel the other unfilled order via Jupiter's `/trigger/v1/cancelOrder` endpoint.
+### 2. Fix token symbol fallback (TradingAgentProfilePage.tsx)
 
-### Technical Changes
+Replace `${position.token_symbol}` displays with:
+```typescript
+{position.token_symbol && position.token_symbol !== '???' 
+  ? position.token_symbol 
+  : position.token_name || 'Unknown'}
+```
 
-#### trading-agent-execute/index.ts
-- After successful buy swap, calculate SL and TP prices from entry price
-- Call `POST https://api.jup.ag/trigger/v1/createOrder` twice (SL + TP orders)
-- Sign and submit both order transactions
-- Store `limit_order_sl_pubkey` and `limit_order_tp_pubkey` in `trading_agent_positions` table
+Apply the same logic in the trade history section for `trade.token_name`.
 
-#### trading-agent-monitor/index.ts
-- Instead of checking prices and executing sells, check order status via `GET https://api.jup.ag/trigger/v1/getOrder?account={orderPubkey}`
-- If an order is filled: update position as closed, cancel the counterpart order
-- If an order is cancelled externally: log and handle gracefully
-- Keep price update logic for UI display purposes, but remove the sell execution logic
+### 3. Fix image URL at source (trading-agent-execute edge function)
 
-#### Database Migration
-- Add columns to `trading_agent_positions`:
-  - `limit_order_sl_pubkey` (text, nullable) -- on-chain SL order address
-  - `limit_order_tp_pubkey` (text, nullable) -- on-chain TP order address
-  - `limit_order_sl_status` (text, default 'pending') -- 'pending', 'filled', 'cancelled'
-  - `limit_order_tp_status` (text, default 'pending') -- 'pending', 'filled', 'cancelled'
+When storing `token_image_url` in the position record, prefix the IPFS hash:
 
-#### Jupiter Trigger API Endpoints Used
-- `POST /trigger/v1/createOrder` -- Create limit sell order with target price
-- `POST /trigger/v1/cancelOrder` -- Cancel unfilled order when counterpart fills
-- `POST /trigger/v1/execute` -- Submit signed transaction
-- `GET /trigger/v1/getOrder` -- Check order status
+```typescript
+token_image_url: selectedToken.image_url?.startsWith('http') 
+  ? selectedToken.image_url 
+  : `https://ipfs.io/ipfs/${selectedToken.image_url}`,
+```
 
-### Fallback Strategy
-If Jupiter Limit Order creation fails (e.g., token not supported), fall back to the current DB-based monitoring approach for that specific position. The `limit_order_sl_pubkey` being null indicates fallback mode.
+This ensures future positions have correct URLs from the start.
 
-### Files to Create/Modify
+### 4. Fix stats update on position close (trading-agent-monitor edge function)
+
+In the `processPositionClosure` function (or wherever positions are marked as closed), add logic to update the agent's aggregate stats:
+
+```sql
+UPDATE trading_agents SET
+  winning_trades = winning_trades + (CASE WHEN pnl > 0 THEN 1 ELSE 0 END),
+  losing_trades = losing_trades + (CASE WHEN pnl <= 0 THEN 1 ELSE 0 END),
+  total_profit_sol = total_profit_sol + pnl,
+  win_rate = (winning_trades + new_win) / total_trades * 100,
+  best_trade_sol = GREATEST(best_trade_sol, pnl),
+  worst_trade_sol = LEAST(worst_trade_sol, pnl)
+WHERE id = agent_id
+```
+
+### 5. Fix existing bad data (database update)
+
+Update the 3 existing positions to have correct image URLs:
+
+```sql
+UPDATE trading_agent_positions 
+SET token_image_url = 'https://ipfs.io/ipfs/' || token_image_url
+WHERE trading_agent_id = '1776eabc-5e58-46e2-be1d-5300dd202b51'
+  AND token_image_url NOT LIKE 'http%';
+```
+
+### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/tunabook/TokenStatsHeader.tsx` | Mobile-responsive header layout |
-| `src/pages/SubTunaPage.tsx` | Mobile-responsive community header and stats |
-| `src/pages/TradingAgentProfilePage.tsx` | Mobile-responsive grids, tabs, position details |
-| `src/pages/TradingAgentsPage.tsx` | Mobile-responsive tab bar and sidebar |
-| `src/components/trading/TradingAgentCard.tsx` | Minor mobile badge overflow fix |
-| `supabase/functions/trading-agent-execute/index.ts` | Add Jupiter Limit Order creation after buy |
-| `supabase/functions/trading-agent-monitor/index.ts` | Replace sell execution with order status polling + cancellation |
-| Database migration | Add limit order tracking columns |
+| `src/pages/TradingAgentProfilePage.tsx` | Add `resolveTokenImage()` helper, fix token symbol fallback display |
+| `supabase/functions/trading-agent-execute/index.ts` | Prefix IPFS hash with CDN URL when storing image |
+| `supabase/functions/trading-agent-monitor/index.ts` | Update agent stats (win/loss/pnl) when closing positions |
+| Database (data fix) | Update existing position image URLs to full IPFS URLs |
+
