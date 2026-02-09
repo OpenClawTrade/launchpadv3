@@ -23,9 +23,10 @@ const SLIPPAGE_BPS = 500; // 5%
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
 // Jupiter API endpoints with fallback
+// public.jupiterapi.com is a community mirror that may help with DNS issues
 const JUPITER_ENDPOINTS = [
   'https://quote-api.jup.ag/v6',
-  'https://lite-api.jup.ag/v6',
+  'https://public.jupiterapi.com/v6',
 ];
 
 // Jito Block Engines for MEV-protected execution
