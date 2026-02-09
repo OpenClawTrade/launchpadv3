@@ -338,73 +338,195 @@ serve(async (req) => {
 
         const existingTokens = new Set(openPositions?.map(p => p.token_address) || []);
 
-        // === ON-DEMAND PUMP.FUN FETCH: Poll every 10s until qualifying token found ===
-        const DISCOVERY_MAX_MS = 50000; // 50s max for discovery
-        const DISCOVERY_POLL_MS = 10000; // 10s between retries
+        // === ON-DEMAND TOKEN DISCOVERY via Helius (on-chain data) ===
+        // Polls every 10s until qualifying token found, max 50s
+        const DISCOVERY_MAX_MS = 50000;
+        const DISCOVERY_POLL_MS = 10000;
         const discoveryStart = Date.now();
         let availableTokens: any[] = [];
         let discoveryAttempt = 0;
+
+        // Extract Helius API key from RPC URL
+        const heliusApiKey = (() => {
+          const rpcUrl = HELIUS_RPC_URL || "";
+          const match = rpcUrl.match(/api-key=([^&]+)/);
+          return match ? match[1] : Deno.env.get("HELIUS_API_KEY") || null;
+        })();
 
         while (Date.now() - discoveryStart < DISCOVERY_MAX_MS) {
           discoveryAttempt++;
           console.log(`[trading-agent-execute] Agent ${agent.name} discovery attempt #${discoveryAttempt}...`);
 
           try {
-            const pumpResponse = await fetch(
-              "https://frontend-api.pump.fun/coins?sort=bump_order&limit=100&includeNsfw=false",
-              {
-                headers: {
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                },
-              }
-            );
+            let rawTokens: any[] = [];
 
-            if (!pumpResponse.ok) {
-              console.warn(`[trading-agent-execute] pump.fun API returned ${pumpResponse.status}, skipping cycle`);
-              break; // API down = skip entirely, no fallback
-            }
+            if (heliusApiKey) {
+              // PRIMARY: Helius Enhanced Transactions API — queries on-chain pump.fun program activity
+              const PUMP_FUN_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6d";
+              const txResponse = await fetch(
+                `https://api.helius.xyz/v0/addresses/${PUMP_FUN_PROGRAM}/transactions?api-key=${heliusApiKey}&limit=100`
+              );
 
-            const rawTokens: any[] = await pumpResponse.json();
-            console.log(`[trading-agent-execute] Fetched ${rawTokens.length} tokens from pump.fun`);
+              if (txResponse.ok) {
+                const transactions = await txResponse.json();
+                console.log(`[trading-agent-execute] Helius returned ${transactions.length} recent pump.fun txs`);
 
-            // Score and filter tokens inline
-            const scoredTokens = rawTokens
-              .map(scoreToken)
-              .filter(Boolean)
-              .filter(t => !existingTokens.has(t.mint_address));
-
-            // Race condition protection - skip tokens traded in last 5 min
-            const recentTradeChecks = await Promise.all(
-              scoredTokens.map(async (t) => {
-                const { data: lastTrade } = await supabase
-                  .from("trading_agent_trades")
-                  .select("created_at")
-                  .eq("trading_agent_id", agent.id)
-                  .eq("token_address", t.mint_address)
-                  .order("created_at", { ascending: false })
-                  .limit(1)
-                  .maybeSingle();
-                if (lastTrade && Date.now() - new Date(lastTrade.created_at).getTime() < 300000) {
-                  console.log(`[trading-agent-execute] Skipping ${t.symbol} - traded within 5 min`);
-                  return null;
+                // Extract unique token mints with activity metrics
+                const tokenActivity = new Map<string, { count: number; lastSeen: number; solVolume: number }>();
+                for (const tx of transactions) {
+                  for (const transfer of (tx.tokenTransfers || [])) {
+                    const mint = transfer.mint;
+                    if (!mint || mint === WSOL_MINT) continue;
+                    const existing = tokenActivity.get(mint) || { count: 0, lastSeen: 0, solVolume: 0 };
+                    existing.count++;
+                    existing.lastSeen = Math.max(existing.lastSeen, (tx.timestamp || 0) * 1000);
+                    for (const nt of (tx.nativeTransfers || [])) {
+                      existing.solVolume += Math.abs(nt.amount || 0) / 1e9;
+                    }
+                    tokenActivity.set(mint, existing);
+                  }
                 }
-                return t;
-              })
-            );
-            availableTokens = recentTradeChecks.filter(Boolean);
 
-            if (availableTokens.length > 0) {
-              console.log(`[trading-agent-execute] Found ${availableTokens.length} qualifying tokens (top: ${availableTokens[0].symbol} score=${availableTokens[0].token_score})`);
-              break; // Found qualifying tokens, proceed to AI analysis
+                // Sort by activity, take top 50
+                const sortedMints = [...tokenActivity.entries()]
+                  .sort((a, b) => b[1].count - a[1].count)
+                  .slice(0, 50);
+
+                if (sortedMints.length > 0) {
+                  const mintIds = sortedMints.map(([m]) => m);
+
+                  // Batch get metadata via DAS + prices from Jupiter in parallel
+                  const [dasResp, priceResp, solPriceResp] = await Promise.all([
+                    fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        jsonrpc: "2.0", id: "batch",
+                        method: "getAssetBatch",
+                        params: { ids: mintIds },
+                      }),
+                    }),
+                    fetch(`https://price.jup.ag/v6/price?ids=${mintIds.join(",")}`),
+                    fetch(`https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112`),
+                  ]);
+
+                  const assetMap = new Map<string, any>();
+                  if (dasResp.ok) {
+                    const dasData = await dasResp.json();
+                    for (const asset of (dasData.result || [])) {
+                      if (asset?.id) assetMap.set(asset.id, asset);
+                    }
+                  }
+
+                  let priceMap: Record<string, any> = {};
+                  if (priceResp.ok) {
+                    const pd = await priceResp.json();
+                    priceMap = pd.data || {};
+                  }
+
+                  let solPriceUsd = 150;
+                  if (solPriceResp.ok) {
+                    const spd = await solPriceResp.json();
+                    solPriceUsd = spd.data?.[WSOL_MINT]?.price || 150;
+                  }
+
+                  // Build token objects compatible with scoring
+                  for (const [mint, activity] of sortedMints) {
+                    const asset = assetMap.get(mint);
+                    const price = priceMap[mint];
+                    const name = asset?.content?.metadata?.name || "Unknown";
+                    const symbol = asset?.content?.metadata?.symbol || "???";
+                    const imageUrl = asset?.content?.links?.image || asset?.content?.files?.[0]?.uri || "";
+                    const description = asset?.content?.metadata?.description || "";
+
+                    const priceUsd = price?.price || 0;
+                    const priceSol = solPriceUsd > 0 ? priceUsd / solPriceUsd : 0;
+
+                    // Estimate liquidity from SOL volume (recent activity as proxy)
+                    const estimatedLiquiditySol = activity.solVolume / Math.max(1, activity.count) * 10;
+
+                    const ageHours = activity.lastSeen > 0
+                      ? (Date.now() - activity.lastSeen) / (1000 * 60 * 60)
+                      : 24;
+
+                    rawTokens.push({
+                      mint,
+                      name,
+                      symbol,
+                      description,
+                      image_uri: imageUrl,
+                      virtual_sol_reserves: estimatedLiquiditySol * 1e9,
+                      virtual_token_reserves: 1e12,
+                      holder_count: activity.count, // trade count as activity proxy
+                      reply_count: activity.count,
+                      created_timestamp: activity.lastSeen || Date.now(),
+                      king_of_the_hill_timestamp: activity.count >= 10 ? Date.now() : null,
+                    });
+                  }
+
+                  console.log(`[trading-agent-execute] Built ${rawTokens.length} tokens from Helius on-chain data`);
+                }
+              } else {
+                console.warn(`[trading-agent-execute] Helius API returned ${txResponse.status}`);
+              }
             }
 
-            console.log(`[trading-agent-execute] No qualifying tokens found, waiting ${DISCOVERY_POLL_MS / 1000}s...`);
+            // FALLBACK: Try pump.fun API directly (may work intermittently)
+            if (rawTokens.length === 0) {
+              console.log(`[trading-agent-execute] Trying pump.fun API as fallback...`);
+              const pumpResponse = await fetch(
+                "https://frontend-api.pump.fun/coins?sort=bump_order&limit=100&includeNsfw=false",
+                { headers: { "Accept": "application/json" } }
+              );
+              if (pumpResponse.ok) {
+                rawTokens = await pumpResponse.json();
+                console.log(`[trading-agent-execute] pump.fun fallback returned ${rawTokens.length} tokens`);
+              } else {
+                console.warn(`[trading-agent-execute] pump.fun API also failed: ${pumpResponse.status}`);
+              }
+            }
+
+            if (rawTokens.length === 0) {
+              console.log(`[trading-agent-execute] No token data from any source, retrying...`);
+            } else {
+              // Score and filter tokens
+              const scoredTokens = rawTokens
+                .map(scoreToken)
+                .filter(Boolean)
+                .filter(t => !existingTokens.has(t.mint_address));
+
+              // Race condition protection - skip tokens traded in last 5 min
+              const recentTradeChecks = await Promise.all(
+                scoredTokens.map(async (t) => {
+                  const { data: lastTrade } = await supabase
+                    .from("trading_agent_trades")
+                    .select("created_at")
+                    .eq("trading_agent_id", agent.id)
+                    .eq("token_address", t.mint_address)
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (lastTrade && Date.now() - new Date(lastTrade.created_at).getTime() < 300000) {
+                    return null;
+                  }
+                  return t;
+                })
+              );
+              availableTokens = recentTradeChecks.filter(Boolean);
+
+              if (availableTokens.length > 0) {
+                console.log(`[trading-agent-execute] Found ${availableTokens.length} qualifying tokens (top: ${availableTokens[0].symbol} score=${availableTokens[0].token_score})`);
+                break;
+              }
+
+              console.log(`[trading-agent-execute] ${scoredTokens.length} scored but none qualifying after filters`);
+            }
           } catch (fetchError) {
-            console.error(`[trading-agent-execute] pump.fun fetch error:`, fetchError);
-            break; // Network error = skip entirely
+            console.error(`[trading-agent-execute] Discovery error:`, fetchError);
+            break;
           }
 
-          // Wait before next poll (skip if near timeout)
+          // Wait before next poll
           if (Date.now() - discoveryStart + DISCOVERY_POLL_MS < DISCOVERY_MAX_MS) {
             await new Promise(r => setTimeout(r, DISCOVERY_POLL_MS));
           } else {
