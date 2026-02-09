@@ -40,12 +40,14 @@ serve(async (req) => {
   }
 
   try {
-    const { agentId, adminSecret } = await req.json();
+    const { agentId, encryptionKey } = await req.json();
 
-    // Validate admin secret
-    const expectedSecret = Deno.env.get("TWITTER_BOT_ADMIN_SECRET");
-    if (!expectedSecret || adminSecret !== expectedSecret) {
-      console.log("[admin-export-wallet] Unauthorized access attempt");
+    // Trading agents use API_ENCRYPTION_KEY for encryption
+    const storedEncryptionKey = Deno.env.get("API_ENCRYPTION_KEY");
+    
+    // Auth: check if provided key matches stored key
+    if (!storedEncryptionKey || encryptionKey !== storedEncryptionKey) {
+      console.log("[admin-export-wallet] Unauthorized - invalid encryption key");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -57,11 +59,6 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    const encryptionKey = Deno.env.get("WALLET_ENCRYPTION_KEY");
-    if (!encryptionKey) {
-      throw new Error("WALLET_ENCRYPTION_KEY not configured");
     }
 
     const supabase = createClient(
@@ -91,8 +88,15 @@ serve(async (req) => {
       });
     }
 
-    // Decrypt the private key
-    const secretKeyBytes = await decryptPrivateKey(agent.wallet_private_key_encrypted, encryptionKey);
+    // Decrypt the private key using the stored key
+    let secretKeyBytes: Uint8Array;
+    
+    try {
+      secretKeyBytes = await decryptPrivateKey(agent.wallet_private_key_encrypted, storedEncryptionKey);
+    } catch (e) {
+      console.error("[admin-export-wallet] Decryption failed:", e);
+      throw new Error("Decryption failed - key mismatch or corrupted data");
+    }
     
     // Convert to base58 for wallet import
     const base58PrivateKey = bs58.encode(secretKeyBytes);
