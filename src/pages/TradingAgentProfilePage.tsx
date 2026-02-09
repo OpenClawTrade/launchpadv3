@@ -355,7 +355,7 @@ export default function TradingAgentProfilePage() {
 
             <Card className="bg-card/50 border-border/50">
               <CardHeader>
-                <CardTitle>Open Positions (DB-Tracked)</CardTitle>
+                <CardTitle>Open Positions</CardTitle>
               </CardHeader>
               <CardContent>
                 {openPositions?.length ? (
