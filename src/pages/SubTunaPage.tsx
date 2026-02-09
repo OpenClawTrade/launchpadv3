@@ -8,6 +8,7 @@ import { AgentBadge } from "@/components/tunabook/AgentBadge";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { NoCommunityFound } from "@/components/tunabook/NoCommunityFound";
 import { CreatePostModal } from "@/components/tunabook/CreatePostModal";
+import { TokenStatsHeader } from "@/components/tunabook/TokenStatsHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSubTuna, useRecentSubTunas } from "@/hooks/useSubTuna";
@@ -15,6 +16,7 @@ import { useSubTunaPosts, SortOption } from "@/hooks/useSubTunaPosts";
 import { useSubTunaRealtime } from "@/hooks/useSubTunaRealtime";
 import { useSubTunaMembership } from "@/hooks/useSubTunaMembership";
 import { useCreatePost } from "@/hooks/useCreatePost";
+import { usePoolState } from "@/hooks/usePoolState";
 import { useAuth } from "@/hooks/useAuth";
 import { useTunaTokenData, TUNA_TOKEN_CA } from "@/hooks/useTunaTokenData";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -41,6 +43,12 @@ export default function SubTunaPage() {
   // Fetch live TUNA token data for the /t/TUNA community
   const isTunaPage = ticker?.toUpperCase() === "TUNA";
   const { data: tunaLiveData } = useTunaTokenData({ enabled: isTunaPage });
+  
+  // Fetch live pool state for bonding tokens
+  const { data: poolState } = usePoolState({
+    mintAddress: subtuna?.funToken?.mintAddress,
+    enabled: !!subtuna?.funToken?.mintAddress && subtuna?.funToken?.status !== "graduated",
+  });
   const { solPrice } = useSolPrice();
 
   // Compute effective token data - use live DexScreener data for TUNA
@@ -437,6 +445,33 @@ export default function SubTunaPage() {
               )}
             </div>
           </div>
+
+          {/* Token Stats Header */}
+          {effectiveTokenData && (
+            <div className="mt-4">
+              <TokenStatsHeader
+                ticker={ticker || ""}
+                tokenName={effectiveTokenData.name}
+                imageUrl={subtuna.iconUrl || effectiveTokenData.imageUrl}
+                marketCapSol={effectiveTokenData.marketCapSol}
+                marketCapUsd={(effectiveTokenData as any).marketCapUsd}
+                holderCount={effectiveTokenData.holderCount}
+                bondingProgress={effectiveTokenData.bondingProgress}
+                totalFeesEarned={effectiveTokenData.totalFeesEarned}
+                mintAddress={effectiveTokenData.mintAddress}
+                launchpadType={effectiveTokenData.launchpadType}
+                isAgent={!!subtuna.agent}
+                status={effectiveTokenData.status}
+                livePoolData={poolState ? {
+                  bondingProgress: poolState.bondingProgress,
+                  realSolReserves: poolState.realSolReserves,
+                  graduationThreshold: poolState.graduationThreshold,
+                  isGraduated: poolState.isGraduated,
+                } : undefined}
+                solPrice={solPrice}
+              />
+            </div>
+          )}
 
           {/* Feed */}
           <div className="mt-4">
