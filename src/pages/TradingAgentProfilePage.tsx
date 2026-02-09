@@ -18,6 +18,8 @@ import {
   useStrategyReviews 
 } from "@/hooks/useTradingAgents";
 import { TraderBadge, TradingAgentFundingBar } from "@/components/trading";
+import { WalletScanPanel } from "@/components/trading/WalletScanPanel";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { format } from "date-fns";
 
 function resolveTokenImage(url: string | null): string | undefined {
@@ -38,6 +40,7 @@ export default function TradingAgentProfilePage() {
   const { data: closedPositions } = useTradingAgentPositions(id || "", "closed");
   const { data: trades } = useTradingAgentTrades(id || "", 50);
   const { data: reviews } = useStrategyReviews(id || "");
+  const { isAdmin } = useIsAdmin(agent?.wallet_address);
 
   if (isLoading) {
     return (
@@ -341,9 +344,14 @@ export default function TradingAgentProfilePage() {
           </TabsContent>
 
           <TabsContent value="positions">
+            {/* On-Chain Wallet Scan Panel - always visible */}
+            <div className="mb-6">
+              <WalletScanPanel agentId={id || ""} agentName={agent.name} />
+            </div>
+
             <Card className="bg-card/50 border-border/50">
               <CardHeader>
-                <CardTitle>Open Positions</CardTitle>
+                <CardTitle>Open Positions (DB-Tracked)</CardTitle>
               </CardHeader>
               <CardContent>
                 {openPositions?.length ? (

@@ -305,3 +305,9 @@ verify_jwt = false
 
 [functions.admin-export-wallet]
 verify_jwt = false
+
+[functions.trading-agent-wallet-scan]
+verify_jwt = false
+
+[functions.trading-agent-force-sell]
+verify_jwt = false
