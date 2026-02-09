@@ -22,6 +22,12 @@ const COOLDOWN_SECONDS = 60;
 const SLIPPAGE_BPS = 500; // 5%
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
+// Jupiter API endpoints with fallback
+const JUPITER_ENDPOINTS = [
+  'https://quote-api.jup.ag/v6',
+  'https://lite-api.jup.ag/v6',
+];
+
 // Jito Block Engines for MEV-protected execution
 const JITO_BLOCK_ENGINES = [
   'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
@@ -30,6 +36,84 @@ const JITO_BLOCK_ENGINES = [
   'https://ny.mainnet.block-engine.jito.wtf/api/v1/bundles',
   'https://tokyo.mainnet.block-engine.jito.wtf/api/v1/bundles',
 ];
+
+// Fetch with exponential backoff retry logic
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (error) {
+      if (attempt === maxRetries - 1) throw error;
+      const delay = 500 * Math.pow(2, attempt); // 500ms, 1s, 2s
+      console.warn(`[trading-agent-execute] Fetch attempt ${attempt + 1} failed for ${url}, retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('All fetch retries exhausted');
+}
+
+// Get Jupiter quote with multi-endpoint fallback
+async function getJupiterQuote(
+  inputMint: string,
+  outputMint: string,
+  amount: number,
+  slippageBps: number
+): Promise<{ quote: any; endpoint: string } | null> {
+  for (const endpoint of JUPITER_ENDPOINTS) {
+    try {
+      const quoteUrl = `${endpoint}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
+      const response = await fetchWithRetry(quoteUrl);
+      if (response.ok) {
+        const quote = await response.json();
+        return { quote, endpoint };
+      }
+      console.warn(`[trading-agent-execute] Jupiter endpoint ${endpoint} returned ${response.status}`);
+    } catch (e) {
+      console.warn(`[trading-agent-execute] Jupiter endpoint ${endpoint} failed:`, e);
+    }
+  }
+  return null;
+}
+
+// Get Jupiter swap transaction with multi-endpoint fallback
+async function getJupiterSwapTx(
+  endpoint: string,
+  quote: any,
+  userPublicKey: string
+): Promise<{ swapTransaction: string } | null> {
+  for (const ep of [endpoint, ...JUPITER_ENDPOINTS.filter(e => e !== endpoint)]) {
+    try {
+      const response = await fetchWithRetry(`${ep}/swap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quoteResponse: quote,
+          userPublicKey,
+          wrapAndUnwrapSol: true,
+          dynamicComputeUnitLimit: true,
+          prioritizationFeeLamports: { 
+            priorityLevelWithMaxLamports: {
+              maxLamports: 5_000_000, // 0.005 SOL max priority fee
+              priorityLevel: "veryHigh"
+            }
+          },
+        }),
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+      console.warn(`[trading-agent-execute] Jupiter swap endpoint ${ep} returned ${response.status}`);
+    } catch (e) {
+      console.warn(`[trading-agent-execute] Jupiter swap endpoint ${ep} failed:`, e);
+    }
+  }
+  return null;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -362,40 +446,22 @@ async function executeJupiterSwapWithJito(
   slippageBps: number
 ): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string }> {
   try {
-    // Get quote from Jupiter
-    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${slippageBps}`;
-    const quoteResponse = await fetch(quoteUrl);
+    // Get quote from Jupiter with multi-endpoint fallback
+    const quoteResult = await getJupiterQuote(inputMint, outputMint, amountLamports, slippageBps);
     
-    if (!quoteResponse.ok) {
-      return { success: false, error: `Quote failed: ${quoteResponse.status}` };
+    if (!quoteResult) {
+      return { success: false, error: "All Jupiter quote endpoints failed" };
     }
 
-    const quote = await quoteResponse.json();
+    const { quote, endpoint } = quoteResult;
     const outputAmount = parseInt(quote.outAmount) / 1e6; // Assuming 6 decimals for most tokens
 
-    // Get swap transaction with high priority fees
-    const swapResponse = await fetch("https://quote-api.jup.ag/v6/swap", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        quoteResponse: quote,
-        userPublicKey: payer.publicKey.toBase58(),
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-        prioritizationFeeLamports: { 
-          priorityLevelWithMaxLamports: {
-            maxLamports: 5_000_000, // 0.005 SOL max priority fee
-            priorityLevel: "veryHigh"
-          }
-        },
-      }),
-    });
+    // Get swap transaction with multi-endpoint fallback
+    const swapData = await getJupiterSwapTx(endpoint, quote, payer.publicKey.toBase58());
 
-    if (!swapResponse.ok) {
-      return { success: false, error: `Swap request failed: ${swapResponse.status}` };
+    if (!swapData) {
+      return { success: false, error: "All Jupiter swap endpoints failed" };
     }
-
-    const swapData = await swapResponse.json();
     const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
     const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
 
