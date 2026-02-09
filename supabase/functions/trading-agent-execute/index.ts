@@ -336,7 +336,14 @@ serve(async (req) => {
           .order("created_at", { ascending: false })
           .limit(3);
 
-        const existingTokens = new Set(openPositions?.map(p => p.token_address) || []);
+        // Exclude both open positions AND all previously traded tokens
+        const { data: allPastTrades } = await supabase
+          .from("trading_agent_trades")
+          .select("token_address")
+          .eq("trading_agent_id", agent.id);
+        const previouslyTraded = new Set(allPastTrades?.map(t => t.token_address) || []);
+        const openTokens = new Set(openPositions?.map(p => p.token_address) || []);
+        const existingTokens = new Set([...openTokens, ...previouslyTraded]);
 
         // === ON-DEMAND TOKEN DISCOVERY via DexScreener ===
         // Fetches latest Solana token profiles + boosted tokens, filters < 1 hour old
