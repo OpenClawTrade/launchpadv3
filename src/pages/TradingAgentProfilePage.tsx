@@ -418,11 +418,25 @@ export default function TradingAgentProfilePage() {
                   <div className="space-y-3">
                     {trades?.map((trade) => {
                       const isBuy = trade.trade_type === "buy";
+                      const isSell = trade.trade_type === "sell";
+                      // For sell trades, calculate P&L: amount_sol (exit value) - find matching buy
+                      const matchingBuy = isSell && trade.position_id
+                        ? trades?.find(t => t.trade_type === "buy" && t.position_id === trade.position_id)
+                        : null;
+                      const pnl = isSell && matchingBuy
+                        ? (trade.amount_sol || 0) - (matchingBuy.amount_sol || 0)
+                        : isSell ? -(trade.amount_sol || 0) : null;
+                      const isPnlPositive = pnl !== null && pnl >= 0;
+
                       return (
-                        <div key={trade.id} className="p-4 rounded-lg border border-border/50 bg-background/50">
+                        <div key={trade.id} className={`p-4 rounded-lg border bg-background/50 ${
+                          isSell ? (isPnlPositive ? "border-green-500/30" : "border-red-500/30") : "border-border/50"
+                        }`}>
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <Badge variant={isBuy ? "default" : "secondary"}>
+                              <Badge variant={isBuy ? "default" : "secondary"} className={
+                                isSell ? (isPnlPositive ? "bg-green-500/20 text-green-400 border-green-500/30" : "bg-red-500/20 text-red-400 border-red-500/30") : ""
+                              }>
                                 {trade.trade_type.toUpperCase()}
                               </Badge>
                               <span className="font-medium">{displayTokenSymbol(trade.token_name, trade.token_name)}</span>
@@ -436,20 +450,37 @@ export default function TradingAgentProfilePage() {
                               {format(new Date(trade.created_at), "MMM d, HH:mm")}
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 text-sm mb-3">
+                          <div className={`grid gap-3 sm:gap-4 text-sm mb-3 ${isSell ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3"}`}>
                             <div>
-                              <span className="text-muted-foreground text-xs">Amount</span>
-                              <div>{trade.amount_sol?.toFixed(4)} SOL</div>
+                              <span className="text-muted-foreground text-xs">{isBuy ? "Spent" : "Received"}</span>
+                              <div>{(trade.amount_sol || 0).toFixed(4)} SOL</div>
                             </div>
                             <div>
                               <span className="text-muted-foreground text-xs">Price</span>
                               <div className="truncate">{trade.price_per_token?.toFixed(10)}</div>
                             </div>
-                            <div className="col-span-2 sm:col-span-1">
+                            {isSell && pnl !== null && (
+                              <div>
+                                <span className="text-muted-foreground text-xs">Profit/Loss</span>
+                                <div className={`font-semibold ${isPnlPositive ? "text-green-400" : "text-red-400"}`}>
+                                  {isPnlPositive ? "+" : ""}{pnl.toFixed(4)} SOL
+                                </div>
+                              </div>
+                            )}
+                            <div className={isSell ? "" : "col-span-2 sm:col-span-1"}>
                               <span className="text-muted-foreground text-xs">Confidence</span>
                               <div>{trade.confidence_score}%</div>
                             </div>
                           </div>
+                          {trade.exit_analysis && (
+                            <div className="p-3 rounded bg-muted/30 text-sm mb-2">
+                              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                                <Target className="h-3 w-3" />
+                                Exit Analysis
+                              </div>
+                              {trade.exit_analysis}
+                            </div>
+                          )}
                           {trade.ai_reasoning && (
                             <div className="p-3 rounded bg-muted/30 text-sm">
                               <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
