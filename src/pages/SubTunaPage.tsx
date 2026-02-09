@@ -52,6 +52,7 @@ export default function SubTunaPage() {
   const { solPrice } = useSolPrice();
 
   // Compute effective token data - use live DexScreener data for TUNA
+  // For trading agent tokens, use actual wallet balance as "Fees Earned"
   const effectiveTokenData = useMemo(() => {
     if (!subtuna?.funToken) return null;
     
@@ -70,8 +71,14 @@ export default function SubTunaPage() {
       };
     }
     
-    return subtuna.funToken;
-  }, [subtuna?.funToken, isTunaPage, tunaLiveData, solPrice]);
+    // For trading agent tokens, show trading capital (wallet balance) as fees earned
+    const feesEarned = subtuna.tradingAgent?.tradingCapitalSol ?? subtuna.funToken.totalFeesEarned;
+    
+    return {
+      ...subtuna.funToken,
+      totalFeesEarned: feesEarned,
+    };
+  }, [subtuna?.funToken, subtuna?.tradingAgent, isTunaPage, tunaLiveData, solPrice]);
 
   const {
     isMember, 
