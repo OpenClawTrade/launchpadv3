@@ -393,24 +393,24 @@ export default function SubTunaPage() {
 
           {/* Header */}
           <div className="tunabook-card -mt-4 rounded-t-none p-4 pb-3">
-            <div className="flex items-end gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
               {subtuna.iconUrl || subtuna.funToken?.imageUrl ? (
                 <img
                   src={subtuna.iconUrl || subtuna.funToken?.imageUrl}
                   alt=""
-                  className="w-20 h-20 rounded-full border-4 border-[hsl(var(--tunabook-bg-card))] -mt-10 object-cover"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[hsl(var(--tunabook-bg-card))] -mt-10 object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-full border-4 border-[hsl(var(--tunabook-bg-card))] -mt-10 bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-center text-3xl font-bold text-[hsl(var(--tunabook-primary))]">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[hsl(var(--tunabook-bg-card))] -mt-10 bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-center text-2xl sm:text-3xl font-bold text-[hsl(var(--tunabook-primary))] flex-shrink-0">
                   {ticker?.charAt(0)}
                 </div>
               )}
               
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-[hsl(var(--tunabook-text-primary))]">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-[hsl(var(--tunabook-text-primary))] truncate">
                   t/{ticker}
                 </h1>
-                <p className="text-[hsl(var(--tunabook-text-secondary))]">
+                <p className="text-sm sm:text-base text-[hsl(var(--tunabook-text-secondary))] truncate">
                   {subtuna.funToken?.name || subtuna.name}
                 </p>
               </div>
@@ -419,9 +419,10 @@ export default function SubTunaPage() {
                 onClick={handleJoinLeave}
                 disabled={isJoining || isLeaving}
                 variant={isMember ? "outline" : "default"}
+                size="sm"
                 className={isMember 
-                  ? "border-[hsl(var(--tunabook-primary))] text-[hsl(var(--tunabook-primary))]" 
-                  : "bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))]"
+                  ? "border-[hsl(var(--tunabook-primary))] text-[hsl(var(--tunabook-primary))] flex-shrink-0" 
+                  : "bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))] flex-shrink-0"
                 }
               >
                 {isJoining || isLeaving ? "..." : isMember ? "Joined" : "Join"}
@@ -429,7 +430,7 @@ export default function SubTunaPage() {
             </div>
 
             {/* Quick Stats */}
-            <div className="flex items-center gap-6 mt-4 text-sm text-[hsl(var(--tunabook-text-secondary))]">
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-6 mt-4 text-sm text-[hsl(var(--tunabook-text-secondary))]">
               <span className="flex items-center gap-1">
                 <Users size={16} />
                 {subtuna.memberCount.toLocaleString()} members

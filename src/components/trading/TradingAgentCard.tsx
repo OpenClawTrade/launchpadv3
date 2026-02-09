@@ -75,9 +75,9 @@ export function TradingAgentCard({ agent, rank }: TradingAgentCardProps) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-foreground truncate">{agent.name}</h3>
-                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-1.5">
-                  <StrategyIcon className={`h-3 w-3 mr-1 ${strategyColor}`} />
-                  {agent.strategy_type}
+                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-1.5 flex-shrink-0">
+                  <StrategyIcon className={`h-3 w-3 ${strategyColor}`} />
+                  <span className="hidden sm:inline ml-1">{agent.strategy_type}</span>
                 </Badge>
               </div>
               <div className="flex items-center gap-2 mt-0.5">
