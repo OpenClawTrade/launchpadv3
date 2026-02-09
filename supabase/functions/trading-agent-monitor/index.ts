@@ -301,14 +301,27 @@ serve(async (req) => {
               }
             }
 
-            const tokenDecimals = await getTokenDecimals(connection, position.token_address);
-            
-            let amountToSell: number;
-            if (position.amount_tokens > 1_000_000) {
-              amountToSell = Math.floor(position.amount_tokens);
-            } else {
-              amountToSell = Math.floor(position.amount_tokens * Math.pow(10, tokenDecimals));
+            // Fetch ACTUAL on-chain token balance instead of relying on DB amount_tokens
+            // This prevents the bug where amount_tokens was stored with wrong decimals
+            const { PublicKey: PubKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
+            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+              agentKeypair.publicKey,
+              { mint: new PubKey(position.token_address) }
+            );
+            let amountToSell = 0;
+            if (tokenAccounts.value.length > 0) {
+              const rawBalance = tokenAccounts.value[0].account.data.parsed?.info?.tokenAmount?.amount;
+              if (rawBalance) {
+                amountToSell = parseInt(rawBalance);
+              }
             }
+            if (amountToSell === 0) {
+              console.warn(`[trading-agent-monitor] No on-chain balance for ${position.token_symbol}, marking as closed (already sold)`);
+              await supabase.from("trading_agent_positions").update({ status: "stopped_out" }).eq("id", position.id);
+              continue;
+            }
+
+            console.log(`[trading-agent-monitor] Selling ${position.token_symbol}: on-chain raw amount = ${amountToSell}`);
 
             const swapResult = await executeJupiterSwapWithJito(
               connection, agentKeypair,
@@ -322,6 +335,19 @@ serve(async (req) => {
             }
 
             const solReceived = (swapResult.outputAmount || currentValue);
+
+            // === DUST SELL VALIDATION ===
+            // If we received less than 1% of investment, the sell likely failed or sent wrong amount
+            const minAcceptableSol = position.investment_sol * 0.01;
+            if (solReceived < minAcceptableSol) {
+              console.error(`[trading-agent-monitor] ⚠️ DUST SELL detected for ${position.token_symbol}: received ${solReceived.toFixed(9)} SOL vs invested ${position.investment_sol.toFixed(4)} SOL. Marking as sell_failed.`);
+              await supabase.from("trading_agent_positions").update({ 
+                status: "sell_failed",
+                current_value_sol: solReceived,
+              }).eq("id", position.id);
+              continue; // Don't close the position as successful
+            }
+
             const realizedPnl = solReceived - position.investment_sol;
 
             await processPositionClosure(
