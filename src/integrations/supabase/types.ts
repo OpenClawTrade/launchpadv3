@@ -6293,6 +6293,7 @@ export type Database = {
         Row: {
           account_id: string | null
           author_cooldown_hours: number | null
+          author_cooldown_minutes: number | null
           created_at: string | null
           enabled: boolean | null
           id: string
@@ -6306,6 +6307,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           author_cooldown_hours?: number | null
+          author_cooldown_minutes?: number | null
           created_at?: string | null
           enabled?: boolean | null
           id?: string
@@ -6319,6 +6321,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           author_cooldown_hours?: number | null
+          author_cooldown_minutes?: number | null
           created_at?: string | null
           enabled?: boolean | null
           id?: string
