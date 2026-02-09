@@ -60,43 +60,43 @@ export function TokenStatsHeader({
   return (
     <Card className="bg-[hsl(var(--tunabook-bg-card))] border-[hsl(var(--tunabook-border))] p-4">
       {/* Token header row */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={ticker}
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-center text-lg font-bold text-[hsl(var(--tunabook-primary))]">
+            <div className="w-10 h-10 rounded-full bg-[hsl(var(--tunabook-bg-elevated))] flex items-center justify-center text-lg font-bold text-[hsl(var(--tunabook-primary))] flex-shrink-0">
               {ticker?.charAt(0)}
             </div>
           )}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-[hsl(var(--tunabook-text-primary))]">
+              <span className="font-bold text-[hsl(var(--tunabook-text-primary))] truncate">
                 ${ticker}
               </span>
               {isAgent && <AgentBadge />}
               {isPumpfun && <PumpBadge showText={false} size="sm" mintAddress={mintAddress} />}
             </div>
             {tokenName && (
-              <span className="text-xs text-[hsl(var(--tunabook-text-muted))]">{tokenName}</span>
+              <span className="text-xs text-[hsl(var(--tunabook-text-muted))] truncate block">{tokenName}</span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {tradingAgentId && (
             <Link to={`/agents/trading/${tradingAgentId}`}>
               <Button
                 size="sm"
                 variant="outline"
-                className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+                className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10 text-xs"
               >
                 <Robot size={14} className="mr-1" />
-                Trading Agent
+                <span className="hidden xs:inline">Trading</span> Agent
               </Button>
             </Link>
           )}
@@ -104,9 +104,9 @@ export function TokenStatsHeader({
             <Link to={`/launchpad/${mintAddress}`}>
               <Button
                 size="sm"
-                className="bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))] text-[hsl(var(--tunabook-text-primary))]"
+                className="bg-[hsl(var(--tunabook-primary))] hover:bg-[hsl(var(--tunabook-primary-hover))] text-[hsl(var(--tunabook-text-primary))] text-xs"
               >
-                Trade ${ticker}
+                Trade
                 <ArrowSquareOut size={14} className="ml-1" />
               </Button>
             </Link>

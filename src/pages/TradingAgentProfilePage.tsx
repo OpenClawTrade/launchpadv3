@@ -228,22 +228,23 @@ export default function TradingAgentProfilePage() {
 
         {/* Main Tabs */}
         <Tabs defaultValue="strategy" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="strategy" className="gap-1">
-              <Shield className="h-4 w-4" />
-              Strategy
+          <TabsList className="mb-4 w-full sm:w-auto overflow-x-auto flex-nowrap">
+            <TabsTrigger value="strategy" className="gap-1 text-xs sm:text-sm">
+              <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Strategy</span>
+              <span className="sm:hidden">Strat</span>
             </TabsTrigger>
-            <TabsTrigger value="positions" className="gap-1">
-              <Activity className="h-4 w-4" />
+            <TabsTrigger value="positions" className="gap-1 text-xs sm:text-sm">
+              <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Positions ({openPositions?.length || 0})
             </TabsTrigger>
-            <TabsTrigger value="history" className="gap-1">
-              <Clock className="h-4 w-4" />
-              Trade History
+            <TabsTrigger value="history" className="gap-1 text-xs sm:text-sm">
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Trade </span>History
             </TabsTrigger>
-            <TabsTrigger value="insights" className="gap-1">
-              <Brain className="h-4 w-4" />
-              AI Insights
+            <TabsTrigger value="insights" className="gap-1 text-xs sm:text-sm">
+              <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">AI </span>Insights
             </TabsTrigger>
           </TabsList>
 
@@ -357,14 +358,14 @@ export default function TradingAgentProfilePage() {
                               {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
                             </Badge>
                           </div>
-                          <div className="grid grid-cols-4 gap-4 text-sm">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-sm">
                             <div>
                               <div className="text-muted-foreground text-xs">Entry</div>
-                              <div>{position.entry_price_sol?.toFixed(10)} SOL</div>
+                              <div className="truncate">{position.entry_price_sol?.toFixed(10)} SOL</div>
                             </div>
                             <div>
                               <div className="text-muted-foreground text-xs">Current</div>
-                              <div>{position.current_price_sol?.toFixed(10)} SOL</div>
+                              <div className="truncate">{position.current_price_sol?.toFixed(10)} SOL</div>
                             </div>
                             <div>
                               <div className="text-muted-foreground text-xs">Investment</div>
@@ -424,16 +425,16 @@ export default function TradingAgentProfilePage() {
                               {format(new Date(trade.created_at), "MMM d, HH:mm")}
                             </span>
                           </div>
-                          <div className="grid grid-cols-3 gap-4 text-sm mb-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 text-sm mb-3">
                             <div>
                               <span className="text-muted-foreground text-xs">Amount</span>
                               <div>{trade.amount_sol?.toFixed(4)} SOL</div>
                             </div>
                             <div>
                               <span className="text-muted-foreground text-xs">Price</span>
-                              <div>{trade.price_per_token?.toFixed(10)}</div>
+                              <div className="truncate">{trade.price_per_token?.toFixed(10)}</div>
                             </div>
-                            <div>
+                            <div className="col-span-2 sm:col-span-1">
                               <span className="text-muted-foreground text-xs">Confidence</span>
                               <div>{trade.confidence_score}%</div>
                             </div>

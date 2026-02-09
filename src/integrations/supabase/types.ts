@@ -5242,6 +5242,10 @@ export type Database = {
           exit_reason: string | null
           id: string
           investment_sol: number
+          limit_order_sl_pubkey: string | null
+          limit_order_sl_status: string | null
+          limit_order_tp_pubkey: string | null
+          limit_order_tp_status: string | null
           market_conditions: string | null
           opened_at: string | null
           realized_pnl_sol: number | null
@@ -5270,6 +5274,10 @@ export type Database = {
           exit_reason?: string | null
           id?: string
           investment_sol: number
+          limit_order_sl_pubkey?: string | null
+          limit_order_sl_status?: string | null
+          limit_order_tp_pubkey?: string | null
+          limit_order_tp_status?: string | null
           market_conditions?: string | null
           opened_at?: string | null
           realized_pnl_sol?: number | null
@@ -5298,6 +5306,10 @@ export type Database = {
           exit_reason?: string | null
           id?: string
           investment_sol?: number
+          limit_order_sl_pubkey?: string | null
+          limit_order_sl_status?: string | null
+          limit_order_tp_pubkey?: string | null
+          limit_order_tp_status?: string | null
           market_conditions?: string | null
           opened_at?: string | null
           realized_pnl_sol?: number | null

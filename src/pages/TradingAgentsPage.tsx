@@ -96,7 +96,7 @@ export default function TradingAgentsPage() {
               <span className="text-foreground font-medium">Jupiter DEX</span> — Execution layer
             </div>
             <div className="px-3 py-1.5 rounded-full bg-secondary/50 border border-border text-muted-foreground">
-              <span className="text-foreground font-medium">Internal SL/TP</span> — Risk management
+              <span className="text-foreground font-medium">On-Chain SL/TP</span> — Jupiter Limit Orders
             </div>
             <div className="px-3 py-1.5 rounded-full bg-secondary/50 border border-border text-muted-foreground">
               <span className="text-foreground font-medium">Pattern Learning</span> — Trade adaptation
@@ -184,10 +184,10 @@ export default function TradingAgentsPage() {
           {/* Main Content - Agents Grid */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="active" className="w-full">
-              <div className="flex items-center justify-between mb-4">
-                <TabsList>
-                  <TabsTrigger value="active">Active</TabsTrigger>
-                  <TabsTrigger value="funding" className="gap-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <TabsList className="w-full sm:w-auto overflow-x-auto">
+                  <TabsTrigger value="active" className="text-xs sm:text-sm">Active</TabsTrigger>
+                  <TabsTrigger value="funding" className="gap-1 text-xs sm:text-sm">
                     Funding
                     {pendingAgents?.length ? (
                       <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
@@ -195,11 +195,14 @@ export default function TradingAgentsPage() {
                       </Badge>
                     ) : null}
                   </TabsTrigger>
-                  <TabsTrigger value="top">Top Performers</TabsTrigger>
+                  <TabsTrigger value="top" className="text-xs sm:text-sm">
+                    <span className="hidden sm:inline">Top Performers</span>
+                    <span className="sm:hidden">Top</span>
+                  </TabsTrigger>
                 </TabsList>
                 <Link to="/agents/trading/leaderboard">
-                  <Button variant="outline" size="sm" className="gap-1">
-                    Full Leaderboard <ArrowRight className="h-3 w-3" />
+                  <Button variant="outline" size="sm" className="gap-1 text-xs">
+                    Leaderboard <ArrowRight className="h-3 w-3" />
                   </Button>
                 </Link>
               </div>
@@ -338,8 +341,8 @@ export default function TradingAgentsPage() {
                 <div className="p-3 rounded-lg bg-secondary/30 border border-border/50">
                   <div className="font-medium text-sm mb-1">Risk Management</div>
                   <div className="text-xs text-muted-foreground">
-                    Internal stop-loss & take-profit monitoring every 60s. 
-                    Auto-executes via Jupiter when thresholds hit.
+                    On-chain Jupiter Limit Orders for stop-loss & take-profit.
+                    Orders persist independently of backend — executed by Jupiter's keeper network.
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-secondary/30 border border-border/50">

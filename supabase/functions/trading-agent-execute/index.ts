@@ -22,6 +22,9 @@ const COOLDOWN_SECONDS = 60;
 const SLIPPAGE_BPS = 500; // 5%
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
+// Jupiter Trigger (Limit Order) API
+const JUPITER_TRIGGER_URL = 'https://api.jup.ag/trigger/v1';
+
 // Jupiter API V1 endpoint (V6 is deprecated/sunset)
 const JUPITER_BASE_URL = 'https://api.jup.ag/swap/v1';
 
@@ -382,6 +385,65 @@ serve(async (req) => {
 
         if (posError) throw posError;
 
+        // === Jupiter Limit Orders: Place on-chain SL/TP ===
+        let slOrderPubkey: string | null = null;
+        let tpOrderPubkey: string | null = null;
+        const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
+
+        if (jupiterApiKey) {
+          try {
+            const tokenDecimals = await getTokenDecimals(connection, selectedToken.mint_address);
+            
+            // Determine raw token amount for limit orders
+            let rawTokenAmount: number;
+            if (tokensReceived > 1_000_000) {
+              rawTokenAmount = Math.floor(tokensReceived);
+            } else {
+              rawTokenAmount = Math.floor(tokensReceived * Math.pow(10, tokenDecimals));
+            }
+
+            // Stop Loss: sell all tokens at SL price → receive SOL
+            // makingAmount = raw tokens to sell, takingAmount = minimum SOL lamports to receive
+            const slSolLamports = Math.floor(stopLossPrice * tokensReceived * 1e9);
+            const slResult = await createJupiterLimitOrder(
+              connection, agentKeypair, jupiterApiKey,
+              selectedToken.mint_address, WSOL_MINT,
+              rawTokenAmount.toString(), slSolLamports.toString()
+            );
+            if (slResult) {
+              slOrderPubkey = slResult;
+              console.log(`[trading-agent-execute] ✅ SL limit order placed: ${slOrderPubkey}`);
+            }
+
+            // Take Profit: sell all tokens at TP price → receive SOL
+            const tpSolLamports = Math.floor(takeProfitPrice * tokensReceived * 1e9);
+            const tpResult = await createJupiterLimitOrder(
+              connection, agentKeypair, jupiterApiKey,
+              selectedToken.mint_address, WSOL_MINT,
+              rawTokenAmount.toString(), tpSolLamports.toString()
+            );
+            if (tpResult) {
+              tpOrderPubkey = tpResult;
+              console.log(`[trading-agent-execute] ✅ TP limit order placed: ${tpOrderPubkey}`);
+            }
+          } catch (limitOrderError) {
+            console.warn(`[trading-agent-execute] Limit order placement failed, falling back to DB-based monitoring:`, limitOrderError);
+          }
+        }
+
+        // Update position with limit order pubkeys if placed
+        if (slOrderPubkey || tpOrderPubkey) {
+          await supabase
+            .from("trading_agent_positions")
+            .update({
+              limit_order_sl_pubkey: slOrderPubkey,
+              limit_order_tp_pubkey: tpOrderPubkey,
+              limit_order_sl_status: slOrderPubkey ? 'active' : 'none',
+              limit_order_tp_status: tpOrderPubkey ? 'active' : 'none',
+            })
+            .eq("id", position.id);
+        }
+
         // Create trade record
         const { data: trade, error: tradeError } = await supabase
           .from("trading_agent_trades")
@@ -605,6 +667,123 @@ async function executeJupiterSwapWithJito(
   } catch (error) {
     console.error("[trading-agent-execute] Jupiter swap error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Unknown swap error" };
+  }
+}
+
+async function getTokenDecimals(connection: Connection, mintAddress: string): Promise<number> {
+  try {
+    const { PublicKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
+    const mintPubkey = new PublicKey(mintAddress);
+    const mintInfo = await connection.getParsedAccountInfo(mintPubkey);
+    const data = mintInfo.value?.data;
+    if (data && typeof data === "object" && "parsed" in data) {
+      return data.parsed.info.decimals || 6;
+    }
+    return 6;
+  } catch {
+    return 6;
+  }
+}
+
+async function createJupiterLimitOrder(
+  connection: Connection,
+  payer: Keypair,
+  jupiterApiKey: string,
+  inputMint: string,
+  outputMint: string,
+  makingAmount: string,
+  takingAmount: string
+): Promise<string | null> {
+  try {
+    // Step 1: Create order via Jupiter Trigger API
+    const createResponse = await fetchWithRetry(`${JUPITER_TRIGGER_URL}/createOrder`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': jupiterApiKey,
+      },
+      body: JSON.stringify({
+        inputMint,
+        outputMint,
+        maker: payer.publicKey.toBase58(),
+        payer: payer.publicKey.toBase58(),
+        params: {
+          makingAmount,
+          takingAmount,
+        },
+      }),
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.warn(`[trading-agent-execute] Jupiter createOrder failed: ${createResponse.status} ${errorText}`);
+      return null;
+    }
+
+    const orderData = await createResponse.json();
+    const orderPubkey = orderData.order;
+    const transactionBase64 = orderData.transaction;
+
+    if (!orderPubkey || !transactionBase64) {
+      console.warn('[trading-agent-execute] Jupiter createOrder response missing order/transaction');
+      return null;
+    }
+
+    // Step 2: Sign the transaction
+    const txBuf = Uint8Array.from(atob(transactionBase64), c => c.charCodeAt(0));
+    const transaction = VersionedTransaction.deserialize(txBuf);
+
+    // Get fresh blockhash
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    transaction.message.recentBlockhash = blockhash;
+    transaction.sign([payer]);
+
+    // Step 3: Execute via Jupiter's execute endpoint
+    const signedTxBase64 = btoa(String.fromCharCode(...transaction.serialize()));
+    
+    const executeResponse = await fetchWithRetry(`${JUPITER_TRIGGER_URL}/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': jupiterApiKey,
+      },
+      body: JSON.stringify({
+        signedTransaction: signedTxBase64,
+        requestId: orderData.requestId,
+      }),
+    });
+
+    if (!executeResponse.ok) {
+      const errorText = await executeResponse.text();
+      console.warn(`[trading-agent-execute] Jupiter execute failed: ${executeResponse.status} ${errorText}`);
+      
+      // Fallback: send transaction directly
+      try {
+        const sig = await connection.sendTransaction(transaction, { skipPreflight: true, maxRetries: 3 });
+        // Wait for confirmation
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          const status = await connection.getSignatureStatus(sig);
+          if (status.value?.confirmationStatus === "confirmed" || status.value?.confirmationStatus === "finalized") {
+            return orderPubkey;
+          }
+        }
+      } catch (e) {
+        console.warn('[trading-agent-execute] Direct send also failed:', e);
+      }
+      return null;
+    }
+
+    const executeResult = await executeResponse.json();
+    if (executeResult.signature) {
+      console.log(`[trading-agent-execute] Limit order confirmed: ${executeResult.signature}`);
+      return orderPubkey;
+    }
+
+    return orderPubkey;
+  } catch (error) {
+    console.error('[trading-agent-execute] createJupiterLimitOrder error:', error);
+    return null;
   }
 }
 
