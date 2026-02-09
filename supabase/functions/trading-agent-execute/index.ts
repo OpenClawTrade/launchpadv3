@@ -199,24 +199,101 @@ serve(async (req) => {
 
     console.log(`[trading-agent-execute] Found ${agents.length} active trading agents`);
 
-    // Get trending tokens from pump.fun or our cache
-    const { data: trendingTokens } = await supabase
-      .from("pumpfun_trending_tokens")
-      .select("*")
-      .gte("token_score", 60)
-      .gte("liquidity_sol", MIN_LIQUIDITY_SOL)
-      .order("token_score", { ascending: false })
-      .limit(20);
-
-    if (!trendingTokens || trendingTokens.length === 0) {
-      console.log("[trading-agent-execute] No trending tokens above threshold");
-      return new Response(
-        JSON.stringify({ success: true, message: "No qualifying tokens found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const results: any[] = [];
+
+    // Narrative categories for inline scoring
+    const NARRATIVES = [
+      { keywords: ["pepe", "frog", "kek", "wojak", "meme"], category: "meme", weight: 1.2 },
+      { keywords: ["ai", "gpt", "agent", "bot", "neural"], category: "ai", weight: 1.3 },
+      { keywords: ["dog", "shib", "inu", "doge", "puppy"], category: "dog", weight: 1.1 },
+      { keywords: ["cat", "kitty", "meow", "nyan"], category: "cat", weight: 1.1 },
+      { keywords: ["trump", "biden", "elon", "musk"], category: "politics", weight: 1.4 },
+      { keywords: ["solana", "sol", "phantom"], category: "solana", weight: 1.0 },
+      { keywords: ["moon", "rocket", "mars", "space"], category: "space", weight: 1.0 },
+      { keywords: ["game", "gaming", "play", "pixel"], category: "gaming", weight: 1.1 },
+    ];
+
+    // Inline function to score pump.fun tokens
+    function scoreToken(token: any): any | null {
+      try {
+        const now = Date.now();
+        const createdAt = new Date(token.created_timestamp || now).getTime();
+        const ageHours = (now - createdAt) / (1000 * 60 * 60);
+        const liquiditySol = (token.virtual_sol_reserves || 0) / 1e9;
+        const holderCount = token.holder_count || 0;
+        const replyCount = token.reply_count || 0;
+
+        let score = 0;
+
+        // Liquidity score (25 points max)
+        if (liquiditySol >= 50) score += 25;
+        else if (liquiditySol >= 30) score += 20;
+        else if (liquiditySol >= 20) score += 15;
+        else if (liquiditySol >= 10) score += 10;
+        else if (liquiditySol >= 5) score += 5;
+
+        // Holder count score (15 points max)
+        if (holderCount >= 100) score += 15;
+        else if (holderCount >= 50) score += 12;
+        else if (holderCount >= 25) score += 8;
+        else if (holderCount >= 10) score += 5;
+
+        // Age sweet spot score (10 points max) - prefer 1-6 hours old
+        if (ageHours >= 1 && ageHours <= 6) score += 10;
+        else if (ageHours > 6 && ageHours <= 12) score += 7;
+        else if (ageHours > 12 && ageHours <= 24) score += 4;
+        else if (ageHours < 1) score += 3;
+
+        // King of the Hill bonus (10 points)
+        if (token.king_of_the_hill_timestamp) score += 10;
+
+        // Narrative matching (20 points max)
+        const nameAndDesc = `${token.name} ${token.symbol} ${token.description || ""}`.toLowerCase();
+        let narrativeCategory = "other";
+        let narrativeWeight = 1.0;
+        for (const narrative of NARRATIVES) {
+          if (narrative.keywords.some(kw => nameAndDesc.includes(kw))) {
+            narrativeCategory = narrative.category;
+            narrativeWeight = narrative.weight;
+            score += 20;
+            break;
+          }
+        }
+
+        // Volume trend (20 points max)
+        if (replyCount >= 50) score += 20;
+        else if (replyCount >= 25) score += 15;
+        else if (replyCount >= 10) score += 10;
+        else if (replyCount >= 5) score += 5;
+
+        score = Math.min(100, Math.round(score * narrativeWeight));
+
+        if (score < 60 || liquiditySol < MIN_LIQUIDITY_SOL) return null;
+
+        const priceSol = token.virtual_sol_reserves && token.virtual_token_reserves
+          ? (token.virtual_sol_reserves / 1e9) / (token.virtual_token_reserves / 1e6)
+          : 0;
+
+        return {
+          mint_address: token.mint,
+          name: token.name,
+          symbol: token.symbol,
+          description: token.description,
+          image_url: token.image_uri,
+          price_sol: priceSol,
+          liquidity_sol: liquiditySol,
+          holder_count: holderCount,
+          age_hours: ageHours,
+          token_score: score,
+          narrative_category: narrativeCategory,
+          volume_trend: replyCount >= 25 ? "rising" : replyCount >= 10 ? "stable" : "low",
+          is_king_of_hill: !!token.king_of_the_hill_timestamp,
+          reply_count: replyCount,
+        };
+      } catch {
+        return null;
+      }
+    }
 
     for (const agent of agents) {
       try {
@@ -259,33 +336,86 @@ serve(async (req) => {
           .order("created_at", { ascending: false })
           .limit(3);
 
-        // Filter out tokens we already have positions in
         const existingTokens = new Set(openPositions?.map(p => p.token_address) || []);
-        let availableTokens = trendingTokens.filter(t => !existingTokens.has(t.mint_address));
 
-        if (availableTokens.length === 0) continue;
+        // === ON-DEMAND PUMP.FUN FETCH: Poll every 10s until qualifying token found ===
+        const DISCOVERY_MAX_MS = 50000; // 50s max for discovery
+        const DISCOVERY_POLL_MS = 10000; // 10s between retries
+        const discoveryStart = Date.now();
+        let availableTokens: any[] = [];
+        let discoveryAttempt = 0;
 
-        // === BUG FIX: Race condition protection - skip tokens traded in last 5 minutes ===
-        const recentTradeChecks = await Promise.all(
-          availableTokens.map(async (t) => {
-            const { data: lastTrade } = await supabase
-              .from("trading_agent_trades")
-              .select("created_at")
-              .eq("trading_agent_id", agent.id)
-              .eq("token_address", t.mint_address)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            if (lastTrade && Date.now() - new Date(lastTrade.created_at).getTime() < 300000) {
-              console.log(`[trading-agent-execute] Skipping ${t.symbol} - traded within 5 min`);
-              return null;
+        while (Date.now() - discoveryStart < DISCOVERY_MAX_MS) {
+          discoveryAttempt++;
+          console.log(`[trading-agent-execute] Agent ${agent.name} discovery attempt #${discoveryAttempt}...`);
+
+          try {
+            const pumpResponse = await fetch(
+              "https://frontend-api.pump.fun/coins?sort=bump_order&limit=100&includeNsfw=false",
+              {
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                },
+              }
+            );
+
+            if (!pumpResponse.ok) {
+              console.warn(`[trading-agent-execute] pump.fun API returned ${pumpResponse.status}, skipping cycle`);
+              break; // API down = skip entirely, no fallback
             }
-            return t;
-          })
-        );
-        availableTokens = recentTradeChecks.filter(Boolean);
 
-        if (availableTokens.length === 0) continue;
+            const rawTokens: any[] = await pumpResponse.json();
+            console.log(`[trading-agent-execute] Fetched ${rawTokens.length} tokens from pump.fun`);
+
+            // Score and filter tokens inline
+            const scoredTokens = rawTokens
+              .map(scoreToken)
+              .filter(Boolean)
+              .filter(t => !existingTokens.has(t.mint_address));
+
+            // Race condition protection - skip tokens traded in last 5 min
+            const recentTradeChecks = await Promise.all(
+              scoredTokens.map(async (t) => {
+                const { data: lastTrade } = await supabase
+                  .from("trading_agent_trades")
+                  .select("created_at")
+                  .eq("trading_agent_id", agent.id)
+                  .eq("token_address", t.mint_address)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+                if (lastTrade && Date.now() - new Date(lastTrade.created_at).getTime() < 300000) {
+                  console.log(`[trading-agent-execute] Skipping ${t.symbol} - traded within 5 min`);
+                  return null;
+                }
+                return t;
+              })
+            );
+            availableTokens = recentTradeChecks.filter(Boolean);
+
+            if (availableTokens.length > 0) {
+              console.log(`[trading-agent-execute] Found ${availableTokens.length} qualifying tokens (top: ${availableTokens[0].symbol} score=${availableTokens[0].token_score})`);
+              break; // Found qualifying tokens, proceed to AI analysis
+            }
+
+            console.log(`[trading-agent-execute] No qualifying tokens found, waiting ${DISCOVERY_POLL_MS / 1000}s...`);
+          } catch (fetchError) {
+            console.error(`[trading-agent-execute] pump.fun fetch error:`, fetchError);
+            break; // Network error = skip entirely
+          }
+
+          // Wait before next poll (skip if near timeout)
+          if (Date.now() - discoveryStart + DISCOVERY_POLL_MS < DISCOVERY_MAX_MS) {
+            await new Promise(r => setTimeout(r, DISCOVERY_POLL_MS));
+          } else {
+            break;
+          }
+        }
+
+        if (availableTokens.length === 0) {
+          console.log(`[trading-agent-execute] Agent ${agent.name}: no qualifying tokens after ${discoveryAttempt} attempts`);
+          continue;
+        }
 
         // Calculate available capital with tiered position sizing
         const availableCapital = (agent.trading_capital_sol || 0) - GAS_RESERVE_SOL;

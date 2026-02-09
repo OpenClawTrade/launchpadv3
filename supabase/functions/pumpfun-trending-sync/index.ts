@@ -49,40 +49,11 @@ serve(async (req) => {
         throw new Error(`pump.fun returned ${pumpResponse.status}`);
       }
     } catch (pumpError) {
-      console.log(`[pumpfun-trending-sync] pump.fun failed, using DexScreener fallback`);
-      
-      // Fallback to DexScreener for Solana trending tokens
-      const dexResponse = await fetch("https://api.dexscreener.com/token-boosts/top/v1", {
-        headers: { "Accept": "application/json" },
-      });
-
-      if (!dexResponse.ok) {
-        throw new Error(`DexScreener API error: ${dexResponse.status}`);
-      }
-
-      const dexData = await dexResponse.json();
-      dataSource = "dexscreener";
-      
-      // Filter for Solana tokens only and transform to our format
-      const solanaTokens = (dexData || [])
-        .filter((t: any) => t.chainId === "solana")
-        .slice(0, 100);
-
-      tokens = solanaTokens.map((t: any) => ({
-        mint: t.tokenAddress,
-        name: t.description?.split(" ")[0] || "Unknown",
-        symbol: t.description?.match(/\$(\w+)/)?.[1] || "???",
-        description: t.description || "",
-        image_uri: t.icon || "",
-        virtual_sol_reserves: (t.totalAmount || 0) * 1e9 / 10, // Approximate
-        virtual_token_reserves: 1e12,
-        holder_count: 50, // Default estimate
-        reply_count: Math.floor((t.totalAmount || 0) / 10),
-        created_timestamp: Date.now() - 3600000, // Assume 1 hour old
-        king_of_the_hill_timestamp: t.totalAmount > 100 ? Date.now() : null,
-      }));
-      
-      console.log(`[pumpfun-trending-sync] Fetched ${tokens.length} Solana tokens from DexScreener`);
+      console.log(`[pumpfun-trending-sync] pump.fun unavailable, skipping sync (no fallback)`);
+      return new Response(
+        JSON.stringify({ success: true, synced: 0, message: "pump.fun unavailable, skipping sync" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     if (tokens.length === 0) {
