@@ -36,8 +36,6 @@ export function XBotAccountForm({
     password_encrypted: "",
     totp_secret_encrypted: "",
     full_cookie_encrypted: account?.full_cookie_encrypted || "",
-    auth_token_encrypted: account?.auth_token_encrypted || "",
-    ct0_token_encrypted: account?.ct0_token_encrypted || "",
     proxy_url: account?.proxy_url || "",
     socks5_urls: account?.socks5_urls || [],
     is_active: account?.is_active ?? true,
@@ -54,8 +52,6 @@ export function XBotAccountForm({
         password_encrypted: "",
         totp_secret_encrypted: "",
         full_cookie_encrypted: account?.full_cookie_encrypted || "",
-        auth_token_encrypted: account?.auth_token_encrypted || "",
-        ct0_token_encrypted: account?.ct0_token_encrypted || "",
         proxy_url: account?.proxy_url || "",
         socks5_urls: account?.socks5_urls || [],
         is_active: account?.is_active ?? true,
@@ -185,7 +181,7 @@ export function XBotAccountForm({
 
             <TabsContent value="auth" className="space-y-4">
               <div className="text-sm text-muted-foreground mb-2">
-                Use either a full cookie string OR auth_token + ct0 pair.
+                Paste the full cookie string from your browser. Must include auth_token and ct0.
               </div>
 
               <div className="space-y-2">
@@ -199,47 +195,13 @@ export function XBotAccountForm({
                       full_cookie_encrypted: e.target.value,
                     }))
                   }
-                  placeholder="auth_token=xxx; ct0=yyy; ..."
-                  rows={3}
+                  placeholder="auth_token=xxx; ct0=yyy; guest_id=...; ..."
+                  rows={4}
                   className="font-mono text-xs"
                 />
-              </div>
-
-              <div className="text-center text-muted-foreground text-sm">
-                — OR —
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="auth_token">auth_token</Label>
-                  <Input
-                    id="auth_token"
-                    value={formData.auth_token_encrypted}
-                    onChange={(e) =>
-                      setFormData((p) => ({
-                        ...p,
-                        auth_token_encrypted: e.target.value,
-                      }))
-                    }
-                    placeholder="auth_token value"
-                    className="font-mono text-xs"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ct0">ct0</Label>
-                  <Input
-                    id="ct0"
-                    value={formData.ct0_token_encrypted}
-                    onChange={(e) =>
-                      setFormData((p) => ({
-                        ...p,
-                        ct0_token_encrypted: e.target.value,
-                      }))
-                    }
-                    placeholder="ct0 value"
-                    className="font-mono text-xs"
-                  />
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Copy all cookies from browser DevTools → Application → Cookies → x.com
+                </p>
               </div>
 
               <div className="border-t pt-4">
