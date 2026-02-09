@@ -84,7 +84,7 @@ serve(async (req) => {
             consecutive_wins, consecutive_losses, best_trade_sol, worst_trade_sol,
             learned_patterns, avoided_patterns, preferred_narratives,
             wallet_private_key_encrypted,
-            agent:agents(id, name, avatar_url)
+            agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url)
           )
         `)
         .eq("status", "open");

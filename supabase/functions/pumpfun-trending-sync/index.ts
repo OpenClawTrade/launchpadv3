@@ -30,19 +30,68 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch trending tokens from pump.fun
-    const response = await fetch("https://frontend-api.pump.fun/coins?sort=bump_order&limit=100&includeNsfw=false", {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; TunaBot/1.0)",
-      },
-    });
+    let tokens: any[] = [];
+    let dataSource = "pump.fun";
 
-    if (!response.ok) {
-      throw new Error(`pump.fun API error: ${response.status}`);
+    // Try pump.fun first
+    try {
+      const pumpResponse = await fetch("https://frontend-api.pump.fun/coins?sort=bump_order&limit=100&includeNsfw=false", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        },
+      });
+
+      if (pumpResponse.ok) {
+        tokens = await pumpResponse.json();
+        console.log(`[pumpfun-trending-sync] Fetched ${tokens.length} tokens from pump.fun`);
+      } else {
+        console.warn(`[pumpfun-trending-sync] pump.fun API error: ${pumpResponse.status}, trying DexScreener fallback`);
+        throw new Error(`pump.fun returned ${pumpResponse.status}`);
+      }
+    } catch (pumpError) {
+      console.log(`[pumpfun-trending-sync] pump.fun failed, using DexScreener fallback`);
+      
+      // Fallback to DexScreener for Solana trending tokens
+      const dexResponse = await fetch("https://api.dexscreener.com/token-boosts/top/v1", {
+        headers: { "Accept": "application/json" },
+      });
+
+      if (!dexResponse.ok) {
+        throw new Error(`DexScreener API error: ${dexResponse.status}`);
+      }
+
+      const dexData = await dexResponse.json();
+      dataSource = "dexscreener";
+      
+      // Filter for Solana tokens only and transform to our format
+      const solanaTokens = (dexData || [])
+        .filter((t: any) => t.chainId === "solana")
+        .slice(0, 100);
+
+      tokens = solanaTokens.map((t: any) => ({
+        mint: t.tokenAddress,
+        name: t.description?.split(" ")[0] || "Unknown",
+        symbol: t.description?.match(/\$(\w+)/)?.[1] || "???",
+        description: t.description || "",
+        image_uri: t.icon || "",
+        virtual_sol_reserves: (t.totalAmount || 0) * 1e9 / 10, // Approximate
+        virtual_token_reserves: 1e12,
+        holder_count: 50, // Default estimate
+        reply_count: Math.floor((t.totalAmount || 0) / 10),
+        created_timestamp: Date.now() - 3600000, // Assume 1 hour old
+        king_of_the_hill_timestamp: t.totalAmount > 100 ? Date.now() : null,
+      }));
+      
+      console.log(`[pumpfun-trending-sync] Fetched ${tokens.length} Solana tokens from DexScreener`);
     }
 
-    const tokens = await response.json();
-    console.log(`[pumpfun-trending-sync] Fetched ${tokens.length} tokens from pump.fun`);
+    if (tokens.length === 0) {
+      console.log("[pumpfun-trending-sync] No tokens found from any source");
+      return new Response(
+        JSON.stringify({ success: true, synced: 0, message: "No tokens available" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const scored: any[] = [];
     const now = Date.now();

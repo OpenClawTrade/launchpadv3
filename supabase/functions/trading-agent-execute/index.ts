@@ -65,7 +65,7 @@ serve(async (req) => {
       .from("trading_agents")
       .select(`
         *,
-        agent:agents(id, name, avatar_url)
+        agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url)
       `)
       .eq("status", "active")
       .gte("trading_capital_sol", MIN_CAPITAL_SOL);
@@ -146,14 +146,25 @@ serve(async (req) => {
 
         if (availableTokens.length === 0) continue;
 
-        // Calculate available capital
+        // Calculate available capital with tiered position sizing
         const availableCapital = (agent.trading_capital_sol || 0) - GAS_RESERVE_SOL;
-        const positionSize = Math.min(
+        let positionSize = Math.min(
           availableCapital * (strategy.positionPct / 100),
           availableCapital / (strategy.maxPositions - openCount)
         );
 
-        if (positionSize < 0.1) {
+        // Apply capital tier limits for risk management
+        // Under 1 SOL: max 0.1 SOL per position
+        // 1-2 SOL: max 0.25 SOL per position  
+        // Above 2 SOL: use percentage-based sizing
+        if (availableCapital < 1.0) {
+          positionSize = Math.min(positionSize, 0.1);
+        } else if (availableCapital < 2.0) {
+          positionSize = Math.min(positionSize, 0.25);
+        }
+
+        // Lower minimum to 0.05 SOL for small capital agents
+        if (positionSize < 0.05) {
           console.log(`[trading-agent-execute] Agent ${agent.name} position size too small: ${positionSize}`);
           continue;
         }
