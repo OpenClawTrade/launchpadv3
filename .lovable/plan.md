@@ -1,64 +1,72 @@
 
-# Fix: Stop-Loss Limit Orders Filling Immediately
+## Complete Trading Agent Reset + Jupiter API Fix
 
-## Root Cause
+### Part 1: Fix Jupiter 404 Errors
 
-Jupiter Trigger/Limit Orders work as: "I will give X tokens (makingAmount) and want at least Y SOL (takingAmount)."
+The monitor function is calling `/trigger/v1/getOrders` which does not exist. The correct Jupiter Trigger API endpoint is `/trigger/v1/getTriggerOrders`.
 
-The order fills when the market can provide >= takingAmount for the makingAmount. This works perfectly for **Take Profit** (sell tokens when price goes UP), but is fundamentally broken for **Stop Loss**:
+**Changes in `supabase/functions/trading-agent-monitor/index.ts`:**
 
-- Entry price = 0.0001 SOL/token
-- Stop Loss at -20% = 0.00008 SOL/token
-- The SL order says: "Sell all tokens, I want at least 80% of entry value"
-- At entry time, the market gives 100% of entry value, which is MORE than 80%
-- Jupiter fills the SL order **immediately** because the condition is already satisfied
+| Current (broken)                                      | Correct                                                                  |
+|-------------------------------------------------------|--------------------------------------------------------------------------|
+| `/trigger/v1/getOrders?account=...`                   | `/trigger/v1/getTriggerOrders?user=...&orderStatus=active`               |
+| `/trigger/v1/getOrders?account=...&includeHistory=true`| `/trigger/v1/getTriggerOrders?user=...&orderStatus=history`             |
 
-This is why the "sell" happens 2 seconds after the buy -- it's the SL limit order being filled right away.
+The parameter name also changes from `account` to `user`, and filtering is done via `orderStatus=active` or `orderStatus=history` instead of `includeHistory=true`.
 
-## Fix Strategy
+This fix alone will eliminate the flood of 404 errors shown in the screenshot.
 
-**Stop-loss cannot be implemented as a Jupiter limit order.** Limit orders are "sell at or above" -- they can never trigger on price drops. The SL must use the existing DB-based price monitoring in the monitor function.
+---
 
-Only the **Take Profit** order should be placed as an on-chain limit order. The Stop Loss should be handled by the `trading-agent-monitor` polling loop (the fallback path that already exists).
+### Part 2: Force-Sell ALL Wallet Tokens (Not Just DB Positions)
 
-## Changes
+The current `trading-agent-force-sell` function only sells tokens tracked in the `trading_agent_positions` table. But the wallet has orphaned tokens (Remy, sims) that the DB doesn't know about.
 
-### 1. `supabase/functions/trading-agent-execute/index.ts`
+**Changes in `supabase/functions/trading-agent-force-sell/index.ts`:**
 
-Remove the SL limit order placement (lines ~405-416). Keep only the TP limit order. Update the position record to reflect:
-- `limit_order_sl_pubkey` = null (no on-chain SL)
-- `limit_order_sl_status` = 'none' (monitored via DB)
-- `limit_order_tp_pubkey` = set as before
-- `limit_order_tp_status` = 'active'
+- Add a `sellAll: true` mode that uses `connection.getParsedTokenAccountsByOwner()` to discover ALL token accounts in the wallet
+- Iterate through every non-zero token balance and sell via Jupiter market order
+- For tokens that match a DB position, close the position normally
+- For orphaned tokens (no DB match), just sell and log the result
+- Cancel any outstanding Jupiter limit orders for the agent
 
-### 2. `supabase/functions/trading-agent-monitor/index.ts`
+---
 
-Update the monitoring logic so that positions with only a TP limit order still get DB-based SL checks:
+### Part 3: Wipe Trade History and Reset Stats
 
-- Currently, `hasLimitOrders` skips to the "limit order mode" path and bypasses DB-based SL/TP checks entirely (line 240-323).
-- Change the logic: if a position has a TP limit order but no SL limit order, check the TP order status on-chain AND also do the DB-based stop-loss price check. If the SL triggers via price monitoring, cancel the TP limit order and execute a market sell.
+After confirming all sells executed on-chain:
 
-### 3. Redeploy both edge functions
+1. Delete all rows from `trading_agent_trades` for agent `1776eabc-5e58-46e2-be1d-5300dd202b51`
+2. Delete all rows from `trading_agent_positions` for this agent
+3. Reset agent stats: `total_trades=0, winning_trades=0, losing_trades=0, total_profit_sol=0, win_rate=0, best_trade_sol=0, worst_trade_sol=0`
+4. Sync `trading_capital_sol` with actual on-chain SOL balance
 
-## Technical Details
+---
 
-```text
-BEFORE (broken):
-  Buy token --> Place SL limit order (fills immediately!) --> Place TP limit order
-  Result: Token sold 2 seconds after purchase
+### Part 4: Pause Cron Jobs
 
-AFTER (fixed):
-  Buy token --> Place TP limit order only --> Monitor SL via price polling
-  Result: TP fills on-chain when price rises, SL executes via market sell when price drops
-```
+Disable the `trading-agent-execute` and `trading-agent-monitor` pg_cron entries temporarily so no new trades happen until you say "go".
 
-### File: `trading-agent-execute/index.ts`
-- Remove lines 405-416 (SL limit order creation)
-- Keep lines 418-428 (TP limit order creation)
-- Update position update to set SL fields to null/none
+---
 
-### File: `trading-agent-monitor/index.ts`
-- Modify the `hasLimitOrders` block (lines 238-324):
-  - Check TP limit order status as before
-  - Add DB-based SL price check even when TP limit order exists
-  - If SL triggers: cancel TP limit order on-chain, execute market sell, close position
+### Part 5: Re-enable on Your Command
+
+When you confirm the wallet is clean on Solscan:
+- Re-enable cron jobs
+- Max 2 concurrent positions enforced
+- SL via DB polling (15-second checks), TP via Jupiter limit orders (now using correct API)
+- Helius-verified PNL on every closed position
+- Full buy/sell TX signatures recorded
+
+---
+
+### Execution Order
+
+1. Fix Jupiter API endpoint in monitor (eliminates 404 spam)
+2. Update force-sell to support `sellAll` mode
+3. Deploy both functions
+4. Call force-sell with `sellAll: true` to dump all 4 tokens
+5. Verify sales on Solscan with you
+6. Wipe DB history and reset stats
+7. Pause cron jobs
+8. Wait for your "go" to resume
