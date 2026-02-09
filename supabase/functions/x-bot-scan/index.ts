@@ -118,14 +118,20 @@ function isTweetAfterTimestamp(createdAt: string | undefined, lastScannedAt: str
   return Date.now() - tweetTime < maxAgeMinutes * 60 * 1000;
 }
 
-function isActuallyReply(tweet: Tweet): boolean {
+function isActuallyReply(tweet: Tweet, monitoredMentions: string[]): boolean {
+  // If the API explicitly says it's a reply, trust that
   if (tweet.inReplyToTweetId) return true;
+  
   const text = tweet.text.trim();
+  // If tweet starts with @username, check if it's a monitored mention
   if (text.startsWith("@")) {
     const firstWord = text.split(/\s/)[0].toLowerCase();
-    // Check if it's replying to someone other than our monitored accounts
-    if (!["@moltbook", "@openclaw", "@buildtuna", "@tunalaunch"].includes(firstWord)) {
-      return true;
+    // It's NOT a reply if it starts with one of our monitored mentions
+    const isMonitoredMention = monitoredMentions.some(m => 
+      m.toLowerCase() === firstWord || m.toLowerCase() === firstWord.replace("@", "")
+    );
+    if (!isMonitoredMention) {
+      return true; // Starting with @someone we don't monitor = probably a reply
     }
   }
   return false;
@@ -306,10 +312,11 @@ serve(async (req) => {
           continue;
         }
 
-        // Skip replies
-        if (isActuallyReply(tweet)) {
+        // Skip replies (pass monitored mentions to allow tweets starting with them)
+        if (isActuallyReply(tweet, mentions)) {
           await insertLog(supabase, account.id, "skip", "info", `Skipped @${author}: tweet is a reply`, {
             tweetId: tweet.id,
+            inReplyToTweetId: tweet.inReplyToTweetId || null,
           });
           debug.skipped++;
           skippedCount++;
