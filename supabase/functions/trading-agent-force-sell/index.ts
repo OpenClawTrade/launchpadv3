@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Connection, Keypair, VersionedTransaction, PublicKey } from "https://esm.sh/@solana/web3.js@1.98.0";
+import { Connection, Keypair, VersionedTransaction, PublicKey, Transaction, SystemProgram } from "https://esm.sh/@solana/web3.js@1.98.0";
 import bs58 from "https://esm.sh/bs58@5.0.0";
 
 const corsHeaders = {
@@ -9,9 +9,11 @@ const corsHeaders = {
 };
 
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
-const SLIPPAGE_BPS = 1500; // 15% slippage for illiquid meme coins
 const JUPITER_BASE_URL = "https://api.jup.ag/swap/v1";
 const JUPITER_TRIGGER_URL = "https://api.jup.ag/trigger/v1";
+
+const TOKEN_PROGRAM = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const TOKEN_2022_PROGRAM = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
 const JITO_BLOCK_ENGINES = [
   "https://mainnet.block-engine.jito.wtf/api/v1/bundles",
@@ -19,11 +21,13 @@ const JITO_BLOCK_ENGINES = [
   "https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles",
 ];
 
-// Known non-tradeable token mints to skip
 const SKIP_MINTS = new Set([
-  WSOL_MINT, // Wrapped SOL
-  "11111111111111111111111111111111", // System program
+  WSOL_MINT,
+  "11111111111111111111111111111111",
 ]);
+
+// Escalating slippage levels for retries
+const SLIPPAGE_LEVELS = [1500, 2500, 5000]; // 15%, 25%, 50%
 
 async function fetchWithRetry(url: string, options?: RequestInit, maxRetries = 3): Promise<Response> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -113,7 +117,7 @@ async function getJupiterSwapTx(quote: any, userPublicKey: string) {
   }
 }
 
-async function executeSell(
+async function executeSellOnce(
   connection: Connection,
   payer: Keypair,
   tokenMint: string,
@@ -122,16 +126,14 @@ async function executeSell(
 ): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string }> {
   try {
     const quote = await getJupiterQuote(tokenMint, WSOL_MINT, amount, slippageBps);
-    if (!quote) return { success: false, error: "Jupiter quote failed" };
+    if (!quote) return { success: false, error: `No quote at ${slippageBps}bps` };
 
     const outputAmount = parseInt(quote.outAmount) / 1e9;
-
     const swapData = await getJupiterSwapTx(quote, payer.publicKey.toBase58());
-    if (!swapData) return { success: false, error: "Jupiter swap tx failed" };
+    if (!swapData) return { success: false, error: "Swap tx build failed" };
 
     const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
     const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
-
     const { blockhash } = await connection.getLatestBlockhash("confirmed");
     transaction.message.recentBlockhash = blockhash;
     transaction.sign([payer]);
@@ -176,9 +178,30 @@ async function executeSell(
     }
     return { success: false, error: "Transaction confirmation timeout" };
   } catch (error) {
-    console.error("[force-sell] Swap error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
+}
+
+// Retry with escalating slippage
+async function executeSellWithRetry(
+  connection: Connection,
+  payer: Keypair,
+  tokenMint: string,
+  amount: number,
+): Promise<{ success: boolean; signature?: string; outputAmount?: number; error?: string; slippageUsed?: number }> {
+  for (const slippage of SLIPPAGE_LEVELS) {
+    console.log(`[force-sell] Trying sell at ${slippage}bps slippage...`);
+    const result = await executeSellOnce(connection, payer, tokenMint, amount, slippage);
+    if (result.success) {
+      return { ...result, slippageUsed: slippage };
+    }
+    console.warn(`[force-sell] Failed at ${slippage}bps: ${result.error}`);
+    // Don't retry if it's a fundamental issue (no quote means token is truly illiquid)
+    if (result.error?.includes("No quote")) continue;
+    // Brief pause before retry
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return { success: false, error: `Failed at all slippage levels (${SLIPPAGE_LEVELS.join(', ')}bps)` };
 }
 
 // Cancel all outstanding Jupiter limit orders for this wallet
@@ -238,6 +261,66 @@ async function cancelAllLimitOrders(connection: Connection, payer: Keypair): Pro
   return cancelled;
 }
 
+// Close empty token accounts to reclaim rent
+async function closeEmptyTokenAccounts(connection: Connection, payer: Keypair): Promise<number> {
+  let closed = 0;
+  try {
+    // We use a manual approach with createCloseAccountInstruction equivalent
+    // For simplicity, we just scan and close via raw instruction
+    const [splAccounts, t22Accounts] = await Promise.all([
+      connection.getParsedTokenAccountsByOwner(payer.publicKey, { programId: TOKEN_PROGRAM }),
+      connection.getParsedTokenAccountsByOwner(payer.publicKey, { programId: TOKEN_2022_PROGRAM }),
+    ]);
+
+    const emptyAccounts = [...splAccounts.value, ...t22Accounts.value].filter(a => {
+      const amount = a.account.data.parsed?.info?.tokenAmount?.amount;
+      return amount === "0";
+    });
+
+    if (emptyAccounts.length === 0) return 0;
+    console.log(`[force-sell] Found ${emptyAccounts.length} empty token accounts to close`);
+
+    // Close in batches of 10
+    const CLOSE_BATCH = 10;
+    for (let i = 0; i < Math.min(emptyAccounts.length, 30); i += CLOSE_BATCH) {
+      const batch = emptyAccounts.slice(i, i + CLOSE_BATCH);
+      try {
+        // Build close instructions using raw transaction
+        // CloseAccount instruction = [9] for SPL Token
+        const tx = new Transaction();
+        for (const acc of batch) {
+          const tokenAccountPubkey = acc.pubkey;
+          const programId = acc.account.owner;
+          // CloseAccount instruction index = 9
+          const data = Buffer.alloc(1);
+          data.writeUInt8(9, 0);
+          tx.add({
+            keys: [
+              { pubkey: tokenAccountPubkey, isSigner: false, isWritable: true },
+              { pubkey: payer.publicKey, isSigner: false, isWritable: true },
+              { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+            ],
+            programId: new PublicKey(programId),
+            data,
+          });
+        }
+        const { blockhash } = await connection.getLatestBlockhash("confirmed");
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = payer.publicKey;
+        tx.sign(payer);
+        const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
+        console.log(`[force-sell] Closed ${batch.length} empty accounts, sig: ${sig}`);
+        closed += batch.length;
+      } catch (e) {
+        console.warn("[force-sell] Error closing empty accounts batch:", e);
+      }
+    }
+  } catch (e) {
+    console.warn("[force-sell] Error scanning empty accounts:", e);
+  }
+  return closed;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -270,7 +353,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Agent not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Decrypt wallet
     const agentKeypair = await decryptWalletDualKey(agent.wallet_private_key_encrypted);
     if (!agentKeypair) {
       return new Response(JSON.stringify({ error: "Failed to decrypt agent wallet" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -286,16 +368,16 @@ serve(async (req) => {
     const results: any[] = [];
 
     if (sellAll) {
-      // === SELL ALL MODE: Scan wallet for ALL token accounts ===
+      // === SELL ALL MODE: Scan wallet for ALL token accounts (SPL + Token-2022) ===
       console.log(`[force-sell] sellAll mode: scanning wallet for all token holdings...`);
       
-      const tokenProgram = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-        agentKeypair.publicKey,
-        { programId: tokenProgram }
-      );
+      const [splAccounts, t22Accounts] = await Promise.all([
+        connection.getParsedTokenAccountsByOwner(agentKeypair.publicKey, { programId: TOKEN_PROGRAM }),
+        connection.getParsedTokenAccountsByOwner(agentKeypair.publicKey, { programId: TOKEN_2022_PROGRAM }),
+      ]);
 
-      console.log(`[force-sell] Found ${tokenAccounts.value.length} token accounts in wallet`);
+      const allTokenAccounts = [...splAccounts.value, ...t22Accounts.value];
+      console.log(`[force-sell] Found ${allTokenAccounts.length} token accounts (SPL: ${splAccounts.value.length}, T22: ${t22Accounts.value.length})`);
 
       // Get all DB positions for cross-reference
       const { data: dbPositions } = await supabase
@@ -306,37 +388,32 @@ serve(async (req) => {
 
       const dbPositionMap = new Map((dbPositions || []).map(p => [p.token_address, p]));
 
-      for (const account of tokenAccounts.value) {
+      for (const account of allTokenAccounts) {
         const parsed = account.account.data.parsed?.info;
         if (!parsed) continue;
 
         const mint = parsed.mint;
         const tokenAmount = parsed.tokenAmount;
-        const balance = tokenAmount?.uiAmount || 0;
         const rawAmount = parseInt(tokenAmount?.amount || "0");
 
-        if (rawAmount === 0 || SKIP_MINTS.has(mint)) {
-          console.log(`[force-sell] Skipping ${mint} (balance=0 or skip list)`);
-          continue;
-        }
+        if (rawAmount === 0 || SKIP_MINTS.has(mint)) continue;
 
         const dbPosition = dbPositionMap.get(mint);
         const tokenName = dbPosition?.token_name || mint.slice(0, 8) + "...";
 
-        console.log(`[force-sell] Selling ${tokenName} (${mint}), raw amount: ${rawAmount}, ui amount: ${balance}`);
+        console.log(`[force-sell] Selling ${tokenName} (${mint}), raw: ${rawAmount}`);
 
         try {
-          const swapResult = await executeSell(connection, agentKeypair, mint, rawAmount, SLIPPAGE_BPS);
+          const swapResult = await executeSellWithRetry(connection, agentKeypair, mint, rawAmount);
 
           if (!swapResult.success) {
-            console.error(`[force-sell] Sell failed for ${tokenName}: ${swapResult.error}`);
+            console.error(`[force-sell] ❌ Sell failed for ${tokenName}: ${swapResult.error}`);
             results.push({ token: tokenName, mint, status: "failed", error: swapResult.error });
             continue;
           }
 
           const solReceived = swapResult.outputAmount || 0;
 
-          // If there's a matching DB position, close it
           if (dbPosition) {
             const realizedPnl = solReceived - dbPosition.investment_sol;
             const pnlPct = dbPosition.investment_sol > 0 ? ((realizedPnl / dbPosition.investment_sol) * 100) : 0;
@@ -359,7 +436,7 @@ serve(async (req) => {
               amount_tokens: dbPosition.amount_tokens,
               price_per_token: solReceived / dbPosition.amount_tokens,
               strategy_used: agent.strategy_type,
-              ai_reasoning: `Force-sold (sellAll). Received ${solReceived.toFixed(6)} SOL. P&L: ${realizedPnl.toFixed(6)} SOL (${pnlPct.toFixed(1)}%).`,
+              ai_reasoning: `Force-sold (sellAll) at ${swapResult.slippageUsed}bps slippage. Received ${solReceived.toFixed(6)} SOL. P&L: ${realizedPnl.toFixed(6)} SOL (${pnlPct.toFixed(1)}%).`,
               confidence_score: 100,
               status: "success",
               signature: swapResult.signature,
@@ -367,23 +444,22 @@ serve(async (req) => {
           }
 
           results.push({
-            token: tokenName,
-            mint,
-            status: "sold",
+            token: tokenName, mint, status: "sold",
             solReceived: solReceived.toFixed(6),
             signature: swapResult.signature,
+            slippageUsed: swapResult.slippageUsed,
             hadDbPosition: !!dbPosition,
           });
 
           console.log(`[force-sell] ✅ Sold ${tokenName}: ${solReceived.toFixed(6)} SOL, sig: ${swapResult.signature}`);
-          await new Promise(r => setTimeout(r, 2000)); // Brief pause between sells
+          await new Promise(r => setTimeout(r, 2000));
         } catch (err) {
           console.error(`[force-sell] Error selling ${tokenName}:`, err);
           results.push({ token: tokenName, mint, status: "error", error: err instanceof Error ? err.message : "Unknown" });
         }
       }
 
-      // Close any remaining DB positions that weren't found on-chain
+      // Close remaining DB positions not found on-chain
       if (dbPositions?.length) {
         for (const pos of dbPositions) {
           if (!results.some(r => r.mint === pos.token_address && r.status === "sold")) {
@@ -414,21 +490,18 @@ serve(async (req) => {
 
       for (const position of positions) {
         try {
-          console.log(`[force-sell] Selling ${position.token_name} (${position.token_address}), tokens: ${position.amount_tokens}`);
-
-          // Get actual on-chain balance for this token
+          // Get actual on-chain balance
           let amountToSell: number;
           try {
-            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-              agentKeypair.publicKey,
-              { mint: new PublicKey(position.token_address) }
-            );
-            const onChainBalance = tokenAccounts.value[0]?.account?.data?.parsed?.info?.tokenAmount;
+            const [splAccounts, t22Accounts] = await Promise.all([
+              connection.getParsedTokenAccountsByOwner(agentKeypair.publicKey, { mint: new PublicKey(position.token_address) }),
+              connection.getParsedTokenAccountsByOwner(agentKeypair.publicKey, { mint: new PublicKey(position.token_address) }).catch(() => ({ value: [] })),
+            ]);
+            const allAccounts = [...splAccounts.value, ...(t22Accounts as any).value];
+            const onChainBalance = allAccounts[0]?.account?.data?.parsed?.info?.tokenAmount;
             if (onChainBalance && parseInt(onChainBalance.amount) > 0) {
               amountToSell = parseInt(onChainBalance.amount);
-              console.log(`[force-sell] Using on-chain balance: ${amountToSell} (ui: ${onChainBalance.uiAmount})`);
             } else {
-              console.warn(`[force-sell] No on-chain balance for ${position.token_name}, skipping`);
               await supabase.from("trading_agent_positions").update({
                 status: "closed",
                 realized_pnl_sol: -position.investment_sol,
@@ -439,17 +512,15 @@ serve(async (req) => {
               continue;
             }
           } catch {
-            // Fallback to DB amount
             const tokenDecimals = 6;
             amountToSell = position.amount_tokens > 1_000_000
               ? Math.floor(position.amount_tokens)
               : Math.floor(position.amount_tokens * Math.pow(10, tokenDecimals));
           }
 
-          const swapResult = await executeSell(connection, agentKeypair, position.token_address, amountToSell, SLIPPAGE_BPS);
+          const swapResult = await executeSellWithRetry(connection, agentKeypair, position.token_address, amountToSell);
 
           if (!swapResult.success) {
-            console.error(`[force-sell] Sell failed for ${position.token_name}: ${swapResult.error}`);
             results.push({ positionId: position.id, token: position.token_name, status: "failed", error: swapResult.error });
             continue;
           }
@@ -476,7 +547,7 @@ serve(async (req) => {
             amount_tokens: position.amount_tokens,
             price_per_token: solReceived / position.amount_tokens,
             strategy_used: agent.strategy_type,
-            ai_reasoning: `Force-sold. Received ${solReceived.toFixed(6)} SOL. P&L: ${realizedPnl.toFixed(6)} SOL (${pnlPct.toFixed(1)}%).`,
+            ai_reasoning: `Force-sold at ${swapResult.slippageUsed}bps. Received ${solReceived.toFixed(6)} SOL. P&L: ${realizedPnl.toFixed(6)} SOL (${pnlPct.toFixed(1)}%).`,
             confidence_score: 100,
             status: "success",
             signature: swapResult.signature,
@@ -490,22 +561,27 @@ serve(async (req) => {
             realizedPnl: realizedPnl.toFixed(6),
             pnlPct: pnlPct.toFixed(2),
             signature: swapResult.signature,
+            slippageUsed: swapResult.slippageUsed,
           });
 
-          console.log(`[force-sell] ✅ Sold ${position.token_name}: ${solReceived.toFixed(6)} SOL (${pnlPct.toFixed(1)}%) sig: ${swapResult.signature}`);
+          console.log(`[force-sell] ✅ Sold ${position.token_name}: ${solReceived.toFixed(6)} SOL sig: ${swapResult.signature}`);
           await new Promise(r => setTimeout(r, 2000));
         } catch (posError) {
-          console.error(`[force-sell] Error selling ${position.token_name}:`, posError);
           results.push({ positionId: position.id, token: position.token_name, status: "error", error: posError instanceof Error ? posError.message : "Unknown" });
         }
       }
     }
 
+    // Close empty token accounts to reclaim rent SOL
+    const closedAccounts = await closeEmptyTokenAccounts(connection, agentKeypair);
+    console.log(`[force-sell] Closed ${closedAccounts} empty token accounts`);
+
     const soldCount = results.filter(r => r.status === "sold").length;
     return new Response(JSON.stringify({ 
-      message: `Force-sold ${soldCount}/${results.length} tokens. Cancelled ${cancelledOrders} limit orders.`,
+      message: `Force-sold ${soldCount}/${results.length} tokens. Cancelled ${cancelledOrders} limit orders. Closed ${closedAccounts} empty accounts.`,
       results,
       cancelledOrders,
+      closedAccounts,
       sellAll: !!sellAll,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
