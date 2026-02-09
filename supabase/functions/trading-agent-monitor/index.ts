@@ -22,8 +22,8 @@ const SLIPPAGE_BPS = 500; // 5%
 const JUPITER_TRIGGER_URL = 'https://api.jup.ag/trigger/v1';
 
 // High-frequency polling configuration
-const MAX_RUNTIME_MS = 50000; // 50 seconds (leave 10s buffer for Edge Function timeout)
-const POLL_INTERVAL_MS = 15000; // 15 seconds between checks
+const MAX_RUNTIME_MS = 55000; // 55 seconds (leave 5s buffer for Edge Function timeout)
+const POLL_INTERVAL_MS = 5000; // 5 seconds between checks for fast SL reaction
 
 // Jupiter API V1 endpoint (V6 is deprecated/sunset)
 const JUPITER_BASE_URL = 'https://api.jup.ag/swap/v1';
