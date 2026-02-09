@@ -366,7 +366,7 @@ serve(async (req) => {
             token_address: selectedToken.mint_address,
             token_name: selectedToken.name,
             token_symbol: selectedToken.symbol,
-            token_image_url: selectedToken.image_url,
+            token_image_url: selectedToken.image_url?.startsWith('http') ? selectedToken.image_url : (selectedToken.image_url ? `https://ipfs.io/ipfs/${selectedToken.image_url}` : null),
             entry_price_sol: actualPrice,
             current_price_sol: actualPrice,
             amount_tokens: tokensReceived,

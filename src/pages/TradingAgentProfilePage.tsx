@@ -20,6 +20,17 @@ import {
 import { TraderBadge, TradingAgentFundingBar } from "@/components/trading";
 import { format } from "date-fns";
 
+function resolveTokenImage(url: string | null): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith('http')) return url;
+  return `https://ipfs.io/ipfs/${url}`;
+}
+
+function displayTokenSymbol(symbol: string | null, name: string | null): string {
+  if (symbol && symbol !== '???') return symbol;
+  return name || 'Unknown';
+}
+
 export default function TradingAgentProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { data: agent, isLoading } = useTradingAgent(id || "");
@@ -345,12 +356,12 @@ export default function TradingAgentProfilePage() {
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10">
-                                <AvatarImage src={position.token_image_url || undefined} />
-                                <AvatarFallback>{position.token_symbol?.slice(0, 2)}</AvatarFallback>
+                                <AvatarImage src={resolveTokenImage(position.token_image_url)} />
+                                <AvatarFallback>{displayTokenSymbol(position.token_symbol, position.token_name).slice(0, 2)}</AvatarFallback>
                               </Avatar>
                               <div>
                                 <div className="font-semibold">{position.token_name}</div>
-                                <div className="text-xs text-muted-foreground">${position.token_symbol}</div>
+                                <div className="text-xs text-muted-foreground">${displayTokenSymbol(position.token_symbol, position.token_name)}</div>
                               </div>
                             </div>
                             <Badge variant={isPosProfit ? "default" : "destructive"} className="gap-1">
@@ -414,7 +425,7 @@ export default function TradingAgentProfilePage() {
                               <Badge variant={isBuy ? "default" : "secondary"}>
                                 {trade.trade_type.toUpperCase()}
                               </Badge>
-                              <span className="font-medium">{trade.token_name}</span>
+                              <span className="font-medium">{displayTokenSymbol(trade.token_name, trade.token_name)}</span>
                               {trade.subtuna_post_id && (
                                 <Link to={`/tunabook/post/${trade.subtuna_post_id}`}>
                                   <ExternalLink className="h-3 w-3 text-amber-400" />
