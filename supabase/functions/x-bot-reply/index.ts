@@ -409,11 +409,11 @@ serve(async (req) => {
         .update({ status: "processing", processed_at: new Date().toISOString() })
         .eq("id", queuedTweet.id);
 
-      // Author cooldown check
-      const cooldownHours = rules.author_cooldown_hours || 6;
-      const cooldownTime = new Date(Date.now() - cooldownHours * 60 * 60 * 1000).toISOString();
+      // Author cooldown check (in minutes)
+      const cooldownMinutes = rules.author_cooldown_minutes ?? 10;
+      const cooldownTime = new Date(Date.now() - cooldownMinutes * 60 * 1000).toISOString();
       
-      if (queuedTweet.tweet_author_id) {
+      if (queuedTweet.tweet_author_id && cooldownMinutes > 0) {
         const { count: recentReplies } = await supabase
           .from("x_bot_account_replies")
           .select("*", { count: "exact", head: true })
@@ -427,9 +427,9 @@ serve(async (req) => {
             .update({ status: "skipped" })
             .eq("id", queuedTweet.id);
           debug.skipped++;
-          await insertLog(supabase, account.id, "skip", "warn", `Skipped @${author}: author cooldown active (${cooldownHours}h)`, {
+          await insertLog(supabase, account.id, "skip", "warn", `Skipped @${author}: author cooldown active (${cooldownMinutes}m)`, {
             tweetId: queuedTweet.tweet_id,
-            cooldownHours,
+            cooldownMinutes,
           });
           continue;
         }
