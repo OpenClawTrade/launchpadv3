@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const FUNDING_THRESHOLD = 0.5; // SOL needed to activate
 const POST_CHANCE = 0.4; // 40% chance to post on balance change
+const TWITTERAPI_BASE = "https://api.twitterapi.io";
 
 // Funding progress messages - casual trader vibes
 const FUNDING_MESSAGES = [
@@ -33,12 +34,115 @@ const ACTIVATION_MESSAGES = [
     `Threshold reached. ${balance.toFixed(4)} SOL in the wallet. Trading engine online. Let's see what the market has to offer.`,
 ];
 
+// Parse cookie string to JSON format for twitterapi.io
+function parseCookieString(cookieStr: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  const parts = cookieStr.split(";");
+  for (const part of parts) {
+    const [key, ...valueParts] = part.trim().split("=");
+    if (key && valueParts.length > 0) {
+      cookies[key.trim()] = valueParts.join("=").trim();
+    }
+  }
+  return cookies;
+}
+
+// Build login_cookies for twitterapi.io
+function buildLoginCookies(fullCookie: string): string {
+  const cookies = parseCookieString(fullCookie);
+  return btoa(JSON.stringify(cookies));
+}
+
+// Post to X using linked X-Bot account
+async function postToX(
+  supabase: any,
+  ticker: string,
+  content: string
+): Promise<{ success: boolean; tweetId?: string; error?: string }> {
+  try {
+    // Find X-Bot account linked to this SubTuna ticker
+    const { data: xBotAccount } = await supabase
+      .from("x_bot_accounts")
+      .select("id, username, full_cookie_encrypted, socks5_urls, current_socks5_index")
+      .eq("subtuna_ticker", ticker)
+      .eq("is_active", true)
+      .single();
+
+    if (!xBotAccount || !xBotAccount.full_cookie_encrypted) {
+      console.log(`[postToX] No linked X-Bot account for ticker: ${ticker}`);
+      return { success: false, error: "No linked X-Bot account" };
+    }
+
+    const apiKey = Deno.env.get("TWITTERAPI_IO_KEY");
+    if (!apiKey) {
+      console.error("[postToX] Missing TWITTERAPI_IO_KEY");
+      return { success: false, error: "Missing API key" };
+    }
+
+    const loginCookies = buildLoginCookies(xBotAccount.full_cookie_encrypted);
+    
+    // Get proxy if available
+    const proxyUrl = xBotAccount.socks5_urls?.[xBotAccount.current_socks5_index || 0] || undefined;
+
+    // twitterapi.io uses "tweet_text" not "text"
+    const payload: Record<string, any> = {
+      tweet_text: content,
+      login_cookies: loginCookies,
+    };
+
+    if (proxyUrl) {
+      payload.proxy = proxyUrl;
+    }
+
+    console.log(`[postToX] Posting to X via @${xBotAccount.username}...`);
+
+    const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+      method: "POST",
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const responseText = await response.text();
+    console.log(`[postToX] Response status: ${response.status}`);
+
+    if (!response.ok) {
+      console.error(`[postToX] X API error: ${responseText}`);
+      return { success: false, error: `HTTP ${response.status}` };
+    }
+
+    try {
+      const data = JSON.parse(responseText);
+      // Extract tweet ID from nested response
+      const tweetId = data?.data?.create_tweet?.tweet_results?.result?.rest_id ||
+                      data?.data?.id || 
+                      data?.id;
+
+      if (tweetId) {
+        console.log(`[postToX] ✅ Posted to X, tweet ID: ${tweetId}`);
+        return { success: true, tweetId };
+      } else {
+        console.log(`[postToX] Posted but no tweet ID found in response`);
+        return { success: true };
+      }
+    } catch (parseError) {
+      console.log(`[postToX] Response parse warning:`, parseError);
+      return { success: true };
+    }
+  } catch (e) {
+    console.error("[postToX] Error:", e);
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 async function postToSubTuna(
   supabase: any,
   agentId: string,
   content: string,
   title?: string
-): Promise<boolean> {
+): Promise<{ subtunaPosted: boolean; ticker?: string }> {
   try {
     // Find the agent's SubTuna
     const { data: agent } = await supabase
@@ -49,18 +153,18 @@ async function postToSubTuna(
 
     if (!agent) {
       console.log("[postToSubTuna] No linked agent found for trading_agent_id:", agentId);
-      return false;
+      return { subtunaPosted: false };
     }
 
     const { data: subtuna } = await supabase
       .from("subtuna")
-      .select("id")
+      .select("id, ticker")
       .eq("agent_id", agent.id)
       .single();
 
     if (!subtuna) {
       console.log("[postToSubTuna] No SubTuna found for agent:", agent.id);
-      return false;
+      return { subtunaPosted: false };
     }
 
     // Create the post
@@ -77,14 +181,14 @@ async function postToSubTuna(
 
     if (error) {
       console.error("[postToSubTuna] Failed to create post:", error);
-      return false;
+      return { subtunaPosted: false };
     }
 
     console.log("[postToSubTuna] Posted update to SubTuna:", subtuna.id);
-    return true;
+    return { subtunaPosted: true, ticker: subtuna.ticker };
   } catch (e) {
     console.error("[postToSubTuna] Error:", e);
-    return false;
+    return { subtunaPosted: false };
   }
 }
 
@@ -155,20 +259,42 @@ serve(async (req) => {
     }
 
     const activated = previousStatus === "pending" && newStatus === "active";
-    let posted = false;
+    let subtunaPosted = false;
+    let xPosted = false;
+    let postContent = "";
 
     // Post to SubTuna on significant events
     if (activated) {
       // Always post on activation
-      const msg = ACTIVATION_MESSAGES[Math.floor(Math.random() * ACTIVATION_MESSAGES.length)](balanceSol);
-      posted = await postToSubTuna(supabase, agentId, msg, "🚀 Trading Activated");
+      postContent = ACTIVATION_MESSAGES[Math.floor(Math.random() * ACTIVATION_MESSAGES.length)](balanceSol);
+      const result = await postToSubTuna(supabase, agentId, postContent, "🚀 Trading Activated");
+      subtunaPosted = result.subtunaPosted;
+      
+      // Cross-post to X if linked
+      if (subtunaPosted && result.ticker) {
+        const xResult = await postToX(supabase, result.ticker, postContent);
+        xPosted = xResult.success;
+        if (xResult.success) {
+          console.log(`[admin-check-agent-balance] ✅ Cross-posted to X for ticker: ${result.ticker}`);
+        }
+      }
     } else if (newStatus === "pending" && (forcePost || (balanceChanged && Math.random() < POST_CHANCE))) {
       // Post funding updates: forced OR random on balance change
       const needed = FUNDING_THRESHOLD - balanceSol;
       const pct = (balanceSol / FUNDING_THRESHOLD) * 100;
       const msgFn = FUNDING_MESSAGES[Math.floor(Math.random() * FUNDING_MESSAGES.length)];
-      const msg = msgFn(balanceSol, needed, pct);
-      posted = await postToSubTuna(supabase, agentId, msg, "Funding Progress");
+      postContent = msgFn(balanceSol, needed, pct);
+      const result = await postToSubTuna(supabase, agentId, postContent, "Funding Progress");
+      subtunaPosted = result.subtunaPosted;
+      
+      // Cross-post to X if linked
+      if (subtunaPosted && result.ticker) {
+        const xResult = await postToX(supabase, result.ticker, postContent);
+        xPosted = xResult.success;
+        if (xResult.success) {
+          console.log(`[admin-check-agent-balance] ✅ Cross-posted to X for ticker: ${result.ticker}`);
+        }
+      }
     }
 
     return new Response(JSON.stringify({
@@ -181,7 +307,8 @@ serve(async (req) => {
       previousStatus,
       newStatus,
       activated,
-      posted,
+      subtunaPosted,
+      xPosted,
       message: activated 
         ? `🚀 Agent activated! Trading will begin on next execution cycle.`
         : newStatus === "active" 
