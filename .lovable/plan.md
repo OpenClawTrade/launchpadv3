@@ -1,119 +1,104 @@
 
 
-# Trading Agent Fixes - Agent 67 Activation
+# Urgent Trading Agent Fix - Fast Execution & Retry Logic
 
-## Issues Found
+## Critical Issues Found
 
-### Critical Issues
-
-1. **Trading Execution is FAILING** 
-   - The `trading-agent-execute` function crashes with error: "Could not embed because more than one relationship was found for 'trading_agents' and 'agents'"
-   - The Supabase query needs to explicitly specify the relationship
-
-2. **No Trending Tokens Available**
-   - The pump.fun API is returning HTTP 530 (origin errors)
-   - The `pumpfun_trending_tokens` table is empty
-   - No cron job is scheduled for `pumpfun-trending-sync`
-
-3. **Position Sizing Not Capital-Aware**
-   - Currently uses fixed percentage (15% for balanced strategy)
-   - With 0.585 SOL capital, that's ~0.07 SOL after reserves - too small to trade
-   - Need tiered sizing based on available capital:
-     - Under 1 SOL: max 0.1 SOL per position
-     - 1-2 SOL: max 0.25 SOL per position
-     - Above 2 SOL: use percentage-based sizing
+| Issue | Current State | Risk |
+|-------|---------------|------|
+| **No monitor cron job** | Monitor function exists but ISN'T SCHEDULED | Positions won't auto-close on SL/TP |
+| **Execute runs every 5 min** | Way too slow for meme coins | Missed entries, slow reactions |
+| **DNS failures = total failure** | No retry with alternate endpoints | Agent can't trade during DNS issues |
+| **Single Jupiter endpoint** | Only `quote-api.jup.ag` | No fallback when blocked |
 
 ## Implementation Plan
 
-### Step 1: Fix Trading Agent Query Relationship
+### Step 1: Create 1-Minute Monitor Cron Job
 
-Update `trading-agent-execute/index.ts` line 68:
-```typescript
-// FROM:
-agent:agents(id, name, avatar_url)
+Add a `pg_cron` job to run `trading-agent-monitor` every minute. The function already has an internal 15-second polling loop that runs for 50 seconds, giving effective ~15-second monitoring.
 
-// TO (explicit relationship):
-agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url)
+```sql
+SELECT cron.schedule(
+  'trading-agent-monitor-1min',
+  '* * * * *', -- every minute
+  $$ SELECT net.http_post(...) $$
+);
 ```
 
-Also update `trading-agent-monitor/index.ts` line 87 with the same fix.
+### Step 2: Increase Execute Frequency to Every 2 Minutes
 
-### Step 2: Implement Capital-Aware Position Sizing
+Change the execute cron from 5 minutes to 2 minutes for faster entries:
 
-Add tiered position sizing logic in `trading-agent-execute/index.ts`:
+```sql
+-- Update existing job
+SELECT cron.alter_job(31, schedule => '*/2 * * * *');
+```
+
+### Step 3: Add Retry Logic with Exponential Backoff
+
+Update `executeJupiterSwapWithJito()` function to retry DNS failures:
 
 ```typescript
-// Capital tier-based position sizing
-const CAPITAL_TIERS = {
-  LOW: { maxCapital: 1.0, maxPositionSol: 0.1 },
-  MEDIUM: { maxCapital: 2.0, maxPositionSol: 0.25 },
-  HIGH: { maxCapital: Infinity, maxPositionSol: null }, // Use percentage
-};
-
-function calculatePositionSize(
-  availableCapital: number, 
-  strategyPct: number, 
-  maxPositions: number,
-  openPositions: number
-): number {
-  const baseSize = Math.min(
-    availableCapital * (strategyPct / 100),
-    availableCapital / (maxPositions - openPositions)
-  );
-
-  // Apply capital tier limits
-  if (availableCapital < 1.0) {
-    return Math.min(baseSize, 0.1);
-  } else if (availableCapital < 2.0) {
-    return Math.min(baseSize, 0.25);
+async function fetchWithRetry(url: string, options?: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (error) {
+      if (attempt === maxRetries - 1) throw error;
+      // Exponential backoff: 500ms, 1s, 2s
+      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+      console.warn(`[retry] Attempt ${attempt + 1} failed, retrying...`);
+    }
   }
-  
-  return baseSize;
+  throw new Error('All retries exhausted');
 }
 ```
 
-### Step 3: Fix pump.fun Data Source
+### Step 4: Add Multiple Jupiter API Endpoints
 
-The pump.fun API is currently blocked (530 errors). Options:
-- Add fallback to DexScreener API for trending Solana tokens
-- Add retry logic with exponential backoff
-- Cache last known good data for 1 hour instead of deleting immediately
-
-I'll implement a DexScreener fallback since pump.fun appears to be blocking requests.
-
-### Step 4: Create Cron Job for Trending Sync
-
-Add a pg_cron job to call `pumpfun-trending-sync` every 5 minutes (SQL insert required).
-
-### Step 5: Lower Minimum Position Size
-
-Update minimum position check from 0.1 SOL to 0.05 SOL to allow smaller trades while capital is low:
+Add fallback endpoints for Jupiter API:
 
 ```typescript
-// Line 156 in trading-agent-execute
-if (positionSize < 0.05) {  // Changed from 0.1
-  console.log(`Position size too small: ${positionSize}`);
-  continue;
+const JUPITER_QUOTE_ENDPOINTS = [
+  'https://quote-api.jup.ag/v6',
+  'https://quote-api.jup.ag/v6', // Primary
+  'https://lite-api.jup.ag/v6', // Lite endpoint
+];
+
+async function getJupiterQuote(inputMint, outputMint, amount, slippage) {
+  for (const endpoint of JUPITER_QUOTE_ENDPOINTS) {
+    try {
+      const response = await fetchWithRetry(
+        `${endpoint}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippage}`
+      );
+      if (response.ok) return response.json();
+    } catch (e) {
+      console.warn(`[jupiter] Endpoint ${endpoint} failed, trying next...`);
+    }
+  }
+  throw new Error('All Jupiter endpoints failed');
 }
 ```
 
-## Technical Details
+### Step 5: Apply Same Retry Logic to Monitor Function
 
-| File | Change |
-|------|--------|
-| `trading-agent-execute/index.ts` | Fix query relationship, add tiered sizing, lower min position |
-| `trading-agent-monitor/index.ts` | Fix query relationship |
-| `pumpfun-trending-sync/index.ts` | Add DexScreener fallback for when pump.fun is blocked |
-| Database | Insert cron job for trending sync |
+Update `trading-agent-monitor/index.ts` with the same retry wrapper for Jupiter API calls.
 
-## Agent 67 Status After Fix
+## Technical Summary
 
-| Metric | Current | After Fix |
-|--------|---------|-----------|
-| Status | Active | Active |
-| Capital | 0.585 SOL | 0.585 SOL |
-| Available | ~0.485 SOL (after gas reserve) | ~0.485 SOL |
-| Max Position | 0.07 SOL (too small) | 0.1 SOL (capped by tier) |
-| Min Position | 0.1 SOL | 0.05 SOL |
-| Can Trade | No (size < min) | Yes |
+| File | Changes |
+|------|---------|
+| `trading-agent-execute/index.ts` | Add `fetchWithRetry()`, multi-endpoint Jupiter support |
+| `trading-agent-monitor/index.ts` | Add `fetchWithRetry()`, multi-endpoint Jupiter support |
+| Database | Create monitor cron (1 min), update execute cron (2 min) |
+
+## Expected Behavior After Fix
+
+| Metric | Before | After |
+|--------|--------|-------|
+| **Position monitoring** | Manual only | Every 15 seconds (via 1-min cron with internal loop) |
+| **New trade attempts** | Every 5 minutes | Every 2 minutes |
+| **DNS failure handling** | Total failure | 3 retries with exponential backoff |
+| **Jupiter API resilience** | Single endpoint | Multiple endpoints with fallback |
 
