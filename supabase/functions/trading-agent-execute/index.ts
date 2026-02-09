@@ -338,157 +338,132 @@ serve(async (req) => {
 
         const existingTokens = new Set(openPositions?.map(p => p.token_address) || []);
 
-        // === ON-DEMAND TOKEN DISCOVERY via Helius (on-chain data) ===
-        // Polls every 10s until qualifying token found, max 50s
-        const DISCOVERY_MAX_MS = 50000;
+        // === ON-DEMAND TOKEN DISCOVERY via DexScreener ===
+        // Fetches latest Solana token profiles + boosted tokens, filters < 1 hour old
+        const DISCOVERY_MAX_MS = 30000;
         const DISCOVERY_POLL_MS = 10000;
         const discoveryStart = Date.now();
         let availableTokens: any[] = [];
         let discoveryAttempt = 0;
-
-        // Extract Helius API key from RPC URL
-        const heliusApiKey = (() => {
-          const rpcUrl = HELIUS_RPC_URL || "";
-          const match = rpcUrl.match(/api-key=([^&]+)/);
-          return match ? match[1] : Deno.env.get("HELIUS_API_KEY") || null;
-        })();
+        const MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
         while (Date.now() - discoveryStart < DISCOVERY_MAX_MS) {
           discoveryAttempt++;
-          console.log(`[trading-agent-execute] Agent ${agent.name} discovery attempt #${discoveryAttempt}...`);
+          console.log(`[trading-agent-execute] Agent ${agent.name} DexScreener discovery attempt #${discoveryAttempt}...`);
 
           try {
-            let rawTokens: any[] = [];
+            // Fetch latest token profiles (new listings) and boosted tokens in parallel
+            const [profilesResp, boostsResp] = await Promise.all([
+              fetch("https://api.dexscreener.com/token-profiles/latest/v1"),
+              fetch("https://api.dexscreener.com/token-boosts/top/v1"),
+            ]);
 
-            if (heliusApiKey) {
-              // PRIMARY: Helius Enhanced Transactions API — queries on-chain pump.fun program activity
-              const PUMP_FUN_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6d";
-              const txResponse = await fetch(
-                `https://api.helius.xyz/v0/addresses/${PUMP_FUN_PROGRAM}/transactions?api-key=${heliusApiKey}&limit=100`
-              );
+            const allMints = new Set<string>();
+            const tokenMeta = new Map<string, { name?: string; symbol?: string; description?: string; imageUrl?: string; url?: string; boostAmount?: number }>();
 
-              if (txResponse.ok) {
-                const transactions = await txResponse.json();
-                console.log(`[trading-agent-execute] Helius returned ${transactions.length} recent pump.fun txs`);
-
-                // Extract unique token mints with activity metrics
-                const tokenActivity = new Map<string, { count: number; lastSeen: number; solVolume: number }>();
-                for (const tx of transactions) {
-                  for (const transfer of (tx.tokenTransfers || [])) {
-                    const mint = transfer.mint;
-                    if (!mint || mint === WSOL_MINT) continue;
-                    const existing = tokenActivity.get(mint) || { count: 0, lastSeen: 0, solVolume: 0 };
-                    existing.count++;
-                    existing.lastSeen = Math.max(existing.lastSeen, (tx.timestamp || 0) * 1000);
-                    for (const nt of (tx.nativeTransfers || [])) {
-                      existing.solVolume += Math.abs(nt.amount || 0) / 1e9;
-                    }
-                    tokenActivity.set(mint, existing);
-                  }
-                }
-
-                // Sort by activity, take top 50
-                const sortedMints = [...tokenActivity.entries()]
-                  .sort((a, b) => b[1].count - a[1].count)
-                  .slice(0, 50);
-
-                if (sortedMints.length > 0) {
-                  const mintIds = sortedMints.map(([m]) => m);
-
-                  // Batch get metadata via DAS + prices from Jupiter in parallel
-                  const [dasResp, priceResp, solPriceResp] = await Promise.all([
-                    fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        jsonrpc: "2.0", id: "batch",
-                        method: "getAssetBatch",
-                        params: { ids: mintIds },
-                      }),
-                    }),
-                    fetch(`https://price.jup.ag/v6/price?ids=${mintIds.join(",")}`),
-                    fetch(`https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112`),
-                  ]);
-
-                  const assetMap = new Map<string, any>();
-                  if (dasResp.ok) {
-                    const dasData = await dasResp.json();
-                    for (const asset of (dasData.result || [])) {
-                      if (asset?.id) assetMap.set(asset.id, asset);
-                    }
-                  }
-
-                  let priceMap: Record<string, any> = {};
-                  if (priceResp.ok) {
-                    const pd = await priceResp.json();
-                    priceMap = pd.data || {};
-                  }
-
-                  let solPriceUsd = 150;
-                  if (solPriceResp.ok) {
-                    const spd = await solPriceResp.json();
-                    solPriceUsd = spd.data?.[WSOL_MINT]?.price || 150;
-                  }
-
-                  // Build token objects compatible with scoring
-                  for (const [mint, activity] of sortedMints) {
-                    const asset = assetMap.get(mint);
-                    const price = priceMap[mint];
-                    const name = asset?.content?.metadata?.name || "Unknown";
-                    const symbol = asset?.content?.metadata?.symbol || "???";
-                    const imageUrl = asset?.content?.links?.image || asset?.content?.files?.[0]?.uri || "";
-                    const description = asset?.content?.metadata?.description || "";
-
-                    const priceUsd = price?.price || 0;
-                    const priceSol = solPriceUsd > 0 ? priceUsd / solPriceUsd : 0;
-
-                    // Estimate liquidity from SOL volume (recent activity as proxy)
-                    const estimatedLiquiditySol = activity.solVolume / Math.max(1, activity.count) * 10;
-
-                    const ageHours = activity.lastSeen > 0
-                      ? (Date.now() - activity.lastSeen) / (1000 * 60 * 60)
-                      : 24;
-
-                    rawTokens.push({
-                      mint,
-                      name,
-                      symbol,
-                      description,
-                      image_uri: imageUrl,
-                      virtual_sol_reserves: estimatedLiquiditySol * 1e9,
-                      virtual_token_reserves: 1e12,
-                      holder_count: activity.count, // trade count as activity proxy
-                      reply_count: activity.count,
-                      created_timestamp: activity.lastSeen || Date.now(),
-                      king_of_the_hill_timestamp: activity.count >= 10 ? Date.now() : null,
-                    });
-                  }
-
-                  console.log(`[trading-agent-execute] Built ${rawTokens.length} tokens from Helius on-chain data`);
-                }
-              } else {
-                console.warn(`[trading-agent-execute] Helius API returned ${txResponse.status}`);
+            // Process latest token profiles - filter Solana only
+            if (profilesResp.ok) {
+              const profiles = await profilesResp.json();
+              for (const p of profiles) {
+                if (p.chainId !== "solana" || !p.tokenAddress) continue;
+                allMints.add(p.tokenAddress);
+                tokenMeta.set(p.tokenAddress, {
+                  description: p.description || "",
+                  imageUrl: p.icon || "",
+                  url: p.url || "",
+                });
               }
+              console.log(`[trading-agent-execute] Got ${allMints.size} Solana tokens from profiles`);
             }
 
-            // FALLBACK: Try pump.fun API directly (may work intermittently)
-            if (rawTokens.length === 0) {
-              console.log(`[trading-agent-execute] Trying pump.fun API as fallback...`);
-              const pumpResponse = await fetch(
-                "https://frontend-api.pump.fun/coins?sort=bump_order&limit=100&includeNsfw=false",
-                { headers: { "Accept": "application/json" } }
-              );
-              if (pumpResponse.ok) {
-                rawTokens = await pumpResponse.json();
-                console.log(`[trading-agent-execute] pump.fun fallback returned ${rawTokens.length} tokens`);
-              } else {
-                console.warn(`[trading-agent-execute] pump.fun API also failed: ${pumpResponse.status}`);
+            // Process boosted tokens - Solana only
+            if (boostsResp.ok) {
+              const boosts = await boostsResp.json();
+              for (const b of boosts) {
+                if (b.chainId !== "solana" || !b.tokenAddress) continue;
+                allMints.add(b.tokenAddress);
+                const existing = tokenMeta.get(b.tokenAddress) || {};
+                tokenMeta.set(b.tokenAddress, {
+                  ...existing,
+                  description: existing.description || b.description || "",
+                  imageUrl: existing.imageUrl || b.icon || "",
+                  url: existing.url || b.url || "",
+                  boostAmount: (b.totalAmount || 0),
+                });
               }
+              console.log(`[trading-agent-execute] Total unique Solana mints: ${allMints.size}`);
             }
 
-            if (rawTokens.length === 0) {
-              console.log(`[trading-agent-execute] No token data from any source, retrying...`);
+            if (allMints.size === 0) {
+              console.log(`[trading-agent-execute] No Solana tokens from DexScreener, retrying...`);
             } else {
+              // Batch fetch pair data from DexScreener (max 30 per request)
+              const mintArray = [...allMints];
+              const rawTokens: any[] = [];
+
+              for (let i = 0; i < mintArray.length; i += 30) {
+                const chunk = mintArray.slice(i, i + 30);
+                const pairsResp = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${chunk.join(",")}`);
+                if (!pairsResp.ok) {
+                  console.warn(`[trading-agent-execute] DexScreener pairs returned ${pairsResp.status}`);
+                  continue;
+                }
+                const pairs = await pairsResp.json();
+
+                // Group pairs by base token, pick best liquidity pair per token
+                const bestPairByMint = new Map<string, any>();
+                for (const pair of pairs) {
+                  if (!pair.baseToken?.address) continue;
+                  const mint = pair.baseToken.address;
+                  const existing = bestPairByMint.get(mint);
+                  if (!existing || (pair.liquidity?.usd || 0) > (existing.liquidity?.usd || 0)) {
+                    bestPairByMint.set(mint, pair);
+                  }
+                }
+
+                for (const [mint, pair] of bestPairByMint) {
+                  const pairCreatedAt = pair.pairCreatedAt || 0;
+                  const ageMs = Date.now() - pairCreatedAt;
+
+                  // STRICT: Skip tokens older than 1 hour
+                  if (ageMs > MAX_AGE_MS) continue;
+
+                  const liquidityUsd = pair.liquidity?.usd || 0;
+                  const volume24h = pair.volume?.h24 || 0;
+                  const priceUsd = parseFloat(pair.priceUsd || "0");
+                  const meta = tokenMeta.get(mint) || {};
+
+                  // Get SOL price from the pair if available
+                  const solPriceFromPair = pair.quoteToken?.symbol === "SOL" && parseFloat(pair.priceNative || "0") > 0
+                    ? priceUsd / parseFloat(pair.priceNative)
+                    : 150;
+
+                  const liquiditySol = liquidityUsd / solPriceFromPair;
+                  const priceSol = priceUsd / solPriceFromPair;
+
+                  rawTokens.push({
+                    mint,
+                    name: pair.baseToken.name || "Unknown",
+                    symbol: pair.baseToken.symbol || "???",
+                    description: meta.description || "",
+                    image_uri: meta.imageUrl || pair.info?.imageUrl || "",
+                    virtual_sol_reserves: liquiditySol * 1e9,
+                    virtual_token_reserves: 1e12,
+                    holder_count: pair.txns?.h1?.buys || 0,
+                    reply_count: (pair.txns?.h1?.buys || 0) + (pair.txns?.h1?.sells || 0),
+                    created_timestamp: pairCreatedAt,
+                    king_of_the_hill_timestamp: (meta.boostAmount || 0) > 100 ? Date.now() : null,
+                  });
+                }
+
+                // Small delay between chunks to avoid rate limiting
+                if (i + 30 < mintArray.length) {
+                  await new Promise(r => setTimeout(r, 200));
+                }
+              }
+
+              console.log(`[trading-agent-execute] ${rawTokens.length} tokens under 1h old from DexScreener`);
+
               // Score and filter tokens
               const scoredTokens = rawTokens
                 .map(scoreToken)
