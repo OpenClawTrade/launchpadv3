@@ -90,7 +90,7 @@ serve(async (req) => {
         trading_capital_sol: 0,
         stop_loss_pct: strategy === "conservative" ? 10 : strategy === "aggressive" ? 30 : 20,
         take_profit_pct: strategy === "conservative" ? 25 : strategy === "aggressive" ? 100 : 50,
-        max_concurrent_positions: strategy === "conservative" ? 2 : strategy === "aggressive" ? 5 : 3,
+        max_concurrent_positions: 2,
          twitter_url: twitterUrl?.trim() || null,
       })
       .select()

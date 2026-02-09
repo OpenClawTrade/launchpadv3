@@ -11,8 +11,8 @@ const corsHeaders = {
 // Strategy configurations
 const STRATEGIES = {
   conservative: { stopLoss: 10, takeProfit: 25, positionPct: 10, maxPositions: 2 },
-  balanced: { stopLoss: 20, takeProfit: 50, positionPct: 15, maxPositions: 3 },
-  aggressive: { stopLoss: 30, takeProfit: 100, positionPct: 25, maxPositions: 5 },
+  balanced: { stopLoss: 20, takeProfit: 50, positionPct: 15, maxPositions: 2 },
+  aggressive: { stopLoss: 30, takeProfit: 100, positionPct: 25, maxPositions: 2 },
 };
 
 const MIN_CAPITAL_SOL = 0.5;
