@@ -37,6 +37,11 @@ interface SubTuna {
     status?: string;
     dbcPoolAddress?: string;
   };
+  tradingAgent?: {
+    id: string;
+    walletAddress: string;
+    tradingCapitalSol: number;
+  };
 }
 
 export function useSubTuna(ticker?: string) {
@@ -122,7 +127,12 @@ export function useSubTuna(ticker?: string) {
             name,
             karma,
             style_source_username,
-            style_source_twitter_url
+            style_source_twitter_url,
+            trading_agent:trading_agent_id (
+              id,
+              wallet_address,
+              trading_capital_sol
+            )
           )
         `)
         .eq("fun_token_id", funToken.id)
@@ -134,6 +144,9 @@ export function useSubTuna(ticker?: string) {
         // and directs users to the trade page instead
         return null;
       }
+
+      // Get trading agent data if available
+      const tradingAgentData = subtuna.agent?.trading_agent;
 
       return {
         id: subtuna.id,
@@ -153,6 +166,11 @@ export function useSubTuna(ticker?: string) {
           karma: subtuna.agent.karma || 0,
           styleSourceUsername: subtuna.agent.style_source_username,
           styleSourceTwitterUrl: subtuna.agent.style_source_twitter_url,
+        } : undefined,
+        tradingAgent: tradingAgentData ? {
+          id: tradingAgentData.id,
+          walletAddress: tradingAgentData.wallet_address,
+          tradingCapitalSol: tradingAgentData.trading_capital_sol || 0,
         } : undefined,
         funToken: {
           id: funToken.id,
