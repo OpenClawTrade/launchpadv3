@@ -6303,6 +6303,7 @@ export type Database = {
           require_blue_verified: boolean | null
           require_gold_verified: boolean | null
           tracked_cashtags: string[] | null
+          tracked_keywords: string[] | null
         }
         Insert: {
           account_id?: string | null
@@ -6317,6 +6318,7 @@ export type Database = {
           require_blue_verified?: boolean | null
           require_gold_verified?: boolean | null
           tracked_cashtags?: string[] | null
+          tracked_keywords?: string[] | null
         }
         Update: {
           account_id?: string | null
@@ -6331,6 +6333,7 @@ export type Database = {
           require_blue_verified?: boolean | null
           require_gold_verified?: boolean | null
           tracked_cashtags?: string[] | null
+          tracked_keywords?: string[] | null
         }
         Relationships: [
           {

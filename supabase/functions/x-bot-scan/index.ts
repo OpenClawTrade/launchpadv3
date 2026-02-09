@@ -35,6 +35,7 @@ interface AccountWithRules {
   rules: {
     monitored_mentions: string[];
     tracked_cashtags: string[];
+    tracked_keywords: string[];
     min_follower_count: number;
     require_blue_verified: boolean;
     require_gold_verified: boolean;
@@ -160,7 +161,7 @@ function getFollowerCount(tweet: Tweet): number {
   return author.followersCount || author.followers || 0;
 }
 
-function determineMentionType(text: string, mentions: string[], cashtags: string[]): string {
+function determineMentionType(text: string, mentions: string[], cashtags: string[], keywords: string[] = []): string {
   const textLower = text.toLowerCase();
   
   // Check cashtags first
@@ -174,6 +175,13 @@ function determineMentionType(text: string, mentions: string[], cashtags: string
   for (const mention of mentions) {
     if (textLower.includes(mention.toLowerCase())) {
       return `mention:${mention}`;
+    }
+  }
+  
+  // Check keywords
+  for (const keyword of keywords) {
+    if (textLower.includes(keyword.toLowerCase())) {
+      return `keyword:${keyword}`;
     }
   }
   
@@ -249,6 +257,7 @@ serve(async (req) => {
         x_bot_account_rules (
           monitored_mentions,
           tracked_cashtags,
+          tracked_keywords,
           min_follower_count,
           require_blue_verified,
           require_gold_verified,
@@ -274,19 +283,21 @@ serve(async (req) => {
       // Log scan start
       await insertLog(supabase, account.id, "scan", "info", `Starting scan for @${account.username}`);
 
-      // Build search queries from mentions and cashtags
+      // Build search queries from mentions, cashtags, and keywords
       const mentions = rules.monitored_mentions || [];
       const cashtags = rules.tracked_cashtags || [];
+      const keywords = rules.tracked_keywords || [];
       
-      if (mentions.length === 0 && cashtags.length === 0) {
-        await insertLog(supabase, account.id, "scan", "warn", "No mentions or cashtags configured");
+      if (mentions.length === 0 && cashtags.length === 0 && keywords.length === 0) {
+        await insertLog(supabase, account.id, "scan", "warn", "No mentions, cashtags, or keywords configured");
         continue;
       }
 
-      // Search for mentions
+      // Build query parts - mentions and cashtags work as-is, keywords need quotes for exact matching
       const mentionQuery = mentions.map((m: string) => `(${m})`).join(" OR ");
       const cashtagQuery = cashtags.map((t: string) => `(${t})`).join(" OR ");
-      const fullQuery = [mentionQuery, cashtagQuery].filter(Boolean).join(" OR ");
+      const keywordQuery = keywords.map((k: string) => `("${k}")`).join(" OR ");
+      const fullQuery = [mentionQuery, cashtagQuery, keywordQuery].filter(Boolean).join(" OR ");
 
       if (!fullQuery) continue;
 
@@ -376,7 +387,7 @@ serve(async (req) => {
         if (existingReply) continue;
 
         // Add to queue
-        const matchType = determineMentionType(tweet.text, mentions, cashtags);
+        const matchType = determineMentionType(tweet.text, mentions, cashtags, keywords);
         const { error: insertError } = await supabase.from("x_bot_account_queue").insert({
           account_id: account.id,
           tweet_id: tweet.id,
