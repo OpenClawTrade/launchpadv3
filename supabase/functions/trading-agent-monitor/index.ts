@@ -301,19 +301,30 @@ serve(async (req) => {
               }
             }
 
-            // Fetch ACTUAL on-chain token balance instead of relying on DB amount_tokens
-            // This prevents the bug where amount_tokens was stored with wrong decimals
+            // Fetch ACTUAL on-chain token balance from BOTH SPL Token and Token-2022 programs
+            // This prevents partial sells when a token uses Token-2022 instead of standard SPL
             const { PublicKey: PubKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
-            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-              agentKeypair.publicKey,
-              { mint: new PubKey(position.token_address) }
-            );
+            const TOKEN_PROGRAM = new PubKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+            const TOKEN_2022_PROGRAM = new PubKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+            const mintPubkey = new PubKey(position.token_address);
+            const [splAccounts, t22Accounts] = await Promise.all([
+              connection.getParsedTokenAccountsByOwner(
+                agentKeypair.publicKey, { mint: mintPubkey }
+              ).catch(() => ({ value: [] })),
+              connection.getParsedTokenAccountsByOwner(
+                agentKeypair.publicKey, 
+                { programId: TOKEN_2022_PROGRAM }
+              ).then(res => ({
+                value: res.value.filter(a => 
+                  a.account.data.parsed?.info?.mint === position.token_address
+                )
+              })).catch(() => ({ value: [] })),
+            ]);
+            const allTokenAccounts = [...splAccounts.value, ...t22Accounts.value];
             let amountToSell = 0;
-            if (tokenAccounts.value.length > 0) {
-              const rawBalance = tokenAccounts.value[0].account.data.parsed?.info?.tokenAmount?.amount;
-              if (rawBalance) {
-                amountToSell = parseInt(rawBalance);
-              }
+            for (const acc of allTokenAccounts) {
+              const raw = acc.account.data.parsed?.info?.tokenAmount?.amount;
+              if (raw) amountToSell += parseInt(raw);
             }
             if (amountToSell === 0) {
               console.warn(`[trading-agent-monitor] No on-chain balance for ${position.token_symbol}, marking as closed (already sold)`);
