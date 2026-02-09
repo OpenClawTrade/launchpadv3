@@ -24,6 +24,7 @@ interface XBotRulesFormProps {
 
 const DEFAULT_MENTIONS = ["@moltbook", "@openclaw", "@buildtuna", "@tunalaunch"];
 const SUGGESTED_CASHTAGS = ["$TUNA", "$SOL", "$BTC", "$ETH"];
+const SUGGESTED_KEYWORDS = ["openclaw", "buildtuna", "tunalaunch", "moltbook"];
 
 export function XBotRulesForm({
   open,
@@ -34,14 +35,16 @@ export function XBotRulesForm({
   const [saving, setSaving] = useState(false);
   const [newMention, setNewMention] = useState("");
   const [newCashtag, setNewCashtag] = useState("");
+  const [newKeyword, setNewKeyword] = useState("");
 
   const [formData, setFormData] = useState({
     monitored_mentions: account.rules?.monitored_mentions || [],
     tracked_cashtags: account.rules?.tracked_cashtags || [],
+    tracked_keywords: (account.rules as any)?.tracked_keywords || [],
     min_follower_count: account.rules?.min_follower_count || 5000,
     require_blue_verified: account.rules?.require_blue_verified ?? true,
     require_gold_verified: account.rules?.require_gold_verified ?? false,
-    author_cooldown_hours: account.rules?.author_cooldown_hours || 6,
+    author_cooldown_minutes: (account.rules as any)?.author_cooldown_minutes || 10,
     max_replies_per_thread: account.rules?.max_replies_per_thread || 3,
     enabled: account.rules?.enabled ?? true,
   });
@@ -90,6 +93,24 @@ export function XBotRulesForm({
     setFormData((p) => ({
       ...p,
       tracked_cashtags: p.tracked_cashtags.filter((t) => t !== tag),
+    }));
+  };
+
+  const addKeyword = (keyword: string) => {
+    const formatted = keyword.trim().toLowerCase();
+    if (formatted.length > 0 && !formData.tracked_keywords.includes(formatted)) {
+      setFormData((p) => ({
+        ...p,
+        tracked_keywords: [...p.tracked_keywords, formatted],
+      }));
+    }
+    setNewKeyword("");
+  };
+
+  const removeKeyword = (keyword: string) => {
+    setFormData((p) => ({
+      ...p,
+      tracked_keywords: p.tracked_keywords.filter((k: string) => k !== keyword),
     }));
   };
 
@@ -213,7 +234,65 @@ export function XBotRulesForm({
             </div>
           </div>
 
-          {/* Min Follower Count */}
+          {/* Tracked Keywords */}
+          <div className="space-y-3">
+            <Label>Tracked Keywords</Label>
+            <p className="text-xs text-muted-foreground">
+              Plain text keywords (without @ or $) to match in tweets
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {formData.tracked_keywords.map((keyword: string) => (
+                <Badge key={keyword} variant="outline" className="gap-1">
+                  {keyword}
+                  <button
+                    type="button"
+                    onClick={() => removeKeyword(keyword)}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={newKeyword}
+                onChange={(e) => setNewKeyword(e.target.value)}
+                placeholder="keyword"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addKeyword(newKeyword);
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => addKeyword(newKeyword)}
+              >
+                Add
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {SUGGESTED_KEYWORDS.filter(
+                (k) => !formData.tracked_keywords.includes(k)
+              ).map((keyword) => (
+                <Button
+                  key={keyword}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => addKeyword(keyword)}
+                >
+                  + {keyword}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+
           <div className="space-y-3">
             <div className="flex justify-between">
               <Label>Minimum Followers</Label>
@@ -262,17 +341,17 @@ export function XBotRulesForm({
           {/* Cooldown Settings */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="cooldown">Author Cooldown (hours)</Label>
+              <Label htmlFor="cooldown">Author Cooldown (minutes)</Label>
               <Input
                 id="cooldown"
                 type="number"
                 min={1}
-                max={72}
-                value={formData.author_cooldown_hours}
+                max={1440}
+                value={formData.author_cooldown_minutes}
                 onChange={(e) =>
                   setFormData((p) => ({
                     ...p,
-                    author_cooldown_hours: parseInt(e.target.value) || 6,
+                    author_cooldown_minutes: parseInt(e.target.value) || 10,
                   }))
                 }
               />
