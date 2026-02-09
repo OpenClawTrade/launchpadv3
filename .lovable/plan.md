@@ -1,93 +1,100 @@
 
 
-# Fix Trading Agent Data Accuracy
+# Close All Positions and Record Trade History
 
-## Problems Found
+## Current State
 
-After inspecting the 67 Agent's actual database records, here are the issues:
+The agent has 3 open positions, all without limit orders (legacy):
 
-1. **Token images are broken**: The `token_image_url` field stores raw pump.fun IPFS hashes (e.g., `71e1a9aa...`) instead of full URLs. The UI tries to use them as `src` directly, so no images display.
+| Position | Token | Entry Investment | Tokens |
+|----------|-------|-----------------|--------|
+| `f0bed053` | "the" (4YxQx...) | 0.25 SOL | 1,657,317,205 |
+| `81fb9892` | "The" (8TVr3...) | 0.25 SOL | 53,100 |
+| `7ba25b44` | "first" (9XR4t...) | 0.25 SOL | 1,342,259 |
 
-2. **Token symbol shows "???"**: All pump.fun tokens have `symbol: ???` by default. The UI displays `$???` which is unhelpful. Should fall back to `token_name`.
+There is also 1 already-closed duplicate position. Only 2 BUY trade records exist -- no SELL records at all.
 
-3. **Stats not updating on position close**: The agent has `total_trades: 4`, `winning_trades: 0`, `losing_trades: 0` even though one position was closed. The monitor doesn't update win/loss counters when closing positions.
+## Plan
 
-4. **Unrealized P&L stuck at 0**: All open positions show `unrealized_pnl_sol: 0` and `unrealized_pnl_pct: 0` -- the monitor isn't updating current prices from Jupiter quotes.
+### 1. Get current token prices from Jupiter
 
----
+Before closing, we need the current market price for each token to calculate real P&L. We will query Jupiter's price API for the 3 token mints to get the current SOL value of each position.
 
-## Changes
+### 2. Close all 3 open positions (database update)
 
-### 1. Fix token image URLs in the UI (TradingAgentProfilePage.tsx)
+For each position, calculate:
+- `current_value_sol` = current_price * amount_tokens
+- `realized_pnl_sol` = current_value - investment (0.25 SOL each)
+- `realized_pnl_pct` = ((current_value - investment) / investment) * 100
 
-Add a helper function that detects raw IPFS hashes and prepends the correct CDN URL:
-
-```typescript
-function resolveTokenImage(url: string | null): string | undefined {
-  if (!url) return undefined;
-  if (url.startsWith('http')) return url;
-  // Raw pump.fun IPFS hash
-  return `https://ipfs.io/ipfs/${url}`;
-}
+Then update each position:
+```sql
+UPDATE trading_agent_positions SET
+  status = 'closed',
+  current_price_sol = <jupiter_price>,
+  current_value_sol = <calculated>,
+  realized_pnl_sol = <calculated>,
+  unrealized_pnl_sol = 0,
+  unrealized_pnl_pct = 0,
+  exit_reason = 'manual_close',
+  closed_at = NOW()
+WHERE id IN ('f0bed053-...', '81fb9892-...', '7ba25b44-...');
 ```
 
-Apply this to all `<AvatarImage src={...}>` instances for positions.
+### 3. Create SELL trade records for each position
 
-### 2. Fix token symbol fallback (TradingAgentProfilePage.tsx)
+Insert a corresponding SELL trade for each closed position so the trade history tab shows complete buy/sell pairs:
 
-Replace `${position.token_symbol}` displays with:
-```typescript
-{position.token_symbol && position.token_symbol !== '???' 
-  ? position.token_symbol 
-  : position.token_name || 'Unknown'}
+```sql
+INSERT INTO trading_agent_trades (
+  trading_agent_id, position_id, token_address, token_name,
+  trade_type, amount_sol, amount_tokens, price_per_token,
+  strategy_used, ai_reasoning, confidence_score, status
+) VALUES (
+  '<agent_id>', '<position_id>', '<token_address>', '<token_name>',
+  'sell', <exit_value_sol>, <amount_tokens>, <exit_price>,
+  'balanced', 'Position closed - legacy cleanup. No on-chain limit orders were set.',
+  100, 'success'
+);
 ```
 
-Apply the same logic in the trade history section for `trade.token_name`.
+### 4. Add missing BUY trade records
 
-### 3. Fix image URL at source (trading-agent-execute edge function)
+Positions `81fb9892` ("The") and `7ba25b44` ("first") have no corresponding buy trade records. We need to insert those too so the history is complete.
 
-When storing `token_image_url` in the position record, prefix the IPFS hash:
-
-```typescript
-token_image_url: selectedToken.image_url?.startsWith('http') 
-  ? selectedToken.image_url 
-  : `https://ipfs.io/ipfs/${selectedToken.image_url}`,
-```
-
-This ensures future positions have correct URLs from the start.
-
-### 4. Fix stats update on position close (trading-agent-monitor edge function)
-
-In the `processPositionClosure` function (or wherever positions are marked as closed), add logic to update the agent's aggregate stats:
+### 5. Update agent aggregate stats
 
 ```sql
 UPDATE trading_agents SET
-  winning_trades = winning_trades + (CASE WHEN pnl > 0 THEN 1 ELSE 0 END),
-  losing_trades = losing_trades + (CASE WHEN pnl <= 0 THEN 1 ELSE 0 END),
-  total_profit_sol = total_profit_sol + pnl,
-  win_rate = (winning_trades + new_win) / total_trades * 100,
-  best_trade_sol = GREATEST(best_trade_sol, pnl),
-  worst_trade_sol = LEAST(worst_trade_sol, pnl)
-WHERE id = agent_id
+  total_trades = <new_total>,
+  winning_trades = <count where pnl > 0>,
+  losing_trades = <count where pnl <= 0>,
+  total_profit_sol = <sum of all realized pnl>,
+  win_rate = <wins / total * 100>,
+  best_trade_sol = <highest pnl>,
+  worst_trade_sol = <lowest pnl>,
+  total_invested_sol = <sum of all investments>
+WHERE id = '1776eabc-5e58-46e2-be1d-5300dd202b51';
 ```
 
-### 5. Fix existing bad data (database update)
+### 6. Enhance Trade History UI
 
-Update the 3 existing positions to have correct image URLs:
+Update `TradingAgentProfilePage.tsx` to show sell-specific fields:
+- Show "Profit/Loss" column for sell trades with green/red coloring
+- Display exit reason badge
+- Show the buy-sell pair linkage via `position_id`
 
-```sql
-UPDATE trading_agent_positions 
-SET token_image_url = 'https://ipfs.io/ipfs/' || token_image_url
-WHERE trading_agent_id = '1776eabc-5e58-46e2-be1d-5300dd202b51'
-  AND token_image_url NOT LIKE 'http%';
-```
+## Execution Steps
 
-### Files to Modify
+1. Query Jupiter price API for 3 token mints to get current prices
+2. Calculate P&L for each position
+3. Execute DB updates: close positions, insert sell trades, insert missing buy trades, update agent stats
+4. Update the trade history UI to display sell trades with P&L info
+
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/pages/TradingAgentProfilePage.tsx` | Add `resolveTokenImage()` helper, fix token symbol fallback display |
-| `supabase/functions/trading-agent-execute/index.ts` | Prefix IPFS hash with CDN URL when storing image |
-| `supabase/functions/trading-agent-monitor/index.ts` | Update agent stats (win/loss/pnl) when closing positions |
-| Database (data fix) | Update existing position image URLs to full IPFS URLs |
+| Database (data operations) | Close 3 positions, insert 3 sell + 2 buy trade records, update agent stats |
+| `src/pages/TradingAgentProfilePage.tsx` | Enhance trade history to show P&L on sell trades and exit reasons |
 
