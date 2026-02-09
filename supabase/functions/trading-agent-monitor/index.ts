@@ -444,23 +444,51 @@ async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, n
     const solPrice = await fetchSolPrice();
     console.log(`[trading-agent-monitor] Using SOL price: $${solPrice.toFixed(2)}`);
 
-    // Try Jupiter price API first (more reliable)
     for (const address of tokenAddresses) {
+      // 1. Try Jupiter V2 Price API (current working version)
       try {
-        const response = await fetch(`https://price.jup.ag/v6/price?ids=${address}`);
+        const response = await fetch(`https://api.jup.ag/price/v2?ids=${address}`);
         if (response.ok) {
           const data = await response.json();
           if (data.data?.[address]?.price) {
-            // Jupiter returns USD price, convert to SOL
-            priceMap.set(address, data.data[address].price / solPrice);
-            continue;
+            const usdPrice = parseFloat(data.data[address].price);
+            if (!isNaN(usdPrice) && usdPrice > 0) {
+              priceMap.set(address, usdPrice / solPrice);
+              console.log(`[trading-agent-monitor] Jupiter V2 price for ${address.slice(0,8)}: ${(usdPrice / solPrice).toExponential(4)} SOL`);
+              continue;
+            }
           }
         }
       } catch {
-        // Fall through to pump.fun API
+        // Fall through to DexScreener
       }
 
-      // Fallback: pump.fun API
+      // 2. Try DexScreener API (reliable for pump.fun / Meteora tokens)
+      try {
+        const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`, {
+          headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0" }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.pairs && data.pairs.length > 0) {
+            // Get the most liquid pair
+            const pair = data.pairs.sort((a: any, b: any) =>
+              (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+            )[0];
+            // priceNative is SOL-denominated for Solana pairs
+            const priceNative = parseFloat(pair.priceNative);
+            if (!isNaN(priceNative) && priceNative > 0) {
+              priceMap.set(address, priceNative);
+              console.log(`[trading-agent-monitor] DexScreener price for ${address.slice(0,8)}: ${priceNative.toExponential(4)} SOL`);
+              continue;
+            }
+          }
+        }
+      } catch {
+        // Fall through to pump.fun
+      }
+
+      // 3. Fallback: pump.fun API (for pre-graduation tokens)
       try {
         const response = await fetch(`https://frontend-api.pump.fun/coins/${address}`);
         if (response.ok) {
@@ -468,11 +496,15 @@ async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, n
           if (data.virtual_sol_reserves && data.virtual_token_reserves) {
             const priceSol = (data.virtual_sol_reserves / 1e9) / (data.virtual_token_reserves / 1e6);
             priceMap.set(address, priceSol);
+            console.log(`[trading-agent-monitor] pump.fun price for ${address.slice(0,8)}: ${priceSol.toExponential(4)} SOL`);
+            continue;
           }
         }
-      } catch (e) {
-        console.warn(`[trading-agent-monitor] Failed to fetch price for ${address}`);
+      } catch {
+        // No more fallbacks
       }
+
+      console.warn(`[trading-agent-monitor] ⚠️ No price found for token ${address.slice(0,8)}... from any source`);
     }
   } catch (error) {
     console.error("[trading-agent-monitor] Price fetch error:", error);
@@ -483,18 +515,19 @@ async function fetchTokenPrices(tokenAddresses: string[]): Promise<Map<string, n
 
 // Fetch real SOL price from multiple sources
 async function fetchSolPrice(): Promise<number> {
-  // Try Jupiter first (most reliable for Solana ecosystem)
+  // Try Jupiter V2 first (current working version)
   try {
-    const response = await fetch('https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112');
+    const response = await fetch('https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112');
     if (response.ok) {
       const data = await response.json();
-      const price = data.data?.['So11111111111111111111111111111111111111112']?.price;
-      if (price && typeof price === 'number' && price > 0) {
+      const priceStr = data.data?.['So11111111111111111111111111111111111111112']?.price;
+      const price = priceStr ? parseFloat(priceStr) : 0;
+      if (!isNaN(price) && price > 0) {
         return price;
       }
     }
   } catch (e) {
-    console.warn('[trading-agent-monitor] Jupiter SOL price fetch failed');
+    console.warn('[trading-agent-monitor] Jupiter V2 SOL price fetch failed');
   }
   
   // Fallback: CoinGecko
