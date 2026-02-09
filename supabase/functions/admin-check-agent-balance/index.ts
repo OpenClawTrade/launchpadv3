@@ -54,7 +54,7 @@ function buildLoginCookies(fullCookie: string): string {
 }
 
 // Base URL for SubTuna links
-const SUBTUNA_BASE_URL = "https://launchpadv3.lovable.app/t";
+const SUBTUNA_BASE_URL = "https://tuna.fun/t";
 
 // Post to X using linked X-Bot account
 async function postToX(
