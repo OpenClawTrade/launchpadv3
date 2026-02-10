@@ -361,7 +361,14 @@ export default function TradingAgentProfilePage() {
                 {openPositions?.length ? (
                   <div className="space-y-4">
                     {openPositions.map((position) => {
-                      const pnlPct = position.unrealized_pnl_pct || 0;
+                      const isClosed = position.status !== 'open';
+                      // For closed positions, calculate ROI from realized P&L
+                      const pnlSol = isClosed 
+                        ? (position.realized_pnl_sol || 0)
+                        : (position.unrealized_pnl_sol || 0);
+                      const pnlPct = isClosed && position.investment_sol > 0
+                        ? ((position.realized_pnl_sol || 0) / position.investment_sol) * 100
+                        : (position.unrealized_pnl_pct || 0);
                       const isPosProfit = pnlPct >= 0;
                       return (
                         <div key={position.id} className="p-4 rounded-lg border border-border/50 bg-background/50">
@@ -387,8 +394,12 @@ export default function TradingAgentProfilePage() {
                               <div className="truncate">{position.entry_price_sol?.toFixed(10)} SOL</div>
                             </div>
                             <div>
-                              <div className="text-muted-foreground text-xs">Current</div>
-                              <div className="truncate">{position.current_price_sol?.toFixed(10)} SOL</div>
+                              <div className="text-muted-foreground text-xs">{isClosed ? "Exit Value" : "Current"}</div>
+                              <div className="truncate">
+                                {isClosed
+                                  ? `${(position.investment_sol + (position.realized_pnl_sol || 0)).toFixed(4)} SOL`
+                                  : `${position.current_price_sol?.toFixed(10)} SOL`}
+                              </div>
                             </div>
                             <div>
                               <div className="text-muted-foreground text-xs">Investment</div>
@@ -397,7 +408,7 @@ export default function TradingAgentProfilePage() {
                             <div>
                               <div className="text-muted-foreground text-xs">P&L</div>
                               <div className={isPosProfit ? "text-green-400" : "text-red-400"}>
-                                {(position.unrealized_pnl_sol || 0).toFixed(6)} SOL
+                                {pnlSol >= 0 ? "+" : ""}{pnlSol.toFixed(6)} SOL
                               </div>
                             </div>
                           </div>
