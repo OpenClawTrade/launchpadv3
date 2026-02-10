@@ -935,6 +935,54 @@ export type Database = {
           },
         ]
       }
+      claw_agent_bids: {
+        Row: {
+          bid_amount_sol: number
+          bidder_wallet: string
+          claw_agent_id: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          status: string
+          trading_agent_id: string | null
+        }
+        Insert: {
+          bid_amount_sol: number
+          bidder_wallet: string
+          claw_agent_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          status?: string
+          trading_agent_id?: string | null
+        }
+        Update: {
+          bid_amount_sol?: number
+          bidder_wallet?: string
+          claw_agent_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          status?: string
+          trading_agent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_agent_bids_claw_agent_id_fkey"
+            columns: ["claw_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_agent_bids_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claw_agent_fee_distributions: {
         Row: {
           agent_id: string
@@ -1268,6 +1316,27 @@ export type Database = {
           },
         ]
       }
+      claw_creator_claim_locks: {
+        Row: {
+          expires_at: string
+          id: string
+          locked_at: string
+          twitter_username: string
+        }
+        Insert: {
+          expires_at: string
+          id?: string
+          locked_at?: string
+          twitter_username: string
+        }
+        Update: {
+          expires_at?: string
+          id?: string
+          locked_at?: string
+          twitter_username?: string
+        }
+        Relationships: []
+      }
       claw_deployer_wallets: {
         Row: {
           created_at: string | null
@@ -1300,6 +1369,50 @@ export type Database = {
           wallet_address?: string
         }
         Relationships: []
+      }
+      claw_distributions: {
+        Row: {
+          amount_sol: number
+          created_at: string
+          creator_wallet: string | null
+          distribution_type: string
+          fun_token_id: string | null
+          id: string
+          signature: string | null
+          status: string
+          twitter_username: string | null
+        }
+        Insert: {
+          amount_sol?: number
+          created_at?: string
+          creator_wallet?: string | null
+          distribution_type?: string
+          fun_token_id?: string | null
+          id?: string
+          signature?: string | null
+          status?: string
+          twitter_username?: string | null
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string
+          creator_wallet?: string | null
+          distribution_type?: string
+          fun_token_id?: string | null
+          id?: string
+          signature?: string | null
+          status?: string
+          twitter_username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_distributions_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "claw_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       claw_fee_claims: {
         Row: {
@@ -1580,6 +1693,7 @@ export type Database = {
           avg_hold_time_minutes: number | null
           avoided_patterns: string[] | null
           best_trade_sol: number | null
+          bidding_ends_at: string | null
           consecutive_losses: number | null
           consecutive_wins: number | null
           created_at: string | null
@@ -1588,15 +1702,19 @@ export type Database = {
           description: string | null
           fun_token_id: string | null
           id: string
+          is_owned: boolean | null
           last_deposit_at: string | null
           last_strategy_review: string | null
           last_trade_at: string | null
+          launched_at: string | null
           learned_patterns: Json | null
           losing_trades: number | null
           max_concurrent_positions: number | null
           max_position_size_sol: number | null
           mint_address: string | null
           name: string
+          owner_wallet: string | null
+          ownership_transferred_at: string | null
           preferred_narratives: string[] | null
           status: string | null
           stop_loss_pct: number | null
@@ -1624,6 +1742,7 @@ export type Database = {
           avg_hold_time_minutes?: number | null
           avoided_patterns?: string[] | null
           best_trade_sol?: number | null
+          bidding_ends_at?: string | null
           consecutive_losses?: number | null
           consecutive_wins?: number | null
           created_at?: string | null
@@ -1632,15 +1751,19 @@ export type Database = {
           description?: string | null
           fun_token_id?: string | null
           id?: string
+          is_owned?: boolean | null
           last_deposit_at?: string | null
           last_strategy_review?: string | null
           last_trade_at?: string | null
+          launched_at?: string | null
           learned_patterns?: Json | null
           losing_trades?: number | null
           max_concurrent_positions?: number | null
           max_position_size_sol?: number | null
           mint_address?: string | null
           name: string
+          owner_wallet?: string | null
+          ownership_transferred_at?: string | null
           preferred_narratives?: string[] | null
           status?: string | null
           stop_loss_pct?: number | null
@@ -1668,6 +1791,7 @@ export type Database = {
           avg_hold_time_minutes?: number | null
           avoided_patterns?: string[] | null
           best_trade_sol?: number | null
+          bidding_ends_at?: string | null
           consecutive_losses?: number | null
           consecutive_wins?: number | null
           created_at?: string | null
@@ -1676,15 +1800,19 @@ export type Database = {
           description?: string | null
           fun_token_id?: string | null
           id?: string
+          is_owned?: boolean | null
           last_deposit_at?: string | null
           last_strategy_review?: string | null
           last_trade_at?: string | null
+          launched_at?: string | null
           learned_patterns?: Json | null
           losing_trades?: number | null
           max_concurrent_positions?: number | null
           max_position_size_sol?: number | null
           mint_address?: string | null
           name?: string
+          owner_wallet?: string | null
+          ownership_transferred_at?: string | null
           preferred_narratives?: string[] | null
           status?: string | null
           stop_loss_pct?: number | null
@@ -7701,6 +7829,10 @@ export type Database = {
         Args: { p_lock_duration_seconds?: number; p_token_id: string }
         Returns: boolean
       }
+      acquire_claw_creator_claim_lock: {
+        Args: { p_duration_seconds?: number; p_twitter_username: string }
+        Returns: boolean
+      }
       acquire_creator_claim_lock: {
         Args: { p_duration_seconds?: number; p_twitter_username: string }
         Returns: boolean
@@ -8284,6 +8416,10 @@ export type Database = {
       is_ip_banned: { Args: { _ip_address: string }; Returns: boolean }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
       release_claim_lock: { Args: { p_token_id: string }; Returns: undefined }
+      release_claw_creator_claim_lock: {
+        Args: { p_twitter_username: string }
+        Returns: undefined
+      }
       release_creator_claim_lock: {
         Args: { p_twitter_username: string }
         Returns: undefined

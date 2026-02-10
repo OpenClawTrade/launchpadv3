@@ -311,3 +311,27 @@ verify_jwt = false
 
 [functions.trading-agent-force-sell]
 verify_jwt = false
+
+[functions.claw-trading-create]
+verify_jwt = false
+
+[functions.claw-trading-generate]
+verify_jwt = false
+
+[functions.claw-idea-generate]
+verify_jwt = false
+
+[functions.claw-claim-fees]
+verify_jwt = false
+
+[functions.claw-distribute]
+verify_jwt = false
+
+[functions.claw-creator-claim]
+verify_jwt = false
+
+[functions.claw-agent-bid]
+verify_jwt = false
+
+[functions.claw-agent-bid-settle]
+verify_jwt = false
