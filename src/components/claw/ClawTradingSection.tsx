@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Shield, Target, Zap, Bot, Wallet, Lock, TrendingUp } from "lucide-react";
-import { useTradingAgents, useTradingAgentLeaderboard } from "@/hooks/useTradingAgents";
+import { useClawTradingAgents, useClawTradingAgentLeaderboard } from "@/hooks/useClawTradingAgents";
 import { TradingAgentCard, TradingAgentCardSkeleton, CreateTradingAgentModal, FearGreedGauge } from "@/components/trading";
 
 export function ClawTradingSection() {
@@ -17,18 +17,18 @@ export function ClawTradingSection() {
   const BETA_PASSWORD = "tuna";
   const isUnlocked = betaPassword.toLowerCase() === BETA_PASSWORD;
 
-  const { data: agents, isLoading } = useTradingAgents({
+  const { data: agents, isLoading } = useClawTradingAgents({
     status: "active",
     strategy: selectedStrategy,
     limit: 12,
   });
 
-  const { data: pendingAgents, isLoading: pendingLoading } = useTradingAgents({
+  const { data: pendingAgents, isLoading: pendingLoading } = useClawTradingAgents({
     status: "pending",
     limit: 12,
   });
 
-  const { data: leaderboard } = useTradingAgentLeaderboard(5);
+  const { data: leaderboard } = useClawTradingAgentLeaderboard(5);
 
   const strategies = [
     {
