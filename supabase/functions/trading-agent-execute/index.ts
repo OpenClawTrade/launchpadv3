@@ -305,6 +305,38 @@ serve(async (req) => {
           continue;
         }
 
+        // === ON-CHAIN POSITION GUARD: Count actual token holdings ===
+        const agentGuardKp = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
+        if (!agentGuardKp) {
+          console.error(`[trading-agent-execute] Failed to decrypt wallet for on-chain guard: ${agent.name}`);
+          continue;
+        }
+        const { PublicKey: GuardPubKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
+        const TOKEN_PROGRAM_GUARD = new GuardPubKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+        const TOKEN_2022_PROGRAM_GUARD = new GuardPubKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+        const WSOL_MINT_PK = "So11111111111111111111111111111111111111112";
+        const SKIP_MINTS_GUARD = new Set([WSOL_MINT_PK, "11111111111111111111111111111111"]);
+
+        const [splGuardAccts, t22GuardAccts] = await Promise.all([
+          connection.getParsedTokenAccountsByOwner(agentGuardKp.publicKey, { programId: TOKEN_PROGRAM_GUARD }).catch(() => ({ value: [] })),
+          connection.getParsedTokenAccountsByOwner(agentGuardKp.publicKey, { programId: TOKEN_2022_PROGRAM_GUARD }).catch(() => ({ value: [] })),
+        ]);
+        const allGuardAccounts = [...(splGuardAccts.value || []), ...(t22GuardAccts.value || [])];
+        const onChainTokenCount = allGuardAccounts.filter(a => {
+          const info = a.account.data.parsed?.info;
+          if (!info) return false;
+          const mint = info.mint;
+          const uiAmount = info.tokenAmount?.uiAmount || 0;
+          return uiAmount > 0 && !SKIP_MINTS_GUARD.has(mint);
+        }).length;
+
+        const strategy = STRATEGIES[agent.strategy_type as keyof typeof STRATEGIES] || STRATEGIES.balanced;
+
+        if (onChainTokenCount >= strategy.maxPositions) {
+          console.warn(`[trading-agent-execute] 🛑 ON-CHAIN GUARD BLOCKED ${agent.name}: ${onChainTokenCount} tokens held on-chain >= max ${strategy.maxPositions}`);
+          continue;
+        }
+
         // Get ALL unclosed positions (open, sell_failed, stopped_out without closed_at)
         const { data: openPositions } = await supabase
           .from("trading_agent_positions")
@@ -313,8 +345,12 @@ serve(async (req) => {
           .in("status", ["open", "sell_failed", "stopped_out"])
           .is("closed_at", null);
 
-        const strategy = STRATEGIES[agent.strategy_type as keyof typeof STRATEGIES] || STRATEGIES.balanced;
         const unclosedCount = openPositions?.length || 0;
+
+        // Log desync if DB and on-chain disagree
+        if (unclosedCount !== onChainTokenCount) {
+          console.warn(`[trading-agent-execute] ⚠️ DESYNC for ${agent.name}: DB=${unclosedCount} vs Chain=${onChainTokenCount}`);
+        }
 
         if (unclosedCount >= strategy.maxPositions) {
           console.log(`[trading-agent-execute] Agent ${agent.name} blocked: ${unclosedCount} unclosed positions >= max ${strategy.maxPositions}`);
@@ -564,11 +600,38 @@ serve(async (req) => {
         const selectedToken = availableTokens.find(t => t.mint_address === aiAnalysis.selectedToken);
         if (!selectedToken) continue;
 
-        // Decrypt agent's wallet private key
-        const agentKeypair = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
-        if (!agentKeypair) {
-          console.error(`[trading-agent-execute] Failed to decrypt wallet for ${agent.name}`);
-          continue;
+        // Use the keypair already decrypted for the on-chain guard
+        const agentKeypair = agentGuardKp;
+
+        // === PRE-BUY CLEANUP: Cancel ALL existing trigger orders to prevent conflicts ===
+        const jupiterApiKeyCleanup = Deno.env.get("JUPITER_API_KEY");
+        if (jupiterApiKeyCleanup) {
+          try {
+            const cleanupResp = await fetchWithRetry(
+              `${JUPITER_TRIGGER_URL}/getTriggerOrders?user=${agentKeypair.publicKey.toBase58()}&orderStatus=active`,
+              { headers: { 'x-api-key': jupiterApiKeyCleanup } }
+            );
+            if (cleanupResp.ok) {
+              const cleanupData = await cleanupResp.json();
+              const activeOrders = cleanupData.orders || cleanupData;
+              if (Array.isArray(activeOrders) && activeOrders.length > 0) {
+                console.warn(`[trading-agent-execute] 🧹 PRE-BUY CLEANUP: Found ${activeOrders.length} active orders, cancelling all...`);
+                for (const order of activeOrders) {
+                  const orderKey = order.account || order.orderKey || order.publicKey;
+                  if (orderKey) {
+                    try {
+                      await cancelJupiterLimitOrderExecute(connection, agentKeypair, jupiterApiKeyCleanup, orderKey);
+                      console.log(`[trading-agent-execute] Cancelled orphaned order: ${orderKey}`);
+                    } catch (cancelErr) {
+                      console.warn(`[trading-agent-execute] Failed to cancel order ${orderKey}:`, cancelErr);
+                    }
+                  }
+                }
+              }
+            }
+          } catch (cleanupErr) {
+            console.warn(`[trading-agent-execute] Pre-buy cleanup failed (non-fatal):`, cleanupErr);
+          }
         }
 
         // Execute Jupiter swap: SOL -> Token
@@ -663,7 +726,48 @@ serve(async (req) => {
               console.log(`[trading-agent-execute] ✅ SL trigger order placed: ${slOrderPubkey}`);
             }
           } catch (limitOrderError) {
-            console.warn(`[trading-agent-execute] Trigger order placement failed, falling back to DB-based monitoring:`, limitOrderError);
+            console.warn(`[trading-agent-execute] Trigger order placement failed:`, limitOrderError);
+          }
+
+          // === ROLLBACK: If BOTH TP and SL failed, sell tokens back immediately ===
+          if (!tpOrderPubkey && !slOrderPubkey) {
+            console.error(`[trading-agent-execute] 🚨 CRITICAL: Both TP and SL placement failed for ${selectedToken.symbol}. Rolling back position.`);
+            try {
+              // Fetch on-chain balance to sell back
+              const mintPubkeyRollback = new GuardPubKey(selectedToken.mint_address);
+              const [splRollback, t22Rollback] = await Promise.all([
+                connection.getParsedTokenAccountsByOwner(agentKeypair.publicKey, { mint: mintPubkeyRollback }).catch(() => ({ value: [] })),
+                connection.getParsedTokenAccountsByOwner(agentKeypair.publicKey, { programId: TOKEN_2022_PROGRAM_GUARD })
+                  .then(res => ({ value: res.value.filter(a => a.account.data.parsed?.info?.mint === selectedToken.mint_address) }))
+                  .catch(() => ({ value: [] })),
+              ]);
+              let rollbackAmount = 0;
+              for (const acc of [...(splRollback.value || []), ...(t22Rollback.value || [])]) {
+                const raw = acc.account.data.parsed?.info?.tokenAmount?.amount;
+                if (raw) rollbackAmount += parseInt(raw);
+              }
+              if (rollbackAmount > 0) {
+                const rollbackSwap = await executeJupiterSwapWithJito(
+                  connection, agentKeypair, selectedToken.mint_address, WSOL_MINT,
+                  rollbackAmount, 1500 // 15% slippage for emergency sell
+                );
+                if (rollbackSwap.success) {
+                  console.log(`[trading-agent-execute] ✅ Rollback sell successful: ${rollbackSwap.signature}`);
+                }
+              }
+              // Delete the position record
+              await supabase.from("trading_agent_positions").delete().eq("id", position.id);
+              // Restore agent capital
+              await supabase.from("trading_agents").update({
+                trading_capital_sol: (agent.trading_capital_sol || 0),
+                total_invested_sol: Math.max(0, (agent.total_invested_sol || 0) - positionSize),
+                total_trades: Math.max(0, (agent.total_trades || 0) - 1),
+              }).eq("id", agent.id);
+              console.log(`[trading-agent-execute] Position rolled back and deleted for ${selectedToken.symbol}`);
+              continue; // Skip to next agent
+            } catch (rollbackErr) {
+              console.error(`[trading-agent-execute] Rollback failed (position unprotected!):`, rollbackErr);
+            }
           }
         }
 
@@ -1029,6 +1133,65 @@ async function createJupiterLimitOrder(
   } catch (error) {
     console.error('[trading-agent-execute] createJupiterLimitOrder error:', error);
     return null;
+  }
+}
+
+// Cancel a Jupiter trigger order (used for pre-buy cleanup)
+async function cancelJupiterLimitOrderExecute(
+  connection: Connection,
+  payer: Keypair,
+  jupiterApiKey: string,
+  orderPubkey: string
+): Promise<boolean> {
+  try {
+    const response = await fetchWithRetry(`${JUPITER_TRIGGER_URL}/cancelOrder`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': jupiterApiKey,
+      },
+      body: JSON.stringify({
+        maker: payer.publicKey.toBase58(),
+        order: orderPubkey,
+        computeUnitPrice: "auto",
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(`[trading-agent-execute] cancelOrder failed: ${response.status}`);
+      return false;
+    }
+
+    const data = await response.json();
+    const txBase64 = data.transaction;
+    if (!txBase64) return false;
+
+    const txBuf = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
+    const transaction = VersionedTransaction.deserialize(txBuf);
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    transaction.message.recentBlockhash = blockhash;
+    transaction.sign([payer]);
+
+    // Execute via Jupiter
+    const signedTxBase64 = btoa(String.fromCharCode(...transaction.serialize()));
+    const execResponse = await fetchWithRetry(`${JUPITER_TRIGGER_URL}/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': jupiterApiKey },
+      body: JSON.stringify({ signedTransaction: signedTxBase64 }),
+    });
+
+    if (execResponse.ok) {
+      console.log(`[trading-agent-execute] ✅ Cancelled limit order: ${orderPubkey}`);
+      return true;
+    }
+
+    // Fallback: send directly
+    const sig = await connection.sendTransaction(transaction, { skipPreflight: true, maxRetries: 3 });
+    console.log(`[trading-agent-execute] ✅ Cancelled limit order via direct send: ${sig}`);
+    return true;
+  } catch (error) {
+    console.error(`[trading-agent-execute] cancelJupiterLimitOrderExecute error:`, error);
+    return false;
   }
 }
 
