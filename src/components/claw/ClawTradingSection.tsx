@@ -1,21 +1,17 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Shield, Target, Zap, Bot, Wallet, Lock, TrendingUp } from "lucide-react";
+import { Shield, Target, Zap, Bot, Wallet, TrendingUp } from "lucide-react";
 import { useClawTradingAgents, useClawTradingAgentLeaderboard } from "@/hooks/useClawTradingAgents";
-import { TradingAgentCard, TradingAgentCardSkeleton, CreateTradingAgentModal, FearGreedGauge } from "@/components/trading";
+import { TradingAgentCard, TradingAgentCardSkeleton, FearGreedGauge } from "@/components/trading";
+import { ClawAdminLaunchPanel } from "@/components/claw/ClawAdminLaunchPanel";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export function ClawTradingSection() {
   const [selectedStrategy, setSelectedStrategy] = useState<string | undefined>();
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [betaPassword, setBetaPassword] = useState("");
-  const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "funding" | "top">("active");
 
-  const BETA_PASSWORD = "tuna";
-  const isUnlocked = betaPassword.toLowerCase() === BETA_PASSWORD;
+  // TODO: pass actual connected wallet address here
+  const { isAdmin } = useIsAdmin(null);
 
   const { data: agents, isLoading } = useClawTradingAgents({
     status: "active",
@@ -224,69 +220,20 @@ export function ClawTradingSection() {
         <div className="space-y-4">
           <FearGreedGauge />
 
-          {/* Create Agent Card */}
-          <div className="claw-card p-5 relative overflow-hidden" style={{ borderColor: "hsl(var(--claw-primary) / 0.3)" }}>
-            <div className="absolute top-0 right-0 text-[10px] font-bold px-3 py-1 rounded-bl-lg" style={{ background: "hsl(var(--claw-primary))", color: "#000" }}>
-              BETA
-            </div>
-            <h3 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: "hsl(var(--claw-text))" }}>
-              <Wallet className="h-4 w-4" style={{ color: "hsl(var(--claw-primary))" }} />
-              🦞 Create Trading Agent
-            </h3>
-            <div className="mb-3 p-2 rounded-lg" style={{ background: "hsl(var(--claw-primary) / 0.1)", border: "1px solid hsl(var(--claw-primary) / 0.2)" }}>
-              <p className="text-xs font-medium flex items-center gap-1" style={{ color: "hsl(var(--claw-primary))" }}>
-                <Lock className="h-3 w-3" /> Beta - Not yet live
+          {/* Admin Launch Panel or Info */}
+          {isAdmin ? (
+            <ClawAdminLaunchPanel />
+          ) : (
+            <div className="claw-card p-5" style={{ borderColor: "hsl(var(--claw-primary) / 0.3)" }}>
+              <h3 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: "hsl(var(--claw-text))" }}>
+                <Wallet className="h-4 w-4" style={{ color: "hsl(var(--claw-primary))" }} />
+                🦞 Claw Trading Agents
+              </h3>
+              <p className="text-xs" style={{ color: "hsl(var(--claw-muted))" }}>
+                Agents are launched by admins and available for bidding. Place bids to take ownership and earn fees! 🦞
               </p>
             </div>
-            <p className="text-xs mb-3" style={{ color: "hsl(var(--claw-muted))" }}>
-              Deploy your own autonomous trading agent with encrypted wallet management and AI-driven strategy execution. 🦞
-            </p>
-
-            {!showPasswordInput ? (
-              <button
-                onClick={() => setShowPasswordInput(true)}
-                className="w-full py-2 px-3 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  border: "1px solid hsl(var(--claw-primary) / 0.3)",
-                  color: "hsl(var(--claw-primary))",
-                  background: "transparent",
-                }}
-              >
-                <Lock className="h-3 w-3 inline mr-2" />
-                Admin Access Required
-              </button>
-            ) : !isUnlocked ? (
-              <div className="space-y-2">
-                <Input
-                  type="password"
-                  placeholder="Enter admin password"
-                  value={betaPassword}
-                  onChange={(e) => setBetaPassword(e.target.value)}
-                  className="h-8 text-sm"
-                  style={{
-                    background: "hsl(var(--claw-bg))",
-                    borderColor: "hsl(var(--claw-primary) / 0.3)",
-                    color: "hsl(var(--claw-text))",
-                  }}
-                />
-                <p className="text-xs text-center" style={{ color: "hsl(var(--claw-muted))" }}>
-                  Contact team for beta access
-                </p>
-              </div>
-            ) : (
-              <button
-                onClick={() => setCreateModalOpen(true)}
-                className="w-full py-2 px-3 rounded-lg text-sm font-bold"
-                style={{
-                  background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))",
-                  color: "#000",
-                }}
-              >
-                <Bot className="h-3 w-3 inline mr-2" />
-                🦞 Create Agent
-              </button>
-            )}
-          </div>
+          )}
 
           {/* Technical Architecture */}
           <div className="claw-card p-4">
@@ -309,8 +256,6 @@ export function ClawTradingSection() {
           </div>
         </div>
       </div>
-
-      <CreateTradingAgentModal open={createModalOpen} onOpenChange={setCreateModalOpen} />
     </section>
   );
 }
