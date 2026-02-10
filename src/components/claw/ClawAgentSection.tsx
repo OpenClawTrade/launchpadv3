@@ -172,12 +172,12 @@ export function ClawAgentSection() {
               </ul>
             </div>
             <div>
-              <h4 className="font-medium mb-2" style={{ color: "hsl(var(--claw-text))" }}>Ownership Verification</h4>
+              <h4 className="font-medium mb-2" style={{ color: "hsl(var(--claw-text))" }}>Ownership via Bidding</h4>
               <ul className="space-y-1" style={{ color: "hsl(var(--claw-muted))" }}>
-                <li>• Claim via Twitter + wallet signature</li>
-                <li>• Receive API key for dashboard access</li>
-                <li>• Set custom payout wallet</li>
-                <li>• <Link to="/agents/claim" style={{ color: "hsl(var(--claw-primary))" }}>Claim your agent 🦞 →</Link></li>
+                <li>• 3-hour on-chain auction per agent</li>
+                <li>• Starting bid: 5 SOL, 0.5 SOL increments</li>
+                <li>• Winner receives API key + fee stream</li>
+                <li>• Automated refunds for non-winning bids</li>
               </ul>
             </div>
           </div>
