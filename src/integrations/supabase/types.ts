@@ -935,6 +935,1129 @@ export type Database = {
           },
         ]
       }
+      claw_agent_fee_distributions: {
+        Row: {
+          agent_id: string
+          amount_sol: number
+          completed_at: string | null
+          created_at: string | null
+          fun_token_id: string
+          id: string
+          signature: string | null
+          status: string | null
+        }
+        Insert: {
+          agent_id: string
+          amount_sol: number
+          completed_at?: string | null
+          created_at?: string | null
+          fun_token_id: string
+          id?: string
+          signature?: string | null
+          status?: string | null
+        }
+        Update: {
+          agent_id?: string
+          amount_sol?: number
+          completed_at?: string | null
+          created_at?: string | null
+          fun_token_id?: string
+          id?: string
+          signature?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_agent_fee_distributions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_agent_fee_distributions_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "claw_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_agent_tokens: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          fun_token_id: string
+          id: string
+          source_platform: string | null
+          source_post_id: string | null
+          source_post_url: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          fun_token_id: string
+          id?: string
+          source_platform?: string | null
+          source_post_id?: string | null
+          source_post_url?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          fun_token_id?: string
+          id?: string
+          source_platform?: string | null
+          source_post_id?: string | null
+          source_post_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_agent_tokens_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_agent_tokens_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "claw_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_agents: {
+        Row: {
+          api_key_hash: string
+          api_key_prefix: string
+          avatar_url: string | null
+          comment_count: number | null
+          created_at: string | null
+          description: string | null
+          has_posted_welcome: boolean | null
+          id: string
+          karma: number | null
+          last_auto_engage_at: string | null
+          last_cross_visit_at: string | null
+          last_launch_at: string | null
+          last_social_activity_at: string | null
+          launches_today: number | null
+          name: string
+          post_count: number | null
+          status: string | null
+          style_learned_at: string | null
+          style_source_twitter_url: string | null
+          style_source_username: string | null
+          total_fees_claimed_sol: number | null
+          total_fees_earned_sol: number | null
+          total_tokens_launched: number | null
+          trading_agent_id: string | null
+          twitter_handle: string | null
+          updated_at: string | null
+          verified_at: string | null
+          wallet_address: string
+          writing_style: Json | null
+        }
+        Insert: {
+          api_key_hash: string
+          api_key_prefix: string
+          avatar_url?: string | null
+          comment_count?: number | null
+          created_at?: string | null
+          description?: string | null
+          has_posted_welcome?: boolean | null
+          id?: string
+          karma?: number | null
+          last_auto_engage_at?: string | null
+          last_cross_visit_at?: string | null
+          last_launch_at?: string | null
+          last_social_activity_at?: string | null
+          launches_today?: number | null
+          name: string
+          post_count?: number | null
+          status?: string | null
+          style_learned_at?: string | null
+          style_source_twitter_url?: string | null
+          style_source_username?: string | null
+          total_fees_claimed_sol?: number | null
+          total_fees_earned_sol?: number | null
+          total_tokens_launched?: number | null
+          trading_agent_id?: string | null
+          twitter_handle?: string | null
+          updated_at?: string | null
+          verified_at?: string | null
+          wallet_address: string
+          writing_style?: Json | null
+        }
+        Update: {
+          api_key_hash?: string
+          api_key_prefix?: string
+          avatar_url?: string | null
+          comment_count?: number | null
+          created_at?: string | null
+          description?: string | null
+          has_posted_welcome?: boolean | null
+          id?: string
+          karma?: number | null
+          last_auto_engage_at?: string | null
+          last_cross_visit_at?: string | null
+          last_launch_at?: string | null
+          last_social_activity_at?: string | null
+          launches_today?: number | null
+          name?: string
+          post_count?: number | null
+          status?: string | null
+          style_learned_at?: string | null
+          style_source_twitter_url?: string | null
+          style_source_username?: string | null
+          total_fees_claimed_sol?: number | null
+          total_fees_earned_sol?: number | null
+          total_tokens_launched?: number | null
+          trading_agent_id?: string | null
+          twitter_handle?: string | null
+          updated_at?: string | null
+          verified_at?: string | null
+          wallet_address?: string
+          writing_style?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_agents_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_comments: {
+        Row: {
+          author_agent_id: string | null
+          author_id: string | null
+          content: string
+          created_at: string | null
+          downvotes: number | null
+          id: string
+          is_agent_comment: boolean | null
+          parent_comment_id: string | null
+          post_id: string
+          score: number | null
+          updated_at: string | null
+          upvotes: number | null
+        }
+        Insert: {
+          author_agent_id?: string | null
+          author_id?: string | null
+          content: string
+          created_at?: string | null
+          downvotes?: number | null
+          id?: string
+          is_agent_comment?: boolean | null
+          parent_comment_id?: string | null
+          post_id: string
+          score?: number | null
+          updated_at?: string | null
+          upvotes?: number | null
+        }
+        Update: {
+          author_agent_id?: string | null
+          author_id?: string | null
+          content?: string
+          created_at?: string | null
+          downvotes?: number | null
+          id?: string
+          is_agent_comment?: boolean | null
+          parent_comment_id?: string | null
+          post_id?: string
+          score?: number | null
+          updated_at?: string | null
+          upvotes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_comments_author_agent_id_fkey"
+            columns: ["author_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "claw_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "claw_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_communities: {
+        Row: {
+          agent_id: string | null
+          banner_url: string | null
+          created_at: string | null
+          description: string | null
+          fun_token_id: string | null
+          icon_url: string | null
+          id: string
+          member_count: number | null
+          name: string
+          post_count: number | null
+          rules: Json | null
+          settings: Json | null
+          style_source_username: string | null
+          ticker: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          banner_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          fun_token_id?: string | null
+          icon_url?: string | null
+          id?: string
+          member_count?: number | null
+          name: string
+          post_count?: number | null
+          rules?: Json | null
+          settings?: Json | null
+          style_source_username?: string | null
+          ticker?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          banner_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          fun_token_id?: string | null
+          icon_url?: string | null
+          id?: string
+          member_count?: number | null
+          name?: string
+          post_count?: number | null
+          rules?: Json | null
+          settings?: Json | null
+          style_source_username?: string | null
+          ticker?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_communities_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_communities_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: true
+            referencedRelation: "claw_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_deployer_wallets: {
+        Row: {
+          created_at: string | null
+          encrypted_private_key: string
+          funded_sol: number | null
+          id: string
+          reclaimed_at: string | null
+          remaining_sol: number | null
+          token_mint: string | null
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted_private_key: string
+          funded_sol?: number | null
+          id?: string
+          reclaimed_at?: string | null
+          remaining_sol?: number | null
+          token_mint?: string | null
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string | null
+          encrypted_private_key?: string
+          funded_sol?: number | null
+          id?: string
+          reclaimed_at?: string | null
+          remaining_sol?: number | null
+          token_mint?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      claw_fee_claims: {
+        Row: {
+          claimed_at: string | null
+          claimed_sol: number | null
+          created_at: string | null
+          creator_distributed: boolean | null
+          creator_distribution_id: string | null
+          fun_token_id: string | null
+          id: string
+          pool_address: string
+          signature: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_sol?: number | null
+          created_at?: string | null
+          creator_distributed?: boolean | null
+          creator_distribution_id?: string | null
+          fun_token_id?: string | null
+          id?: string
+          pool_address: string
+          signature?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_sol?: number | null
+          created_at?: string | null
+          creator_distributed?: boolean | null
+          creator_distribution_id?: string | null
+          fun_token_id?: string | null
+          id?: string
+          pool_address?: string
+          signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_fee_claims_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "claw_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_posts: {
+        Row: {
+          author_agent_id: string | null
+          author_id: string | null
+          comment_count: number | null
+          content: string | null
+          created_at: string | null
+          downvotes: number | null
+          guest_downvotes: number | null
+          guest_upvotes: number | null
+          id: string
+          image_url: string | null
+          is_agent_post: boolean | null
+          is_locked: boolean | null
+          is_pinned: boolean | null
+          link_url: string | null
+          post_type: string | null
+          score: number | null
+          slug: string | null
+          subtuna_id: string
+          title: string
+          updated_at: string | null
+          upvotes: number | null
+          x_post_id: string | null
+        }
+        Insert: {
+          author_agent_id?: string | null
+          author_id?: string | null
+          comment_count?: number | null
+          content?: string | null
+          created_at?: string | null
+          downvotes?: number | null
+          guest_downvotes?: number | null
+          guest_upvotes?: number | null
+          id?: string
+          image_url?: string | null
+          is_agent_post?: boolean | null
+          is_locked?: boolean | null
+          is_pinned?: boolean | null
+          link_url?: string | null
+          post_type?: string | null
+          score?: number | null
+          slug?: string | null
+          subtuna_id: string
+          title: string
+          updated_at?: string | null
+          upvotes?: number | null
+          x_post_id?: string | null
+        }
+        Update: {
+          author_agent_id?: string | null
+          author_id?: string | null
+          comment_count?: number | null
+          content?: string | null
+          created_at?: string | null
+          downvotes?: number | null
+          guest_downvotes?: number | null
+          guest_upvotes?: number | null
+          id?: string
+          image_url?: string | null
+          is_agent_post?: boolean | null
+          is_locked?: boolean | null
+          is_pinned?: boolean | null
+          link_url?: string | null
+          post_type?: string | null
+          score?: number | null
+          slug?: string | null
+          subtuna_id?: string
+          title?: string
+          updated_at?: string | null
+          upvotes?: number | null
+          x_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_posts_author_agent_id_fkey"
+            columns: ["author_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_posts_subtuna_id_fkey"
+            columns: ["subtuna_id"]
+            isOneToOne: false
+            referencedRelation: "claw_communities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_tokens: {
+        Row: {
+          agent_fee_share_bps: number | null
+          agent_id: string | null
+          bonding_progress: number | null
+          chain: string | null
+          created_at: string | null
+          creator_fee_bps: number | null
+          creator_wallet: string | null
+          dbc_pool_address: string | null
+          deployer_wallet: string | null
+          description: string | null
+          discord_url: string | null
+          fair_launch_duration_mins: number | null
+          fair_launch_ends_at: string | null
+          fee_mode: string | null
+          holder_count: number | null
+          id: string
+          image_url: string | null
+          is_trading_agent_token: boolean | null
+          last_distribution_at: string | null
+          launchpad_type: string | null
+          market_cap_sol: number | null
+          mint_address: string | null
+          name: string
+          price_24h_ago: number | null
+          price_change_24h: number | null
+          price_sol: number | null
+          starting_mcap_usd: number | null
+          status: string | null
+          telegram_url: string | null
+          ticker: string
+          total_fees_claimed: number | null
+          total_fees_earned: number | null
+          trading_agent_id: string | null
+          trading_fee_bps: number | null
+          twitter_url: string | null
+          updated_at: string | null
+          volume_24h_sol: number | null
+          website_url: string | null
+        }
+        Insert: {
+          agent_fee_share_bps?: number | null
+          agent_id?: string | null
+          bonding_progress?: number | null
+          chain?: string | null
+          created_at?: string | null
+          creator_fee_bps?: number | null
+          creator_wallet?: string | null
+          dbc_pool_address?: string | null
+          deployer_wallet?: string | null
+          description?: string | null
+          discord_url?: string | null
+          fair_launch_duration_mins?: number | null
+          fair_launch_ends_at?: string | null
+          fee_mode?: string | null
+          holder_count?: number | null
+          id?: string
+          image_url?: string | null
+          is_trading_agent_token?: boolean | null
+          last_distribution_at?: string | null
+          launchpad_type?: string | null
+          market_cap_sol?: number | null
+          mint_address?: string | null
+          name: string
+          price_24h_ago?: number | null
+          price_change_24h?: number | null
+          price_sol?: number | null
+          starting_mcap_usd?: number | null
+          status?: string | null
+          telegram_url?: string | null
+          ticker: string
+          total_fees_claimed?: number | null
+          total_fees_earned?: number | null
+          trading_agent_id?: string | null
+          trading_fee_bps?: number | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          volume_24h_sol?: number | null
+          website_url?: string | null
+        }
+        Update: {
+          agent_fee_share_bps?: number | null
+          agent_id?: string | null
+          bonding_progress?: number | null
+          chain?: string | null
+          created_at?: string | null
+          creator_fee_bps?: number | null
+          creator_wallet?: string | null
+          dbc_pool_address?: string | null
+          deployer_wallet?: string | null
+          description?: string | null
+          discord_url?: string | null
+          fair_launch_duration_mins?: number | null
+          fair_launch_ends_at?: string | null
+          fee_mode?: string | null
+          holder_count?: number | null
+          id?: string
+          image_url?: string | null
+          is_trading_agent_token?: boolean | null
+          last_distribution_at?: string | null
+          launchpad_type?: string | null
+          market_cap_sol?: number | null
+          mint_address?: string | null
+          name?: string
+          price_24h_ago?: number | null
+          price_change_24h?: number | null
+          price_sol?: number | null
+          starting_mcap_usd?: number | null
+          status?: string | null
+          telegram_url?: string | null
+          ticker?: string
+          total_fees_claimed?: number | null
+          total_fees_earned?: number | null
+          trading_agent_id?: string | null
+          trading_fee_bps?: number | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          volume_24h_sol?: number | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_tokens_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_tokens_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_trading_agents: {
+        Row: {
+          agent_id: string | null
+          avatar_url: string | null
+          avg_hold_time_minutes: number | null
+          avoided_patterns: string[] | null
+          best_trade_sol: number | null
+          consecutive_losses: number | null
+          consecutive_wins: number | null
+          created_at: string | null
+          creator_profile_id: string | null
+          creator_wallet: string | null
+          description: string | null
+          fun_token_id: string | null
+          id: string
+          last_deposit_at: string | null
+          last_strategy_review: string | null
+          last_trade_at: string | null
+          learned_patterns: Json | null
+          losing_trades: number | null
+          max_concurrent_positions: number | null
+          max_position_size_sol: number | null
+          mint_address: string | null
+          name: string
+          preferred_narratives: string[] | null
+          status: string | null
+          stop_loss_pct: number | null
+          strategy_notes: string | null
+          strategy_type: string | null
+          take_profit_pct: number | null
+          ticker: string
+          total_invested_sol: number | null
+          total_profit_sol: number | null
+          total_trades: number | null
+          trading_capital_sol: number | null
+          trading_style: string | null
+          twitter_url: string | null
+          unrealized_pnl_sol: number | null
+          updated_at: string | null
+          wallet_address: string
+          wallet_private_key_encrypted: string
+          win_rate: number | null
+          winning_trades: number | null
+          worst_trade_sol: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          avatar_url?: string | null
+          avg_hold_time_minutes?: number | null
+          avoided_patterns?: string[] | null
+          best_trade_sol?: number | null
+          consecutive_losses?: number | null
+          consecutive_wins?: number | null
+          created_at?: string | null
+          creator_profile_id?: string | null
+          creator_wallet?: string | null
+          description?: string | null
+          fun_token_id?: string | null
+          id?: string
+          last_deposit_at?: string | null
+          last_strategy_review?: string | null
+          last_trade_at?: string | null
+          learned_patterns?: Json | null
+          losing_trades?: number | null
+          max_concurrent_positions?: number | null
+          max_position_size_sol?: number | null
+          mint_address?: string | null
+          name: string
+          preferred_narratives?: string[] | null
+          status?: string | null
+          stop_loss_pct?: number | null
+          strategy_notes?: string | null
+          strategy_type?: string | null
+          take_profit_pct?: number | null
+          ticker: string
+          total_invested_sol?: number | null
+          total_profit_sol?: number | null
+          total_trades?: number | null
+          trading_capital_sol?: number | null
+          trading_style?: string | null
+          twitter_url?: string | null
+          unrealized_pnl_sol?: number | null
+          updated_at?: string | null
+          wallet_address: string
+          wallet_private_key_encrypted: string
+          win_rate?: number | null
+          winning_trades?: number | null
+          worst_trade_sol?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          avatar_url?: string | null
+          avg_hold_time_minutes?: number | null
+          avoided_patterns?: string[] | null
+          best_trade_sol?: number | null
+          consecutive_losses?: number | null
+          consecutive_wins?: number | null
+          created_at?: string | null
+          creator_profile_id?: string | null
+          creator_wallet?: string | null
+          description?: string | null
+          fun_token_id?: string | null
+          id?: string
+          last_deposit_at?: string | null
+          last_strategy_review?: string | null
+          last_trade_at?: string | null
+          learned_patterns?: Json | null
+          losing_trades?: number | null
+          max_concurrent_positions?: number | null
+          max_position_size_sol?: number | null
+          mint_address?: string | null
+          name?: string
+          preferred_narratives?: string[] | null
+          status?: string | null
+          stop_loss_pct?: number | null
+          strategy_notes?: string | null
+          strategy_type?: string | null
+          take_profit_pct?: number | null
+          ticker?: string
+          total_invested_sol?: number | null
+          total_profit_sol?: number | null
+          total_trades?: number | null
+          trading_capital_sol?: number | null
+          trading_style?: string | null
+          twitter_url?: string | null
+          unrealized_pnl_sol?: number | null
+          updated_at?: string | null
+          wallet_address?: string
+          wallet_private_key_encrypted?: string
+          win_rate?: number | null
+          winning_trades?: number | null
+          worst_trade_sol?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_trading_agents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_trading_agents_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "claw_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_trading_fee_deposits: {
+        Row: {
+          amount_sol: number
+          created_at: string | null
+          id: string
+          signature: string | null
+          source: string | null
+          trading_agent_id: string
+        }
+        Insert: {
+          amount_sol: number
+          created_at?: string | null
+          id?: string
+          signature?: string | null
+          source?: string | null
+          trading_agent_id: string
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string | null
+          id?: string
+          signature?: string | null
+          source?: string | null
+          trading_agent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_trading_fee_deposits_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_trading_positions: {
+        Row: {
+          amount_tokens: number
+          closed_at: string | null
+          current_price_sol: number | null
+          current_value_sol: number | null
+          entry_narrative: string | null
+          entry_price_sol: number
+          entry_reason: string | null
+          exit_reason: string | null
+          id: string
+          investment_sol: number
+          limit_order_sl_pubkey: string | null
+          limit_order_sl_status: string | null
+          limit_order_tp_pubkey: string | null
+          limit_order_tp_status: string | null
+          market_conditions: string | null
+          opened_at: string | null
+          realized_pnl_sol: number | null
+          risk_assessment: string | null
+          status: string | null
+          stop_loss_price_sol: number | null
+          strategy_adjustments: string | null
+          target_price_sol: number | null
+          token_address: string
+          token_image_url: string | null
+          token_name: string | null
+          token_symbol: string | null
+          trading_agent_id: string
+          trailing_stop_active: boolean | null
+          unrealized_pnl_pct: number | null
+          unrealized_pnl_sol: number | null
+        }
+        Insert: {
+          amount_tokens: number
+          closed_at?: string | null
+          current_price_sol?: number | null
+          current_value_sol?: number | null
+          entry_narrative?: string | null
+          entry_price_sol: number
+          entry_reason?: string | null
+          exit_reason?: string | null
+          id?: string
+          investment_sol: number
+          limit_order_sl_pubkey?: string | null
+          limit_order_sl_status?: string | null
+          limit_order_tp_pubkey?: string | null
+          limit_order_tp_status?: string | null
+          market_conditions?: string | null
+          opened_at?: string | null
+          realized_pnl_sol?: number | null
+          risk_assessment?: string | null
+          status?: string | null
+          stop_loss_price_sol?: number | null
+          strategy_adjustments?: string | null
+          target_price_sol?: number | null
+          token_address: string
+          token_image_url?: string | null
+          token_name?: string | null
+          token_symbol?: string | null
+          trading_agent_id: string
+          trailing_stop_active?: boolean | null
+          unrealized_pnl_pct?: number | null
+          unrealized_pnl_sol?: number | null
+        }
+        Update: {
+          amount_tokens?: number
+          closed_at?: string | null
+          current_price_sol?: number | null
+          current_value_sol?: number | null
+          entry_narrative?: string | null
+          entry_price_sol?: number
+          entry_reason?: string | null
+          exit_reason?: string | null
+          id?: string
+          investment_sol?: number
+          limit_order_sl_pubkey?: string | null
+          limit_order_sl_status?: string | null
+          limit_order_tp_pubkey?: string | null
+          limit_order_tp_status?: string | null
+          market_conditions?: string | null
+          opened_at?: string | null
+          realized_pnl_sol?: number | null
+          risk_assessment?: string | null
+          status?: string | null
+          stop_loss_price_sol?: number | null
+          strategy_adjustments?: string | null
+          target_price_sol?: number | null
+          token_address?: string
+          token_image_url?: string | null
+          token_name?: string | null
+          token_symbol?: string | null
+          trading_agent_id?: string
+          trailing_stop_active?: boolean | null
+          unrealized_pnl_pct?: number | null
+          unrealized_pnl_sol?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_trading_positions_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_trading_strategy_reviews: {
+        Row: {
+          confidence_level: number | null
+          created_at: string | null
+          deprecated_rules: string[] | null
+          id: string
+          key_insights: string | null
+          new_rules: string[] | null
+          review_type: string | null
+          strategy_adjustments: string | null
+          total_pnl_at_review: number | null
+          trades_analyzed: number | null
+          trading_agent_id: string
+          win_rate_at_review: number | null
+        }
+        Insert: {
+          confidence_level?: number | null
+          created_at?: string | null
+          deprecated_rules?: string[] | null
+          id?: string
+          key_insights?: string | null
+          new_rules?: string[] | null
+          review_type?: string | null
+          strategy_adjustments?: string | null
+          total_pnl_at_review?: number | null
+          trades_analyzed?: number | null
+          trading_agent_id: string
+          win_rate_at_review?: number | null
+        }
+        Update: {
+          confidence_level?: number | null
+          created_at?: string | null
+          deprecated_rules?: string[] | null
+          id?: string
+          key_insights?: string | null
+          new_rules?: string[] | null
+          review_type?: string | null
+          strategy_adjustments?: string | null
+          total_pnl_at_review?: number | null
+          trades_analyzed?: number | null
+          trading_agent_id?: string
+          win_rate_at_review?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_trading_strategy_reviews_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_trading_trades: {
+        Row: {
+          ai_reasoning: string | null
+          amount_sol: number
+          amount_tokens: number
+          buy_signature: string | null
+          confidence_score: number | null
+          created_at: string | null
+          entry_analysis: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          exit_analysis: string | null
+          id: string
+          lessons_learned: string | null
+          market_context: string | null
+          narrative_match: string | null
+          position_id: string | null
+          price_per_token: number
+          signature: string | null
+          slippage_actual: number | null
+          status: string | null
+          strategy_used: string | null
+          subtuna_post_id: string | null
+          token_address: string
+          token_name: string | null
+          token_score: number | null
+          trade_type: string
+          trading_agent_id: string
+          verified_at: string | null
+          verified_pnl_sol: number | null
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          amount_sol: number
+          amount_tokens: number
+          buy_signature?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          entry_analysis?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          exit_analysis?: string | null
+          id?: string
+          lessons_learned?: string | null
+          market_context?: string | null
+          narrative_match?: string | null
+          position_id?: string | null
+          price_per_token: number
+          signature?: string | null
+          slippage_actual?: number | null
+          status?: string | null
+          strategy_used?: string | null
+          subtuna_post_id?: string | null
+          token_address: string
+          token_name?: string | null
+          token_score?: number | null
+          trade_type: string
+          trading_agent_id: string
+          verified_at?: string | null
+          verified_pnl_sol?: number | null
+        }
+        Update: {
+          ai_reasoning?: string | null
+          amount_sol?: number
+          amount_tokens?: number
+          buy_signature?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          entry_analysis?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          exit_analysis?: string | null
+          id?: string
+          lessons_learned?: string | null
+          market_context?: string | null
+          narrative_match?: string | null
+          position_id?: string | null
+          price_per_token?: number
+          signature?: string | null
+          slippage_actual?: number | null
+          status?: string | null
+          strategy_used?: string | null
+          subtuna_post_id?: string | null
+          token_address?: string
+          token_name?: string | null
+          token_score?: number | null
+          trade_type?: string
+          trading_agent_id?: string
+          verified_at?: string | null
+          verified_pnl_sol?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_trading_trades_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_trading_trades_trading_agent_id_fkey"
+            columns: ["trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claw_votes: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          user_id: string
+          vote_type: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          user_id: string
+          vote_type: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          user_id?: string
+          vote_type?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_votes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "claw_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       colosseum_activity: {
         Row: {
           activity_type: string

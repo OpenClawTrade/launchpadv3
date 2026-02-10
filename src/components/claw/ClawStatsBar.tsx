@@ -1,9 +1,9 @@
-import { useAgentStats } from "@/hooks/useAgentStats";
+import { useClawStats } from "@/hooks/useClawStats";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function ClawStatsBar() {
-  const { data: stats, isLoading } = useAgentStats();
+  const { data: stats, isLoading } = useClawStats();
   const { solPrice } = useSolPrice();
 
   const formatUSD = (solAmount: number) => {
