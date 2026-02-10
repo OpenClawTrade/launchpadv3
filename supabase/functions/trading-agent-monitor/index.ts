@@ -278,7 +278,30 @@ serve(async (req) => {
                     : position.investment_sol * (1 - strategy.stopLoss / 100);
                   const realizedPnl = estimatedSolReceived - position.investment_sol;
 
-                  // Update order statuses
+                  // === CANCEL ORPHANED ORDERS ON-CHAIN before updating DB ===
+                  const jupiterApiKeyForCancel = Deno.env.get("JUPITER_API_KEY");
+                  if (jupiterApiKeyForCancel && agentKeypair) {
+                    // If TP filled (profit), cancel the SL order on-chain
+                    if (hasSLOrder && isProfit && position.limit_order_sl_pubkey) {
+                      try {
+                        await cancelJupiterLimitOrder(connection, agentKeypair, jupiterApiKeyForCancel, position.limit_order_sl_pubkey);
+                        console.log(`[trading-agent-monitor] ✅ Cancelled orphaned SL order on-chain: ${position.limit_order_sl_pubkey}`);
+                      } catch (cancelErr) {
+                        console.warn(`[trading-agent-monitor] Failed to cancel orphaned SL order:`, cancelErr);
+                      }
+                    }
+                    // If SL filled (loss), cancel the TP order on-chain
+                    if (hasTPOrder && !isProfit && position.limit_order_tp_pubkey) {
+                      try {
+                        await cancelJupiterLimitOrder(connection, agentKeypair, jupiterApiKeyForCancel, position.limit_order_tp_pubkey);
+                        console.log(`[trading-agent-monitor] ✅ Cancelled orphaned TP order on-chain: ${position.limit_order_tp_pubkey}`);
+                      } catch (cancelErr) {
+                        console.warn(`[trading-agent-monitor] Failed to cancel orphaned TP order:`, cancelErr);
+                      }
+                    }
+                  }
+
+                  // Update order statuses in DB
                   if (hasTPOrder) {
                     await supabase.from("trading_agent_positions").update({ limit_order_tp_status: isProfit ? 'filled' : 'cancelled' }).eq("id", position.id);
                   }
