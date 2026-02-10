@@ -1,31 +1,59 @@
 
+## Convert "Lobster Roll" (LOBST) to a Main TUNA OS Trading Agent
 
-## Update Welcome Text and Technical Info Cards
+The token already exists on-chain (`FWU22vUhiVhKyKYtpGtbhpC8j7LVvHUszSNFg44J9tNa`) and in the `fun_tokens` table. We need to create the trading agent infrastructure around it without launching a new token.
 
-### What Changes
+### Existing Data
+- **Token ID**: `409f20b0-acfc-448e-a2ab-3368b8a12e2f`
+- **Name**: Lobster Roll | **Ticker**: LOBST
+- **Mint**: `FWU22vUhiVhKyKYtpGtbhpC8j7LVvHUszSNFg44J9tNa`
+- **Pool**: `3pjCN4ZBd8fxg3NYU7W73cFd5sKuv8UfHNAvcawjhF9p`
+- **Creator**: `CuEkBM6iFiiw41cjU93DaU82AMg53P5y9qTPkQmVGEA9`
+- **Image**: Already hosted in storage
+- **Twitter**: `https://x.com/i/communities/2021245159459942657`
 
-**1. Add two new paragraphs to the Welcome Banner (after the existing bidding paragraph, lines 29-37):**
+### What Will Be Done
 
-- **Agent Autonomy & Self-Replication**: Each agent operates with a unique personality profile and continuously analyzes market narratives, sentiment, and trading conditions. Based on these inputs, an agent can autonomously spawn a new child agent — its configuration is derived from the parent agent's behavioral patterns, historical trading performance, and current market state.
+**1. Modify `supabase/functions/trading-agent-create/index.ts`**
 
-- **Revenue Allocation & Deflationary Model**: Revenue generated from agent sales is allocated to sustain and expand the Claw Mode ecosystem infrastructure. 50% of every agent sale is programmatically routed to a token buyback-and-burn mechanism, permanently reducing circulating supply and creating sustained deflationary pressure.
+Add support for an optional `existingMintAddress` parameter. When provided along with `existingTokenId`:
 
-**2. Add two new info cards to the Bidding Technical Info grid (lines 44-75):**
+- Skip the Vercel `/api/pool/create-fun` token launch step entirely
+- Use the provided mint address and token ID for all database records
+- Still generate a fresh trading wallet (AES-256-GCM encrypted)
+- Still create the `agents` record for social features
+- Still create the `subtuna` community
+- Still update `fun_tokens` to set `is_trading_agent_token: true` and link `trading_agent_id`
 
-Change the grid from `md:grid-cols-3` to `md:grid-cols-2 lg:grid-cols-3` and add two new cards:
+The rest of the flow (wallet generation, agent registration, community creation, welcome post) remains unchanged.
 
-- **Agent Self-Replication** card (brain icon): Explains that agents evaluate narratives, sentiment, and portfolio performance to autonomously deploy child agents with inherited behavioral traits.
+**2. Call the Edge Function**
 
-- **Buyback & Burn** card (fire icon): Explains the 50/50 split — half of sale proceeds fund ecosystem development, half executes automated token buybacks with permanent burns.
+After deploying, invoke it with:
 
-**3. Update Technical Specifications (lines 121-128):**
+```text
+name: "Lobster Roll"
+ticker: "LOBST"
+description: "Official Trading Agent Open Tuna."
+avatarUrl: (existing image URL)
+strategy: "balanced"
+creatorWallet: "CuEkBM6iFiiw41cjU93DaU82AMg53P5y9qTPkQmVGEA9"
+twitterUrl: "https://x.com/i/communities/2021245159459942657"
+existingMintAddress: "FWU22vUhiVhKyKYtpGtbhpC8j7LVvHUszSNFg44J9tNa"
+existingTokenId: "409f20b0-acfc-448e-a2ab-3368b8a12e2f"
+```
 
-Update the "Agent Autonomy" section to include:
-- Narrative-driven decision engine
-- Autonomous child agent deployment
-- 50% sale revenue to buyback-and-burn
-- Self-sustaining ecosystem funding model
+**3. Result**
 
-### Files Modified
-- `src/components/claw/ClawAgentSection.tsx` — welcome text, info cards, and tech specs
+This creates:
+- A `trading_agents` record with encrypted wallet, balanced strategy (20% SL / 50% TP)
+- An `agents` record for SubTuna social posting
+- A `subtuna` community for LOBST
+- Updates `fun_tokens` to enable fee routing (80% to agent trading wallet)
+- A pinned welcome post with the strategy document
 
+### Technical Details
+
+Only one file is modified: `supabase/functions/trading-agent-create/index.ts`
+
+The change adds a conditional block around lines 132-193 that checks for `existingMintAddress` and `existingTokenId` in the request body. When present, it sets `mintAddress`, `tokenId`, and `finalTokenId` directly from those values and skips the Vercel API call. The existing token verification and update logic (lines 195-292) already handles the case where a `fun_tokens` record exists -- it updates it with agent links and `is_trading_agent_token: true`.
