@@ -1,12 +1,10 @@
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
 import { MatrixBackground } from "@/components/claw/MatrixBackground";
 import { ClawHero } from "@/components/claw/ClawHero";
 import { ClawStatsBar } from "@/components/claw/ClawStatsBar";
 import { ClawAgentSection } from "@/components/claw/ClawAgentSection";
 import { ClawTokenGrid } from "@/components/claw/ClawTokenGrid";
 import { ClawTradingSection } from "@/components/claw/ClawTradingSection";
-import { ArrowLeft } from "lucide-react";
 import "@/styles/claw-theme.css";
 
 export default function ClawModePage() {
@@ -49,15 +47,8 @@ export default function ClawModePage() {
               <a href="#agents" className="hover:text-white transition-colors">🦞 Agents</a>
               <a href="#tokens" className="hover:text-white transition-colors">🦞 Tokens</a>
               <a href="#trading" className="hover:text-white transition-colors">🦞 Trading</a>
-              <Link to="/" className="flex items-center gap-1.5 transition-colors" style={{ color: "hsl(var(--claw-secondary))" }}>
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Main Site
-              </Link>
+              <a href="#bidding" className="hover:text-white transition-colors">🦞 Bidding</a>
             </nav>
-            {/* Mobile nav */}
-            <Link to="/" className="md:hidden flex items-center gap-1 text-xs" style={{ color: "hsl(var(--claw-secondary))" }}>
-              <ArrowLeft className="h-3 w-3" /> Back
-            </Link>
           </div>
         </header>
 
@@ -75,6 +66,7 @@ export default function ClawModePage() {
           </div>
 
           <div id="trading">
+            <div id="bidding" />
             <ClawTradingSection />
           </div>
         </main>
