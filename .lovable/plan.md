@@ -1,161 +1,148 @@
 
-# Claw Mode Landing Page with Lobster Branding
+# Full Database and System Separation for Claw Mode
 
-## Overview
-Create a standalone landing page at `/claw` that combines all TUNA Agents and Trading Agents content into one page, restyled with the OpenClaw color scheme (dark space background, red/coral accents, teal highlights). The lobster emoji will be used extensively as the brand icon, favicon, and logo throughout the page. A Matrix-style falling characters animation will run across the entire background.
+## Why Full Separation?
+To ensure Claw Mode operates as a completely independent project, every piece of data -- tokens, agents, trading agents, fees, claims, stats, posts, and deployer wallets -- must live in its own set of tables. This prevents any cross-contamination between the main TUNA platform and Claw Mode.
 
-## New Files
+## Database Tables to Create
 
-### 1. `src/pages/ClawModePage.tsx`
-The main page component containing:
-- Matrix canvas background (full-screen, behind all content)
-- Custom header with lobster emoji logo, "CLAW MODE" branding, and navigation back to main site
-- Hero section with large lobster emoji, "CLAW MODE" title in red gradient, subtitle about autonomous AI agents
-- Stats bar (reusing `useAgentStats` + `useTradingAgents` data) styled with red/teal accents
-- "How It Works" cards (Twitter, Telegram, API launch methods) restyled -- all TUNA mentions replaced with Claw branding
-- Platform token section restyled
-- Top tokens by market cap grid
-- All tokens grid with filters (New/Hot/MCap/Volume + platform filter)
-- Full Trading Agents section: strategy cards, active/funding/top tabs, Fear and Greed gauge, create agent card
-- Footer with Claw branding and lobster emoji
+We need to create **mirror tables** prefixed with `claw_` for every data entity:
 
-### 2. `src/components/claw/MatrixBackground.tsx`
-Canvas-based Matrix rain effect:
-- Green (#00ff41) falling katakana + numeric characters
-- Interspersed with lobster emojis falling in the matrix rain
-- Semi-transparent (opacity ~0.03-0.05) so content remains readable
-- Performance-optimized with requestAnimationFrame
-- Fixed positioning, z-index 0, all content above
+### 1. Core Token Tables
+| New Table | Mirrors | Purpose |
+|-----------|---------|---------|
+| `claw_tokens` | `fun_tokens` | All tokens launched via Claw Mode |
+| `claw_agent_tokens` | `agent_tokens` | Links between claw agents and their tokens |
+| `claw_fee_claims` | `fun_fee_claims` | Fee claims for claw tokens |
 
-### 3. `src/components/claw/ClawHeader.tsx`
-Standalone header for the Claw page:
-- Lobster emoji as logo with "CLAW MODE" text
-- Navigation links (Trade, Agents, API)
-- Back to main site link
-- Red/coral accent colors matching OpenClaw
+### 2. Agent Tables
+| New Table | Mirrors | Purpose |
+|-----------|---------|---------|
+| `claw_agents` | `agents` | Claw-specific agents (social identity, wallet, API key) |
+| `claw_agent_fee_distributions` | `agent_fee_distributions` | Fee payouts to claw agents |
 
-### 4. `src/components/claw/ClawHero.tsx`
-Hero section:
-- Large lobster emoji (animated pulse/glow)
-- "CLAW MODE" heading with red-to-coral gradient text (matching OpenClaw's red heading style)
-- Subtitle: "Autonomous AI agents that launch tokens and trade on Solana"
-- Quick stat chips with lobster emojis: "80% fees", "2% trading fee", "Free to launch"
+### 3. Trading Agent Tables
+| New Table | Mirrors | Purpose |
+|-----------|---------|---------|
+| `claw_trading_agents` | `trading_agents` | Trading agents created via Claw |
+| `claw_trading_positions` | `trading_agent_positions` | Open/closed positions |
+| `claw_trading_trades` | `trading_agent_trades` | Individual trade history |
+| `claw_trading_fee_deposits` | `trading_agent_fee_deposits` | Fee deposits into trading wallets |
+| `claw_trading_strategy_reviews` | `trading_agent_strategy_reviews` | AI strategy reviews |
 
-### 5. `src/components/claw/ClawStatsBar.tsx`
-Stats overview restyled:
-- Same data from `useAgentStats` hook
-- Red/teal glowing card borders
-- Lobster emoji decorating section headers
+### 4. Social / Community Tables
+| New Table | Mirrors | Purpose |
+|-----------|---------|---------|
+| `claw_communities` | `subtuna` | SubClaw communities |
+| `claw_posts` | `subtuna_posts` | Posts in SubClaw communities |
+| `claw_comments` | `subtuna_comments` | Comments on claw posts |
+| `claw_votes` | `subtuna_votes` | Votes on claw posts |
 
-### 6. `src/components/claw/ClawAgentSection.tsx`
-Combined TUNA Agents content:
-- How to launch cards (Twitter/Telegram/API) restyled with red/teal
-- Technical specs collapsible
-- All `!tunalaunch` replaced with `!clawlaunch`, `@BuildTuna` with `@ClawMode`
-- Lobster emoji in section headers
+### 5. Infrastructure Tables
+| New Table | Mirrors | Purpose |
+|-----------|---------|---------|
+| `claw_deployer_wallets` | `deployer_wallets` | Separate deployer wallet pool for Claw tokens |
 
-### 7. `src/components/claw/ClawTokenGrid.tsx`
-Token grid wrapper:
-- Reuses `useAgentTokens` hook and `AgentTokenCard` component
-- Platform filter tabs restyled in red/teal
-- Sort tabs (New/Hot/MCap/Volume) with claw theme colors
+**Total: 15 new tables**
 
-### 8. `src/components/claw/ClawTradingSection.tsx`
-Trading agents section:
-- Strategy selector cards (red/teal/amber)
-- Active/Funding/Top tabs reusing `useTradingAgents` hooks
-- Reuses `TradingAgentCard`, `FearGreedGauge`, `CreateTradingAgentModal`
-- Create agent card with claw/lobster branding
-- Technical architecture sidebar
+Each table will have the same column structure as its mirror, with appropriate foreign keys pointing to other `claw_*` tables instead of the original ones.
 
-### 9. `src/styles/claw-theme.css`
-Custom CSS theme:
-- Color variables matching OpenClaw (dark bg #0a0a0f, red primary #ef4444, teal secondary #22d3ee, coral accent #ff6b6b)
-- Glowing card borders with red/teal shadows
-- Matrix effect container styles
-- Custom font styling (bold uppercase headings like OpenClaw)
-- Nebula/star background gradients behind the matrix
+## New Edge Functions
 
-## Modified Files
+### 1. `claw-tokens` (mirrors `agent-tokens`)
+- Queries `claw_agent_tokens` joined with `claw_tokens` and `claw_agents`
+- Same sort/filter logic (new, hot, mcap, volume)
 
-### 10. `src/App.tsx`
-- Add lazy import for `ClawModePage`
-- Add route: `<Route path="/claw" element={<ClawModePage />} />`
+### 2. `claw-stats` (mirrors `agent-stats`)
+- Queries only `claw_*` tables for market cap, fees, token count, volume, posts
+- Independent cache, independent numbers
 
-### 11. `index.html`
-- No changes to the main favicon (the Claw page will handle its own favicon override via a React useEffect that swaps it on mount and restores on unmount)
+### 3. `claw-trading-list` (mirrors `trading-agent-list`)
+- Lists trading agents from `claw_trading_agents`
+- Joins `claw_trading_positions` for open position counts
 
-## Lobster Emoji Usage
-The lobster emoji will appear in:
-- Page favicon (dynamically set via useEffect on mount)
-- Header logo (large lobster emoji next to "CLAW MODE")
-- Hero section (oversized animated lobster)
-- Section headers ("Claw Agents", "Trading Agents", "Top Tokens")
-- Stats bar labels
-- Strategy cards
-- Footer branding
-- Quick stat chips
-- Loading states
-- Empty states ("No tokens yet" messages)
-- Create agent card
-- Matrix rain (occasional lobster emojis mixed in with falling characters)
+### 4. `claw-trading-create` (mirrors `trading-agent-create`)
+- Creates trading agents in `claw_trading_agents` and `claw_agents`
+- Launches tokens into `claw_tokens`
+- Uses a **separate deployer wallet** from `claw_deployer_wallets`
+- Creates SubClaw community in `claw_communities`
 
-## Content Mapping (No TUNA mentions)
-| Original | Claw Mode |
-|----------|-----------|
-| TUNA Agents | Claw Agents |
-| TUNA treasury | Claw treasury |
-| @BuildTuna | @ClawMode |
-| !tunalaunch | !clawlaunch |
-| SubTuna | SubClaw |
-| tuna.fun | claw.mode |
-| TUNA OS | CLAW MODE |
+## New Frontend Hooks
 
-## Reused Hooks and Components (no changes needed)
-- `useAgentTokens` -- token listing data
-- `useAgentStats` -- platform statistics  
-- `useTradingAgents` / `useTradingAgentLeaderboard` -- trading agent data
-- `useSolPrice` -- price conversion
-- `AgentTokenCard` -- individual token cards
-- `TradingAgentCard` / `TradingAgentCardSkeleton` -- trading agent cards
-- `FearGreedGauge` -- market sentiment widget
-- `CreateTradingAgentModal` -- agent creation flow
+### 1. `useClawTokens` (mirrors `useAgentTokens`)
+- Calls `claw-tokens` edge function instead of `agent-tokens`
+- Same interface, different data source
 
-## Technical Details
+### 2. `useClawStats` (mirrors `useAgentStats`)
+- Calls `claw-stats` edge function
+- Returns fresh Claw-only stats
 
-### Matrix Background
-- HTML5 Canvas, position: fixed, z-index: 0, pointer-events: none
-- Columns based on viewport width / 20px character size
-- Characters: katakana range (0x30A0-0x30FF) + digits + occasional lobster emoji
-- Color: #00ff41 (classic matrix green) at varying opacity
-- ~30fps via requestAnimationFrame
-- Canvas clears with rgba(10,10,15,0.05) for trail effect
+### 3. `useClawTradingAgents` (mirrors `useTradingAgents`)
+- Calls `claw-trading-list` edge function
+- Lists only Claw trading agents
 
-### Dynamic Favicon
+### 4. `useClawTradingAgent` (single agent detail)
+- Queries `claw_trading_agents` directly
+
+### 5. `useClawTradingAgentLeaderboard`
+- Queries `claw_trading_agents` sorted by profit
+
+## Frontend Component Updates
+
+### Update `ClawStatsBar.tsx`
+- Switch from `useAgentStats` to `useClawStats`
+
+### Update `ClawTokenGrid.tsx`
+- Switch from `useAgentTokens` to `useClawTokens`
+
+### Update `ClawTradingSection.tsx`
+- Switch from `useTradingAgents` / `useTradingAgentLeaderboard` to `useClawTradingAgents` / `useClawTradingAgentLeaderboard`
+- Create agent modal calls `claw-trading-create` instead of `trading-agent-create`
+
+## Deployer Wallet Separation
+
+The Claw Mode will use a completely separate deployer wallet address. The `claw-trading-create` function will:
+1. Pull from `claw_deployer_wallets` table (not `deployer_wallets`)
+2. This ensures Claw token deployments never touch main platform deployer funds
+
+## Complete Isolation Summary
+
 ```text
-useEffect(() => {
-  const link = document.querySelector("link[rel='icon']");
-  const original = link?.getAttribute('href');
-  // Create lobster emoji favicon via canvas
-  const canvas = document.createElement('canvas');
-  canvas.width = 32; canvas.height = 32;
-  const ctx = canvas.getContext('2d');
-  ctx.font = '28px serif';
-  ctx.fillText('', 2, 28);
-  link?.setAttribute('href', canvas.toDataURL());
-  return () => { link?.setAttribute('href', original); };
-}, []);
+MAIN PLATFORM                    CLAW MODE
+--------------                   ----------
+fun_tokens          -->          claw_tokens
+agent_tokens        -->          claw_agent_tokens
+agents              -->          claw_agents
+fun_fee_claims      -->          claw_fee_claims
+agent_fee_distribs  -->          claw_agent_fee_distributions
+trading_agents      -->          claw_trading_agents
+trading_positions   -->          claw_trading_positions
+trading_trades      -->          claw_trading_trades
+trading_fee_deps    -->          claw_trading_fee_deposits
+trading_reviews     -->          claw_trading_strategy_reviews
+subtuna             -->          claw_communities
+subtuna_posts       -->          claw_posts
+subtuna_comments    -->          claw_comments
+subtuna_votes       -->          claw_votes
+deployer_wallets    -->          claw_deployer_wallets
+agent-tokens (fn)   -->          claw-tokens (fn)
+agent-stats (fn)    -->          claw-stats (fn)
+trading-agent-list  -->          claw-trading-list (fn)
+trading-agent-create-->          claw-trading-create (fn)
+useAgentTokens      -->          useClawTokens
+useAgentStats       -->          useClawStats
+useTradingAgents    -->          useClawTradingAgents
 ```
 
-### Color Scheme (claw-theme.css variables)
-```text
---claw-bg: #0a0a0f
---claw-card: #111118  
---claw-border: #1a1a2e
---claw-primary: #ef4444 (red)
---claw-secondary: #22d3ee (cyan/teal)
---claw-accent: #ff6b6b (coral)
---claw-matrix: #00ff41 (matrix green)
---claw-text: #e2e8f0
---claw-muted: #64748b
-```
+## What Does NOT Need Separation
+- **Authentication / profiles** -- users are shared across both modes
+- **UI components** (AgentTokenCard, TradingAgentCard, FearGreedGauge) -- reusable, just styled differently
+- **Sol price** -- shared utility
+- **Matrix background, theme CSS** -- Claw-only, already separate
+
+## Implementation Order
+1. Create all 15 database tables via migration
+2. Create the 4 new edge functions (`claw-tokens`, `claw-stats`, `claw-trading-list`, `claw-trading-create`)
+3. Create the 5 new frontend hooks
+4. Update the 3 Claw components to use the new hooks
+5. Everything starts fresh with zero data -- clean slate for Claw Mode
