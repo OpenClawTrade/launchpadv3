@@ -1,0 +1,2 @@
+ALTER TABLE trading_agent_positions DROP CONSTRAINT trading_agent_positions_status_check;
+ALTER TABLE trading_agent_positions ADD CONSTRAINT trading_agent_positions_status_check CHECK (status = ANY (ARRAY['open'::text, 'closed'::text, 'stopped_out'::text, 'take_profit'::text, 'sell_failed'::text]));
