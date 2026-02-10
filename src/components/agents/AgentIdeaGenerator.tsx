@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles, Download, RefreshCw, Copy, Check, Twitter, Lightbulb } from "lucide-react";
+import { Loader2, Sparkles, Download, RefreshCw, Copy, Check, Twitter, Lightbulb, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import tunaLogo from "@/assets/tuna-logo.png";
@@ -22,6 +22,61 @@ export function AgentIdeaGenerator() {
   const [generatedMeme, setGeneratedMeme] = useState<GeneratedMeme | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
   const [copied, setCopied] = useState(false);
+  const bannerRef = useRef<HTMLDivElement>(null);
+
+  const downloadBanner = useCallback(async () => {
+    if (!bannerRef.current || !generatedMeme) return;
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1500;
+      canvas.height = 500;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Draw dark background matching the card
+      ctx.fillStyle = "#1a1a2e";
+      ctx.fillRect(0, 0, 1500, 500);
+
+      // Draw token name and ticker on the left
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 64px system-ui, sans-serif";
+      ctx.fillText(generatedMeme.name, 80, 200);
+      ctx.font = "bold 48px monospace";
+      ctx.fillStyle = "#4ade80";
+      ctx.fillText(`$${generatedMeme.ticker}`, 80, 270);
+      ctx.font = "24px system-ui, sans-serif";
+      ctx.fillStyle = "#a1a1aa";
+      const descLines = generatedMeme.description.match(/.{1,50}/g) || [];
+      descLines.slice(0, 3).forEach((line, i) => {
+        ctx.fillText(line, 80, 320 + i * 32);
+      });
+
+      // Draw image on the right
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const size = 400;
+        const x = 1500 - size - 60;
+        const y = 50;
+        // Rounded clip
+        ctx.beginPath();
+        ctx.roundRect(x, y, size, size, 24);
+        ctx.clip();
+        ctx.drawImage(img, x, y, size, size);
+        
+        // Download
+        const link = document.createElement("a");
+        link.download = `${generatedMeme.ticker}-x-banner.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        toast.success("X header banner downloaded!");
+      };
+      img.onerror = () => toast.error("Failed to load image for banner");
+      img.src = generatedMeme.imageUrl;
+    } catch {
+      toast.error("Failed to generate banner");
+    }
+  }, [generatedMeme]);
 
   const generateMeme = async () => {
     setIsGenerating(true);
@@ -253,6 +308,50 @@ export function AgentIdeaGenerator() {
                   </Button>
                 </div>
               </div>
+            </div>
+
+            {/* X Header Banner Preview */}
+            <div className="mt-6 pt-6 border-t border-border">
+              <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                <Image className="h-4 w-4 text-primary" />
+                X Header Banner Preview
+              </h4>
+              <div
+                ref={bannerRef}
+                className="relative w-full rounded-xl overflow-hidden border border-border"
+                style={{ aspectRatio: "3/1", background: "#1a1a2e" }}
+              >
+                {/* Left side - text content */}
+                <div className="absolute inset-0 flex items-center p-6 md:p-10">
+                  <div className="flex-1 z-10">
+                    <h3 className="text-xl md:text-3xl font-bold text-white mb-1">
+                      {generatedMeme.name}
+                    </h3>
+                    <p className="text-lg md:text-2xl font-mono font-bold text-primary mb-2">
+                      ${generatedMeme.ticker}
+                    </p>
+                    <p className="text-xs md:text-sm text-zinc-400 max-w-[50%] line-clamp-2">
+                      {generatedMeme.description}
+                    </p>
+                  </div>
+                </div>
+                {/* Right side - image */}
+                <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 w-[30%] max-w-[200px] aspect-square">
+                  <img
+                    src={generatedMeme.imageUrl}
+                    alt={generatedMeme.name}
+                    className="w-full h-full object-cover rounded-2xl shadow-2xl"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={downloadBanner}
+                variant="outline"
+                className="mt-3 gap-2 w-full"
+              >
+                <Download className="h-4 w-4" />
+                Download X Header Banner (1500×500)
+              </Button>
             </div>
 
             {/* Launch Instructions */}
