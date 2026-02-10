@@ -1306,12 +1306,19 @@ async function processPositionClosure(
     .order("created_at", { ascending: false })
     .limit(20);
 
-  // Close position
+  // Close position - use actual realized P&L percentage, not stale market price
+  const realizedPnlPct = position.investment_sol > 0
+    ? ((solReceived - position.investment_sol) / position.investment_sol) * 100
+    : 0;
+
   await supabase
     .from("trading_agent_positions")
     .update({
       status: closeReason === "stop_loss" ? "stopped_out" : "take_profit",
       realized_pnl_sol: realizedPnl,
+      unrealized_pnl_pct: realizedPnlPct,
+      unrealized_pnl_sol: realizedPnl,
+      current_value_sol: solReceived,
       exit_reason: exitAnalysis.exitReason,
       closed_at: new Date().toISOString(),
     })
@@ -1400,9 +1407,17 @@ async function processPositionClosure(
 
   // Update position with verified PNL if available
   if (verifiedPnl !== null) {
+    const verifiedPnlPct = position.investment_sol > 0
+      ? ((finalSolReceived - position.investment_sol) / position.investment_sol) * 100
+      : 0;
     await supabase
       .from("trading_agent_positions")
-      .update({ realized_pnl_sol: finalPnl })
+      .update({ 
+        realized_pnl_sol: finalPnl,
+        unrealized_pnl_pct: verifiedPnlPct,
+        unrealized_pnl_sol: finalPnl,
+        current_value_sol: finalSolReceived,
+      })
       .eq("id", position.id);
   }
 
