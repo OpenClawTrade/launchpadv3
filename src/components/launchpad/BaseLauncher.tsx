@@ -47,19 +47,14 @@ export function BaseLauncher() {
     if (!canLaunch || !address) return;
 
     setIsLaunching(true);
-    toast.info('🚀 Creating token on Base...', { description: 'This may take a few moments' });
+    toast.info('🚀 Deploying token on Base...', { description: 'Compiling & deploying contract on-chain. This may take 30-60 seconds.' });
 
     try {
-      // Call the base-create-token edge function
       const { data, error } = await supabase.functions.invoke('base-create-token', {
         body: {
           name: formData.name,
           ticker: formData.ticker.toUpperCase(),
           creatorWallet: address,
-          evmTokenAddress: '0x0000000000000000000000000000000000000000', // Placeholder - will be set by contract
-          evmPoolAddress: '0x0000000000000000000000000000000000000000', // Placeholder
-          evmFactoryTxHash: '0x0', // Placeholder
-          creatorFeeBps: 5000, // Fixed 50% of 2% total = 1% creator
           fairLaunchDurationMins: parseInt(formData.fairLaunchDuration),
           startingMcapUsd: parseInt(formData.startingMcap),
           description: formData.description || null,
@@ -74,11 +69,15 @@ export function BaseLauncher() {
       }
 
       if (!data?.success) {
-        throw new Error(data?.error || 'Failed to create token');
+        throw new Error(data?.error || 'Failed to deploy token');
       }
 
-      toast.success('🎉 Token created on Base!', {
-        description: `${formData.name} ($${formData.ticker}) is now live!`,
+      toast.success('🎉 Token deployed on Base!', {
+        description: `${formData.name} ($${formData.ticker}) deployed at ${data.tokenAddress?.slice(0, 10)}...`,
+        action: data.explorerUrl ? {
+          label: 'View on Basescan',
+          onClick: () => window.open(data.explorerUrl, '_blank'),
+        } : undefined,
       });
 
       // Reset form
@@ -95,7 +94,7 @@ export function BaseLauncher() {
 
     } catch (error) {
       console.error('Base launch error:', error);
-      toast.error('Launch failed', {
+      toast.error('Deployment failed', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
     } finally {
