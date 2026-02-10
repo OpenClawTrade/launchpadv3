@@ -246,9 +246,79 @@ serve(async (req) => {
             continue;
           }
 
-          // Check TP order status
+          // === CRITICAL FALLBACK: Check on-chain token balance ===
+          // If wallet has 0 tokens, position was sold (by Jupiter trigger or manually)
+          if (hasTPOrder || hasSLOrder) {
+            try {
+              const { PublicKey: PubKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
+              const TOKEN_2022_PROGRAM = new PubKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+              const mintPubkey = new PubKey(position.token_address);
+              const agentKeypair = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
+              if (agentKeypair) {
+                const [splAccts, t22Accts] = await Promise.all([
+                  connection.getParsedTokenAccountsByOwner(agentKeypair.publicKey, { mint: mintPubkey }).catch(() => ({ value: [] })),
+                  connection.getParsedTokenAccountsByOwner(agentKeypair.publicKey, { programId: TOKEN_2022_PROGRAM })
+                    .then(res => ({ value: res.value.filter(a => a.account.data.parsed?.info?.mint === position.token_address) }))
+                    .catch(() => ({ value: [] })),
+                ]);
+                const allAccounts = [...(splAccts.value || []), ...(t22Accts.value || [])];
+                const totalBalance = allAccounts.reduce((sum, a) => {
+                  const amt = a.account.data.parsed?.info?.tokenAmount;
+                  return sum + (amt ? Number(amt.amount) : 0);
+                }, 0);
+
+                if (totalBalance === 0) {
+                  console.log(`[trading-agent-monitor] ⚠️ ZERO on-chain balance for ${position.token_symbol} - position was sold externally (Jupiter trigger fill)`);
+                  
+                  // Determine which order filled based on price
+                  const isProfit = pnlPct > 0;
+                  const closeReason = isProfit ? "take_profit" : "stop_loss";
+                  const estimatedSolReceived = isProfit
+                    ? position.investment_sol * (1 + strategy.takeProfit / 100)
+                    : position.investment_sol * (1 - strategy.stopLoss / 100);
+                  const realizedPnl = estimatedSolReceived - position.investment_sol;
+
+                  // Update order statuses
+                  if (hasTPOrder) {
+                    await supabase.from("trading_agent_positions").update({ limit_order_tp_status: isProfit ? 'filled' : 'cancelled' }).eq("id", position.id);
+                  }
+                  if (hasSLOrder) {
+                    await supabase.from("trading_agent_positions").update({ limit_order_sl_status: isProfit ? 'cancelled' : 'filled' }).eq("id", position.id);
+                  }
+
+                  await processPositionClosure(
+                    supabase, connection, LOVABLE_API_KEY, API_ENCRYPTION_KEY,
+                    agent, position, currentPrice, pnlPct, closeReason,
+                    estimatedSolReceived, realizedPnl, "jupiter-trigger-order-detected"
+                  );
+
+                  results.push({
+                    positionId: position.id,
+                    agentName: agent.name,
+                    token: position.token_symbol,
+                    closeReason,
+                    pnlPct: pnlPct.toFixed(2),
+                    realizedPnl: realizedPnl.toFixed(6),
+                    signature: "jupiter-trigger-order-detected",
+                  });
+
+                  closedCount++;
+                  if (closeReason === "take_profit") takeProfitCount++;
+                  else stopLossCount++;
+                  totalTrades++;
+                  console.log(`[trading-agent-monitor] ✅ ${agent.name} detected ${position.token_symbol} sold via on-chain balance check (${pnlPct.toFixed(2)}%)`);
+                  continue;
+                }
+              }
+            } catch (balanceCheckErr) {
+              console.warn(`[trading-agent-monitor] Balance check failed for ${position.token_symbol}:`, balanceCheckErr);
+            }
+          }
+
+          // Check TP order status via Jupiter API
           if (hasTPOrder) {
             const tpStatus = await checkJupiterOrderStatus(position.limit_order_tp_pubkey, agentWalletAddress, jupiterApiKey);
+            console.log(`[trading-agent-monitor] TP order status for ${position.token_symbol}: ${tpStatus}`);
             if (tpStatus === 'filled') {
               console.log(`[trading-agent-monitor] TP order FILLED for ${position.token_symbol}`);
               await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'filled' }).eq("id", position.id);
@@ -299,6 +369,7 @@ serve(async (req) => {
           // Check SL order status
           if (hasSLOrder) {
             const slStatus = await checkJupiterOrderStatus(position.limit_order_sl_pubkey, agentWalletAddress, jupiterApiKey);
+            console.log(`[trading-agent-monitor] SL order status for ${position.token_symbol}: ${slStatus}`);
             if (slStatus === 'filled') {
               console.log(`[trading-agent-monitor] SL order FILLED for ${position.token_symbol}`);
               await supabase.from("trading_agent_positions").update({ limit_order_sl_status: 'filled' }).eq("id", position.id);
