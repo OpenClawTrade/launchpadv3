@@ -30,8 +30,16 @@ export function MatrixBackground() {
     resize();
     window.addEventListener("resize", resize);
 
-    function draw() {
-      ctx!.fillStyle = "rgba(10, 10, 15, 0.06)";
+    let lastTime = 0;
+    const frameInterval = 80; // ~12fps for slower rain
+
+    function draw(timestamp: number) {
+      if (timestamp - lastTime < frameInterval) {
+        animationId = requestAnimationFrame(draw);
+        return;
+      }
+      lastTime = timestamp;
+      ctx!.fillStyle = "rgba(10, 10, 15, 0.04)";
       ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
 
       for (let i = 0; i < columns; i++) {
@@ -64,7 +72,7 @@ export function MatrixBackground() {
       animationId = requestAnimationFrame(draw);
     }
 
-    draw();
+    animationId = requestAnimationFrame(draw);
 
     return () => {
       window.removeEventListener("resize", resize);
