@@ -46,6 +46,12 @@ serve(async (req) => {
     const privateKeyBase58 = bs58.encode(tradingWallet.secretKey);
     const encrypted = await aesEncrypt(privateKeyBase58, API_ENCRYPTION_KEY);
 
+    // Generate dedicated bid wallet for receiving auction bids
+    const bidWallet = Keypair.generate();
+    const bidWalletAddress = bidWallet.publicKey.toBase58();
+    const bidWalletPrivateKey = bs58.encode(bidWallet.secretKey);
+    const bidWalletEncrypted = await aesEncrypt(bidWalletPrivateKey, API_ENCRYPTION_KEY);
+
     // Generate name/ticker/description with AI if not provided
     let finalName = name;
     let finalTicker = ticker;
@@ -81,8 +87,10 @@ serve(async (req) => {
         twitter_url: twitterUrl?.trim() || null,
         creator_wallet: creatorWallet || null,
         launched_at: new Date().toISOString(),
-        bidding_ends_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+        bidding_ends_at: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
         is_owned: false,
+        bid_wallet_address: bidWalletAddress,
+        bid_wallet_private_key_encrypted: bidWalletEncrypted,
       })
       .select()
       .single();
@@ -247,7 +255,8 @@ serve(async (req) => {
         },
         agent: { id: agent.id, name: agent.name },
         subclaw: subclaw ? { id: subclaw.id, ticker: subclaw.ticker } : null,
-        message: `Claw trading agent created with token ${mintAddress}! Bidding open for 6 hours. 🦞`,
+        bidWalletAddress,
+        message: `Claw trading agent created with token ${mintAddress}! Bidding open for 3 hours starting at 5 SOL. 🦞`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -943,8 +943,11 @@ export type Database = {
           created_at: string
           expires_at: string | null
           id: string
+          refund_signature: string | null
+          refunded_at: string | null
           status: string
           trading_agent_id: string | null
+          tx_signature: string | null
         }
         Insert: {
           bid_amount_sol: number
@@ -953,8 +956,11 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          refund_signature?: string | null
+          refunded_at?: string | null
           status?: string
           trading_agent_id?: string | null
+          tx_signature?: string | null
         }
         Update: {
           bid_amount_sol?: number
@@ -963,8 +969,11 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          refund_signature?: string | null
+          refunded_at?: string | null
           status?: string
           trading_agent_id?: string | null
+          tx_signature?: string | null
         }
         Relationships: [
           {
@@ -1693,6 +1702,8 @@ export type Database = {
           avg_hold_time_minutes: number | null
           avoided_patterns: string[] | null
           best_trade_sol: number | null
+          bid_wallet_address: string | null
+          bid_wallet_private_key_encrypted: string | null
           bidding_ends_at: string | null
           consecutive_losses: number | null
           consecutive_wins: number | null
@@ -1742,6 +1753,8 @@ export type Database = {
           avg_hold_time_minutes?: number | null
           avoided_patterns?: string[] | null
           best_trade_sol?: number | null
+          bid_wallet_address?: string | null
+          bid_wallet_private_key_encrypted?: string | null
           bidding_ends_at?: string | null
           consecutive_losses?: number | null
           consecutive_wins?: number | null
@@ -1791,6 +1804,8 @@ export type Database = {
           avg_hold_time_minutes?: number | null
           avoided_patterns?: string[] | null
           best_trade_sol?: number | null
+          bid_wallet_address?: string | null
+          bid_wallet_private_key_encrypted?: string | null
           bidding_ends_at?: string | null
           consecutive_losses?: number | null
           consecutive_wins?: number | null

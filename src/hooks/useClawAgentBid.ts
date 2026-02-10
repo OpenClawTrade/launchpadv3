@@ -1,6 +1,9 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+export const MIN_BID_SOL = 5;
+export const BID_INCREMENT_SOL = 0.5;
+
 export function useClawAgentBid(tradingAgentId?: string) {
   const [isPlacingBid, setIsPlacingBid] = useState(false);
 
@@ -25,6 +28,7 @@ export function useClawAgentBid(tradingAgentId?: string) {
     tradingAgentId: string;
     bidderWallet: string;
     bidAmountSol: number;
+    txSignature: string;
   }) => {
     setIsPlacingBid(true);
     try {
