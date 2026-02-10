@@ -42,6 +42,8 @@ serve(async (req) => {
       personalityPrompt,
       creatorWallet,
        twitterUrl,
+       existingMintAddress,
+       existingTokenId,
     } = body;
 
     // creatorWallet is optional - can be used for future creator tracking
@@ -129,67 +131,75 @@ serve(async (req) => {
      const websiteUrl = `https://tuna.fun/t/${finalTicker.toUpperCase()}`;
      const finalTwitterUrl = twitterUrl?.trim() || null;
 
-     console.log(`[trading-agent-create] Launching token for ${finalName}...`);
-
-     // Launch token on Meteora DBC via Vercel API
+     // Check if using an existing token (skip launch)
      let tokenId: string | null = null;
      let mintAddress: string | null = null;
      let dbcPoolAddress: string | null = null;
 
-     try {
-       const launchResponse = await fetch(`${VERCEL_API_URL}/api/pool/create-fun`, {
-         method: "POST",
-         headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({
-           name: finalName,
-           ticker: finalTicker,
-           description: finalDescription,
-           imageUrl: finalAvatarUrl,
-           websiteUrl,
-           twitterUrl: finalTwitterUrl,
-           serverSideSign: true,
-           agentId: agent.id,
-           useFreshDeployer: false, // Deploy from treasury directly, saves 0.05 SOL per launch
-         }),
-       });
-
-        // Check if response is JSON before parsing
-        const contentType = launchResponse.headers.get("content-type");
-        if (!contentType?.includes("application/json")) {
-          const text = await launchResponse.text();
-          console.error("[trading-agent-create] Token launch returned non-JSON:", text.slice(0, 200));
-          // Continue without token - agent can still be created
-        } else {
-          const launchResult = await launchResponse.json();
-          console.log("[trading-agent-create] Token launch response:", JSON.stringify(launchResult).slice(0, 500));
-
-          if (launchResult.success && launchResult.mintAddress) {
-            tokenId = launchResult.tokenId;
-            mintAddress = launchResult.mintAddress;
-            dbcPoolAddress = launchResult.dbcPoolAddress;
-            console.log(`[trading-agent-create] Token launched: ${mintAddress}`);
-          } else {
-            console.error("[trading-agent-create] Token launch failed:", launchResult.error);
-            // Continue without token - agent can still be created
-          }
-       }
-     } catch (launchError) {
-       console.error("[trading-agent-create] Token launch error:", launchError);
-      // Token launch failed - abort the entire process
-      // Clean up: delete the trading agent and agent records
-      await supabase.from("agents").delete().eq("id", agent.id);
-      await supabase.from("trading_agents").delete().eq("id", tradingAgent.id);
-      
-      throw new Error(`Token launch failed: ${launchError instanceof Error ? launchError.message : "Unknown error"}`);
-     }
-
-     // Token launch is REQUIRED - if we got here without a mint, abort
-     if (!mintAddress) {
-       // Clean up: delete the trading agent and agent records
-       await supabase.from("agents").delete().eq("id", agent.id);
-       await supabase.from("trading_agents").delete().eq("id", tradingAgent.id);
+     if (existingMintAddress && existingTokenId) {
+       console.log(`[trading-agent-create] Using existing token: ${existingMintAddress} (${existingTokenId})`);
+       mintAddress = existingMintAddress;
+       tokenId = existingTokenId;
        
-       throw new Error("Token launch failed - no mint address returned. Trading agent creation aborted.");
+       // Look up pool address from existing fun_tokens record
+       const { data: existingTokenData } = await supabase
+         .from("fun_tokens")
+         .select("dbc_pool_address")
+         .eq("id", existingTokenId)
+         .maybeSingle();
+       
+       if (existingTokenData?.dbc_pool_address) {
+         dbcPoolAddress = existingTokenData.dbc_pool_address;
+       }
+     } else {
+       console.log(`[trading-agent-create] Launching token for ${finalName}...`);
+
+       try {
+         const launchResponse = await fetch(`${VERCEL_API_URL}/api/pool/create-fun`, {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({
+             name: finalName,
+             ticker: finalTicker,
+             description: finalDescription,
+             imageUrl: finalAvatarUrl,
+             websiteUrl,
+             twitterUrl: finalTwitterUrl,
+             serverSideSign: true,
+             agentId: agent.id,
+             useFreshDeployer: false,
+           }),
+         });
+
+         const contentType = launchResponse.headers.get("content-type");
+         if (!contentType?.includes("application/json")) {
+           const text = await launchResponse.text();
+           console.error("[trading-agent-create] Token launch returned non-JSON:", text.slice(0, 200));
+         } else {
+           const launchResult = await launchResponse.json();
+           console.log("[trading-agent-create] Token launch response:", JSON.stringify(launchResult).slice(0, 500));
+
+           if (launchResult.success && launchResult.mintAddress) {
+             tokenId = launchResult.tokenId;
+             mintAddress = launchResult.mintAddress;
+             dbcPoolAddress = launchResult.dbcPoolAddress;
+             console.log(`[trading-agent-create] Token launched: ${mintAddress}`);
+           } else {
+             console.error("[trading-agent-create] Token launch failed:", launchResult.error);
+           }
+         }
+       } catch (launchError) {
+         console.error("[trading-agent-create] Token launch error:", launchError);
+         await supabase.from("agents").delete().eq("id", agent.id);
+         await supabase.from("trading_agents").delete().eq("id", tradingAgent.id);
+         throw new Error(`Token launch failed: ${launchError instanceof Error ? launchError.message : "Unknown error"}`);
+       }
+
+       if (!mintAddress) {
+         await supabase.from("agents").delete().eq("id", agent.id);
+         await supabase.from("trading_agents").delete().eq("id", tradingAgent.id);
+         throw new Error("Token launch failed - no mint address returned. Trading agent creation aborted.");
+       }
      }
 
      // CRITICAL: Verify the fun_tokens record actually exists
