@@ -1,38 +1,39 @@
 
 
-# ✅ COMPLETED: Fix Take-Profit and Stop-Loss
+# Unblock Agent: Close 10 Manually-Sold Positions
 
-## Changes Made
+## Problem
+The position guard correctly checks for unclosed positions (lines 308-321 in execute):
+- It queries positions with status `open`, `sell_failed`, or `stopped_out` where `closed_at IS NULL`
+- There are **10 positions** still marked as `sell_failed` with no `closed_at`
+- Since 10 >= 2 (max positions), the agent is completely blocked from trading
 
-### 1. Fixed `checkJupiterOrderStatus` (monitor)
-- Changed query from `?user=${orderPubkey}` to `?user=${walletAddress}` 
-- Added `wallet_address` to the monitor's position query select
-- TP detection now works correctly
+The guard logic itself is correct -- this is just leftover data from positions you already sold manually.
 
-### 2. Added On-Chain SL Order (execute)
-- Now places BOTH TP and SL Jupiter Trigger orders after every buy
-- SL uses same `createJupiterLimitOrder` with stop-loss price amounts
-- Both pubkeys stored: `limit_order_tp_pubkey` + `limit_order_sl_pubkey`
+## Fix
 
-### 3. Simplified Monitor (monitor)
-- Replaced hybrid DB-polling with pure order status checks
-- When TP fills → cancel SL, record profit, close position
-- When SL fills → cancel TP, record loss, close position
-- Fallback DB-based monitoring only for legacy positions without orders
+Run a single database update to mark all 10 manually-sold positions as closed:
 
-### 4. Fixed Ghost Position Guard (execute)
-- Single query catches ALL unclosed positions: `status IN ('open', 'sell_failed', 'stopped_out') AND closed_at IS NULL`
-- Added `sell_failed` to position status check constraint
-
-### 5. Recovery
-- Updated 10 ghost `stopped_out` positions to `sell_failed`
-- Force-sell requires admin secret — trigger manually
-
-## Remaining: Force-Sell
-Call the force-sell endpoint with your admin secret to liquidate stuck tokens:
-```
-POST /trading-agent-force-sell
-Body: {"agentId": "1776eabc-5e58-46e2-be1d-5300dd202b51", "sellAll": true}
-Header: x-admin-secret: <your TWITTER_BOT_ADMIN_SECRET>
+```sql
+UPDATE trading_agent_positions 
+SET closed_at = NOW(), 
+    status = 'closed',
+    exit_reason = 'manual'
+WHERE trading_agent_id = '1776eabc-5e58-46e2-be1d-5300dd202b51' 
+  AND closed_at IS NULL;
 ```
 
+This sets:
+- `closed_at` = current timestamp (so the guard no longer counts them)
+- `status` = `closed` (clean state)
+- `exit_reason` = `manual` (indicates you sold them yourself)
+
+## After This
+
+The agent will have 0 unclosed positions and can immediately start trading. On the next execution cycle it will:
+1. Scan for opportunities
+2. Open up to 2 positions maximum
+3. Place both TP and SL as on-chain Jupiter Trigger orders
+4. The monitor will track order fill status instead of manual polling
+
+No code changes needed -- the guard logic is already correct. This is purely a data cleanup.
