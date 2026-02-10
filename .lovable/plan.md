@@ -1,115 +1,92 @@
 
-# Real Base Launchpad: On-Chain ERC20 Deployment
+# Fix Trading Agent: Failed Orders and Position Limit Bypass
 
-## Problem
+## Root Cause Analysis
 
-Nothing is actually deployed on-chain right now. The current flow:
-1. `base-deploy-contracts` just writes "edge-function-factory" to the DB (no real contract)
-2. `base-create-token` just inserts a DB record with `0x000...` placeholder addresses
-3. `BaseLauncher.tsx` passes placeholder addresses and never deploys a real token
+There are **3 critical bugs** causing failed orders and holding more than 2 tokens:
 
-The entire Base launchpad is a mockup -- no ERC20 tokens are created on-chain, no Uniswap pools exist, no trading is possible.
+### Bug 1: No On-Chain Position Count Guard (Most Critical)
+The execute function at line 308-322 ONLY checks the database for open positions. It does NOT scan the on-chain wallet for actual token holdings. If the DB is out of sync (ghost positions, unclosed positions, or race conditions between concurrent execute calls), the agent bypasses the 2-position limit and buys more tokens.
 
-## Solution
+### Bug 2: Orphaned Limit Orders Not Cancelled on Zero-Balance Close
+When the monitor detects a position was sold via zero-balance check (lines 270-310), it updates the DB status of the TP/SL orders but **never actually cancels them on-chain**. It calls `supabase.update({ limit_order_tp_status: 'cancelled' })` but never calls `cancelJupiterLimitOrder()`. These orphaned orders stay active on Jupiter and can execute later, causing unexpected sells and failed transactions.
 
-Rewrite `base-create-token` to **deploy a real ERC20 token on Base mainnet** using `viem` and the `BASE_DEPLOYER_PRIVATE_KEY` secret (already configured). Then optionally create a Uniswap V3 pool for it.
+### Bug 3: TP/SL Order Placement Failure Silently Ignored
+When limit order placement fails (line 665-667), the position is already created and the swap already executed. The agent holds tokens with NO stop-loss or take-profit protection. The code just logs a warning and moves on.
 
-## Architecture
+## Changes
 
-The edge function `base-create-token` will do everything server-side using the platform deployer wallet:
+### 1. `supabase/functions/trading-agent-execute/index.ts` - Add On-Chain Position Guard
 
+**Before the DB position count check (line 308)**, add an on-chain wallet scan:
+
+- Decrypt the agent wallet
+- Use `getParsedTokenAccountsByOwner` for both SPL Token and Token-2022 programs
+- Count all token accounts with non-zero balances
+- If on-chain token count >= maxPositions (2), BLOCK the trade regardless of what the DB says
+- Log a warning if DB count and on-chain count disagree (desync detection)
+
+This is the **dual-layer guard** described in the memory but never actually implemented in the execute function.
+
+### 2. `supabase/functions/trading-agent-monitor/index.ts` - Cancel Orphaned Orders On-Chain
+
+In the zero-balance detection block (lines 270-310), after detecting the position was sold:
+
+- Decrypt the agent wallet (already available from balance check)
+- If `hasTPOrder` and the order should be cancelled, call `cancelJupiterLimitOrder()` (the actual on-chain cancellation function that already exists at line 1225)
+- Same for `hasSLOrder`
+- Only then update the DB status
+
+This ensures orphaned Jupiter trigger orders are actually removed from the chain, preventing failed transactions.
+
+### 3. `supabase/functions/trading-agent-execute/index.ts` - Cancel ALL Existing Orders Before New Buy
+
+Before executing a new buy swap, cancel any leftover Jupiter trigger orders from previous positions:
+
+- Query `getTriggerOrders` for the agent wallet
+- If any active orders exist, cancel them all before proceeding
+- This prevents order conflicts and cleans up any ghost orders
+
+### 4. `supabase/functions/trading-agent-execute/index.ts` - Rollback Position on TP/SL Failure
+
+If BOTH TP and SL order placements fail (lines 630-668):
+
+- Immediately sell the tokens back (reverse the swap)
+- Delete the position record from the DB
+- Log a critical error
+- This prevents holding unprotected positions
+
+## Technical Details
+
+### On-Chain Guard Implementation (Execute Function)
 ```text
-User clicks "Launch" in BaseLauncher
-        |
-        v
-base-create-token edge function
-        |
-        +-- 1. Deploy ERC20 token contract (viem deployContract)
-        |       - Standard OpenZeppelin ERC20
-        |       - Constructor: name, symbol, deployer address, total supply
-        |       - Mint all tokens to deployer wallet
-        |
-        +-- 2. Wait for deployment tx confirmation
-        |
-        +-- 3. (Optional) Create Uniswap V3 pool
-        |       - Pair: TOKEN/WETH
-        |       - Initialize with starting price
-        |       - Add initial liquidity
-        |
-        +-- 4. Record real addresses in fun_tokens table
-        |       - evm_token_address = real deployed contract
-        |       - evm_pool_address = Uniswap pool (or empty)
-        |       - evm_factory_tx_hash = real deployment tx hash
-        |
-        +-- 5. Return success with real addresses
+// Before line 308, after decrypting wallet:
+1. getParsedTokenAccountsByOwner(agentPubkey, { programId: TOKEN_PROGRAM })
+2. getParsedTokenAccountsByOwner(agentPubkey, { programId: TOKEN_2022_PROGRAM })
+3. Count accounts where tokenAmount.uiAmount > 0
+4. If count >= maxPositions -> BLOCK, log "On-chain guard: X tokens held"
 ```
 
-## Detailed Changes
+### Orphaned Order Cancellation (Monitor Function)
+```text
+// Inside zero-balance detection (after line 270):
+1. Decrypt wallet (already done for balance check)
+2. If hasTPOrder && closeReason === "stop_loss":
+   cancelJupiterLimitOrder(connection, agentKeypair, jupiterApiKey, position.limit_order_tp_pubkey)
+3. If hasSLOrder && closeReason === "take_profit":
+   cancelJupiterLimitOrder(connection, agentKeypair, jupiterApiKey, position.limit_order_sl_pubkey)
+```
 
-### 1. Rewrite `supabase/functions/base-create-token/index.ts`
+### Pre-Buy Order Cleanup (Execute Function)
+```text
+// Before the Jupiter swap (line 575):
+1. Fetch getTriggerOrders?user=walletAddress&orderStatus=active
+2. For each active order -> cancelJupiterLimitOrder()
+3. This ensures a clean slate before entering new positions
+```
 
-The core change. This function will:
-
-- Import `viem` (createWalletClient, createPublicClient, http, parseEther, etc.)
-- Import `privateKeyToAccount` from viem/accounts
-- Use `BASE_DEPLOYER_PRIVATE_KEY` to create the deployer account
-- Deploy a **standard ERC20 contract** using inline Solidity ABI + bytecode
-  - The bytecode will be for a minimal ERC20: `constructor(string name, string symbol, address mintTo, uint256 totalSupply)`
-  - Total supply: 1,000,000,000 tokens (1B with 18 decimals)
-  - All tokens minted to creator wallet
-- Wait for transaction receipt (confirmation)
-- Store the real `evm_token_address` and `evm_factory_tx_hash` in the `fun_tokens` table via the existing `backend_create_base_token` RPC
-- Return real token address and tx hash to frontend
-
-**Bytecode approach**: Use a well-known, minimal OpenZeppelin ERC20 compiled bytecode. This is a standard pattern -- the bytecode for a basic ERC20 with constructor args is ~3KB and stable. We'll use the exact same bytecode that was in the original deploy function but properly complete (not truncated).
-
-Alternatively, we can use `viem`'s `deployContract` with inline ABI + bytecode from a verified source, keeping it simple with just: name, symbol, initial mint recipient, and supply.
-
-### 2. Update `src/components/launchpad/BaseLauncher.tsx`
-
-- Remove the placeholder `0x000...` addresses from the request body
-- The edge function now handles everything -- frontend just sends: name, ticker, creatorWallet, description, imageUrl, etc.
-- Display the real token address and tx hash on success
-- Add a link to Basescan for the deployment transaction
-
-### 3. Rewrite `supabase/functions/base-deploy-contracts/index.ts`
-
-- Remove the "virtual factory" nonsense
-- Make it a simple dry-run/balance check tool for the admin panel
-- OR repurpose it to deploy a real TunaFactory registry contract (optional, lower priority)
-- For MVP: just verify deployer balance and return ready status
-
-### 4. Update `src/hooks/useBaseContractDeploy.ts`
-
-- Adjust the types to match the simplified deploy response (no more TunaFactory/TunaToken addresses since we deploy per-token)
-
-## What This Gives You
-
-- **Real ERC20 tokens** deployed on Base mainnet when users click "Launch"
-- **Real Basescan-verifiable** contract addresses and tx hashes
-- **Real token balances** visible in wallets (MetaMask, etc.)
-- Tokens show up on-chain and can be transferred
-- Foundation for adding Uniswap V3 pool creation + trading in a follow-up
-
-## What's NOT Included (Follow-up Work)
-
-- Uniswap V3 pool creation (requires additional liquidity logic)
-- Trading/swapping interface
-- On-chain fee collection (requires a fee-enabled token or wrapper)
-- These can be added incrementally once basic token deployment works
-
-## Dependencies
-
-- `BASE_DEPLOYER_PRIVATE_KEY` -- already configured as a secret
-- Deployer wallet must have ETH on Base mainnet for gas (~0.001-0.003 ETH per token deploy)
-- `viem` library (already used in the codebase via esm.sh imports)
-
-## ERC20 Bytecode Strategy
-
-Instead of using pre-compiled truncated bytecode (which caused the original error), we'll use one of two approaches:
-
-**Option A (Preferred)**: Encode a minimal Solidity ERC20 using viem's `encodeDeployData` with a well-known ABI. The bytecode for a standard OpenZeppelin ERC20 is publicly available and verified on Etherscan -- we'll use the exact bytecode from a verified Base mainnet contract.
-
-**Option B (Fallback)**: Use a factory pattern where we call Uniswap's token creation or use CREATE2 with known init code.
-
-We'll go with Option A for reliability.
+These changes together create a bulletproof system:
+- On-chain guard prevents >2 positions regardless of DB state
+- Orphaned order cleanup prevents failed txs from lingering Jupiter orders
+- Pre-buy cleanup prevents order conflicts
+- TP/SL failure rollback prevents unprotected positions
