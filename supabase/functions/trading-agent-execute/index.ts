@@ -305,32 +305,19 @@ serve(async (req) => {
           continue;
         }
 
-        // Get current open positions
+        // Get ALL unclosed positions (open, sell_failed, stopped_out without closed_at)
         const { data: openPositions } = await supabase
           .from("trading_agent_positions")
           .select("*")
           .eq("trading_agent_id", agent.id)
-          .eq("status", "open");
+          .in("status", ["open", "sell_failed", "stopped_out"])
+          .is("closed_at", null);
 
         const strategy = STRATEGIES[agent.strategy_type as keyof typeof STRATEGIES] || STRATEGIES.balanced;
-        const openCount = openPositions?.length || 0;
+        const unclosedCount = openPositions?.length || 0;
 
-        if (openCount >= strategy.maxPositions) {
-          console.log(`[trading-agent-execute] Agent ${agent.name} at max positions (${openCount}/${strategy.maxPositions})`);
-          continue;
-        }
-
-        // === GHOST POSITION CHECK ===
-        // Count positions that failed to sell (dust sells) - these tokens are still in wallet
-        const { data: failedSells } = await supabase
-          .from("trading_agent_positions")
-          .select("id")
-          .eq("trading_agent_id", agent.id)
-          .eq("status", "sell_failed");
-
-        const ghostCount = failedSells?.length || 0;
-        if (ghostCount > 0 && openCount + ghostCount >= strategy.maxPositions) {
-          console.warn(`[trading-agent-execute] Agent ${agent.name} blocked: ${openCount} open + ${ghostCount} ghost (sell_failed) positions = ${openCount + ghostCount} >= max ${strategy.maxPositions}`);
+        if (unclosedCount >= strategy.maxPositions) {
+          console.log(`[trading-agent-execute] Agent ${agent.name} blocked: ${unclosedCount} unclosed positions >= max ${strategy.maxPositions}`);
           continue;
         }
 
@@ -539,7 +526,7 @@ serve(async (req) => {
         const availableCapital = (agent.trading_capital_sol || 0) - GAS_RESERVE_SOL;
         let positionSize = Math.min(
           availableCapital * (strategy.positionPct / 100),
-          availableCapital / (strategy.maxPositions - openCount)
+          availableCapital / (strategy.maxPositions - unclosedCount)
         );
 
         // Apply capital tier limits for risk management
@@ -637,11 +624,11 @@ serve(async (req) => {
 
         if (posError) throw posError;
 
-        // === Jupiter Limit Orders: Place on-chain TP only ===
-        // NOTE: Stop-Loss CANNOT be a limit order — Jupiter limit orders are "sell at or above"
-        // which means an SL order (sell at LOWER price) fills immediately since market price
-        // already exceeds the SL threshold. SL is handled by DB-based polling in trading-agent-monitor.
+        // === Jupiter Trigger Orders: Place BOTH TP and SL on-chain ===
+        // Jupiter Trigger orders use keeper bots that monitor prices 24/7 and execute
+        // when the target price is reached. Works for both "sell above" (TP) and "sell below" (SL).
         let tpOrderPubkey: string | null = null;
+        let slOrderPubkey: string | null = null;
         const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
 
         if (jupiterApiKey) {
@@ -660,26 +647,46 @@ serve(async (req) => {
             );
             if (tpResult) {
               tpOrderPubkey = tpResult;
-              console.log(`[trading-agent-execute] ✅ TP limit order placed: ${tpOrderPubkey}`);
+              console.log(`[trading-agent-execute] ✅ TP trigger order placed: ${tpOrderPubkey}`);
+            }
+
+            // Stop Loss: sell all tokens at SL price → receive less SOL
+            // Jupiter keeper will only execute when price drops to SL level
+            const slSolLamports = Math.floor(stopLossPrice * tokensReceived * 1e9);
+            const slResult = await createJupiterLimitOrder(
+              connection, agentKeypair, jupiterApiKey,
+              selectedToken.mint_address, WSOL_MINT,
+              rawTokenAmount.toString(), slSolLamports.toString()
+            );
+            if (slResult) {
+              slOrderPubkey = slResult;
+              console.log(`[trading-agent-execute] ✅ SL trigger order placed: ${slOrderPubkey}`);
             }
           } catch (limitOrderError) {
-            console.warn(`[trading-agent-execute] Limit order placement failed, falling back to DB-based monitoring:`, limitOrderError);
+            console.warn(`[trading-agent-execute] Trigger order placement failed, falling back to DB-based monitoring:`, limitOrderError);
           }
         }
 
-        // Update position with limit order info
-        // SL is always 'none' — monitored via DB-based price polling in trading-agent-monitor
+        // Update position with both order pubkeys
+        const orderUpdate: any = {};
         if (tpOrderPubkey) {
-          await supabase
-            .from("trading_agent_positions")
-            .update({
-              limit_order_sl_pubkey: null,
-              limit_order_tp_pubkey: tpOrderPubkey,
-              limit_order_sl_status: 'none',
-              limit_order_tp_status: 'active',
-            })
-            .eq("id", position.id);
+          orderUpdate.limit_order_tp_pubkey = tpOrderPubkey;
+          orderUpdate.limit_order_tp_status = 'active';
+        } else {
+          orderUpdate.limit_order_tp_pubkey = null;
+          orderUpdate.limit_order_tp_status = 'none';
         }
+        if (slOrderPubkey) {
+          orderUpdate.limit_order_sl_pubkey = slOrderPubkey;
+          orderUpdate.limit_order_sl_status = 'active';
+        } else {
+          orderUpdate.limit_order_sl_pubkey = null;
+          orderUpdate.limit_order_sl_status = 'none';
+        }
+        await supabase
+          .from("trading_agent_positions")
+          .update(orderUpdate)
+          .eq("id", position.id);
 
         // Create trade record
         const { data: trade, error: tradeError } = await supabase

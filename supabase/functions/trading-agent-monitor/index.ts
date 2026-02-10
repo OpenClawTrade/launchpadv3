@@ -183,7 +183,7 @@ serve(async (req) => {
             total_trades, winning_trades, losing_trades, win_rate,
             consecutive_wins, consecutive_losses, best_trade_sol, worst_trade_sol,
             learned_patterns, avoided_patterns, preferred_narratives,
-            wallet_private_key_encrypted,
+            wallet_private_key_encrypted, wallet_address,
             agent:agents!trading_agents_agent_id_fkey(id, name, avatar_url)
           )
         `)
@@ -235,18 +235,37 @@ serve(async (req) => {
             })
             .eq("id", position.id);
 
-          // === HYBRID MONITORING: TP on-chain + SL via DB polling ===
-          // TP is handled on-chain via Jupiter limit order (fills when price rises)
-          // SL is ALWAYS handled via DB-based price monitoring (limit orders can't trigger on price drops)
-          const hasTPLimitOrder = position.limit_order_tp_pubkey && position.limit_order_tp_status === 'active';
+          // === ON-CHAIN ORDER MONITORING: Both TP and SL via Jupiter Trigger Orders ===
+          const hasTPOrder = position.limit_order_tp_pubkey && position.limit_order_tp_status === 'active';
+          const hasSLOrder = position.limit_order_sl_pubkey && position.limit_order_sl_status === 'active';
           const jupiterApiKey = Deno.env.get("JUPITER_API_KEY");
+          const agentWalletAddress = agent.wallet_address || position.trading_agent?.wallet_address;
 
-          // Check TP limit order status if one exists
-          if (hasTPLimitOrder && jupiterApiKey) {
-            const tpStatus = await checkJupiterOrderStatus(position.limit_order_tp_pubkey, jupiterApiKey);
+          if (!jupiterApiKey || !agentWalletAddress) {
+            console.warn(`[trading-agent-monitor] Missing Jupiter API key or wallet address for ${agent.name}`);
+            continue;
+          }
+
+          // Check TP order status
+          if (hasTPOrder) {
+            const tpStatus = await checkJupiterOrderStatus(position.limit_order_tp_pubkey, agentWalletAddress, jupiterApiKey);
             if (tpStatus === 'filled') {
-              console.log(`[trading-agent-monitor] TP limit order FILLED for ${position.token_symbol}`);
+              console.log(`[trading-agent-monitor] TP order FILLED for ${position.token_symbol}`);
               await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'filled' }).eq("id", position.id);
+
+              // Cancel the SL order since TP filled
+              if (hasSLOrder) {
+                try {
+                  const agentKeypair = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
+                  if (agentKeypair) {
+                    await cancelJupiterLimitOrder(connection, agentKeypair, jupiterApiKey, position.limit_order_sl_pubkey);
+                    await supabase.from("trading_agent_positions").update({ limit_order_sl_status: 'cancelled' }).eq("id", position.id);
+                    console.log(`[trading-agent-monitor] Cancelled SL order after TP fill`);
+                  }
+                } catch (cancelErr) {
+                  console.warn(`[trading-agent-monitor] Failed to cancel SL order after TP fill:`, cancelErr);
+                }
+              }
 
               const solReceived = position.investment_sol * (1 + strategy.takeProfit / 100);
               const realizedPnl = solReceived - position.investment_sol;
@@ -254,7 +273,7 @@ serve(async (req) => {
               await processPositionClosure(
                 supabase, connection, LOVABLE_API_KEY, API_ENCRYPTION_KEY,
                 agent, position, currentPrice, pnlPct, "take_profit",
-                solReceived, realizedPnl, "on-chain-limit-order"
+                solReceived, realizedPnl, "jupiter-trigger-order"
               );
 
               results.push({
@@ -264,125 +283,161 @@ serve(async (req) => {
                 closeReason: "take_profit",
                 pnlPct: pnlPct.toFixed(2),
                 realizedPnl: realizedPnl.toFixed(6),
-                signature: "jupiter-limit-order",
+                signature: "jupiter-trigger-order",
               });
 
               closedCount++;
               takeProfitCount++;
               totalTrades++;
-              console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol} via TP limit order (${pnlPct.toFixed(2)}%)`);
-              continue; // Position closed, move to next
+              console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol} via TP order (${pnlPct.toFixed(2)}%)`);
+              continue;
             } else if (tpStatus === 'cancelled') {
               await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'cancelled' }).eq("id", position.id);
             }
           }
 
-          // === DB-BASED SL CHECK (always runs) + DB-BASED TP CHECK (only if no on-chain TP) ===
-          const hitStopLoss = pnlPct <= -strategy.stopLoss;
-          const hitTakeProfit = !hasTPLimitOrder && pnlPct >= strategy.takeProfit;
+          // Check SL order status
+          if (hasSLOrder) {
+            const slStatus = await checkJupiterOrderStatus(position.limit_order_sl_pubkey, agentWalletAddress, jupiterApiKey);
+            if (slStatus === 'filled') {
+              console.log(`[trading-agent-monitor] SL order FILLED for ${position.token_symbol}`);
+              await supabase.from("trading_agent_positions").update({ limit_order_sl_status: 'filled' }).eq("id", position.id);
 
-          if (hitStopLoss || hitTakeProfit) {
-            const closeReason = hitStopLoss ? "stop_loss" : "take_profit";
-
-            const agentKeypair = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
-            if (!agentKeypair) {
-              console.error(`[trading-agent-monitor] Failed to decrypt wallet for ${agent.name}`);
-              continue;
-            }
-
-            // If SL triggered and there's an active TP limit order, cancel it first
-            if (hitStopLoss && hasTPLimitOrder && jupiterApiKey) {
-              try {
-                console.log(`[trading-agent-monitor] Cancelling TP limit order before SL market sell...`);
-                await cancelJupiterLimitOrder(connection, agentKeypair, jupiterApiKey, position.limit_order_tp_pubkey);
-                await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'cancelled' }).eq("id", position.id);
-              } catch (cancelErr) {
-                console.warn(`[trading-agent-monitor] Failed to cancel TP order, proceeding with sell:`, cancelErr);
+              // Cancel the TP order since SL filled
+              if (hasTPOrder) {
+                try {
+                  const agentKeypair = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
+                  if (agentKeypair) {
+                    await cancelJupiterLimitOrder(connection, agentKeypair, jupiterApiKey, position.limit_order_tp_pubkey);
+                    await supabase.from("trading_agent_positions").update({ limit_order_tp_status: 'cancelled' }).eq("id", position.id);
+                    console.log(`[trading-agent-monitor] Cancelled TP order after SL fill`);
+                  }
+                } catch (cancelErr) {
+                  console.warn(`[trading-agent-monitor] Failed to cancel TP order after SL fill:`, cancelErr);
+                }
               }
-            }
 
-            // Fetch ACTUAL on-chain token balance from BOTH SPL Token and Token-2022 programs
-            // This prevents partial sells when a token uses Token-2022 instead of standard SPL
-            const { PublicKey: PubKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
-            const TOKEN_PROGRAM = new PubKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-            const TOKEN_2022_PROGRAM = new PubKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
-            const mintPubkey = new PubKey(position.token_address);
-            const [splAccounts, t22Accounts] = await Promise.all([
-              connection.getParsedTokenAccountsByOwner(
-                agentKeypair.publicKey, { mint: mintPubkey }
-              ).catch(() => ({ value: [] })),
-              connection.getParsedTokenAccountsByOwner(
-                agentKeypair.publicKey, 
-                { programId: TOKEN_2022_PROGRAM }
-              ).then(res => ({
-                value: res.value.filter(a => 
-                  a.account.data.parsed?.info?.mint === position.token_address
-                )
-              })).catch(() => ({ value: [] })),
-            ]);
-            const allTokenAccounts = [...splAccounts.value, ...t22Accounts.value];
-            let amountToSell = 0;
-            for (const acc of allTokenAccounts) {
-              const raw = acc.account.data.parsed?.info?.tokenAmount?.amount;
-              if (raw) amountToSell += parseInt(raw);
-            }
-            if (amountToSell === 0) {
-              console.warn(`[trading-agent-monitor] No on-chain balance for ${position.token_symbol}, marking as closed (already sold)`);
-              await supabase.from("trading_agent_positions").update({ status: "stopped_out" }).eq("id", position.id);
+              const solReceived = position.investment_sol * (1 - strategy.stopLoss / 100);
+              const realizedPnl = solReceived - position.investment_sol;
+
+              await processPositionClosure(
+                supabase, connection, LOVABLE_API_KEY, API_ENCRYPTION_KEY,
+                agent, position, currentPrice, pnlPct, "stop_loss",
+                solReceived, realizedPnl, "jupiter-trigger-order"
+              );
+
+              results.push({
+                positionId: position.id,
+                agentName: agent.name,
+                token: position.token_symbol,
+                closeReason: "stop_loss",
+                pnlPct: pnlPct.toFixed(2),
+                realizedPnl: realizedPnl.toFixed(6),
+                signature: "jupiter-trigger-order",
+              });
+
+              closedCount++;
+              stopLossCount++;
+              totalTrades++;
+              console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol} via SL order (${pnlPct.toFixed(2)}%)`);
               continue;
+            } else if (slStatus === 'cancelled') {
+              await supabase.from("trading_agent_positions").update({ limit_order_sl_status: 'cancelled' }).eq("id", position.id);
             }
+          }
 
-            console.log(`[trading-agent-monitor] Selling ${position.token_symbol}: on-chain raw amount = ${amountToSell}`);
+          // === FALLBACK: DB-based monitoring if no on-chain orders exist ===
+          // This handles legacy positions or cases where order placement failed
+          if (!hasTPOrder && !hasSLOrder) {
+            const hitStopLoss = pnlPct <= -strategy.stopLoss;
+            const hitTakeProfit = pnlPct >= strategy.takeProfit;
 
-            const swapResult = await executeJupiterSwapWithJito(
-              connection, agentKeypair,
-              position.token_address, WSOL_MINT,
-              amountToSell, SLIPPAGE_BPS
-            );
+            if (hitStopLoss || hitTakeProfit) {
+              const closeReason = hitStopLoss ? "stop_loss" : "take_profit";
 
-            if (!swapResult.success) {
-              console.error(`[trading-agent-monitor] Sell swap failed for ${agent.name}:`, swapResult.error);
-              continue;
+              const agentKeypair = await decryptWallet(agent.wallet_private_key_encrypted, API_ENCRYPTION_KEY);
+              if (!agentKeypair) {
+                console.error(`[trading-agent-monitor] Failed to decrypt wallet for ${agent.name}`);
+                continue;
+              }
+
+              // Fetch on-chain token balance
+              const { PublicKey: PubKey } = await import("https://esm.sh/@solana/web3.js@1.98.0");
+              const TOKEN_2022_PROGRAM = new PubKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+              const mintPubkey = new PubKey(position.token_address);
+              const [splAccounts, t22Accounts] = await Promise.all([
+                connection.getParsedTokenAccountsByOwner(
+                  agentKeypair.publicKey, { mint: mintPubkey }
+                ).catch(() => ({ value: [] })),
+                connection.getParsedTokenAccountsByOwner(
+                  agentKeypair.publicKey, 
+                  { programId: TOKEN_2022_PROGRAM }
+                ).then(res => ({
+                  value: res.value.filter(a => 
+                    a.account.data.parsed?.info?.mint === position.token_address
+                  )
+                })).catch(() => ({ value: [] })),
+              ]);
+              const allTokenAccounts = [...splAccounts.value, ...t22Accounts.value];
+              let amountToSell = 0;
+              for (const acc of allTokenAccounts) {
+                const raw = acc.account.data.parsed?.info?.tokenAmount?.amount;
+                if (raw) amountToSell += parseInt(raw);
+              }
+              if (amountToSell === 0) {
+                console.warn(`[trading-agent-monitor] No on-chain balance for ${position.token_symbol}, marking as sell_failed`);
+                await supabase.from("trading_agent_positions").update({ status: "sell_failed" }).eq("id", position.id);
+                continue;
+              }
+
+              const swapResult = await executeJupiterSwapWithJito(
+                connection, agentKeypair,
+                position.token_address, WSOL_MINT,
+                amountToSell, SLIPPAGE_BPS
+              );
+
+              if (!swapResult.success) {
+                console.error(`[trading-agent-monitor] Sell swap failed for ${agent.name}:`, swapResult.error);
+                await supabase.from("trading_agent_positions").update({ status: "sell_failed" }).eq("id", position.id);
+                continue;
+              }
+
+              const solReceived = (swapResult.outputAmount || currentValue);
+              const minAcceptableSol = position.investment_sol * 0.01;
+              if (solReceived < minAcceptableSol) {
+                console.error(`[trading-agent-monitor] ⚠️ DUST SELL for ${position.token_symbol}: received ${solReceived.toFixed(9)} SOL. Marking as sell_failed.`);
+                await supabase.from("trading_agent_positions").update({ 
+                  status: "sell_failed",
+                  current_value_sol: solReceived,
+                }).eq("id", position.id);
+                continue;
+              }
+
+              const realizedPnl = solReceived - position.investment_sol;
+
+              await processPositionClosure(
+                supabase, connection, LOVABLE_API_KEY, API_ENCRYPTION_KEY,
+                agent, position, currentPrice, pnlPct, closeReason,
+                solReceived, realizedPnl, swapResult.signature || ""
+              );
+
+              results.push({
+                positionId: position.id,
+                agentName: agent.name,
+                token: position.token_symbol,
+                closeReason,
+                pnlPct: pnlPct.toFixed(2),
+                realizedPnl: realizedPnl.toFixed(6),
+                signature: swapResult.signature,
+              });
+
+              closedCount++;
+              if (hitStopLoss) stopLossCount++;
+              if (hitTakeProfit) takeProfitCount++;
+              totalTrades++;
+
+              console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol} via fallback: ${closeReason} (${pnlPct.toFixed(2)}%)`);
             }
-
-            const solReceived = (swapResult.outputAmount || currentValue);
-
-            // === DUST SELL VALIDATION ===
-            // If we received less than 1% of investment, the sell likely failed or sent wrong amount
-            const minAcceptableSol = position.investment_sol * 0.01;
-            if (solReceived < minAcceptableSol) {
-              console.error(`[trading-agent-monitor] ⚠️ DUST SELL detected for ${position.token_symbol}: received ${solReceived.toFixed(9)} SOL vs invested ${position.investment_sol.toFixed(4)} SOL. Marking as sell_failed.`);
-              await supabase.from("trading_agent_positions").update({ 
-                status: "sell_failed",
-                current_value_sol: solReceived,
-              }).eq("id", position.id);
-              continue; // Don't close the position as successful
-            }
-
-            const realizedPnl = solReceived - position.investment_sol;
-
-            await processPositionClosure(
-              supabase, connection, LOVABLE_API_KEY, API_ENCRYPTION_KEY,
-              agent, position, currentPrice, pnlPct, closeReason,
-              solReceived, realizedPnl, swapResult.signature || ""
-            );
-
-            results.push({
-              positionId: position.id,
-              agentName: agent.name,
-              token: position.token_symbol,
-              closeReason,
-              pnlPct: pnlPct.toFixed(2),
-              realizedPnl: realizedPnl.toFixed(6),
-              signature: swapResult.signature,
-            });
-
-            closedCount++;
-            if (hitStopLoss) stopLossCount++;
-            if (hitTakeProfit) takeProfitCount++;
-            totalTrades++;
-
-            console.log(`[trading-agent-monitor] ✅ ${agent.name} closed ${position.token_symbol}: ${closeReason} (${pnlPct.toFixed(2)}%) sig: ${swapResult.signature}`);
           }
 
         } catch (positionError) {
@@ -1044,22 +1099,23 @@ Respond in JSON format:
 
 // === Jupiter Limit Order Helper Functions ===
 
-async function checkJupiterOrderStatus(orderPubkey: string, jupiterApiKey: string): Promise<'active' | 'filled' | 'cancelled' | 'unknown'> {
+async function checkJupiterOrderStatus(orderPubkey: string, walletAddress: string, jupiterApiKey: string): Promise<'active' | 'filled' | 'cancelled' | 'unknown'> {
   try {
-    // Use correct Jupiter Trigger API endpoint: getTriggerOrders with user param
+    // FIXED: Query by wallet address (user), NOT order pubkey
+    // Jupiter's getTriggerOrders expects the wallet address as the `user` param
     const response = await fetchWithRetry(
-      `${JUPITER_TRIGGER_URL}/getTriggerOrders?user=${orderPubkey}&orderStatus=active`,
+      `${JUPITER_TRIGGER_URL}/getTriggerOrders?user=${walletAddress}&orderStatus=active`,
       { headers: { 'x-api-key': jupiterApiKey } }
     );
 
     if (!response.ok) {
-      console.warn(`[trading-agent-monitor] getTriggerOrders failed for ${orderPubkey}: ${response.status}`);
+      console.warn(`[trading-agent-monitor] getTriggerOrders failed for wallet ${walletAddress}: ${response.status}`);
       return 'unknown';
     }
 
     const data = await response.json();
     
-    // Check if the order exists in active orders
+    // Search returned orders for our specific order pubkey
     const orders = data.orders || data;
     if (Array.isArray(orders)) {
       const order = orders.find((o: any) => o.account === orderPubkey || o.orderKey === orderPubkey || o.publicKey === orderPubkey);
@@ -1070,9 +1126,9 @@ async function checkJupiterOrderStatus(orderPubkey: string, jupiterApiKey: strin
       }
     }
 
-    // If order not found in active list, check history
+    // If order not found in active list, check history (it may have been filled/cancelled)
     const historyResponse = await fetchWithRetry(
-      `${JUPITER_TRIGGER_URL}/getTriggerOrders?user=${orderPubkey}&orderStatus=history`,
+      `${JUPITER_TRIGGER_URL}/getTriggerOrders?user=${walletAddress}&orderStatus=history`,
       { headers: { 'x-api-key': jupiterApiKey } }
     );
 
