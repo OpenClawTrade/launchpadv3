@@ -5,6 +5,8 @@ import { ClawStatsBar } from "@/components/claw/ClawStatsBar";
 import { ClawAgentSection } from "@/components/claw/ClawAgentSection";
 import { ClawTokenGrid } from "@/components/claw/ClawTokenGrid";
 import { ClawTradingSection } from "@/components/claw/ClawTradingSection";
+import { ClawBribeSection } from "@/components/claw/ClawBribeSection";
+import { ClawForumSection } from "@/components/claw/ClawForumSection";
 import "@/styles/claw-theme.css";
 
 export default function ClawModePage() {
@@ -48,6 +50,8 @@ export default function ClawModePage() {
               <a href="#tokens" className="hover:text-white transition-colors">🦞 Tokens</a>
               <a href="#trading" className="hover:text-white transition-colors">🦞 Trading</a>
               <a href="#bidding" className="hover:text-white transition-colors">🦞 Bidding</a>
+              <a href="#bribe" className="claw-bribe-nav-btn">💰 Bribe</a>
+              <a href="#forum" className="hover:text-white transition-colors">🦞 Forum</a>
             </nav>
           </div>
         </header>
@@ -68,6 +72,14 @@ export default function ClawModePage() {
           <div id="trading">
             <div id="bidding" />
             <ClawTradingSection />
+          </div>
+
+          <div id="bribe">
+            <ClawBribeSection />
+          </div>
+
+          <div id="forum">
+            <ClawForumSection />
           </div>
         </main>
 

@@ -169,3 +169,45 @@
 .claw-theme::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--claw-primary) / 0.5);
 }
+
+/* Bribe button glow */
+.claw-bribe-nav-btn {
+  background: linear-gradient(135deg, hsl(45 93% 47%), hsl(38 92% 50%));
+  color: hsl(0 0% 0%);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.375rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 15px hsl(45 93% 47% / 0.4), 0 0 30px hsl(45 93% 47% / 0.2);
+  animation: bribe-glow 2s ease-in-out infinite;
+}
+
+.claw-bribe-nav-btn:hover {
+  box-shadow: 0 0 25px hsl(45 93% 47% / 0.6), 0 0 50px hsl(45 93% 47% / 0.3);
+  transform: scale(1.05);
+}
+
+@keyframes bribe-glow {
+  0%, 100% { box-shadow: 0 0 15px hsl(45 93% 47% / 0.4), 0 0 30px hsl(45 93% 47% / 0.2); }
+  50% { box-shadow: 0 0 25px hsl(45 93% 47% / 0.6), 0 0 45px hsl(45 93% 47% / 0.3); }
+}
+
+.claw-bribe-btn {
+  background: linear-gradient(135deg, hsl(45 93% 47%), hsl(38 92% 50%));
+  color: hsl(0 0% 0%);
+  box-shadow: 0 0 15px hsl(45 93% 47% / 0.3);
+}
+
+.claw-bribe-btn:hover:not(:disabled) {
+  box-shadow: 0 0 25px hsl(45 93% 47% / 0.5);
+}
+
+.claw-gradient-text-bribe {
+  background: linear-gradient(135deg, hsl(45 93% 58%), hsl(38 92% 50%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

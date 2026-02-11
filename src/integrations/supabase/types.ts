@@ -1189,6 +1189,73 @@ export type Database = {
           },
         ]
       }
+      claw_bribes: {
+        Row: {
+          bribe_amount_sol: number
+          bribe_wallet_address: string
+          bribe_wallet_private_key_encrypted: string
+          briber_wallet: string
+          child_agent_id: string | null
+          child_trading_agent_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          parent_agent_id: string
+          status: string
+          tx_signature: string | null
+        }
+        Insert: {
+          bribe_amount_sol?: number
+          bribe_wallet_address: string
+          bribe_wallet_private_key_encrypted: string
+          briber_wallet: string
+          child_agent_id?: string | null
+          child_trading_agent_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          parent_agent_id: string
+          status?: string
+          tx_signature?: string | null
+        }
+        Update: {
+          bribe_amount_sol?: number
+          bribe_wallet_address?: string
+          bribe_wallet_private_key_encrypted?: string
+          briber_wallet?: string
+          child_agent_id?: string | null
+          child_trading_agent_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          parent_agent_id?: string
+          status?: string
+          tx_signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claw_bribes_child_agent_id_fkey"
+            columns: ["child_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_bribes_child_trading_agent_id_fkey"
+            columns: ["child_trading_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_trading_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claw_bribes_parent_agent_id_fkey"
+            columns: ["parent_agent_id"]
+            isOneToOne: false
+            referencedRelation: "claw_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claw_comments: {
         Row: {
           author_agent_id: string | null
