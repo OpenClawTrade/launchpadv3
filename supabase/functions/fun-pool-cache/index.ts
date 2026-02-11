@@ -193,37 +193,43 @@ Deno.serve(async (req) => {
     if (action === 'update') {
       console.log('[fun-pool-cache] Starting cache update...');
 
-      // Fetch top 30 by bonding progress (ensures King of the Hill accuracy)
-      const { data: topProgressTokens, error: topError } = await supabase
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+
+      // Fetch FRESH tokens (< 1 day old) - update every cycle
+      const { data: freshTokens, error: freshError } = await supabase
         .from('fun_tokens')
-        .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago')
+        .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago, created_at')
         .eq('status', 'active')
+        .gte('created_at', oneDayAgo)
         .order('bonding_progress', { ascending: false })
-        .limit(30);
+        .limit(50);
 
-      // Fetch newest 30 tokens (ensures new launches get updates)
-      const { data: newestTokens, error: newestError } = await supabase
+      // Fetch OLD tokens (> 1 day old) - only if not updated in last 6 hours
+      const { data: oldTokens, error: oldError } = await supabase
         .from('fun_tokens')
-        .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago')
+        .select('id, mint_address, dbc_pool_address, status, price_sol, price_24h_ago, created_at')
         .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(30);
+        .lt('created_at', oneDayAgo)
+        .or(`updated_at.is.null,updated_at.lt.${sixHoursAgo}`)
+        .order('bonding_progress', { ascending: false })
+        .limit(20);
 
-      if (topError || newestError) {
-        console.error('[fun-pool-cache] Error fetching tokens:', topError || newestError);
+      if (freshError || oldError) {
+        console.error('[fun-pool-cache] Error fetching tokens:', freshError || oldError);
         return new Response(JSON.stringify({ error: 'Failed to fetch tokens' }), {
           status: 500,
           headers: corsHeaders,
         });
       }
 
-      // Deduplicate and merge (max ~60 unique tokens, often overlapping)
-      const tokensMap = new Map<string, typeof topProgressTokens[0]>();
-      for (const t of [...(topProgressTokens || []), ...(newestTokens || [])]) {
+      // Deduplicate and merge
+      const tokensMap = new Map<string, typeof freshTokens[0]>();
+      for (const t of [...(freshTokens || []), ...(oldTokens || [])]) {
         tokensMap.set(t.id, t);
       }
       const tokens = Array.from(tokensMap.values());
-      console.log(`[fun-pool-cache] Processing ${tokens.length} tokens (top progress + newest merged)`);
+      console.log(`[fun-pool-cache] Processing ${tokens.length} tokens (${freshTokens?.length || 0} fresh + ${oldTokens?.length || 0} old)`);
 
       let updated = 0;
       const batchSize = 5;

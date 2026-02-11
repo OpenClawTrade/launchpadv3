@@ -1115,10 +1115,14 @@ Deno.serve(async (req) => {
     // Get agents ready for engagement (5 min cooldown)
     const cooldownTime = new Date(Date.now() - (CYCLE_INTERVAL_MINUTES - 1) * 60 * 1000).toISOString();
 
+    // Only engage agents created within the last 3 days to save cloud costs
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
     const { data: agents, error: agentsError } = await supabase
       .from("agents")
-      .select("id, name, description, wallet_address, last_auto_engage_at, last_cross_visit_at, has_posted_welcome, writing_style")
+      .select("id, name, description, wallet_address, last_auto_engage_at, last_cross_visit_at, has_posted_welcome, writing_style, created_at")
       .eq("status", "active")
+      .gte("created_at", threeDaysAgo)
       .or(`last_auto_engage_at.is.null,last_auto_engage_at.lt.${cooldownTime}`)
       .order("last_auto_engage_at", { ascending: true, nullsFirst: true })
       .range(offset, offset + AGENTS_PER_BATCH - 1);
