@@ -335,3 +335,9 @@ verify_jwt = false
 
 [functions.claw-agent-bid-settle]
 verify_jwt = false
+
+[functions.claw-bribe-init]
+verify_jwt = false
+
+[functions.claw-bribe-confirm]
+verify_jwt = false
