@@ -117,7 +117,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           <Link to="/migrate">
             <Button 
               size="sm" 
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg h-9 px-3 text-xs sm:text-sm font-bold animate-pulse"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-xs sm:text-sm font-medium"
             >
               <ArrowsClockwise className="h-4 w-4 mr-1.5" weight="bold" />
               Migrate
@@ -157,7 +157,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           <Link to="/agents/trading">
             <Button 
               size="sm" 
-              className="gold-pulse-btn font-bold rounded-lg h-9 px-3 text-xs sm:text-sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-xs sm:text-sm font-medium"
             >
               <TrendingUp className="h-4 w-4 mr-1.5" />
               Trading Agents
@@ -253,9 +253,9 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                 
                 {/* Menu items */}
                 <nav className="flex-1 p-4 space-y-2">
-                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 transition-colors animate-pulse">
-                    <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />
-                    <span className="text-white text-sm font-bold">Migrate</span>
+                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
+                    <ArrowsClockwise className="h-4 w-4 text-primary-foreground" weight="bold" />
+                    <span className="text-primary-foreground text-sm font-medium">Migrate</span>
                   </Link>
                   
                   <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
@@ -273,9 +273,9 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                     <span className="text-primary-foreground text-sm font-medium">Governance</span>
                   </Link>
                   
-                  <Link to="/agents/trading" className="flex items-center gap-2 px-4 py-2.5 rounded-lg gold-pulse-btn transition-colors">
-                    <TrendingUp className="h-4 w-4" />
-                    <span className="text-sm font-bold">Trading Agents</span>
+                  <Link to="/agents/trading" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
+                    <TrendingUp className="h-4 w-4 text-primary-foreground" />
+                    <span className="text-primary-foreground text-sm font-medium">Trading Agents</span>
                   </Link>
                   
                   <Link to="/agents/bags" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-colors">
