@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
 import { MatrixBackground } from "@/components/claw/MatrixBackground";
 import { ClawHero } from "@/components/claw/ClawHero";
 import { ClawStatsBar } from "@/components/claw/ClawStatsBar";
@@ -31,29 +32,91 @@ export default function ClawModePage() {
   }, []);
 
   return (
+    <MobileMenuProvider>
+      <ClawModeContent />
+    </MobileMenuProvider>
+  );
+}
+
+function MobileMenuProvider({ children }: { children: React.ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  return (
+    <MobileMenuContext.Provider value={{ mobileOpen, setMobileOpen }}>
+      {children}
+    </MobileMenuContext.Provider>
+  );
+}
+
+const MobileMenuContext = React.createContext({ mobileOpen: false, setMobileOpen: (_: boolean) => {} });
+
+function ClawModeContent() {
+  const { mobileOpen, setMobileOpen } = React.useContext(MobileMenuContext);
+
+  // Dynamic lobster favicon
+  useEffect(() => {
+    const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+    const original = link?.getAttribute("href");
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.font = "28px serif";
+      ctx.fillText("🦞", 2, 28);
+      link?.setAttribute("href", canvas.toDataURL());
+    }
+    return () => { if (original) link?.setAttribute("href", original); };
+  }, []);
+
+  const navLinks = [
+    { href: "#agents", label: "🦞 Agents" },
+    { href: "#tokens", label: "🦞 Tokens" },
+    { href: "#trading", label: "🦞 Trading" },
+    { href: "#bidding", label: "🦞 Bidding" },
+    { href: "#bribe", label: "💰 Bribe", isBribe: true },
+    { href: "#forum", label: "🦞 Forum" },
+  ];
+
+  return (
     <div className="claw-theme claw-nebula">
       <MatrixBackground />
-
-      {/* All content above matrix */}
       <div className="relative" style={{ zIndex: 1 }}>
-        {/* Header */}
         <header className="sticky top-0 backdrop-blur-md border-b" style={{ background: "hsl(var(--claw-bg) / 0.85)", borderColor: "hsl(var(--claw-border))", zIndex: 50 }}>
           <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-2xl">🦞</span>
-              <span className="text-lg font-black uppercase tracking-wider claw-gradient-text">
-                CLAW MODE
-              </span>
+              <span className="text-lg font-black uppercase tracking-wider claw-gradient-text">CLAW MODE</span>
             </div>
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: "hsl(var(--claw-muted))" }}>
-              <a href="#agents" className="hover:text-white transition-colors">🦞 Agents</a>
-              <a href="#tokens" className="hover:text-white transition-colors">🦞 Tokens</a>
-              <a href="#trading" className="hover:text-white transition-colors">🦞 Trading</a>
-              <a href="#bidding" className="hover:text-white transition-colors">🦞 Bidding</a>
-              <a href="#bribe" className="claw-bribe-nav-btn">💰 Bribe</a>
-              <a href="#forum" className="hover:text-white transition-colors">🦞 Forum</a>
+              {navLinks.map((link) => (
+                <a key={link.href} href={link.href} className={link.isBribe ? "claw-bribe-nav-btn" : "hover:text-white transition-colors"}>
+                  {link.label}
+                </a>
+              ))}
             </nav>
+            <button
+              className="md:hidden p-2 rounded-lg"
+              style={{ color: "hsl(var(--claw-text))" }}
+              onClick={() => setMobileOpen(!mobileOpen)}
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
+          {mobileOpen && (
+            <nav className="md:hidden border-t px-4 py-3 flex flex-col gap-3 text-sm font-medium" style={{ borderColor: "hsl(var(--claw-border))", background: "hsl(var(--claw-bg) / 0.95)" }}>
+              {navLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className={link.isBribe ? "claw-bribe-nav-btn text-center" : "hover:text-white transition-colors"}
+                  style={link.isBribe ? {} : { color: "hsl(var(--claw-muted))" }}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </nav>
+          )}
         </header>
 
         {/* Main Content */}
