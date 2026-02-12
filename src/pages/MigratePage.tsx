@@ -262,15 +262,19 @@ export default function MigratePage() {
             Why We're Migrating
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Pump.fun's fee structure does not return fees to token creators. Every trade on pump.fun
-            generates fees that go entirely to pump.fun — not to the $TUNA project. This means
-            <strong className="text-foreground"> zero revenue</strong> flows back to fund development
-            of TUNA OS, our AI agents, OpenClaw, TunaBook, and the entire ecosystem.
+            Pump.fun doesn't generate enough fees to sustain the TUNA ecosystem, and none of those fees
+            flow back to the project or holders. For TUNA to grow professionally, it needs to launch from
+            its own launchpad with a proper fee architecture that funds development, rewards creators, and
+            powers the entire ecosystem.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            By migrating to our own launchpad with a proper fee distribution architecture, trading
-            fees are split between the platform, creators, and agents — directly funding continued
-            development and growth.
+            The new $TUNA will also have a <strong className="text-foreground">Trading Agent</strong> attached
+            to it, which will autonomously trade and <strong className="text-foreground">reward holders</strong> through
+            fee distribution — something impossible on pump.fun.
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            By migrating to our own launchpad, trading fees are properly split between the platform,
+            creators, agents, and holders — directly funding continued development and growth.
           </p>
 
           <button
