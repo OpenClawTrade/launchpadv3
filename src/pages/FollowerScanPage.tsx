@@ -37,6 +37,13 @@ interface FollowerRecord {
   scanned_at: string;
 }
 
+interface FollowerCounts {
+  total: number;
+  blue: number;
+  gold: number;
+  unverified: number;
+}
+
 export default function FollowerScanPage() {
   const [authenticated, setAuthenticated] = useState(
     () => sessionStorage.getItem(AUTH_KEY) === "true"
@@ -46,6 +53,7 @@ export default function FollowerScanPage() {
   const [username, setUsername] = useState("openclaw");
   const [scanning, setScanning] = useState(false);
   const [followers, setFollowers] = useState<FollowerRecord[]>([]);
+  const [counts, setCounts] = useState<FollowerCounts>({ total: 0, blue: 0, gold: 0, unverified: 0 });
   const [loading, setLoading] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
   const { toast } = useToast();
@@ -60,38 +68,52 @@ export default function FollowerScanPage() {
       setError("Invalid password");
     }
   };
-
   const fetchFollowers = async (target?: string) => {
     setLoading(true);
     const t = (target || username).replace("@", "").toLowerCase();
-    const allData: FollowerRecord[] = [];
+
+    // Fetch counts using separate count queries
+    const [totalRes, blueRes, goldRes] = await Promise.all([
+      supabase.from("x_follower_scans").select("*", { count: "exact", head: true }).eq("target_username", t),
+      supabase.from("x_follower_scans").select("*", { count: "exact", head: true }).eq("target_username", t).eq("verification_type", "blue"),
+      supabase.from("x_follower_scans").select("*", { count: "exact", head: true }).eq("target_username", t).eq("verification_type", "gold"),
+    ]);
+
+    const total = totalRes.count || 0;
+    const blue = blueRes.count || 0;
+    const gold = goldRes.count || 0;
+    setCounts({ total, blue, gold, unverified: total - blue - gold });
+
+    // Fetch all verified followers (blue + gold) — usually manageable count
+    const verifiedData: FollowerRecord[] = [];
     let offset = 0;
     const batchSize = 1000;
-    let hasMore = true;
-
-    while (hasMore) {
+    while (true) {
       const { data, error } = await supabase
         .from("x_follower_scans")
         .select("*")
         .eq("target_username", t)
+        .neq("verification_type", "unverified")
         .order("following_count", { ascending: false })
         .range(offset, offset + batchSize - 1);
-
-      if (error) {
-        console.error("Error fetching followers:", error);
-        break;
-      }
-
-      if (data && data.length > 0) {
-        allData.push(...(data as FollowerRecord[]));
-        offset += batchSize;
-        hasMore = data.length === batchSize;
-      } else {
-        hasMore = false;
-      }
+      if (error || !data || data.length === 0) break;
+      verifiedData.push(...(data as FollowerRecord[]));
+      if (data.length < batchSize) break;
+      offset += batchSize;
     }
 
-    setFollowers(allData);
+    // Fetch top 500 unverified by following count
+    const { data: unverifiedData } = await supabase
+      .from("x_follower_scans")
+      .select("*")
+      .eq("target_username", t)
+      .eq("verification_type", "unverified")
+      .order("following_count", { ascending: false })
+      .limit(500);
+
+    const allDisplay = [...verifiedData, ...(unverifiedData as FollowerRecord[] || [])];
+    allDisplay.sort((a, b) => b.following_count - a.following_count);
+    setFollowers(allDisplay);
     setLoading(false);
   };
 
@@ -374,7 +396,7 @@ export default function FollowerScanPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
-              <div className="text-3xl font-bold">{followers.length}</div>
+              <div className="text-3xl font-bold">{counts.total.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground flex items-center gap-1">
                 <Users className="w-4 h-4" /> Total
               </div>
@@ -383,7 +405,7 @@ export default function FollowerScanPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-3xl font-bold text-blue-500">
-                {blueFollowers.length}
+                {counts.blue.toLocaleString()}
               </div>
               <div className="text-sm text-muted-foreground flex items-center gap-1">
                 <BadgeCheck className="w-4 h-4 text-blue-500" /> Blue Verified
@@ -393,7 +415,7 @@ export default function FollowerScanPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-3xl font-bold text-yellow-500">
-                {goldFollowers.length}
+                {counts.gold.toLocaleString()}
               </div>
               <div className="text-sm text-muted-foreground flex items-center gap-1">
                 <BadgeCheck className="w-4 h-4 text-yellow-500" /> Gold Verified
@@ -403,7 +425,7 @@ export default function FollowerScanPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-3xl font-bold">
-                {unverifiedFollowers.length}
+                {counts.unverified.toLocaleString()}
               </div>
               <div className="text-sm text-muted-foreground">Unverified</div>
             </CardContent>
@@ -414,11 +436,11 @@ export default function FollowerScanPage() {
         <Tabs defaultValue="all">
           <div className="flex items-center justify-between">
             <TabsList>
-              <TabsTrigger value="all">All ({followers.length})</TabsTrigger>
-              <TabsTrigger value="blue">Blue ({blueFollowers.length})</TabsTrigger>
-              <TabsTrigger value="gold">Gold ({goldFollowers.length})</TabsTrigger>
+              <TabsTrigger value="all">All ({counts.total.toLocaleString()})</TabsTrigger>
+              <TabsTrigger value="blue">Blue ({counts.blue.toLocaleString()})</TabsTrigger>
+              <TabsTrigger value="gold">Gold ({counts.gold.toLocaleString()})</TabsTrigger>
               <TabsTrigger value="unverified">
-                Unverified ({unverifiedFollowers.length})
+                Unverified ({counts.unverified.toLocaleString()})
               </TabsTrigger>
             </TabsList>
           </div>
