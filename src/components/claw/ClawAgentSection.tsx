@@ -105,6 +105,7 @@ export function ClawAgentSection() {
             50% of agent sale proceeds execute automated token buybacks with permanent burns.
             Remaining 50% funds ecosystem infrastructure and compute resources.
           </p>
+        </div>
         <div className="claw-card p-5" style={{ borderColor: "hsl(var(--claw-accent) / 0.2)" }}>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">🔑</span>
@@ -115,7 +116,6 @@ export function ClawAgentSection() {
             Includes API key provisioning, custom payout wallet configuration, and fee stream access.
           </p>
         </div>
-      </div>
       </div>
 
 
