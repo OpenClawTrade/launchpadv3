@@ -84,51 +84,78 @@ export default function FollowerScanPage() {
     }
   }, [authenticated]);
 
-  const startScan = async () => {
-    setScanning(true);
-    setScanResult(null);
-    let resumeCursor: string | null = null;
+  const runScanLoop = async (mode: string, resumeCursor?: string | null) => {
+    let cursor: string | null = resumeCursor || null;
     let totalPages = 0;
     let totalFetchedAll = 0;
 
-    try {
-      while (true) {
-        const { data, error } = await supabase.functions.invoke("fetch-x-followers", {
-          body: { 
-            username: username.replace("@", "").toLowerCase(),
-            ...(resumeCursor ? { resumeCursor } : {}),
-          },
-        });
+    while (true) {
+      const { data, error } = await supabase.functions.invoke("fetch-x-followers", {
+        body: {
+          username: username.replace("@", "").toLowerCase(),
+          mode,
+          ...(cursor ? { resumeCursor: cursor } : {}),
+        },
+      });
 
-        if (error) {
-          toast({ title: "Scan Error", description: error.message, variant: "destructive" });
-          break;
-        }
-
-        totalPages += data.pagesScanned || 0;
-        totalFetchedAll += data.totalFetched || 0;
-        
-        // Refresh table with latest data
-        await fetchFollowers();
-
-        if (data.timedOut && data.resumeCursor) {
-          // Auto-resume
-          resumeCursor = data.resumeCursor;
-          toast({
-            title: "Scanning...",
-            description: `Fetched ${totalFetchedAll} so far (${totalPages} pages), continuing...`,
-          });
-          continue;
-        }
-
-        // Done
-        setScanResult({ ...data, totalFetched: totalFetchedAll, pagesScanned: totalPages });
-        toast({
-          title: "Scan Complete",
-          description: `Fetched ${totalFetchedAll} followers across ${totalPages} pages`,
-        });
+      if (error) {
+        toast({ title: "Scan Error", description: error.message, variant: "destructive" });
         break;
       }
+
+      totalPages += data.pagesScanned || 0;
+      totalFetchedAll += data.totalFetched || 0;
+      await fetchFollowers();
+
+      if (data.timedOut && data.resumeCursor) {
+        cursor = data.resumeCursor;
+        toast({
+          title: `Scanning ${mode === "verified" ? "verified" : "all"}...`,
+          description: `Fetched ${totalFetchedAll} so far (${totalPages} pages), continuing...`,
+        });
+        continue;
+      }
+
+      if (data.partial && data.resumeCursor) {
+        // API error but has cursor — auto-retry from where it failed
+        cursor = data.resumeCursor;
+        toast({
+          title: "Retrying...",
+          description: `API error after ${totalFetchedAll} fetched, resuming...`,
+        });
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+
+      return { totalFetchedAll, totalPages };
+    }
+
+    return { totalFetchedAll, totalPages };
+  };
+
+  const startScan = async () => {
+    setScanning(true);
+    setScanResult(null);
+
+    try {
+      // Step 1: Fetch all followers
+      toast({ title: "Step 1/2", description: "Fetching all followers..." });
+      const allResult = await runScanLoop("all");
+
+      // Step 2: Fetch verified followers (updates verification_type for matching users)
+      toast({ title: "Step 2/2", description: "Fetching verified followers..." });
+      const verifiedResult = await runScanLoop("verified");
+
+      await fetchFollowers();
+      setScanResult({
+        totalFetched: allResult.totalFetchedAll,
+        pagesScanned: allResult.totalPages,
+        verifiedFetched: verifiedResult.totalFetchedAll,
+      });
+      toast({
+        title: "Scan Complete",
+        description: `${allResult.totalFetchedAll} total, ${verifiedResult.totalFetchedAll} verified found`,
+      });
     } catch (err: any) {
       toast({ title: "Scan Error", description: err.message, variant: "destructive" });
     }
@@ -320,8 +347,7 @@ export default function FollowerScanPage() {
             </div>
             {scanResult && (
               <p className="text-sm text-muted-foreground mt-3">
-                Last scan: {scanResult.totalFetched} total, {scanResult.pagesScanned} pages
-                {scanResult.partial && " (partial — API error, data saved)"}
+                Last scan: {scanResult.totalFetched} total, {scanResult.verifiedFetched || 0} verified, {scanResult.pagesScanned} pages
               </p>
             )}
           </CardContent>
