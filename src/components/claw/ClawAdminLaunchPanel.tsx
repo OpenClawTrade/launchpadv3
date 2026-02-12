@@ -99,7 +99,7 @@ export function ClawAdminLaunchPanel() {
               <button
                 key={m.id}
                 onClick={() => { setMode(m.id); reset(); }}
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${mode === m.id ? "ring-1" : ""}`}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all`}
                 style={{
                   background: mode === m.id ? "hsl(var(--claw-primary) / 0.15)" : "hsl(var(--claw-bg))",
                   color: mode === m.id ? "hsl(var(--claw-primary))" : "hsl(var(--claw-muted))",
@@ -141,7 +141,7 @@ export function ClawAdminLaunchPanel() {
               onClick={handleAIGenerate}
               disabled={isGenerating}
               className="w-full py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "#000" }}
+              style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "hsl(var(--claw-bg))" }}
             >
               {isGenerating ? <><Loader2 className="h-4 w-4 inline mr-2 animate-spin" />Generating...</> : <><Sparkles className="h-4 w-4 inline mr-2" />Generate Lobster Idea 🦞</>}
             </button>
@@ -186,7 +186,7 @@ export function ClawAdminLaunchPanel() {
           onClick={handleLaunch}
           disabled={isLaunching || (mode === "ai-generate" && !idea) || (mode === "custom" && (!customName || !customTicker))}
           className="w-full mt-4 py-2.5 rounded-lg text-sm font-black uppercase tracking-wider transition-all disabled:opacity-40"
-          style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "#000" }}
+          style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "hsl(var(--claw-bg))" }}
         >
           {isLaunching ? <><Loader2 className="h-4 w-4 inline mr-2 animate-spin" />Launching...</> : <><Rocket className="h-4 w-4 inline mr-2" />Launch Agent 🦞</>}
         </button>
