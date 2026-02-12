@@ -543,10 +543,13 @@ export default function MigratePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredHolders.map((holder) => (
+                    {filteredHolders.map((holder) => {
+                      const isLP = holder.wallet_address === "GjK3S2ZgxTVFEkxg43JE8eC1tbztWCseBYyZ8o8sg9f";
+                      return (
                       <TableRow key={holder.id}>
                         <TableCell className="font-mono text-sm">
                           {truncateWallet(holder.wallet_address)}
+                          {isLP && <span className="ml-1.5 text-xs text-amber-400 font-sans">(Liquidity Pool)</span>}
                           <CopyButton text={holder.wallet_address} label="Wallet" />
                         </TableCell>
                         <TableCell className="text-right">
@@ -563,7 +566,8 @@ export default function MigratePage() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
