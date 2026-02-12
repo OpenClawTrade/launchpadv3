@@ -12,9 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Shield, Search, Download, Users, BadgeCheck, Loader2 } from "lucide-react";
+import { Shield, Search, Download, Users, BadgeCheck, Loader2, Copy, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { copyToClipboard } from "@/lib/clipboard";
 
 const ADMIN_PASSWORD = "tuna";
 const AUTH_KEY = "follower-scan-auth";
@@ -56,7 +57,31 @@ export default function FollowerScanPage() {
   const [counts, setCounts] = useState<FollowerCounts>({ total: 0, blue: 0, gold: 0, unverified: 0 });
   const [loading, setLoading] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
+  const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const batchCopy = async (data: FollowerRecord[]) => {
+    const uncopied = data.filter((f) => !copiedIds.has(f.id));
+    if (uncopied.length === 0) {
+      toast({ title: "All copied!", description: "Reset to start over." });
+      return;
+    }
+    const batch = uncopied.slice(0, 50);
+    const text = batch.map((f) => `@${f.username}`).join(" ");
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      setCopiedIds((prev) => {
+        const next = new Set(prev);
+        batch.forEach((f) => next.add(f.id));
+        return next;
+      });
+      toast({ title: `Copied ${batch.length} usernames!` });
+    } else {
+      toast({ title: "Copy failed", variant: "destructive" });
+    }
+  };
+
+  const resetCopied = () => setCopiedIds(new Set());
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,6 +266,32 @@ export default function FollowerScanPage() {
     );
   }
 
+  const BatchCopyBar = ({ data }: { data: FollowerRecord[] }) => {
+    const copiedCount = data.filter((f) => copiedIds.has(f.id)).length;
+    const remaining = data.length - copiedCount;
+    return (
+      <div className="flex items-center gap-3 mb-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => batchCopy(data)}
+          disabled={remaining === 0}
+        >
+          <Copy className="w-3 h-3 mr-1" />
+          Copy Next 50
+        </Button>
+        <span className="text-sm text-muted-foreground">
+          Copied {copiedCount}/{data.length}
+        </span>
+        {copiedCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={resetCopied}>
+            <RotateCcw className="w-3 h-3 mr-1" /> Reset
+          </Button>
+        )}
+      </div>
+    );
+  };
+
   const FollowerTable = ({ data }: { data: FollowerRecord[] }) => (
     <div className="rounded-md border overflow-auto max-h-[600px]">
       <Table>
@@ -264,7 +315,7 @@ export default function FollowerScanPage() {
             </TableRow>
           ) : (
             data.map((f) => (
-              <TableRow key={f.id}>
+              <TableRow key={f.id} className={copiedIds.has(f.id) ? "opacity-40" : ""}>
                 <TableCell>
                   {f.profile_picture ? (
                     <img
@@ -425,6 +476,7 @@ export default function FollowerScanPage() {
           </div>
 
           <TabsContent value="all">
+            <BatchCopyBar data={followers} />
             <FollowerTable data={followers} />
           </TabsContent>
           <TabsContent value="blue">
@@ -438,6 +490,7 @@ export default function FollowerScanPage() {
                 <Download className="w-3 h-3 mr-1" /> Export Blue
               </Button>
             </div>
+            <BatchCopyBar data={blueFollowers} />
             <FollowerTable data={blueFollowers} />
           </TabsContent>
           <TabsContent value="gold">
@@ -451,6 +504,7 @@ export default function FollowerScanPage() {
                 <Download className="w-3 h-3 mr-1" /> Export Gold
               </Button>
             </div>
+            <BatchCopyBar data={goldFollowers} />
             <FollowerTable data={goldFollowers} />
           </TabsContent>
           <TabsContent value="unverified">
@@ -466,6 +520,7 @@ export default function FollowerScanPage() {
                 <Download className="w-3 h-3 mr-1" /> Export Unverified
               </Button>
             </div>
+            <BatchCopyBar data={unverifiedFollowers} />
             <FollowerTable data={unverifiedFollowers} />
           </TabsContent>
         </Tabs>
