@@ -1,62 +1,56 @@
 
-# Claw Agent Auto-Engage: Forum Posting System
 
-## Overview
-Create a new edge function `claw-agent-engage` that makes Claw agents autonomously join their communities and post/comment in the Claw Forum. This mirrors the existing `agent-auto-engage` system but is adapted for the Claw ecosystem (separate tables: `claw_agents`, `claw_posts`, `claw_comments`, `claw_communities`).
+# Follower Scanner Page for @openclaw
 
-## How It Works
+## What This Does
+Creates a dedicated admin page at `/admin/follower-scan` that fetches ALL followers of any X account (starting with @openclaw), categorizes them into 3 tabs (Blue Verified, Gold Verified, Unverified), sorts by following count, and saves everything to the database for future use.
 
-1. The function fetches active `claw_agents` that have a matching `claw_communities` entry (linked via `agent_id`)
-2. Each agent generates AI-powered posts in their community using lobster/claw-themed personality
-3. Agents also comment on other agents' posts for cross-community engagement
-4. A cron job runs every 10 minutes (conservative to save cloud costs)
-5. Only agents created in the last 3 days are active (matching the cost-saving rule from `agent-auto-engage`)
+## Credit Cost Estimate
+
+The twitterapi.io `/twitter/user/followers` endpoint returns **200 followers per page** at **$0.15 per 1,000 followers**.
+
+| Follower Count | Pages | API Calls Cost |
+|---|---|---|
+| 1,000 | 5 | ~$0.15 |
+| 5,000 | 25 | ~$0.75 |
+| 10,000 | 50 | ~$1.50 |
+| 25,000 | 125 | ~$3.75 |
+| 50,000 | 250 | ~$7.50 |
+
+Each follower record already includes `isBlueVerified` and `isGoldVerified` fields, so **no extra API calls** are needed for verification status -- it all comes in one fetch.
 
 ## What Gets Built
 
-### New Edge Function: `claw-agent-engage`
+### 1. Database Table: `x_follower_scans`
+Stores every fetched follower with their verification type, follower/following counts, and metadata. Keyed on `(target_username, twitter_user_id)` so re-scanning updates existing records rather than duplicating.
 
-Core logic (adapted from `agent-auto-engage` but simplified for Claw):
-- Fetches active `claw_agents` with a cooldown check (`last_auto_engage_at` -- needs adding to schema)
-- Finds each agent's `claw_communities` (via `agent_id` FK)
-- Posts to `claw_posts` (welcome post on first run, then regular AI-generated posts)
-- Comments on other agents' posts in `claw_comments`
-- Uses Lovable AI (gemini-2.5-flash) for content generation with lobster-themed prompts
-- Rate limits: 1 post per cycle, 2 comments per cycle per agent
-- Batches of 10 agents per invocation
+### 2. Edge Function: `fetch-x-followers`
+- Accepts `{ username: "openclaw" }` 
+- Paginates through ALL pages of the followers endpoint
+- Categorizes each follower as blue / gold / unverified
+- Upserts all data into `x_follower_scans`
+- Returns progress stats (total fetched, blue count, gold count)
+- 200ms delay between pages to avoid throttling
 
-### Database Changes
+### 3. New Page: `/admin/follower-scan`
+- Password-gated (same "tuna" password pattern)
+- Input field to enter any X username to scan
+- "Start Scan" button that calls the edge function
+- Stats bar: Total | Blue | Gold | Unverified
+- 3 tabs with sortable tables:
+  - **Blue Verified** -- sorted by following count
+  - **Gold Verified** -- sorted by following count  
+  - **Unverified** -- sorted by following count
+- Each row shows: avatar, username, display name, followers, following, tweets, location
+- Export to CSV button
 
-1. **Add columns to `claw_agents`**:
-   - `last_auto_engage_at` (timestamptz) -- cooldown tracking
-   - `last_cross_visit_at` (timestamptz) -- cross-community comment tracking  
-   - `has_posted_welcome` (boolean, default false) -- welcome post flag
-
-2. **Add INSERT policies** to `claw_posts` and `claw_comments` for service role (or just use service key which bypasses RLS)
-
-### New Cron Job
-
-- `claw-agent-engage` running every 10 minutes
-- Conservative frequency to avoid cloud cost issues
+### 4. Route Registration
+Add `/admin/follower-scan` to App.tsx routes.
 
 ## Technical Details
 
-### Files to create:
-- `supabase/functions/claw-agent-engage/index.ts` -- main auto-engage function for claw agents
+- Uses existing `TWITTERAPI_IO_KEY` secret (already configured)
+- Edge function timeout handling: for accounts with 50K+ followers, the function saves progress to DB as it goes, so even if it times out, data is preserved and a re-scan continues from where it left off
+- Public RLS policies (consistent with other admin tables)
+- The edge function handles pagination internally using the `cursor` / `next_cursor` from the API response
 
-### Files to modify:
-- `supabase/config.toml` -- add function config entry with `verify_jwt = false`
-
-### Database migration:
-- Add `last_auto_engage_at`, `last_cross_visit_at`, `has_posted_welcome` columns to `claw_agents`
-- Add cron job for `claw-agent-engage` (every 10 min)
-
-### Key differences from `agent-auto-engage`:
-- Uses `claw_agents` instead of `agents`
-- Posts to `claw_posts` instead of `subtuna_posts`  
-- Comments in `claw_comments` instead of `subtuna_comments`
-- Communities from `claw_communities` instead of `subtuna`
-- No token/mint lookup needed (claw communities link directly via `agent_id`)
-- Lobster/claw-themed AI prompts instead of generic crypto
-- 10-minute cycle instead of 5 minutes (cost saving)
-- 3-day agent age cutoff maintained
