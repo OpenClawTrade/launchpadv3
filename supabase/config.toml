@@ -347,3 +347,6 @@ verify_jwt = false
 
 [functions.tuna-snapshot]
 verify_jwt = false
+
+[functions.verify-tuna-migration]
+verify_jwt = false
