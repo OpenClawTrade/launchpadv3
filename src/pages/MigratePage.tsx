@@ -124,12 +124,29 @@ export default function MigratePage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [configRes, holdersRes] = await Promise.all([
+
+    // Fetch all holders (may exceed 1000 default limit)
+    const fetchAllHolders = async () => {
+      const allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("tuna_migration_snapshot")
+          .select("*")
+          .order("token_balance", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error || !data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
+    };
+
+    const [configRes, allHolders] = await Promise.all([
       supabase.from("tuna_migration_config").select("*").limit(1).single(),
-      supabase
-        .from("tuna_migration_snapshot")
-        .select("*")
-        .order("token_balance", { ascending: false }),
+      fetchAllHolders(),
     ]);
 
     if (configRes.data) {
@@ -139,9 +156,9 @@ export default function MigratePage() {
       });
     }
 
-    if (holdersRes.data) {
+    if (allHolders.length > 0) {
       setHolders(
-        holdersRes.data.map((h: any) => ({
+        allHolders.map((h: any) => ({
           ...h,
           token_balance: Number(h.token_balance),
           supply_percentage: Number(h.supply_percentage),
