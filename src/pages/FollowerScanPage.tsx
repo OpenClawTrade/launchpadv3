@@ -72,11 +72,15 @@ export default function FollowerScanPage() {
     setLoading(true);
     const t = (target || username).replace("@", "").toLowerCase();
 
-    // Fetch counts using separate count queries
-    const [totalRes, blueRes, goldRes] = await Promise.all([
+    // Fetch counts + display data in parallel (all at once)
+    const [totalRes, blueRes, goldRes, verifiedRes, unverifiedRes] = await Promise.all([
       supabase.from("x_follower_scans").select("*", { count: "exact", head: true }).eq("target_username", t),
       supabase.from("x_follower_scans").select("*", { count: "exact", head: true }).eq("target_username", t).eq("verification_type", "blue"),
       supabase.from("x_follower_scans").select("*", { count: "exact", head: true }).eq("target_username", t).eq("verification_type", "gold"),
+      // Fetch verified followers (blue+gold) — typically <1000 so single query
+      supabase.from("x_follower_scans").select("*").eq("target_username", t).neq("verification_type", "unverified").order("following_count", { ascending: false }).limit(1000),
+      // Fetch top 500 unverified by following count
+      supabase.from("x_follower_scans").select("*").eq("target_username", t).eq("verification_type", "unverified").order("following_count", { ascending: false }).limit(500),
     ]);
 
     const total = totalRes.count || 0;
@@ -84,34 +88,9 @@ export default function FollowerScanPage() {
     const gold = goldRes.count || 0;
     setCounts({ total, blue, gold, unverified: total - blue - gold });
 
-    // Fetch all verified followers (blue + gold) — usually manageable count
-    const verifiedData: FollowerRecord[] = [];
-    let offset = 0;
-    const batchSize = 1000;
-    while (true) {
-      const { data, error } = await supabase
-        .from("x_follower_scans")
-        .select("*")
-        .eq("target_username", t)
-        .neq("verification_type", "unverified")
-        .order("following_count", { ascending: false })
-        .range(offset, offset + batchSize - 1);
-      if (error || !data || data.length === 0) break;
-      verifiedData.push(...(data as FollowerRecord[]));
-      if (data.length < batchSize) break;
-      offset += batchSize;
-    }
-
-    // Fetch top 500 unverified by following count
-    const { data: unverifiedData } = await supabase
-      .from("x_follower_scans")
-      .select("*")
-      .eq("target_username", t)
-      .eq("verification_type", "unverified")
-      .order("following_count", { ascending: false })
-      .limit(500);
-
-    const allDisplay = [...verifiedData, ...(unverifiedData as FollowerRecord[] || [])];
+    const verifiedData = (verifiedRes.data as FollowerRecord[]) || [];
+    const unverifiedData = (unverifiedRes.data as FollowerRecord[]) || [];
+    const allDisplay = [...verifiedData, ...unverifiedData];
     allDisplay.sort((a, b) => b.following_count - a.following_count);
     setFollowers(allDisplay);
     setLoading(false);
