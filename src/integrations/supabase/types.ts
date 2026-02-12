@@ -7189,6 +7189,69 @@ export type Database = {
           },
         ]
       }
+      tuna_migration_config: {
+        Row: {
+          collection_wallet: string
+          created_at: string
+          deadline_at: string
+          id: string
+          old_mint_address: string
+          total_supply_snapshot: number | null
+        }
+        Insert: {
+          collection_wallet: string
+          created_at?: string
+          deadline_at: string
+          id?: string
+          old_mint_address: string
+          total_supply_snapshot?: number | null
+        }
+        Update: {
+          collection_wallet?: string
+          created_at?: string
+          deadline_at?: string
+          id?: string
+          old_mint_address?: string
+          total_supply_snapshot?: number | null
+        }
+        Relationships: []
+      }
+      tuna_migration_snapshot: {
+        Row: {
+          amount_sent: number | null
+          created_at: string
+          has_migrated: boolean
+          id: string
+          migrated_at: string | null
+          supply_percentage: number
+          token_balance: number
+          tx_signature: string | null
+          wallet_address: string
+        }
+        Insert: {
+          amount_sent?: number | null
+          created_at?: string
+          has_migrated?: boolean
+          id?: string
+          migrated_at?: string | null
+          supply_percentage?: number
+          token_balance?: number
+          tx_signature?: string | null
+          wallet_address: string
+        }
+        Update: {
+          amount_sent?: number | null
+          created_at?: string
+          has_migrated?: boolean
+          id?: string
+          migrated_at?: string | null
+          supply_percentage?: number
+          token_balance?: number
+          tx_signature?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       twitter_bot_replies: {
         Row: {
           created_at: string
@@ -8567,6 +8630,14 @@ export type Database = {
         Returns: undefined
       }
       snapshot_fun_token_prices: { Args: never; Returns: undefined }
+      submit_tuna_migration: {
+        Args: {
+          p_amount_sent: number
+          p_tx_signature?: string
+          p_wallet_address: string
+        }
+        Returns: boolean
+      }
       update_token_24h_stats: { Args: never; Returns: undefined }
       verify_api_key: {
         Args: { p_api_key: string }

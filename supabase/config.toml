@@ -344,3 +344,6 @@ verify_jwt = false
 
 [functions.claw-agent-engage]
 verify_jwt = false
+
+[functions.tuna-snapshot]
+verify_jwt = false
