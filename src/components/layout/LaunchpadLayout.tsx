@@ -47,7 +47,7 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
 
           <nav className="hidden md:flex items-center gap-2">
             <Link to="/migrate">
-              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
                 <ArrowsClockwise className="h-4 w-4" weight="bold" />
                 Migrate
               </Button>
@@ -110,9 +110,9 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
               </SheetTrigger>
               <SheetContent side="right" className="bg-card border-border">
                 <nav className="flex flex-col gap-2 mt-8">
-                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <ArrowsClockwise className="h-4 w-4" weight="bold" />
-                    <span className="text-foreground text-sm font-medium">Migrate</span>
+                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />
+                    <span className="text-white text-sm font-medium">Migrate</span>
                   </Link>
                   {/* Mobile Chain Switcher */}
                   <div className="px-4 py-2 border-b border-border mb-2">

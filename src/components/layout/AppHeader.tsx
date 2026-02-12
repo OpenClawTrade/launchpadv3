@@ -117,7 +117,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           <Link to="/migrate">
             <Button 
               size="sm" 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-xs sm:text-sm font-medium"
+              className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 px-3 text-xs sm:text-sm font-medium"
             >
               <ArrowsClockwise className="h-4 w-4 mr-1.5" weight="bold" />
               Migrate
@@ -253,9 +253,9 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                 
                 {/* Menu items */}
                 <nav className="flex-1 p-4 space-y-2">
-                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
-                    <ArrowsClockwise className="h-4 w-4 text-primary-foreground" weight="bold" />
-                    <span className="text-primary-foreground text-sm font-medium">Migrate</span>
+                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 transition-colors">
+                    <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />
+                    <span className="text-white text-sm font-medium">Migrate</span>
                   </Link>
                   
                   <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
