@@ -130,7 +130,7 @@ const App = () => (
                     <Route path="/careers" element={<CareersPage />} />
                     <Route path="/admin/x-bots" element={<XBotAdminPage />} />
                     <Route path="/claw" element={<ClawModePage />} />
-                    <Route path="/adminlaunch" element={<ClawAdminLaunchPage />} />
+                    <Route path="/claw/adminlaunch" element={<ClawAdminLaunchPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
