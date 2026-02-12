@@ -15,6 +15,7 @@ import {
   FileText
 } from "@phosphor-icons/react";
 import { ExternalLink, Menu, TrendingUp } from "lucide-react";
+import { ArrowsClockwise } from "@phosphor-icons/react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { EthPriceDisplay } from "./EthPriceDisplay";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -112,6 +113,16 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           >
             <XLogo className="h-4 w-4 text-muted-foreground hover:text-foreground" weight="fill" />
           </a>
+          
+          <Link to="/migrate">
+            <Button 
+              size="sm" 
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg h-9 px-3 text-xs sm:text-sm font-bold animate-pulse"
+            >
+              <ArrowsClockwise className="h-4 w-4 mr-1.5" weight="bold" />
+              Migrate
+            </Button>
+          </Link>
           
           <Link to="/trending">
             <Button 
@@ -242,6 +253,11 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                 
                 {/* Menu items */}
                 <nav className="flex-1 p-4 space-y-2">
+                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 transition-colors animate-pulse">
+                    <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />
+                    <span className="text-white text-sm font-bold">Migrate</span>
+                  </Link>
+                  
                   <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors">
                     <TrendUp className="h-4 w-4 text-primary-foreground" weight="bold" />
                     <span className="text-primary-foreground text-sm font-medium">Narratives</span>
