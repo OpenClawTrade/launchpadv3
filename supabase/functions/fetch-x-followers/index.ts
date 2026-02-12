@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { username } = await req.json();
+    const { username, resumeCursor } = await req.json();
     if (!username) {
       return new Response(JSON.stringify({ error: "username is required" }), {
         status: 400,
@@ -34,14 +34,34 @@ Deno.serve(async (req) => {
     );
 
     const targetUsername = username.replace("@", "").toLowerCase();
-    let cursor: string | null = null;
+    let cursor: string | null = resumeCursor || null;
     let totalFetched = 0;
     let blueCount = 0;
     let goldCount = 0;
     let unverifiedCount = 0;
     let pageNum = 0;
+    const startTime = Date.now();
+    const MAX_RUNTIME_MS = 45000; // 45 seconds max to avoid client timeout
 
     while (true) {
+      // Check wall-clock time
+      if (Date.now() - startTime > MAX_RUNTIME_MS) {
+        console.log(`Hit time limit after ${pageNum} pages, returning with resume cursor`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            partial: true,
+            timedOut: true,
+            resumeCursor: cursor,
+            totalFetched,
+            blueCount,
+            goldCount,
+            unverifiedCount,
+            pagesScanned: pageNum,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       pageNum++;
       let url = `https://api.twitterapi.io/twitter/user/followers?userName=${targetUsername}&count=200`;
       if (cursor) {
