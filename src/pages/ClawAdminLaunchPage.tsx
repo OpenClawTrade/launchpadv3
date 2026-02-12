@@ -10,7 +10,7 @@ export default function ClawAdminLaunchPage() {
 
   if (!authorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "hsl(var(--claw-bg))" }}>
+      <div className="claw-theme min-h-screen flex items-center justify-center" style={{ background: "hsl(var(--claw-bg))" }}>
         <div className="p-6 rounded-xl max-w-sm w-full" style={{ background: "hsl(var(--claw-surface))", border: "1px solid hsl(var(--claw-border))" }}>
           <h2 className="text-lg font-black mb-4 text-center" style={{ color: "hsl(var(--claw-primary))" }}>🦞 Admin Access</h2>
           <input
@@ -37,7 +37,7 @@ export default function ClawAdminLaunchPage() {
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ background: "hsl(var(--claw-bg))" }}>
+    <div className="claw-theme min-h-screen p-6" style={{ background: "hsl(var(--claw-bg))" }}>
       <div className="max-w-lg mx-auto">
         <button
           onClick={() => navigate("/claw")}
