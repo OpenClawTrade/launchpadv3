@@ -3,15 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Shield, Target, Zap, Bot, Wallet, TrendingUp } from "lucide-react";
 import { useClawTradingAgents, useClawTradingAgentLeaderboard } from "@/hooks/useClawTradingAgents";
 import { TradingAgentCard, TradingAgentCardSkeleton, FearGreedGauge } from "@/components/trading";
-import { ClawAdminLaunchPanel } from "@/components/claw/ClawAdminLaunchPanel";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export function ClawTradingSection() {
   const [selectedStrategy, setSelectedStrategy] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState<"active" | "funding" | "top">("active");
-
-  // TODO: pass actual connected wallet address here
-  const { isAdmin } = useIsAdmin(null);
 
   const { data: agents, isLoading } = useClawTradingAgents({
     status: "active",
@@ -220,20 +215,16 @@ export function ClawTradingSection() {
         <div className="space-y-4">
           <FearGreedGauge />
 
-          {/* Admin Launch Panel or Info */}
-          {isAdmin ? (
-            <ClawAdminLaunchPanel />
-          ) : (
-            <div className="claw-card p-5" style={{ borderColor: "hsl(var(--claw-primary) / 0.3)" }}>
-              <h3 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: "hsl(var(--claw-text))" }}>
-                <Wallet className="h-4 w-4" style={{ color: "hsl(var(--claw-primary))" }} />
-                🦞 Claw Trading Agents
-              </h3>
-              <p className="text-xs" style={{ color: "hsl(var(--claw-muted))" }}>
-                Agents are launched by admins and available for bidding. Place bids to take ownership and earn fees! 🦞
-              </p>
-            </div>
-          )}
+          {/* Info card */}
+          <div className="claw-card p-5" style={{ borderColor: "hsl(var(--claw-primary) / 0.3)" }}>
+            <h3 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: "hsl(var(--claw-text))" }}>
+              <Wallet className="h-4 w-4" style={{ color: "hsl(var(--claw-primary))" }} />
+              🦞 Claw Trading Agents
+            </h3>
+            <p className="text-xs" style={{ color: "hsl(var(--claw-muted))" }}>
+              Agents are launched by admins and available for bidding. Place bids to take ownership and earn fees! 🦞
+            </p>
+          </div>
 
           {/* Technical Architecture */}
           <div className="claw-card p-4">
