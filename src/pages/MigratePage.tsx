@@ -105,7 +105,6 @@ export default function MigratePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAllHolders, setShowAllHolders] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [amountSent, setAmountSent] = useState("");
   const [txSignature, setTxSignature] = useState("");
   const [walletInput, setWalletInput] = useState("");
   const [showTechnicals, setShowTechnicals] = useState(false);
@@ -203,23 +202,26 @@ export default function MigratePage() {
       toast.error("Enter your wallet address");
       return;
     }
-    if (!amountSent || Number(amountSent) <= 0) {
-      toast.error("Enter the amount of $TUNA you sent");
+    if (!txSignature.trim()) {
+      toast.error("Enter the transaction signature");
       return;
     }
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.rpc("submit_tuna_migration", {
-        p_wallet_address: wallet,
-        p_amount_sent: Number(amountSent),
-        p_tx_signature: txSignature.trim() || null,
+      const res = await supabase.functions.invoke("verify-tuna-migration", {
+        body: {
+          wallet_address: wallet,
+          tx_signature: txSignature.trim(),
+        },
       });
 
-      if (error) throw error;
+      if (res.error) throw new Error(res.error.message || "Verification failed");
+      
+      const data = res.data;
+      if (data?.error) throw new Error(data.error);
 
-      toast.success("Migration registered successfully!");
-      setAmountSent("");
+      toast.success(`Migration registered! ${data.amount_sent ? `${Number(data.amount_sent).toLocaleString()} $TUNA verified.` : ""}`);
       setTxSignature("");
       await loadData();
     } catch (err: any) {
@@ -437,10 +439,10 @@ export default function MigratePage() {
               </div>
             </li>
             <li>
-              Come back here and click "I've Sent My Tokens" below
+              Come back here, paste your wallet address and the transaction signature — the amount will be verified automatically
             </li>
             <li>
-              Once migration completes, you'll receive new $TUNA proportional to your snapshot balance
+              Once migration completes, you'll receive new $TUNA proportional to your verified transfer
             </li>
           </ol>
 
@@ -465,49 +467,33 @@ export default function MigratePage() {
                 <label className="text-sm font-medium text-foreground block mb-1">
                   Your Wallet Address
                 </label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter your Solana wallet address"
-                    value={walletInput}
-                    onChange={(e) => setWalletInput(e.target.value)}
-                  />
-                  {!solanaAddress && (
-                    <Button variant="outline" onClick={() => login()} className="shrink-0">
-                      Connect
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-foreground block mb-1">
-                  Amount of $TUNA Sent
-                </label>
                 <Input
-                  type="number"
-                  placeholder="e.g. 50000"
-                  value={amountSent}
-                  onChange={(e) => setAmountSent(e.target.value)}
+                  placeholder="Enter the Solana wallet address you sent from"
+                  value={walletInput}
+                  onChange={(e) => setWalletInput(e.target.value)}
                 />
               </div>
 
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1">
-                  Transaction Signature (optional)
+                  Transaction Signature
                 </label>
                 <Input
-                  placeholder="Paste your tx signature for faster verification"
+                  placeholder="Paste the tx signature of your transfer"
                   value={txSignature}
                   onChange={(e) => setTxSignature(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  The amount sent will be detected automatically from the transaction.
+                </p>
               </div>
 
               <Button
                 onClick={handleSubmitMigration}
-                disabled={submitting || !walletInput}
+                disabled={submitting || !walletInput || !txSignature.trim()}
                 className="w-full"
               >
-                {submitting ? "Submitting..." : "Register Migration"}
+                {submitting ? "Verifying..." : "Verify & Register Migration"}
               </Button>
             </div>
           )}
