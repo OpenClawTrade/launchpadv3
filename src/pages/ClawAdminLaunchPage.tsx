@@ -27,7 +27,7 @@ export default function ClawAdminLaunchPage() {
           <button
             onClick={() => { if (password.toLowerCase() === "tuna") setAuthorized(true); }}
             className="w-full py-2 rounded-lg text-sm font-bold"
-            style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "#000" }}
+            style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "hsl(var(--claw-bg))" }}
           >
             Enter
           </button>
