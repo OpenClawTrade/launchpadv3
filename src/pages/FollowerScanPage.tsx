@@ -87,20 +87,47 @@ export default function FollowerScanPage() {
   const startScan = async () => {
     setScanning(true);
     setScanResult(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("fetch-x-followers", {
-        body: { username: username.replace("@", "").toLowerCase() },
-      });
+    let resumeCursor: string | null = null;
+    let totalPages = 0;
+    let totalFetchedAll = 0;
 
-      if (error) {
-        toast({ title: "Scan Error", description: error.message, variant: "destructive" });
-      } else {
-        setScanResult(data);
+    try {
+      while (true) {
+        const { data, error } = await supabase.functions.invoke("fetch-x-followers", {
+          body: { 
+            username: username.replace("@", "").toLowerCase(),
+            ...(resumeCursor ? { resumeCursor } : {}),
+          },
+        });
+
+        if (error) {
+          toast({ title: "Scan Error", description: error.message, variant: "destructive" });
+          break;
+        }
+
+        totalPages += data.pagesScanned || 0;
+        totalFetchedAll += data.totalFetched || 0;
+        
+        // Refresh table with latest data
+        await fetchFollowers();
+
+        if (data.timedOut && data.resumeCursor) {
+          // Auto-resume
+          resumeCursor = data.resumeCursor;
+          toast({
+            title: "Scanning...",
+            description: `Fetched ${totalFetchedAll} so far (${totalPages} pages), continuing...`,
+          });
+          continue;
+        }
+
+        // Done
+        setScanResult({ ...data, totalFetched: totalFetchedAll, pagesScanned: totalPages });
         toast({
           title: "Scan Complete",
-          description: `Fetched ${data.totalFetched} followers (${data.blueCount} blue, ${data.goldCount} gold)`,
+          description: `Fetched ${totalFetchedAll} followers across ${totalPages} pages`,
         });
-        await fetchFollowers();
+        break;
       }
     } catch (err: any) {
       toast({ title: "Scan Error", description: err.message, variant: "destructive" });
