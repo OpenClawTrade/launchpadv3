@@ -45,10 +45,7 @@ export function MigrationPopup() {
               <strong className="text-foreground">$TUNA is migrating</strong> from the old pump.fun contract to a new ecosystem powering TUNA OS, OpenClaw, and fee distribution.
             </p>
             <p>
-              You have a <strong className="text-amber-400">48-hour window</strong> to send your tokens to the collection wallet and register your migration. After the deadline, unclaimed tokens will not be migrated.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Check your eligibility and migrate now on the Migration page.
+              Head over to the Migration page to learn more and register your tokens for the swap.
             </p>
           </DialogDescription>
         </DialogHeader>
