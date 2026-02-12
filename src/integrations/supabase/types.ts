@@ -7786,6 +7786,66 @@ export type Database = {
         }
         Relationships: []
       }
+      x_follower_scans: {
+        Row: {
+          created_at: string
+          created_at_twitter: string | null
+          description: string | null
+          display_name: string | null
+          follower_count: number | null
+          following_count: number | null
+          id: string
+          is_blue_verified: boolean | null
+          is_gold_verified: boolean | null
+          location: string | null
+          profile_picture: string | null
+          scanned_at: string | null
+          statuses_count: number | null
+          target_username: string
+          twitter_user_id: string
+          username: string | null
+          verification_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_at_twitter?: string | null
+          description?: string | null
+          display_name?: string | null
+          follower_count?: number | null
+          following_count?: number | null
+          id?: string
+          is_blue_verified?: boolean | null
+          is_gold_verified?: boolean | null
+          location?: string | null
+          profile_picture?: string | null
+          scanned_at?: string | null
+          statuses_count?: number | null
+          target_username: string
+          twitter_user_id: string
+          username?: string | null
+          verification_type?: string
+        }
+        Update: {
+          created_at?: string
+          created_at_twitter?: string | null
+          description?: string | null
+          display_name?: string | null
+          follower_count?: number | null
+          following_count?: number | null
+          id?: string
+          is_blue_verified?: boolean | null
+          is_gold_verified?: boolean | null
+          location?: string | null
+          profile_picture?: string | null
+          scanned_at?: string | null
+          statuses_count?: number | null
+          target_username?: string
+          twitter_user_id?: string
+          username?: string | null
+          verification_type?: string
+        }
+        Relationships: []
+      }
       x_launch_events: {
         Row: {
           created_at: string
