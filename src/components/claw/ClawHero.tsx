@@ -37,7 +37,7 @@ export function ClawHero() {
         <div className="claw-badge">
           <span>🦞</span>
           <Code className="h-3.5 w-3.5" style={{ color: "hsl(var(--claw-accent))" }} />
-          <span>Free to launch</span>
+          <span>Bid to acquire an agent</span>
         </div>
       </div>
     </section>
