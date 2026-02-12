@@ -64,17 +64,34 @@ export default function FollowerScanPage() {
   const fetchFollowers = async (target?: string) => {
     setLoading(true);
     const t = (target || username).replace("@", "").toLowerCase();
-    const { data, error } = await supabase
-      .from("x_follower_scans")
-      .select("*")
-      .eq("target_username", t)
-      .order("following_count", { ascending: false });
+    const allData: FollowerRecord[] = [];
+    let offset = 0;
+    const batchSize = 1000;
+    let hasMore = true;
 
-    if (error) {
-      console.error("Error fetching followers:", error);
-    } else {
-      setFollowers((data as FollowerRecord[]) || []);
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from("x_follower_scans")
+        .select("*")
+        .eq("target_username", t)
+        .order("following_count", { ascending: false })
+        .range(offset, offset + batchSize - 1);
+
+      if (error) {
+        console.error("Error fetching followers:", error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        allData.push(...(data as FollowerRecord[]));
+        offset += batchSize;
+        hasMore = data.length === batchSize;
+      } else {
+        hasMore = false;
+      }
     }
+
+    setFollowers(allData);
     setLoading(false);
   };
 
