@@ -173,10 +173,6 @@ export function buildCurveConfig(tradingFeeBps: number = TRADING_FEE_BPS, enable
       },
 
       dynamicFeeEnabled: false,
-      
-      // DEV BUY: When enabled, allows pool creator to perform first swap without anti-sniper fees
-      // This is critical for atomic dev buys bundled with pool creation to prevent frontrunning
-      enableFirstSwapWithMinFee: enableDevBuy,
     });
 
   // 1) Find an upper bound where threshold >= target
