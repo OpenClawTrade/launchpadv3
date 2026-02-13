@@ -216,9 +216,16 @@ export default function MigratePage() {
         },
       });
 
-      if (res.error) throw new Error(res.error.message || "Verification failed");
-      
+      // supabase.functions.invoke returns { data, error }
+      // error is set when there's a network/non-2xx issue, but data may still contain the JSON body
       const data = res.data;
+      
+      if (res.error) {
+        // Try to extract the error message from the response body first
+        const msg = data?.error || res.error.message || "Verification failed";
+        throw new Error(msg);
+      }
+      
       if (data?.error) throw new Error(data.error);
 
       toast.success(`Migration registered! ${data.amount_sent ? `${Number(data.amount_sent).toLocaleString()} $TUNA verified.` : ""}`);
