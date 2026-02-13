@@ -58,7 +58,7 @@ import {
   FileText,
   Bot,
 } from "lucide-react";
-import { XLogo, Fish } from "@phosphor-icons/react";
+import { XLogo, Fish, ArrowsClockwise } from "@phosphor-icons/react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const HEADER_LOGO_SRC = "/tuna-logo.png";
@@ -182,6 +182,12 @@ export default function FunLauncherPage() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-2">
+            <Link to="/migrate">
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
+                <ArrowsClockwise className="h-4 w-4" weight="bold" />
+                Migrate
+              </Button>
+            </Link>
             <Link to="/trade">
               <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-sm font-medium">
                 Trade
@@ -246,7 +252,11 @@ export default function FunLauncherPage() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="bg-card border-border">
-                <nav className="flex flex-col gap-2 mt-8">
+              <nav className="flex flex-col gap-2 mt-8">
+                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />
+                    <span className="text-white text-sm font-medium">Migrate</span>
+                  </Link>
                   {/* Mobile Chain Switcher */}
                   <div className="px-4 py-2 border-b border-border mb-2">
                     <p className="text-xs text-muted-foreground mb-2">Select Chain</p>
