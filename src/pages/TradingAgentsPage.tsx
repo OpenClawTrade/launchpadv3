@@ -5,19 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { TrendingUp, Trophy, Zap, Shield, Target, Bot, ArrowRight, Wallet, Lock } from "lucide-react";
+import { TrendingUp, Trophy, Zap, Shield, Target, Bot, ArrowRight, Wallet } from "lucide-react";
 import { useTradingAgents, useTradingAgentLeaderboard } from "@/hooks/useTradingAgents";
 import { TradingAgentCard, TradingAgentCardSkeleton, CreateTradingAgentModal, FearGreedGauge } from "@/components/trading";
 
 export default function TradingAgentsPage() {
   const [selectedStrategy, setSelectedStrategy] = useState<string | undefined>();
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [betaPassword, setBetaPassword] = useState("");
-  const [showPasswordInput, setShowPasswordInput] = useState(false);
-  
-  const BETA_PASSWORD = "tuna";
-  const isUnlocked = betaPassword.toLowerCase() === BETA_PASSWORD;
   
   const { data: agents, isLoading } = useTradingAgents({
     status: "active",
@@ -266,9 +260,8 @@ export default function TradingAgentsPage() {
 
             {/* Create Agent Card */}
             <Card className="bg-gradient-to-br from-amber-500/10 to-yellow-500/5 border-amber-500/30 relative overflow-hidden">
-              {/* Beta banner */}
-              <div className="absolute top-0 right-0 bg-amber-500 text-black text-[10px] font-bold px-3 py-1 transform rotate-0 rounded-bl-lg">
-                BETA
+              <div className="absolute top-0 right-0 bg-green-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-lg">
+                LIVE
               </div>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -277,10 +270,9 @@ export default function TradingAgentsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="mb-3 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-xs text-amber-400 font-medium flex items-center gap-1">
-                    <Lock className="h-3 w-3" />
-                    Beta - Not yet live
+                <div className="mb-3 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <p className="text-xs text-green-400 font-medium flex items-center gap-1">
+                    🚀 Now open to everyone! Launch your own AI trading agent for free.
                   </p>
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">
@@ -288,37 +280,13 @@ export default function TradingAgentsPage() {
                   AI-driven strategy execution, and real-time performance tracking.
                 </p>
                 
-                {!showPasswordInput ? (
-                  <Button 
-                    onClick={() => setShowPasswordInput(true)}
-                    variant="outline"
-                    className="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                  >
-                    <Lock className="h-4 w-4 mr-2" />
-                    Admin Access Required
-                  </Button>
-                ) : !isUnlocked ? (
-                  <div className="space-y-3">
-                    <Input
-                      type="password"
-                      placeholder="Enter admin password"
-                      value={betaPassword}
-                      onChange={(e) => setBetaPassword(e.target.value)}
-                      className="bg-background/50 border-amber-500/30 focus:border-amber-500"
-                    />
-                    <p className="text-xs text-muted-foreground text-center">
-                      Contact team for beta access
-                    </p>
-                  </div>
-                ) : (
-                  <Button 
-                    onClick={() => setCreateModalOpen(true)}
-                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-600 hover:to-yellow-600"
-                  >
-                    <Bot className="h-4 w-4 mr-2" />
-                    Create Agent
-                  </Button>
-                )}
+                <Button 
+                  onClick={() => setCreateModalOpen(true)}
+                  className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-600 hover:to-yellow-600"
+                >
+                  <Bot className="h-4 w-4 mr-2" />
+                  Create Agent
+                </Button>
               </CardContent>
             </Card>
 
