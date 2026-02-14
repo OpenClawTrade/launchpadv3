@@ -126,7 +126,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const [phantomTradingFee, setPhantomTradingFee] = useState(200);
   const [phantomDevBuySolInput, setPhantomDevBuySolInput] = useState<string>(""); // Optional dev buy amount in SOL (raw input)
   const phantomDevBuySol = parseDevBuySol(phantomDevBuySolInput);
-  const [phantomSubMode, setPhantomSubMode] = useState<"random" | "describe" | "custom">("random");
+  const [phantomSubMode, setPhantomSubMode] = useState<"random" | "describe" | "realistic" | "custom">("random");
   const [phantomToken, setPhantomToken] = useState<MemeToken>({
     name: "",
     ticker: "",
@@ -142,6 +142,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const [phantomMeme, setPhantomMeme] = useState<MemeToken | null>(null);
   const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
   const [phantomDescribePrompt, setPhantomDescribePrompt] = useState("");
+  const [phantomRealisticPrompt, setPhantomRealisticPrompt] = useState("");
 
   // Holders mode state (mirrors Phantom)
   const [holdersSubMode, setHoldersSubMode] = useState<"random" | "describe" | "custom">("random");
@@ -582,6 +583,39 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       setIsPhantomGenerating(false);
     }
   }, [phantomDescribePrompt, toast]);
+
+  const handlePhantomRealisticGenerate = useCallback(async () => {
+    if (!phantomRealisticPrompt.trim()) {
+      toast({ title: "Enter a description", description: "Describe the real-life image you want", variant: "destructive" });
+      return;
+    }
+    setIsPhantomGenerating(true);
+    setPhantomMeme(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("fun-generate", { body: { description: phantomRealisticPrompt, imageStyle: "realistic" } });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || "Generation failed");
+      if (data?.meme) {
+        setPhantomMeme(data.meme);
+        setPhantomToken({
+          name: data.meme.name,
+          ticker: data.meme.ticker,
+          description: data.meme.description || "",
+          imageUrl: data.meme.imageUrl,
+          websiteUrl: data.meme.websiteUrl || "",
+          twitterUrl: data.meme.twitterUrl || "",
+          telegramUrl: "",
+          discordUrl: "",
+        });
+        toast({ title: "Realistic Image Generated! 📸", description: `${data.meme.name} created from your description!` });
+      }
+    } catch (error) {
+      toast({ title: "Generation failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
+    } finally {
+      setIsPhantomGenerating(false);
+    }
+  }, [phantomRealisticPrompt, toast]);
 
   const uploadPhantomImageIfNeeded = useCallback(async (): Promise<string> => {
     if (!phantomImageFile) return phantomMeme?.imageUrl || phantomToken.imageUrl;
@@ -1713,6 +1747,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                   {[
                     { id: "random" as const, label: "Random", icon: Shuffle },
                     { id: "describe" as const, label: "Describe", icon: Sparkles },
+                    { id: "realistic" as const, label: "Realistic", icon: Camera },
                     { id: "custom" as const, label: "Custom", icon: Pencil },
                   ].map((subMode) => (
                     <button
@@ -1750,18 +1785,19 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                   </>
                 )}
 
-                {/* Describe Sub-Mode */}
-                {phantomSubMode === "describe" && (
+                {/* Realistic Sub-Mode */}
+                {phantomSubMode === "realistic" && (
                   <>
+                    <p className="text-sm text-muted-foreground">Describe what you want. AI generates a realistic, real-life image.</p>
                     <Textarea
-                      value={phantomDescribePrompt}
-                      onChange={(e) => setPhantomDescribePrompt(e.target.value)}
-                      placeholder="e.g., A smug frog wearing sunglasses..."
+                      value={phantomRealisticPrompt}
+                      onChange={(e) => setPhantomRealisticPrompt(e.target.value)}
+                      placeholder="e.g., A golden retriever wearing a tiny top hat in a park..."
                       className="gate-input gate-textarea"
                       maxLength={500}
                     />
-                    <Button onClick={handlePhantomDescribeGenerate} disabled={isPhantomGenerating || !phantomDescribePrompt.trim()} className="gate-btn gate-btn-secondary w-full">
-                      {isPhantomGenerating ? <><Sparkles className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4 mr-2" /> Generate from Description</>}
+                    <Button onClick={handlePhantomRealisticGenerate} disabled={isPhantomGenerating || !phantomRealisticPrompt.trim()} className="gate-btn gate-btn-secondary w-full">
+                      {isPhantomGenerating ? <><Camera className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Camera className="h-4 w-4 mr-2" /> Generate Realistic Image</>}
                     </Button>
 
                     {isPhantomGenerating && (
@@ -1776,6 +1812,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                     )}
                   </>
                 )}
+
 
                 {/* Token Preview & Form (shown for all sub-modes after generation or for custom) */}
                 {!isPhantomGenerating && (phantomSubMode === "custom" || phantomMeme || phantomToken.name) && (
