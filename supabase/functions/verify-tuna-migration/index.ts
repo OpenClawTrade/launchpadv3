@@ -191,20 +191,39 @@ Deno.serve(async (req) => {
       .from("tuna_migration_snapshot")
       .select("id, wallet_address, token_balance, has_migrated")
       .eq("wallet_address", wallet_address)
-      .single();
+      .maybeSingle();
 
-    if (holderErr || !holder) {
-      return new Response(
-        JSON.stringify({ error: "Your wallet is not in the migration snapshot." }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    let holderId: string;
 
-    if (holder.has_migrated) {
-      return new Response(
-        JSON.stringify({ error: "This wallet has already been registered for migration." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!holder) {
+      // Wallet not in snapshot — auto-add it
+      console.log(`[verify-migration] Wallet ${wallet_address.slice(0,8)}... not in snapshot, auto-adding with amount ${amountSent}`);
+      const { data: newHolder, error: insertErr } = await supabase
+        .from("tuna_migration_snapshot")
+        .insert({
+          wallet_address,
+          token_balance: amountSent,
+          has_migrated: false,
+        })
+        .select("id")
+        .single();
+
+      if (insertErr || !newHolder) {
+        console.error("Auto-insert error:", insertErr);
+        return new Response(
+          JSON.stringify({ error: "Failed to register wallet. Please try again." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      holderId = newHolder.id;
+    } else {
+      if (holder.has_migrated) {
+        return new Response(
+          JSON.stringify({ error: "This wallet has already been registered for migration." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      holderId = holder.id;
     }
 
     // Check for duplicate TX signature
@@ -230,7 +249,7 @@ Deno.serve(async (req) => {
         tx_signature: trimmedSig,
         migrated_at: new Date().toISOString(),
       })
-      .eq("id", holder.id);
+      .eq("id", holderId);
 
     if (updateErr) {
       console.error("Update error:", updateErr);
