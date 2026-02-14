@@ -34,7 +34,8 @@ import {
   Bot,
   Coins,
   Users,
-  Loader2
+  Loader2,
+  Camera
 } from "lucide-react";
 
 interface MemeToken {
@@ -97,7 +98,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   // Idempotency key to prevent duplicate launches - regenerated on successful launch or ticker change
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
-  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "phantom" | "holders">("random");
+  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "realistic" | "phantom" | "holders">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
     name: "",
@@ -111,6 +112,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   });
   const [describePrompt, setDescribePrompt] = useState("");
   const [describedToken, setDescribedToken] = useState<MemeToken | null>(null);
+  const [realisticPrompt, setRealisticPrompt] = useState("");
+  const [realisticToken, setRealisticToken] = useState<MemeToken | null>(null);
   const [customImageFile, setCustomImageFile] = useState<File | null>(null);
   const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
 
@@ -477,6 +480,45 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     }
     await performLaunch(describedToken);
   }, [describedToken, performLaunch, toast]);
+
+  // Realistic mode handlers
+  const handleRealisticGenerate = useCallback(async () => {
+    if (!realisticPrompt.trim()) {
+      toast({ title: "Enter a description", description: "Describe the real-life image you want", variant: "destructive" });
+      return;
+    }
+    setIsGenerating(true);
+    setRealisticToken(null);
+    clearBanner();
+
+    try {
+      const { data, error } = await supabase.functions.invoke("fun-generate", { body: { description: realisticPrompt, imageStyle: "realistic" } });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || "Generation failed");
+      if (data?.meme) {
+        setRealisticToken(data.meme);
+        setBannerTextName(data.meme.name);
+        setBannerTextTicker(data.meme.ticker);
+        setBannerImageUrl(data.meme.imageUrl);
+        if (data.meme.imageUrl) {
+          await generateBanner({ imageUrl: data.meme.imageUrl, tokenName: data.meme.name, ticker: data.meme.ticker });
+        }
+        toast({ title: "Realistic Image Generated! 📸", description: `${data.meme.name} ($${data.meme.ticker}) created!` });
+      }
+    } catch (error) {
+      toast({ title: "Generation failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [realisticPrompt, toast, clearBanner, generateBanner]);
+
+  const handleRealisticLaunch = useCallback(async () => {
+    if (!realisticToken) {
+      toast({ title: "No token generated", description: "Generate first", variant: "destructive" });
+      return;
+    }
+    await performLaunch(realisticToken);
+  }, [realisticToken, performLaunch, toast]);
 
   // Phantom handlers
   const handlePhantomRandomize = useCallback(async () => {
@@ -1057,6 +1099,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const modes = [
     { id: "random" as const, label: "Random", icon: Shuffle },
     { id: "describe" as const, label: "Describe", icon: Sparkles },
+    { id: "realistic" as const, label: "Realistic", icon: Camera },
     { id: "custom" as const, label: "Custom", icon: Pencil },
     { id: "phantom" as const, label: "Phantom", icon: Wallet },
     { id: "holders" as const, label: "Holders", icon: Users },
@@ -1329,6 +1372,118 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                     className="gate-input font-mono text-sm"
                   />
                   <Button onClick={handleDescribeLaunch} disabled={isLaunching || !walletAddress} className="gate-btn gate-btn-primary w-full">
+                    {isLaunching ? <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</> : <><Rocket className="h-4 w-4 mr-2" /> Launch Token</>}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Realistic Mode */}
+        {generatorMode === "realistic" && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Describe what you want. AI generates a realistic, real-life image.</p>
+            <Textarea
+              value={realisticPrompt}
+              onChange={(e) => setRealisticPrompt(e.target.value)}
+              placeholder="e.g., A golden retriever wearing a tiny top hat in a park..."
+              className="gate-input gate-textarea"
+              maxLength={500}
+            />
+            <Button onClick={handleRealisticGenerate} disabled={isGenerating || !realisticPrompt.trim()} className="gate-btn gate-btn-primary w-full">
+              {isGenerating ? <><Camera className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Camera className="h-4 w-4 mr-2" /> Generate Realistic Image</>}
+            </Button>
+
+            {realisticToken && (
+              <>
+                <div className="gate-token-preview">
+                  <div className="gate-token-preview-avatar">
+                    <img src={realisticToken.imageUrl} alt={realisticToken.name} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="gate-token-preview-info space-y-2">
+                    <Input
+                      value={realisticToken.name}
+                      onChange={(e) => setRealisticToken({ ...realisticToken, name: e.target.value.slice(0, 20) })}
+                      className="gate-input h-8"
+                      placeholder="Token name"
+                      maxLength={20}
+                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-primary text-sm">$</span>
+                      <Input
+                        value={realisticToken.ticker}
+                        onChange={(e) => setRealisticToken({ ...realisticToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })}
+                        className="gate-input h-7 w-24 font-mono"
+                        placeholder="TICKER"
+                        maxLength={6}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Textarea
+                  value={realisticToken.description || ""}
+                  onChange={(e) => setRealisticToken({ ...realisticToken, description: e.target.value.slice(0, 200) })}
+                  placeholder="Token description..."
+                  className="gate-input gate-textarea text-sm"
+                  maxLength={200}
+                  rows={2}
+                />
+
+                <details className="group">
+                  <summary className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    <Globe className="h-3 w-3" />
+                    <span>Add Social Links (optional)</span>
+                  </summary>
+                  <div className="mt-2 space-y-2 pl-5">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        placeholder="Website URL"
+                        value={realisticToken.websiteUrl || ""}
+                        onChange={(e) => setRealisticToken({ ...realisticToken, websiteUrl: e.target.value })}
+                        className="gate-input text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Twitter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        placeholder="X/Twitter URL"
+                        value={realisticToken.twitterUrl || ""}
+                        onChange={(e) => setRealisticToken({ ...realisticToken, twitterUrl: e.target.value })}
+                        className="gate-input text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        placeholder="Telegram URL"
+                        value={realisticToken.telegramUrl || ""}
+                        onChange={(e) => setRealisticToken({ ...realisticToken, telegramUrl: e.target.value })}
+                        className="gate-input text-sm"
+                      />
+                    </div>
+                  </div>
+                </details>
+
+                {bannerUrl && (
+                  <div className="p-3 rounded-lg border border-border space-y-2">
+                    <img src={bannerUrl} alt="Banner" className="w-full rounded" />
+                    <Button onClick={() => downloadBanner(bannerUrl, realisticToken.name)} className="gate-btn gate-btn-primary w-full">
+                      <Download className="h-4 w-4 mr-2" /> Download Banner
+                    </Button>
+                  </div>
+                )}
+
+                <div className="space-y-3 pt-3 border-t border-border">
+                  <Input
+                    placeholder="Your SOL wallet address..."
+                    value={walletAddress}
+                    onChange={(e) => setWalletAddress(e.target.value)}
+                    className="gate-input font-mono text-sm"
+                  />
+                  <Button onClick={handleRealisticLaunch} disabled={isLaunching || !walletAddress} className="gate-btn gate-btn-primary w-full">
                     {isLaunching ? <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</> : <><Rocket className="h-4 w-4 mr-2" /> Launch Token</>}
                   </Button>
                 </div>
