@@ -15,6 +15,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Copy,
   Check,
@@ -29,6 +30,7 @@ import {
   Zap,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 
 const OLD_MINT = "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump";
@@ -512,78 +514,156 @@ export default function MigratePage() {
 
         {/* Snapshot Table */}
         <Card className="p-6 space-y-4 bg-card border-border">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <h2 className="text-xl font-bold text-foreground">Snapshot Holders</h2>
-            <div className="relative max-w-xs w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search wallet..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading snapshot data...</div>
-          ) : holders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No snapshot data yet. The snapshot will be taken before the migration window opens.
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Wallet</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                      <TableHead className="text-right">% Supply</TableHead>
-                      <TableHead className="text-center">Migrated</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredHolders.map((holder) => {
-                      const isLP = holder.wallet_address === "GjK3S2ZgxTVFEkxg43JE8eC1tbztWCseBYyZ8o8sg9f";
-                      return (
-                      <TableRow key={holder.id}>
-                        <TableCell className="font-mono text-sm">
-                          {truncateWallet(holder.wallet_address)}
-                          {isLP && <span className="ml-1.5 text-xs text-amber-400 font-sans">(Liquidity Pool)</span>}
-                          <CopyButton text={holder.wallet_address} label="Wallet" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatNumber(holder.token_balance)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {holder.supply_percentage.toFixed(4)}%
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {holder.has_migrated ? (
-                            <Check className="w-5 h-5 text-primary mx-auto" />
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+          <Tabs defaultValue="holders" className="w-full">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <TabsList>
+                <TabsTrigger value="holders">Snapshot Holders</TabsTrigger>
+                <TabsTrigger value="migrated">
+                  Migrated ({stats.migratedHolders})
+                </TabsTrigger>
+              </TabsList>
+              <div className="relative max-w-xs w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search wallet..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
               </div>
+            </div>
 
-              {!showAllHolders && holders.length > 20 && (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAllHolders(true)}
-                  className="w-full"
-                >
-                  Show All {holders.length} Holders
-                </Button>
-              )}
-            </>
-          )}
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading snapshot data...</div>
+            ) : holders.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No snapshot data yet. The snapshot will be taken before the migration window opens.
+              </div>
+            ) : (
+              <>
+                {/* All Holders Tab */}
+                <TabsContent value="holders">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Wallet</TableHead>
+                          <TableHead className="text-right">Balance</TableHead>
+                          <TableHead className="text-right">% Supply</TableHead>
+                          <TableHead className="text-center">Migrated</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredHolders.map((holder) => {
+                          const isLP = holder.wallet_address === "GjK3S2ZgxTVFEkxg43JE8eC1tbztWCseBYyZ8o8sg9f";
+                          return (
+                            <TableRow key={holder.id}>
+                              <TableCell className="font-mono text-sm">
+                                {truncateWallet(holder.wallet_address)}
+                                {isLP && <span className="ml-1.5 text-xs text-amber-400 font-sans">(Liquidity Pool)</span>}
+                                <CopyButton text={holder.wallet_address} label="Wallet" />
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatNumber(holder.token_balance)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {holder.supply_percentage.toFixed(4)}%
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {holder.has_migrated ? (
+                                  <Check className="w-5 h-5 text-primary mx-auto" />
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {!showAllHolders && holders.length > 20 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAllHolders(true)}
+                      className="w-full mt-4"
+                    >
+                      Show All {holders.length} Holders
+                    </Button>
+                  )}
+                </TabsContent>
+
+                {/* Migrated Tab */}
+                <TabsContent value="migrated">
+                  {(() => {
+                    const migratedList = holders
+                      .filter((h) => h.has_migrated)
+                      .filter((h) =>
+                        searchQuery
+                          ? h.wallet_address.toLowerCase().includes(searchQuery.toLowerCase())
+                          : true
+                      );
+
+                    if (migratedList.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No holders have migrated yet.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Wallet</TableHead>
+                              <TableHead className="text-right">Amount Sent</TableHead>
+                              <TableHead className="text-right">% Supply</TableHead>
+                              <TableHead className="text-right">Migrated At</TableHead>
+                              <TableHead className="text-center">Solscan</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {migratedList.map((holder) => (
+                              <TableRow key={holder.id}>
+                                <TableCell className="font-mono text-sm">
+                                  {truncateWallet(holder.wallet_address)}
+                                  <CopyButton text={holder.wallet_address} label="Wallet" />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {formatNumber(holder.amount_sent)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {holder.supply_percentage.toFixed(4)}%
+                                </TableCell>
+                                <TableCell className="text-right text-sm text-muted-foreground">
+                                  {holder.migrated_at
+                                    ? new Date(holder.migrated_at).toLocaleDateString()
+                                    : "—"}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <a
+                                    href={`https://solscan.io/account/${holder.wallet_address}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </a>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    );
+                  })()}
+                </TabsContent>
+              </>
+            )}
+          </Tabs>
         </Card>
       </div>
     </LaunchpadLayout>
