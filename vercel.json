@@ -23,6 +23,24 @@
       "headers": [
         { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
       ]
+    },
+    {
+      "source": "/heartbeat.md",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/rules.md",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/skill.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+      ]
     }
   ]
 }

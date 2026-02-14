@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { name, walletAddress } = body;
+    const { name, walletAddress, source, agentUrl } = body;
 
     // Validate inputs
     if (!name || typeof name !== "string" || name.length < 1 || name.length > 50) {
@@ -113,6 +113,8 @@ Deno.serve(async (req) => {
         api_key_hash: apiKeyHash,
         api_key_prefix: apiKeyPrefix,
         status: "active",
+        registration_source: (typeof source === "string" && source.length <= 50) ? source.trim() : "api",
+        external_agent_url: (typeof agentUrl === "string" && agentUrl.length <= 500) ? agentUrl.trim() : null,
       })
       .select("id, name, wallet_address, api_key_prefix, created_at")
       .single();
