@@ -9,8 +9,8 @@ const corsHeaders = {
 
 const MAX_REPLIES_PER_RUN = 4;
 const TWEET_RECENCY_HOURS = 24;
-const RUN_BUDGET_MS = 25_000;
-const MEMBERS_SCAN_CAP = 50;
+const RUN_BUDGET_MS = 55_000;
+const MEMBERS_SCAN_CAP = 30;
 const MAX_MEMBERS = 200;
 const MAX_ELIGIBLE_TWEETS_MULTIPLIER = 10;
 const DEFAULT_HTTP_TIMEOUT_MS = 7_000;
@@ -346,6 +346,15 @@ serve(async (req) => {
 
       try {
         // Generate AI reply with system/user split
+        const aiBody = {
+          model: "google/gemini-2.5-flash-lite",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: `Tweet by @${tweet.username}: "${tweet.text}"\n\nReply (max 240 chars, no quotes):` },
+          ],
+          max_tokens: 150,
+        };
+
         const aiResponse = await fetchWithTimeout(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -354,14 +363,7 @@ serve(async (req) => {
               Authorization: `Bearer ${LOVABLE_API_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              model: "openai/gpt-5-mini",
-              messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: `Tweet by @${tweet.username}: "${tweet.text}"\n\nReply:` },
-              ],
-              max_tokens: 100,
-            }),
+            body: JSON.stringify(aiBody),
           },
           8_000,
         );
@@ -389,12 +391,12 @@ serve(async (req) => {
 
         // Post reply via twitterapi.io
         const postResponse = await fetchWithTimeout(
-          "https://api.twitterapi.io/twitter/tweet/create_v2",
+          "https://api.twitterapi.io/twitter/create_tweet_v2",
           {
             method: "POST",
             headers: { "X-API-Key": TWITTERAPI_IO_KEY, "Content-Type": "application/json" },
             body: JSON.stringify({
-              text: replyText,
+              tweet_text: replyText,
               reply_to_tweet_id: tweet.id,
               login_cookies: loginCookies,
               ...(TWITTER_PROXY && { proxy: TWITTER_PROXY }),
@@ -403,15 +405,27 @@ serve(async (req) => {
           8_000,
         );
 
-        const postData = await postResponse.json();
+        const postText = await postResponse.text();
+        console.log(`Post response for @${tweet.username}: ${postText.slice(0, 300)}`);
+        
+        let postData: any = {};
+        try { postData = JSON.parse(postText); } catch { postData = { raw: postText }; }
 
-        if (postResponse.ok && (postData.data?.id || postData.tweet?.id || postData.id)) {
-          const replyId = postData.data?.id || postData.tweet?.id || postData.id;
-          await supabase.from("influencer_replies").update({ status: "sent", reply_id: replyId }).eq("tweet_id", tweet.id);
-          results.push({ success: true, username: tweet.username, tweetId: tweet.id, replyId });
+        // Extract reply ID from various response formats
+        const replyId = postData.data?.id || postData.data?.tweet_id || postData.tweet?.id || 
+                        postData.tweet_id || postData.id || postData.data?.rest_id;
+        
+        // Detect success: either we got a reply ID, or the message says success
+        const isSuccess = !!replyId || 
+          postData.msg?.toLowerCase()?.includes("success") || 
+          postData.status === "success";
+
+        if (isSuccess) {
+          await supabase.from("influencer_replies").update({ status: "sent", reply_id: replyId || "unknown" }).eq("tweet_id", tweet.id);
+          results.push({ success: true, username: tweet.username, tweetId: tweet.id, replyId: replyId || "unknown" });
           console.log(`✅ Replied to @${tweet.username}`);
         } else {
-          const errorMsg = postData.error || postData.message || JSON.stringify(postData);
+          const errorMsg = postData.error || postData.message || postText.slice(0, 200);
           await supabase.from("influencer_replies").update({ status: "failed", error_message: errorMsg }).eq("tweet_id", tweet.id);
           results.push({ success: false, username: tweet.username, tweetId: tweet.id, error: errorMsg });
           console.error(`❌ @${tweet.username}:`, errorMsg);
