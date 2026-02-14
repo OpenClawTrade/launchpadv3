@@ -109,16 +109,19 @@ Deno.serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    // Parse request body for optional description
+    // Parse request body for optional description and imageStyle
     let userDescription = "";
+    let imageStyle = "";
     try {
       const body = await req.json();
       userDescription = body?.description || "";
+      imageStyle = body?.imageStyle || "";
     } catch {
       // No body or invalid JSON, proceed with random generation
     }
     
     const isDescribeMode = userDescription.trim().length > 0;
+    const isRealisticMode = imageStyle === "realistic";
     console.log("[fun-generate] Mode:", isDescribeMode ? "describe" : "random", "Description:", userDescription);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -328,7 +331,20 @@ Return ONLY a JSON object with these exact fields (no markdown, no code blocks):
     // Generate meme coin logo with authentic internet meme style
     let imagePrompt = "";
     
-    if (isDescribeMode) {
+    if (isRealisticMode && isDescribeMode) {
+      // Realistic mode: photorealistic image generation
+      imagePrompt = `Create a photorealistic image based on: "${userDescription}"
+
+CRITICAL STYLE REQUIREMENTS:
+- Photorealistic, like a real photograph taken with a DSLR camera
+- Real lighting, real textures, real shadows
+- NO cartoon, NO illustration, NO anime, NO meme style
+- NO flat colors, NO bold outlines, NO vector art
+- Must look like an actual photograph of a real scene
+- Square format, centered composition
+- No text, no watermarks
+- High detail, sharp focus, natural colors`;
+    } else if (isDescribeMode) {
       // Use user's description directly for image generation
       imagePrompt = `Create a meme mascot character based on this EXACT description: "${userDescription}"
 
