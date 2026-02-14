@@ -32,21 +32,20 @@ async function getDbFallbackPrice(): Promise<{ price: number; change24h: number 
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get the most recent SOL price from a token's price_sol calculation
+    // Try to get cached price from a dedicated KV-style lookup
     const { data } = await supabase
       .from("fun_tokens")
-      .select("market_cap_sol, price_sol")
-      .not("price_sol", "is", null)
+      .select("market_cap_sol")
+      .not("market_cap_sol", "is", null)
+      .gt("market_cap_sol", 0)
       .order("updated_at", { ascending: false })
       .limit(1)
       .single();
 
-    // If we have any token data, we can estimate SOL price is working
-    // Return a reasonable fallback price
     if (data) {
-      console.log("[sol-price] Using database fallback - returning estimated price");
-      return { price: 180, change24h: 0 }; // Reasonable SOL price fallback
+      console.log("[sol-price] DB has tokens but no real price source available");
     }
+    // Never return a hardcoded price - better to return null and let frontend handle it
     return null;
   } catch (e) {
     console.log("[sol-price] DB fallback failed:", e instanceof Error ? e.message : e);

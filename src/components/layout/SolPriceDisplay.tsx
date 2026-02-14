@@ -36,7 +36,13 @@ export function SolPriceDisplay() {
         
         if (error) throw error;
         
-        if (data?.price) {
+        if (data?.price && typeof data.price === 'number' && data.price > 0) {
+          // Reject stale fallback data from edge function - only use fresh prices
+          if (data.stale && data.source === 'fallback') {
+            console.debug('[SolPriceDisplay] Ignoring stale fallback price:', data.price);
+            return;
+          }
+          
           const newData = {
             price: data.price,
             change24h: data.change24h || 0,
