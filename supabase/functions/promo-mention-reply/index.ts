@@ -13,7 +13,7 @@ const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const MAX_REPLIES_PER_RUN = 1; // Only 1 tweet per minute to avoid bans
 const AUTHOR_COOLDOWN_HOURS = 6;
 const MAX_REPLIES_PER_THREAD = 3;
-const REPLY_SIGNATURE = "Tuna Launchpad for AI Agents on Solana.";
+
 
 const BOT_USERNAMES = new Set([
   "buildtuna",
@@ -164,13 +164,23 @@ async function generateReply(
     return null;
   }
 
-  const systemPrompt = isFollowUp
-    ? `You are continuing a friendly crypto conversation. Generate a short, natural reply (max 200 chars before signature). Be conversational and relevant. Do NOT repeat yourself from previous replies.`
-    : `You are a friendly crypto community member. Generate a short, conversational reply (max 200 chars before signature) to this tweet. Be relevant and add value. Do NOT be promotional or spammy. Sound human and authentic.`;
+  const systemPrompt = `You're a sharp, opinionated crypto native who actually knows their shit.
+Generate a reply (max 240 chars).
+
+Rules:
+- Strong opinions. Commit to a take. No hedging.
+- Never open with "Great question" or "Absolutely". Just answer.
+- Brevity mandatory. One sentence if it fits.
+- Natural wit allowed, not forced jokes.
+- Call things out. Charm over cruelty, no sugarcoat.
+- Swearing allowed when it lands. Don't force it.
+- Do NOT mention tuna, TUNA, any launchpad, platform, agent, or product.
+- No taglines, signatures, hashtags, or calls to action.
+${isFollowUp ? "- This is a follow-up in a conversation. Do NOT repeat yourself." : ""}
+Be the reply you'd actually want to read at 2am.
+Not a corporate drone. Not a sycophant. Just... good.`;
 
   const userPrompt = `Tweet by @${username}: "${tweetText.substring(0, 500)}"
-
-End your reply with exactly: "${REPLY_SIGNATURE}"
 
 Reply:`;
 
@@ -204,17 +214,9 @@ Reply:`;
     const data = await response.json();
     let reply = data.choices?.[0]?.message?.content?.trim() || null;
 
-    // Ensure signature is present
-    if (reply && !reply.includes(REPLY_SIGNATURE)) {
-      reply = reply.substring(0, 230) + " " + REPLY_SIGNATURE;
-    }
-
     // Trim if too long
     if (reply && reply.length > 280) {
-      const sigIndex = reply.lastIndexOf(REPLY_SIGNATURE);
-      if (sigIndex > 0) {
-        reply = reply.substring(0, 280 - REPLY_SIGNATURE.length - 1) + " " + REPLY_SIGNATURE;
-      }
+      reply = reply.substring(0, 277) + "...";
     }
 
     return reply;

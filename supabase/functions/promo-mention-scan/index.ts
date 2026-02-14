@@ -12,7 +12,7 @@ const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const BOT_USERNAMES = new Set([
   "buildtuna", "tunalaunch", "moltbook", "openclaw", "tuna_launch", "tunaagents",
 ]);
-const REPLY_SIGNATURE = "Tuna Launchpad for AI Agents on Solana.";
+
 const MIN_FOLLOWER_COUNT = 5000; // Minimum followers for quality engagement
 
 interface Tweet {
@@ -212,7 +212,9 @@ serve(async (req) => {
         continue;
       }
 
-      if (tweet.text.includes(REPLY_SIGNATURE)) {
+      // Skip tweets from our own bot accounts
+      const tweetAuthorLower = tweet.author?.userName?.toLowerCase() || "";
+      if (BOT_USERNAMES.has(tweetAuthorLower)) {
         debug.skipped++;
         continue;
       }
