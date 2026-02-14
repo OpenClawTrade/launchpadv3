@@ -206,8 +206,17 @@ export default function MigratePage() {
       toast.error("Enter your wallet address");
       return;
     }
-    if (!txSignature.trim()) {
+    const sig = txSignature.trim();
+    if (!sig) {
       toast.error("Enter the transaction signature");
+      return;
+    }
+    if (sig.length < 80 || sig.length > 100) {
+      toast.error(`Signature looks invalid (${sig.length} chars). A valid Solana tx signature is 87-88 characters. Make sure you copied the full signature.`);
+      return;
+    }
+    if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(sig)) {
+      toast.error("Signature contains invalid characters. Make sure you copied it correctly without extra spaces.");
       return;
     }
 

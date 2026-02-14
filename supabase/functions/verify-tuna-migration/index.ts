@@ -24,6 +24,23 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validate signature format - Solana tx signatures are base58 encoded, typically 87-88 chars
+    const trimmedSig = tx_signature.trim();
+    if (trimmedSig.length < 80 || trimmedSig.length > 100) {
+      return new Response(
+        JSON.stringify({ error: `Invalid transaction signature length (${trimmedSig.length} chars). A valid Solana signature is 87-88 characters. Make sure you copied the full signature from your wallet or Solscan.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check for valid base58 characters
+    if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(trimmedSig)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid transaction signature format. It should only contain base58 characters. Make sure you didn't copy extra spaces or characters." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (!wallet_address || typeof wallet_address !== "string") {
       return new Response(
         JSON.stringify({ error: "Wallet address is required" }),
@@ -41,19 +58,28 @@ Deno.serve(async (req) => {
 
     // Fetch parsed transaction from Helius
     const heliusUrl = `https://api.helius.xyz/v0/transactions/?api-key=${heliusKey}`;
-    console.log(`[verify-migration] Checking tx: ${tx_signature.slice(0, 12)}... for wallet: ${wallet_address.slice(0, 8)}...`);
+    console.log(`[verify-migration] Checking tx: ${trimmedSig.slice(0, 12)}... (len=${trimmedSig.length}) for wallet: ${wallet_address.slice(0, 8)}...`);
     
     const heliusRes = await fetch(heliusUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transactions: [tx_signature] }),
+      body: JSON.stringify({ transactions: [trimmedSig] }),
     });
 
     if (!heliusRes.ok) {
       const errText = await heliusRes.text();
       console.error("Helius error:", heliusRes.status, errText);
+      
+      // Parse Helius error for better user messaging
+      let userMsg = "Failed to fetch transaction data.";
+      if (errText.includes("invalid transaction-id")) {
+        userMsg = "Invalid transaction signature. Please copy the FULL signature from Solscan or your wallet history (it should be 87-88 characters long).";
+      } else {
+        userMsg += " Please wait a minute and try again.";
+      }
+      
       return new Response(
-        JSON.stringify({ error: "Failed to fetch transaction data. Please check the signature and try again in a minute." }),
+        JSON.stringify({ error: userMsg }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -185,7 +211,7 @@ Deno.serve(async (req) => {
     const { data: existingTx } = await supabase
       .from("tuna_migration_snapshot")
       .select("id")
-      .eq("tx_signature", tx_signature)
+      .eq("tx_signature", trimmedSig)
       .maybeSingle();
 
     if (existingTx) {
@@ -201,7 +227,7 @@ Deno.serve(async (req) => {
       .update({
         has_migrated: true,
         amount_sent: amountSent,
-        tx_signature: tx_signature,
+        tx_signature: trimmedSig,
         migrated_at: new Date().toISOString(),
       })
       .eq("id", holder.id);
