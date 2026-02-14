@@ -41,8 +41,7 @@ export function TokenCard({ token }: TokenCardProps) {
   const isBags = token.launchpad_type === 'bags';
   const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
   // Detect Phantom: explicit tag OR user-paid launch (has creator_wallet, not an agent, not pump/bags)
-  const isPhantom = token.launchpad_type === 'phantom' || 
-    (token.creator_wallet && !token.agent_id && !isTradingAgent && !isPumpFun && !isBags);
+  const isPhantom = token.launchpad_type === 'phantom';
   
   // Trade URL logic - pump.fun and bags tokens link to SubTuna (they all have communities)
   const tradeUrl = (isPumpFun || isBags || isTradingAgent)
