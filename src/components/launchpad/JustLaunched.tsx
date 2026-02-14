@@ -27,9 +27,7 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
   const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
-  // Detect Phantom: explicit tag OR user-paid launch (has creator_wallet, not an agent, not pump/bags)
-  const isPhantom = token.launchpad_type === 'phantom' || 
-    (token.creator_wallet && !token.agent_id && !isTradingAgent && !isPumpFun && !isBags);
+  const isPhantom = token.launchpad_type === 'phantom';
   const linkPath = (token.agent_id || isTradingAgent || isPumpFun || isBags) 
     ? `/t/${token.ticker}` 
     : `/launchpad/${token.mint_address || token.id}`;

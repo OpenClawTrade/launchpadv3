@@ -68,9 +68,7 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
     const isHolderRewards = token.fee_mode === 'holders';
     const isPumpFun = token.launchpad_type === 'pumpfun';
     const isBags = token.launchpad_type === 'bags';
-    // Detect Phantom: explicit tag OR user-paid launch (has creator_wallet, not an agent, not pump/bags)
-    const isPhantom = token.launchpad_type === 'phantom' || 
-      (token.creator_wallet && !token.agent_id && !isPumpFun && !isBags);
+    const isPhantom = token.launchpad_type === 'phantom';
     
     // pump.fun and bags tokens always link to SubTuna
     const tradeUrl = (isPumpFun || isBags)
@@ -241,9 +239,7 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
                   const isHolderRewards = token.fee_mode === 'holders';
                   const isPumpFun = token.launchpad_type === 'pumpfun';
                   const isBags = token.launchpad_type === 'bags';
-                  // Detect Phantom: explicit tag OR user-paid launch (has creator_wallet, not an agent, not pump/bags)
-                  const isPhantom = token.launchpad_type === 'phantom' || 
-                    (token.creator_wallet && !token.agent_id && !isPumpFun && !isBags);
+                  const isPhantom = token.launchpad_type === 'phantom';
                   
                   // pump.fun and bags tokens link to SubTuna
                   const tradeUrl = (isPumpFun || isBags)
