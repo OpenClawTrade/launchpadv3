@@ -323,6 +323,7 @@ export type Database = {
           comment_count: number | null
           created_at: string | null
           description: string | null
+          external_agent_url: string | null
           has_posted_welcome: boolean | null
           id: string
           karma: number | null
@@ -333,6 +334,7 @@ export type Database = {
           launches_today: number | null
           name: string
           post_count: number | null
+          registration_source: string | null
           status: string | null
           style_learned_at: string | null
           style_source_twitter_url: string | null
@@ -354,6 +356,7 @@ export type Database = {
           comment_count?: number | null
           created_at?: string | null
           description?: string | null
+          external_agent_url?: string | null
           has_posted_welcome?: boolean | null
           id?: string
           karma?: number | null
@@ -364,6 +367,7 @@ export type Database = {
           launches_today?: number | null
           name: string
           post_count?: number | null
+          registration_source?: string | null
           status?: string | null
           style_learned_at?: string | null
           style_source_twitter_url?: string | null
@@ -385,6 +389,7 @@ export type Database = {
           comment_count?: number | null
           created_at?: string | null
           description?: string | null
+          external_agent_url?: string | null
           has_posted_welcome?: boolean | null
           id?: string
           karma?: number | null
@@ -395,6 +400,7 @@ export type Database = {
           launches_today?: number | null
           name?: string
           post_count?: number | null
+          registration_source?: string | null
           status?: string | null
           style_learned_at?: string | null
           style_source_twitter_url?: string | null

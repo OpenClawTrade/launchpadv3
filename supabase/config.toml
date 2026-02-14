@@ -350,3 +350,6 @@ verify_jwt = false
 
 [functions.verify-tuna-migration]
 verify_jwt = false
+
+[functions.agent-discover]
+verify_jwt = false
