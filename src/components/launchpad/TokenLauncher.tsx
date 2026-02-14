@@ -920,10 +920,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       console.log(`[Phantom Launch] Using RPC: ${rpcSource} -> ${rpcUrl.slice(0, 50)}...`);
       const connection = new Connection(rpcUrl, "confirmed");
 
-      // Pre-flight balance check
+      // Pre-flight balance check - fetch fresh from chain instead of using cached value
       const estimatedTxFees = 0.05; // ~0.05 SOL for 3 tx rent + priority fees
       const totalNeeded = estimatedTxFees + phantomDevBuySol;
-      const currentBalance = phantomWallet.balance ?? 0;
+      let currentBalance = phantomWallet.balance ?? 0;
+      try {
+        const walletPubkey = new PublicKey(phantomWallet.address!);
+        const freshBalance = await connection.getBalance(walletPubkey);
+        currentBalance = freshBalance / 1e9;
+        console.log(`[Phantom Launch] Fresh balance: ${currentBalance} SOL`);
+      } catch (e) {
+        console.warn("[Phantom Launch] Fresh balance fetch failed, using cached:", e);
+      }
       
       if (currentBalance < totalNeeded) {
         toast({ 

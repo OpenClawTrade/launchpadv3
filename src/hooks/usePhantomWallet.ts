@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Transaction, VersionedTransaction, PublicKey, Connection, SendOptions } from '@solana/web3.js';
 import { useToast } from '@/hooks/use-toast';
+import { getRpcUrl } from './useSolanaWallet';
 
 interface PhantomProvider {
   isPhantom?: boolean;
@@ -61,16 +62,8 @@ export function usePhantomWallet() {
     
     setIsLoadingBalance(true);
     try {
-      // Get RPC URL from runtime config / localStorage / env.
-      // Avoid the public Solana RPC which can return 403 from some origins.
-      const runtimeRpcUrl = (window as unknown as { __RUNTIME_CONFIG__?: { heliusRpcUrl?: string } }).__RUNTIME_CONFIG__?.heliusRpcUrl;
-      const cachedRpcUrl = localStorage.getItem('heliusRpcUrl') || localStorage.getItem('VITE_HELIUS_RPC_URL');
-      const envRpcUrl = import.meta.env.VITE_HELIUS_RPC_URL as string | undefined;
-      const rpcUrl = runtimeRpcUrl || cachedRpcUrl || envRpcUrl;
-
-      if (!rpcUrl) {
-        throw new Error('No RPC URL configured');
-      }
+      const { url: rpcUrl, source: rpcSource } = getRpcUrl();
+      console.log(`[PhantomWallet] Balance fetch using RPC: ${rpcSource}`);
       
       const connection = new Connection(rpcUrl, 'confirmed');
       const balanceLamports = await connection.getBalance(publicKey);
