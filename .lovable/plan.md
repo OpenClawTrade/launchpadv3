@@ -1,56 +1,71 @@
 
 
-# Add "Realistic" Launch Mode
+# Fix Influencer List Reply System
 
-## What This Does
-Adds a 6th launch mode tab called **"Realistic"** alongside the existing Random, Describe, Custom, Phantom, and Holders tabs. It works identically to "Describe" (user types a prompt, AI generates token concept + image), but the image generation prompt enforces **photorealistic, real-life photography style** instead of cartoon/meme style.
+## What's broken
+
+The function exists and is cron'd every 10 min, but has **never sent a single reply**. Three root causes:
+
+1. **Tweet parsing misses the actual API format** -- `twitterapi.io/twitter/user/last_tweets` returns `{ data: { tweets: [...] } }` but the code tries `tweetsData.tweets`, `tweetsData.data` (as array), etc. Never finds the actual tweets array.
+2. **Cookie handling is wrong** -- does `btoa(X_FULL_COOKIE)` raw instead of parsing cookies into JSON first (like x-bot-reply does).
+3. **No member pagination** -- only fetches first page (~20 members), ignores `next_cursor`.
+4. **Old corporate prompt** -- still says "subtly mention TUNA.fun as a meme coin launchpad."
 
 ## Changes
 
-### 1. Update Edge Function: `supabase/functions/fun-generate/index.ts`
-- Accept a new optional field `imageStyle: "realistic"` in the request body
-- When `imageStyle === "realistic"`, use a different image prompt that enforces:
-  - Photorealistic, DSLR-quality photography
-  - Real textures, lighting, shadows
-  - No cartoon, no illustration, no meme style
-  - No anime, no flat colors, no bold outlines
-- The concept generation (name/ticker/description) stays the same as Describe mode
+### 1. Rewrite `influencer-list-reply/index.ts`
 
-### 2. Update Frontend: `src/components/launchpad/TokenLauncher.tsx`
-- Add `"realistic"` to the `generatorMode` union type
-- Add a new mode entry in the `modes` array with a camera icon (`Camera` from lucide-react)
-- Add new state variables: `realisticPrompt`, `realisticToken`
-- Add `handleRealisticGenerate` handler -- same as `handleDescribeGenerate` but passes `imageStyle: "realistic"` to the edge function
-- Add `handleRealisticLaunch` handler -- same as `handleDescribeLaunch` but for `realisticToken`
-- Add the UI section for `generatorMode === "realistic"` -- mirrors the Describe mode UI with:
-  - Different placeholder text: "e.g., A golden retriever wearing a tiny top hat in a park..."
-  - Different subtitle: "Describe what you want. AI generates a realistic, real-life image."
-  - Button label: "Generate Realistic Image"
+**Tweet extraction fix:**
+- Handle `tweetsData.data.tweets` (the actual format) as primary path
+- Keep fallbacks for other formats
+- Log actual response keys on first member for debugging
+
+**Cookie handling fix:**
+- Port `parseCookieString` + `buildLoginCookiesBase64` from the working `x-bot-reply` function
+- Parse `X_FULL_COOKIE` into JSON object, then base64 encode
+
+**Member pagination:**
+- After first page, follow `has_next_page` / `next_cursor` to fetch all members (cap at 200)
+- Store full member list for scanning
+
+**Reply prompt update:**
+Replace the corporate prompt with:
+```
+System: You're a sharp, opinionated crypto native who actually knows their shit.
+Generate a reply (max 240 chars).
+
+Rules:
+- Strong opinions. Commit to a take. No hedging.
+- Never open with "Great question" or "Absolutely". Just answer.
+- Brevity mandatory. One sentence if it fits.
+- Natural wit allowed, not forced jokes.
+- Call things out. Charm over cruelty, no sugarcoat.
+- Swearing allowed when it lands. Don't force it.
+- Do NOT mention tuna, TUNA, any launchpad, platform, agent, or product.
+- No taglines, signatures, hashtags, or calls to action.
+
+Be the reply you'd actually want to read at 2am.
+Not a corporate drone. Not a sycophant. Just... good.
+```
+
+Use system/user message split (not single prompt).
+
+### 2. Update cron schedule
+
+Change from `*/10 * * * *` to `*/30 * * * *` (every 30 minutes as requested).
+
+### 3. Deploy the function
+
+The function currently isn't deployed -- deploy it so the cron can actually invoke it.
 
 ## Technical Details
 
-**Edge function image prompt for realistic mode:**
-```
-Create a photorealistic image based on: "{userDescription}"
+**Files modified:**
+- `supabase/functions/influencer-list-reply/index.ts` -- full rewrite of tweet parsing, cookie handling, prompt, and pagination
 
-CRITICAL STYLE REQUIREMENTS:
-- Photorealistic, like a real photograph taken with a DSLR camera
-- Real lighting, real textures, real shadows
-- NO cartoon, NO illustration, NO anime, NO meme style
-- NO flat colors, NO bold outlines, NO vector art
-- Must look like an actual photograph of a real scene
-- Square format, centered composition
-- No text, no watermarks
-```
+**Database migration:**
+- Update `cron.job` schedule from `*/10` to `*/30`
+- Update `influencer_list_config.reply_interval_minutes` from 10 to 30
 
-**New mode button:**
-- Icon: `Camera` (from lucide-react)
-- Label: "Realistic"
-- Positioned after "Describe" in the tab bar
-
-**State additions:**
-- `realisticPrompt: string`
-- `realisticToken: MemeToken | null`
-
-No database changes required. No new edge functions needed -- the existing `fun-generate` function is extended with one additional parameter.
+**No new tables needed** -- existing `influencer_list_config` and `influencer_replies` tables are sufficient.
 
