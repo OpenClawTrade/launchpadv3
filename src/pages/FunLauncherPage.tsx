@@ -226,6 +226,13 @@ export default function FunLauncherPage() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* Mobile-only visible Migrate button */}
+            <Link to="/migrate" className="md:hidden">
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
+                <ArrowsClockwise className="h-4 w-4" weight="bold" />
+                Migrate
+              </Button>
+            </Link>
             <Link 
               to="/whitepaper"
               className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-cyan-500/10 transition-colors"
