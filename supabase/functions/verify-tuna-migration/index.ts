@@ -41,6 +41,8 @@ Deno.serve(async (req) => {
 
     // Fetch parsed transaction from Helius
     const heliusUrl = `https://api.helius.xyz/v0/transactions/?api-key=${heliusKey}`;
+    console.log(`[verify-migration] Checking tx: ${tx_signature.slice(0, 12)}... for wallet: ${wallet_address.slice(0, 8)}...`);
+    
     const heliusRes = await fetch(heliusUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,9 +51,9 @@ Deno.serve(async (req) => {
 
     if (!heliusRes.ok) {
       const errText = await heliusRes.text();
-      console.error("Helius error:", errText);
+      console.error("Helius error:", heliusRes.status, errText);
       return new Response(
-        JSON.stringify({ error: "Failed to fetch transaction data. Please check the signature." }),
+        JSON.stringify({ error: "Failed to fetch transaction data. Please check the signature and try again in a minute." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -59,18 +61,19 @@ Deno.serve(async (req) => {
     const parsedTxs = await heliusRes.json();
     if (!parsedTxs || parsedTxs.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Transaction not found. It may not be confirmed yet — please wait and try again." }),
+        JSON.stringify({ error: "Transaction not found. It may not be confirmed yet — please wait 1-2 minutes and try again." }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const tx = parsedTxs[0];
+    console.log(`[verify-migration] TX type: ${tx.type}, source: ${tx.source}, desc: ${tx.description?.slice(0, 100)}`);
 
     // Look for token transfer of old TUNA to collection wallet
     let senderWallet: string | null = null;
     let amountSent = 0;
 
-    // Check tokenTransfers in Helius parsed format
+    // Method 1: Check tokenTransfers in Helius parsed format (direct SPL transfers)
     const tokenTransfers = tx.tokenTransfers || [];
     for (const transfer of tokenTransfers) {
       if (
@@ -82,14 +85,65 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Method 2: If no direct match, check all token transfers for the old mint
+    // and look for the collection wallet in any position (covers DEX/swap routes)
     if (!senderWallet || amountSent <= 0) {
+      const accountData = tx.accountData || [];
+      const instructions = tx.instructions || [];
+      
+      // Check if any inner instruction involves old TUNA transfer to collection wallet
+      for (const ix of instructions) {
+        const innerIxs = ix.innerInstructions || [];
+        for (const inner of innerIxs) {
+          // Check parsed token transfers within inner instructions
+          if (inner.tokenTransfers) {
+            for (const t of inner.tokenTransfers) {
+              if (t.mint === OLD_MINT && t.toUserAccount === COLLECTION_WALLET) {
+                senderWallet = t.fromUserAccount;
+                amountSent += t.tokenAmount;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Method 3: Check nativeTransfers and token balance changes as fallback
+    if (!senderWallet || amountSent <= 0) {
+      const tokenBalanceChanges = tx.tokenBalanceChanges || [];
+      let collectionReceived = 0;
+      let senderAddress: string | null = null;
+
+      for (const change of tokenBalanceChanges) {
+        if (change.mint === OLD_MINT) {
+          if (change.userAccount === COLLECTION_WALLET && change.rawTokenAmount?.tokenAmount) {
+            const amt = Number(change.rawTokenAmount.tokenAmount) / Math.pow(10, change.rawTokenAmount.decimals || 6);
+            if (amt > 0) collectionReceived += amt;
+          } else if (change.rawTokenAmount?.tokenAmount) {
+            const amt = Number(change.rawTokenAmount.tokenAmount) / Math.pow(10, change.rawTokenAmount.decimals || 6);
+            if (amt < 0) senderAddress = change.userAccount;
+          }
+        }
+      }
+
+      if (collectionReceived > 0 && senderAddress) {
+        senderWallet = senderAddress;
+        amountSent = collectionReceived;
+        console.log(`[verify-migration] Found via balance changes: sender=${senderAddress}, amount=${collectionReceived}`);
+      }
+    }
+
+    if (!senderWallet || amountSent <= 0) {
+      console.error(`[verify-migration] No matching transfer found. tokenTransfers: ${JSON.stringify(tokenTransfers.slice(0, 3))}, type: ${tx.type}`);
       return new Response(
         JSON.stringify({
-          error: "This transaction does not contain a transfer of old $TUNA to the collection wallet.",
+          error: "This transaction does not contain a transfer of old $TUNA to the collection wallet. Make sure you sent tokens to: " + COLLECTION_WALLET.slice(0, 6) + "..." + COLLECTION_WALLET.slice(-4),
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log(`[verify-migration] ✅ Found transfer: sender=${senderWallet.slice(0,8)}..., amount=${amountSent}`);
 
     // Verify the sender matches the wallet_address provided
     if (senderWallet !== wallet_address) {
