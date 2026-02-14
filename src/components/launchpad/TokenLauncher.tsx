@@ -920,20 +920,45 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       console.log(`[Phantom Launch] Using RPC: ${rpcSource} -> ${rpcUrl.slice(0, 50)}...`);
       const connection = new Connection(rpcUrl, "confirmed");
 
-      // Pre-flight balance check - fetch fresh from chain instead of using cached value
+      // Pre-flight balance check - fetch fresh from chain with retries
       const estimatedTxFees = 0.05; // ~0.05 SOL for 3 tx rent + priority fees
       const totalNeeded = estimatedTxFees + phantomDevBuySol;
-      let currentBalance = phantomWallet.balance ?? 0;
-      try {
-        const walletPubkey = new PublicKey(phantomWallet.address!);
-        const freshBalance = await connection.getBalance(walletPubkey);
-        currentBalance = freshBalance / 1e9;
-        console.log(`[Phantom Launch] Fresh balance: ${currentBalance} SOL`);
-      } catch (e) {
-        console.warn("[Phantom Launch] Fresh balance fetch failed, using cached:", e);
+      let currentBalance: number | null = null;
+      
+      // Try multiple RPC endpoints to get balance
+      const walletPubkey = new PublicKey(phantomWallet.address!);
+      const rpcEndpoints = [
+        { conn: connection, name: "primary" },
+        { conn: new Connection("https://solana.publicnode.com", "confirmed"), name: "publicnode" },
+        { conn: new Connection("https://api.mainnet-beta.solana.com", "confirmed"), name: "solana-mainnet" },
+      ];
+      
+      for (const { conn, name } of rpcEndpoints) {
+        try {
+          const freshBalance = await Promise.race([
+            conn.getBalance(walletPubkey),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+          ]);
+          currentBalance = freshBalance / 1e9;
+          console.log(`[Phantom Launch] Fresh balance from ${name}: ${currentBalance} SOL`);
+          if (currentBalance > 0) break; // Got a valid balance
+        } catch (e) {
+          console.warn(`[Phantom Launch] Balance fetch failed (${name}):`, e);
+        }
       }
       
-      if (currentBalance < totalNeeded) {
+      // Fallback to cached balance from hook
+      if (currentBalance === null || currentBalance === 0) {
+        if (phantomWallet.balance !== null && phantomWallet.balance > 0) {
+          currentBalance = phantomWallet.balance;
+          console.log(`[Phantom Launch] Using cached balance: ${currentBalance} SOL`);
+        }
+      }
+      
+      // If we still can't get balance, warn but don't block - Phantom will reject if insufficient
+      if (currentBalance === null || currentBalance === 0) {
+        console.warn("[Phantom Launch] Could not verify balance from any RPC - proceeding anyway, Phantom will validate");
+      } else if (currentBalance < totalNeeded) {
         toast({ 
           title: "Insufficient SOL", 
           description: `Need ~${totalNeeded.toFixed(3)} SOL (fees + dev buy), but wallet has ${currentBalance.toFixed(3)} SOL`, 
