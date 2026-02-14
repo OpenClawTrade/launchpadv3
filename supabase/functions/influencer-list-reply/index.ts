@@ -7,17 +7,57 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// Rate limits: 20 replies per hour = ~4 per 10-minute cycle
 const MAX_REPLIES_PER_RUN = 4;
-const TWEET_RECENCY_HOURS = 24; // Look at tweets from last 24 hours
-
-// IMPORTANT: The browser will show a CORS error if the request times out upstream.
-// So we enforce a strict per-run time budget to avoid gateway 504s.
+const TWEET_RECENCY_HOURS = 24;
 const RUN_BUDGET_MS = 25_000;
-const MEMBERS_SCAN_CAP = 25;
-const MAX_ELIGIBLE_TWEETS_MULTIPLIER = 10; // e.g., 4 replies => collect up to 40 candidates
-
+const MEMBERS_SCAN_CAP = 50;
+const MAX_MEMBERS = 200;
+const MAX_ELIGIBLE_TWEETS_MULTIPLIER = 10;
 const DEFAULT_HTTP_TIMEOUT_MS = 7_000;
+
+// ── Cookie helpers (ported from x-bot-reply) ──────────────────────────
+
+function parseCookieString(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim();
+    const val = part.slice(eq + 1).trim();
+    if (key) out[key] = val;
+  }
+  return out;
+}
+
+function buildLoginCookiesBase64(fullCookie: string): string | null {
+  const cookies = parseCookieString(fullCookie);
+  if (!cookies.auth_token || !cookies.ct0) {
+    console.error("Cookie missing auth_token or ct0");
+    return null;
+  }
+  return btoa(JSON.stringify(cookies));
+}
+
+// ── Reply persona ─────────────────────────────────────────────────────
+
+const SYSTEM_PROMPT = `You're a sharp, opinionated crypto native who actually knows their shit.
+Generate a reply (max 240 chars).
+
+Rules:
+- Strong opinions. Commit to a take. No hedging.
+- Never open with "Great question" or "Absolutely". Just answer.
+- Brevity mandatory. One sentence if it fits.
+- Natural wit allowed, not forced jokes.
+- Call things out. Charm over cruelty, no sugarcoat.
+- Swearing allowed when it lands. Don't force it.
+- Do NOT mention tuna, TUNA, any launchpad, platform, agent, or product.
+- No taglines, signatures, hashtags, or calls to action.
+
+Be the reply you'd actually want to read at 2am.
+Not a corporate drone. Not a sycophant. Just... good.`;
+
+// ── Utilities ─────────────────────────────────────────────────────────
 
 function jsonResponse(data: unknown, init: ResponseInit = {}) {
   const headers: HeadersInit = {
@@ -42,13 +82,66 @@ async function fetchWithTimeout(
   }
 }
 
-function msSince(startMs: number) {
-  return Date.now() - startMs;
+function msSince(startMs: number) { return Date.now() - startMs; }
+function timeLeftMs(startMs: number) { return RUN_BUDGET_MS - msSince(startMs); }
+
+// ── Tweet extraction (handles actual twitterapi.io response) ──────────
+
+function extractTweets(tweetsData: any): any[] {
+  // Primary: { data: { tweets: [...] } }
+  if (tweetsData?.data?.tweets && Array.isArray(tweetsData.data.tweets)) {
+    return tweetsData.data.tweets;
+  }
+  // Fallback: { data: [...] } (array directly)
+  if (Array.isArray(tweetsData?.data)) {
+    return tweetsData.data;
+  }
+  // Fallback: { tweets: [...] }
+  if (Array.isArray(tweetsData?.tweets)) {
+    return tweetsData.tweets;
+  }
+  // Fallback: top-level array
+  if (Array.isArray(tweetsData)) {
+    return tweetsData;
+  }
+  return [];
 }
 
-function timeLeftMs(startMs: number) {
-  return RUN_BUDGET_MS - msSince(startMs);
+// ── Fetch all list members with pagination ────────────────────────────
+
+async function fetchAllMembers(
+  listId: string,
+  apiKey: string,
+  startMs: number,
+): Promise<{ members: any[]; pages: number }> {
+  const allMembers: any[] = [];
+  let cursor: string | undefined;
+  let pages = 0;
+
+  while (allMembers.length < MAX_MEMBERS && timeLeftMs(startMs) > 8_000) {
+    const url = cursor
+      ? `https://api.twitterapi.io/twitter/list/members?list_id=${listId}&cursor=${cursor}`
+      : `https://api.twitterapi.io/twitter/list/members?list_id=${listId}`;
+
+    const res = await fetchWithTimeout(url, { headers: { "X-API-Key": apiKey } }, 8_000);
+    if (!res.ok) {
+      console.error(`Members page ${pages} failed: ${res.status}`);
+      break;
+    }
+
+    const data = await res.json();
+    const batch = data.users || data.members || [];
+    allMembers.push(...batch);
+    pages++;
+
+    if (!data.has_next_page || !data.next_cursor) break;
+    cursor = data.next_cursor;
+  }
+
+  return { members: allMembers.slice(0, MAX_MEMBERS), pages };
 }
+
+// ── Main handler ──────────────────────────────────────────────────────
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -67,48 +160,39 @@ serve(async (req) => {
     const debug: Record<string, unknown> = {
       runStartedAt: new Date(runStartedAtMs).toISOString(),
       runBudgetMs: RUN_BUDGET_MS,
-      membersScanCap: MEMBERS_SCAN_CAP,
-      tweetRecencyHours: TWEET_RECENCY_HOURS,
     };
 
     if (!TWITTERAPI_IO_KEY || !X_FULL_COOKIE || !LOVABLE_API_KEY) {
-      return jsonResponse(
-        { error: "Missing required environment variables", debug },
-        { status: 500 }
-      );
+      return jsonResponse({ error: "Missing required environment variables", debug }, { status: 500 });
+    }
+
+    // Build login cookies (JSON → base64)
+    const loginCookies = buildLoginCookiesBase64(X_FULL_COOKIE);
+    if (!loginCookies) {
+      return jsonResponse({ error: "Cookie parsing failed — missing auth_token or ct0", debug }, { status: 500 });
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Check for status request
+    // Status endpoint
     const url = new URL(req.url);
     if (url.searchParams.get("action") === "status") {
-      const { data: config } = await supabase
-        .from("influencer_list_config")
-        .select("*")
-        .single();
-      
+      const { data: config } = await supabase.from("influencer_list_config").select("*").single();
       const { data: recentReplies } = await supabase
         .from("influencer_replies")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(20);
-
       const { count: hourlyCount } = await supabase
         .from("influencer_replies")
         .select("id", { count: "exact", head: true })
         .eq("status", "sent")
-        .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+        .gte("created_at", new Date(Date.now() - 3600_000).toISOString());
 
-      return jsonResponse({
-        config,
-        recentReplies,
-        repliesLastHour: hourlyCount,
-        enabled: ENABLE_INFLUENCER_REPLIES,
-      });
+      return jsonResponse({ config, recentReplies, repliesLastHour: hourlyCount, enabled: ENABLE_INFLUENCER_REPLIES });
     }
 
     if (!ENABLE_INFLUENCER_REPLIES) {
@@ -128,12 +212,12 @@ serve(async (req) => {
       return jsonResponse({ message: "No active list config", debug });
     }
 
-    // Check hourly rate limit (20 per hour)
+    // Hourly rate limit (20/hour)
     const { count: hourlyCount } = await supabase
       .from("influencer_replies")
       .select("id", { count: "exact", head: true })
       .eq("status", "sent")
-      .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+      .gte("created_at", new Date(Date.now() - 3600_000).toISOString());
 
     if ((hourlyCount || 0) >= 20) {
       console.log("Hourly rate limit reached (20/hour)");
@@ -142,176 +226,96 @@ serve(async (req) => {
 
     const maxReplies = Math.min(config.max_replies_per_run || MAX_REPLIES_PER_RUN, 20 - (hourlyCount || 0));
 
-    // Fetch list members
+    // ── Fetch all list members (with pagination) ──────────────────────
     console.log(`Fetching members from list ${config.list_id}...`);
-    const membersFetchStartedAtMs = Date.now();
-    const membersResponse = await fetchWithTimeout(
-      `https://api.twitterapi.io/twitter/list/members?list_id=${config.list_id}`,
-      { headers: { "X-API-Key": TWITTERAPI_IO_KEY } },
-      8_000
-    );
-    debug.membersFetchMs = Date.now() - membersFetchStartedAtMs;
-
-    if (!membersResponse.ok) {
-      const errorText = await membersResponse.text();
-      console.error("Failed to fetch list members:", errorText);
-      return jsonResponse(
-        { error: "Failed to fetch list members", details: errorText, debug },
-        { status: 500 }
-      );
-    }
-
-    const membersData = await membersResponse.json();
-    const members = membersData.users || membersData.members || [];
-    console.log(`Found ${members.length} members in list`);
+    const { members, pages } = await fetchAllMembers(config.list_id, TWITTERAPI_IO_KEY, runStartedAtMs);
+    console.log(`Found ${members.length} members across ${pages} page(s)`);
     debug.membersTotal = members.length;
+    debug.memberPages = pages;
 
     if (members.length === 0) {
       return jsonResponse({ message: "No members found in list", debug });
     }
 
-    // Get already replied tweet IDs
+    // Already-replied tweet IDs
     const { data: existingReplies } = await supabase
       .from("influencer_replies")
       .select("tweet_id")
       .eq("list_id", config.list_id);
-
-    const repliedTweetIds = new Set((existingReplies || []).map(r => r.tweet_id));
+    const repliedTweetIds = new Set((existingReplies || []).map((r: any) => r.tweet_id));
     debug.alreadyRepliedCount = repliedTweetIds.size;
 
-    // Collect eligible tweets from all members
+    // ── Scan members for eligible tweets ──────────────────────────────
     const eligibleTweets: any[] = [];
-    const cutoffTime = Date.now() - TWEET_RECENCY_HOURS * 60 * 60 * 1000;
-
+    const cutoffTime = Date.now() - TWEET_RECENCY_HOURS * 3600_000;
     let totalTweetsFetched = 0;
     let skippedAlreadyReplied = 0;
     let skippedTooOld = 0;
     let skippedType = 0;
-
     let membersScanned = 0;
     let stoppedReason: string | null = null;
-
     const maxEligibleTweets = maxReplies * MAX_ELIGIBLE_TWEETS_MULTIPLIER;
-
-    // Scan only a bounded number of members so the request finishes fast enough for browsers.
-    // (The cron-based runs can still cycle over time.)
     const membersToScan = members.slice(0, MEMBERS_SCAN_CAP);
 
     for (const member of membersToScan) {
-      if (timeLeftMs(runStartedAtMs) < 6_000) {
-        stoppedReason = "time_budget_scan";
-        break;
-      }
+      if (timeLeftMs(runStartedAtMs) < 6_000) { stoppedReason = "time_budget_scan"; break; }
 
       const username = member.userName || member.username || member.screen_name;
       if (!username) continue;
 
       try {
-        const tweetsUrl = `https://api.twitterapi.io/twitter/user/last_tweets?userName=${username}`;
         const tweetsResponse = await fetchWithTimeout(
-          tweetsUrl,
+          `https://api.twitterapi.io/twitter/user/last_tweets?userName=${username}`,
           { headers: { "X-API-Key": TWITTERAPI_IO_KEY } },
-          6_000
+          6_000,
         );
-
-        if (!tweetsResponse.ok) {
-          console.log(`Failed to fetch tweets for ${username}: ${tweetsResponse.status}`);
-          continue;
-        }
+        if (!tweetsResponse.ok) { console.log(`Tweets ${username}: ${tweetsResponse.status}`); continue; }
 
         const tweetsData = await tweetsResponse.json();
-        
-        // Handle various API response formats
-        let tweets: any[] = [];
-        if (Array.isArray(tweetsData)) {
-          tweets = tweetsData;
-        } else if (Array.isArray(tweetsData.tweets)) {
-          tweets = tweetsData.tweets;
-        } else if (Array.isArray(tweetsData.data)) {
-          tweets = tweetsData.data;
-        } else if (tweetsData.timeline?.instructions) {
-          // Twitter API v2 timeline format
-          for (const inst of tweetsData.timeline.instructions) {
-            if (inst.entries) {
-              for (const entry of inst.entries) {
-                if (entry.content?.itemContent?.tweet_results?.result) {
-                  tweets.push(entry.content.itemContent.tweet_results.result);
-                }
-              }
-            }
-          }
+        const tweets = extractTweets(tweetsData);
+
+        // Debug first member's response structure
+        if (membersScanned === 0) {
+          console.log(`First member ${username}: keys=${Object.keys(tweetsData || {}).join(",")}, tweets=${tweets.length}`);
+          if (tweetsData?.data) console.log(`  data keys: ${Object.keys(tweetsData.data).join(",")}`);
         }
-        
-        // Log first member's response structure for debugging
-        if (members.indexOf(member) === 0) {
-          console.log(`First member ${username} response type: ${typeof tweetsData}, isArray: ${Array.isArray(tweetsData)}`);
-          console.log(`Response keys: ${Object.keys(tweetsData || {}).join(', ')}`);
-          console.log(`Extracted tweets count: ${tweets.length}`);
-        }
-        
+
         totalTweetsFetched += tweets.length;
 
         for (const tweet of tweets) {
           const tweetId = tweet.id || tweet.id_str;
           if (!tweetId) continue;
-          
-          if (repliedTweetIds.has(tweetId)) {
-            skippedAlreadyReplied++;
-            continue;
-          }
+          if (repliedTweetIds.has(tweetId)) { skippedAlreadyReplied++; continue; }
 
-          // Check recency - expand to 24 hours
           const tweetDate = new Date(tweet.createdAt || tweet.created_at).getTime();
-          if (tweetDate < cutoffTime) {
-            skippedTooOld++;
-            continue;
-          }
+          if (tweetDate < cutoffTime) { skippedTooOld++; continue; }
 
-          // Determine tweet type
-          let tweetType = "original";
           const isRetweet = tweet.isRetweet || tweet.retweeted_status || tweet.text?.startsWith("RT @");
           const isReply = tweet.isReply || tweet.in_reply_to_status_id || tweet.inReplyToId;
 
-          if (isRetweet) {
-            if (!config.include_retweets) {
-              skippedType++;
-              continue;
-            }
-            tweetType = "retweet";
-          } else if (isReply) {
-            if (!config.include_replies) {
-              skippedType++;
-              continue;
-            }
-            tweetType = "reply";
-          }
+          if (isRetweet) { if (!config.include_retweets) { skippedType++; continue; } }
+          else if (isReply) { if (!config.include_replies) { skippedType++; continue; } }
 
-          // Get engagement metrics
           const likes = tweet.likeCount || tweet.favorite_count || 0;
           const replies = tweet.replyCount || tweet.reply_count || 0;
           const retweets = tweet.retweetCount || tweet.retweet_count || 0;
-          const engagement = likes + replies * 2 + retweets * 3;
 
           eligibleTweets.push({
             id: tweetId,
             text: tweet.text || tweet.full_text,
             username,
-            tweetType,
-            engagement,
+            tweetType: isRetweet ? "retweet" : isReply ? "reply" : "original",
+            engagement: likes + replies * 2 + retweets * 3,
             createdAt: tweet.createdAt || tweet.created_at,
           });
 
-          if (eligibleTweets.length >= maxEligibleTweets) {
-            stoppedReason = "eligible_cap_reached";
-            break;
-          }
+          if (eligibleTweets.length >= maxEligibleTweets) { stoppedReason = "eligible_cap_reached"; break; }
         }
 
         membersScanned++;
-
         if (stoppedReason) break;
       } catch (err) {
-        console.error(`Error fetching tweets for ${username}:`, err);
+        console.error(`Error ${username}:`, err);
       }
     }
 
@@ -323,41 +327,25 @@ serve(async (req) => {
     debug.eligibleTweetsFound = eligibleTweets.length;
     debug.scanStoppedReason = stoppedReason;
 
-    console.log(`Tweet stats: fetched=${totalTweetsFetched}, skippedOld=${skippedTooOld}, skippedReplied=${skippedAlreadyReplied}, skippedType=${skippedType}`);
-
-    console.log(`Found ${eligibleTweets.length} eligible tweets`);
+    console.log(`Tweets: fetched=${totalTweetsFetched} eligible=${eligibleTweets.length} skippedOld=${skippedTooOld} skippedReplied=${skippedAlreadyReplied}`);
 
     if (eligibleTweets.length === 0) {
       debug.totalRunMs = msSince(runStartedAtMs);
       return jsonResponse({ message: "No eligible tweets to reply to", debug });
     }
 
-    // Sort by engagement and take top N
+    // Sort by engagement, take top N
     eligibleTweets.sort((a, b) => b.engagement - a.engagement);
     const tweetsToReply = eligibleTweets.slice(0, maxReplies);
 
+    // ── Generate & send replies ───────────────────────────────────────
     const results: any[] = [];
 
-    let repliesStoppedReason: string | null = null;
-
     for (const tweet of tweetsToReply) {
+      if (timeLeftMs(runStartedAtMs) < 7_000) { debug.repliesStoppedReason = "time_budget_reply"; break; }
+
       try {
-        if (timeLeftMs(runStartedAtMs) < 7_000) {
-          repliesStoppedReason = "time_budget_reply";
-          break;
-        }
-
-        // Generate AI reply
-        const prompt = `You are replying to a crypto influencer's tweet. Generate a short, engaging reply (max 250 chars) that:
-- Is relevant and adds value to the conversation
-- Is friendly and professional, not spammy
-- Can subtly mention TUNA.fun as a meme coin launchpad if naturally fits (not forced)
-- Feels authentic, not like a bot
-
-Tweet by @${tweet.username}: "${tweet.text}"
-
-Reply (max 250 chars):`;
-
+        // Generate AI reply with system/user split
         const aiResponse = await fetchWithTimeout(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -368,33 +356,27 @@ Reply (max 250 chars):`;
             },
             body: JSON.stringify({
               model: "openai/gpt-5-mini",
-              messages: [{ role: "user", content: prompt }],
+              messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                { role: "user", content: `Tweet by @${tweet.username}: "${tweet.text}"\n\nReply:` },
+              ],
               max_tokens: 100,
             }),
           },
-          8_000
+          8_000,
         );
 
-        if (!aiResponse.ok) {
-          console.error("AI generation failed:", await aiResponse.text());
-          continue;
-        }
+        if (!aiResponse.ok) { console.error("AI failed:", await aiResponse.text()); continue; }
 
         const aiData = await aiResponse.json();
         let replyText = aiData.choices?.[0]?.message?.content?.trim() || "";
-        
-        // Clean up the reply
         replyText = replyText.replace(/^["']|["']$/g, "").trim();
         if (replyText.length > 280) replyText = replyText.substring(0, 277) + "...";
-
-        if (!replyText) {
-          console.error("Empty AI reply generated");
-          continue;
-        }
+        if (!replyText) { console.error("Empty AI reply"); continue; }
 
         console.log(`Replying to @${tweet.username}: "${replyText.substring(0, 50)}..."`);
 
-        // Insert pending reply record
+        // Insert pending record
         await supabase.from("influencer_replies").insert({
           list_id: config.list_id,
           influencer_username: tweet.username,
@@ -405,16 +387,12 @@ Reply (max 250 chars):`;
           status: "pending",
         });
 
-        // Post the reply
-        const loginCookies = btoa(X_FULL_COOKIE);
+        // Post reply via twitterapi.io
         const postResponse = await fetchWithTimeout(
           "https://api.twitterapi.io/twitter/tweet/create_v2",
           {
             method: "POST",
-            headers: {
-              "X-API-Key": TWITTERAPI_IO_KEY,
-              "Content-Type": "application/json",
-            },
+            headers: { "X-API-Key": TWITTERAPI_IO_KEY, "Content-Type": "application/json" },
             body: JSON.stringify({
               text: replyText,
               reply_to_tweet_id: tweet.id,
@@ -422,64 +400,31 @@ Reply (max 250 chars):`;
               ...(TWITTER_PROXY && { proxy: TWITTER_PROXY }),
             }),
           },
-          8_000
+          8_000,
         );
 
         const postData = await postResponse.json();
 
         if (postResponse.ok && (postData.data?.id || postData.tweet?.id || postData.id)) {
           const replyId = postData.data?.id || postData.tweet?.id || postData.id;
-          
-          await supabase
-            .from("influencer_replies")
-            .update({ status: "sent", reply_id: replyId })
-            .eq("tweet_id", tweet.id);
-
-          results.push({
-            success: true,
-            username: tweet.username,
-            tweetId: tweet.id,
-            replyId,
-            tweetType: tweet.tweetType,
-          });
-
-          console.log(`✅ Replied to @${tweet.username} (${tweet.tweetType})`);
+          await supabase.from("influencer_replies").update({ status: "sent", reply_id: replyId }).eq("tweet_id", tweet.id);
+          results.push({ success: true, username: tweet.username, tweetId: tweet.id, replyId });
+          console.log(`✅ Replied to @${tweet.username}`);
         } else {
           const errorMsg = postData.error || postData.message || JSON.stringify(postData);
-          
-          await supabase
-            .from("influencer_replies")
-            .update({ status: "failed", error_message: errorMsg })
-            .eq("tweet_id", tweet.id);
-
-          results.push({
-            success: false,
-            username: tweet.username,
-            tweetId: tweet.id,
-            error: errorMsg,
-          });
-
-          console.error(`❌ Failed to reply to @${tweet.username}:`, errorMsg);
+          await supabase.from("influencer_replies").update({ status: "failed", error_message: errorMsg }).eq("tweet_id", tweet.id);
+          results.push({ success: false, username: tweet.username, tweetId: tweet.id, error: errorMsg });
+          console.error(`❌ @${tweet.username}:`, errorMsg);
         }
 
-        // Small delay between replies (bounded so we don't hit gateway timeouts)
-        if (timeLeftMs(runStartedAtMs) > 2_000) {
-          await new Promise(r => setTimeout(r, 700));
-        }
-
+        if (timeLeftMs(runStartedAtMs) > 2_000) await new Promise(r => setTimeout(r, 700));
       } catch (err) {
-        console.error(`Error processing tweet ${tweet.id}:`, err);
-        results.push({
-          success: false,
-          tweetId: tweet.id,
-          error: String(err),
-        });
+        console.error(`Error tweet ${tweet.id}:`, err);
+        results.push({ success: false, tweetId: tweet.id, error: String(err) });
       }
     }
 
-    debug.repliesStoppedReason = repliesStoppedReason;
     debug.totalRunMs = msSince(runStartedAtMs);
-
     return jsonResponse({
       processed: results.length,
       successful: results.filter(r => r.success).length,
@@ -487,7 +432,6 @@ Reply (max 250 chars):`;
       results,
       debug,
     });
-
   } catch (error) {
     console.error("Influencer reply error:", error);
     return jsonResponse({ error: String(error) }, { status: 500 });
