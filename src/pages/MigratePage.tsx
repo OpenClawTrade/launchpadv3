@@ -110,6 +110,9 @@ export default function MigratePage() {
   const [txSignature, setTxSignature] = useState("");
   const [walletInput, setWalletInput] = useState("");
   const [showTechnicals, setShowTechnicals] = useState(false);
+  const [solBalances, setSolBalances] = useState<Record<string, number>>({});
+  const [balancesLoading, setBalancesLoading] = useState(false);
+  const [balancesFetched, setBalancesFetched] = useState(false);
 
   const countdown = useCountdown(config?.deadline_at || null);
 
@@ -169,6 +172,33 @@ export default function MigratePage() {
     }
 
     setLoading(false);
+  };
+
+  const fetchSolBalances = async () => {
+    if (balancesFetched || balancesLoading) return;
+    const migrated = holders.filter((h) => h.has_migrated);
+    if (migrated.length === 0) return;
+    setBalancesLoading(true);
+    try {
+      // Batch in chunks of 100
+      const wallets = migrated.map((h) => h.wallet_address);
+      const allBalances: Record<string, number> = {};
+      for (let i = 0; i < wallets.length; i += 100) {
+        const chunk = wallets.slice(i, i + 100);
+        const res = await supabase.functions.invoke("fetch-sol-balances", {
+          body: { wallets: chunk },
+        });
+        if (res.data?.balances) {
+          Object.assign(allBalances, res.data.balances);
+        }
+      }
+      setSolBalances(allBalances);
+      setBalancesFetched(true);
+    } catch (err) {
+      console.error("Failed to fetch SOL balances:", err);
+    } finally {
+      setBalancesLoading(false);
+    }
   };
 
   const stats = useMemo(() => {
@@ -514,7 +544,9 @@ export default function MigratePage() {
 
         {/* Snapshot Table */}
         <Card className="p-6 space-y-4 bg-card border-border">
-          <Tabs defaultValue="holders" className="w-full">
+          <Tabs defaultValue="holders" className="w-full" onValueChange={(v) => {
+            if (v === "migrated") fetchSolBalances();
+          }}>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <TabsList>
                 <TabsTrigger value="holders">Snapshot Holders</TabsTrigger>
@@ -603,7 +635,8 @@ export default function MigratePage() {
                         searchQuery
                           ? h.wallet_address.toLowerCase().includes(searchQuery.toLowerCase())
                           : true
-                      );
+                      )
+                      .sort((a, b) => (solBalances[b.wallet_address] || 0) - (solBalances[a.wallet_address] || 0));
 
                     if (migratedList.length === 0) {
                       return (
@@ -615,10 +648,16 @@ export default function MigratePage() {
 
                     return (
                       <div className="overflow-x-auto">
+                        {balancesLoading && (
+                          <div className="text-center py-2 text-sm text-muted-foreground">
+                            Fetching SOL balances...
+                          </div>
+                        )}
                         <Table>
                           <TableHeader>
                             <TableRow>
                               <TableHead>Wallet</TableHead>
+                              <TableHead className="text-right">SOL Balance</TableHead>
                               <TableHead className="text-right">Amount Sent</TableHead>
                               <TableHead className="text-right">% Supply</TableHead>
                               <TableHead className="text-right">Migrated At</TableHead>
@@ -631,6 +670,13 @@ export default function MigratePage() {
                                 <TableCell className="font-mono text-sm">
                                   {truncateWallet(holder.wallet_address)}
                                   <CopyButton text={holder.wallet_address} label="Wallet" />
+                                </TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {balancesFetched
+                                    ? `${(solBalances[holder.wallet_address] || 0).toFixed(4)}`
+                                    : balancesLoading
+                                    ? "..."
+                                    : "—"}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   {formatNumber(holder.amount_sent)}
