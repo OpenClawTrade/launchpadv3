@@ -16,9 +16,12 @@ export function SolPriceDisplay() {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.timestamp < CACHE_TTL * 2) {
+        // Only use cache if less than 2 minutes old (was 60s, tightened)
+        if (Date.now() - parsed.timestamp < 120_000) {
           return { price: parsed.price, change24h: parsed.change24h };
         }
+        // Clear stale cache
+        localStorage.removeItem(CACHE_KEY);
       }
     } catch {}
     return null;
