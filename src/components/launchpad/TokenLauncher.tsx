@@ -1174,12 +1174,17 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         toast({ title: `Submitting ${txLabels[0]}...`, description: `Waiting for confirmation...` });
         await submitAndConfirmRpc(signedTx1, txLabels[0]);
         
-        // Step 2: Sign TX2 and TX3 individually with Phantom
-        toast({ title: `Signing ${txLabels[1]}...`, description: `Step 2 of ${txsToSign.length}` });
-        const signedTx2 = await signTx(txsToSign[1], 1, txLabels[1]);
-        
-        toast({ title: `Signing ${txLabels[2]}...`, description: `Step 3 of ${txsToSign.length}` });
-        const signedTx3 = await signTx(txsToSign[2], 2, txLabels[2]);
+        // Step 2: Batch-sign TX2+TX3 via signAllTransactions (chained Lighthouse simulation)
+        // Phantom signs first, adds Lighthouse to both, chains TX2→TX3 simulation so TX3 sees pool from TX2
+        toast({ title: `Signing Pool + Dev Buy...`, description: `Step 2 of 2 — one prompt` });
+        console.log('[Phantom Launch] Batch-signing TX2+TX3 via signAllTransactions (chained Lighthouse simulation)...');
+        const batchSigned = await phantomWallet.signAllTransactions([txsToSign[1], txsToSign[2]] as any);
+        if (!batchSigned || batchSigned.length < 2) throw new Error('Batch signing TX2+TX3 was cancelled or failed');
+        const signedTx2 = batchSigned[0];
+        const signedTx3 = batchSigned[1];
+        // dApp signs second with ephemeral keypairs (per Phantom multi-signer docs)
+        applyEphemeralSigs(signedTx2, 1, txLabels[1]);
+        applyEphemeralSigs(signedTx3, 2, txLabels[2]);
         
         // Step 3: Submit TX2+TX3 as Jito bundle
         toast({ title: "Submitting Jito Bundle...", description: "Pool + Dev Buy executing atomically" });
