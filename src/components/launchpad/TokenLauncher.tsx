@@ -785,15 +785,17 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       const signatures: string[] = [];
       for (const txBase64 of txBase64s) {
         const tx = deserializeAnyTx(txBase64);
-        const signResult: unknown = await phantomWallet.signAndSendTransaction(tx as any);
-        if (!signResult) throw new Error("Transaction signing failed");
+        
+        // Sign with Phantom (allows Lighthouse instructions injection), then submit via our RPC
+        const signedTx = await phantomWallet.signTransaction(tx as any);
+        if (!signedTx) throw new Error("Transaction signing cancelled");
 
-        let signature: string;
-        if (typeof signResult === "object" && signResult !== null && "signature" in signResult) {
-          signature = (signResult as { signature: string }).signature;
-        } else {
-          signature = String(signResult);
-        }
+        const rawTx = (signedTx as any).serialize();
+        const signature = await connection.sendRawTransaction(rawTx, {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+          maxRetries: 3,
+        });
 
         signatures.push(signature);
         await connection.confirmTransaction(signature, "confirmed");
@@ -1031,10 +1033,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
        
        console.log(`[Phantom Launch] Deserialized ${txsToSign.length} partially-signed transactions (Jito tip embedded in last tx)`);
 
-      // === SEQUENTIAL signAndSendTransaction (Industry Standard) ===
-      // This is the most reliable method - used by pump.fun, Meteora examples, etc.
-      // Each transaction is signed AND sent by Phantom, which handles retries + confirmation
-      // Blowfish security scanning works correctly with this approach
+      // === SEQUENTIAL signTransaction + manual RPC submit (Phantom Lighthouse compatible) ===
+      // Phantom signs only (injecting Lighthouse protection instructions), then we submit via our RPC.
+      // This eliminates Phantom security warnings for multi-signer transactions.
       
       const signatures: string[] = [];
       
@@ -1046,29 +1047,36 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           description: `Step ${i + 1} of ${txsToSign.length}`,
         });
         
-        console.log(`[Phantom Launch] signAndSendTransaction: ${txLabel} (${i + 1}/${txsToSign.length})...`);
+        console.log(`[Phantom Launch] signTransaction: ${txLabel} (${i + 1}/${txsToSign.length})...`);
         
-        // Use Phantom's signAndSendTransaction - Phantom handles submission + confirmation
-        const signature = await phantomWallet.signAndSendTransaction(txsToSign[i] as any);
+        // Phantom signs only — adds Lighthouse instructions, we send via our RPC
+        const signedTx = await phantomWallet.signTransaction(txsToSign[i] as any);
         
-        if (!signature) {
+        if (!signedTx) {
           throw new Error(`${txLabel} was cancelled or failed`);
         }
+
+        const rawTx = (signedTx as any).serialize();
+        const signature = await connection.sendRawTransaction(rawTx, {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+          maxRetries: 3,
+        });
         
-        console.log(`[Phantom Launch] ✅ ${txLabel} confirmed:`, signature);
+        console.log(`[Phantom Launch] ✅ ${txLabel} sent:`, signature);
         signatures.push(signature);
         
         // Wait for confirmation before proceeding to next transaction
         // This ensures proper sequencing (config must exist before pool, etc.)
         if (i < txsToSign.length - 1) {
           toast({
-            title: `${txLabel} Confirmed`,
-            description: `Proceeding to next step...`,
+            title: `${txLabel} Sent`,
+            description: `Waiting for confirmation...`,
           });
           
-          // Fast confirmation polling - with high priority fees, should confirm in < 2 seconds
+          // Fast confirmation polling
           const confirmStart = Date.now();
-          const maxConfirmMs = 15_000; // 15 seconds max - if not confirmed by then, something is wrong
+          const maxConfirmMs = 15_000;
           let confirmed = false;
           
           while (!confirmed && Date.now() - confirmStart < maxConfirmMs) {
@@ -1089,11 +1097,11 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
               // Rate limit or network error - continue polling
             }
             
-            await new Promise((r) => setTimeout(r, 400)); // Fast polling - 400ms
+            await new Promise((r) => setTimeout(r, 400));
           }
           
           if (!confirmed) {
-            console.warn(`[Phantom Launch] Confirmation polling timed out for ${txLabel} after ${maxConfirmMs}ms, but Phantom returned signature - continuing...`);
+            console.warn(`[Phantom Launch] Confirmation polling timed out for ${txLabel} after ${maxConfirmMs}ms, continuing...`);
           }
         }
       }
