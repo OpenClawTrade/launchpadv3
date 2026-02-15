@@ -58,7 +58,8 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
-import { VersionedTransaction } from "@solana/web3.js";
+import { VersionedTransaction, Transaction, Keypair } from "@solana/web3.js";
+import bs58 from "bs58";
 import "@/styles/gate-theme.css";
 
 interface MemeToken {
@@ -572,15 +573,53 @@ export default function ClaudeLauncherPage() {
 
       const rpcUrl = import.meta.env.VITE_HELIUS_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
-      // Sign and send each transaction sequentially
+      // Reconstruct ephemeral keypairs for post-Phantom signing
+      const ephemeralKeypairs: Map<string, Keypair> = new Map();
+      if (data?.ephemeralKeypairs) {
+        for (const [pubkey, secretKeyB58] of Object.entries(data.ephemeralKeypairs)) {
+          const kp = Keypair.fromSecretKey(bs58.decode(secretKeyB58 as string));
+          ephemeralKeypairs.set(pubkey, kp);
+        }
+      }
+      const txRequiredKeypairs: string[][] = data?.txRequiredKeypairs || [];
+
+      // Phantom-first signing flow for Lighthouse compatibility
       for (let i = 0; i < unsignedTransactions.length; i++) {
         const txName = i === 0 ? "Config" : "Pool";
         toast({ title: `Sign ${txName} Transaction (${i + 1}/${unsignedTransactions.length})`, description: "Approve in Phantom..." });
         
-        const tx = VersionedTransaction.deserialize(Buffer.from(unsignedTransactions[i], 'base64'));
-        const signedTx = await phantomWallet.signTransaction(tx);
-        if (!signedTx) throw new Error(`${txName} signing cancelled`);
+        // Deserialize (try Versioned first, fallback to Legacy)
+        const bytes = Uint8Array.from(atob(unsignedTransactions[i]), (c: string) => c.charCodeAt(0));
+        let tx: Transaction | VersionedTransaction;
+        try {
+          tx = VersionedTransaction.deserialize(bytes);
+        } catch {
+          tx = Transaction.from(bytes);
+        }
+
+        // Step 1: Phantom signs FIRST (injects Lighthouse)
+        const phantomSigned = await phantomWallet.signTransaction(tx);
+        if (!phantomSigned) throw new Error(`${txName} signing cancelled`);
         
+        // Step 2: PartialSign with ephemeral keypairs AFTER Phantom
+        const neededPubkeys = txRequiredKeypairs[i] || [];
+        if (phantomSigned instanceof Transaction) {
+          const localSigners = neededPubkeys
+            .map(pk => ephemeralKeypairs.get(pk))
+            .filter((kp): kp is Keypair => !!kp);
+          if (localSigners.length > 0) {
+            phantomSigned.partialSign(...localSigners);
+          }
+        } else if (phantomSigned instanceof VersionedTransaction) {
+          const localSigners = neededPubkeys
+            .map(pk => ephemeralKeypairs.get(pk))
+            .filter((kp): kp is Keypair => !!kp);
+          if (localSigners.length > 0) {
+            phantomSigned.sign(localSigners);
+          }
+        }
+
+        // Step 3: Submit via our RPC
         const result = await fetch(rpcUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -589,7 +628,7 @@ export default function ClaudeLauncherPage() {
             id: 1,
             method: 'sendTransaction',
             params: [
-              Buffer.from(signedTx.serialize()).toString('base64'), 
+              Buffer.from((phantomSigned as any).serialize()).toString('base64'), 
               { skipPreflight: false, preflightCommitment: 'confirmed' }
             ]
           })
