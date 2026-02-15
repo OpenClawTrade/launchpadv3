@@ -32,9 +32,14 @@ export default function TunnelDistributePage() {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const [sourceKey, setSourceKey] = useState("");
-  const [amount, setAmount] = useState("0.005");
-  const [destinations, setDestinations] = useState("");
+  const [sourceKey, setSourceKey] = useState(() => localStorage.getItem("tunnel-source-key") || "");
+  const [amount, setAmount] = useState(() => localStorage.getItem("tunnel-amount") || "0.005");
+  const [destinations, setDestinations] = useState(() => localStorage.getItem("tunnel-destinations") || "");
+
+  // Persist form values
+  const updateSourceKey = (v: string) => { setSourceKey(v); localStorage.setItem("tunnel-source-key", v); };
+  const updateAmount = (v: string) => { setAmount(v); localStorage.setItem("tunnel-amount", v); };
+  const updateDestinations = (v: string) => { setDestinations(v); localStorage.setItem("tunnel-destinations", v); };
 
   const [running, setRunning] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -245,19 +250,19 @@ export default function TunnelDistributePage() {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="text-xs text-zinc-500 mb-1 block">Source Private Key (bs58)</label>
-            <input value={sourceKey} onChange={e => setSourceKey(e.target.value)} type="password"
+            <input value={sourceKey} onChange={e => updateSourceKey(e.target.value)} type="password"
               className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={running} />
           </div>
           <div>
             <label className="text-xs text-zinc-500 mb-1 block">SOL per wallet</label>
-            <input value={amount} onChange={e => setAmount(e.target.value)} type="number" step="0.001"
+            <input value={amount} onChange={e => updateAmount(e.target.value)} type="number" step="0.001"
               className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={running} />
           </div>
         </div>
 
         <div>
           <label className="text-xs text-zinc-500 mb-1 block">Destination Wallets (one per line)</label>
-          <textarea value={destinations} onChange={e => setDestinations(e.target.value)} rows={8}
+          <textarea value={destinations} onChange={e => updateDestinations(e.target.value)} rows={8}
             className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white font-mono"
             placeholder={"wallet1address\nwallet2address\nwallet3address"} disabled={running} />
         </div>
