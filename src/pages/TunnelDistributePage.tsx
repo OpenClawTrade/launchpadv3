@@ -28,7 +28,7 @@ interface HopResult {
 }
 
 export default function TunnelDistributePage() {
-  const [authorized, setAuthorized] = useState(() => sessionStorage.getItem("tunnel-auth") === "1");
+  const [authorized, setAuthorized] = useState(() => localStorage.getItem("tunnel-auth") === "1");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
@@ -219,11 +219,11 @@ export default function TunnelDistributePage() {
             placeholder="Enter admin password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && password === ADMIN_PASSWORD) { sessionStorage.setItem("tunnel-auth", "1"); setAuthorized(true); } }}
+            onKeyDown={e => { if (e.key === "Enter" && password === ADMIN_PASSWORD) { localStorage.setItem("tunnel-auth", "1"); setAuthorized(true); } }}
             className="w-full px-3 py-2 rounded-lg text-sm mb-3 bg-black border border-zinc-700 text-white"
           />
           <button
-            onClick={() => { if (password === ADMIN_PASSWORD) { sessionStorage.setItem("tunnel-auth", "1"); setAuthorized(true); } }}
+            onClick={() => { if (password === ADMIN_PASSWORD) { localStorage.setItem("tunnel-auth", "1"); setAuthorized(true); } }}
             className="w-full py-2 rounded-lg text-sm font-bold bg-orange-500 text-black hover:bg-orange-400"
           >
             Enter
