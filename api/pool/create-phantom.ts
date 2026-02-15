@@ -326,26 +326,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn('[create-phantom] ⚠️ Metadata upload error (non-fatal):', metaUploadError);
     }
 
-    // For Phantom launches, we need to:
+    // For Phantom Lighthouse compatibility, we need to:
     // 1. Add Jito tip instruction to the LAST transaction (per Jito docs)
-    // 2. Partially sign transactions with mint/config keypairs
-    // 3. Return serialized transactions for Phantom to sign as fee payer
+    // 2. Do NOT partialSign — send UNSIGNED transactions so Phantom can inject Lighthouse instructions
+    // 3. Return ephemeral keypair secret keys so frontend can partialSign AFTER Phantom signs
+    // 
+    // Flow: Backend builds unsigned tx → Phantom signs first (adds Lighthouse) → Frontend partialSigns with keypairs → Submit
     
     const phantomPubkey = new PublicKey(phantomWallet);
     
-    // CRITICAL: Add Jito tip to LAST transaction BEFORE setting blockhash/signing
-    // This ensures the tip is embedded, not a separate tx (which Jito rejects)
+    // CRITICAL: Add Jito tip to LAST transaction BEFORE setting blockhash
     addJitoTipToLastTransaction(transactions, phantomPubkey, JITO_TIP_LAMPORTS);
     
     const serializedTransactions: string[] = [];
+    
+    // Track which keypairs each transaction needs (for frontend partial signing)
+    const txRequiredKeypairs: string[][] = [];
 
-    // Build a map of available keypairs for partial signing
+    // Build a map of available keypairs
     const availableKeypairs: Map<string, Keypair> = new Map([
       [mintKeypair.publicKey.toBase58(), mintKeypair],
       [configKeypair.publicKey.toBase58(), configKeypair],
     ]);
 
-    console.log('[create-phantom] Available partial signers:', Array.from(availableKeypairs.keys()));
+    console.log('[create-phantom] Available signers (will be sent to frontend for post-Phantom signing):', Array.from(availableKeypairs.keys()));
 
     for (let i = 0; i < transactions.length; i++) {
       const tx = transactions[i];
@@ -363,29 +367,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log(`[create-phantom] Tx ${i + 1}/${transactions.length} requires signers:`, requiredSignerPubkeys);
 
-      // Find which keypairs we can sign with (exclude Phantom wallet - that comes later)
-      const localSigners: Keypair[] = requiredSignerPubkeys
-        .filter((pk) => availableKeypairs.has(pk))
-        .map((pk) => availableKeypairs.get(pk)!)
-        .filter((kp): kp is Keypair => kp !== undefined);
+      // Identify which of our keypairs this tx needs (exclude Phantom wallet)
+      const neededKeypairPubkeys = requiredSignerPubkeys
+        .filter((pk) => availableKeypairs.has(pk));
 
-      console.log(`[create-phantom] Tx ${i + 1} will be partially signed by:`, localSigners.map(kp => kp.publicKey.toBase58()));
+      console.log(`[create-phantom] Tx ${i + 1} needs backend keypairs:`, neededKeypairPubkeys);
+      txRequiredKeypairs.push(neededKeypairPubkeys);
 
-      // Partially sign with our keypairs (Phantom signs the rest)
-      if (localSigners.length > 0) {
-        tx.partialSign(...localSigners);
-      }
-
-      // Serialize for Phantom to complete signing
-      const serialized = tx.serialize({ requireAllSignatures: false }).toString('base64');
+      // DO NOT partialSign here — Phantom must sign first to inject Lighthouse instructions
+      // Serialize WITHOUT signatures for Phantom
+      const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
       serializedTransactions.push(serialized);
     }
 
-    console.log('[create-phantom] Returning unsigned transactions for Phantom signing');
+    console.log('[create-phantom] Returning UNSIGNED transactions for Phantom-first signing (Lighthouse compatible)');
 
     // Mark vanity as used (will be released if user doesn't complete)
     if (vanityKeypairId) {
-      // We'll mark as "reserved" - frontend will confirm used after successful tx
       console.log('[create-phantom] Vanity address reserved:', vanityKeypairId);
     }
 
@@ -398,21 +396,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       else txLabels.push(`Transaction ${i + 1}`);
     }
 
+    // Export ephemeral keypair secret keys (base58) so frontend can partialSign after Phantom
+    // These are safe to share — mint authority transfers to pool, config is one-time-use
+    const ephemeralKeypairs: Record<string, string> = {};
+    for (const [pubkey, kp] of availableKeypairs.entries()) {
+      ephemeralKeypairs[pubkey] = bs58.encode(kp.secretKey);
+    }
+
     return res.status(200).json({
       success: true,
       mintAddress,
       dbcPoolAddress,
       poolAddress: dbcPoolAddress,
       unsignedTransactions: serializedTransactions,
-      txLabels, // Labels for each transaction step
+      txLabels,
+      txRequiredKeypairs, // Which keypairs each tx needs
+      ephemeralKeypairs,  // Secret keys for frontend to partialSign after Phantom
       vanityKeypairId,
       requiresPhantomSignature: true,
+      phantomSignsFirst: true, // Signal to frontend: Phantom signs FIRST for Lighthouse
       txCount: serializedTransactions.length,
       devBuyRequested: effectiveDevBuySol > 0,
       devBuySol: effectiveDevBuySol,
-      jitoTipEmbedded: true, // Tip is embedded in last tx, no frontend tip needed
+      jitoTipEmbedded: true,
       jitoTipLamports: JITO_TIP_LAMPORTS,
-      message: 'Transactions prepared with Jito tip embedded in last tx. Use sequential signAndSendTransaction for reliability.',
+      message: 'Phantom-first signing flow: Phantom signs (adds Lighthouse) → frontend partialSigns with ephemeral keypairs → submit via RPC.',
     });
 
   } catch (error) {

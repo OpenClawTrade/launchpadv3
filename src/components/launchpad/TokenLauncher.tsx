@@ -13,7 +13,8 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Connection, Transaction, VersionedTransaction, PublicKey } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction, PublicKey, Keypair } from "@solana/web3.js";
+import bs58 from "bs58";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
 
@@ -782,15 +783,44 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         }
       };
 
-      const signatures: string[] = [];
-      for (const txBase64 of txBase64s) {
-        const tx = deserializeAnyTx(txBase64);
-        
-        // Sign with Phantom (allows Lighthouse instructions injection), then submit via our RPC
-        const signedTx = await phantomWallet.signTransaction(tx as any);
-        if (!signedTx) throw new Error("Transaction signing cancelled");
+      // Reconstruct ephemeral keypairs from backend response
+      const ephemeralKeypairs: Map<string, Keypair> = new Map();
+      if (data?.ephemeralKeypairs) {
+        for (const [pubkey, secretKeyB58] of Object.entries(data.ephemeralKeypairs)) {
+          const kp = Keypair.fromSecretKey(bs58.decode(secretKeyB58 as string));
+          ephemeralKeypairs.set(pubkey, kp);
+        }
+      }
+      const txRequiredKeypairs: string[][] = data?.txRequiredKeypairs || [];
 
-        const rawTx = (signedTx as any).serialize();
+      const signatures: string[] = [];
+      for (let idx = 0; idx < txBase64s.length; idx++) {
+        const tx = deserializeAnyTx(txBase64s[idx]);
+        
+        // Step 1: Phantom signs FIRST (injects Lighthouse protection instructions)
+        const phantomSigned = await phantomWallet.signTransaction(tx as any);
+        if (!phantomSigned) throw new Error("Transaction signing cancelled");
+
+        // Step 2: PartialSign with ephemeral keypairs AFTER Phantom (preserves Lighthouse)
+        const neededPubkeys = txRequiredKeypairs[idx] || [];
+        if (phantomSigned instanceof Transaction) {
+          const localSigners = neededPubkeys
+            .map(pk => ephemeralKeypairs.get(pk))
+            .filter((kp): kp is Keypair => !!kp);
+          if (localSigners.length > 0) {
+            phantomSigned.partialSign(...localSigners);
+          }
+        } else if (phantomSigned instanceof VersionedTransaction) {
+          const localSigners = neededPubkeys
+            .map(pk => ephemeralKeypairs.get(pk))
+            .filter((kp): kp is Keypair => !!kp);
+          if (localSigners.length > 0) {
+            phantomSigned.sign(localSigners);
+          }
+        }
+
+        // Step 3: Submit via our RPC
+        const rawTx = (phantomSigned as any).serialize();
         const signature = await connection.sendRawTransaction(rawTx, {
           skipPreflight: false,
           preflightCommitment: "confirmed",
@@ -1026,16 +1056,26 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
          }
        };
 
-       // Deserialize all transactions (already partially signed by backend with mint/config keypairs)
-       // Backend has embedded Jito tip in last transaction - no frontend tip needed
+       // Reconstruct ephemeral keypairs from backend response for post-Phantom signing
+       const ephemeralKeypairs: Map<string, Keypair> = new Map();
+       if (data?.ephemeralKeypairs) {
+         for (const [pubkey, secretKeyB58] of Object.entries(data.ephemeralKeypairs)) {
+           const kp = Keypair.fromSecretKey(bs58.decode(secretKeyB58 as string));
+           ephemeralKeypairs.set(pubkey, kp);
+         }
+       }
+       const txRequiredKeypairs: string[][] = data?.txRequiredKeypairs || [];
+
+       // Deserialize all transactions (UNSIGNED — Phantom signs first for Lighthouse)
        const txsToSign = txBase64s.map(deserializeAnyTx);
        const txLabels = baseTxLabels;
        
-       console.log(`[Phantom Launch] Deserialized ${txsToSign.length} partially-signed transactions (Jito tip embedded in last tx)`);
+       console.log(`[Phantom Launch] Deserialized ${txsToSign.length} unsigned transactions (Phantom-first signing for Lighthouse)`);
 
-      // === SEQUENTIAL signTransaction + manual RPC submit (Phantom Lighthouse compatible) ===
-      // Phantom signs only (injecting Lighthouse protection instructions), then we submit via our RPC.
-      // This eliminates Phantom security warnings for multi-signer transactions.
+      // === Phantom-first signing flow (Lighthouse compatible) ===
+      // 1. Phantom signs first → injects Lighthouse protection instructions
+      // 2. Frontend partialSigns with ephemeral keypairs (mint, config)
+      // 3. Submit via our RPC
       
       const signatures: string[] = [];
       
@@ -1047,16 +1087,37 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           description: `Step ${i + 1} of ${txsToSign.length}`,
         });
         
-        console.log(`[Phantom Launch] signTransaction: ${txLabel} (${i + 1}/${txsToSign.length})...`);
+        console.log(`[Phantom Launch] signTransaction (Phantom-first): ${txLabel} (${i + 1}/${txsToSign.length})...`);
         
-        // Phantom signs only — adds Lighthouse instructions, we send via our RPC
-        const signedTx = await phantomWallet.signTransaction(txsToSign[i] as any);
+        // Step 1: Phantom signs FIRST — adds Lighthouse instructions
+        const phantomSigned = await phantomWallet.signTransaction(txsToSign[i] as any);
         
-        if (!signedTx) {
+        if (!phantomSigned) {
           throw new Error(`${txLabel} was cancelled or failed`);
         }
 
-        const rawTx = (signedTx as any).serialize();
+        // Step 2: PartialSign with ephemeral keypairs AFTER Phantom
+        const neededPubkeys = txRequiredKeypairs[i] || [];
+        if (phantomSigned instanceof Transaction) {
+          const localSigners = neededPubkeys
+            .map(pk => ephemeralKeypairs.get(pk))
+            .filter((kp): kp is Keypair => !!kp);
+          if (localSigners.length > 0) {
+            phantomSigned.partialSign(...localSigners);
+            console.log(`[Phantom Launch] ${txLabel}: partialSigned with ${localSigners.length} ephemeral keypairs`);
+          }
+        } else if (phantomSigned instanceof VersionedTransaction) {
+          const localSigners = neededPubkeys
+            .map(pk => ephemeralKeypairs.get(pk))
+            .filter((kp): kp is Keypair => !!kp);
+          if (localSigners.length > 0) {
+            phantomSigned.sign(localSigners);
+            console.log(`[Phantom Launch] ${txLabel}: signed with ${localSigners.length} ephemeral keypairs (versioned)`);
+          }
+        }
+
+        // Step 3: Submit via our RPC
+        const rawTx = (phantomSigned as any).serialize();
         const signature = await connection.sendRawTransaction(rawTx, {
           skipPreflight: false,
           preflightCommitment: "confirmed",
