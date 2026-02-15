@@ -1138,8 +1138,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         console.log(`[Phantom Launch] ✅ ${label} sent:`, signature);
         signatures.push(signature);
         
+        // CRITICAL: Must wait for REAL confirmation before proceeding
+        // Phantom Lighthouse needs on-chain state to simulate subsequent TXs
         const confirmStart = Date.now();
-        const maxConfirmMs = 15_000;
+        const maxConfirmMs = 60_000; // 60s — must confirm, not just timeout
         let confirmed = false;
         while (!confirmed && Date.now() - confirmStart < maxConfirmMs) {
           try {
@@ -1148,15 +1150,16 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             if (status?.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
             if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
               confirmed = true;
-              console.log(`[Phantom Launch] ${label} confirmed in ${Date.now() - confirmStart}ms`);
+              console.log(`[Phantom Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
             }
           } catch (pollErr: any) {
             if (pollErr?.message?.includes('failed on-chain')) throw pollErr;
           }
-          if (!confirmed) await new Promise((r) => setTimeout(r, 400));
+          if (!confirmed) await new Promise((r) => setTimeout(r, 500));
         }
         if (!confirmed) {
-          console.warn(`[Phantom Launch] Confirmation polling timed out for ${label} after ${maxConfirmMs}ms, continuing...`);
+          // Do NOT continue — Phantom needs this on-chain for Lighthouse simulation
+          throw new Error(`${label} confirmation timed out after ${maxConfirmMs / 1000}s. Please try again.`);
         }
         return signature;
       };
