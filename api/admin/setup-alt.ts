@@ -19,9 +19,20 @@ function getTreasuryKeypair(): Keypair {
   }
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-treasury-secret',
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers on ALL responses
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
+
   if (req.method === 'OPTIONS') {
-    return res.status(200).setHeader('Access-Control-Allow-Origin', '*').end();
+    return res.status(200).end();
   }
 
   // Simple auth check
