@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface WalletData {
+interface AddressData {
+  address: string;
   timesSeen: number;
   totalVolumeSol: number;
   activityTypes: string[];
@@ -9,222 +10,176 @@ interface WalletData {
   lastSeen: string;
 }
 
-interface ScannerStats {
+interface SessionData {
+  id: string;
+  status: string;
+  minSol: number;
+  lastSlot: number | null;
+  startedAt: string;
+  expiresAt: string;
+  totalSlotsScanned: number;
   totalSwaps: number;
   totalTransfers: number;
   totalVolume: number;
   creditsUsed: number;
-  blocksScanned: number;
-  uniqueAddresses: number;
-  slotsBehind: number;
+  errorCount: number;
+  lastError: string | null;
+  lastPollAt: string;
 }
 
-const LS_KEY = "whale-scanner-state";
-const LS_ADDRS_KEY = "whale-scanner-addresses";
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-
-function loadAddresses(): Record<string, WalletData> {
-  try {
-    const raw = localStorage.getItem(LS_ADDRS_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw);
-  } catch { return {}; }
-}
-
-function saveState(state: any) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
-}
-
-function saveAddresses(addrs: Record<string, WalletData>) {
-  try { localStorage.setItem(LS_ADDRS_KEY, JSON.stringify(addrs)); } catch {}
-}
+const LS_SESSION_KEY = "whale-scanner-session-id";
 
 export default function WhaleScanner() {
-  const saved = loadState();
-
-  const [isRunning, setIsRunning] = useState(false);
-  const [minSol, setMinSol] = useState(() => saved?.minSol ?? 10);
-  const [slotsPerCall, setSlotsPerCall] = useState(() => saved?.slotsPerCall ?? 5);
-  const [startTime, setStartTime] = useState<number | null>(() => saved?.startTime ?? null);
-  const [elapsed, setElapsed] = useState(0);
-  const [addresses, setAddresses] = useState<Record<string, WalletData>>(loadAddresses);
-  const [stats, setStats] = useState<ScannerStats>(() => saved?.stats ?? {
-    totalSwaps: 0, totalTransfers: 0, totalVolume: 0, creditsUsed: 0, blocksScanned: 0, uniqueAddresses: 0, slotsBehind: 0,
-  });
-  const [scanLog, setScanLog] = useState<string[]>(() => saved?.scanLog?.slice(-100) ?? []);
+  const [sessionId, setSessionId] = useState<string | null>(
+    () => localStorage.getItem(LS_SESSION_KEY)
+  );
+  const [session, setSession] = useState<SessionData | null>(null);
+  const [addresses, setAddresses] = useState<AddressData[]>([]);
+  const [totalAddresses, setTotalAddresses] = useState(0);
+  const [minSol, setMinSol] = useState(10);
+  const [slotsPerCall, setSlotsPerCall] = useState(5);
   const [filter, setFilter] = useState("all");
   const [copied, setCopied] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [scanLog, setScanLog] = useState<string[]>([]);
 
-  // Use refs for mutable state accessed in polling to avoid stale closures
-  const lastSlotRef = useRef<number>(saved?.lastSlot ?? 0);
-  const addressesRef = useRef<Record<string, WalletData>>(loadAddresses());
-  const statsRef = useRef<ScannerStats>(stats);
-  const isRunningRef = useRef(false);
-  const pollingRef = useRef(false); // prevent overlapping polls
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const DURATION_MS = 30 * 60 * 1000;
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastStatusRef = useRef<string>("");
 
   const addLog = useCallback((msg: string) => {
     const time = new Date().toLocaleTimeString();
     setScanLog(prev => [...prev, `[${time}] ${msg}`].slice(-200));
   }, []);
 
-  // Persist non-address state
-  useEffect(() => {
-    saveState({ minSol, slotsPerCall, startTime, lastSlot: lastSlotRef.current, stats, scanLog: scanLog.slice(-100) });
-  }, [minSol, slotsPerCall, startTime, stats, scanLog]);
+  const isActive = session?.status === "running";
 
-  // Persist addresses separately (can be large)
-  useEffect(() => {
-    saveAddresses(addresses);
-    addressesRef.current = addresses;
-  }, [addresses]);
-
-  // Sync stats ref
-  useEffect(() => { statsRef.current = stats; }, [stats]);
-
-  // Timer
-  useEffect(() => {
-    if (isRunning && startTime) {
-      timerRef.current = setInterval(() => {
-        const e = Date.now() - startTime;
-        setElapsed(e);
-        if (e >= DURATION_MS) stopScanner();
-      }, 1000);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isRunning, startTime]);
-
-  const poll = useCallback(async () => {
-    if (!isRunningRef.current || pollingRef.current) return;
-    pollingRef.current = true;
-
+  // Poll session status from DB
+  const pollStatus = useCallback(async (sid: string) => {
     try {
       const { data, error } = await supabase.functions.invoke("sol-whale-scanner", {
-        body: { minSolAmount: minSol, fromSlot: lastSlotRef.current, slotsPerCall },
+        body: { action: "status", sessionId: sid },
       });
 
-      if (error) { addLog(`Error: ${error.message}`); pollingRef.current = false; return; }
-      if (!data) { pollingRef.current = false; return; }
-      if (data.error) { addLog(`RPC error: ${data.error}`); pollingRef.current = false; return; }
-      if (data.waiting) { pollingRef.current = false; return; }
-
-      // Update last scanned slot
-      if (data.lastScannedSlot) lastSlotRef.current = data.lastScannedSlot;
-
-      const wallets: any[] = data.wallets || [];
-      const processed = data.slotsProcessed || 0;
-      const qualified = data.qualifiedTxCount || 0;
-      const totalTx = data.totalTxProcessed || 0;
-
-      // Update stats
-      setStats(prev => {
-        const next = {
-          ...prev,
-          blocksScanned: prev.blocksScanned + processed,
-          creditsUsed: prev.creditsUsed + (data.creditsUsed || 2),
-          totalSwaps: prev.totalSwaps + wallets.filter((w: any) => w.type === "SWAP").length,
-          totalTransfers: prev.totalTransfers + wallets.filter((w: any) => w.type === "TRANSFER" || w.type === "NATIVE_TRANSFER").length,
-          totalVolume: prev.totalVolume + wallets.reduce((s: number, w: any) => s + (w.amountSol || 0), 0),
-          slotsBehind: data.slotsBehind || 0,
-        };
-        return next;
-      });
-
-      // Merge addresses
-      if (wallets.length > 0) {
-        setAddresses(prev => {
-          const next = { ...prev };
-          for (const w of wallets) {
-            if (!w.address) continue;
-            const existing = next[w.address];
-            if (existing) {
-              existing.timesSeen += 1;
-              existing.totalVolumeSol += w.amountSol || 0;
-              if (!existing.activityTypes.includes(w.type)) existing.activityTypes.push(w.type);
-              if (!existing.sources.includes(w.source)) existing.sources.push(w.source);
-              existing.lastSeen = new Date().toLocaleTimeString();
-            } else {
-              next[w.address] = {
-                timesSeen: 1,
-                totalVolumeSol: w.amountSol || 0,
-                activityTypes: [w.type],
-                sources: [w.source],
-                lastSeen: new Date().toLocaleTimeString(),
-              };
-            }
-          }
-          return next;
-        });
+      if (error || !data || data.error) {
+        addLog(`Status error: ${error?.message || data?.error || "unknown"}`);
+        return;
       }
 
-      // Update unique count
-      setStats(prev => ({ ...prev, uniqueAddresses: Object.keys(addressesRef.current).length }));
+      const s = data.session as SessionData;
+      setSession(s);
+      setAddresses(data.addresses || []);
+      setTotalAddresses(data.totalAddresses || 0);
 
-      if (wallets.length > 0) {
-        addLog(`Slots ${data.lastScannedSlot - processed + 1}→${data.lastScannedSlot}: ${wallets.length} whales from ${qualified}/${totalTx} txs | ${data.slotsBehind} behind`);
-      } else if (processed > 0) {
-        addLog(`Slots scanned: ${processed} | ${totalTx} txs | 0 whales | ${data.slotsBehind} behind`);
+      // Auto-recovery: if running but heartbeat stale > 30s, re-trigger
+      if (s.status === "running" && s.lastPollAt) {
+        const staleMs = Date.now() - new Date(s.lastPollAt).getTime();
+        if (staleMs > 30000) {
+          addLog("⚠️ Scanner stalled, auto-restarting...");
+          await supabase.functions.invoke("sol-whale-scanner", {
+            body: { action: "continue", sessionId: sid },
+          });
+        }
+      }
+
+      // Log status changes
+      if (s.status !== lastStatusRef.current) {
+        lastStatusRef.current = s.status;
+        if (s.status === "completed") addLog("✅ Scanner completed (30 min expired)");
+        if (s.status === "failed") addLog("❌ Scanner failed after 10 consecutive errors");
+        if (s.status === "stopped") addLog("⏹ Scanner stopped");
+      }
+
+      // If session ended, stop polling
+      if (s.status !== "running") {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
       }
     } catch (err: any) {
       addLog(`Poll error: ${err.message}`);
     }
+  }, [addLog]);
 
-    pollingRef.current = false;
-  }, [minSol, slotsPerCall, addLog]);
+  // Start polling when sessionId is set
+  useEffect(() => {
+    if (!sessionId) return;
 
-  const startScanner = () => {
-    const now = Date.now();
-    setIsRunning(true);
-    isRunningRef.current = true;
-    setStartTime(now);
-    setElapsed(0);
-    addLog(`Scanner started (min ${minSol} SOL, ${slotsPerCall} slots/call, 30 min)`);
-    poll(); // immediate first poll
-    intervalRef.current = setInterval(poll, 2000); // poll every 2s for faster catch-up
+    // Initial poll
+    pollStatus(sessionId);
+
+    // Poll every 3 seconds
+    pollRef.current = setInterval(() => pollStatus(sessionId), 3000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [sessionId, pollStatus]);
+
+  const startScanner = async () => {
+    setStarting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sol-whale-scanner", {
+        body: { action: "start", minSol, slotsPerCall },
+      });
+
+      if (error || !data || data.error) {
+        addLog(`Start error: ${error?.message || data?.error || "unknown"}`);
+        setStarting(false);
+        return;
+      }
+
+      const sid = data.sessionId;
+      setSessionId(sid);
+      localStorage.setItem(LS_SESSION_KEY, sid);
+      lastStatusRef.current = "running";
+      addLog(`🚀 Scanner started (min ${minSol} SOL, ${slotsPerCall} slots/call, runs on server)`);
+    } catch (err: any) {
+      addLog(`Start error: ${err.message}`);
+    }
+    setStarting(false);
   };
 
-  const stopScanner = () => {
-    setIsRunning(false);
-    isRunningRef.current = false;
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (timerRef.current) clearInterval(timerRef.current);
-    addLog(`Scanner stopped. ${Object.keys(addressesRef.current).length} unique addresses collected.`);
+  const stopScanner = async () => {
+    if (!sessionId) return;
+    try {
+      await supabase.functions.invoke("sol-whale-scanner", {
+        body: { action: "stop", sessionId },
+      });
+      addLog("Stopping scanner...");
+    } catch (err: any) {
+      addLog(`Stop error: ${err.message}`);
+    }
+  };
+
+  const restartScanner = async () => {
+    // Start a new session picking up from where the last one left off
+    addLog("Restarting scanner from last position...");
+    await startScanner();
   };
 
   const clearData = () => {
-    setAddresses({});
-    addressesRef.current = {};
-    setStats({ totalSwaps: 0, totalTransfers: 0, totalVolume: 0, creditsUsed: 0, blocksScanned: 0, uniqueAddresses: 0, slotsBehind: 0 });
+    if (pollRef.current) clearInterval(pollRef.current);
+    setSessionId(null);
+    setSession(null);
+    setAddresses([]);
+    setTotalAddresses(0);
     setScanLog([]);
-    lastSlotRef.current = 0;
-    setStartTime(null);
-    setElapsed(0);
-    localStorage.removeItem(LS_KEY);
-    localStorage.removeItem(LS_ADDRS_KEY);
+    localStorage.removeItem(LS_SESSION_KEY);
   };
 
   const copyAllAddresses = () => {
-    const allAddrs = Object.keys(addresses);
+    const allAddrs = addresses.map(a => a.address);
     navigator.clipboard.writeText(allAddrs.join("\n"));
     setCopied(true);
-    addLog(`Copied ALL ${allAddrs.length} addresses to clipboard`);
+    addLog(`Copied ${allAddrs.length} addresses to clipboard`);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const exportCsv = () => {
     const rows = [["Address", "Times Seen", "Total SOL", "Activity Types", "Sources", "Last Seen"]];
-    for (const [addr, d] of Object.entries(addresses)) {
-      rows.push([addr, String(d.timesSeen), d.totalVolumeSol.toFixed(4), d.activityTypes.join(";"), d.sources.join(";"), d.lastSeen]);
+    for (const d of addresses) {
+      rows.push([d.address, String(d.timesSeen), d.totalVolumeSol.toFixed(4), d.activityTypes.join(";"), d.sources.join(";"), d.lastSeen]);
     }
     const csv = rows.map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -234,35 +189,46 @@ export default function WhaleScanner() {
     a.click(); URL.revokeObjectURL(url);
   };
 
-  const copyAddressesOnly = () => {
-    // Copy just addresses, one per line, no metadata - ready to paste into destination wallets
-    const allAddrs = Object.keys(addresses);
-    navigator.clipboard.writeText(allAddrs.join("\n"));
-    setCopied(true);
-    addLog(`Copied ${allAddrs.length} addresses (plain list)`);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const formatTime = (ms: number) => {
     const s = Math.floor(ms / 1000);
     return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
   };
 
+  const elapsed = session?.startedAt ? Date.now() - new Date(session.startedAt).getTime() : 0;
+  const DURATION_MS = 30 * 60 * 1000;
   const progressPct = Math.min((elapsed / DURATION_MS) * 100, 100);
-  const uniqueCount = Object.keys(addresses).length;
+  const slotsBehind = session?.lastSlot ? 0 : 0; // computed from status
 
-  const sortedAddresses = Object.entries(addresses)
-    .filter(([, d]) => {
+  const sortedAddresses = addresses
+    .filter(d => {
       if (filter === "all") return true;
       return d.activityTypes.some(t => t.toUpperCase().includes(filter.toUpperCase()));
     })
-    .sort((a, b) => b[1].totalVolumeSol - a[1].totalVolumeSol);
+    .sort((a, b) => b.totalVolumeSol - a.totalVolumeSol);
 
   return (
     <div className="space-y-4 border-t border-zinc-800 pt-6 mt-8">
-      <h2 className="text-xl font-bold text-orange-400">🐋 Whale Activity Scanner</h2>
+      <div className="flex items-center gap-3">
+        <h2 className="text-xl font-bold text-orange-400">🐋 Whale Activity Scanner</h2>
+        {isActive && (
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/30">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-xs font-medium text-green-400">Running on server</span>
+          </span>
+        )}
+        {session?.status === "failed" && (
+          <span className="px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-xs font-medium text-red-400">
+            Failed — will auto-restart
+          </span>
+        )}
+        {session?.status === "completed" && (
+          <span className="px-2.5 py-1 rounded-full bg-zinc-500/10 border border-zinc-500/30 text-xs font-medium text-zinc-400">
+            Completed
+          </span>
+        )}
+      </div>
       <p className="text-xs text-zinc-500">
-        Scans EVERY Solana slot sequentially — no transactions missed. Captures swaps (Jupiter, Raydex, Orca, Phantom, Axiom), bridges, native transfers, and all DeFi trades above threshold.
+        Runs entirely on the server — close this tab and scanning continues. All addresses saved to database. Auto-restarts on failure.
       </p>
 
       {/* Controls */}
@@ -271,19 +237,31 @@ export default function WhaleScanner() {
           <label className="text-xs text-zinc-500 block mb-1">Min SOL</label>
           <input type="number" value={minSol} onChange={e => setMinSol(Number(e.target.value))}
             className="w-24 px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white"
-            disabled={isRunning} min={1} step={1} />
+            disabled={isActive} min={1} step={1} />
         </div>
         <div>
           <label className="text-xs text-zinc-500 block mb-1">Slots/Call</label>
           <input type="number" value={slotsPerCall} onChange={e => setSlotsPerCall(Number(e.target.value))}
             className="w-20 px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white"
-            disabled={isRunning} min={1} max={20} step={1} />
+            disabled={isActive} min={1} max={20} step={1} />
         </div>
-        <button onClick={isRunning ? stopScanner : startScanner}
-          className={`px-5 py-2 rounded-lg font-bold text-sm ${isRunning ? "bg-red-600 text-white hover:bg-red-500" : "bg-orange-500 text-black hover:bg-orange-400"}`}>
-          {isRunning ? "Stop Scanner" : "Start Scanner"}
-        </button>
-        <button onClick={clearData} disabled={isRunning}
+        {isActive ? (
+          <button onClick={stopScanner}
+            className="px-5 py-2 rounded-lg font-bold text-sm bg-red-600 text-white hover:bg-red-500">
+            Stop Scanner
+          </button>
+        ) : session?.status === "failed" ? (
+          <button onClick={restartScanner} disabled={starting}
+            className="px-5 py-2 rounded-lg font-bold text-sm bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50">
+            {starting ? "Starting..." : "Restart Scanner"}
+          </button>
+        ) : (
+          <button onClick={startScanner} disabled={starting}
+            className="px-5 py-2 rounded-lg font-bold text-sm bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50">
+            {starting ? "Starting..." : "Start Scanner"}
+          </button>
+        )}
+        <button onClick={clearData} disabled={isActive}
           className="px-4 py-2 rounded-lg text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-600 disabled:opacity-50">
           Clear
         </button>
@@ -291,24 +269,27 @@ export default function WhaleScanner() {
 
       {/* Copy/Export row */}
       <div className="flex flex-wrap gap-2">
-        <button onClick={copyAddressesOnly} disabled={uniqueCount === 0}
+        <button onClick={copyAllAddresses} disabled={totalAddresses === 0}
           className={`px-4 py-2 rounded-lg text-sm font-bold border disabled:opacity-50 ${
             copied ? "bg-green-600 border-green-500 text-white" : "bg-orange-500/10 border-orange-500 text-orange-400 hover:bg-orange-500/20"
           }`}>
-          {copied ? "✓ Copied!" : `📋 Copy All ${uniqueCount} Addresses`}
+          {copied ? "✓ Copied!" : `📋 Copy All ${totalAddresses} Addresses`}
         </button>
-        <button onClick={exportCsv} disabled={uniqueCount === 0}
+        <button onClick={exportCsv} disabled={totalAddresses === 0}
           className="px-4 py-2 rounded-lg text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-600 disabled:opacity-50">
           📥 Export CSV
         </button>
       </div>
 
-      {/* Timer + slots behind indicator */}
-      {(isRunning || elapsed > 0) && (
+      {/* Timer */}
+      {session && (
         <div>
           <div className="flex justify-between text-xs text-zinc-500 mb-1">
             <span>{formatTime(elapsed)} elapsed</span>
-            <span>{stats.slotsBehind > 0 && <span className="text-yellow-400 mr-2">{stats.slotsBehind} slots behind</span>}{formatTime(Math.max(DURATION_MS - elapsed, 0))} remaining</span>
+            <span>
+              {session.errorCount > 0 && <span className="text-yellow-400 mr-2">{session.errorCount} errors</span>}
+              {isActive && <span>{formatTime(Math.max(DURATION_MS - elapsed, 0))} remaining</span>}
+            </span>
           </div>
           <div className="w-full bg-zinc-800 rounded-full h-2">
             <div className="bg-orange-500 h-2 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
@@ -317,30 +298,32 @@ export default function WhaleScanner() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
-        {[
-          { label: "Unique Addresses", value: uniqueCount, color: "text-white" },
-          { label: "Swaps", value: stats.totalSwaps, color: "text-blue-400" },
-          { label: "Transfers", value: stats.totalTransfers, color: "text-green-400" },
-          { label: "Total SOL", value: stats.totalVolume.toFixed(1), color: "text-orange-400" },
-          { label: "Slots Scanned", value: stats.blocksScanned, color: "text-zinc-300" },
-          { label: "Slots Behind", value: stats.slotsBehind, color: stats.slotsBehind > 50 ? "text-red-400" : "text-green-400" },
-          { label: "Credits", value: `~${stats.creditsUsed}`, color: "text-zinc-400" },
-        ].map((s, i) => (
-          <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
-            <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-zinc-500">{s.label}</div>
-          </div>
-        ))}
-      </div>
+      {session && (
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+          {[
+            { label: "Unique Addresses", value: totalAddresses, color: "text-white" },
+            { label: "Swaps", value: session.totalSwaps, color: "text-blue-400" },
+            { label: "Transfers", value: session.totalTransfers, color: "text-green-400" },
+            { label: "Total SOL", value: Number(session.totalVolume).toFixed(1), color: "text-orange-400" },
+            { label: "Slots Scanned", value: session.totalSlotsScanned, color: "text-zinc-300" },
+            { label: "Errors", value: session.errorCount, color: session.errorCount > 0 ? "text-red-400" : "text-green-400" },
+            { label: "Credits", value: `~${session.creditsUsed}`, color: "text-zinc-400" },
+          ].map((s, i) => (
+            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
+              <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+              <div className="text-xs text-zinc-500">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filter tabs */}
-      {uniqueCount > 0 && (
+      {totalAddresses > 0 && (
         <div className="flex flex-wrap gap-2">
           {["all", "SWAP", "TRANSFER", "UNKNOWN"].map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3 py-1 rounded-full text-xs font-medium border ${filter === f ? "bg-orange-500/20 border-orange-500 text-orange-400" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
-              {f === "all" ? `All (${uniqueCount})` : f}
+              {f === "all" ? `All (${totalAddresses})` : f}
             </button>
           ))}
         </div>
@@ -362,12 +345,12 @@ export default function WhaleScanner() {
               </tr>
             </thead>
             <tbody>
-              {sortedAddresses.slice(0, 1000).map(([addr, d], i) => (
-                <tr key={addr} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+              {sortedAddresses.slice(0, 1000).map((d, i) => (
+                <tr key={d.address} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                   <td className="p-2 text-zinc-600">{i + 1}</td>
                   <td className="p-2 font-mono">
-                    <a href={`https://solscan.io/account/${addr}`} target="_blank" rel="noreferrer"
-                      className="text-blue-400 hover:underline">{addr.slice(0, 6)}...{addr.slice(-4)}</a>
+                    <a href={`https://solscan.io/account/${d.address}`} target="_blank" rel="noreferrer"
+                      className="text-blue-400 hover:underline">{d.address.slice(0, 6)}...{d.address.slice(-4)}</a>
                   </td>
                   <td className="p-2 text-right">{d.timesSeen}</td>
                   <td className="p-2 text-right text-orange-400">{d.totalVolumeSol.toFixed(2)}</td>
@@ -389,7 +372,7 @@ export default function WhaleScanner() {
                       ))}
                     </div>
                   </td>
-                  <td className="p-2 text-zinc-500">{d.lastSeen}</td>
+                  <td className="p-2 text-zinc-500">{new Date(d.lastSeen).toLocaleTimeString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -407,8 +390,9 @@ export default function WhaleScanner() {
         <div className="px-3 py-2 border-b border-zinc-800 text-xs font-bold text-zinc-400">Scanner Log</div>
         <div className="h-48 overflow-y-auto p-3 font-mono text-xs space-y-0.5">
           {scanLog.map((l, i) => (
-            <div key={i} className={l.includes("Error") || l.includes("error") ? "text-red-400" : l.includes("whales") ? "text-green-400" : "text-zinc-400"}>{l}</div>
+            <div key={i} className={l.includes("Error") || l.includes("error") || l.includes("❌") ? "text-red-400" : l.includes("✅") || l.includes("🚀") ? "text-green-400" : l.includes("⚠️") ? "text-yellow-400" : "text-zinc-400"}>{l}</div>
           ))}
+          {scanLog.length === 0 && <div className="text-zinc-600">No logs yet. Start the scanner to begin.</div>}
         </div>
       </div>
     </div>
