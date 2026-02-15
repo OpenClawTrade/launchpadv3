@@ -11,16 +11,19 @@ interface LogEntry {
   type: "info" | "success" | "error" | "warn";
 }
 
-interface TunnelInfo {
-  publicKey: string;
-  secretKey: string;
+interface TunnelPair {
+  tunnel1: { publicKey: string; secretKey: string };
+  tunnel2: { publicKey: string; secretKey: string };
 }
 
 interface HopResult {
-  tunnel: number;
   destination: string;
-  status: "pending" | "success" | "failed";
-  signature?: string;
+  tunnel1: { publicKey: string; secretKey: string };
+  tunnel2: { publicKey: string; secretKey: string };
+  status: "funded" | "hop1_done" | "success" | "failed";
+  fundingSig?: string;
+  hop1Sig?: string;
+  hop2Sig?: string;
   error?: string;
 }
 
@@ -32,11 +35,9 @@ export default function TunnelDistributePage() {
   const [sourceKey, setSourceKey] = useState("");
   const [amount, setAmount] = useState("0.005");
   const [destinations, setDestinations] = useState("");
-  
 
   const [running, setRunning] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [tunnels, setTunnels] = useState<TunnelInfo[]>([]);
   const [hops, setHops] = useState<HopResult[]>([]);
   const [stats, setStats] = useState({ total: 0, processed: 0, failed: 0 });
   const abortRef = useRef(false);
@@ -63,14 +64,14 @@ export default function TunnelDistributePage() {
     setRunning(true);
     abortRef.current = false;
     setLogs([]);
-    setTunnels([]);
     setHops([]);
     setStats({ total: destList.length, processed: 0, failed: 0 });
 
     addLog(`Starting distribution to ${destList.length} wallets, ${amount} SOL each`);
+    addLog("Each wallet gets 2 fresh tunnel keypairs (source → t1 → t2 → dest)");
 
-    // Step 1: Call tunnel-distribute to generate tunnels and fund them
-    addLog("Generating tunnel wallets and funding from source...");
+    // Step 1: Generate tunnels and fund tunnel1s from source
+    addLog("Generating tunnel pairs and funding tunnel1s from source...");
     try {
       const { data, error } = await supabase.functions.invoke("tunnel-distribute", {
         body: {
@@ -86,26 +87,23 @@ export default function TunnelDistributePage() {
         return;
       }
 
-      const { tunnels: tunnelKeys, assignments, fundingSignatures } = data;
-      setTunnels(tunnelKeys);
+      const { hops: hopData, fundingSignatures } = data;
 
-      tunnelKeys.forEach((t: TunnelInfo, i: number) => {
-        addLog(`Tunnel ${i + 1}: ${t.publicKey}`, "info");
-      });
-
-      fundingSignatures.forEach((sig: string) => {
-        addLog(`Tunnel funded: https://solscan.io/tx/${sig}`, "success");
-      });
-
-      // Initialize hops
-      const hopList: HopResult[] = assignments.map((a: any) => ({
-        tunnel: a.tunnel,
-        destination: a.destination,
-        status: "pending" as const,
+      const hopList: HopResult[] = hopData.map((h: any) => ({
+        destination: h.destination,
+        tunnel1: h.tunnel1,
+        tunnel2: h.tunnel2,
+        status: "funded" as const,
+        fundingSig: h.fundingSig,
       }));
       setHops(hopList);
 
-      // Step 2: Send from tunnels to destinations with delays
+      addLog(`${hopList.length} tunnel pairs created and funded`, "success");
+      fundingSignatures.forEach((sig: string) => {
+        addLog(`Funded: https://solscan.io/tx/${sig}`, "info");
+      });
+
+      // Step 2: For each destination, do 2 hops with delays
       const lamports = Math.round(parseFloat(amount) * 1_000_000_000);
       let processed = 0;
       let failed = 0;
@@ -117,46 +115,68 @@ export default function TunnelDistributePage() {
         }
 
         const hop = hopList[i];
-        const tunnelKey = tunnelKeys[hop.tunnel].secretKey;
 
-        // Random delay 1-5 minutes between sends (5-10 min total per dest with 2 tunnels)
+        // Random delay between destinations (1-5 min)
         if (i > 0) {
-          const delayMs = (60 + Math.random() * 240) * 1000; // 1-5 min
+          const delayMs = (60 + Math.random() * 240) * 1000;
           const delayMin = (delayMs / 60000).toFixed(1);
-          addLog(`Waiting ${delayMin} min before next send...`, "info");
-          
-          // Wait in chunks so we can check abort
+          addLog(`Waiting ${delayMin} min before next destination...`, "info");
           const chunks = Math.ceil(delayMs / 5000);
           for (let c = 0; c < chunks; c++) {
             if (abortRef.current) break;
             await sleep(Math.min(5000, delayMs - c * 5000));
           }
-          if (abortRef.current) {
-            addLog("Aborted by user", "warn");
-            break;
-          }
+          if (abortRef.current) { addLog("Aborted by user", "warn"); break; }
         }
 
-        addLog(`[${i + 1}/${hopList.length}] Sending to ${hop.destination.slice(0, 8)}... via Tunnel ${hop.tunnel + 1}`);
+        addLog(`[${i + 1}/${hopList.length}] Hop 1: Tunnel1 → Tunnel2 for ${hop.destination.slice(0, 8)}...`);
 
         try {
-          const { data: sendData, error: sendError } = await supabase.functions.invoke("tunnel-send", {
+          // Hop 1: tunnel1 → tunnel2 (send amount + 1 tx fee for hop2)
+          const hop1Lamports = lamports + 5000;
+          const { data: hop1Data, error: hop1Error } = await supabase.functions.invoke("tunnel-send", {
             body: {
-              tunnelPrivateKey: tunnelKey,
+              tunnelPrivateKey: hop.tunnel1.secretKey,
+              destination: hop.tunnel2.publicKey,
+              lamports: hop1Lamports,
+            },
+          });
+
+          if (hop1Error || hop1Data?.error) {
+            throw new Error(`Hop1: ${hop1Data?.error || hop1Error?.message}`);
+          }
+
+          hop.hop1Sig = hop1Data.signature;
+          hop.status = "hop1_done";
+          setHops([...hopList]);
+          addLog(`  ✓ Hop 1 done: ${hop1Data.signature.slice(0, 16)}...`, "success");
+
+          // Small delay between hop1 and hop2 (10-60 seconds)
+          const interHopDelay = (10 + Math.random() * 50) * 1000;
+          addLog(`  Waiting ${(interHopDelay / 1000).toFixed(0)}s before hop 2...`, "info");
+          await sleep(interHopDelay);
+
+          if (abortRef.current) { addLog("Aborted by user", "warn"); break; }
+
+          // Hop 2: tunnel2 → destination
+          addLog(`[${i + 1}/${hopList.length}] Hop 2: Tunnel2 → ${hop.destination.slice(0, 8)}...`);
+          const { data: hop2Data, error: hop2Error } = await supabase.functions.invoke("tunnel-send", {
+            body: {
+              tunnelPrivateKey: hop.tunnel2.secretKey,
               destination: hop.destination,
               lamports,
             },
           });
 
-          if (sendError || sendData?.error) {
-            throw new Error(sendData?.error || sendError?.message);
+          if (hop2Error || hop2Data?.error) {
+            throw new Error(`Hop2: ${hop2Data?.error || hop2Error?.message}`);
           }
 
+          hop.hop2Sig = hop2Data.signature;
           hop.status = "success";
-          hop.signature = sendData.signature;
           processed++;
-          addLog(`✓ Sent to ${hop.destination.slice(0, 8)}... sig: ${sendData.signature.slice(0, 16)}...`, "success");
-          addLog(`  https://solscan.io/tx/${sendData.signature}`, "info");
+          addLog(`  ✓ Hop 2 done: ${hop2Data.signature.slice(0, 16)}...`, "success");
+          addLog(`  Final: https://solscan.io/tx/${hop2Data.signature}`, "info");
         } catch (err: any) {
           hop.status = "failed";
           hop.error = err.message;
@@ -219,6 +239,7 @@ export default function TunnelDistributePage() {
         </button>
 
         <h1 className="text-2xl font-bold text-orange-400">Tunnel Distribution</h1>
+        <p className="text-xs text-zinc-500">Each wallet gets 2 fresh tunnels: Source → T1 → T2 → Destination</p>
 
         {/* Config inputs */}
         <div className="grid gap-4 md:grid-cols-2">
@@ -272,21 +293,6 @@ export default function TunnelDistributePage() {
           </div>
         )}
 
-        {/* Tunnel Keys Table */}
-        {tunnels.length > 0 && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-            <h3 className="text-sm font-bold text-orange-400 mb-3">🔑 Tunnel Wallet Keys (save these!)</h3>
-            <div className="space-y-3">
-              {tunnels.map((t, i) => (
-                <div key={i} className="text-xs font-mono">
-                  <div className="text-zinc-400">Tunnel {i + 1} Public: <span className="text-white">{t.publicKey}</span></div>
-                  <div className="text-zinc-400">Tunnel {i + 1} Secret: <span className="text-yellow-300 break-all">{t.secretKey}</span></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Console Logs */}
         <div className="bg-zinc-950 border border-zinc-800 rounded-lg">
           <div className="px-3 py-2 border-b border-zinc-800 text-xs font-bold text-zinc-400">Console</div>
@@ -307,27 +313,34 @@ export default function TunnelDistributePage() {
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-500">
                   <th className="p-2 text-left">#</th>
-                  <th className="p-2 text-left">Tunnel</th>
                   <th className="p-2 text-left">Destination</th>
+                  <th className="p-2 text-left">T1</th>
+                  <th className="p-2 text-left">T2</th>
                   <th className="p-2 text-left">Status</th>
-                  <th className="p-2 text-left">Signature</th>
+                  <th className="p-2 text-left">Final Tx</th>
                 </tr>
               </thead>
               <tbody>
                 {hops.map((hop, i) => (
                   <tr key={i} className="border-b border-zinc-800/50">
                     <td className="p-2 text-zinc-500">{i + 1}</td>
-                    <td className="p-2">{hop.tunnel + 1}</td>
-                    <td className="p-2 font-mono">{hop.destination.slice(0, 12)}...</td>
+                    <td className="p-2 font-mono">{hop.destination.slice(0, 10)}...</td>
+                    <td className="p-2 font-mono text-zinc-500">{hop.tunnel1.publicKey.slice(0, 8)}...</td>
+                    <td className="p-2 font-mono text-zinc-500">{hop.tunnel2.publicKey.slice(0, 8)}...</td>
                     <td className="p-2">
-                      <span className={hop.status === "success" ? "text-green-400" : hop.status === "failed" ? "text-red-400" : "text-zinc-500"}>
+                      <span className={
+                        hop.status === "success" ? "text-green-400" :
+                        hop.status === "failed" ? "text-red-400" :
+                        hop.status === "hop1_done" ? "text-yellow-400" :
+                        "text-zinc-500"
+                      }>
                         {hop.status}
                       </span>
                     </td>
                     <td className="p-2 font-mono">
-                      {hop.signature ? (
-                        <a href={`https://solscan.io/tx/${hop.signature}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
-                          {hop.signature.slice(0, 12)}...
+                      {hop.hop2Sig ? (
+                        <a href={`https://solscan.io/tx/${hop.hop2Sig}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+                          {hop.hop2Sig.slice(0, 12)}...
                         </a>
                       ) : hop.error ? <span className="text-red-400">{hop.error.slice(0, 30)}</span> : "—"}
                     </td>
