@@ -14,15 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { sourcePrivateKey, destinations, amountPerWallet, adminSecret } = await req.json();
-
-    // Validate admin secret
-    const expectedSecret = Deno.env.get("TWITTER_BOT_ADMIN_SECRET");
-    if (!adminSecret || adminSecret !== expectedSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    const { sourcePrivateKey, destinations, amountPerWallet } = await req.json();
 
     if (!sourcePrivateKey || !destinations?.length || !amountPerWallet) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {

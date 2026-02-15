@@ -13,14 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { tunnelPrivateKey, destination, lamports, adminSecret } = await req.json();
-
-    const expectedSecret = Deno.env.get("TWITTER_BOT_ADMIN_SECRET");
-    if (!adminSecret || adminSecret !== expectedSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    const { tunnelPrivateKey, destination, lamports } = await req.json();
 
     if (!tunnelPrivateKey || !destination || !lamports) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {

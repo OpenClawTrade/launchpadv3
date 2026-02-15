@@ -32,7 +32,7 @@ export default function TunnelDistributePage() {
   const [sourceKey, setSourceKey] = useState("");
   const [amount, setAmount] = useState("0.005");
   const [destinations, setDestinations] = useState("");
-  const [adminSecret, setAdminSecret] = useState("");
+  
 
   const [running, setRunning] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -55,7 +55,7 @@ export default function TunnelDistributePage() {
 
   const startDistribution = async () => {
     const destList = destinations.trim().split("\n").map(d => d.trim()).filter(Boolean);
-    if (!sourceKey || !destList.length || !adminSecret) {
+    if (!sourceKey || !destList.length) {
       addLog("Missing fields", "error");
       return;
     }
@@ -77,7 +77,6 @@ export default function TunnelDistributePage() {
           sourcePrivateKey: sourceKey,
           destinations: destList,
           amountPerWallet: parseFloat(amount),
-          adminSecret,
         },
       });
 
@@ -146,7 +145,6 @@ export default function TunnelDistributePage() {
               tunnelPrivateKey: tunnelKey,
               destination: hop.destination,
               lamports,
-              adminSecret,
             },
           });
 
@@ -227,11 +225,6 @@ export default function TunnelDistributePage() {
           <div>
             <label className="text-xs text-zinc-500 mb-1 block">Source Private Key (bs58)</label>
             <input value={sourceKey} onChange={e => setSourceKey(e.target.value)} type="password"
-              className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={running} />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 mb-1 block">Admin Secret</label>
-            <input value={adminSecret} onChange={e => setAdminSecret(e.target.value)} type="password"
               className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={running} />
           </div>
           <div>
