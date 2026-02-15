@@ -4,6 +4,7 @@ import {
   Keypair,
   PublicKey,
   Transaction,
+  VersionedTransaction,
   TransactionConfirmationStatus,
   SystemProgram,
   LAMPORTS_PER_SOL,
@@ -421,7 +422,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Use fresh deployer as creatorWallet if available, otherwise treasury
         console.log(`[create-fun][${VERSION}] Creating pool transactions...`, { creatorWallet: deployerAddress, elapsed: Date.now() - startTime });
         
-        let transactions: Transaction[];
+        let transactions: (Transaction | VersionedTransaction)[];
         
         if (vanityKeypair) {
           const result = await createMeteoraPoolWithMint({
