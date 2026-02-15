@@ -1158,24 +1158,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         console.log(`[Phantom Launch] ✅ ${label} sent:`, signature);
         signatures.push(signature);
         
-        // CRITICAL: Must wait for REAL confirmation before proceeding
-        // Phantom Lighthouse needs on-chain state to simulate subsequent TXs
-        // CRITICAL: Wait for FINALIZED commitment so Phantom's RPC also sees it
-        // Phantom uses its own RPC nodes — 'confirmed' on our RPC may not be visible to Phantom yet
+        // Wait for confirmed commitment (sufficient for Phantom Lighthouse — TX sizes have 466+ bytes headroom)
         const confirmStart = Date.now();
-        const maxConfirmMs = 90_000; // 90s for finalized
+        const maxConfirmMs = 45_000; // 45s for confirmed
         let finalStatus: string | null = null;
         while (!finalStatus && Date.now() - confirmStart < maxConfirmMs) {
           try {
             const statuses = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
             const status = statuses.value[0];
             if (status?.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
-            if (status?.confirmationStatus === 'finalized') {
-              finalStatus = 'finalized';
-              console.log(`[Phantom Launch] ✅ ${label} FINALIZED in ${Date.now() - confirmStart}ms`);
-            } else if (status?.confirmationStatus === 'confirmed') {
-              // Confirmed but not finalized — keep polling for finalized but note it
-              console.log(`[Phantom Launch] ${label} confirmed (waiting for finalized)...`);
+            if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+              finalStatus = status.confirmationStatus;
+              console.log(`[Phantom Launch] ✅ ${label} ${finalStatus} in ${Date.now() - confirmStart}ms`);
             }
           } catch (pollErr: any) {
             if (pollErr?.message?.includes('failed on-chain')) throw pollErr;
@@ -1186,9 +1180,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           throw new Error(`${label} confirmation timed out after ${maxConfirmMs / 1000}s. Please try again.`);
         }
         
-        // Extra buffer for Phantom's RPC to sync with finalized state
-        console.log(`[Phantom Launch] Waiting 2s for Phantom RPC sync...`);
-        await new Promise((r) => setTimeout(r, 2000));
+        // Brief buffer for Phantom's RPC to sync
+        console.log(`[Phantom Launch] Waiting 1s for Phantom RPC sync...`);
+        await new Promise((r) => setTimeout(r, 1000));
         
         return signature;
       };
