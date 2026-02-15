@@ -145,6 +145,8 @@ export default function CompressedDistributePage() {
       const allResults: DistResult[] = [];
       let totalSuccess = 0;
       let totalFailed = 0;
+      let totalTxCount = 0;
+      let totalCostSol = 0;
 
       for (let i = 0; i < destList.length; i += BATCH_SIZE) {
         const batch = destList.slice(i, i + BATCH_SIZE);
@@ -169,6 +171,10 @@ export default function CompressedDistributePage() {
           if (distResult.stats) {
             totalSuccess += distResult.stats.success || 0;
             totalFailed += distResult.stats.failed || 0;
+            totalCostSol += distResult.stats.totalCostSol || 0;
+          }
+          if (distResult.signatures) {
+            totalTxCount += distResult.signatures.length;
           }
         } catch (batchErr: any) {
           addLog(`Batch ${batchNum} error: ${batchErr.message}`, "error");
@@ -183,13 +189,14 @@ export default function CompressedDistributePage() {
         total: destList.length,
         success: totalSuccess,
         failed: totalFailed,
-        totalCostSol: 0,
-        costPerWallet: 0,
+        totalTxCount,
+        totalCostSol,
+        costPerWallet: destList.length > 0 ? totalCostSol / destList.length : 0,
       };
       persistStats(finalStats);
-      addLog(`Total: ${totalSuccess} success, ${totalFailed} failed`, "success");
-
-      addLog("Distribution complete!", "success");
+      addLog(`Total: ${totalSuccess} wallets success, ${totalFailed} failed`, "success");
+      addLog(`Total transactions: ${totalTxCount}`, "success");
+      addLog(`Total cost: ${totalCostSol.toFixed(6)} SOL`, "success");
     } catch (err: any) {
       addLog(`Error: ${err.message}`, "error");
     }
@@ -286,10 +293,10 @@ export default function CompressedDistributePage() {
 
         {/* Stats */}
         {stats.total > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold">{stats.total}</div>
-              <div className="text-xs text-zinc-500">Total</div>
+              <div className="text-xs text-zinc-500">Wallets</div>
             </div>
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-green-400">{stats.success}</div>
@@ -298,6 +305,10 @@ export default function CompressedDistributePage() {
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-red-400">{stats.failed}</div>
               <div className="text-xs text-zinc-500">Failed</div>
+            </div>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-blue-400">{stats.totalTxCount || 0}</div>
+              <div className="text-xs text-zinc-500">Total Txs</div>
             </div>
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-orange-400">{stats.totalCostSol?.toFixed(6)}</div>
