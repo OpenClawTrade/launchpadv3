@@ -215,8 +215,9 @@ serve(async (req) => {
     );
   } catch (err: any) {
     console.error("compressed-distribute error:", err);
+    const errorMsg = err.message || err.name || String(err) || "Unknown error";
     return new Response(
-      JSON.stringify({ error: err.message || "Unknown error", success: false }),
+      JSON.stringify({ error: errorMsg, success: false }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
