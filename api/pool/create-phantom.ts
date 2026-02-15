@@ -396,7 +396,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         txRequiredKeypairs.push(neededKeypairPubkeys);
 
         // Serialize V0 — no signatures needed yet
-        const serialized = Buffer.from(tx.serialize()).toString('base64');
+        const serializedBytes = tx.serialize();
+        const txSizeBytes = serializedBytes.length;
+        console.log(`[create-phantom] Tx ${i + 1} (V0) size: ${txSizeBytes} bytes (limit: 1232, Lighthouse headroom: ~${1232 - txSizeBytes} bytes)`);
+        if (txSizeBytes > 1100) {
+          console.warn(`[create-phantom] ⚠️ Tx ${i + 1} is ${txSizeBytes} bytes — may not have room for Lighthouse instructions (~100-150 bytes needed)`);
+        }
+        const serialized = Buffer.from(serializedBytes).toString('base64');
         serializedTransactions.push(serialized);
       } else {
         // Legacy Transaction — need fresh blockhash
@@ -417,7 +423,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log(`[create-phantom] Tx ${i + 1} needs backend keypairs:`, neededKeypairPubkeys);
         txRequiredKeypairs.push(neededKeypairPubkeys);
 
-        const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
+        const serializedBytes = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+        const txSizeBytes = serializedBytes.length;
+        console.log(`[create-phantom] Tx ${i + 1} (legacy) size: ${txSizeBytes} bytes (limit: 1232, Lighthouse headroom: ~${1232 - txSizeBytes} bytes)`);
+        if (txSizeBytes > 1100) {
+          console.warn(`[create-phantom] ⚠️ Tx ${i + 1} is ${txSizeBytes} bytes — may not have room for Lighthouse instructions`);
+        }
+        const serialized = serializedBytes.toString('base64');
         serializedTransactions.push(serialized);
       }
     }
