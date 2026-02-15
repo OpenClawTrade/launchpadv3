@@ -27,13 +27,118 @@ import {
   ExternalLink,
   Loader2,
   Search,
-  Rocket
+  Rocket,
+  Database
 } from "lucide-react";
 import { BaseDeployPanel } from "@/components/admin/BaseDeployPanel";
 
 const VERCEL_API_URL = "https://tunalaunch.vercel.app";
 const TREASURY_SECRET = "tuna-treasury-2024";
 const ADMIN_PASSWORD = "tuna2024treasury";
+
+function AltSetupPanel() {
+  const [status, setStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const { toast } = useToast();
+
+  const checkStatus = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${VERCEL_API_URL}/api/admin/setup-alt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-treasury-secret": TREASURY_SECRET },
+        body: JSON.stringify({ mode: "status" }),
+      });
+      const data = await res.json();
+      setStatus(data);
+    } catch (err) {
+      toast({ title: "Failed to check ALT status", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createAlt = async () => {
+    setCreating(true);
+    try {
+      const res = await fetch(`${VERCEL_API_URL}/api/admin/setup-alt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-treasury-secret": TREASURY_SECRET },
+        body: JSON.stringify({ mode: "create" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatus(data);
+        toast({ title: "ALT Created!", description: data.message });
+      } else {
+        toast({ title: "Failed", description: data.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Failed to create ALT", variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  useEffect(() => { checkStatus(); }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Database className="w-5 h-5" />
+          Address Lookup Table (ALT)
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Compresses pool transactions so Phantom Lighthouse can inject security instructions. One-time setup, costs ~0.03 SOL.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {status?.exists ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <span className="font-medium">ALT is active</span>
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>Address: <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{status.altAddress}</code></p>
+              <p>Addresses stored: {status.addressCount}</p>
+            </div>
+          </div>
+        ) : status?.altAddress || status?.alreadyExists ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-yellow-500" />
+              <span className="font-medium">ALT created but needs env var</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Add this to your Vercel environment variables then redeploy:
+            </p>
+            <code className="block bg-muted p-3 rounded text-sm break-all">
+              ALT_ADDRESS={status.altAddress}
+            </code>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm">No ALT configured. Create one to fix Phantom security warnings.</span>
+            </div>
+            <Button onClick={createAlt} disabled={creating}>
+              {creating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+              Create ALT (~0.03 SOL)
+            </Button>
+          </div>
+        )}
+        <Button variant="outline" size="sm" onClick={checkStatus} disabled={loading}>
+          {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+          Refresh Status
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -439,7 +544,7 @@ export default function TreasuryAdminPage() {
         </div>
 
         <Tabs defaultValue="fees" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsList className="grid w-full grid-cols-3 max-w-lg">
             <TabsTrigger value="fees" className="flex items-center gap-2">
               <Wallet className="h-4 w-4" />
               Fee Recovery
@@ -448,10 +553,18 @@ export default function TreasuryAdminPage() {
               <Rocket className="h-4 w-4" />
               Base Deploy
             </TabsTrigger>
+            <TabsTrigger value="alt-setup" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              ALT Setup
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="base-deploy" className="mt-6">
             <BaseDeployPanel />
+          </TabsContent>
+
+          <TabsContent value="alt-setup" className="mt-6">
+            <AltSetupPanel />
           </TabsContent>
 
           <TabsContent value="fees" className="mt-6 space-y-6">
