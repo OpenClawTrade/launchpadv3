@@ -29,7 +29,7 @@ serve(async (req) => {
     const { Keypair, PublicKey, LAMPORTS_PER_SOL } = await import(
       "https://esm.sh/@solana/web3.js@1.98.0"
     );
-    const { getAssociatedTokenAddress, getAccount, getMint } = await import(
+    const { getAssociatedTokenAddress, getAccount, getMint, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } = await import(
       "https://esm.sh/@solana/spl-token@0.4.9"
     );
     const bs58 = (await import("https://esm.sh/bs58@6.0.0")).default;
@@ -51,8 +51,15 @@ serve(async (req) => {
 
     const mint = new PublicKey(mintAddress);
 
-    // Get mint info for decimals
-    const mintInfo = await getMint(connection, mint);
+    // Get mint info for decimals - try Token Program first, then Token-2022
+    let mintInfo;
+    let tokenProgramId = TOKEN_PROGRAM_ID;
+    try {
+      mintInfo = await getMint(connection, mint, undefined, TOKEN_PROGRAM_ID);
+    } catch {
+      mintInfo = await getMint(connection, mint, undefined, TOKEN_2022_PROGRAM_ID);
+      tokenProgramId = TOKEN_2022_PROGRAM_ID;
+    }
     const decimals = mintInfo.decimals;
     const rawAmount = Math.round(amountPerWallet * Math.pow(10, decimals));
 
@@ -105,7 +112,7 @@ serve(async (req) => {
       // Compress SPL tokens from ATA into compressed token account
       logs.push("Compressing SPL tokens...");
 
-      const ata = await getAssociatedTokenAddress(mint, sourcePubkey);
+      const ata = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
       let ataBalance: bigint;
       try {
         const ataAccount = await getAccount(connection, ata);
