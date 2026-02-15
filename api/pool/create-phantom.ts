@@ -238,6 +238,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let poolAddress: PublicKey;
     
     // Use pool vanity keypair if available, otherwise random
+    // skipDevBuyMerge=true: keep dev buy as separate TX3 for Jito bundle submission
+    // This prevents Phantom Lighthouse from blocking the oversized merged transaction
+    const skipDevBuyMerge = effectiveDevBuySol > 0;
+    
     if (vanityKeypair) {
       const result = await createMeteoraPoolWithMint({
         creatorWallet: phantomWallet, // Phantom wallet is the creator
@@ -247,15 +251,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description || `${name} - A fun meme coin!`,
         imageUrl: imageUrl || undefined,
-        initialBuySol: effectiveDevBuySol, // Dev buy amount (atomic with pool creation)
+        initialBuySol: effectiveDevBuySol, // Dev buy amount
         tradingFeeBps, // Pass custom fee
-        enableDevBuy: effectiveDevBuySol > 0, // Enable first swap with min fee for dev buy
+        enableDevBuy: effectiveDevBuySol > 0,
         addressLookupTable: altAccount, // ALT for V0 compression
+        skipDevBuyMerge, // Keep dev buy as separate TX3 for Jito bundle
       });
-      transactions = result.transactions;
-      mintKeypair = vanityKeypair.keypair;
-      configKeypair = result.configKeypair;
-      poolAddress = result.poolAddress;
+...
     } else {
       const result = await createMeteoraPool({
         creatorWallet: phantomWallet, // Phantom wallet is the creator  
@@ -264,10 +266,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description || `${name} - A fun meme coin!`,
         imageUrl: imageUrl || undefined,
-        initialBuySol: effectiveDevBuySol, // Dev buy amount (atomic with pool creation)
+        initialBuySol: effectiveDevBuySol, // Dev buy amount
         tradingFeeBps, // Pass custom fee
-        enableDevBuy: effectiveDevBuySol > 0, // Enable first swap with min fee for dev buy
+        enableDevBuy: effectiveDevBuySol > 0,
         addressLookupTable: altAccount, // ALT for V0 compression
+        skipDevBuyMerge, // Keep dev buy as separate TX3 for Jito bundle
       });
       transactions = result.transactions;
       mintKeypair = result.mintKeypair;
@@ -456,8 +459,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       devBuyRequested: effectiveDevBuySol > 0,
       devBuySol: effectiveDevBuySol,
       altAddress: process.env.ALT_ADDRESS || null,
-      jitoTipEmbedded: false, // Removed to save bytes for Lighthouse
-      message: 'Phantom-first signing flow with ALT compression for Lighthouse compatibility.',
+      // When dev buy is split into TX3, frontend should bundle TX2+TX3 via Jito
+      useJitoBundle: skipDevBuyMerge && serializedTransactions.length >= 3,
+      jitoTipLamports: JITO_TIP_LAMPORTS,
+      message: skipDevBuyMerge 
+        ? 'Dev buy split into TX3 — submit TX2+TX3 as Jito bundle for atomic execution.'
+        : 'Phantom-first signing flow with ALT compression for Lighthouse compatibility.',
     });
 
   } catch (error) {
