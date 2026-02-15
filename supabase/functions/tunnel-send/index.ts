@@ -25,8 +25,23 @@ serve(async (req) => {
     if (!rpcUrl) throw new Error("HELIUS_RPC_URL not configured");
 
     const connection = new Connection(rpcUrl, "confirmed");
-    const tunnelKeypair = Keypair.fromSecretKey(bs58.default.decode(tunnelPrivateKey));
-    const destPubkey = new PublicKey(destination);
+    
+    let tunnelKeypair: InstanceType<typeof Keypair>;
+    try {
+      tunnelKeypair = Keypair.fromSecretKey(bs58.default.decode(tunnelPrivateKey));
+    } catch (e) {
+      throw new Error(`Invalid tunnel private key: ${e.message}`);
+    }
+    
+    let destPubkey: InstanceType<typeof PublicKey>;
+    try {
+      destPubkey = new PublicKey(destination);
+      if (!PublicKey.isOnCurve(destPubkey)) {
+        console.log(`Warning: destination ${destination} is not on curve (may be a PDA, proceeding anyway)`);
+      }
+    } catch (e) {
+      throw new Error(`Invalid destination address "${destination.slice(0,12)}...": ${e.message}`);
+    }
 
     let sendLamports: number;
 
