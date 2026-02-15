@@ -255,9 +255,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tradingFeeBps, // Pass custom fee
         enableDevBuy: effectiveDevBuySol > 0,
         addressLookupTable: altAccount, // ALT for V0 compression
-        skipDevBuyMerge, // Keep dev buy as separate TX3 for Jito bundle
+        skipDevBuyMerge,
       });
-...
+      transactions = result.transactions;
+      mintKeypair = vanityKeypair.keypair;
+      configKeypair = result.configKeypair;
+      poolAddress = result.poolAddress;
     } else {
       const result = await createMeteoraPool({
         creatorWallet: phantomWallet, // Phantom wallet is the creator  
