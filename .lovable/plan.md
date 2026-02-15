@@ -1,57 +1,85 @@
 
-# Fix Promo Mention Reply Prompt
+# Tunnel Wallet Distribution Tool
 
-## Problem
+## Overview
+A hidden admin page at `/admin/tunnel-distribute` that lets you fund multiple destination wallets through intermediate "tunnel" wallets to avoid Bubblemaps clustering detection. Password-protected, with full console logging in the UI.
 
-The `promo-mention-reply` function still uses the old corporate prompt AND force-appends "Tuna Launchpad for AI Agents on Solana." as a signature to every reply. This is the source of the tweet in the screenshot -- not the influencer list reply system.
+## How It Works
 
-## Changes
+```text
+  Source Wallet (you fund this)
+        |
+        +---> Tunnel Wallet A (auto-generated) --[1-5 min delay]--> Dest Wallet 1
+        |                                      --[1-5 min delay]--> Dest Wallet 2
+        |                                      ...
+        +---> Tunnel Wallet B (auto-generated) --[1-5 min delay]--> Dest Wallet 3
+        |                                      --[1-5 min delay]--> Dest Wallet 4
+        |                                      ...
+```
 
-### 1. Update `supabase/functions/promo-mention-reply/index.ts`
+Each destination wallet gets routed through one of 2 tunnel wallets. Tunnel wallets are freshly generated keypairs. Every hop has a randomized 5-10 minute delay between sends to look organic.
 
-**Remove the signature constant** (line 16):
-- Delete `REPLY_SIGNATURE = "Tuna Launchpad for AI Agents on Solana."`
+## Components
 
-**Replace the AI prompt** (lines 167-175):
-- Old: "You are a friendly crypto community member... End your reply with exactly: Tuna Launchpad for AI Agents on Solana."
-- New: Same sharp, opinionated crypto native persona used in `influencer-list-reply` and `x-bot-reply`
-- No signature, no tagline, no product mentions
+### 1. Frontend Page: `src/pages/TunnelDistributePage.tsx`
+- Password gate (same `tuna2024treasury` pattern as other admin pages)
+- Input fields:
+  - Source wallet private key (bs58) - the wallet you pre-fund
+  - SOL amount per destination (e.g. 0.005)
+  - Textarea for destination wallets (one per line, 20-30 wallets)
+- "Start Distribution" button
+- Real-time console log panel showing every step with timestamps:
+  - Tunnel wallet generation (public + private keys saved to display)
+  - Each transfer with signature links
+  - Delays between transfers
+  - Errors with full detail
+- Status cards: total wallets, processed, pending, failed
+- Table of all tunnel wallet keys (so you can recover funds if stuck)
 
-**Remove signature enforcement logic** (lines 208-218):
-- Currently force-appends the signature if the AI doesn't include it
-- Delete this entire block
+### 2. Edge Function: `supabase/functions/tunnel-distribute/index.ts`
+- Receives: source private key, destination wallets, amount per wallet
+- Process:
+  1. Generate 2 fresh tunnel keypairs
+  2. Split destinations evenly between the 2 tunnels
+  3. Fund each tunnel wallet from source (enough SOL for its batch + fees)
+  4. Return tunnel keys + assignment plan to frontend
+- The frontend then calls a second edge function for each individual hop
 
-**Remove signature skip check in scan** (`promo-mention-scan/index.ts` line 215):
-- Currently skips tweets containing the signature text -- still useful to avoid replying to own replies, but update the check to match the bot username instead
+### 3. Edge Function: `supabase/functions/tunnel-send/index.ts`
+- Receives: tunnel wallet private key, destination address, lamports amount
+- Executes a single SOL transfer from tunnel to destination
+- Returns signature or error
+- Frontend orchestrates the timing (delays between calls)
 
-### 2. Update `supabase/functions/promo-mention-scan/index.ts`
+### 4. Database Table: `tunnel_distribution_runs`
+- Tracks each run: source wallet, status, created_at
+- Stores tunnel keypairs (encrypted) so keys are never lost
+- Records each hop: tunnel -> destination, amount, signature, status
 
-- Remove the `REPLY_SIGNATURE` constant (line 15)
-- Update line 215 to check for bot username in the reply chain instead of signature text
+### 5. Route Registration in `App.tsx`
+- Add lazy-loaded route at `/admin/tunnel-distribute`
+- Not linked from any navigation menu
+
+## Frontend Orchestration Flow
+1. User enters source key + destinations + amount, clicks Start
+2. Frontend calls `tunnel-distribute` to generate tunnels and fund them
+3. Frontend receives tunnel assignments
+4. Frontend loops through each destination with random 5-10 min delay:
+   - Calls `tunnel-send` for each hop
+   - Logs every step in the UI console
+   - Saves all keys in a visible table
+5. If any transfer fails, it logs the error and continues with the next wallet
+6. At the end, shows summary with all signatures
+
+## Security
+- Password-gated UI (same pattern as Treasury/Deployer admin pages)
+- Edge functions validate admin secret server-side via `TWITTER_BOT_ADMIN_SECRET`
+- Private keys transmitted over HTTPS only, never stored in localStorage
+- Tunnel keypairs saved to database (encrypted) as backup
 
 ## Technical Details
-
-**Files modified:**
-- `supabase/functions/promo-mention-reply/index.ts` -- prompt rewrite, signature removal
-- `supabase/functions/promo-mention-scan/index.ts` -- remove signature constant and update self-reply detection
-
-**New prompt for `generateReply`:**
-```
-System: You're a sharp, opinionated crypto native who actually knows their shit.
-Generate a reply (max 240 chars).
-
-Rules:
-- Strong opinions. Commit to a take. No hedging.
-- Never open with "Great question" or "Absolutely". Just answer.
-- Brevity mandatory. One sentence if it fits.
-- Natural wit allowed, not forced jokes.
-- Call things out. Charm over cruelty, no sugarcoat.
-- Swearing allowed when it lands. Don't force it.
-- Do NOT mention tuna, TUNA, any launchpad, platform, agent, or product.
-- No taglines, signatures, hashtags, or calls to action.
-
-Be the reply you'd actually want to read at 2am.
-Not a corporate drone. Not a sycophant. Just... good.
-```
-
-**No database changes needed.**
+- Uses `@solana/web3.js` via `esm.sh` in edge functions (same as existing functions)
+- RPC via `HELIUS_RPC_URL` secret (already configured)
+- Micro transactions: configurable amount, default ~0.005 SOL per destination
+- Each tunnel gets: `(batch_size * amount) + (batch_size * 0.000005)` for rent/fees
+- Delay orchestration happens client-side using `setTimeout`/`setInterval` with progress tracking
