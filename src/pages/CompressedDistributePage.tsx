@@ -139,25 +139,55 @@ export default function CompressedDistributePage() {
       compressResult.logs?.forEach((l: string) => addLog(l));
       addLog(`Compression cost: ${compressResult.costSol?.toFixed(6) || "0"} SOL`, "info");
 
-      // Step 3: Distribute compressed tokens
+      // Step 3: Distribute compressed tokens in batches
       addLog("Step 3/3: Distributing compressed tokens...");
-      const distResult = await callEdgeFunction({
-        sourcePrivateKey: sourceKey,
-        mintAddress,
-        destinations: destList,
-        amountPerWallet: parseFloat(amount),
-        action: "distribute",
-      });
-      distResult.logs?.forEach((l: string) => addLog(l));
+      const BATCH_SIZE = 10;
+      const allResults: DistResult[] = [];
+      let totalSuccess = 0;
+      let totalFailed = 0;
 
-      if (distResult.results) {
-        persistResults(distResult.results);
+      for (let i = 0; i < destList.length; i += BATCH_SIZE) {
+        const batch = destList.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(destList.length / BATCH_SIZE);
+        addLog(`Batch ${batchNum}/${totalBatches} (${batch.length} wallets)...`);
+
+        try {
+          const distResult = await callEdgeFunction({
+            sourcePrivateKey: sourceKey,
+            mintAddress,
+            destinations: batch,
+            amountPerWallet: parseFloat(amount),
+            action: "distribute",
+          });
+          distResult.logs?.forEach((l: string) => addLog(l));
+
+          if (distResult.results) {
+            allResults.push(...distResult.results);
+            persistResults(allResults);
+          }
+          if (distResult.stats) {
+            totalSuccess += distResult.stats.success || 0;
+            totalFailed += distResult.stats.failed || 0;
+          }
+        } catch (batchErr: any) {
+          addLog(`Batch ${batchNum} error: ${batchErr.message}`, "error");
+          batch.forEach(d => allResults.push({ destination: d, status: "failed", error: batchErr.message }));
+          totalFailed += batch.length;
+          persistResults(allResults);
+        }
       }
-      if (distResult.stats) {
-        persistStats(distResult.stats);
-        addLog(`Total cost: ${distResult.stats.totalCostSol?.toFixed(6)} SOL`, "success");
-        addLog(`Cost per wallet: ${distResult.stats.costPerWallet?.toFixed(6)} SOL`, "success");
-      }
+
+      // Final stats
+      const finalStats = {
+        total: destList.length,
+        success: totalSuccess,
+        failed: totalFailed,
+        totalCostSol: 0,
+        costPerWallet: 0,
+      };
+      persistStats(finalStats);
+      addLog(`Total: ${totalSuccess} success, ${totalFailed} failed`, "success");
 
       addLog("Distribution complete!", "success");
     } catch (err: any) {
