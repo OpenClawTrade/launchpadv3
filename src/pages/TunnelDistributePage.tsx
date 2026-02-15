@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const ADMIN_PASSWORD = "tuna2024treasury";
+const ADMIN_PASSWORD = "tuna";
 
 interface LogEntry {
   time: string;
