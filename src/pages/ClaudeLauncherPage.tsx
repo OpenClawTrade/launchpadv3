@@ -583,18 +583,24 @@ export default function ClaudeLauncherPage() {
       }
       const txRequiredKeypairs: string[][] = data?.txRequiredKeypairs || [];
 
+      const txIsVersioned: boolean[] = data?.txIsVersioned || [];
+
       // Phantom-first signing flow for Lighthouse compatibility
       for (let i = 0; i < unsignedTransactions.length; i++) {
         const txName = i === 0 ? "Config" : "Pool";
         toast({ title: `Sign ${txName} Transaction (${i + 1}/${unsignedTransactions.length})`, description: "Approve in Phantom..." });
         
-        // Deserialize (try Versioned first, fallback to Legacy)
+        // Deserialize using server hint for type
         const bytes = Uint8Array.from(atob(unsignedTransactions[i]), (c: string) => c.charCodeAt(0));
         let tx: Transaction | VersionedTransaction;
-        try {
+        if (txIsVersioned[i]) {
           tx = VersionedTransaction.deserialize(bytes);
-        } catch {
-          tx = Transaction.from(bytes);
+        } else {
+          try {
+            tx = VersionedTransaction.deserialize(bytes);
+          } catch {
+            tx = Transaction.from(bytes);
+          }
         }
 
         // Step 1: Phantom signs FIRST (injects Lighthouse)

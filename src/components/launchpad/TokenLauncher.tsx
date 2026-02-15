@@ -774,8 +774,14 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       const { url: rpcUrl } = getRpcUrl();
       const connection = new Connection(rpcUrl, "confirmed");
 
-      const deserializeAnyTx = (base64: string): Transaction | VersionedTransaction => {
+      const txIsVersioned: boolean[] = data?.txIsVersioned || [];
+      
+      const deserializeAnyTx = (base64: string, idx: number): Transaction | VersionedTransaction => {
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        // Use server hint if available, otherwise try V0 first
+        if (txIsVersioned[idx]) {
+          return VersionedTransaction.deserialize(bytes);
+        }
         try {
           return VersionedTransaction.deserialize(bytes);
         } catch {
@@ -795,7 +801,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
 
       const signatures: string[] = [];
       for (let idx = 0; idx < txBase64s.length; idx++) {
-        const tx = deserializeAnyTx(txBase64s[idx]);
+        const tx = deserializeAnyTx(txBase64s[idx], idx);
         
         // Step 1: Phantom signs FIRST (injects Lighthouse protection instructions)
         const phantomSigned = await phantomWallet.signTransaction(tx as any);
@@ -1047,8 +1053,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
          i === 0 ? "Create Config" : i === 1 ? "Create Pool" : "Dev Buy"
        );
 
-       const deserializeAnyTx = (base64: string): Transaction | VersionedTransaction => {
+       const txIsVersioned: boolean[] = data?.txIsVersioned || [];
+       
+       const deserializeAnyTx = (base64: string, idx: number): Transaction | VersionedTransaction => {
          const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+         if (txIsVersioned[idx]) {
+           return VersionedTransaction.deserialize(bytes);
+         }
          try {
            return VersionedTransaction.deserialize(bytes);
          } catch {
@@ -1067,7 +1078,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
        const txRequiredKeypairs: string[][] = data?.txRequiredKeypairs || [];
 
        // Deserialize all transactions (UNSIGNED — Phantom signs first for Lighthouse)
-       const txsToSign = txBase64s.map(deserializeAnyTx);
+       const txsToSign = txBase64s.map((b64, idx) => deserializeAnyTx(b64, idx));
        const txLabels = baseTxLabels;
        
        console.log(`[Phantom Launch] Deserialized ${txsToSign.length} unsigned transactions (Phantom-first signing for Lighthouse)`);

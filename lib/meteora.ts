@@ -4,7 +4,7 @@
 // MIGRATION FIX HISTORY - See MIGRATION_FIX_HISTORY.md
 // Using buildCurveWithMarketCap from SDK for terminal compatibility (Axiom/DEXTools/Birdeye)
 
-import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction, ComputeBudgetProgram } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction, TransactionMessage, ComputeBudgetProgram, AddressLookupTableAccount } from '@solana/web3.js';
 import {
   DynamicBondingCurveClient,
   BaseFeeMode,
@@ -298,8 +298,8 @@ export interface CreatePoolParams {
 }
 
 // Create a new token pool on Meteora
-export async function createMeteoraPool(params: CreatePoolParams): Promise<{
-  transactions: Transaction[];
+export async function createMeteoraPool(params: CreatePoolParams & { addressLookupTable?: AddressLookupTableAccount | null }): Promise<{
+  transactions: (Transaction | VersionedTransaction)[];
   mintKeypair: Keypair;
   configKeypair: Keypair;
   poolAddress: PublicKey;
@@ -315,8 +315,8 @@ export interface CreatePoolWithMintParams extends CreatePoolParams {
   mintKeypair: Keypair;
 }
 
-export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams): Promise<{
-  transactions: Transaction[];
+export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams & { addressLookupTable?: AddressLookupTableAccount | null }): Promise<{
+  transactions: (Transaction | VersionedTransaction)[];
   mintKeypair: Keypair;
   configKeypair: Keypair;
   poolAddress: PublicKey;
@@ -459,8 +459,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   const { blockhash, lastValidBlockHeight } = await getBlockhashWithRetry(connection);
   
   // Priority fee settings for faster confirmation
-  // Priority fees - high enough for near-instant confirmation (< 2 seconds)
-  const PRIORITY_FEE_MICRO_LAMPORTS = 500_000; // 0.0005 SOL per compute unit - 5x higher for fast inclusion
+  const PRIORITY_FEE_MICRO_LAMPORTS = 500_000;
 
   const COMPUTE_UNITS_CONFIG = 300_000;
   const COMPUTE_UNITS_POOL = mergedDevBuyIntoPool ? 650_000 : 400_000;
@@ -474,36 +473,64 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     return [computeUnitsIx, priorityFeeIx];
   };
 
-  // Set blockhash, fee payer, add priority fees
-  // NOTE: We do NOT pre-sign here - the caller (create-fun.ts) will sign with all required keypairs
-  // CRITICAL: Transactions MUST be sent sequentially: config first, then pool(+devBuy)
-  // The config account must be initialized on-chain before pool creation references it
-  const preparedTransactions: Transaction[] = [];
-  
   const addPriorityFees = (tx: Transaction, units: number) => {
     const [computeUnitsIx, priorityFeeIx] = makeBudgetIxs(units);
     tx.instructions = [computeUnitsIx, priorityFeeIx, ...tx.instructions];
   };
 
+  // ALT for transaction compression (critical for Phantom Lighthouse compatibility)
+  const altAccount = params.addressLookupTable || null;
+
+  const preparedTransactions: (Transaction | VersionedTransaction)[] = [];
+
   // Transaction 1: Create config account (MUST complete before pool tx)
+  // Config tx is small — keep as legacy or convert to V0 for consistency
   if (createConfigTx) {
     addPriorityFees(createConfigTx, COMPUTE_UNITS_CONFIG);
     createConfigTx.recentBlockhash = blockhash;
     createConfigTx.feePayer = creatorPubkey;
-    preparedTransactions.push(createConfigTx);
-    console.log('[meteora] TX1 (createConfig): Ready for signing');
+    
+    if (altAccount) {
+      // Convert to V0 with ALT for consistency
+      const message = new TransactionMessage({
+        payerKey: creatorPubkey,
+        recentBlockhash: blockhash,
+        instructions: createConfigTx.instructions,
+      }).compileToV0Message([altAccount]);
+      preparedTransactions.push(new VersionedTransaction(message));
+      console.log('[meteora] TX1 (createConfig): Converted to VersionedTransaction with ALT');
+    } else {
+      preparedTransactions.push(createConfigTx);
+      console.log('[meteora] TX1 (createConfig): Legacy transaction (no ALT)');
+    }
   }
 
   // Transaction 2: Create pool (and dev buy if merged)
+  // This is the LARGE transaction that needs ALT compression for Lighthouse
   if (createPoolTx) {
     addPriorityFees(createPoolTx, COMPUTE_UNITS_POOL);
     createPoolTx.recentBlockhash = blockhash;
     createPoolTx.feePayer = creatorPubkey;
-    preparedTransactions.push(createPoolTx);
-    console.log(mergedDevBuyIntoPool
-      ? '[meteora] TX2 (createPool+devBuy): Ready for signing'
-      : '[meteora] TX2 (createPool): Ready for signing'
-    );
+    
+    if (altAccount) {
+      // CRITICAL: Convert to V0 with ALT — this saves ~300+ bytes
+      const message = new TransactionMessage({
+        payerKey: creatorPubkey,
+        recentBlockhash: blockhash,
+        instructions: createPoolTx.instructions,
+      }).compileToV0Message([altAccount]);
+      preparedTransactions.push(new VersionedTransaction(message));
+      console.log(mergedDevBuyIntoPool
+        ? '[meteora] TX2 (createPool+devBuy): Converted to VersionedTransaction with ALT ✅'
+        : '[meteora] TX2 (createPool): Converted to VersionedTransaction with ALT ✅'
+      );
+    } else {
+      preparedTransactions.push(createPoolTx);
+      console.log(mergedDevBuyIntoPool
+        ? '[meteora] TX2 (createPool+devBuy): Legacy transaction (no ALT) ⚠️'
+        : '[meteora] TX2 (createPool): Legacy transaction (no ALT) ⚠️'
+      );
+    }
   }
   
   // Transaction 3: Initial buy swap (optional) — only if NOT merged
@@ -511,8 +538,19 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     addPriorityFees(swapBuyTx, COMPUTE_UNITS_SWAP);
     swapBuyTx.recentBlockhash = blockhash;
     swapBuyTx.feePayer = creatorPubkey;
-    preparedTransactions.push(swapBuyTx);
-    console.log('[meteora] TX3 (swapBuy): Ready for signing');
+    
+    if (altAccount) {
+      const message = new TransactionMessage({
+        payerKey: creatorPubkey,
+        recentBlockhash: blockhash,
+        instructions: swapBuyTx.instructions,
+      }).compileToV0Message([altAccount]);
+      preparedTransactions.push(new VersionedTransaction(message));
+      console.log('[meteora] TX3 (swapBuy): Converted to VersionedTransaction with ALT');
+    } else {
+      preparedTransactions.push(swapBuyTx);
+      console.log('[meteora] TX3 (swapBuy): Legacy transaction (no ALT)');
+    }
   } else if (!swapBuyTx && firstBuyParam) {
     console.warn('[meteora] ⚠️ firstBuyParam was set but SDK did NOT return swapBuyTx!');
     console.warn('[meteora] firstBuyParam:', JSON.stringify({
@@ -522,7 +560,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
     }));
   }
 
-  console.log('[meteora] Prepared', preparedTransactions.length, 'transactions (unsigned)');
+  console.log('[meteora] Prepared', preparedTransactions.length, 'transactions', altAccount ? '(V0 with ALT)' : '(legacy)');
   console.log('[meteora] IMPORTANT: TX1 (config) must complete before TX2 (pool) is sent!');
 
   return {
