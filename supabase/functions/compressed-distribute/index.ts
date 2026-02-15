@@ -108,8 +108,33 @@ serve(async (req) => {
       );
     }
 
+    const isToken2022 = tokenProgramId.equals(TOKEN_2022_PROGRAM_ID);
+
     if (action === "compress") {
-      // Compress SPL tokens from ATA into compressed token account
+      if (isToken2022) {
+        // Token-2022 doesn't support ZK compression - skip this step
+        logs.push("Token-2022 detected - skipping compression (not supported).");
+        logs.push("Will use direct SPL transfers instead.");
+
+        const ata = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
+        const ataAccount = await getAccount(connection, ata, undefined, tokenProgramId);
+        logs.push(`ATA balance: ${Number(ataAccount.amount)} raw tokens`);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: "compress",
+            logs,
+            signatures: [],
+            costSol: 0,
+            compressedAmount: 0,
+            isToken2022: true,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Standard SPL token - use ZK compression
       logs.push("Compressing SPL tokens...");
 
       const ata = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
@@ -156,37 +181,123 @@ serve(async (req) => {
     }
 
     // action === "distribute" (default)
-    // Batch transfer compressed tokens to destinations
-    const BATCH_SIZE = 1; // compressed transfers are 1-per-tx currently
     const results: { destination: string; status: string; signature?: string; error?: string }[] = [];
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < destinations.length; i++) {
-      const dest = destinations[i];
-      logs.push(`[${i + 1}/${destinations.length}] Transferring to ${dest.slice(0, 8)}...`);
+    if (isToken2022) {
+      // Token-2022: Direct SPL transfers using createTransferInstruction
+      const { createAssociatedTokenAccountInstruction, createTransferInstruction, ASSOCIATED_TOKEN_PROGRAM_ID } = await import(
+        "https://esm.sh/@solana/spl-token@0.4.9"
+      );
+      const { Transaction, SystemProgram } = await import(
+        "https://esm.sh/@solana/web3.js@1.98.0"
+      );
 
-      try {
-        const destPubkey = new PublicKey(dest);
+      logs.push("Token-2022: Using direct SPL transfers...");
 
-        const txId = await transfer(
-          connection,
-          sourceKeypair,
-          mint,
-          rawAmount,
-          sourceKeypair, // owner
-          destPubkey
-        );
-        await confirmTx(connection, txId);
+      const sourceAta = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
 
-        logs.push(`  ✓ Success: ${txId}`);
-        signatures.push(txId);
-        results.push({ destination: dest, status: "success", signature: txId });
-        successCount++;
-      } catch (e: any) {
-        logs.push(`  ✗ Failed: ${e.message}`);
-        results.push({ destination: dest, status: "failed", error: e.message });
-        failCount++;
+      // Batch destinations into groups to fit in single transactions
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < destinations.length; i += BATCH_SIZE) {
+        const batch = destinations.slice(i, Math.min(i + BATCH_SIZE, destinations.length));
+        const tx = new Transaction();
+
+        for (const dest of batch) {
+          try {
+            const destPubkey = new PublicKey(dest);
+            const destAta = await getAssociatedTokenAddress(mint, destPubkey, false, tokenProgramId);
+
+            // Check if dest ATA exists, if not create it
+            try {
+              await getAccount(connection, destAta, undefined, tokenProgramId);
+            } catch {
+              tx.add(
+                createAssociatedTokenAccountInstruction(
+                  sourcePubkey,
+                  destAta,
+                  destPubkey,
+                  mint,
+                  tokenProgramId,
+                  ASSOCIATED_TOKEN_PROGRAM_ID
+                )
+              );
+            }
+
+            tx.add(
+              createTransferInstruction(
+                sourceAta,
+                destAta,
+                sourcePubkey,
+                BigInt(rawAmount),
+                [],
+                tokenProgramId
+              )
+            );
+          } catch (e: any) {
+            logs.push(`[${i + batch.indexOf(dest) + 1}/${destinations.length}] Setup failed for ${dest.slice(0, 8)}...: ${e.message}`);
+            results.push({ destination: dest, status: "failed", error: e.message });
+            failCount++;
+          }
+        }
+
+        if (tx.instructions.length > 0) {
+          try {
+            const latestBlockhash = await connection.getLatestBlockhash();
+            tx.recentBlockhash = latestBlockhash.blockhash;
+            tx.feePayer = sourcePubkey;
+            tx.sign(sourceKeypair);
+            const txId = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
+            await connection.confirmTransaction(txId, "confirmed");
+
+            for (const dest of batch) {
+              if (!results.find(r => r.destination === dest)) {
+                logs.push(`[${destinations.indexOf(dest) + 1}/${destinations.length}] ✓ ${dest.slice(0, 8)}... : ${txId}`);
+                signatures.push(txId);
+                results.push({ destination: dest, status: "success", signature: txId });
+                successCount++;
+              }
+            }
+          } catch (e: any) {
+            for (const dest of batch) {
+              if (!results.find(r => r.destination === dest)) {
+                logs.push(`[${destinations.indexOf(dest) + 1}/${destinations.length}] ✗ ${dest.slice(0, 8)}...: ${e.message}`);
+                results.push({ destination: dest, status: "failed", error: e.message });
+                failCount++;
+              }
+            }
+          }
+        }
+      }
+    } else {
+      // Standard SPL: Use compressed token transfers
+      for (let i = 0; i < destinations.length; i++) {
+        const dest = destinations[i];
+        logs.push(`[${i + 1}/${destinations.length}] Transferring to ${dest.slice(0, 8)}...`);
+
+        try {
+          const destPubkey = new PublicKey(dest);
+
+          const txId = await transfer(
+            connection,
+            sourceKeypair,
+            mint,
+            rawAmount,
+            sourceKeypair,
+            destPubkey
+          );
+          await confirmTx(connection, txId);
+
+          logs.push(`  ✓ Success: ${txId}`);
+          signatures.push(txId);
+          results.push({ destination: dest, status: "success", signature: txId });
+          successCount++;
+        } catch (e: any) {
+          logs.push(`  ✗ Failed: ${e.message}`);
+          results.push({ destination: dest, status: "failed", error: e.message });
+          failCount++;
+        }
       }
     }
 
