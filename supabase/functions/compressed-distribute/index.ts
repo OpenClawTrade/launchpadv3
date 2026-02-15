@@ -25,7 +25,7 @@ serve(async (req) => {
       throw new Error("HELIUS_RPC_URL not configured");
     }
 
-    // Dynamic imports via esm.sh
+    // Dynamic imports via esm.sh - using SDK v0.21.0+ for Token-2022 ZK compression support
     const { Keypair, PublicKey, LAMPORTS_PER_SOL } = await import(
       "https://esm.sh/@solana/web3.js@1.98.0"
     );
@@ -34,10 +34,10 @@ serve(async (req) => {
     );
     const bs58 = (await import("https://esm.sh/bs58@6.0.0")).default;
     const { createRpc, confirmTx } = await import(
-      "https://esm.sh/@lightprotocol/stateless.js@0.17.1"
+      "https://esm.sh/@lightprotocol/stateless.js@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0"
     );
-    const { createTokenPool, compress, transfer } = await import(
-      "https://esm.sh/@lightprotocol/compressed-token@0.17.1"
+    const { createTokenPool, createSplInterface, compress, transfer } = await import(
+      "https://esm.sh/@lightprotocol/compressed-token@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0"
     );
 
     // Decode source keypair
@@ -46,7 +46,6 @@ serve(async (req) => {
     const sourcePubkey = sourceKeypair.publicKey;
 
     // Create RPC connection with ZK Compression support
-    // Helius RPC supports compression natively, so we use it for all three endpoints
     const connection = createRpc(HELIUS_RPC_URL, HELIUS_RPC_URL, HELIUS_RPC_URL);
 
     const mint = new PublicKey(mintAddress);
@@ -60,6 +59,7 @@ serve(async (req) => {
       mintInfo = await getMint(connection, mint, undefined, TOKEN_2022_PROGRAM_ID);
       tokenProgramId = TOKEN_2022_PROGRAM_ID;
     }
+    const isToken2022 = tokenProgramId.equals(TOKEN_2022_PROGRAM_ID);
     const decimals = mintInfo.decimals;
     const rawAmount = Math.round(amountPerWallet * Math.pow(10, decimals));
 
@@ -70,25 +70,39 @@ serve(async (req) => {
 
     logs.push(`Source wallet: ${sourcePubkey.toBase58()}`);
     logs.push(`Mint: ${mintAddress} (${decimals} decimals)`);
+    logs.push(`Token type: ${isToken2022 ? "Token-2022" : "Standard SPL"}`);
     logs.push(`Starting SOL balance: ${(startBalance / LAMPORTS_PER_SOL).toFixed(6)} SOL`);
     logs.push(`Amount per wallet: ${amountPerWallet} (raw: ${rawAmount})`);
     logs.push(`Destinations: ${destinations.length}`);
 
     if (action === "check-pool") {
-      // Just check if token pool exists and return info
-      logs.push("Checking token pool status...");
+      logs.push("Checking token pool / SPL interface status...");
       
       try {
-        // Try to create token pool - if it already exists, it will throw
-        const poolTxId = await createTokenPool(connection, sourceKeypair, mint);
-        await confirmTx(connection, poolTxId);
-        logs.push(`Token pool created! Tx: ${poolTxId}`);
-        signatures.push(poolTxId);
+        if (isToken2022) {
+          // Token-2022: use createSplInterface to register with Light Token Program
+          const registerTxId = await createSplInterface(
+            connection,
+            sourceKeypair,
+            mint,
+            undefined,
+            TOKEN_2022_PROGRAM_ID
+          );
+          await confirmTx(connection, registerTxId);
+          logs.push(`Token-2022 SPL interface created! Tx: ${registerTxId}`);
+          signatures.push(registerTxId);
+        } else {
+          // Standard SPL: use createTokenPool
+          const poolTxId = await createTokenPool(connection, sourceKeypair, mint);
+          await confirmTx(connection, poolTxId);
+          logs.push(`Token pool created! Tx: ${poolTxId}`);
+          signatures.push(poolTxId);
+        }
       } catch (e: any) {
         if (e.message?.includes("already") || e.message?.includes("exist")) {
-          logs.push("Token pool already exists ✓");
+          logs.push("Token pool / SPL interface already exists ✓");
         } else {
-          logs.push(`Token pool check error: ${e.message}`);
+          logs.push(`Pool check error: ${e.message}`);
           throw e;
         }
       }
@@ -108,34 +122,8 @@ serve(async (req) => {
       );
     }
 
-    const isToken2022 = tokenProgramId.equals(TOKEN_2022_PROGRAM_ID);
-
     if (action === "compress") {
-      if (isToken2022) {
-        // Token-2022 doesn't support ZK compression - skip this step
-        logs.push("Token-2022 detected - skipping compression (not supported).");
-        logs.push("Will use direct SPL transfers instead.");
-
-        const ata = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
-        const ataAccount = await getAccount(connection, ata, undefined, tokenProgramId);
-        logs.push(`ATA balance: ${Number(ataAccount.amount)} raw tokens`);
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            action: "compress",
-            logs,
-            signatures: [],
-            costSol: 0,
-            compressedAmount: 0,
-            isToken2022: true,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Standard SPL token - use ZK compression
-      logs.push("Compressing SPL tokens...");
+      logs.push("Compressing tokens into ZK compressed format...");
 
       const ata = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
       let ataBalance: bigint;
@@ -152,13 +140,16 @@ serve(async (req) => {
 
       logs.push(`Compressing ${Number(compressAmount)} raw tokens...`);
 
+      // compress() works for both standard and Token-2022 with SDK v0.21.0+
+      // For Token-2022, pass recipient pubkey as 7th argument
       const compressTxId = await compress(
         connection,
         sourceKeypair,
         mint,
         compressAmount,
         sourceKeypair,
-        ata
+        ata,
+        sourcePubkey // recipient of compressed tokens
       );
       await confirmTx(connection, compressTxId);
       logs.push(`Compressed! Tx: ${compressTxId}`);
@@ -166,6 +157,7 @@ serve(async (req) => {
 
       const endBalance = await connection.getBalance(sourcePubkey);
       const costSol = (startBalance - endBalance) / LAMPORTS_PER_SOL;
+      logs.push(`Compression cost: ${costSol.toFixed(6)} SOL`);
 
       return new Response(
         JSON.stringify({
@@ -181,122 +173,39 @@ serve(async (req) => {
     }
 
     // action === "distribute" (default)
+    // ZK compressed transfers work for both standard SPL and Token-2022 with SDK v0.21.0+
+    // No ATA creation needed - recipients get compressed token accounts (rent-free!)
     const results: { destination: string; status: string; signature?: string; error?: string }[] = [];
     let successCount = 0;
     let failCount = 0;
 
-    if (isToken2022) {
-      // Token-2022: Direct SPL transfers using createTransferInstruction
-      const { createAssociatedTokenAccountInstruction, createTransferInstruction, ASSOCIATED_TOKEN_PROGRAM_ID } = await import(
-        "https://esm.sh/@solana/spl-token@0.4.9"
-      );
-      const { Transaction, SystemProgram } = await import(
-        "https://esm.sh/@solana/web3.js@1.98.0"
-      );
+    logs.push(`Distributing via ZK compressed transfers (rent-free)...`);
 
-      logs.push("Token-2022: Using direct SPL transfers...");
+    for (let i = 0; i < destinations.length; i++) {
+      const dest = destinations[i];
+      logs.push(`[${i + 1}/${destinations.length}] Transferring to ${dest.slice(0, 8)}...`);
 
-      const sourceAta = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
+      try {
+        const destPubkey = new PublicKey(dest);
 
-      // Batch destinations into groups to fit in single transactions
-      // Use createAssociatedTokenAccountIdempotent to avoid needing RPC checks
-      const { createAssociatedTokenAccountIdempotentInstruction } = await import(
-        "https://esm.sh/@solana/spl-token@0.4.9"
-      );
-      const BATCH_SIZE = 5;
-      for (let i = 0; i < destinations.length; i += BATCH_SIZE) {
-        const batch = destinations.slice(i, Math.min(i + BATCH_SIZE, destinations.length));
-        const tx = new Transaction();
-        const batchValid: string[] = [];
+        const txId = await transfer(
+          connection,
+          sourceKeypair,
+          mint,
+          rawAmount,
+          sourceKeypair, // owner
+          destPubkey
+        );
+        await confirmTx(connection, txId);
 
-        for (const dest of batch) {
-          try {
-            const destPubkey = new PublicKey(dest);
-            const destAta = await getAssociatedTokenAddress(mint, destPubkey, false, tokenProgramId);
-
-            // Idempotent: creates ATA if it doesn't exist, no-ops if it does
-            // No RPC call needed - avoids rate limiting issues
-            tx.add(
-              createAssociatedTokenAccountIdempotentInstruction(
-                sourcePubkey,
-                destAta,
-                destPubkey,
-                mint,
-                tokenProgramId,
-                ASSOCIATED_TOKEN_PROGRAM_ID
-              )
-            );
-
-            tx.add(
-              createTransferInstruction(
-                sourceAta,
-                destAta,
-                sourcePubkey,
-                BigInt(rawAmount),
-                [],
-                tokenProgramId
-              )
-            );
-            batchValid.push(dest);
-          } catch (e: any) {
-            logs.push(`[${i + batch.indexOf(dest) + 1}/${destinations.length}] Setup failed for ${dest.slice(0, 8)}...: ${e.message || e}`);
-            results.push({ destination: dest, status: "failed", error: e.message || String(e) });
-            failCount++;
-          }
-        }
-
-        if (tx.instructions.length > 0) {
-          try {
-            const latestBlockhash = await connection.getLatestBlockhash();
-            tx.recentBlockhash = latestBlockhash.blockhash;
-            tx.feePayer = sourcePubkey;
-            tx.sign(sourceKeypair);
-            const txId = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
-            await connection.confirmTransaction(txId, "confirmed");
-
-            for (const dest of batchValid) {
-              logs.push(`[${destinations.indexOf(dest) + 1}/${destinations.length}] ✓ ${dest.slice(0, 8)}... : ${txId}`);
-              signatures.push(txId);
-              results.push({ destination: dest, status: "success", signature: txId });
-              successCount++;
-            }
-          } catch (e: any) {
-            for (const dest of batchValid) {
-              logs.push(`[${destinations.indexOf(dest) + 1}/${destinations.length}] ✗ ${dest.slice(0, 8)}...: ${e.message}`);
-              results.push({ destination: dest, status: "failed", error: e.message });
-              failCount++;
-            }
-          }
-        }
-      }
-    } else {
-      // Standard SPL: Use compressed token transfers
-      for (let i = 0; i < destinations.length; i++) {
-        const dest = destinations[i];
-        logs.push(`[${i + 1}/${destinations.length}] Transferring to ${dest.slice(0, 8)}...`);
-
-        try {
-          const destPubkey = new PublicKey(dest);
-
-          const txId = await transfer(
-            connection,
-            sourceKeypair,
-            mint,
-            rawAmount,
-            sourceKeypair,
-            destPubkey
-          );
-          await confirmTx(connection, txId);
-
-          logs.push(`  ✓ Success: ${txId}`);
-          signatures.push(txId);
-          results.push({ destination: dest, status: "success", signature: txId });
-          successCount++;
-        } catch (e: any) {
-          logs.push(`  ✗ Failed: ${e.message}`);
-          results.push({ destination: dest, status: "failed", error: e.message });
-          failCount++;
-        }
+        logs.push(`  ✓ Success: ${txId}`);
+        signatures.push(txId);
+        results.push({ destination: dest, status: "success", signature: txId });
+        successCount++;
+      } catch (e: any) {
+        logs.push(`  ✗ Failed: ${e.message}`);
+        results.push({ destination: dest, status: "failed", error: e.message });
+        failCount++;
       }
     }
 
