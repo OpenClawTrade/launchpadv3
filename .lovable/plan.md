@@ -1,81 +1,66 @@
 
 
-# Fix Phantom Lighthouse Warning: Jito Bundle Approach
+# Fix Phantom Lighthouse Warning — Sign-After-Confirm with Chained Simulation
 
 ## Problem
-TX2 contains both pool creation AND dev buy instructions merged together. Even with ALT compression (V0 transactions), this combined transaction is too large for Phantom Lighthouse to simulate, triggering the "Request blocked" security warning.
 
-## Solution: Jito Bundle for Atomic Execution Without Merging
+Lines 1177-1182 sign TX2 and TX3 with **separate** `signTransaction` calls. Even though TX1 is confirmed on-chain by that point, Phantom simulates TX3 independently of TX2 — and TX3 references the pool account that TX2 creates. Simulation fails, red warning appears.
 
-Split dev buy back into a separate TX3, but submit TX2 + TX3 as a **Jito bundle**. Jito bundles guarantee atomic execution in the same block slot — all transactions land or none do. This eliminates the frontrunning window without stuffing everything into one transaction.
+## Fix (one change in one file)
+
+### `src/components/launchpad/TokenLauncher.tsx` — Jito bundle branch (lines ~1164-1209)
+
+Replace the individual signing of TX2 and TX3 with:
+
+1. **TX1**: Keep as-is — `signTransaction(TX1)` then submit via RPC, wait for confirmation.
+2. **TX2 + TX3**: After TX1 is confirmed, use `signAllTransactions([TX2, TX3])` in a single Phantom prompt. This lets Lighthouse chain-simulate TX2 then TX3 together. Then apply ephemeral sigs to both returned transactions and submit as Jito bundle.
 
 ```text
-CURRENT (broken):
-  TX1: Create Config  -->  TX2: Create Pool + Dev Buy (TOO LARGE for Lighthouse)
-                                    |
-                              Phantom blocks it
+BEFORE (broken):
+  signTransaction(TX1) → submit → confirm
+  signTransaction(TX2) ← Lighthouse simulates alone, may warn
+  signTransaction(TX3) ← Lighthouse simulates alone, WILL warn (pool missing)
+  submitJitoBundle([TX2, TX3])
 
-PROPOSED (Jito bundle):
-  TX1: Create Config  -->  [TX2: Create Pool] + [TX3: Dev Buy]  (Jito Bundle)
-       |                        |                    |
-   Sign + submit          Both signed by         Submitted as
-   via RPC, wait          Phantom, then          atomic Jito bundle
-   for confirm            ephemeral keys         (same slot, no frontrunning)
+AFTER (fixed):
+  signTransaction(TX1) → submit → confirm
+  signAllTransactions([TX2, TX3]) ← Lighthouse chains simulation: TX2 ok (config on-chain), TX3 ok (pool from TX2)
+  applyEphemeralSigs to both
+  submitJitoBundle([TX2, TX3])
 ```
 
-## Why This Works
-- TX2 becomes small enough for Phantom Lighthouse to simulate (no warning)
-- TX3 (dev buy) executes in the same block slot as TX2 via Jito bundle
-- Jito bundles are all-or-nothing: if TX3 fails, TX2 also reverts
-- This is exactly how pump.fun, Raydium launchers, and other platforms handle atomic dev buys
-- The `src/lib/jitoBundle.ts` client already exists with retry logic and confirmation polling
+### Specific code change (lines 1177-1182)
 
-## Changes Required
+Replace:
+```typescript
+toast({ title: `Signing ${txLabels[1]}...`, description: `Step 2 of ${txsToSign.length}` });
+const signedTx2 = await signTx(txsToSign[1], 1, txLabels[1]);
 
-### 1. `lib/meteora.ts` — Re-enable `skipDevBuyMerge` logic
-- Keep the existing `skipDevBuyMerge` parameter (already in code)
-- When `skipDevBuyMerge=true`, dev buy stays as separate TX3 (already implemented)
-- No changes needed here — the logic already exists
-
-### 2. `api/pool/create-phantom.ts` — Set `skipDevBuyMerge: true` again
-- Re-add `skipDevBuyMerge: true` to both `createMeteoraPool` and `createMeteoraPoolWithMint` calls
-- This produces 3 transactions: Config, Pool, Dev Buy (when dev buy > 0)
-- Add a `useJitoBundle: true` flag in the response so the frontend knows to bundle TX2+TX3
-
-### 3. `src/components/launchpad/TokenLauncher.tsx` — Jito bundle submission
-This is the main change. Update the transaction submission loop:
-
-- **TX1 (Create Config)**: Sign with Phantom, partial-sign with ephemeral keys, submit via RPC, wait for confirmation (same as now)
-- **TX2 (Create Pool) + TX3 (Dev Buy)**: Sign both with Phantom, partial-sign with ephemeral keys, then submit both together via `submitAndConfirmJitoBundle()` from `src/lib/jitoBundle.ts`
-- Add a Jito tip instruction to TX3 (the last transaction in the bundle) before signing
-- Fall back to sequential RPC submission if Jito bundle fails (degraded mode — user is warned about potential frontrunning)
-
-### 4. Jito tip handling
-- Add Jito tip instruction to TX3 before Phantom signing (tip goes in the last bundle tx per Jito docs)
-- Use `createJitoTipInstruction` from existing `src/lib/jitoBundle.ts`
-- Tip amount: 0.005 SOL (default in existing config)
-
-## Technical Details
-
-### Frontend signing flow (TokenLauncher.tsx):
-```text
-1. Deserialize 3 transactions (Config, Pool, Dev Buy)
-2. Sign TX1 with Phantom -> partialSign -> sendRawTransaction -> wait confirm
-3. Add Jito tip to TX3 (must be done before signing)
-4. Sign TX2 with Phantom -> partialSign with ephemeral keys
-5. Sign TX3 with Phantom -> partialSign with ephemeral keys  
-6. submitAndConfirmJitoBundle([TX2, TX3]) -> atomic execution
-7. If Jito fails -> fallback: send TX2 via RPC, wait, send TX3 via RPC
+toast({ title: `Signing ${txLabels[2]}...`, description: `Step 3 of ${txsToSign.length}` });
+const signedTx3 = await signTx(txsToSign[2], 2, txLabels[2]);
 ```
 
-### Adding Jito tip to TX3 before signing:
-The Jito tip instruction needs to be added to the unsigned TX3 before Phantom signs it. For VersionedTransaction, this means reconstructing the message with the additional instruction. For legacy Transaction, we can simply `.add()` the instruction.
+With:
+```typescript
+toast({ title: `Signing Pool + Dev Buy...`, description: `Step 2 of 2 — one prompt` });
+console.log('[Phantom Launch] Batch-signing TX2+TX3 via signAllTransactions (chained Lighthouse simulation)...');
+const batchSigned = await phantomWallet.signAllTransactions([txsToSign[1], txsToSign[2]] as any);
+if (!batchSigned || batchSigned.length < 2) throw new Error('Batch signing TX2+TX3 was cancelled or failed');
+const signedTx2 = batchSigned[0];
+const signedTx3 = batchSigned[1];
+// dApp signs second with ephemeral keypairs (per Phantom multi-signer docs)
+applyEphemeralSigs(signedTx2, 1, txLabels[1]);
+applyEphemeralSigs(signedTx3, 2, txLabels[2]);
+```
 
-### Response format change from backend:
-Add `useJitoBundle: true` and `jitoTipLamports: 5000000` to the create-phantom response when there are 3+ transactions (pool + dev buy split).
+### Why this follows Phantom's requirements exactly
 
-## Risk Mitigation
-- If Jito bundle submission fails (rate limit, network), fall back to sequential submission with a warning toast
-- The Jito tip (0.005 SOL) is only added when bundling is used
-- TX1 still uses standard RPC (config creation doesn't need MEV protection)
+- **`signTransaction`** used for TX1 (single signer flow) — Phantom signs first, adds Lighthouse, then dApp applies ephemeral sigs and submits via own RPC.
+- **`signAllTransactions`** used for TX2+TX3 — same protocol (Phantom signs first, adds Lighthouse to both), but batched so Lighthouse can chain-simulate TX2 then TX3. dApp applies ephemeral sigs after, submits via Jito.
+- **ALT (Address Lookup Table)** keeps all transactions under the 1232-byte limit with headroom for Lighthouse assertions.
+- **dApp submits via own RPC/Jito** — never uses `signAndSendTransaction`.
+
+### No other files need changes
+
+The backend, ALT setup, and Jito bundle logic remain unchanged.
 
