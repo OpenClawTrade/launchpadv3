@@ -36,7 +36,7 @@ serve(async (req) => {
     const { createRpc, confirmTx } = await import(
       "https://esm.sh/@lightprotocol/stateless.js@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0"
     );
-    const { createTokenPool, createSplInterface, compress, transfer } = await import(
+    const { createTokenPool, compress, transfer } = await import(
       "https://esm.sh/@lightprotocol/compressed-token@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0"
     );
 
@@ -79,25 +79,18 @@ serve(async (req) => {
       logs.push("Checking token pool / SPL interface status...");
       
       try {
-        if (isToken2022) {
-          // Token-2022: use createSplInterface to register with Light Token Program
-          const registerTxId = await createSplInterface(
-            connection,
-            sourceKeypair,
-            mint,
-            undefined,
-            TOKEN_2022_PROGRAM_ID
-          );
-          await confirmTx(connection, registerTxId);
-          logs.push(`Token-2022 SPL interface created! Tx: ${registerTxId}`);
-          signatures.push(registerTxId);
-        } else {
-          // Standard SPL: use createTokenPool
-          const poolTxId = await createTokenPool(connection, sourceKeypair, mint);
-          await confirmTx(connection, poolTxId);
-          logs.push(`Token pool created! Tx: ${poolTxId}`);
-          signatures.push(poolTxId);
-        }
+        // createTokenPool works for both standard SPL and Token-2022
+        // For Token-2022, pass TOKEN_2022_PROGRAM_ID as 5th arg
+        const poolTxId = await createTokenPool(
+          connection,
+          sourceKeypair,
+          mint,
+          undefined,
+          isToken2022 ? TOKEN_2022_PROGRAM_ID : undefined
+        );
+        await confirmTx(connection, poolTxId);
+        logs.push(`Token pool created! Tx: ${poolTxId}`);
+        signatures.push(poolTxId);
       } catch (e: any) {
         if (e.message?.includes("already") || e.message?.includes("exist")) {
           logs.push("Token pool / SPL interface already exists ✓");
