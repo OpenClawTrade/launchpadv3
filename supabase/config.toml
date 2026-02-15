@@ -362,3 +362,6 @@ verify_jwt = false
 
 [functions.compressed-distribute]
 verify_jwt = false
+
+[functions.sol-whale-scanner]
+verify_jwt = false
