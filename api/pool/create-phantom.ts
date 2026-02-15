@@ -247,10 +247,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description || `${name} - A fun meme coin!`,
         imageUrl: imageUrl || undefined,
-        initialBuySol: effectiveDevBuySol, // Dev buy amount (atomic with pool creation)
+        initialBuySol: effectiveDevBuySol, // Dev buy amount (separate TX3 for Phantom)
         tradingFeeBps, // Pass custom fee
         enableDevBuy: effectiveDevBuySol > 0, // Enable first swap with min fee for dev buy
         addressLookupTable: altAccount, // ALT for V0 compression
+        skipDevBuyMerge: true, // CRITICAL: Keep pool TX2 small for Phantom Lighthouse
       });
       transactions = result.transactions;
       mintKeypair = vanityKeypair.keypair;
@@ -264,10 +265,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ticker: ticker.toUpperCase().slice(0, 10),
         description: description || `${name} - A fun meme coin!`,
         imageUrl: imageUrl || undefined,
-        initialBuySol: effectiveDevBuySol, // Dev buy amount (atomic with pool creation)
+        initialBuySol: effectiveDevBuySol, // Dev buy amount (separate TX3 for Phantom)
         tradingFeeBps, // Pass custom fee
         enableDevBuy: effectiveDevBuySol > 0, // Enable first swap with min fee for dev buy
         addressLookupTable: altAccount, // ALT for V0 compression
+        skipDevBuyMerge: true, // CRITICAL: Keep pool TX2 small for Phantom Lighthouse
       });
       transactions = result.transactions;
       mintKeypair = result.mintKeypair;

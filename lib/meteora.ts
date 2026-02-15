@@ -298,7 +298,7 @@ export interface CreatePoolParams {
 }
 
 // Create a new token pool on Meteora
-export async function createMeteoraPool(params: CreatePoolParams & { addressLookupTable?: AddressLookupTableAccount | null }): Promise<{
+export async function createMeteoraPool(params: CreatePoolParams & { addressLookupTable?: AddressLookupTableAccount | null; skipDevBuyMerge?: boolean }): Promise<{
   transactions: (Transaction | VersionedTransaction)[];
   mintKeypair: Keypair;
   configKeypair: Keypair;
@@ -315,7 +315,7 @@ export interface CreatePoolWithMintParams extends CreatePoolParams {
   mintKeypair: Keypair;
 }
 
-export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams & { addressLookupTable?: AddressLookupTableAccount | null }): Promise<{
+export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams & { addressLookupTable?: AddressLookupTableAccount | null; skipDevBuyMerge?: boolean }): Promise<{
   transactions: (Transaction | VersionedTransaction)[];
   mintKeypair: Keypair;
   configKeypair: Keypair;
@@ -435,7 +435,7 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
   let mergedDevBuyIntoPool = false;
   let swapBuyTx = rawSwapBuyTx;
 
-  if (createPoolTx && swapBuyTx && firstBuyParam) {
+  if (createPoolTx && swapBuyTx && firstBuyParam && !params.skipDevBuyMerge) {
     try {
       // Strip any compute budget instructions from the swap tx before merging.
       const swapCoreIxs = swapBuyTx.instructions.filter(
@@ -453,6 +453,8 @@ export async function createMeteoraPoolWithMint(params: CreatePoolWithMintParams
       console.warn('[meteora] ⚠️ Failed to merge swap into pool tx; will keep separate swap tx', mergeErr);
       mergedDevBuyIntoPool = false;
     }
+  } else if (params.skipDevBuyMerge && swapBuyTx) {
+    console.log('[meteora] ℹ️ skipDevBuyMerge=true — dev buy will be a separate TX3 (Phantom Lighthouse mode)');
   }
 
   // Get recent blockhash for all transactions with retry
