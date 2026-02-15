@@ -115,7 +115,7 @@ serve(async (req) => {
       const ata = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
       let ataBalance: bigint;
       try {
-        const ataAccount = await getAccount(connection, ata);
+        const ataAccount = await getAccount(connection, ata, undefined, tokenProgramId);
         ataBalance = ataAccount.amount;
         logs.push(`ATA balance: ${Number(ataBalance)} raw tokens`);
       } catch {
