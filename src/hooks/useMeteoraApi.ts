@@ -326,7 +326,7 @@ export function useMeteoraApi() {
         await waitForRuntimeConfigLoaded(2000);
 
         const { url: rpcUrl, source: rpcSource } = getRpcInfo();
-        console.info("[useMeteoraApi] Using RPC:", rpcSource, rpcUrl);
+        console.info("[useMeteoraApi] Using RPC:", rpcSource);
 
         const connection = new Connection(rpcUrl, "confirmed");
 
