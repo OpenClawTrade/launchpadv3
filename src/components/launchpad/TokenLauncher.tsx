@@ -1140,27 +1140,36 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         
         // CRITICAL: Must wait for REAL confirmation before proceeding
         // Phantom Lighthouse needs on-chain state to simulate subsequent TXs
+        // CRITICAL: Wait for FINALIZED commitment so Phantom's RPC also sees it
+        // Phantom uses its own RPC nodes — 'confirmed' on our RPC may not be visible to Phantom yet
         const confirmStart = Date.now();
-        const maxConfirmMs = 60_000; // 60s — must confirm, not just timeout
-        let confirmed = false;
-        while (!confirmed && Date.now() - confirmStart < maxConfirmMs) {
+        const maxConfirmMs = 90_000; // 90s for finalized
+        let finalStatus: string | null = null;
+        while (!finalStatus && Date.now() - confirmStart < maxConfirmMs) {
           try {
             const statuses = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
             const status = statuses.value[0];
             if (status?.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
-            if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
-              confirmed = true;
-              console.log(`[Phantom Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
+            if (status?.confirmationStatus === 'finalized') {
+              finalStatus = 'finalized';
+              console.log(`[Phantom Launch] ✅ ${label} FINALIZED in ${Date.now() - confirmStart}ms`);
+            } else if (status?.confirmationStatus === 'confirmed') {
+              // Confirmed but not finalized — keep polling for finalized but note it
+              console.log(`[Phantom Launch] ${label} confirmed (waiting for finalized)...`);
             }
           } catch (pollErr: any) {
             if (pollErr?.message?.includes('failed on-chain')) throw pollErr;
           }
-          if (!confirmed) await new Promise((r) => setTimeout(r, 500));
+          if (!finalStatus) await new Promise((r) => setTimeout(r, 600));
         }
-        if (!confirmed) {
-          // Do NOT continue — Phantom needs this on-chain for Lighthouse simulation
+        if (!finalStatus) {
           throw new Error(`${label} confirmation timed out after ${maxConfirmMs / 1000}s. Please try again.`);
         }
+        
+        // Extra buffer for Phantom's RPC to sync with finalized state
+        console.log(`[Phantom Launch] Waiting 2s for Phantom RPC sync...`);
+        await new Promise((r) => setTimeout(r, 2000));
+        
         return signature;
       };
       
