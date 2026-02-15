@@ -59,10 +59,25 @@ export default function TunnelDistributePage() {
 
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+  const isValidSolanaAddress = (addr: string): boolean => {
+    try {
+      if (addr.length < 32 || addr.length > 44) return false;
+      const validChars = /^[1-9A-HJ-NP-Za-km-z]+$/;
+      return validChars.test(addr);
+    } catch { return false; }
+  };
+
   const startDistribution = async () => {
     const destList = destinations.trim().split("\n").map(d => d.trim()).filter(Boolean);
     if (!sourceKey || !destList.length) {
       addLog("Missing fields", "error");
+      return;
+    }
+
+    const invalidAddrs = destList.filter(d => !isValidSolanaAddress(d));
+    if (invalidAddrs.length > 0) {
+      invalidAddrs.forEach(a => addLog(`Invalid address: ${a}`, "error"));
+      addLog(`${invalidAddrs.length} invalid address(es) found. Fix them and retry.`, "error");
       return;
     }
 
