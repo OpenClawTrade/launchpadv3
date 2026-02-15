@@ -41,10 +41,16 @@ export default function TunnelDistributePage() {
   const updateAmount = (v: string) => { setAmount(v); localStorage.setItem("tunnel-amount", v); };
   const updateDestinations = (v: string) => { setDestinations(v); localStorage.setItem("tunnel-destinations", v); };
 
-  const [running, setRunning] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [hops, setHops] = useState<HopResult[]>([]);
-  const [stats, setStats] = useState({ total: 0, processed: 0, failed: 0 });
+  const [running, setRunning] = useState(() => localStorage.getItem("tunnel-running") === "1");
+  const [logs, setLogs] = useState<LogEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem("tunnel-logs") || "[]"); } catch { return []; }
+  });
+  const [hops, setHops] = useState<HopResult[]>(() => {
+    try { return JSON.parse(localStorage.getItem("tunnel-hops") || "[]"); } catch { return []; }
+  });
+  const [stats, setStats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tunnel-stats") || '{"total":0,"processed":0,"failed":0}'); } catch { return { total: 0, processed: 0, failed: 0 }; }
+  });
   const abortRef = useRef(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,10 +58,26 @@ export default function TunnelDistributePage() {
     const time = new Date().toLocaleTimeString();
     setLogs(prev => {
       const next = [...prev, { time, message, type }];
+      try { localStorage.setItem("tunnel-logs", JSON.stringify(next.slice(-200))); } catch {}
       setTimeout(() => logEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
       return next;
     });
   }, []);
+
+  const persistHops = (h: HopResult[]) => {
+    setHops(h);
+    try { localStorage.setItem("tunnel-hops", JSON.stringify(h)); } catch {}
+  };
+
+  const persistStats = (s: typeof stats) => {
+    setStats(s);
+    try { localStorage.setItem("tunnel-stats", JSON.stringify(s)); } catch {}
+  };
+
+  const persistRunning = (r: boolean) => {
+    setRunning(r);
+    localStorage.setItem("tunnel-running", r ? "1" : "0");
+  };
 
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -81,11 +103,11 @@ export default function TunnelDistributePage() {
       return;
     }
 
-    setRunning(true);
+    persistRunning(true);
     abortRef.current = false;
-    setLogs([]);
-    setHops([]);
-    setStats({ total: destList.length, processed: 0, failed: 0 });
+    setLogs([]); localStorage.removeItem("tunnel-logs");
+    persistHops([]);
+    persistStats({ total: destList.length, processed: 0, failed: 0 });
 
     addLog(`Starting distribution to ${destList.length} wallets, ${amount} SOL each`);
     addLog("Each wallet gets 2 fresh tunnel keypairs (source → t1 → t2 → dest)");
@@ -103,7 +125,7 @@ export default function TunnelDistributePage() {
 
       if (error || data?.error) {
         addLog(`Failed to initialize: ${data?.error || error?.message}`, "error");
-        setRunning(false);
+        persistRunning(false);
         return;
       }
 
@@ -116,7 +138,7 @@ export default function TunnelDistributePage() {
         status: "funded" as const,
         fundingSig: h.fundingSig,
       }));
-      setHops(hopList);
+      persistHops(hopList);
 
       addLog(`${hopList.length} tunnel pairs created and funded`, "success");
       fundingSignatures.forEach((sig: string) => {
@@ -167,7 +189,7 @@ export default function TunnelDistributePage() {
 
           hop.hop1Sig = hop1Data.signature;
           hop.status = "hop1_done";
-          setHops([...hopList]);
+          persistHops([...hopList]);
           addLog(`  ✓ Hop 1 done (${(hop1Data.lamportsSent / 1_000_000_000).toFixed(6)} SOL): ${hop1Data.signature.slice(0, 16)}...`, "success");
 
           // Random delay between hop1 and hop2 (15-120 seconds)
@@ -203,8 +225,8 @@ export default function TunnelDistributePage() {
           addLog(`✗ Failed ${hop.destination.slice(0, 8)}...: ${err.message}`, "error");
         }
 
-        setHops([...hopList]);
-        setStats({ total: destList.length, processed, failed });
+        persistHops([...hopList]);
+        persistStats({ total: destList.length, processed, failed });
       }
 
       // Update run in DB
@@ -221,7 +243,7 @@ export default function TunnelDistributePage() {
       addLog(`Fatal error: ${err.message}`, "error");
     }
 
-    setRunning(false);
+    persistRunning(false);
   };
 
   if (!authorized) {
