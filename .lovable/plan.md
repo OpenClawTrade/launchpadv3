@@ -1,106 +1,53 @@
 
+# Update Launch Rate Limit: 5 per IP per 24 Hours
 
-# Fix TX1 Confirmation + Phantom Lighthouse Red Warning
+## Current State
+Rate limiting is enforced independently in 4 edge functions, each hardcoded to **2 launches per 1 hour**:
 
-## Root Cause
+- `check-launch-rate/index.ts` (frontend pre-check)
+- `fun-create/index.ts` (fun token creation)
+- `launchpad-create/index.ts` (legacy launchpad creation)
+- `claw-trading-create/index.ts` (Claw mode -- currently has NO rate limiting)
 
-Two linked issues prevent clean launches:
+They all query the same `launch_rate_limits` table by IP address.
 
-1. **TX1 never confirms** -- The manual `getSignatureStatuses` polling loop is unreliable and there is no transaction rebroadcasting. If the first send is dropped during congestion, the transaction never lands.
-2. **TX2 shows red "unsafe" warning** -- Even when TX1 does confirm, Phantom's internal RPC may not have synced TX1's state yet. When Phantom simulates TX2, it cannot find the config account TX1 created, so Lighthouse flags it as unsafe.
+## Changes
 
-Both must be fixed together: TX1 must land reliably, AND Phantom must see its effects before TX2 is presented for signing.
+### 1. Update constants in all 4 edge functions
 
-## Changes (single file: `src/components/launchpad/TokenLauncher.tsx`)
+Change the rate limit constants from `2 per hour` to `5 per 24 hours`:
 
-### 1. Replace manual polling with `confirmTransaction` + rebroadcasting
-
-The current `submitAndConfirmRpc` function (lines ~1166-1203) uses a manual `getSignatureStatuses` loop with 600ms intervals. Replace with:
-
-- **`connection.confirmTransaction()`** using the blockhash strategy -- this is Solana's recommended approach and handles edge cases (expired blockhash, dropped transactions) automatically.
-- **Parallel rebroadcast loop** -- resend the raw signed transaction every 3 seconds while waiting for confirmation. This is standard Solana best practice for reliable transaction landing.
-
-```text
-BEFORE:
-  sendRawTransaction → poll getSignatureStatuses every 600ms → timeout after 45s
-
-AFTER:
-  sendRawTransaction → rebroadcast every 3s in parallel → confirmTransaction (blockhash strategy) → clear rebroadcast
+```
+MAX_LAUNCHES = 2  -->  5
+WINDOW = 1 hour   -->  24 hours
 ```
 
-### 2. Increase post-confirmation sync buffer
+**Files:**
+- `supabase/functions/check-launch-rate/index.ts` -- update constants + message text
+- `supabase/functions/fun-create/index.ts` -- update constants + message text
+- `supabase/functions/launchpad-create/index.ts` -- update constants + message text
 
-After TX1 is confirmed, increase the buffer from 1 second to 2 seconds. This gives Phantom's RPC nodes time to sync TX1's state before the dApp requests batch-signing of TX2+TX3. The `signAllTransactions` call (which chains TX2 and TX3 simulation together per Phantom docs) will only succeed if Phantom's simulator can see the config account TX1 created.
+### 2. Add rate limiting to `claw-trading-create/index.ts`
 
-### 3. Remove dead frontend priority fee code
+This function currently has no rate limit check. Add the same IP-based rate limit (5 per 24h) with an insert into `launch_rate_limits` on success, matching the pattern from the other functions.
 
-The priority fee injection code added at lines 1087-1100 is dead code -- all transactions are VersionedTransactions (v0), so the `tx instanceof Transaction` check always fails. The backend (`lib/meteora.ts`) already sets 500,000 microLamports priority fees. Remove this block and the unused `ComputeBudgetProgram` import.
+### 3. Update the frontend hook
 
-### 4. Keep transaction size diagnostics
+- `src/hooks/useLaunchRateLimit.ts` -- update default `maxLaunches` from 2 to 5 and adjust the message/countdown display to reference "24 hours" instead of "60 minutes"
 
-The byte-size logging (lines 1102-1120) is useful for ongoing monitoring and stays.
+### 4. Update the `api-launch-token` edge function
 
-## How this follows Phantom's documentation
-
-Per Phantom's multi-signer docs:
-- **`signTransaction(TX1)`** -- Phantom signs first, adds Lighthouse instructions, dApp signs with ephemeral keys, submits via own RPC. (Already correct, just needs reliable confirmation.)
-- **`signAllTransactions([TX2, TX3])`** -- Phantom signs both, adds Lighthouse to both, chains simulation so TX3 sees the pool TX2 creates. dApp applies ephemeral sigs after. (Already correct, but TX2 simulation fails because TX1's state hasn't propagated.)
-- **Address Lookup Table** -- Already in use, providing 466-577 bytes of headroom per the diagnostics. (No changes needed.)
-- **dApp submits via own RPC** -- Never uses `signAndSendTransaction`. (Already correct.)
+This is the API-based launch endpoint. It doesn't currently have IP-based rate limiting (it uses API key auth), but to be consistent with "all modes," add the same 5 per 24h IP-based check here too.
 
 ## Technical Details
 
-### New `submitAndConfirmRpc` implementation
+| File | Change |
+|------|--------|
+| `supabase/functions/check-launch-rate/index.ts` | `MAX_LAUNCHES_PER_HOUR` -> `MAX_LAUNCHES_PER_DAY = 5`, `RATE_LIMIT_WINDOW_MS` -> 24h, update message text |
+| `supabase/functions/fun-create/index.ts` | Same constant changes (lines 73-74), update error message |
+| `supabase/functions/launchpad-create/index.ts` | Same constant changes (lines 101-102), update error message |
+| `supabase/functions/claw-trading-create/index.ts` | Add IP extraction + rate limit check block + insert on success |
+| `supabase/functions/api-launch-token/index.ts` | Add IP-based rate limit check + insert on success |
+| `src/hooks/useLaunchRateLimit.ts` | Update `maxLaunches` default from 2 to 5 |
 
-```typescript
-const submitAndConfirmRpc = async (signedTx, label) => {
-  const rawTx = signedTx.serialize();
-  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-
-  const signature = await connection.sendRawTransaction(rawTx, {
-    skipPreflight: false,
-    preflightCommitment: 'confirmed',
-    maxRetries: 0, // We handle retries ourselves
-  });
-  signatures.push(signature);
-
-  // Rebroadcast every 3s in parallel (standard Solana best practice)
-  const resendInterval = setInterval(async () => {
-    try {
-      await connection.sendRawTransaction(rawTx, {
-        skipPreflight: true,
-        maxRetries: 0,
-      });
-    } catch {}
-  }, 3000);
-
-  try {
-    // Blockhash-based confirmation (handles expiry automatically)
-    const confirmation = await connection.confirmTransaction({
-      signature,
-      blockhash: latestBlockhash.blockhash,
-      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-    }, 'confirmed');
-
-    if (confirmation.value.err) {
-      throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
-    }
-  } finally {
-    clearInterval(resendInterval);
-  }
-
-  // 2s buffer for Phantom's RPC to sync TX1's state
-  await new Promise(r => setTimeout(r, 2000));
-  return signature;
-};
-```
-
-### Lines affected
-
-| Lines | Change |
-|-------|--------|
-| 16 | Remove `ComputeBudgetProgram` from import |
-| 1087-1100 | Delete dead priority fee injection block |
-| 1166-1203 | Replace `submitAndConfirmRpc` with rebroadcast + `confirmTransaction` approach |
-
-No other files need changes. The signing flow (signTransaction for TX1, signAllTransactions for TX2+TX3, ephemeral keys applied after Phantom) remains exactly as-is.
+No database schema changes needed -- the existing `launch_rate_limits` table and cleanup function (which already retains records for 24 hours) support this directly.
