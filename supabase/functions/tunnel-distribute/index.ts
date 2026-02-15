@@ -35,10 +35,9 @@ serve(async (req) => {
     const feePerTx = 5000;
 
     // Each destination gets 2 fresh tunnel keypairs: source -> t1 -> t2 -> dest
-    // Amount varies ±5%, so fund for max (1.05x) + 3 tx fees
-    const maxLamports = Math.round(lamportsPerWallet * 1.05);
-    const costPerDest = maxLamports + (3 * feePerTx);
-    const totalNeeded = destinations.length * costPerDest + (destinations.length * feePerTx);
+    // Amount varies ±5% per destination, so fund each differently
+    const costPerDest = Math.round(lamportsPerWallet * 1.06) + (3 * feePerTx); // budget estimate
+    const totalNeeded = destinations.length * costPerDest;
 
     console.log(`Total needed: ${totalNeeded / LAMPORTS_PER_SOL} SOL for ${destinations.length} destinations`);
 
@@ -65,8 +64,11 @@ serve(async (req) => {
       const t1 = Keypair.generate();
       const t2 = Keypair.generate();
 
-      // Fund tunnel1 with enough for: max amount (1.05x) + 2 tx fees
-      const tunnel1Needs = maxLamports + (2 * feePerTx);
+      // Randomize amount ±5% per destination
+      const variance = 0.95 + Math.random() * 0.10;
+      const randomizedLamports = Math.round(lamportsPerWallet * variance);
+      // Fund tunnel1: randomized amount + 2 tx fees (t1->t2, t2->dest)
+      const tunnel1Needs = randomizedLamports + (2 * feePerTx);
 
       console.log(`[${i + 1}/${destinations.length}] Funding tunnel1 ${t1.publicKey.toBase58().slice(0, 8)}... with ${tunnel1Needs / LAMPORTS_PER_SOL} SOL`);
 

@@ -137,18 +137,12 @@ export default function TunnelDistributePage() {
         addLog(`[${i + 1}/${hopList.length}] Hop 1: Tunnel1 → Tunnel2 for ${hop.destination.slice(0, 8)}...`);
 
         try {
-          // Randomize amount: ±5% of base amount
-          const variance = 0.95 + Math.random() * 0.10; // 0.95 to 1.05
-          const lamports = Math.round(baseLamports * variance);
-          addLog(`  Amount: ${(lamports / 1_000_000_000).toFixed(6)} SOL`, "info");
-
-          // Hop 1: tunnel1 → tunnel2 (send amount + 1 tx fee for hop2)
-          const hop1Lamports = lamports + 5000;
+          // Hop 1: tunnel1 → tunnel2 (send all, draining tunnel1)
           const { data: hop1Data, error: hop1Error } = await supabase.functions.invoke("tunnel-send", {
             body: {
               tunnelPrivateKey: hop.tunnel1.secretKey,
               destination: hop.tunnel2.publicKey,
-              lamports: hop1Lamports,
+              sendAll: true,
             },
           });
 
@@ -159,7 +153,7 @@ export default function TunnelDistributePage() {
           hop.hop1Sig = hop1Data.signature;
           hop.status = "hop1_done";
           setHops([...hopList]);
-          addLog(`  ✓ Hop 1 done: ${hop1Data.signature.slice(0, 16)}...`, "success");
+          addLog(`  ✓ Hop 1 done (${(hop1Data.lamportsSent / 1_000_000_000).toFixed(6)} SOL): ${hop1Data.signature.slice(0, 16)}...`, "success");
 
           // Random delay between hop1 and hop2 (15-120 seconds)
           const interHopDelay = (15 + Math.random() * 105) * 1000;
@@ -168,13 +162,13 @@ export default function TunnelDistributePage() {
 
           if (abortRef.current) { addLog("Aborted by user", "warn"); break; }
 
-          // Hop 2: tunnel2 → destination
+          // Hop 2: tunnel2 → destination (send all, draining tunnel2)
           addLog(`[${i + 1}/${hopList.length}] Hop 2: Tunnel2 → ${hop.destination.slice(0, 8)}...`);
           const { data: hop2Data, error: hop2Error } = await supabase.functions.invoke("tunnel-send", {
             body: {
               tunnelPrivateKey: hop.tunnel2.secretKey,
               destination: hop.destination,
-              lamports,
+              sendAll: true,
             },
           });
 
