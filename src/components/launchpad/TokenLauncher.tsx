@@ -13,7 +13,7 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Connection, Transaction, VersionedTransaction, PublicKey, Keypair } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction, PublicKey, Keypair, ComputeBudgetProgram } from "@solana/web3.js";
 import bs58 from "bs58";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
@@ -1083,6 +1083,21 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
        const txLabels = baseTxLabels;
        
        console.log(`[Phantom Launch] Deserialized ${txsToSign.length} unsigned transactions (Phantom-first signing for Lighthouse)`);
+       
+       // Add priority fees to all legacy transactions for faster confirmation
+       const PRIORITY_FEE_MICROLAMPORTS = 200_000; // 0.2 lamports/CU — aggressive priority
+       const COMPUTE_UNIT_LIMIT = 400_000;
+       txsToSign.forEach((tx, idx) => {
+         if (tx instanceof Transaction) {
+           // Prepend compute budget instructions (must be first in tx)
+           const priorityIx = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY_FEE_MICROLAMPORTS });
+           const limitIx = ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNIT_LIMIT });
+           tx.instructions.unshift(priorityIx, limitIx);
+           console.log(`[Phantom Launch] TX${idx + 1}: Added priority fee (${PRIORITY_FEE_MICROLAMPORTS} microLamports/CU, ${COMPUTE_UNIT_LIMIT} CU limit)`);
+         } else {
+           console.log(`[Phantom Launch] TX${idx + 1}: V0 transaction — priority fee must be set in backend`);
+         }
+       });
        
        // Log transaction sizes for Lighthouse headroom analysis
        txsToSign.forEach((tx, idx) => {
