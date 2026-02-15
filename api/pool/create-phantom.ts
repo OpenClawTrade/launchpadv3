@@ -4,6 +4,7 @@ import {
   Keypair,
   PublicKey,
   Transaction,
+  VersionedTransaction,
   SystemProgram,
 } from '@solana/web3.js';
 import { createClient } from '@supabase/supabase-js';
@@ -11,6 +12,7 @@ import bs58 from 'bs58';
 import { createMeteoraPool, createMeteoraPoolWithMint } from '../../lib/meteora.js';
 import { PLATFORM_FEE_WALLET } from '../../lib/config.js';
 import { getAvailableVanityAddress, releaseVanityAddress } from '../../lib/vanityGenerator.js';
+import { getAddressLookupTable } from '../../lib/addressLookupTable.js';
 
 // Jito tip accounts - tip must be in LAST transaction per Jito docs
 const JITO_TIP_ACCOUNTS = [
@@ -217,7 +219,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       hasPoolVanityKeypair: !!vanityKeypair,
     });
     
-    let transactions: Transaction[];
+    // Fetch ALT for transaction compression (critical for Phantom Lighthouse)
+    let altAccount = null;
+    try {
+      altAccount = await getAddressLookupTable(connection);
+      if (altAccount) {
+        console.log('[create-phantom] ✅ ALT loaded for transaction compression');
+      } else {
+        console.warn('[create-phantom] ⚠️ No ALT available — pool tx may be too large for Lighthouse');
+      }
+    } catch (altErr) {
+      console.warn('[create-phantom] ALT fetch failed (non-fatal):', altErr);
+    }
+
+    let transactions: (Transaction | VersionedTransaction)[];
     let mintKeypair: Keypair;
     let configKeypair: Keypair;
     let poolAddress: PublicKey;
@@ -235,6 +250,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         initialBuySol: effectiveDevBuySol, // Dev buy amount (atomic with pool creation)
         tradingFeeBps, // Pass custom fee
         enableDevBuy: effectiveDevBuySol > 0, // Enable first swap with min fee for dev buy
+        addressLookupTable: altAccount, // ALT for V0 compression
       });
       transactions = result.transactions;
       mintKeypair = vanityKeypair.keypair;
@@ -251,6 +267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         initialBuySol: effectiveDevBuySol, // Dev buy amount (atomic with pool creation)
         tradingFeeBps, // Pass custom fee
         enableDevBuy: effectiveDevBuySol > 0, // Enable first swap with min fee for dev buy
+        addressLookupTable: altAccount, // ALT for V0 compression
       });
       transactions = result.transactions;
       mintKeypair = result.mintKeypair;
@@ -326,22 +343,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn('[create-phantom] ⚠️ Metadata upload error (non-fatal):', metaUploadError);
     }
 
-    // For Phantom Lighthouse compatibility, we need to:
-    // 1. Add Jito tip instruction to the LAST transaction (per Jito docs)
-    // 2. Do NOT partialSign — send UNSIGNED transactions so Phantom can inject Lighthouse instructions
-    // 3. Return ephemeral keypair secret keys so frontend can partialSign AFTER Phantom signs
-    // 
-    // Flow: Backend builds unsigned tx → Phantom signs first (adds Lighthouse) → Frontend partialSigns with keypairs → Submit
+    // For Phantom Lighthouse compatibility:
+    // 1. Send UNSIGNED transactions — Phantom signs first to inject Lighthouse instructions
+    // 2. Return ephemeral keypair secret keys so frontend can partialSign AFTER Phantom
+    // 3. No Jito tips — saves bytes, we use standard RPC submission
     
     const phantomPubkey = new PublicKey(phantomWallet);
     
-    // CRITICAL: Add Jito tip to LAST transaction BEFORE setting blockhash
-    addJitoTipToLastTransaction(transactions, phantomPubkey, JITO_TIP_LAMPORTS);
-    
     const serializedTransactions: string[] = [];
-    
-    // Track which keypairs each transaction needs (for frontend partial signing)
     const txRequiredKeypairs: string[][] = [];
+    const txIsVersioned: boolean[] = []; // Track which txs are V0 for frontend
 
     // Build a map of available keypairs
     const availableKeypairs: Map<string, Keypair> = new Map([
@@ -349,40 +360,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       [configKeypair.publicKey.toBase58(), configKeypair],
     ]);
 
-    console.log('[create-phantom] Available signers (will be sent to frontend for post-Phantom signing):', Array.from(availableKeypairs.keys()));
+    console.log('[create-phantom] Available signers:', Array.from(availableKeypairs.keys()));
 
     for (let i = 0; i < transactions.length; i++) {
       const tx = transactions[i];
+      const isVersioned = tx instanceof VersionedTransaction;
+      txIsVersioned.push(isVersioned);
 
-      // Fresh blockhash with retry for rate limits
-      const latest = await getBlockhashWithRetry(connection);
-      tx.recentBlockhash = latest.blockhash;
-      tx.feePayer = phantomPubkey; // Phantom wallet pays fees
+      if (isVersioned) {
+        // VersionedTransaction (V0 with ALT) — already has blockhash from meteora.ts
+        // Determine required signers from the compiled message
+        const message = tx.message;
+        const numSigners = message.header.numRequiredSignatures;
+        const accountKeys = message.getAccountKeys({
+          addressLookupTableAccounts: altAccount ? [altAccount] : undefined,
+        });
+        
+        const requiredSignerPubkeys: string[] = [];
+        for (let s = 0; s < numSigners; s++) {
+          requiredSignerPubkeys.push(accountKeys.get(s)!.toBase58());
+        }
 
-      // Compile message to determine required signers
-      const message = tx.compileMessage();
-      const requiredSignerPubkeys = message.accountKeys
-        .slice(0, message.header.numRequiredSignatures)
-        .map((k) => k.toBase58());
+        console.log(`[create-phantom] Tx ${i + 1}/${transactions.length} (V0) requires signers:`, requiredSignerPubkeys);
 
-      console.log(`[create-phantom] Tx ${i + 1}/${transactions.length} requires signers:`, requiredSignerPubkeys);
+        const neededKeypairPubkeys = requiredSignerPubkeys
+          .filter((pk) => availableKeypairs.has(pk));
 
-      // Identify which of our keypairs this tx needs (exclude Phantom wallet)
-      const neededKeypairPubkeys = requiredSignerPubkeys
-        .filter((pk) => availableKeypairs.has(pk));
+        console.log(`[create-phantom] Tx ${i + 1} needs backend keypairs:`, neededKeypairPubkeys);
+        txRequiredKeypairs.push(neededKeypairPubkeys);
 
-      console.log(`[create-phantom] Tx ${i + 1} needs backend keypairs:`, neededKeypairPubkeys);
-      txRequiredKeypairs.push(neededKeypairPubkeys);
+        // Serialize V0 — no signatures needed yet
+        const serialized = Buffer.from(tx.serialize()).toString('base64');
+        serializedTransactions.push(serialized);
+      } else {
+        // Legacy Transaction — need fresh blockhash
+        const latest = await getBlockhashWithRetry(connection);
+        tx.recentBlockhash = latest.blockhash;
+        tx.feePayer = phantomPubkey;
 
-      // DO NOT partialSign here — Phantom must sign first to inject Lighthouse instructions
-      // Serialize WITHOUT signatures for Phantom
-      const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
-      serializedTransactions.push(serialized);
+        const message = tx.compileMessage();
+        const requiredSignerPubkeys = message.accountKeys
+          .slice(0, message.header.numRequiredSignatures)
+          .map((k) => k.toBase58());
+
+        console.log(`[create-phantom] Tx ${i + 1}/${transactions.length} (legacy) requires signers:`, requiredSignerPubkeys);
+
+        const neededKeypairPubkeys = requiredSignerPubkeys
+          .filter((pk) => availableKeypairs.has(pk));
+
+        console.log(`[create-phantom] Tx ${i + 1} needs backend keypairs:`, neededKeypairPubkeys);
+        txRequiredKeypairs.push(neededKeypairPubkeys);
+
+        const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
+        serializedTransactions.push(serialized);
+      }
     }
 
     console.log('[create-phantom] Returning UNSIGNED transactions for Phantom-first signing (Lighthouse compatible)');
+    console.log('[create-phantom] Transaction types:', txIsVersioned.map((v, i) => `TX${i + 1}: ${v ? 'V0' : 'legacy'}`));
 
-    // Mark vanity as used (will be released if user doesn't complete)
+    // Mark vanity as used
     if (vanityKeypairId) {
       console.log('[create-phantom] Vanity address reserved:', vanityKeypairId);
     }
@@ -397,7 +434,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Export ephemeral keypair secret keys (base58) so frontend can partialSign after Phantom
-    // These are safe to share — mint authority transfers to pool, config is one-time-use
     const ephemeralKeypairs: Record<string, string> = {};
     for (const [pubkey, kp] of availableKeypairs.entries()) {
       ephemeralKeypairs[pubkey] = bs58.encode(kp.secretKey);
@@ -410,17 +446,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       poolAddress: dbcPoolAddress,
       unsignedTransactions: serializedTransactions,
       txLabels,
-      txRequiredKeypairs, // Which keypairs each tx needs
-      ephemeralKeypairs,  // Secret keys for frontend to partialSign after Phantom
+      txRequiredKeypairs,
+      ephemeralKeypairs,
+      txIsVersioned, // Frontend needs this to deserialize correctly
       vanityKeypairId,
       requiresPhantomSignature: true,
-      phantomSignsFirst: true, // Signal to frontend: Phantom signs FIRST for Lighthouse
+      phantomSignsFirst: true,
       txCount: serializedTransactions.length,
       devBuyRequested: effectiveDevBuySol > 0,
       devBuySol: effectiveDevBuySol,
-      jitoTipEmbedded: true,
-      jitoTipLamports: JITO_TIP_LAMPORTS,
-      message: 'Phantom-first signing flow: Phantom signs (adds Lighthouse) → frontend partialSigns with ephemeral keypairs → submit via RPC.',
+      altAddress: process.env.ALT_ADDRESS || null,
+      jitoTipEmbedded: false, // Removed to save bytes for Lighthouse
+      message: 'Phantom-first signing flow with ALT compression for Lighthouse compatibility.',
     });
 
   } catch (error) {
