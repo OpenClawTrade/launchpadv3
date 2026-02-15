@@ -27,34 +27,19 @@ serve(async (req) => {
 
     const connection = new Connection(rpcUrl, "confirmed");
 
-    // Decode source keypair
     const sourceKeypair = Keypair.fromSecretKey(bs58.default.decode(sourcePrivateKey));
     const sourceBalance = await connection.getBalance(sourceKeypair.publicKey);
     console.log(`Source wallet: ${sourceKeypair.publicKey.toBase58()}, balance: ${sourceBalance / LAMPORTS_PER_SOL} SOL`);
 
-    // Generate 2 tunnel keypairs
-    const tunnel1 = Keypair.generate();
-    const tunnel2 = Keypair.generate();
-
-    const tunnels = [
-      { publicKey: tunnel1.publicKey.toBase58(), secretKey: bs58.default.encode(tunnel1.secretKey) },
-      { publicKey: tunnel2.publicKey.toBase58(), secretKey: bs58.default.encode(tunnel2.secretKey) },
-    ];
-
-    // Split destinations between tunnels
-    const mid = Math.ceil(destinations.length / 2);
-    const batch1 = destinations.slice(0, mid);
-    const batch2 = destinations.slice(mid);
-
     const lamportsPerWallet = Math.round(amountPerWallet * LAMPORTS_PER_SOL);
-    const feePerTx = 5000; // 0.000005 SOL
+    const feePerTx = 5000;
 
-    // Calculate how much each tunnel needs
-    const tunnel1Needs = (batch1.length * lamportsPerWallet) + (batch1.length * feePerTx) + feePerTx;
-    const tunnel2Needs = batch2.length > 0 ? (batch2.length * lamportsPerWallet) + (batch2.length * feePerTx) + feePerTx : 0;
-    const totalNeeded = tunnel1Needs + tunnel2Needs + (2 * feePerTx); // extra fees for source->tunnel txs
+    // Each destination gets 2 fresh tunnel keypairs: source -> t1 -> t2 -> dest
+    // Cost per destination: lamports + 3 tx fees (source->t1, t1->t2, t2->dest)
+    const costPerDest = lamportsPerWallet + (3 * feePerTx);
+    const totalNeeded = destinations.length * costPerDest + (destinations.length * feePerTx); // extra buffer
 
-    console.log(`Total needed: ${totalNeeded / LAMPORTS_PER_SOL} SOL`);
+    console.log(`Total needed: ${totalNeeded / LAMPORTS_PER_SOL} SOL for ${destinations.length} destinations`);
 
     if (sourceBalance < totalNeeded) {
       return new Response(JSON.stringify({ 
@@ -64,43 +49,49 @@ serve(async (req) => {
       });
     }
 
+    // Generate 2 fresh tunnel keypairs per destination
+    const hops: Array<{
+      destination: string;
+      tunnel1: { publicKey: string; secretKey: string };
+      tunnel2: { publicKey: string; secretKey: string };
+      status: string;
+      fundingSig?: string;
+    }> = [];
+
     const signatures: string[] = [];
 
-    // Fund tunnel 1
-    console.log(`Funding tunnel 1 (${tunnel1.publicKey.toBase58()}) with ${tunnel1Needs / LAMPORTS_PER_SOL} SOL`);
-    const tx1 = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: sourceKeypair.publicKey,
-        toPubkey: tunnel1.publicKey,
-        lamports: tunnel1Needs,
-      })
-    );
-    tx1.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-    tx1.feePayer = sourceKeypair.publicKey;
-    tx1.sign(sourceKeypair);
-    const sig1 = await connection.sendRawTransaction(tx1.serialize());
-    await connection.confirmTransaction(sig1, "confirmed");
-    signatures.push(sig1);
-    console.log(`Tunnel 1 funded: ${sig1}`);
+    for (let i = 0; i < destinations.length; i++) {
+      const t1 = Keypair.generate();
+      const t2 = Keypair.generate();
 
-    // Fund tunnel 2 (if needed)
-    let sig2 = null;
-    if (tunnel2Needs > 0) {
-      console.log(`Funding tunnel 2 (${tunnel2.publicKey.toBase58()}) with ${tunnel2Needs / LAMPORTS_PER_SOL} SOL`);
-      const tx2 = new Transaction().add(
+      // Fund tunnel1 with enough for: amount + 2 tx fees (t1->t2 and t2->dest)
+      const tunnel1Needs = lamportsPerWallet + (2 * feePerTx);
+
+      console.log(`[${i + 1}/${destinations.length}] Funding tunnel1 ${t1.publicKey.toBase58().slice(0, 8)}... with ${tunnel1Needs / LAMPORTS_PER_SOL} SOL`);
+
+      const tx = new Transaction().add(
         SystemProgram.transfer({
           fromPubkey: sourceKeypair.publicKey,
-          toPubkey: tunnel2.publicKey,
-          lamports: tunnel2Needs,
+          toPubkey: t1.publicKey,
+          lamports: tunnel1Needs,
         })
       );
-      tx2.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-      tx2.feePayer = sourceKeypair.publicKey;
-      tx2.sign(sourceKeypair);
-      sig2 = await connection.sendRawTransaction(tx2.serialize());
-      await connection.confirmTransaction(sig2, "confirmed");
-      signatures.push(sig2);
-      console.log(`Tunnel 2 funded: ${sig2}`);
+      tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      tx.feePayer = sourceKeypair.publicKey;
+      tx.sign(sourceKeypair);
+      const sig = await connection.sendRawTransaction(tx.serialize());
+      await connection.confirmTransaction(sig, "confirmed");
+      signatures.push(sig);
+
+      hops.push({
+        destination: destinations[i],
+        tunnel1: { publicKey: t1.publicKey.toBase58(), secretKey: bs58.default.encode(t1.secretKey) },
+        tunnel2: { publicKey: t2.publicKey.toBase58(), secretKey: bs58.default.encode(t2.secretKey) },
+        status: "funded",
+        fundingSig: sig,
+      });
+
+      console.log(`[${i + 1}] Tunnel1 funded: ${sig}`);
     }
 
     // Save run to database
@@ -108,24 +99,18 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const assignments = [
-      ...batch1.map((dest: string) => ({ tunnel: 0, destination: dest })),
-      ...batch2.map((dest: string) => ({ tunnel: 1, destination: dest })),
-    ];
-
     const { data: run } = await supabase.from("tunnel_distribution_runs").insert({
       source_wallet: sourceKeypair.publicKey.toBase58(),
       amount_per_wallet: amountPerWallet,
       status: "in_progress",
-      tunnel_keys: tunnels,
-      hops: assignments.map(a => ({ ...a, status: "pending", signature: null })),
+      tunnel_keys: hops.map(h => ({ tunnel1: h.tunnel1, tunnel2: h.tunnel2 })),
+      hops: hops.map(h => ({ destination: h.destination, status: "funded", fundingSig: h.fundingSig })),
     }).select().single();
 
     return new Response(JSON.stringify({
       success: true,
       runId: run?.id,
-      tunnels,
-      assignments,
+      hops,
       fundingSignatures: signatures,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
