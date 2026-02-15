@@ -13,9 +13,9 @@ serve(async (req) => {
   }
 
   try {
-    const { tunnelPrivateKey, destination, lamports } = await req.json();
+    const { tunnelPrivateKey, destination, lamports, sendAll } = await req.json();
 
-    if (!tunnelPrivateKey || !destination || !lamports) {
+    if (!tunnelPrivateKey || !destination) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -28,13 +28,28 @@ serve(async (req) => {
     const tunnelKeypair = Keypair.fromSecretKey(bs58.default.decode(tunnelPrivateKey));
     const destPubkey = new PublicKey(destination);
 
-    console.log(`Sending ${lamports / LAMPORTS_PER_SOL} SOL from ${tunnelKeypair.publicKey.toBase58()} to ${destination}`);
+    let sendLamports: number;
+
+    if (sendAll) {
+      // Send entire balance minus tx fee
+      const balance = await connection.getBalance(tunnelKeypair.publicKey);
+      const fee = 5000;
+      sendLamports = balance - fee;
+      if (sendLamports <= 0) {
+        throw new Error(`Insufficient balance: ${balance} lamports`);
+      }
+    } else {
+      if (!lamports) throw new Error("Missing lamports or sendAll flag");
+      sendLamports = lamports;
+    }
+
+    console.log(`Sending ${sendLamports / LAMPORTS_PER_SOL} SOL from ${tunnelKeypair.publicKey.toBase58()} to ${destination}`);
 
     const tx = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: tunnelKeypair.publicKey,
         toPubkey: destPubkey,
-        lamports,
+        lamports: sendLamports,
       })
     );
 
@@ -47,7 +62,7 @@ serve(async (req) => {
 
     console.log(`Transfer confirmed: ${signature}`);
 
-    return new Response(JSON.stringify({ success: true, signature }), {
+    return new Response(JSON.stringify({ success: true, signature, lamportsSent: sendLamports }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
