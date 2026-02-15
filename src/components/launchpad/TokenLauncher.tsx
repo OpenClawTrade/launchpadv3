@@ -1084,15 +1084,15 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
        
        console.log(`[Phantom Launch] Deserialized ${txsToSign.length} unsigned transactions (Phantom-first signing for Lighthouse)`);
 
-      // === Phantom signAllTransactions flow ===
-      // Batch all transactions into ONE Phantom prompt so Lighthouse can simulate
-      // the full chain (TX1 creates accounts → TX2/TX3 use them) and avoid warnings.
-      // After Phantom signs, we apply ephemeral keypair signatures and submit ourselves.
+      // === Per Phantom Lighthouse docs for multi-signer transactions ===
+      // 1. Use signTransaction() to let Phantom sign FIRST (adds Lighthouse instructions)
+      // 2. dApp then signs with ephemeral keypairs (mint, config)
+      // 3. dApp submits via its own RPC
       
       const useJitoBundle = !!data?.useJitoBundle;
       const signatures: string[] = [];
       
-      // Apply ephemeral keypair signatures to a Phantom-signed transaction
+      // Apply ephemeral keypair signatures AFTER Phantom has signed
       const applyEphemeralSigs = (signedTx: Transaction | VersionedTransaction, idx: number, label: string) => {
         const neededPubkeys = txRequiredKeypairs[idx] || [];
         if (signedTx instanceof Transaction) {
@@ -1114,7 +1114,20 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         }
       };
       
-      // Helper: submit + confirm via RPC
+      // Sign single TX: Phantom first (Lighthouse injection) → ephemeral keys second
+      const signTx = async (tx: Transaction | VersionedTransaction, idx: number, label: string) => {
+        console.log(`[Phantom Launch] signTransaction (Phantom-first): ${label} (${idx + 1}/${txsToSign.length})...`);
+        
+        const phantomSigned = await phantomWallet.signTransaction(tx as any);
+        if (!phantomSigned) throw new Error(`${label} was cancelled or failed`);
+        
+        // Now dApp signs with ephemeral keypairs (Lighthouse instructions already added)
+        applyEphemeralSigs(phantomSigned, idx, label);
+        
+        return phantomSigned;
+      };
+      
+      // Submit + confirm via dApp's own RPC (per Phantom docs)
       const submitAndConfirmRpc = async (signedTx: Transaction | VersionedTransaction, label: string) => {
         const rawTx = (signedTx as any).serialize();
         const signature = await connection.sendRawTransaction(rawTx, {
@@ -1125,7 +1138,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         console.log(`[Phantom Launch] ✅ ${label} sent:`, signature);
         signatures.push(signature);
         
-        // Wait for confirmation
         const confirmStart = Date.now();
         const maxConfirmMs = 15_000;
         let confirmed = false;
@@ -1149,44 +1161,29 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         return signature;
       };
       
-      // === STEP 1: Batch sign ALL transactions with Phantom (single prompt) ===
-      toast({ title: "Approve in Phantom", description: `Signing ${txsToSign.length} transactions...` });
-      console.log(`[Phantom Launch] signAllTransactions: sending ${txsToSign.length} txs to Phantom...`);
-      
-      let allSigned: (Transaction | VersionedTransaction)[];
-      try {
-        // Phantom's signAllTransactions accepts mixed legacy + versioned arrays
-        allSigned = await phantomWallet.signAllTransactions(txsToSign as any);
-        if (!allSigned || allSigned.length !== txsToSign.length) {
-          throw new Error('Phantom returned unexpected number of signed transactions');
-        }
-        console.log(`[Phantom Launch] ✅ Phantom signed ${allSigned.length} transactions`);
-      } catch (signErr: any) {
-        const errMsg = signErr?.message || String(signErr);
-        if (errMsg.includes('rejected') || errMsg.includes('cancelled') || errMsg.includes('User rejected')) {
-          throw new Error('Transaction signing was cancelled');
-        }
-        throw signErr;
-      }
-      
-      // === STEP 2: Apply ephemeral keypair signatures to all transactions ===
-      for (let i = 0; i < allSigned.length; i++) {
-        applyEphemeralSigs(allSigned[i], i, txLabels[i]);
-      }
-      
-      // === STEP 3: Submit transactions ===
-      if (useJitoBundle && allSigned.length >= 3) {
-        // TX1 via RPC first (must confirm before TX2/TX3 can land)
+      if (useJitoBundle && txsToSign.length >= 3) {
+        // === JITO BUNDLE MODE ===
+        // TX1: Create Config → Phantom signs → ephemeral signs → submit via RPC
+        // TX2+TX3: Pool + Dev Buy → Phantom signs each → ephemeral signs → Jito bundle
+        
         console.log('[Phantom Launch] 🔥 Using Jito bundle for TX2+TX3 (atomic dev buy)');
         
+        // Step 1: TX1 (Create Config)
+        toast({ title: `Signing ${txLabels[0]}...`, description: `Step 1 of ${txsToSign.length}` });
+        const signedTx1 = await signTx(txsToSign[0], 0, txLabels[0]);
         toast({ title: `Submitting ${txLabels[0]}...`, description: `Waiting for confirmation...` });
-        await submitAndConfirmRpc(allSigned[0], txLabels[0]);
+        await submitAndConfirmRpc(signedTx1, txLabels[0]);
         
-        // TX2+TX3 as Jito bundle for atomic execution
+        // Step 2: Sign TX2 and TX3 individually with Phantom
+        toast({ title: `Signing ${txLabels[1]}...`, description: `Step 2 of ${txsToSign.length}` });
+        const signedTx2 = await signTx(txsToSign[1], 1, txLabels[1]);
+        
+        toast({ title: `Signing ${txLabels[2]}...`, description: `Step 3 of ${txsToSign.length}` });
+        const signedTx3 = await signTx(txsToSign[2], 2, txLabels[2]);
+        
+        // Step 3: Submit TX2+TX3 as Jito bundle
         toast({ title: "Submitting Jito Bundle...", description: "Pool + Dev Buy executing atomically" });
-        console.log('[Phantom Launch] Submitting TX2+TX3 as Jito bundle...');
-        
-        const bundleResult = await submitJitoBundle([allSigned[1], allSigned[2]]);
+        const bundleResult = await submitJitoBundle([signedTx2, signedTx3]);
         
         if (bundleResult.success && bundleResult.bundleId) {
           console.log('[Phantom Launch] Jito bundle submitted:', bundleResult.bundleId);
@@ -1197,39 +1194,28 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           
           if (!confirmResult.confirmed) {
             console.warn('[Phantom Launch] Jito bundle not confirmed:', confirmResult);
-            toast({ 
-              title: "⚠️ Bundle confirmation timed out", 
-              description: "Transactions may still land. Check Solscan for status.",
-            });
+            toast({ title: "⚠️ Bundle confirmation timed out", description: "Check Solscan for status." });
           } else {
             console.log('[Phantom Launch] ✅ Jito bundle confirmed!', confirmResult);
           }
         } else {
-          // Jito failed — fallback to sequential RPC
-          console.warn('[Phantom Launch] Jito bundle failed, falling back to sequential RPC:', bundleResult.error);
-          toast({ 
-            title: "⚠️ Jito bundle failed, using fallback", 
-            description: "Submitting transactions sequentially",
-            variant: "destructive",
-          });
-          
-          await submitAndConfirmRpc(allSigned[1], txLabels[1]);
-          const rawTx3 = (allSigned[2] as any).serialize();
-          const sig3 = await connection.sendRawTransaction(rawTx3, {
-            skipPreflight: false,
-            preflightCommitment: "confirmed",
-            maxRetries: 3,
+          console.warn('[Phantom Launch] Jito failed, fallback to sequential:', bundleResult.error);
+          toast({ title: "⚠️ Jito failed, using fallback", description: "Submitting sequentially", variant: "destructive" });
+          await submitAndConfirmRpc(signedTx2, txLabels[1]);
+          const sig3 = await connection.sendRawTransaction((signedTx3 as any).serialize(), {
+            skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 3,
           });
           signatures.push(sig3);
-          console.log('[Phantom Launch] Fallback TX3 sent:', sig3);
         }
         
       } else {
-        // === STANDARD SEQUENTIAL MODE (no dev buy, or only 1-2 txs) ===
-        for (let i = 0; i < allSigned.length; i++) {
+        // === STANDARD SEQUENTIAL MODE ===
+        for (let i = 0; i < txsToSign.length; i++) {
           const txLabel = txLabels[i] || `Transaction ${i + 1}`;
+          toast({ title: `Signing ${txLabel}...`, description: `Step ${i + 1} of ${txsToSign.length}` });
+          const signedTx = await signTx(txsToSign[i], i, txLabel);
           toast({ title: `Submitting ${txLabel}...`, description: `Waiting for confirmation...` });
-          await submitAndConfirmRpc(allSigned[i], txLabel);
+          await submitAndConfirmRpc(signedTx, txLabel);
         }
       }
       
