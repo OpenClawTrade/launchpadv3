@@ -1083,6 +1083,26 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
        const txLabels = baseTxLabels;
        
        console.log(`[Phantom Launch] Deserialized ${txsToSign.length} unsigned transactions (Phantom-first signing for Lighthouse)`);
+       
+       // Log transaction sizes for Lighthouse headroom analysis
+       txsToSign.forEach((tx, idx) => {
+         try {
+           const serialized = (tx as any).serialize({ requireAllSignatures: false, verifySignatures: false });
+           const bytes = serialized.length || serialized.byteLength;
+           const headroom = 1232 - bytes;
+           console.log(`[Phantom Launch] TX${idx + 1} (${baseTxLabels[idx]}): ${bytes} bytes / 1232 limit — ${headroom} bytes headroom for Lighthouse`);
+         } catch (e) {
+           // VersionedTransaction serialize differently
+           try {
+             const serialized = (tx as any).serialize();
+             const bytes = serialized.length || serialized.byteLength;
+             const headroom = 1232 - bytes;
+             console.log(`[Phantom Launch] TX${idx + 1} (${baseTxLabels[idx]}): ${bytes} bytes / 1232 limit — ${headroom} bytes headroom for Lighthouse`);
+           } catch (e2) {
+             console.log(`[Phantom Launch] TX${idx + 1} (${baseTxLabels[idx]}): Could not measure size`);
+           }
+         }
+       });
 
       // === Per Phantom Lighthouse docs for multi-signer transactions ===
       // 1. Use signTransaction() to let Phantom sign FIRST (adds Lighthouse instructions)
