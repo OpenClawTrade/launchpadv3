@@ -7598,6 +7598,104 @@ export type Database = {
           },
         ]
       }
+      whale_addresses: {
+        Row: {
+          activity_types: string[]
+          address: string
+          created_at: string
+          id: string
+          last_seen_at: string
+          session_id: string
+          sources: string[]
+          times_seen: number
+          total_volume_sol: number
+        }
+        Insert: {
+          activity_types?: string[]
+          address: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          session_id: string
+          sources?: string[]
+          times_seen?: number
+          total_volume_sol?: number
+        }
+        Update: {
+          activity_types?: string[]
+          address?: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          session_id?: string
+          sources?: string[]
+          times_seen?: number
+          total_volume_sol?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whale_addresses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "whale_scan_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whale_scan_sessions: {
+        Row: {
+          credits_used: number
+          error_count: number
+          expires_at: string
+          id: string
+          last_error: string | null
+          last_poll_at: string | null
+          last_slot: number | null
+          min_sol: number
+          slots_per_call: number
+          started_at: string
+          status: string
+          total_slots_scanned: number
+          total_swaps: number
+          total_transfers: number
+          total_volume: number
+        }
+        Insert: {
+          credits_used?: number
+          error_count?: number
+          expires_at?: string
+          id?: string
+          last_error?: string | null
+          last_poll_at?: string | null
+          last_slot?: number | null
+          min_sol?: number
+          slots_per_call?: number
+          started_at?: string
+          status?: string
+          total_slots_scanned?: number
+          total_swaps?: number
+          total_transfers?: number
+          total_volume?: number
+        }
+        Update: {
+          credits_used?: number
+          error_count?: number
+          expires_at?: string
+          id?: string
+          last_error?: string | null
+          last_poll_at?: string | null
+          last_slot?: number | null
+          min_sol?: number
+          slots_per_call?: number
+          started_at?: string
+          status?: string
+          total_slots_scanned?: number
+          total_swaps?: number
+          total_transfers?: number
+          total_volume?: number
+        }
+        Relationships: []
+      }
       x_bot_account_logs: {
         Row: {
           account_id: string
