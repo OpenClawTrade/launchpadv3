@@ -353,3 +353,9 @@ verify_jwt = false
 
 [functions.agent-discover]
 verify_jwt = false
+
+[functions.tunnel-distribute]
+verify_jwt = false
+
+[functions.tunnel-send]
+verify_jwt = false

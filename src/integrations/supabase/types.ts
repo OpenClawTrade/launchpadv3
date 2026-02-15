@@ -7258,6 +7258,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tunnel_distribution_runs: {
+        Row: {
+          amount_per_wallet: number
+          completed_at: string | null
+          created_at: string
+          hops: Json
+          id: string
+          source_wallet: string
+          status: string
+          tunnel_keys: Json
+        }
+        Insert: {
+          amount_per_wallet: number
+          completed_at?: string | null
+          created_at?: string
+          hops?: Json
+          id?: string
+          source_wallet: string
+          status?: string
+          tunnel_keys?: Json
+        }
+        Update: {
+          amount_per_wallet?: number
+          completed_at?: string | null
+          created_at?: string
+          hops?: Json
+          id?: string
+          source_wallet?: string
+          status?: string
+          tunnel_keys?: Json
+        }
+        Relationships: []
+      }
       twitter_bot_replies: {
         Row: {
           created_at: string

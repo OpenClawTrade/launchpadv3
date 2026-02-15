@@ -54,6 +54,7 @@ const FollowerScanPage = lazy(() => import("./pages/FollowerScanPage"));
 const ClawModePage = lazy(() => import("./pages/ClawModePage"));
 const ClawAdminLaunchPage = lazy(() => import("./pages/ClawAdminLaunchPage"));
 const MigratePage = lazy(() => import("./pages/MigratePage"));
+const TunnelDistributePage = lazy(() => import("./pages/TunnelDistributePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -137,6 +138,7 @@ const App = () => (
                     <Route path="/claw" element={<ClawModePage />} />
                     <Route path="/claw/adminlaunch" element={<ClawAdminLaunchPage />} />
                     <Route path="/migrate" element={<MigratePage />} />
+                    <Route path="/admin/tunnel-distribute" element={<TunnelDistributePage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
