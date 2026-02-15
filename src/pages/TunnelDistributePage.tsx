@@ -116,11 +116,11 @@ export default function TunnelDistributePage() {
 
         const hop = hopList[i];
 
-        // Random delay between destinations (1-5 min)
+        // Random delay between destinations (30s - 2 min)
         if (i > 0) {
-          const delayMs = (60 + Math.random() * 240) * 1000;
-          const delayMin = (delayMs / 60000).toFixed(1);
-          addLog(`Waiting ${delayMin} min before next destination...`, "info");
+          const delayMs = (30 + Math.random() * 90) * 1000;
+          const delaySec = (delayMs / 1000).toFixed(0);
+          addLog(`Waiting ${delaySec}s before next destination...`, "info");
           const chunks = Math.ceil(delayMs / 5000);
           for (let c = 0; c < chunks; c++) {
             if (abortRef.current) break;
@@ -151,8 +151,8 @@ export default function TunnelDistributePage() {
           setHops([...hopList]);
           addLog(`  ✓ Hop 1 done: ${hop1Data.signature.slice(0, 16)}...`, "success");
 
-          // Small delay between hop1 and hop2 (10-60 seconds)
-          const interHopDelay = (10 + Math.random() * 50) * 1000;
+          // Random delay between hop1 and hop2 (15-120 seconds)
+          const interHopDelay = (15 + Math.random() * 105) * 1000;
           addLog(`  Waiting ${(interHopDelay / 1000).toFixed(0)}s before hop 2...`, "info");
           await sleep(interHopDelay);
 
