@@ -13,7 +13,7 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { MemeLoadingAnimation, MemeLoadingText } from "@/components/launchpad/MemeLoadingAnimation";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Connection, Transaction, VersionedTransaction, PublicKey, Keypair, ComputeBudgetProgram } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction, PublicKey, Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
@@ -1084,20 +1084,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
        
        console.log(`[Phantom Launch] Deserialized ${txsToSign.length} unsigned transactions (Phantom-first signing for Lighthouse)`);
        
-       // Add priority fees to all legacy transactions for faster confirmation
-       const PRIORITY_FEE_MICROLAMPORTS = 200_000; // 0.2 lamports/CU — aggressive priority
-       const COMPUTE_UNIT_LIMIT = 400_000;
-       txsToSign.forEach((tx, idx) => {
-         if (tx instanceof Transaction) {
-           // Prepend compute budget instructions (must be first in tx)
-           const priorityIx = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY_FEE_MICROLAMPORTS });
-           const limitIx = ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNIT_LIMIT });
-           tx.instructions.unshift(priorityIx, limitIx);
-           console.log(`[Phantom Launch] TX${idx + 1}: Added priority fee (${PRIORITY_FEE_MICROLAMPORTS} microLamports/CU, ${COMPUTE_UNIT_LIMIT} CU limit)`);
-         } else {
-           console.log(`[Phantom Launch] TX${idx + 1}: V0 transaction — priority fee must be set in backend`);
-         }
-       });
        
        // Log transaction sizes for Lighthouse headroom analysis
        txsToSign.forEach((tx, idx) => {
@@ -1165,39 +1151,47 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       // Submit + confirm via dApp's own RPC (per Phantom docs)
       const submitAndConfirmRpc = async (signedTx: Transaction | VersionedTransaction, label: string) => {
         const rawTx = (signedTx as any).serialize();
+        const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+        
         const signature = await connection.sendRawTransaction(rawTx, {
           skipPreflight: false,
-          preflightCommitment: "confirmed",
-          maxRetries: 3,
+          preflightCommitment: 'confirmed',
+          maxRetries: 0, // We handle retries ourselves
         });
         console.log(`[Phantom Launch] ✅ ${label} sent:`, signature);
         signatures.push(signature);
         
-        // Wait for confirmed commitment (sufficient for Phantom Lighthouse — TX sizes have 466+ bytes headroom)
-        const confirmStart = Date.now();
-        const maxConfirmMs = 45_000; // 45s for confirmed
-        let finalStatus: string | null = null;
-        while (!finalStatus && Date.now() - confirmStart < maxConfirmMs) {
+        // Rebroadcast every 3s in parallel (standard Solana best practice for reliable landing)
+        const resendInterval = setInterval(async () => {
           try {
-            const statuses = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
-            const status = statuses.value[0];
-            if (status?.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
-            if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
-              finalStatus = status.confirmationStatus;
-              console.log(`[Phantom Launch] ✅ ${label} ${finalStatus} in ${Date.now() - confirmStart}ms`);
-            }
-          } catch (pollErr: any) {
-            if (pollErr?.message?.includes('failed on-chain')) throw pollErr;
+            await connection.sendRawTransaction(rawTx, {
+              skipPreflight: true,
+              maxRetries: 0,
+            });
+            console.log(`[Phantom Launch] 🔄 ${label} rebroadcast`);
+          } catch {}
+        }, 3000);
+        
+        try {
+          // Blockhash-based confirmation (handles expiry automatically)
+          const confirmStart = Date.now();
+          const confirmation = await connection.confirmTransaction({
+            signature,
+            blockhash: latestBlockhash.blockhash,
+            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+          }, 'confirmed');
+          
+          if (confirmation.value.err) {
+            throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
           }
-          if (!finalStatus) await new Promise((r) => setTimeout(r, 600));
-        }
-        if (!finalStatus) {
-          throw new Error(`${label} confirmation timed out after ${maxConfirmMs / 1000}s. Please try again.`);
+          console.log(`[Phantom Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
+        } finally {
+          clearInterval(resendInterval);
         }
         
-        // Brief buffer for Phantom's RPC to sync
-        console.log(`[Phantom Launch] Waiting 1s for Phantom RPC sync...`);
-        await new Promise((r) => setTimeout(r, 1000));
+        // 2s buffer for Phantom's RPC to sync TX1's state before TX2/TX3 signing
+        console.log(`[Phantom Launch] Waiting 2s for Phantom RPC sync...`);
+        await new Promise((r) => setTimeout(r, 2000));
         
         return signature;
       };
