@@ -199,31 +199,33 @@ serve(async (req) => {
       const sourceAta = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
 
       // Batch destinations into groups to fit in single transactions
+      // Use createAssociatedTokenAccountIdempotent to avoid needing RPC checks
+      const { createAssociatedTokenAccountIdempotentInstruction } = await import(
+        "https://esm.sh/@solana/spl-token@0.4.9"
+      );
       const BATCH_SIZE = 5;
       for (let i = 0; i < destinations.length; i += BATCH_SIZE) {
         const batch = destinations.slice(i, Math.min(i + BATCH_SIZE, destinations.length));
         const tx = new Transaction();
+        const batchValid: string[] = [];
 
         for (const dest of batch) {
           try {
             const destPubkey = new PublicKey(dest);
             const destAta = await getAssociatedTokenAddress(mint, destPubkey, false, tokenProgramId);
 
-            // Check if dest ATA exists, if not create it
-            try {
-              await getAccount(connection, destAta, undefined, tokenProgramId);
-            } catch {
-              tx.add(
-                createAssociatedTokenAccountInstruction(
-                  sourcePubkey,
-                  destAta,
-                  destPubkey,
-                  mint,
-                  tokenProgramId,
-                  ASSOCIATED_TOKEN_PROGRAM_ID
-                )
-              );
-            }
+            // Idempotent: creates ATA if it doesn't exist, no-ops if it does
+            // No RPC call needed - avoids rate limiting issues
+            tx.add(
+              createAssociatedTokenAccountIdempotentInstruction(
+                sourcePubkey,
+                destAta,
+                destPubkey,
+                mint,
+                tokenProgramId,
+                ASSOCIATED_TOKEN_PROGRAM_ID
+              )
+            );
 
             tx.add(
               createTransferInstruction(
@@ -235,9 +237,10 @@ serve(async (req) => {
                 tokenProgramId
               )
             );
+            batchValid.push(dest);
           } catch (e: any) {
-            logs.push(`[${i + batch.indexOf(dest) + 1}/${destinations.length}] Setup failed for ${dest.slice(0, 8)}...: ${e.message}`);
-            results.push({ destination: dest, status: "failed", error: e.message });
+            logs.push(`[${i + batch.indexOf(dest) + 1}/${destinations.length}] Setup failed for ${dest.slice(0, 8)}...: ${e.message || e}`);
+            results.push({ destination: dest, status: "failed", error: e.message || String(e) });
             failCount++;
           }
         }
@@ -251,21 +254,17 @@ serve(async (req) => {
             const txId = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
             await connection.confirmTransaction(txId, "confirmed");
 
-            for (const dest of batch) {
-              if (!results.find(r => r.destination === dest)) {
-                logs.push(`[${destinations.indexOf(dest) + 1}/${destinations.length}] ✓ ${dest.slice(0, 8)}... : ${txId}`);
-                signatures.push(txId);
-                results.push({ destination: dest, status: "success", signature: txId });
-                successCount++;
-              }
+            for (const dest of batchValid) {
+              logs.push(`[${destinations.indexOf(dest) + 1}/${destinations.length}] ✓ ${dest.slice(0, 8)}... : ${txId}`);
+              signatures.push(txId);
+              results.push({ destination: dest, status: "success", signature: txId });
+              successCount++;
             }
           } catch (e: any) {
-            for (const dest of batch) {
-              if (!results.find(r => r.destination === dest)) {
-                logs.push(`[${destinations.indexOf(dest) + 1}/${destinations.length}] ✗ ${dest.slice(0, 8)}...: ${e.message}`);
-                results.push({ destination: dest, status: "failed", error: e.message });
-                failCount++;
-              }
+            for (const dest of batchValid) {
+              logs.push(`[${destinations.indexOf(dest) + 1}/${destinations.length}] ✗ ${dest.slice(0, 8)}...: ${e.message}`);
+              results.push({ destination: dest, status: "failed", error: e.message });
+              failCount++;
             }
           }
         }
