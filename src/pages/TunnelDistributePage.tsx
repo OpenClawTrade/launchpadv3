@@ -109,7 +109,7 @@ export default function TunnelDistributePage() {
       });
 
       // Step 2: For each destination, do 2 hops with delays
-      const lamports = Math.round(parseFloat(amount) * 1_000_000_000);
+      const baseLamports = Math.round(parseFloat(amount) * 1_000_000_000);
       let processed = 0;
       let failed = 0;
 
@@ -137,6 +137,11 @@ export default function TunnelDistributePage() {
         addLog(`[${i + 1}/${hopList.length}] Hop 1: Tunnel1 → Tunnel2 for ${hop.destination.slice(0, 8)}...`);
 
         try {
+          // Randomize amount: ±5% of base amount
+          const variance = 0.95 + Math.random() * 0.10; // 0.95 to 1.05
+          const lamports = Math.round(baseLamports * variance);
+          addLog(`  Amount: ${(lamports / 1_000_000_000).toFixed(6)} SOL`, "info");
+
           // Hop 1: tunnel1 → tunnel2 (send amount + 1 tx fee for hop2)
           const hop1Lamports = lamports + 5000;
           const { data: hop1Data, error: hop1Error } = await supabase.functions.invoke("tunnel-send", {
