@@ -1,224 +1,158 @@
 
 
-# Whale Activity Scanner - All Swaps, Bridges, and Transfers
+# Background Whale Scanner - Server-Side Persistent Scanning
 
-## Goal
-Add a real-time blockchain scanner below the compressed distribution tool that captures ALL wallet addresses involved in significant activity -- not just native SOL sends, but also token swaps (Jupiter, Raydium, Orca, Phantom, Axiom), bridge transactions, and any DeFi trade exceeding a configurable SOL value threshold.
+## Problem
 
-## How It Works
+Currently the whale scanner runs entirely in the browser -- when you close the tab, scanning stops and you miss blocks. You want it to run persistently on the server so no transaction is ever missed.
 
-Instead of parsing raw `preBalances`/`postBalances` (which only catches native SOL transfers), we use the **Helius Enhanced Transactions API** which automatically parses and labels every transaction type including swaps, token transfers, and DeFi activity across all major aggregators.
+## Solution
+
+Use a **database-driven job system** with a **self-calling edge function** pattern. When you click "Start Scanner", it creates a scan session in the database and triggers the edge function. The edge function processes slots, saves results to the database, then **calls itself again** to continue -- completely independent of the browser. If it crashes, the frontend detects the stall and re-triggers it.
 
 ```text
-Every 5 seconds (frontend timer):
-  Frontend --> Edge Function "sol-whale-scanner"
-                  |
-                  |--> getSlot() to get latest confirmed slot
-                  |--> getBlock(slot) to get all transaction signatures
-                  |--> POST /v0/transactions (Helius Enhanced API)
-                  |    Batch parse up to 100 signatures at once
-                  |    Returns parsed data with types: SWAP, TRANSFER, etc.
-                  |
-                  |--> Filter by:
-                  |    - nativeTransfers where amount >= threshold
-                  |    - tokenTransfers where value in SOL >= threshold  
-                  |    - swap events where SOL side >= threshold
-                  |
-  Frontend <-- Returns qualified addresses with activity type + amounts
+Click "Start Scanner"
+      |
+      v
+  Insert scan_session row in DB (status: "running", last_slot, config)
+      |
+      v
+  Call sol-whale-scanner edge function once
+      |
+      v
+  Edge function:
+    1. Read session from DB
+    2. Scan slots (5-10 per call)
+    3. Save found addresses to DB (whale_addresses table)
+    4. Update session.last_slot in DB
+    5. If session still "running" and not expired --> call ITSELF again via fetch()
+    6. If error --> update session.error_count, call itself again (auto-retry)
+      |
+      v
+  Runs indefinitely in background until:
+    - 30 min elapsed (auto-stop)
+    - User clicks "Stop" (sets session status to "stopped")
+    - 10 consecutive errors (sets status to "failed", UI auto-restarts)
 ```
 
-## What Helius Enhanced API Gives Us (for free with existing plan)
+The frontend becomes a **viewer only** -- it polls the DB every 3 seconds to show live stats and addresses. Even if you close the browser entirely, scanning continues.
 
-Each parsed transaction includes:
-- **type**: SWAP, TRANSFER, TOKEN_MINT, UNKNOWN, etc.
-- **nativeTransfers**: Array of `{ fromUserAccount, toUserAccount, amount }` (in lamports)
-- **tokenTransfers**: Array of `{ fromUserAccount, toUserAccount, mint, tokenAmount }` 
-- **events.swap**: Parsed swap details with `tokenInputs` and `tokenOutputs` including SOL amounts
-- **source**: JUPITER, RAYDIUM, ORCA, PHANTOM, MAGIC_EDEN, etc.
+## Database Tables
 
-This means we automatically capture:
-- Jupiter aggregator swaps (any size)
-- Raydium AMM/CLMM swaps  
-- Orca Whirlpool swaps
-- Phantom built-in swaps
-- Axiom trades (routed through Jupiter)
-- Bridge deposits/withdrawals (Wormhole, deBridge, Mayan)
-- Direct SOL transfers
-- SPL token transfers
-- Any other DeFi interaction involving SOL movement
+### `whale_scan_sessions`
+Tracks active/past scan sessions:
+- `id` (uuid, PK)
+- `status` (text: "running" | "stopped" | "completed" | "failed")
+- `min_sol` (numeric, default 10)
+- `slots_per_call` (integer, default 5)
+- `last_slot` (bigint) -- resume point
+- `started_at` (timestamptz)
+- `expires_at` (timestamptz) -- 30 min from start
+- `total_slots_scanned` (integer, default 0)
+- `total_swaps` (integer, default 0)
+- `total_transfers` (integer, default 0)
+- `total_volume` (numeric, default 0)
+- `credits_used` (integer, default 0)
+- `error_count` (integer, default 0)
+- `last_error` (text)
+- `last_poll_at` (timestamptz) -- heartbeat to detect stalls
 
-## Helius Credit Usage
+### `whale_addresses`
+All captured addresses (persistent, never lost):
+- `id` (uuid, PK)
+- `session_id` (uuid, FK to whale_scan_sessions)
+- `address` (text)
+- `times_seen` (integer, default 1)
+- `total_volume_sol` (numeric, default 0)
+- `activity_types` (text[], e.g. {"SWAP","TRANSFER"})
+- `sources` (text[], e.g. {"JUPITER","RAYDIUM"})
+- `last_seen_at` (timestamptz)
+- `created_at` (timestamptz)
 
-- `getSlot`: 1 credit
-- `getBlock`: 1 credit  
-- Enhanced parse (`/v0/transactions`): 100 credits per call (batch of 100 sigs)
-- Typical block has 2,000-4,000 transactions, we'd parse them in batches of 100
-- **Per poll (every 5s)**: ~2 + (3000/100 * 100) = ~3,002 credits
-- **30 minutes**: ~108,000 credits
+Unique constraint on `(session_id, address)` so we upsert on each scan.
 
-That's expensive. Better approach: **pre-filter at the block level first**, only parse transactions that show significant balance changes in raw data, then enhance only those.
+Both tables have RLS disabled (admin-only usage, no public access needed).
 
-### Optimized approach (hybrid):
-1. `getBlock` with full transaction data (1 credit)
-2. Scan `preBalances`/`postBalances` for any account with abs(diff) >= threshold (free, local parsing)
-3. Collect only those signatures (typically 50-200 per block with >= 10 SOL movement)
-4. Batch-enhance only qualifying signatures via `/v0/transactions` (1-2 calls of 100)
-5. **Per poll**: ~3-4 credits
-6. **30 minutes (360 polls)**: ~1,200 credits total -- very efficient
+## Edge Function Changes: `sol-whale-scanner/index.ts`
 
-## What Gets Built
+The function gets two modes:
 
-### 1. Edge Function: `sol-whale-scanner`
+**Mode 1: "start"** -- Called by frontend to kick off a session
+- Reads `session_id` from request body
+- Fetches session config from DB
+- Begins scanning slots
+- Upserts found addresses into `whale_addresses`
+- Updates session stats (last_slot, total_slots_scanned, etc.)
+- Updates `last_poll_at` as heartbeat
+- At the end, if session still "running" and not expired, **calls itself** via `fetch()` to continue
+- If error occurs, increments `error_count`; if < 10 consecutive errors, retries
 
-**Location:** `supabase/functions/sol-whale-scanner/index.ts`
+**Mode 2: "stop"** -- Called by frontend
+- Sets session status to "stopped"
 
-**Input:**
+**Mode 3: "status"** -- Called by frontend to poll results
+- Returns session stats + latest addresses from DB
+
+**Self-continuation pattern:**
 ```text
-{
-  minSolAmount: number (default 10),
-  lastSlot?: number (to avoid re-scanning)
+// At end of processing:
+if (session.status === "running" && Date.now() < session.expires_at) {
+  // Fire-and-forget call to self
+  fetch(SELF_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer ANON_KEY" },
+    body: JSON.stringify({ action: "continue", sessionId })
+  });
 }
 ```
 
-**Logic:**
-1. Get latest confirmed slot via `getSlot`
-2. Skip if same as `lastSlot`
-3. Fetch full block via `getBlock` with `transactionDetails: "full"`, `maxSupportedTransactionVersion: 0`
-4. **Pre-filter**: Scan all transactions' `preBalances` vs `postBalances` -- collect signatures where ANY account moved >= `minSolAmount` SOL
-5. **Enhance**: POST qualifying signatures (batch of up to 100) to `https://api.helius.xyz/v0/transactions?api-key=KEY`
-6. **Parse enhanced results**:
-   - For each enhanced tx, extract:
-     - `type` (SWAP, TRANSFER, etc.)
-     - `source` (JUPITER, RAYDIUM, PHANTOM, etc.)
-     - All `nativeTransfers` with amounts
-     - All `tokenTransfers` with token info
-     - Swap event details (what was swapped for what)
-   - Collect all wallet addresses involved with their role and amounts
-7. Return: `{ slot, blockTime, wallets: [...], totalTxInBlock, qualifiedTxCount }`
+**Auto-recovery:**
+- Each call updates `last_poll_at` timestamp
+- If the function crashes without self-calling, the frontend detects `last_poll_at` is stale (> 30 seconds old) and re-triggers the function
+- The function picks up from `last_slot` in the DB -- no blocks missed
 
-**Output per wallet entry:**
-```text
-{
-  address: string,
-  amountSol: number,
-  direction: "sent" | "received" | "swapped",
-  type: "SWAP" | "TRANSFER" | "UNKNOWN" | etc.,
-  source: "JUPITER" | "RAYDIUM" | "PHANTOM" | "NATIVE" | etc.,
-  tokenInvolved?: string (mint address if swap/token transfer),
-  signature: string
-}
-```
+## Frontend Changes: `WhaleScanner.tsx`
 
-### 2. UI Section: Below compressed distribute on same page
+Simplified to be a **dashboard/viewer**:
 
-**Controls panel:**
-- Start/Stop Scanner button
-- Min SOL threshold input (default: 10)
-- 30-minute countdown timer with progress bar
-- Filter checkboxes: Show Swaps / Show Transfers / Show Bridges / Show All
+**Start Scanner button:**
+1. POST to edge function with `action: "start"`, `minSol`, `slotsPerCall`
+2. Edge function creates session in DB, returns `sessionId`
+3. Frontend stores `sessionId` in localStorage
+4. Starts a 3-second polling interval calling the edge function with `action: "status"` to get latest stats and addresses from DB
 
-**Live stats cards (6 cards):**
-- Unique Addresses Found
-- Total Swaps Detected
-- Total Transfers Detected  
-- Total SOL Volume
-- Blocks Scanned
-- Helius Credits Used (estimated)
+**Stop Scanner button:**
+1. POST to edge function with `action: "stop"`, `sessionId`
+2. Stops polling
 
-**Activity type breakdown (small bar chart or badges):**
-- Jupiter swaps: X
-- Raydium swaps: X
-- Native transfers: X
-- Other: X
+**Auto-recovery (stall detection):**
+- On each status poll, check `last_poll_at`
+- If `last_poll_at` is more than 30 seconds old and session status is still "running", call `action: "continue"` to restart the background loop
+- Log "Scanner stalled, auto-restarting..." in the console
 
-**Address table (scrollable, sorted by total volume):**
-| # | Address | Times Seen | Total SOL | Activity Types | Last Source | Last Seen |
-|---|---------|-----------|-----------|---------------|------------|-----------|
-| 1 | 7xK...3nQ | 5 | 847.2 | SWAP, TRANSFER | JUPITER | 12:34:56 |
-| 2 | 9mB...4rT | 3 | 234.5 | SWAP | RAYDIUM | 12:34:51 |
+**Display:**
+- Same stats cards, address table, copy/export as before
+- New indicator: green dot "Running on server" when background function is active
+- All data comes from DB now, not localStorage (though localStorage cache for offline viewing is kept)
 
-**Action buttons:**
-- "Copy All Addresses" -- copies deduplicated address list
-- "Export CSV" -- full data export with all columns
-- "Clear" -- reset scanner data
+**Resume on page load:**
+- On mount, check localStorage for active `sessionId`
+- If found, poll DB for session status
+- If still "running", resume the polling UI
+- If "failed", offer "Restart" button which creates new session starting from `last_slot`
 
-**All state persisted in localStorage** (`whale-scanner-*` keys) so it survives page reloads. Scanner is resumable.
+## Key Guarantees
 
-### 3. Config Update
+1. **No missed blocks**: `last_slot` is persisted in DB before self-call; next iteration starts from `last_slot + 1`
+2. **Auto-restart on crash**: Frontend detects stale `last_poll_at` and re-triggers; edge function resumes from DB state
+3. **Browser-independent**: Once started, the edge function chain runs entirely server-side
+4. **All addresses saved**: Every address goes to `whale_addresses` table via upsert -- even if frontend is closed
+5. **30-min auto-expiry**: `expires_at` prevents runaway scanning; function checks this on every iteration
 
-Add to `supabase/config.toml`:
-```text
-[functions.sol-whale-scanner]
-verify_jwt = false
-```
+## Cost / Limits
 
-No new route needed -- this lives on the existing `/admin/compressed-distribute` page.
-
-## Technical Details
-
-### Edge Function Core Logic
-
-```text
-Step 1: getSlot (1 credit)
-Step 2: getBlock(slot) with full tx data (1 credit)
-Step 3: Pre-filter loop:
-  for each tx in block.transactions:
-    for each account index i:
-      diff = abs(postBalances[i] - preBalances[i])
-      if diff >= minSolAmount * 1e9:
-        qualifiedSignatures.push(tx.transaction.signatures[0])
-        break
-
-Step 4: If qualifiedSignatures.length > 0:
-  POST https://api.helius.xyz/v0/transactions?api-key=HELIUS_API_KEY
-  Body: { transactions: qualifiedSignatures.slice(0, 100) }
-  (1 credit per signature in batch, so 50-100 credits typically)
-
-Step 5: Parse enhanced results:
-  for each enhancedTx:
-    - Extract all nativeTransfers where amount >= threshold
-    - Extract swap events (tokenInputs/tokenOutputs)
-    - Extract tokenTransfers
-    - Map each to { address, amount, direction, type, source }
-```
-
-### Frontend Polling
-
-```text
-State shape in localStorage ("whale-scanner-state"):
-{
-  isRunning: boolean,
-  startTime: number,
-  lastSlot: number,
-  blocksScanned: number,
-  addresses: {
-    [address]: {
-      timesSeen: number,
-      totalVolumeSol: number,
-      activityTypes: Set<string>,
-      sources: Set<string>,
-      lastSeen: string,
-      transactions: Array<{ sig, amount, type, source }>
-    }
-  },
-  stats: {
-    totalSwaps: number,
-    totalTransfers: number,
-    totalVolume: number,
-    creditsUsed: number
-  }
-}
-
-Polling interval: 5 seconds
-Auto-stop: after 30 minutes elapsed
-```
-
-## Expected Results (30 min run, 10 SOL threshold)
-
-- Blocks sampled: ~360 (1 every 5 seconds)
-- Qualifying transactions per block: ~50-200 (with >= 10 SOL movement)
-- Expected unique addresses: **2,000-5,000+**
-- Activity breakdown: ~60% swaps (Jupiter dominant), ~30% native transfers, ~10% other
-- Helius credits: ~5,000-15,000 (well within paid tier limits)
-- Sources captured: Jupiter, Raydium, Orca, Phantom, Meteora, native SOL, bridges
+- Edge function max duration is ~60 seconds per invocation
+- Each invocation scans 5-10 slots, then self-calls for next batch
+- Estimated ~900 self-calls over 30 minutes (one every 2 seconds)
+- Same Helius credit usage as before (~1,200-5,000 credits per 30 min)
 
