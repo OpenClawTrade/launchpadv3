@@ -56,6 +56,7 @@ const ClawAdminLaunchPage = lazy(() => import("./pages/ClawAdminLaunchPage"));
 const MigratePage = lazy(() => import("./pages/MigratePage"));
 const TunnelDistributePage = lazy(() => import("./pages/TunnelDistributePage"));
 const CompressedDistributePage = lazy(() => import("./pages/CompressedDistributePage"));
+const DecompressPage = lazy(() => import("./pages/DecompressPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Minimal loading spinner for route transitions
@@ -141,6 +142,7 @@ const App = () => (
                     <Route path="/migrate" element={<MigratePage />} />
                     <Route path="/admin/tunnel-distribute" element={<TunnelDistributePage />} />
                     <Route path="/admin/compressed-distribute" element={<CompressedDistributePage />} />
+                    <Route path="/decompress" element={<DecompressPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
