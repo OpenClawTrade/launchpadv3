@@ -25,7 +25,7 @@ serve(async (req) => {
     const HELIUS_API_KEY = Deno.env.get("HELIUS_API_KEY");
     if (!HELIUS_API_KEY) throw new Error("HELIUS_API_KEY not configured");
 
-    const { minSolAmount = 10, lastSlot } = await req.json();
+    const { minSolAmount = 10, fromSlot, slotsPerCall = 5 } = await req.json();
     const rpcUrl = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
     const minLamports = minSolAmount * 1e9;
 
@@ -34,225 +34,194 @@ serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "getSlot",
+        jsonrpc: "2.0", id: 1, method: "getSlot",
         params: [{ commitment: "confirmed" }],
       }),
     });
     const slotData = await slotRes.json();
-    const currentSlot = slotData.result;
+    const latestSlot = slotData.result;
 
-    if (lastSlot && currentSlot <= lastSlot) {
-      return new Response(
-        JSON.stringify({ slot: currentSlot, skipped: true, wallets: [], totalTxInBlock: 0, qualifiedTxCount: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Determine range of slots to scan
+    let startSlot: number;
+    if (fromSlot && fromSlot > 0) {
+      startSlot = fromSlot + 1;
+    } else {
+      // First call - start from latest
+      startSlot = latestSlot;
     }
 
-    // Step 2: Get block with full transaction data
-    const blockRes = await fetch(rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 2,
-        method: "getBlock",
-        params: [
-          currentSlot,
-          {
-            encoding: "json",
-            transactionDetails: "full",
-            rewards: false,
-            maxSupportedTransactionVersion: 0,
-          },
-        ],
-      }),
-    });
-    const blockData = await blockRes.json();
-
-    if (blockData.error) {
-      // Slot may not be available yet, try slot - 1
+    // Don't scan ahead of chain
+    const endSlot = Math.min(startSlot + slotsPerCall - 1, latestSlot);
+    if (startSlot > latestSlot) {
       return new Response(
-        JSON.stringify({ slot: currentSlot, skipped: true, error: blockData.error.message, wallets: [], totalTxInBlock: 0, qualifiedTxCount: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const block = blockData.result;
-    if (!block || !block.transactions) {
-      return new Response(
-        JSON.stringify({ slot: currentSlot, skipped: true, wallets: [], totalTxInBlock: 0, qualifiedTxCount: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const totalTxInBlock = block.transactions.length;
-
-    // Step 3: Pre-filter - find signatures with whale-level balance changes
-    const qualifiedSignatures: string[] = [];
-    for (const tx of block.transactions) {
-      if (!tx.meta || tx.meta.err) continue;
-      const pre = tx.meta.preBalances;
-      const post = tx.meta.postBalances;
-      if (!pre || !post) continue;
-
-      let qualified = false;
-      for (let i = 0; i < pre.length; i++) {
-        const diff = Math.abs(post[i] - pre[i]);
-        if (diff >= minLamports) {
-          qualified = true;
-          break;
-        }
-      }
-      if (qualified && tx.transaction?.signatures?.[0]) {
-        qualifiedSignatures.push(tx.transaction.signatures[0]);
-      }
-    }
-
-    if (qualifiedSignatures.length === 0) {
-      return new Response(
-        JSON.stringify({
-          slot: currentSlot,
-          blockTime: block.blockTime,
-          wallets: [],
-          totalTxInBlock,
+        JSON.stringify({ 
+          lastScannedSlot: fromSlot || latestSlot, 
+          latestSlot,
+          waiting: true, 
+          wallets: [], 
+          slotsProcessed: 0,
+          totalTxProcessed: 0,
           qualifiedTxCount: 0,
-          creditsUsed: 2,
+          creditsUsed: 1,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Step 4: Enhance qualifying signatures via Helius Enhanced Transactions API
-    // Process in batches of 100
     const allWallets: WalletEntry[] = [];
-    const batchSize = 100;
-    let creditsUsed = 2; // getSlot + getBlock
+    let totalTxProcessed = 0;
+    let totalQualified = 0;
+    let creditsUsed = 1; // getSlot
+    let lastSuccessSlot = fromSlot || startSlot - 1;
+    let slotsProcessed = 0;
 
-    for (let i = 0; i < qualifiedSignatures.length; i += batchSize) {
-      const batch = qualifiedSignatures.slice(i, i + batchSize);
-      
+    // Process each slot sequentially
+    for (let slot = startSlot; slot <= endSlot; slot++) {
       try {
-        const enhanceRes = await fetch(
-          `https://api.helius.xyz/v0/transactions?api-key=${HELIUS_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ transactions: batch }),
-          }
-        );
+        const blockRes = await fetch(rpcUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0", id: slot, method: "getBlock",
+            params: [slot, {
+              encoding: "json",
+              transactionDetails: "full",
+              rewards: false,
+              maxSupportedTransactionVersion: 0,
+            }],
+          }),
+        });
+        creditsUsed++;
+        const blockData = await blockRes.json();
 
-        if (!enhanceRes.ok) {
-          // If enhanced API fails, fall back to raw balance parsing for this batch
-          console.error(`Enhanced API failed: ${enhanceRes.status}`);
-          creditsUsed += batch.length;
+        if (blockData.error) {
+          // Slot might be skipped (no block produced) - this is normal on Solana
+          lastSuccessSlot = slot;
+          slotsProcessed++;
           continue;
         }
 
-        const enhanced = await enhanceRes.json();
-        creditsUsed += batch.length;
+        const block = blockData.result;
+        if (!block || !block.transactions) {
+          lastSuccessSlot = slot;
+          slotsProcessed++;
+          continue;
+        }
 
-        for (const etx of enhanced) {
-          if (!etx) continue;
-          const sig = etx.signature || "";
-          const txType = etx.type || "UNKNOWN";
-          const txSource = etx.source || "UNKNOWN";
+        totalTxProcessed += block.transactions.length;
 
-          // Parse native transfers
-          if (etx.nativeTransfers) {
-            for (const nt of etx.nativeTransfers) {
-              const amountSol = (nt.amount || 0) / 1e9;
-              if (amountSol >= minSolAmount) {
-                if (nt.fromUserAccount) {
-                  allWallets.push({
-                    address: nt.fromUserAccount,
-                    amountSol,
-                    direction: "sent",
-                    type: txType,
-                    source: txSource,
-                    signature: sig,
-                  });
-                }
-                if (nt.toUserAccount) {
-                  allWallets.push({
-                    address: nt.toUserAccount,
-                    amountSol,
-                    direction: "received",
-                    type: txType,
-                    source: txSource,
-                    signature: sig,
-                  });
-                }
-              }
-            }
-          }
+        // Pre-filter: find signatures with whale-level balance changes
+        const qualifiedSignatures: string[] = [];
+        for (const tx of block.transactions) {
+          if (!tx.meta || tx.meta.err) continue;
+          const pre = tx.meta.preBalances;
+          const post = tx.meta.postBalances;
+          if (!pre || !post) continue;
 
-          // Parse swap events
-          if (etx.events?.swap) {
-            const swap = etx.events.swap;
-            // Check native inputs/outputs for SOL involvement
-            const nativeIn = (swap.nativeInput?.amount || 0) / 1e9;
-            const nativeOut = (swap.nativeOutput?.amount || 0) / 1e9;
-            const solAmount = Math.max(nativeIn, nativeOut);
-
-            if (solAmount >= minSolAmount) {
-              // The fee payer / signer is typically the swapper
-              if (etx.feePayer) {
-                allWallets.push({
-                  address: etx.feePayer,
-                  amountSol: solAmount,
-                  direction: "swapped",
-                  type: "SWAP",
-                  source: txSource,
-                  tokenInvolved: swap.tokenInputs?.[0]?.mint || swap.tokenOutputs?.[0]?.mint,
-                  signature: sig,
-                });
-              }
-            }
-          }
-
-          // Parse token transfers (check if associated with large SOL movement)
-          if (etx.tokenTransfers && txType !== "SWAP") {
-            for (const tt of etx.tokenTransfers) {
-              // We already filtered by SOL balance change, so these are relevant
-              if (tt.fromUserAccount && tt.fromUserAccount !== "") {
-                allWallets.push({
-                  address: tt.fromUserAccount,
-                  amountSol: 0, // Token transfer, SOL amount captured in native
-                  direction: "sent",
-                  type: txType,
-                  source: txSource,
-                  tokenInvolved: tt.mint,
-                  signature: sig,
-                });
-              }
-              if (tt.toUserAccount && tt.toUserAccount !== "") {
-                allWallets.push({
-                  address: tt.toUserAccount,
-                  amountSol: 0,
-                  direction: "received",
-                  type: txType,
-                  source: txSource,
-                  tokenInvolved: tt.mint,
-                  signature: sig,
-                });
-              }
+          for (let i = 0; i < pre.length; i++) {
+            if (Math.abs(post[i] - pre[i]) >= minLamports) {
+              const sig = tx.transaction?.signatures?.[0];
+              if (sig) qualifiedSignatures.push(sig);
+              break;
             }
           }
         }
+
+        totalQualified += qualifiedSignatures.length;
+
+        // Enhance qualifying signatures via Helius Enhanced API
+        if (qualifiedSignatures.length > 0) {
+          const batchSize = 100;
+          for (let i = 0; i < qualifiedSignatures.length; i += batchSize) {
+            const batch = qualifiedSignatures.slice(i, i + batchSize);
+            try {
+              const enhanceRes = await fetch(
+                `https://api.helius.xyz/v0/transactions?api-key=${HELIUS_API_KEY}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ transactions: batch }),
+                }
+              );
+              creditsUsed += batch.length;
+
+              if (!enhanceRes.ok) continue;
+              const enhanced = await enhanceRes.json();
+
+              for (const etx of enhanced) {
+                if (!etx) continue;
+                const sig = etx.signature || "";
+                const txType = etx.type || "UNKNOWN";
+                const txSource = etx.source || "UNKNOWN";
+
+                // Native transfers
+                if (etx.nativeTransfers) {
+                  for (const nt of etx.nativeTransfers) {
+                    const amountSol = (nt.amount || 0) / 1e9;
+                    if (amountSol >= minSolAmount) {
+                      if (nt.fromUserAccount) {
+                        allWallets.push({ address: nt.fromUserAccount, amountSol, direction: "sent", type: txType, source: txSource, signature: sig });
+                      }
+                      if (nt.toUserAccount) {
+                        allWallets.push({ address: nt.toUserAccount, amountSol, direction: "received", type: txType, source: txSource, signature: sig });
+                      }
+                    }
+                  }
+                }
+
+                // Swap events
+                if (etx.events?.swap) {
+                  const swap = etx.events.swap;
+                  const nativeIn = (swap.nativeInput?.amount || 0) / 1e9;
+                  const nativeOut = (swap.nativeOutput?.amount || 0) / 1e9;
+                  const solAmount = Math.max(nativeIn, nativeOut);
+                  if (solAmount >= minSolAmount && etx.feePayer) {
+                    allWallets.push({
+                      address: etx.feePayer, amountSol: solAmount, direction: "swapped",
+                      type: "SWAP", source: txSource,
+                      tokenInvolved: swap.tokenInputs?.[0]?.mint || swap.tokenOutputs?.[0]?.mint,
+                      signature: sig,
+                    });
+                  }
+                }
+
+                // Token transfers (non-swap)
+                if (etx.tokenTransfers && txType !== "SWAP") {
+                  for (const tt of etx.tokenTransfers) {
+                    if (tt.fromUserAccount) {
+                      allWallets.push({ address: tt.fromUserAccount, amountSol: 0, direction: "sent", type: txType, source: txSource, tokenInvolved: tt.mint, signature: sig });
+                    }
+                    if (tt.toUserAccount) {
+                      allWallets.push({ address: tt.toUserAccount, amountSol: 0, direction: "received", type: txType, source: txSource, tokenInvolved: tt.mint, signature: sig });
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.error(`Batch enhance error: ${e.message}`);
+            }
+          }
+        }
+
+        lastSuccessSlot = slot;
+        slotsProcessed++;
       } catch (e) {
-        console.error(`Batch enhance error: ${e.message}`);
+        console.error(`Slot ${slot} error: ${e.message}`);
+        lastSuccessSlot = slot; // Skip failed slots
+        slotsProcessed++;
       }
     }
 
-    // Filter out system programs and known non-wallet addresses
+    // Filter system programs
     const systemAddresses = new Set([
       "11111111111111111111111111111111",
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       "ComputeBudget111111111111111111111111111111",
       "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
       "So11111111111111111111111111111111111111112",
+      "Vote111111111111111111111111111111111111111",
+      "Stake11111111111111111111111111111111111111",
+      "SysvarRent111111111111111111111111111111111",
     ]);
 
     const filteredWallets = allWallets.filter(
@@ -261,12 +230,14 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        slot: currentSlot,
-        blockTime: block.blockTime,
+        lastScannedSlot: lastSuccessSlot,
+        latestSlot,
         wallets: filteredWallets,
-        totalTxInBlock,
-        qualifiedTxCount: qualifiedSignatures.length,
+        slotsProcessed,
+        totalTxProcessed,
+        qualifiedTxCount: totalQualified,
         creditsUsed,
+        slotsBehind: latestSlot - lastSuccessSlot,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
