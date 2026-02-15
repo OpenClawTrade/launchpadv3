@@ -1,66 +1,106 @@
 
 
-# Fix Phantom Lighthouse Warning — Sign-After-Confirm with Chained Simulation
+# Fix TX1 Confirmation + Phantom Lighthouse Red Warning
 
-## Problem
+## Root Cause
 
-Lines 1177-1182 sign TX2 and TX3 with **separate** `signTransaction` calls. Even though TX1 is confirmed on-chain by that point, Phantom simulates TX3 independently of TX2 — and TX3 references the pool account that TX2 creates. Simulation fails, red warning appears.
+Two linked issues prevent clean launches:
 
-## Fix (one change in one file)
+1. **TX1 never confirms** -- The manual `getSignatureStatuses` polling loop is unreliable and there is no transaction rebroadcasting. If the first send is dropped during congestion, the transaction never lands.
+2. **TX2 shows red "unsafe" warning** -- Even when TX1 does confirm, Phantom's internal RPC may not have synced TX1's state yet. When Phantom simulates TX2, it cannot find the config account TX1 created, so Lighthouse flags it as unsafe.
 
-### `src/components/launchpad/TokenLauncher.tsx` — Jito bundle branch (lines ~1164-1209)
+Both must be fixed together: TX1 must land reliably, AND Phantom must see its effects before TX2 is presented for signing.
 
-Replace the individual signing of TX2 and TX3 with:
+## Changes (single file: `src/components/launchpad/TokenLauncher.tsx`)
 
-1. **TX1**: Keep as-is — `signTransaction(TX1)` then submit via RPC, wait for confirmation.
-2. **TX2 + TX3**: After TX1 is confirmed, use `signAllTransactions([TX2, TX3])` in a single Phantom prompt. This lets Lighthouse chain-simulate TX2 then TX3 together. Then apply ephemeral sigs to both returned transactions and submit as Jito bundle.
+### 1. Replace manual polling with `confirmTransaction` + rebroadcasting
+
+The current `submitAndConfirmRpc` function (lines ~1166-1203) uses a manual `getSignatureStatuses` loop with 600ms intervals. Replace with:
+
+- **`connection.confirmTransaction()`** using the blockhash strategy -- this is Solana's recommended approach and handles edge cases (expired blockhash, dropped transactions) automatically.
+- **Parallel rebroadcast loop** -- resend the raw signed transaction every 3 seconds while waiting for confirmation. This is standard Solana best practice for reliable transaction landing.
 
 ```text
-BEFORE (broken):
-  signTransaction(TX1) → submit → confirm
-  signTransaction(TX2) ← Lighthouse simulates alone, may warn
-  signTransaction(TX3) ← Lighthouse simulates alone, WILL warn (pool missing)
-  submitJitoBundle([TX2, TX3])
+BEFORE:
+  sendRawTransaction → poll getSignatureStatuses every 600ms → timeout after 45s
 
-AFTER (fixed):
-  signTransaction(TX1) → submit → confirm
-  signAllTransactions([TX2, TX3]) ← Lighthouse chains simulation: TX2 ok (config on-chain), TX3 ok (pool from TX2)
-  applyEphemeralSigs to both
-  submitJitoBundle([TX2, TX3])
+AFTER:
+  sendRawTransaction → rebroadcast every 3s in parallel → confirmTransaction (blockhash strategy) → clear rebroadcast
 ```
 
-### Specific code change (lines 1177-1182)
+### 2. Increase post-confirmation sync buffer
 
-Replace:
+After TX1 is confirmed, increase the buffer from 1 second to 2 seconds. This gives Phantom's RPC nodes time to sync TX1's state before the dApp requests batch-signing of TX2+TX3. The `signAllTransactions` call (which chains TX2 and TX3 simulation together per Phantom docs) will only succeed if Phantom's simulator can see the config account TX1 created.
+
+### 3. Remove dead frontend priority fee code
+
+The priority fee injection code added at lines 1087-1100 is dead code -- all transactions are VersionedTransactions (v0), so the `tx instanceof Transaction` check always fails. The backend (`lib/meteora.ts`) already sets 500,000 microLamports priority fees. Remove this block and the unused `ComputeBudgetProgram` import.
+
+### 4. Keep transaction size diagnostics
+
+The byte-size logging (lines 1102-1120) is useful for ongoing monitoring and stays.
+
+## How this follows Phantom's documentation
+
+Per Phantom's multi-signer docs:
+- **`signTransaction(TX1)`** -- Phantom signs first, adds Lighthouse instructions, dApp signs with ephemeral keys, submits via own RPC. (Already correct, just needs reliable confirmation.)
+- **`signAllTransactions([TX2, TX3])`** -- Phantom signs both, adds Lighthouse to both, chains simulation so TX3 sees the pool TX2 creates. dApp applies ephemeral sigs after. (Already correct, but TX2 simulation fails because TX1's state hasn't propagated.)
+- **Address Lookup Table** -- Already in use, providing 466-577 bytes of headroom per the diagnostics. (No changes needed.)
+- **dApp submits via own RPC** -- Never uses `signAndSendTransaction`. (Already correct.)
+
+## Technical Details
+
+### New `submitAndConfirmRpc` implementation
+
 ```typescript
-toast({ title: `Signing ${txLabels[1]}...`, description: `Step 2 of ${txsToSign.length}` });
-const signedTx2 = await signTx(txsToSign[1], 1, txLabels[1]);
+const submitAndConfirmRpc = async (signedTx, label) => {
+  const rawTx = signedTx.serialize();
+  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
 
-toast({ title: `Signing ${txLabels[2]}...`, description: `Step 3 of ${txsToSign.length}` });
-const signedTx3 = await signTx(txsToSign[2], 2, txLabels[2]);
+  const signature = await connection.sendRawTransaction(rawTx, {
+    skipPreflight: false,
+    preflightCommitment: 'confirmed',
+    maxRetries: 0, // We handle retries ourselves
+  });
+  signatures.push(signature);
+
+  // Rebroadcast every 3s in parallel (standard Solana best practice)
+  const resendInterval = setInterval(async () => {
+    try {
+      await connection.sendRawTransaction(rawTx, {
+        skipPreflight: true,
+        maxRetries: 0,
+      });
+    } catch {}
+  }, 3000);
+
+  try {
+    // Blockhash-based confirmation (handles expiry automatically)
+    const confirmation = await connection.confirmTransaction({
+      signature,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    }, 'confirmed');
+
+    if (confirmation.value.err) {
+      throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+    }
+  } finally {
+    clearInterval(resendInterval);
+  }
+
+  // 2s buffer for Phantom's RPC to sync TX1's state
+  await new Promise(r => setTimeout(r, 2000));
+  return signature;
+};
 ```
 
-With:
-```typescript
-toast({ title: `Signing Pool + Dev Buy...`, description: `Step 2 of 2 — one prompt` });
-console.log('[Phantom Launch] Batch-signing TX2+TX3 via signAllTransactions (chained Lighthouse simulation)...');
-const batchSigned = await phantomWallet.signAllTransactions([txsToSign[1], txsToSign[2]] as any);
-if (!batchSigned || batchSigned.length < 2) throw new Error('Batch signing TX2+TX3 was cancelled or failed');
-const signedTx2 = batchSigned[0];
-const signedTx3 = batchSigned[1];
-// dApp signs second with ephemeral keypairs (per Phantom multi-signer docs)
-applyEphemeralSigs(signedTx2, 1, txLabels[1]);
-applyEphemeralSigs(signedTx3, 2, txLabels[2]);
-```
+### Lines affected
 
-### Why this follows Phantom's requirements exactly
+| Lines | Change |
+|-------|--------|
+| 16 | Remove `ComputeBudgetProgram` from import |
+| 1087-1100 | Delete dead priority fee injection block |
+| 1166-1203 | Replace `submitAndConfirmRpc` with rebroadcast + `confirmTransaction` approach |
 
-- **`signTransaction`** used for TX1 (single signer flow) — Phantom signs first, adds Lighthouse, then dApp applies ephemeral sigs and submits via own RPC.
-- **`signAllTransactions`** used for TX2+TX3 — same protocol (Phantom signs first, adds Lighthouse to both), but batched so Lighthouse can chain-simulate TX2 then TX3. dApp applies ephemeral sigs after, submits via Jito.
-- **ALT (Address Lookup Table)** keeps all transactions under the 1232-byte limit with headroom for Lighthouse assertions.
-- **dApp submits via own RPC/Jito** — never uses `signAndSendTransaction`.
-
-### No other files need changes
-
-The backend, ALT setup, and Jito bundle logic remain unchanged.
-
+No other files need changes. The signing flow (signTransaction for TX1, signAllTransactions for TX2+TX3, ephemeral keys applied after Phantom) remains exactly as-is.
