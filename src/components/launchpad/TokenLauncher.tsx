@@ -956,7 +956,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       }
       
       const { url: rpcUrl, source: rpcSource } = getRpcUrl();
-      console.log(`[Phantom Launch] Using RPC: ${rpcSource} -> ${rpcUrl.slice(0, 50)}...`);
+      console.log(`[Phantom Launch] Using RPC: ${rpcSource}`);
       const connection = new Connection(rpcUrl, "confirmed");
 
       // Pre-flight balance check - fetch fresh from chain with retries
