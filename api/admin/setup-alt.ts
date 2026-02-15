@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Connection, Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
-import { createAddressLookupTableOnChain, getAddressLookupTable } from '../../../lib/addressLookupTable.js';
+import { createAddressLookupTableOnChain, getAddressLookupTable } from '../../lib/addressLookupTable.js';
 
 function getTreasuryKeypair(): Keypair {
   const raw = process.env.TREASURY_PRIVATE_KEY?.trim();
