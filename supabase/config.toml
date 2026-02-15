@@ -359,3 +359,6 @@ verify_jwt = false
 
 [functions.tunnel-send]
 verify_jwt = false
+
+[functions.compressed-distribute]
+verify_jwt = false
