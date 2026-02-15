@@ -35,9 +35,10 @@ serve(async (req) => {
     const feePerTx = 5000;
 
     // Each destination gets 2 fresh tunnel keypairs: source -> t1 -> t2 -> dest
-    // Cost per destination: lamports + 3 tx fees (source->t1, t1->t2, t2->dest)
-    const costPerDest = lamportsPerWallet + (3 * feePerTx);
-    const totalNeeded = destinations.length * costPerDest + (destinations.length * feePerTx); // extra buffer
+    // Amount varies ±5%, so fund for max (1.05x) + 3 tx fees
+    const maxLamports = Math.round(lamportsPerWallet * 1.05);
+    const costPerDest = maxLamports + (3 * feePerTx);
+    const totalNeeded = destinations.length * costPerDest + (destinations.length * feePerTx);
 
     console.log(`Total needed: ${totalNeeded / LAMPORTS_PER_SOL} SOL for ${destinations.length} destinations`);
 
@@ -64,8 +65,8 @@ serve(async (req) => {
       const t1 = Keypair.generate();
       const t2 = Keypair.generate();
 
-      // Fund tunnel1 with enough for: amount + 2 tx fees (t1->t2 and t2->dest)
-      const tunnel1Needs = lamportsPerWallet + (2 * feePerTx);
+      // Fund tunnel1 with enough for: max amount (1.05x) + 2 tx fees
+      const tunnel1Needs = maxLamports + (2 * feePerTx);
 
       console.log(`[${i + 1}/${destinations.length}] Funding tunnel1 ${t1.publicKey.toBase58().slice(0, 8)}... with ${tunnel1Needs / LAMPORTS_PER_SOL} SOL`);
 
