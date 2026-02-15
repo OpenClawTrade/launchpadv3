@@ -572,25 +572,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         for (let i = 0; i < transactions.length; i++) {
           const tx = transactions[i];
 
-          // Use fresh blockhash and deployer as fee payer
-          tx.recentBlockhash = latestBlockhash.blockhash;
-          tx.feePayer = feePayerKeypair.publicKey;
+          if (tx instanceof VersionedTransaction) {
+            // VersionedTransaction: sign with all available keypairs
+            const allSigners = Array.from(availableKeypairs.values());
+            tx.sign(allSigners);
+          } else {
+            // Legacy Transaction
+            tx.recentBlockhash = latestBlockhash.blockhash;
+            tx.feePayer = feePayerKeypair.publicKey;
 
-          const message = tx.compileMessage();
-          const requiredSignerPubkeys = message.accountKeys
-            .slice(0, message.header.numRequiredSignatures)
-            .map((k) => k.toBase58());
+            const message = tx.compileMessage();
+            const requiredSignerPubkeys = message.accountKeys
+              .slice(0, message.header.numRequiredSignatures)
+              .map((k: PublicKey) => k.toBase58());
 
-          const missingSigners = requiredSignerPubkeys.filter((pk) => !availableKeypairs.has(pk));
-          if (missingSigners.length > 0) {
-            throw new Error(`Tx ${i + 1} requires unknown signer(s): ${missingSigners.join(', ')}`);
+            const missingSigners = requiredSignerPubkeys.filter((pk: string) => !availableKeypairs.has(pk));
+            if (missingSigners.length > 0) {
+              throw new Error(`Tx ${i + 1} requires unknown signer(s): ${missingSigners.join(', ')}`);
+            }
+
+            const signersForThisTx: Keypair[] = requiredSignerPubkeys
+              .map((pk: string) => availableKeypairs.get(pk))
+              .filter((kp: Keypair | undefined): kp is Keypair => kp !== undefined);
+
+            tx.sign(...signersForThisTx);
           }
-
-          const signersForThisTx: Keypair[] = requiredSignerPubkeys
-            .map((pk) => availableKeypairs.get(pk))
-            .filter((kp): kp is Keypair => kp !== undefined);
-
-          tx.sign(...signersForThisTx);
 
           console.log(`[create-fun][${VERSION}] Sending tx ${i + 1}/${transactions.length}...`, { elapsed: Date.now() - startTime });
 
