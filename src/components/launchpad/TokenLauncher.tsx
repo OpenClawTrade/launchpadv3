@@ -17,6 +17,7 @@ import { Connection, Transaction, VersionedTransaction, PublicKey, Keypair } fro
 import bs58 from "bs58";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
+import { submitJitoBundle, waitForBundleConfirmation, createJitoTipInstruction, getRandomTipAccount } from "@/lib/jitoBundle";
 
 import {
   Shuffle,
@@ -1086,36 +1087,26 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       // === Phantom-first signing flow (Lighthouse compatible) ===
       // 1. Phantom signs first → injects Lighthouse protection instructions
       // 2. Frontend partialSigns with ephemeral keypairs (mint, config)
-      // 3. Submit via our RPC
+      // 3. Submit via RPC (TX1) or Jito bundle (TX2+TX3 for atomic dev buy)
       
+      const useJitoBundle = !!data?.useJitoBundle;
       const signatures: string[] = [];
       
-      for (let i = 0; i < txsToSign.length; i++) {
-        const txLabel = txLabels[i] || `Transaction ${i + 1}`;
+      // Helper: sign a single TX with Phantom + ephemeral keys
+      const signTx = async (tx: Transaction | VersionedTransaction, idx: number, label: string) => {
+        console.log(`[Phantom Launch] signTransaction (Phantom-first): ${label} (${idx + 1}/${txsToSign.length})...`);
         
-        toast({
-          title: `Signing ${txLabel}...`,
-          description: `Step ${i + 1} of ${txsToSign.length}`,
-        });
-        
-        console.log(`[Phantom Launch] signTransaction (Phantom-first): ${txLabel} (${i + 1}/${txsToSign.length})...`);
-        
-        // Step 1: Phantom signs FIRST — adds Lighthouse instructions
-        const phantomSigned = await phantomWallet.signTransaction(txsToSign[i] as any);
-        
-        if (!phantomSigned) {
-          throw new Error(`${txLabel} was cancelled or failed`);
-        }
+        const phantomSigned = await phantomWallet.signTransaction(tx as any);
+        if (!phantomSigned) throw new Error(`${label} was cancelled or failed`);
 
-        // Step 2: PartialSign with ephemeral keypairs AFTER Phantom
-        const neededPubkeys = txRequiredKeypairs[i] || [];
+        const neededPubkeys = txRequiredKeypairs[idx] || [];
         if (phantomSigned instanceof Transaction) {
           const localSigners = neededPubkeys
             .map(pk => ephemeralKeypairs.get(pk))
             .filter((kp): kp is Keypair => !!kp);
           if (localSigners.length > 0) {
             phantomSigned.partialSign(...localSigners);
-            console.log(`[Phantom Launch] ${txLabel}: partialSigned with ${localSigners.length} ephemeral keypairs`);
+            console.log(`[Phantom Launch] ${label}: partialSigned with ${localSigners.length} ephemeral keypairs`);
           }
         } else if (phantomSigned instanceof VersionedTransaction) {
           const localSigners = neededPubkeys
@@ -1123,57 +1114,153 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             .filter((kp): kp is Keypair => !!kp);
           if (localSigners.length > 0) {
             phantomSigned.sign(localSigners);
-            console.log(`[Phantom Launch] ${txLabel}: signed with ${localSigners.length} ephemeral keypairs (versioned)`);
+            console.log(`[Phantom Launch] ${label}: signed with ${localSigners.length} ephemeral keypairs (versioned)`);
           }
         }
-
-        // Step 3: Submit via our RPC
-        const rawTx = (phantomSigned as any).serialize();
+        
+        return phantomSigned;
+      };
+      
+      // Helper: submit + confirm via RPC
+      const submitAndConfirmRpc = async (signedTx: Transaction | VersionedTransaction, label: string) => {
+        const rawTx = (signedTx as any).serialize();
         const signature = await connection.sendRawTransaction(rawTx, {
           skipPreflight: false,
           preflightCommitment: "confirmed",
           maxRetries: 3,
         });
-        
-        console.log(`[Phantom Launch] ✅ ${txLabel} sent:`, signature);
+        console.log(`[Phantom Launch] ✅ ${label} sent:`, signature);
         signatures.push(signature);
         
-        // Wait for confirmation before proceeding to next transaction
-        // This ensures proper sequencing (config must exist before pool, etc.)
-        if (i < txsToSign.length - 1) {
-          toast({
-            title: `${txLabel} Sent`,
-            description: `Waiting for confirmation...`,
+        // Wait for confirmation
+        const confirmStart = Date.now();
+        const maxConfirmMs = 15_000;
+        let confirmed = false;
+        while (!confirmed && Date.now() - confirmStart < maxConfirmMs) {
+          try {
+            const statuses = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+            const status = statuses.value[0];
+            if (status?.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+            if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+              confirmed = true;
+              console.log(`[Phantom Launch] ${label} confirmed in ${Date.now() - confirmStart}ms`);
+            }
+          } catch (pollErr: any) {
+            if (pollErr?.message?.includes('failed on-chain')) throw pollErr;
+          }
+          if (!confirmed) await new Promise((r) => setTimeout(r, 400));
+        }
+        if (!confirmed) {
+          console.warn(`[Phantom Launch] Confirmation polling timed out for ${label} after ${maxConfirmMs}ms, continuing...`);
+        }
+        return signature;
+      };
+      
+      if (useJitoBundle && txsToSign.length >= 3) {
+        // === JITO BUNDLE MODE ===
+        // TX1: Create Config → sign + submit via RPC, wait for confirmation
+        // TX2+TX3: Create Pool + Dev Buy → sign both, submit as Jito bundle (atomic)
+        
+        console.log('[Phantom Launch] 🔥 Using Jito bundle for TX2+TX3 (atomic dev buy)');
+        
+        // Step 1: TX1 (Create Config) — standard RPC submission
+        toast({ title: `Signing ${txLabels[0]}...`, description: `Step 1 of ${txsToSign.length}` });
+        const signedTx1 = await signTx(txsToSign[0], 0, txLabels[0]);
+        toast({ title: `${txLabels[0]} Sent`, description: `Waiting for confirmation...` });
+        await submitAndConfirmRpc(signedTx1, txLabels[0]);
+        
+        // Step 2: Sign TX2 and TX3 with Phantom (user sees 2 more sign prompts)
+        toast({ title: `Signing ${txLabels[1]}...`, description: `Step 2 of ${txsToSign.length}` });
+        const signedTx2 = await signTx(txsToSign[1], 1, txLabels[1]);
+        
+        toast({ title: `Signing ${txLabels[2]}...`, description: `Step 3 of ${txsToSign.length}` });
+        const signedTx3 = await signTx(txsToSign[2], 2, txLabels[2]);
+        
+        // Step 3: Submit TX2+TX3 as Jito bundle for atomic execution
+        toast({ title: "Submitting Jito Bundle...", description: "Pool + Dev Buy executing atomically" });
+        console.log('[Phantom Launch] Submitting TX2+TX3 as Jito bundle...');
+        
+        const bundleResult = await submitJitoBundle([signedTx2, signedTx3]);
+        
+        if (bundleResult.success && bundleResult.bundleId) {
+          console.log('[Phantom Launch] Jito bundle submitted:', bundleResult.bundleId);
+          if (bundleResult.signatures) signatures.push(...bundleResult.signatures);
+          
+          // Wait for bundle confirmation
+          toast({ title: "Waiting for bundle confirmation...", description: "This may take up to 60 seconds" });
+          const confirmResult = await waitForBundleConfirmation(bundleResult.bundleId, 90_000);
+          
+          if (!confirmResult.confirmed) {
+            console.warn('[Phantom Launch] Jito bundle not confirmed:', confirmResult);
+            // Don't throw — the bundle may still land. Check on-chain.
+            toast({ 
+              title: "⚠️ Bundle confirmation timed out", 
+              description: "Transactions may still land. Check Solscan for status.",
+            });
+          } else {
+            console.log('[Phantom Launch] ✅ Jito bundle confirmed!', confirmResult);
+          }
+        } else {
+          // Jito failed — fallback to sequential RPC submission
+          console.warn('[Phantom Launch] Jito bundle failed, falling back to sequential RPC:', bundleResult.error);
+          toast({ 
+            title: "⚠️ Jito bundle failed, using fallback", 
+            description: "Submitting transactions sequentially (dev buy may be frontrun)",
+            variant: "destructive",
           });
           
-          // Fast confirmation polling
-          const confirmStart = Date.now();
-          const maxConfirmMs = 15_000;
-          let confirmed = false;
+          await submitAndConfirmRpc(signedTx2, txLabels[1]);
+          const rawTx3 = (signedTx3 as any).serialize();
+          const sig3 = await connection.sendRawTransaction(rawTx3, {
+            skipPreflight: false,
+            preflightCommitment: "confirmed",
+            maxRetries: 3,
+          });
+          signatures.push(sig3);
+          console.log('[Phantom Launch] Fallback TX3 sent:', sig3);
+        }
+        
+      } else {
+        // === STANDARD SEQUENTIAL MODE (no dev buy, or only 1-2 txs) ===
+        for (let i = 0; i < txsToSign.length; i++) {
+          const txLabel = txLabels[i] || `Transaction ${i + 1}`;
+          toast({ title: `Signing ${txLabel}...`, description: `Step ${i + 1} of ${txsToSign.length}` });
           
-          while (!confirmed && Date.now() - confirmStart < maxConfirmMs) {
-            try {
-              const statuses = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
-              const status = statuses.value[0];
-              
-              if (status?.err) {
-                throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+          const signedTx = await signTx(txsToSign[i], i, txLabel);
+          
+          // Submit via RPC
+          const rawTx = (signedTx as any).serialize();
+          const signature = await connection.sendRawTransaction(rawTx, {
+            skipPreflight: false,
+            preflightCommitment: "confirmed",
+            maxRetries: 3,
+          });
+          console.log(`[Phantom Launch] ✅ ${txLabel} sent:`, signature);
+          signatures.push(signature);
+          
+          // Wait for confirmation before next tx (except last)
+          if (i < txsToSign.length - 1) {
+            toast({ title: `${txLabel} Sent`, description: `Waiting for confirmation...` });
+            const confirmStart = Date.now();
+            const maxConfirmMs = 15_000;
+            let confirmed = false;
+            while (!confirmed && Date.now() - confirmStart < maxConfirmMs) {
+              try {
+                const statuses = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+                const status = statuses.value[0];
+                if (status?.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.err)}`);
+                if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+                  confirmed = true;
+                  console.log(`[Phantom Launch] ${txLabel} confirmed in ${Date.now() - confirmStart}ms`);
+                }
+              } catch (pollErr: any) {
+                if (pollErr?.message?.includes('failed on-chain')) throw pollErr;
               }
-              
-              if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
-                confirmed = true;
-                console.log(`[Phantom Launch] ${txLabel} confirmed in ${Date.now() - confirmStart}ms`);
-                break;
-              }
-            } catch (pollErr) {
-              // Rate limit or network error - continue polling
+              if (!confirmed) await new Promise((r) => setTimeout(r, 400));
             }
-            
-            await new Promise((r) => setTimeout(r, 400));
-          }
-          
-          if (!confirmed) {
-            console.warn(`[Phantom Launch] Confirmation polling timed out for ${txLabel} after ${maxConfirmMs}ms, continuing...`);
+            if (!confirmed) {
+              console.warn(`[Phantom Launch] Confirmation polling timed out for ${txLabel} after ${maxConfirmMs}ms, continuing...`);
+            }
           }
         }
       }
