@@ -1213,8 +1213,36 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           signatures.push(sig3);
         }
         
+      } else if (txsToSign.length >= 3) {
+        // === 3-TX SEQUENTIAL MODE (Sign-After-Confirm) ===
+        // TX1: sign individually, submit, WAIT for on-chain confirmation
+        // TX2+TX3: batch-sign via signAllTransactions so Lighthouse chains simulation
+        
+        // Step 1: TX1 (Create Config)
+        toast({ title: `Signing ${txLabels[0]}...`, description: `Step 1 of 2` });
+        const signedTx1 = await signTx(txsToSign[0], 0, txLabels[0]);
+        toast({ title: `Submitting ${txLabels[0]}...`, description: `Waiting for confirmation...` });
+        await submitAndConfirmRpc(signedTx1, txLabels[0]);
+        
+        // Step 2: Batch-sign TX2+TX3 (Phantom chains simulation: TX3 sees pool from TX2)
+        toast({ title: `Signing Pool + Dev Buy...`, description: `Step 2 of 2 — one prompt` });
+        console.log('[Phantom Launch] Sequential: Batch-signing TX2+TX3 via signAllTransactions...');
+        const batchSigned = await phantomWallet.signAllTransactions([txsToSign[1], txsToSign[2]] as any);
+        if (!batchSigned || batchSigned.length < 2) throw new Error('Batch signing TX2+TX3 was cancelled or failed');
+        const signedTx2 = batchSigned[0];
+        const signedTx3 = batchSigned[1];
+        applyEphemeralSigs(signedTx2, 1, txLabels[1]);
+        applyEphemeralSigs(signedTx3, 2, txLabels[2]);
+        
+        // Submit sequentially
+        toast({ title: `Submitting ${txLabels[1]}...`, description: `Waiting for confirmation...` });
+        await submitAndConfirmRpc(signedTx2, txLabels[1]);
+        toast({ title: `Submitting ${txLabels[2]}...`, description: `Waiting for confirmation...` });
+        await submitAndConfirmRpc(signedTx3, txLabels[2]);
+        
       } else {
-        // === STANDARD SEQUENTIAL MODE ===
+        // === 2-TX SEQUENTIAL MODE (Sign-After-Confirm) ===
+        // TX1: sign, submit, confirm. TX2: sign after TX1 confirmed, submit.
         for (let i = 0; i < txsToSign.length; i++) {
           const txLabel = txLabels[i] || `Transaction ${i + 1}`;
           toast({ title: `Signing ${txLabel}...`, description: `Step ${i + 1} of ${txsToSign.length}` });
