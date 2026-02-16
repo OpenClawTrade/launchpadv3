@@ -207,8 +207,8 @@ Deno.serve(async (req) => {
     }
 
     // === PRE-CREATE SUBTUNA COMMUNITY BEFORE TOKEN LAUNCH ===
-    // Clean the ticker - remove ALL non-alphanumeric characters (handles: CRAMER, → CRAMER, $CRAMER → CRAMER)
-    const tickerUpper = symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10);
+    // Clean the ticker - remove non-alphanumeric characters except dots (handles: CRAMER, → CRAMER, $CRAMER → CRAMER, DOMAIN.COM → DOMAIN.COM)
+    const tickerUpper = symbol.replace(/[^a-zA-Z0-9.]/g, "").toUpperCase().slice(0, 10);
     
     console.log(`[agent-launch] Pre-creating SubTuna community for ${tickerUpper}`);
     

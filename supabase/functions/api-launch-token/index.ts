@@ -97,10 +97,10 @@ serve(async (req) => {
       );
     }
 
-    // Validate ticker format
-    if (!/^[A-Z0-9]{1,10}$/i.test(body.ticker)) {
+    // Validate ticker format (alphanumeric + dots allowed)
+    if (!/^[A-Z0-9.]{1,10}$/i.test(body.ticker)) {
       return new Response(
-        JSON.stringify({ error: "Ticker must be 1-10 alphanumeric characters" }),
+        JSON.stringify({ error: "Ticker must be 1-10 alphanumeric characters (dots allowed)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

@@ -438,7 +438,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       await performLaunch({
         ...customToken,
         name: customToken.name.slice(0, 20),
-        ticker: customToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6),
+        ticker: customToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, '').slice(0, 10),
         imageUrl,
       });
     } catch (e) {
@@ -747,7 +747,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       const { data, error } = await supabase.functions.invoke("fun-phantom-create", {
         body: {
           name: holdersToken.name.slice(0, 32),
-          ticker: holdersToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+          ticker: holdersToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
           description: holdersToken.description || "",
           imageUrl,
           websiteUrl: holdersToken.websiteUrl || "",
@@ -844,7 +844,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         const { data: recordData } = await supabase.functions.invoke("fun-phantom-create", {
           body: {
             name: holdersToken.name.slice(0, 32),
-            ticker: holdersToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+            ticker: holdersToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
             description: holdersToken.description || "",
             imageUrl,
             websiteUrl: holdersToken.websiteUrl || "",
@@ -1015,7 +1015,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         supabase.functions.invoke("fun-phantom-create", {
           body: {
             name: phantomToken.name.slice(0, 32),
-            ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+            ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
             description: phantomToken.description || "",
             imageUrl,
             websiteUrl: phantomToken.websiteUrl || "",
@@ -1295,7 +1295,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         const { data: recordData } = await supabase.functions.invoke("fun-phantom-create", {
           body: {
             name: phantomToken.name.slice(0, 32),
-            ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+            ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
             description: phantomToken.description || "",
             imageUrl,
             websiteUrl: phantomToken.websiteUrl || "",
@@ -1422,10 +1422,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       <span className="text-primary text-sm">$</span>
                       <Input
                         value={meme.ticker}
-                        onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })}
+                        onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
                         className="gate-input h-7 w-24 font-mono"
                         placeholder="TICKER"
-                        maxLength={6}
+                        maxLength={10}
                       />
                     </div>
                   </>
@@ -1555,10 +1555,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       <span className="text-primary text-sm">$</span>
                       <Input
                         value={describedToken.ticker}
-                        onChange={(e) => setDescribedToken({ ...describedToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })}
+                        onChange={(e) => setDescribedToken({ ...describedToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
                         className="gate-input h-7 w-24 font-mono"
                         placeholder="TICKER"
-                        maxLength={6}
+                        maxLength={10}
                       />
                     </div>
                   </div>
@@ -1669,10 +1669,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       <span className="text-primary text-sm">$</span>
                       <Input
                         value={realisticToken.ticker}
-                        onChange={(e) => setRealisticToken({ ...realisticToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })}
+                        onChange={(e) => setRealisticToken({ ...realisticToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
                         className="gate-input h-7 w-24 font-mono"
                         placeholder="TICKER"
-                        maxLength={6}
+                        maxLength={10}
                       />
                     </div>
                   </div>
@@ -1769,7 +1769,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                 />
                 <Input
                   value={customToken.ticker}
-                  onChange={(e) => setCustomToken({ ...customToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })}
+                  onChange={(e) => setCustomToken({ ...customToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
                   className="gate-input h-8 font-mono"
                   placeholder="TICKER"
                   maxLength={6}
@@ -2059,7 +2059,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                           <span className="text-primary text-sm">$</span>
                           <Input
                             value={phantomToken.ticker}
-                            onChange={(e) => setPhantomToken({ ...phantomToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) })}
+                            onChange={(e) => setPhantomToken({ ...phantomToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
                             className="gate-input h-7 w-28 font-mono"
                             placeholder="TICKER"
                             maxLength={10}
@@ -2294,7 +2294,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                           <span className="text-primary text-sm">$</span>
                           <Input
                             value={holdersToken.ticker}
-                            onChange={(e) => setHoldersToken({ ...holdersToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) })}
+                            onChange={(e) => setHoldersToken({ ...holdersToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
                             className="gate-input h-7 w-28 font-mono"
                             placeholder="TICKER"
                             maxLength={10}

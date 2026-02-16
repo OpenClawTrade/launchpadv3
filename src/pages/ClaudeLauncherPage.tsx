@@ -377,7 +377,7 @@ export default function ClaudeLauncherPage() {
       await performLaunch({
         ...customToken,
         name: customToken.name.slice(0, 20),
-        ticker: customToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6),
+        ticker: customToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, '').slice(0, 10),
         imageUrl,
       });
     } catch (e) {
@@ -525,7 +525,7 @@ export default function ClaudeLauncherPage() {
       }
       try {
         const imageUrl = await uploadPhantomImageIfNeeded();
-        tokenData = { ...phantomToken, imageUrl, name: phantomToken.name.slice(0, 20), ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) };
+        tokenData = { ...phantomToken, imageUrl, name: phantomToken.name.slice(0, 20), ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, '').slice(0, 10) };
       } catch {
         toast({ title: "Upload failed", variant: "destructive" });
         return;
@@ -1117,7 +1117,7 @@ export default function ClaudeLauncherPage() {
                         <Input value={meme.name} onChange={(e) => setMeme({ ...meme, name: e.target.value.slice(0, 20) })} className="gate-input h-9 font-semibold mb-2" maxLength={20} />
                         <div className="flex items-center gap-2">
                           <span className="text-primary font-medium">$</span>
-                          <Input value={meme.ticker} onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })} className="gate-input h-8 w-24 font-mono text-sm" maxLength={6} />
+                          <Input value={meme.ticker} onChange={(e) => setMeme({ ...meme, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })} className="gate-input h-8 w-28 font-mono text-sm" maxLength={10} />
                         </div>
                       </>
                     ) : (
@@ -1174,7 +1174,7 @@ export default function ClaudeLauncherPage() {
                     <Input value={customToken.name} onChange={(e) => setCustomToken({ ...customToken, name: e.target.value.slice(0, 20) })} className="claude-input h-7 text-sm font-semibold" placeholder="Token Name" maxLength={20} />
                     <div className="flex items-center gap-1">
                       <span className="text-[hsl(160,70%,50%)] text-xs">$</span>
-                      <Input value={customToken.ticker} onChange={(e) => setCustomToken({ ...customToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) })} className="claude-input h-6 w-20 text-xs font-mono" placeholder="TICKER" maxLength={6} />
+                      <Input value={customToken.ticker} onChange={(e) => setCustomToken({ ...customToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })} className="claude-input h-6 w-24 text-xs font-mono" placeholder="TICKER" maxLength={10} />
                     </div>
                   </div>
                 </div>
@@ -1261,7 +1261,7 @@ export default function ClaudeLauncherPage() {
                               <Input value={phantomToken.name} onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 32) })} className="claude-input h-6 text-xs font-semibold" placeholder="Name" maxLength={32} />
                               <div className="flex items-center gap-1">
                                 <span className="text-purple-400 text-[10px]">$</span>
-                                <Input value={phantomToken.ticker} onChange={(e) => setPhantomToken({ ...phantomToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) })} className="claude-input h-5 w-16 text-[10px] font-mono" placeholder="TICKER" maxLength={10} />
+                                <Input value={phantomToken.ticker} onChange={(e) => setPhantomToken({ ...phantomToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })} className="claude-input h-5 w-16 text-[10px] font-mono" placeholder="TICKER" maxLength={10} />
                               </div>
                             </div>
                           </div>
