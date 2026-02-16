@@ -421,6 +421,109 @@ export default function CompressedDistributePage() {
     );
   }
 
+  // Single transfer state
+  const [activeTab, setActiveTab] = useState<"batch" | "single">(() => (localStorage.getItem("compressed-tab") as any) || "batch");
+  const [singleSourceKey, setSingleSourceKey] = useState(() => localStorage.getItem("single-source-key") || "");
+  const [singleMint, setSingleMint] = useState(() => localStorage.getItem("single-mint") || "");
+  const [singleDest, setSingleDest] = useState(() => localStorage.getItem("single-dest") || "");
+  const [singleAmount, setSingleAmount] = useState(() => localStorage.getItem("single-amount") || "1");
+  const [singleRunning, setSingleRunning] = useState(false);
+  const [singleLogs, setSingleLogs] = useState<LogEntry[]>([]);
+  const [singleResult, setSingleResult] = useState<DistResult | null>(null);
+
+  const updateSingleField = (key: string, setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    localStorage.setItem(key, v);
+  };
+  const updateSingleSourceKey = updateSingleField("single-source-key", setSingleSourceKey);
+  const updateSingleMint = updateSingleField("single-mint", setSingleMint);
+  const updateSingleDest = updateSingleField("single-dest", setSingleDest);
+  const updateSingleAmount = updateSingleField("single-amount", setSingleAmount);
+
+  const singleWalletAddress = useMemo(() => {
+    if (!singleSourceKey.trim()) return null;
+    try {
+      const decoded = bs58.decode(singleSourceKey.trim());
+      const kp = Keypair.fromSecretKey(decoded);
+      return kp.publicKey.toBase58();
+    } catch { return null; }
+  }, [singleSourceKey]);
+
+  const [singleBalance, setSingleBalance] = useState<string | null>(null);
+  const [fetchingSingleBalance, setFetchingSingleBalance] = useState(false);
+
+  const fetchSingleBalance = useCallback(async () => {
+    if (!singleWalletAddress || !singleMint.trim()) { setSingleBalance(null); return; }
+    setFetchingSingleBalance(true);
+    try {
+      const connection = new Connection(HELIUS_PUBLIC_RPC, "confirmed");
+      const mint = new PublicKey(singleMint.trim());
+      const owner = new PublicKey(singleWalletAddress);
+      const ata = await getAssociatedTokenAddress(mint, owner);
+      const resp = await connection.getTokenAccountBalance(ata);
+      setSingleBalance(resp.value.uiAmountString || "0");
+    } catch { setSingleBalance("N/A"); }
+    setFetchingSingleBalance(false);
+  }, [singleWalletAddress, singleMint]);
+
+  useEffect(() => { fetchSingleBalance(); }, [fetchSingleBalance]);
+
+  const addSingleLog = useCallback((message: string, type: LogEntry["type"] = "info") => {
+    const time = new Date().toLocaleTimeString();
+    setSingleLogs(prev => [...prev, { time, message, type }]);
+  }, []);
+
+  const startSingleTransfer = async () => {
+    if (!singleSourceKey || !singleMint || !singleDest || !singleAmount) {
+      addSingleLog("All fields are required", "error"); return;
+    }
+    if (!isValidSolanaAddress(singleDest.trim())) {
+      addSingleLog("Invalid destination address", "error"); return;
+    }
+    setSingleRunning(true);
+    setSingleLogs([]);
+    setSingleResult(null);
+
+    try {
+      addSingleLog("Step 1/3: Checking token pool...");
+      const poolResult = await callEdgeFunction("compressed-distribute", {
+        sourcePrivateKey: singleSourceKey, mintAddress: singleMint,
+        destinations: [singleDest.trim()], amountPerWallet: parseFloat(singleAmount), action: "check-pool",
+      });
+      poolResult.logs?.forEach((l: string) => addSingleLog(l));
+
+      addSingleLog("Step 2/3: Compressing tokens...");
+      const compressResult = await callEdgeFunction("compressed-distribute", {
+        sourcePrivateKey: singleSourceKey, mintAddress: singleMint,
+        destinations: [singleDest.trim()], amountPerWallet: parseFloat(singleAmount), action: "compress",
+      });
+      compressResult.logs?.forEach((l: string) => addSingleLog(l));
+
+      addSingleLog("Step 3/3: Sending compressed transfer...");
+      const distResult = await callEdgeFunction("compressed-distribute", {
+        sourcePrivateKey: singleSourceKey, mintAddress: singleMint,
+        destinations: [singleDest.trim()], amountPerWallet: parseFloat(singleAmount), action: "distribute",
+      });
+      distResult.logs?.forEach((l: string) => addSingleLog(l));
+
+      if (distResult.results?.[0]) {
+        setSingleResult(distResult.results[0]);
+        if (distResult.results[0].status === "success") {
+          addSingleLog(`✅ Transfer complete! Sig: ${distResult.results[0].signature}`, "success");
+        } else {
+          addSingleLog(`❌ Transfer failed: ${distResult.results[0].error}`, "error");
+        }
+      }
+      if (distResult.stats) {
+        addSingleLog(`Cost: ${distResult.stats.totalCostSol?.toFixed(6)} SOL`, "info");
+      }
+    } catch (err: any) {
+      addSingleLog(`Error: ${err.message}`, "error");
+    }
+    setSingleRunning(false);
+    fetchSingleBalance();
+  };
+
   const logColor = { info: "text-zinc-400", success: "text-green-400", error: "text-red-400", warn: "text-yellow-400" };
   const failedCount = results.filter(r => r.status === "failed").length;
   const destCount = destinations.trim().split("\n").filter(Boolean).length;
@@ -437,6 +540,100 @@ export default function CompressedDistributePage() {
         <p className="text-xs text-zinc-500">
           Uses ZK Compression (Light Protocol) to distribute tokens without ATA rent costs (~99% cheaper)
         </p>
+
+        {/* Tabs */}
+        <div className="flex gap-1 bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+          <button
+            onClick={() => { setActiveTab("batch"); localStorage.setItem("compressed-tab", "batch"); }}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-bold transition-colors ${activeTab === "batch" ? "bg-orange-500 text-black" : "text-zinc-400 hover:text-zinc-200"}`}
+          >
+            Batch Distribution
+          </button>
+          <button
+            onClick={() => { setActiveTab("single"); localStorage.setItem("compressed-tab", "single"); }}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-bold transition-colors ${activeTab === "single" ? "bg-orange-500 text-black" : "text-zinc-400 hover:text-zinc-200"}`}
+          >
+            Single Transfer
+          </button>
+        </div>
+
+        {activeTab === "single" ? (
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-xs text-zinc-500 mb-1 block">Source Private Key (bs58)</label>
+                <input value={singleSourceKey} onChange={e => updateSingleSourceKey(e.target.value)} type="password"
+                  className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={singleRunning} />
+                {singleWalletAddress && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-xs bg-zinc-900/50 border border-zinc-800 rounded-lg px-2 py-1.5">
+                    <Wallet className="h-3 w-3 text-orange-400 shrink-0" />
+                    <span className="text-zinc-400 font-mono break-all">{singleWalletAddress}</span>
+                    <button onClick={() => handleCopy(singleWalletAddress)} className="text-zinc-600 hover:text-zinc-300 shrink-0"><Copy className="h-3 w-3" /></button>
+                    <a href={`https://solscan.io/account/${singleWalletAddress}`} target="_blank" rel="noreferrer" className="text-zinc-600 hover:text-blue-400 shrink-0"><ExternalLink className="h-3 w-3" /></a>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 mb-1 block">Token Mint Address</label>
+                <input value={singleMint} onChange={e => updateSingleMint(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white font-mono" disabled={singleRunning} />
+                {singleMint && singleWalletAddress && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-xs bg-zinc-900/50 border border-zinc-800 rounded-lg px-2 py-1.5">
+                    <span className="text-zinc-500">Balance:</span>
+                    {fetchingSingleBalance ? <RefreshCw className="h-3 w-3 animate-spin text-zinc-500" /> : <span className="text-green-400 font-mono font-bold">{singleBalance ?? "—"}</span>}
+                    <button onClick={fetchSingleBalance} className="text-zinc-600 hover:text-zinc-300 shrink-0 ml-auto"><RefreshCw className="h-3 w-3" /></button>
+                    <button onClick={() => handleCopy(singleMint)} className="text-zinc-600 hover:text-zinc-300 shrink-0"><Copy className="h-3 w-3" /></button>
+                    <a href={`https://solscan.io/token/${singleMint}`} target="_blank" rel="noreferrer" className="text-zinc-600 hover:text-blue-400 shrink-0"><ExternalLink className="h-3 w-3" /></a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-zinc-500 mb-1 block">Destination Wallet</label>
+              <input value={singleDest} onChange={e => updateSingleDest(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white font-mono"
+                placeholder="Recipient wallet address" disabled={singleRunning} />
+            </div>
+
+            <div>
+              <label className="text-xs text-zinc-500 mb-1 block">Amount (token units)</label>
+              <input value={singleAmount} onChange={e => updateSingleAmount(e.target.value)} type="number" step="0.000001"
+                className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={singleRunning} />
+            </div>
+
+            <button onClick={startSingleTransfer} disabled={singleRunning}
+              className="px-6 py-2 rounded-lg font-bold bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50">
+              {singleRunning ? "Sending..." : "Send Compressed Transfer"}
+            </button>
+
+            {singleResult && (
+              <div className={`p-3 rounded-lg border text-sm ${singleResult.status === "success" ? "bg-green-900/20 border-green-800 text-green-400" : "bg-red-900/20 border-red-800 text-red-400"}`}>
+                <div className="font-bold">{singleResult.status === "success" ? "✅ Success" : "❌ Failed"}</div>
+                {singleResult.signature && (
+                  <a href={`https://solscan.io/tx/${singleResult.signature}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline font-mono text-xs break-all">
+                    {singleResult.signature}
+                  </a>
+                )}
+                {singleResult.error && <div className="text-xs mt-1">{singleResult.error}</div>}
+              </div>
+            )}
+
+            {singleLogs.length > 0 && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg">
+                <div className="px-3 py-2 border-b border-zinc-800 text-xs font-bold text-zinc-400">Console</div>
+                <div className="h-48 overflow-y-auto p-3 font-mono text-xs space-y-0.5">
+                  {singleLogs.map((log, i) => (
+                    <div key={i} className={logColor[log.type]}>
+                      <span className="text-zinc-600">[{log.time}]</span> {log.message}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+        <>
 
         {/* Resume banner */}
         {sentWalletsCount > 0 && (
@@ -678,8 +875,9 @@ export default function CompressedDistributePage() {
             </table>
           </div>
         )}
-        {/* Whale Scanner */}
         <WhaleScanner />
+        </>
+        )}
       </div>
     </div>
   );
