@@ -45,6 +45,7 @@ export default function FunModePage() {
   const [funRemovePoolAddress, setFunRemovePoolAddress] = useState(() => localStorage.getItem('fun_last_pool_address') || "");
   const [isRemovingFunLp, setIsRemovingFunLp] = useState(false);
   const [launchResult, setLaunchResult] = useState<{ mintAddress?: string; poolAddress?: string; solscanUrl?: string } | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
   const funImpliedPrice = funLpSol / funLpTokens;
   const funImpliedMarketCapSol = funImpliedPrice * funTotalSupply;
@@ -76,6 +77,7 @@ export default function FunModePage() {
     setFunTotalSupply(preset.supply);
     setFunLpTokens(preset.lpTokens);
     setFunLpSol(preset.lpSol);
+    setSelectedPreset(preset.label);
     toast({ title: `${preset.emoji} Values set!`, description: preset.desc });
   }, [toast]);
 
@@ -287,7 +289,11 @@ export default function FunModePage() {
                 <button
                   key={preset.label}
                   onClick={() => handleFunPresetClick(preset)}
-                  className="p-3 rounded-lg border border-border bg-secondary/50 hover:bg-primary/10 hover:border-primary/30 transition-all text-center"
+                  className={`p-3 rounded-lg border transition-all text-center ${
+                    selectedPreset === preset.label
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                      : "border-border bg-secondary/50 hover:bg-primary/10 hover:border-primary/30"
+                  }`}
                 >
                   <div className="text-2xl">{preset.emoji}</div>
                   <div className="text-xs font-bold text-foreground">{preset.label.replace(preset.emoji + ' ', '')}</div>
@@ -375,7 +381,7 @@ export default function FunModePage() {
                   <Input
                     type="number"
                     value={funTotalSupply}
-                    onChange={(e) => setFunTotalSupply(Math.max(1000, Number(e.target.value) || 1_000_000_000))}
+                    onChange={(e) => { setFunTotalSupply(Math.max(1000, Number(e.target.value) || 1_000_000_000)); setSelectedPreset(null); }}
                     className="text-sm"
                   />
                 </div>
@@ -387,7 +393,7 @@ export default function FunModePage() {
                   </div>
                   <Slider
                     value={[funLpSol * 100]}
-                    onValueChange={(v) => setFunLpSol(v[0] / 100)}
+                    onValueChange={(v) => { setFunLpSol(v[0] / 100); setSelectedPreset(null); }}
                     min={1}
                     max={500}
                     step={1}
@@ -403,7 +409,7 @@ export default function FunModePage() {
                   <Input
                     type="number"
                     value={funLpTokens}
-                    onChange={(e) => setFunLpTokens(Math.max(1, Math.min(funTotalSupply, Number(e.target.value) || 10_000_000)))}
+                    onChange={(e) => { setFunLpTokens(Math.max(1, Math.min(funTotalSupply, Number(e.target.value) || 10_000_000))); setSelectedPreset(null); }}
                     className="text-sm"
                   />
                   <p className="text-[10px] text-muted-foreground">
