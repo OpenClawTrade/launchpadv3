@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,9 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  RefreshCw,
+  Inbox,
+  Hash,
 } from "lucide-react";
 
 const OLD_MINT = "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump";
@@ -49,6 +52,16 @@ interface SnapshotHolder {
 interface MigrationConfig {
   deadline_at: string;
   total_supply_snapshot: number;
+}
+
+interface LedgerEntry {
+  id: string;
+  wallet_address: string;
+  total_tokens_received: number;
+  tx_count: number;
+  first_transfer_at: string | null;
+  last_transfer_at: string | null;
+  last_scanned_at: string | null;
 }
 
 function useCountdown(deadline: string | null) {
@@ -110,11 +123,15 @@ export default function MigratePage() {
   const [txSignature, setTxSignature] = useState("");
   const [walletInput, setWalletInput] = useState("");
   const [showTechnicals, setShowTechnicals] = useState(false);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   const countdown = useCountdown(config?.deadline_at || null);
 
   useEffect(() => {
     loadData();
+    loadLedger();
   }, []);
 
   useEffect(() => {
@@ -171,6 +188,50 @@ export default function MigratePage() {
     setLoading(false);
   };
 
+  const loadLedger = async () => {
+    setLedgerLoading(true);
+    const allData: any[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from("tuna_migration_ledger")
+        .select("*")
+        .order("total_tokens_received", { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error || !data || data.length === 0) break;
+      allData.push(...data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    setLedger(
+      allData.map((r: any) => ({
+        ...r,
+        total_tokens_received: Number(r.total_tokens_received),
+        tx_count: Number(r.tx_count),
+      }))
+    );
+    setLedgerLoading(false);
+  };
+
+  const handleRefreshScan = async () => {
+    setScanning(true);
+    try {
+      const res = await supabase.functions.invoke("scan-collection-wallet", {
+        method: "POST",
+      });
+      if (res.error) throw new Error(res.data?.error || res.error.message);
+      if (res.data?.error) throw new Error(res.data.error);
+      toast.success(
+        `Scan complete! Found ${res.data.unique_senders} senders, ${Number(res.data.total_tokens_received).toLocaleString()} tokens total.`
+      );
+      await loadLedger();
+    } catch (err: any) {
+      toast.error(err.message || "Scan failed");
+    } finally {
+      setScanning(false);
+    }
+  };
 
 
   const stats = useMemo(() => {
@@ -190,6 +251,21 @@ export default function MigratePage() {
       supplyPct: totalSupply > 0 ? ((migratedSupply / totalSupply) * 100).toFixed(1) : "0",
     };
   }, [holders, config]);
+
+  const TOTAL_OLD_SUPPLY = 1_000_000_000; // 1B old TUNA total supply
+
+  const ledgerStats = useMemo(() => {
+    const totalReceived = ledger.reduce((s, e) => s + e.total_tokens_received, 0);
+    const totalTxs = ledger.reduce((s, e) => s + e.tx_count, 0);
+    const lastScanned = ledger.length > 0 ? ledger[0].last_scanned_at : null;
+    return {
+      totalReceived,
+      uniqueSenders: ledger.length,
+      totalTxs,
+      pctOfSupply: TOTAL_OLD_SUPPLY > 0 ? ((totalReceived / TOTAL_OLD_SUPPLY) * 100).toFixed(4) : "0",
+      lastScanned,
+    };
+  }, [ledger]);
 
   const filteredHolders = useMemo(() => {
     const filtered = searchQuery
@@ -527,6 +603,9 @@ export default function MigratePage() {
                 <TabsTrigger value="migrated">
                   Migrated ({stats.migratedHolders})
                 </TabsTrigger>
+                <TabsTrigger value="received">
+                  Received ({ledgerStats.uniqueSenders})
+                </TabsTrigger>
               </TabsList>
               <div className="relative max-w-xs w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -667,6 +746,126 @@ export default function MigratePage() {
                       </div>
                     );
                   })()}
+                </TabsContent>
+                {/* Received Ledger Tab */}
+                <TabsContent value="received">
+                  {/* Stats Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <Card className="p-3 text-center bg-secondary/30 border-border">
+                      <div className="text-lg font-bold text-foreground">
+                        {formatNumber(ledgerStats.totalReceived)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Tokens Received ({ledgerStats.pctOfSupply}%)
+                      </div>
+                    </Card>
+                    <Card className="p-3 text-center bg-secondary/30 border-border">
+                      <div className="text-lg font-bold text-foreground flex items-center justify-center gap-1">
+                        <Users className="w-4 h-4 text-primary" />
+                        {ledgerStats.uniqueSenders}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Unique Senders</div>
+                    </Card>
+                    <Card className="p-3 text-center bg-secondary/30 border-border">
+                      <div className="text-lg font-bold text-foreground flex items-center justify-center gap-1">
+                        <Hash className="w-4 h-4 text-primary" />
+                        {ledgerStats.totalTxs}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Total Transactions</div>
+                    </Card>
+                    <Card className="p-3 text-center bg-secondary/30 border-border">
+                      <div className="text-sm text-foreground">
+                        {ledgerStats.lastScanned
+                          ? new Date(ledgerStats.lastScanned).toLocaleString()
+                          : "Never"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Last Scanned</div>
+                    </Card>
+                  </div>
+
+                  {/* Refresh Button */}
+                  <div className="flex justify-end mb-4">
+                    <Button
+                      onClick={handleRefreshScan}
+                      disabled={scanning}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${scanning ? "animate-spin" : ""}`} />
+                      {scanning ? "Scanning on-chain..." : "Refresh from Chain"}
+                    </Button>
+                  </div>
+
+                  {ledgerLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">Loading ledger data...</div>
+                  ) : ledger.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground space-y-3">
+                      <Inbox className="w-8 h-8 mx-auto text-muted-foreground/50" />
+                      <p>No received tokens recorded yet. Click "Refresh from Chain" to scan.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Wallet</TableHead>
+                            <TableHead className="text-right">Tokens Received</TableHead>
+                            <TableHead className="text-right">% Supply</TableHead>
+                            <TableHead className="text-right">TXs</TableHead>
+                            <TableHead className="text-right">First Transfer</TableHead>
+                            <TableHead className="text-right">Last Transfer</TableHead>
+                            <TableHead className="text-center">Solscan</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ledger
+                            .filter((e) =>
+                              searchQuery
+                                ? e.wallet_address.toLowerCase().includes(searchQuery.toLowerCase())
+                                : true
+                            )
+                            .map((entry) => (
+                              <TableRow key={entry.id}>
+                                <TableCell className="font-mono text-sm">
+                                  {truncateWallet(entry.wallet_address)}
+                                  <CopyButton text={entry.wallet_address} label="Wallet" />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {entry.total_tokens_received.toLocaleString(undefined, {
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {((entry.total_tokens_received / TOTAL_OLD_SUPPLY) * 100).toFixed(4)}%
+                                </TableCell>
+                                <TableCell className="text-right">{entry.tx_count}</TableCell>
+                                <TableCell className="text-right text-sm text-muted-foreground">
+                                  {entry.first_transfer_at
+                                    ? new Date(entry.first_transfer_at).toLocaleDateString()
+                                    : "—"}
+                                </TableCell>
+                                <TableCell className="text-right text-sm text-muted-foreground">
+                                  {entry.last_transfer_at
+                                    ? new Date(entry.last_transfer_at).toLocaleDateString()
+                                    : "—"}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <a
+                                    href={`https://solscan.io/account/${entry.wallet_address}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </a>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </TabsContent>
               </>
             )}
