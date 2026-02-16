@@ -216,16 +216,21 @@ export default function FunModePage() {
         const neededPubkeys = txRequiredKeypairs[idx] || [];
         console.log(`[FUN Launch] ${txLabel}: needs ${neededPubkeys.length} ephemeral sigs: ${neededPubkeys.join(', ')}`);
         
-        if (phantomSigned instanceof Transaction) {
-          const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
-          console.log(`[FUN Launch] ${txLabel}: found ${localSigners.length} signers (instanceof Transaction = true)`);
-          if (localSigners.length > 0) phantomSigned.partialSign(...localSigners);
-        } else if (phantomSigned instanceof VersionedTransaction) {
-          const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
-          console.log(`[FUN Launch] ${txLabel}: found ${localSigners.length} signers (instanceof VersionedTransaction = true)`);
-          if (localSigners.length > 0) phantomSigned.sign(localSigners);
-        } else {
-          console.error(`[FUN Launch] ${txLabel}: WARNING - phantomSigned is NEITHER Transaction nor VersionedTransaction!`, typeof phantomSigned);
+        // Duck-type check: Phantom may return a TX from its own bundled web3.js,
+        // so instanceof fails across realms. Use method existence instead.
+        const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
+        console.log(`[FUN Launch] ${txLabel}: found ${localSigners.length} ephemeral signers to apply`);
+        
+        if (localSigners.length > 0) {
+          if (typeof (phantomSigned as any).partialSign === 'function') {
+            (phantomSigned as Transaction).partialSign(...localSigners);
+            console.log(`[FUN Launch] ${txLabel}: applied partialSign (legacy path)`);
+          } else if (typeof (phantomSigned as any).sign === 'function') {
+            (phantomSigned as VersionedTransaction).sign(localSigners);
+            console.log(`[FUN Launch] ${txLabel}: applied sign (versioned path)`);
+          } else {
+            console.error(`[FUN Launch] ${txLabel}: No sign method found on returned object`);
+          }
         }
 
         const rawTx = (phantomSigned as any).serialize();
