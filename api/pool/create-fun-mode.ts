@@ -4,6 +4,7 @@ import {
   Keypair,
   PublicKey,
   Transaction,
+  TransactionInstruction,
   SystemProgram,
   LAMPORTS_PER_SOL,
   ComputeBudgetProgram,
@@ -30,6 +31,65 @@ import {
 
 // wSOL mint address
 const WSOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
+
+// Metaplex Token Metadata Program
+const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+
+/**
+ * Manually serialize CreateMetadataAccountV3 instruction data (Borsh).
+ * Avoids needing @metaplex-foundation/mpl-token-metadata dependency.
+ */
+function buildCreateMetadataV3Ix(
+  metadataPDA: PublicKey,
+  mint: PublicKey,
+  mintAuthority: PublicKey,
+  payer: PublicKey,
+  updateAuthority: PublicKey,
+  name: string,
+  symbol: string,
+  uri: string,
+): TransactionInstruction {
+  // Borsh-serialize the instruction data
+  const nameBytes = Buffer.from(name, 'utf8');
+  const symbolBytes = Buffer.from(symbol, 'utf8');
+  const uriBytes = Buffer.from(uri, 'utf8');
+
+  const buffers: Buffer[] = [];
+  // Discriminator: 33 (CreateMetadataAccountV3)
+  buffers.push(Buffer.from([33]));
+  // CreateMetadataAccountArgsV3 → data: DataV2
+  // name (borsh string: u32 LE length + bytes)
+  const nl = Buffer.alloc(4); nl.writeUInt32LE(nameBytes.length); buffers.push(nl, nameBytes);
+  // symbol
+  const sl = Buffer.alloc(4); sl.writeUInt32LE(symbolBytes.length); buffers.push(sl, symbolBytes);
+  // uri
+  const ul = Buffer.alloc(4); ul.writeUInt32LE(uriBytes.length); buffers.push(ul, uriBytes);
+  // seller_fee_basis_points: u16 = 0
+  buffers.push(Buffer.alloc(2));
+  // creators: Option<Vec<Creator>> = None
+  buffers.push(Buffer.from([0]));
+  // collection: Option<Collection> = None
+  buffers.push(Buffer.from([0]));
+  // uses: Option<Uses> = None
+  buffers.push(Buffer.from([0]));
+  // is_mutable: bool = true
+  buffers.push(Buffer.from([1]));
+  // collection_details: Option<CollectionDetails> = None
+  buffers.push(Buffer.from([0]));
+
+  return new TransactionInstruction({
+    programId: TOKEN_METADATA_PROGRAM_ID,
+    keys: [
+      { pubkey: metadataPDA, isSigner: false, isWritable: true },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: mintAuthority, isSigner: true, isWritable: false },
+      { pubkey: payer, isSigner: true, isWritable: true },
+      { pubkey: updateAuthority, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.concat(buffers),
+  });
+}
 
 // Retry helper for RPC rate limits
 async function getBlockhashWithRetry(
@@ -136,13 +196,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const mintKeypair = Keypair.generate();
     const mintPubkey = mintKeypair.publicKey;
     const decimals = 9;
+    const mintAddress = mintPubkey.toBase58();
 
-    // ===== TX1: Create Mint + Mint Supply to Creator =====
+    // ===== Upload Metaplex-compatible metadata JSON to storage =====
+    const supabase = getSupabase();
+    const tokenName = name.slice(0, 32);
+    const tokenSymbol = ticker.toUpperCase().slice(0, 10);
+    const tokenDescription = description?.slice(0, 500) || `${tokenName} - FUN mode token`;
+    const tokenImage = imageUrl || '';
+
+    const metadataJson = {
+      name: tokenName,
+      symbol: tokenSymbol,
+      description: tokenDescription,
+      image: tokenImage,
+      external_url: `https://tuna.fun/t/${tokenSymbol}`,
+      seller_fee_basis_points: 0,
+      properties: {
+        files: tokenImage ? [{ uri: tokenImage, type: 'image/png' }] : [],
+        category: 'image',
+        creators: [],
+      },
+    };
+
+    const jsonPath = `token-metadata/${mintAddress}.json`;
+    let metadataUri = '';
+    try {
+      const jsonBlob = new Blob([JSON.stringify(metadataJson, null, 2)], { type: 'application/json' });
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(jsonPath, jsonBlob, { contentType: 'application/json', upsert: true, cacheControl: '60' });
+      if (uploadError) {
+        console.warn('[create-fun-mode] ⚠️ Metadata JSON upload failed:', uploadError.message);
+      } else {
+        const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(jsonPath);
+        metadataUri = publicUrl;
+        console.log('[create-fun-mode] ✅ Metadata JSON uploaded:', metadataUri);
+      }
+    } catch (metaErr) {
+      console.warn('[create-fun-mode] ⚠️ Metadata upload error (non-fatal):', metaErr);
+    }
+
+    // ===== TX1: Create Mint + Metadata + Mint Supply to Creator =====
     const tx1 = new Transaction();
 
     // Priority fees to ensure TX lands on-chain
     tx1.add(
-      ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
     );
 
@@ -158,6 +258,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }),
       createInitializeMint2Instruction(mintPubkey, decimals, phantomPubkey, null, TOKEN_PROGRAM_ID)
     );
+
+    // ===== Add Metaplex on-chain metadata =====
+    const [metadataPDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from('metadata'), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
+      TOKEN_METADATA_PROGRAM_ID,
+    );
+    tx1.add(buildCreateMetadataV3Ix(
+      metadataPDA, mintPubkey, phantomPubkey, phantomPubkey, phantomPubkey,
+      tokenName, tokenSymbol, metadataUri,
+    ));
 
     // Create ATA for creator and mint total supply
     const creatorAta = getAssociatedTokenAddressSync(mintPubkey, phantomPubkey);
@@ -272,7 +382,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ephemeralKeypairs[mintKeypair.publicKey.toBase58()] = bs58.encode(mintKeypair.secretKey);
     ephemeralKeypairs[positionNftMint.publicKey.toBase58()] = bs58.encode(positionNftMint.secretKey);
 
-    const mintAddress = mintPubkey.toBase58();
+    // mintAddress already defined above
     const poolAddressStr = poolAddress.toBase58();
 
     // Calculate implied values
@@ -291,7 +401,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       mintAddress,
       poolAddress: poolAddressStr,
       unsignedTransactions: serializedTransactions,
-      txLabels: ['Create Token & Mint Supply', 'Create Pool (Zero Fees, Unlocked LP)'],
+      txLabels: ['Create Token + Metadata & Mint Supply', 'Create Pool (0.01% Fee, Unlocked LP)'],
       txRequiredKeypairs,
       ephemeralKeypairs,
       txIsVersioned,
@@ -300,7 +410,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       impliedMarketCapSol: impliedMarketCap,
       requiresPhantomSignature: true,
       phantomSignsFirst: true,
-      message: 'FUN mode: 2-TX sequential signing. LP is NOT locked, zero trading fees.',
+      message: 'FUN mode: 2-TX sequential signing. LP is NOT locked, 0.01% trading fees.',
     });
   } catch (error) {
     console.error('[create-fun-mode] Error:', error);
