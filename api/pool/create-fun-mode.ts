@@ -22,7 +22,9 @@ import {
   CpAmm,
   MIN_SQRT_PRICE,
   MAX_SQRT_PRICE,
-  encodeFeeTimeSchedulerParams,
+  getBaseFeeParams,
+  BaseFeeMode,
+  ActivationType,
 } from '@meteora-ag/cp-amm-sdk';
 
 // wSOL mint address
@@ -181,12 +183,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       maxSqrtPrice: MAX_SQRT_PRICE,
     });
 
-    // Zero fee config - encode as fee time scheduler with 0 bps
-    const zeroBaseFee = encodeFeeTimeSchedulerParams({
-      startingFeeBps: 0,
-      endingFeeBps: 0,
-      durationSeconds: 0,
-    });
+    // Zero fee config
+    const zeroBaseFee = getBaseFeeParams({
+      baseFeeMode: BaseFeeMode.FeeTimeSchedulerLinear,
+      feeTimeSchedulerParam: {
+        startingFeeBps: 0,
+        endingFeeBps: 0,
+        numberOfPeriod: 0,
+        totalDuration: 0,
+      },
+    }, 9, ActivationType.Slot);
 
     console.log('[create-fun-mode] Creating CP-AMM pool:', {
       mintAddress: mintPubkey.toBase58(),
