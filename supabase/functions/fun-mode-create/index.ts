@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
           price_sol: 0,
           launchpad_type: "fun_mode",
           fee_mode: "none",
-          trading_fee_bps: 0,
+          trading_fee_bps: 1,
         })
         .select()
         .single();

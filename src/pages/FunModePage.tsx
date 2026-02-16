@@ -530,7 +530,7 @@ export default function FunModePage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Trading Fees</span>
-                    <span className="text-primary font-semibold">0%</span>
+                    <span className="text-primary font-semibold">0.01%</span>
                   </div>
                 </div>
               </div>
