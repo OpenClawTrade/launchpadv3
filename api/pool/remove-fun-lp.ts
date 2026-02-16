@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     // Filter positions owned by the user
     const userPositions = positions.filter(
-      (pos: any) => pos.owner?.toBase58() === ownerPubkey.toBase58()
+      (pos) => pos.account?.pool?.toBase58() === poolPubkey.toBase58()
     );
 
     if (userPositions.length === 0) {
@@ -95,18 +95,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Use the first position
     const position = userPositions[0];
-    const positionState = position;
 
     // Build remove liquidity + close position transaction
     const removeTx = await cpAmm.removeAllLiquidityAndClosePosition({
       owner: ownerPubkey,
-      position: position.publicKey || position.address,
+      position: position.publicKey,
       positionNftAccount: getAssociatedTokenAddressSync(
-        position.account?.positionNftMint || position.positionNftMint || position.nftMint,
+        position.account.nftMint,
         ownerPubkey
       ),
       poolState,
-      positionState: position.account || position,
+      positionState: position.account,
       tokenAAmountThreshold: new BN(0),
       tokenBAmountThreshold: new BN(0),
       vestings: [],
