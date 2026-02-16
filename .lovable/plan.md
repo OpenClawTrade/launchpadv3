@@ -1,53 +1,63 @@
 
 
-## Fix: Transaction Blockhash Expiry in FUN Mode Launch
+## Fix: Add Priority Fees + Retry-Send Loop for FUN Mode Transactions
 
-### Problem
-The backend creates transactions with a blockhash at creation time. By the time the user reviews and signs in Phantom (could be 10-30+ seconds), that blockhash expires. The transaction is then rejected by the Solana network ("block height exceeded").
+### Root Cause
 
-### Root Cause (line 143-167 of FunModePage.tsx)
-1. Backend sets blockhash when building TX
-2. User takes time to sign in Phantom popup  
-3. Frontend fetches a NEW blockhash (line 161) but only uses it for confirmation polling
-4. The transaction still contains the OLD expired blockhash
-5. Network rejects the transaction silently; confirmation times out
+The transactions built by the backend (`api/pool/create-fun-mode.ts`) contain NO `ComputeBudgetProgram` instructions (priority fees). On Solana mainnet, validators prioritize transactions with higher fees. Without them, the transaction is accepted by the RPC but dropped before inclusion in a block. The blockhash expires, and the user sees "block height exceeded."
 
-### Fix
+### Two-Part Fix
 
-**File: `src/pages/FunModePage.tsx`** - In the signing loop (lines 143-170):
+#### Part 1: Add Priority Fee Instructions (Frontend)
 
-1. BEFORE presenting the transaction to Phantom for signing, fetch a fresh blockhash
-2. If the transaction is a legacy `Transaction`, update its `recentBlockhash` property
-3. Use that same blockhash for confirmation after sending
-4. Remove the redundant `getLatestBlockhash` call after sending (line 161)
+Before signing each transaction in `src/pages/FunModePage.tsx`, prepend two `ComputeBudgetProgram` instructions:
+
+- `setComputeUnitLimit(200_000)` - reasonable CU budget for token + pool creation
+- `setComputeUnitPrice(50_000)` - ~0.01 SOL priority fee, enough to land reliably
+
+For **legacy `Transaction`** objects, we can prepend instructions directly. For **`VersionedTransaction`** objects, we need to rebuild the message with the extra instructions (more complex), OR we add the priority fee instructions in the backend.
+
+Since the backend builds the transactions, the cleanest approach is to add priority fees in **`api/pool/create-fun-mode.ts`** where both transactions (TX1: Create Token, TX2: Create Pool) are constructed.
+
+**File: `api/pool/create-fun-mode.ts`**
+
+1. Import `ComputeBudgetProgram` from `@solana/web3.js`
+2. Add two instructions at the start of both TX1 and TX2:
+   ```
+   ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 })
+   ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 })
+   ```
+
+#### Part 2: Retry-Send During Confirmation (Frontend)
+
+In `src/pages/FunModePage.tsx`, replace the simple `sendRawTransaction` + `confirmTransaction` with a retry loop that rebroadcasts the raw transaction every 2 seconds while polling for confirmation. This is a standard Solana reliability pattern:
 
 ```text
-Before (current flow):
-  deserialize TX (old blockhash) -> Phantom signs -> get new blockhash -> send -> confirm with new blockhash
-
-After (fixed flow):
-  deserialize TX -> get fresh blockhash -> set it on TX -> Phantom signs -> send -> confirm with same blockhash
+1. Send raw TX, get signature
+2. Start parallel:
+   a. Poll getSignatureStatuses every 2 seconds
+   b. Re-send raw TX every 2 seconds (idempotent - same signature)
+3. Stop when confirmed OR block height exceeded
 ```
 
-### Secondary Fix: Remove LP flow (line 253)
+This ensures that if the first broadcast is dropped, subsequent rebroadcasts have a chance to land.
 
-The `handleRemoveFunLp` function at line 253 still uses the deprecated `confirmTransaction(signature, "confirmed")` call. Update it to use the blockhash-based confirmation as well, with the same "set fresh blockhash before signing" pattern.
+**File: `src/pages/FunModePage.tsx`**
 
-### Technical Details
+Create a helper function `sendAndConfirmWithRetry(connection, rawTx, blockhash, lastValidBlockHeight)` that:
+- Sends the initial transaction
+- Every 2 seconds: re-sends AND checks signature status
+- Returns the signature once confirmed
+- Throws if `lastValidBlockHeight` is exceeded
 
-For legacy `Transaction` objects:
-```typescript
-const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-tx.recentBlockhash = blockhash;
-// Then sign, send, and confirm using { signature, blockhash, lastValidBlockHeight }
-```
+### Changes Summary
 
-For `VersionedTransaction` objects:
-```typescript
-const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-tx.message.recentBlockhash = blockhash;
-// Then sign, send, and confirm
-```
+| File | Change |
+|------|--------|
+| `api/pool/create-fun-mode.ts` | Add `ComputeBudgetProgram` priority fee instructions to TX1 and TX2 |
+| `src/pages/FunModePage.tsx` | Add `sendAndConfirmWithRetry` helper with rebroadcast loop; use it for both launch and Remove LP flows |
 
-This ensures the blockhash inside the transaction matches what the network expects, eliminating the expiry window.
+### Cost Impact
+
+The priority fee adds approximately 0.01 SOL per transaction (0.02 SOL total for the 2-TX flow). Combined with the existing ~0.06 SOL cost, total launch cost becomes ~0.08 SOL.
 
