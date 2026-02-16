@@ -35,6 +35,7 @@ export default function DecompressPage() {
   const [balances, setBalances] = useState<CompressedBalance[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [signatures, setSignatures] = useState<string[]>([]);
+  const [decompressedMints, setDecompressedMints] = useState<Set<string>>(new Set());
   const [sdkReady, setSdkReady] = useState(false);
   const sdkRef = useRef<LightSdk | null>(null);
   const { toast } = useToast();
@@ -252,7 +253,7 @@ export default function DecompressPage() {
       addLog("Tokens should now appear in your wallet!");
 
       toast({ title: "Decompression complete!", description: `${humanAmount.toLocaleString()} tokens are now in your wallet` });
-      await checkBalances();
+      setDecompressedMints(prev => new Set(prev).add(balance.mint));
     } catch (e: any) {
       addLog(`Error: ${e.message}`);
       toast({ title: "Decompress failed", description: e.message, variant: "destructive" });
@@ -372,23 +373,30 @@ export default function DecompressPage() {
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{b.accounts} compressed account(s) • {b.decimals} decimals</p>
                   </div>
-                  <Button
-                    onClick={() => decompressToken(b)}
-                    disabled={!walletConnected || decompressing !== null || !sdkReady}
-                    className="gap-2 shrink-0"
-                  >
-                    {decompressing === b.mint ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Decompressing...
-                      </>
-                    ) : (
-                      <>
-                        <ArrowDown className="w-4 h-4" />
-                        Decompress
-                      </>
-                    )}
-                  </Button>
+                  {decompressedMints.has(b.mint) ? (
+                    <div className="flex items-center gap-1.5 text-green-400 font-semibold text-sm shrink-0 px-3 py-2">
+                      <Check className="w-4 h-4" />
+                      Done
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => decompressToken(b)}
+                      disabled={!walletConnected || decompressing !== null || !sdkReady}
+                      className="gap-2 shrink-0"
+                    >
+                      {decompressing === b.mint ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Decompressing...
+                        </>
+                      ) : (
+                        <>
+                          <ArrowDown className="w-4 h-4" />
+                          Decompress
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
