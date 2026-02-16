@@ -151,13 +151,13 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
 
       {/* King of the Hill */}
       {showKingOfTheHill && (
-        <div className="max-w-[1400px] mx-auto px-4 pt-6">
+        <div className="max-w-[1050px] mx-auto px-4 pt-6">
           <KingOfTheHill />
         </div>
       )}
 
       {/* Main Content */}
-      <main className="max-w-[1400px] mx-auto px-4 py-6">
+      <main className="max-w-[1050px] mx-auto px-4 py-6">
         {children}
       </main>
 

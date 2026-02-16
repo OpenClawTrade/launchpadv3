@@ -29,11 +29,11 @@ export default {
         border: "hsl(var(--border))",
         "border-light": "hsl(var(--border-light))",
         input: "hsl(var(--input))",
-        // Gate.io Green
+        // OpenClaw Red
         gate: {
-          DEFAULT: "hsl(152 69% 41%)",
-          light: "hsl(152 69% 95%)",
-          dark: "hsl(152 69% 35%)",
+          DEFAULT: "hsl(0 84% 60%)",
+          light: "hsl(0 84% 95%)",
+          dark: "hsl(0 84% 50%)",
         },
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
