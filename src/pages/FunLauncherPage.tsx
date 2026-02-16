@@ -398,23 +398,23 @@ export default function FunLauncherPage() {
           <div className="flex-1 min-w-0">
             <Tabs defaultValue="tokens" className="w-full">
               <TabsList className="w-full bg-card border border-border p-1.5 mb-4 grid grid-cols-5 gap-1 sm:gap-2 rounded-xl">
-                <TabsTrigger value="tokens" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                <TabsTrigger value="tokens" className="data-[state=active]:bg-green-600 data-[state=active]:text-white text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
                   <BarChart3 className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Tokens</span>
                 </TabsTrigger>
-                <TabsTrigger value="promoted" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                <TabsTrigger value="promoted" className="data-[state=active]:bg-green-600 data-[state=active]:text-white text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
                   <Crown className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Promoted</span>
                 </TabsTrigger>
-                <TabsTrigger value="top" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                <TabsTrigger value="top" className="data-[state=active]:bg-green-600 data-[state=active]:text-white text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
                   <Trophy className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Top</span>
                 </TabsTrigger>
-                <TabsTrigger value="claims" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                <TabsTrigger value="claims" className="data-[state=active]:bg-green-600 data-[state=active]:text-white text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
                   <Coins className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Claims</span>
                 </TabsTrigger>
-                <TabsTrigger value="creators" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
+                <TabsTrigger value="creators" className="data-[state=active]:bg-green-600 data-[state=active]:text-white text-muted-foreground text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
                   <Wallet className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Creators</span>
                 </TabsTrigger>
