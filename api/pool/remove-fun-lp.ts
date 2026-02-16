@@ -2,12 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   Connection,
   PublicKey,
-  Transaction,
 } from '@solana/web3.js';
-import {
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-} from '@solana/spl-token';
 import BN from 'bn.js';
 import { CpAmm } from '@meteora-ag/cp-amm-sdk';
 
@@ -77,15 +72,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Pool not found or not a CP-AMM pool' });
     }
 
-    // Find positions owned by this wallet
-    const positions = await cpAmm.getAllPositionsByPool(poolPubkey);
-    
-    // Filter positions owned by the user
-    const userPositions = positions.filter(
-      (pos) => pos.account?.pool?.toBase58() === poolPubkey.toBase58()
-    );
+    // Use getUserPositionByPool to get positions owned by this specific user
+    // This returns the correct positionNftAccount directly from the SDK
+    const userPositions = await cpAmm.getUserPositionByPool(poolPubkey, ownerPubkey);
 
-    if (userPositions.length === 0) {
+    if (!userPositions || userPositions.length === 0) {
       return res.status(404).json({ 
         error: 'No LP position found for your wallet in this pool. Make sure you are the pool creator.' 
       });
@@ -93,19 +84,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('[remove-fun-lp] Found', userPositions.length, 'position(s) for user');
 
-    // Use the first position
-    const position = userPositions[0];
+    // Use the first position — the SDK provides the correct NFT account
+    const userPos = userPositions[0];
+
+    console.log('[remove-fun-lp] Position:', userPos.position.toBase58());
+    console.log('[remove-fun-lp] NFT Account:', userPos.positionNftAccount.toBase58());
 
     // Build remove liquidity + close position transaction
     const removeTx = await cpAmm.removeAllLiquidityAndClosePosition({
       owner: ownerPubkey,
-      position: position.publicKey,
-      positionNftAccount: getAssociatedTokenAddressSync(
-        position.account.nftMint,
-        ownerPubkey
-      ),
+      position: userPos.position,
+      positionNftAccount: userPos.positionNftAccount,
       poolState,
-      positionState: position.account,
+      positionState: userPos.positionState,
       tokenAAmountThreshold: new BN(0),
       tokenBAmountThreshold: new BN(0),
       vestings: [],
