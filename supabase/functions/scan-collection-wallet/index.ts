@@ -8,7 +8,6 @@ const corsHeaders = {
 
 const COLLECTION_WALLET = "9ETnxTgU3Zqg3NuuZXyoa5HmtaCkP9PWjKxcCrLoWTXe";
 const OLD_TUNA_MINT = "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump";
-const TOKEN_DECIMALS = 6;
 
 interface HeliusTransfer {
   fromUserAccount: string;
@@ -39,53 +38,89 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch ALL transactions for the collection wallet using Helius Enhanced Transaction History
-    // Paginate through all results
-    const allTransactions: HeliusTransaction[] = [];
-    let lastSignature: string | undefined;
-    let page = 0;
-    const MAX_PAGES = 100; // Safety limit
+    const heliusRpcUrl = `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`;
 
     console.log(`Starting scan of collection wallet: ${COLLECTION_WALLET}`);
+    console.log(`Looking for mint: ${OLD_TUNA_MINT}`);
 
-    while (page < MAX_PAGES) {
-      const url = new URL(
-        `https://api.helius.xyz/v0/addresses/${COLLECTION_WALLET}/transactions`
-      );
-      url.searchParams.set("api-key", heliusApiKey);
-      url.searchParams.set("limit", "100");
-      if (lastSignature) {
-        url.searchParams.set("before", lastSignature);
-      }
+    // Step 1: Find the TUNA token account (ATA) for the collection wallet
+    const ataRes = await fetch(heliusRpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "get-ata",
+        method: "getTokenAccountsByOwner",
+        params: [
+          COLLECTION_WALLET,
+          { mint: OLD_TUNA_MINT },
+          { encoding: "jsonParsed" },
+        ],
+      }),
+    });
 
-      const res = await fetch(url.toString());
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Helius API error (${res.status}): ${text}`);
-      }
-
-      const transactions: HeliusTransaction[] = await res.json();
-      if (!transactions || transactions.length === 0) break;
-
-      allTransactions.push(...transactions);
-      lastSignature = transactions[transactions.length - 1].signature;
-      page++;
-
-      console.log(
-        `Page ${page}: fetched ${transactions.length} txs (total: ${allTransactions.length})`
-      );
-
-      // Small delay to avoid rate limiting
-      if (transactions.length === 100) {
-        await new Promise((r) => setTimeout(r, 200));
-      } else {
-        break; // Less than 100 means we got everything
-      }
+    const ataData = await ataRes.json();
+    if (ataData.error) {
+      throw new Error(`RPC error finding ATA: ${JSON.stringify(ataData.error)}`);
     }
 
-    console.log(`Total transactions fetched: ${allTransactions.length}`);
+    const tokenAccounts = ataData.result?.value || [];
+    if (tokenAccounts.length === 0) {
+      throw new Error("No TUNA token account found for collection wallet");
+    }
 
-    // Filter and aggregate: only old TUNA mint transfers TO the collection wallet
+    const ataAddress = tokenAccounts[0].pubkey;
+    console.log(`Found TUNA ATA: ${ataAddress}`);
+
+    // Step 2: Get ALL signatures for the ATA address
+    const allSignatures: { signature: string; blockTime: number }[] = [];
+    let beforeSig: string | undefined;
+    let sigPage = 0;
+
+    while (sigPage < 200) {
+      const params: any[] = [ataAddress, { limit: 1000 }];
+      if (beforeSig) {
+        params[1].before = beforeSig;
+      }
+
+      const rpcRes = await fetch(heliusRpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: `sigs-${sigPage}`,
+          method: "getSignaturesForAddress",
+          params,
+        }),
+      });
+
+      const rpcData = await rpcRes.json();
+      if (rpcData.error) {
+        throw new Error(`RPC error: ${JSON.stringify(rpcData.error)}`);
+      }
+
+      const sigs = rpcData.result || [];
+      if (sigs.length === 0) break;
+
+      const successSigs = sigs
+        .filter((s: any) => s.err === null)
+        .map((s: any) => ({ signature: s.signature, blockTime: s.blockTime }));
+      allSignatures.push(...successSigs);
+      beforeSig = sigs[sigs.length - 1].signature;
+      sigPage++;
+
+      console.log(
+        `Sig page ${sigPage}: fetched ${sigs.length} (success: ${successSigs.length}, total: ${allSignatures.length})`
+      );
+
+      if (sigs.length < 1000) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    console.log(`Total ATA signatures fetched: ${allSignatures.length}`);
+
+    // Step 3: Parse transactions in batches using Helius
+    const PARSE_BATCH_SIZE = 100;
     const walletMap = new Map<
       string,
       {
@@ -96,47 +131,87 @@ Deno.serve(async (req) => {
       }
     >();
 
-    for (const tx of allTransactions) {
-      if (!tx.tokenTransfers || tx.tokenTransfers.length === 0) continue;
+    let totalParsed = 0;
+    let matchCount = 0;
 
-      for (const transfer of tx.tokenTransfers) {
-        if (
-          transfer.mint === OLD_TUNA_MINT &&
-          transfer.toUserAccount === COLLECTION_WALLET &&
-          transfer.fromUserAccount &&
-          transfer.fromUserAccount !== COLLECTION_WALLET &&
-          transfer.tokenAmount > 0
-        ) {
-          const sender = transfer.fromUserAccount;
-          const existing = walletMap.get(sender);
+    for (let i = 0; i < allSignatures.length; i += PARSE_BATCH_SIZE) {
+      const batch = allSignatures.slice(i, i + PARSE_BATCH_SIZE);
+      const sigStrings = batch.map((s) => s.signature);
 
-          if (existing) {
-            existing.totalTokens += transfer.tokenAmount;
-            existing.txCount += 1;
-            existing.firstTransferAt = Math.min(
-              existing.firstTransferAt,
-              tx.timestamp
-            );
-            existing.lastTransferAt = Math.max(
-              existing.lastTransferAt,
-              tx.timestamp
-            );
-          } else {
-            walletMap.set(sender, {
-              totalTokens: transfer.tokenAmount,
-              txCount: 1,
-              firstTransferAt: tx.timestamp,
-              lastTransferAt: tx.timestamp,
-            });
+      const parseRes = await fetch(
+        `https://api.helius.xyz/v0/transactions/?api-key=${heliusApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transactions: sigStrings }),
+        }
+      );
+
+      if (!parseRes.ok) {
+        const text = await parseRes.text();
+        console.error(`Parse API error (${parseRes.status}): ${text}`);
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
+
+      const parsedTxs: HeliusTransaction[] = await parseRes.json();
+      totalParsed += parsedTxs.length;
+
+      for (const tx of parsedTxs) {
+        if (!tx.tokenTransfers || tx.tokenTransfers.length === 0) continue;
+
+        for (const transfer of tx.tokenTransfers) {
+          if (
+            transfer.mint === OLD_TUNA_MINT &&
+            transfer.toUserAccount === COLLECTION_WALLET &&
+            transfer.fromUserAccount &&
+            transfer.fromUserAccount !== COLLECTION_WALLET &&
+            transfer.tokenAmount > 0
+          ) {
+            matchCount++;
+            const sender = transfer.fromUserAccount;
+            const existing = walletMap.get(sender);
+
+            if (existing) {
+              existing.totalTokens += transfer.tokenAmount;
+              existing.txCount += 1;
+              existing.firstTransferAt = Math.min(
+                existing.firstTransferAt,
+                tx.timestamp
+              );
+              existing.lastTransferAt = Math.max(
+                existing.lastTransferAt,
+                tx.timestamp
+              );
+            } else {
+              walletMap.set(sender, {
+                totalTokens: transfer.tokenAmount,
+                txCount: 1,
+                firstTransferAt: tx.timestamp,
+                lastTransferAt: tx.timestamp,
+              });
+            }
           }
         }
       }
+
+      const batchNum = Math.floor(i / PARSE_BATCH_SIZE) + 1;
+      console.log(
+        `Parsed batch ${batchNum}/${Math.ceil(allSignatures.length / PARSE_BATCH_SIZE)}: matches=${matchCount}, senders=${walletMap.size}`
+      );
+
+      // Rate limit between batches
+      await new Promise((r) => setTimeout(r, 300));
     }
 
-    console.log(`Found ${walletMap.size} unique senders`);
+    console.log(`Total parsed: ${totalParsed}, Matches: ${matchCount}, Unique senders: ${walletMap.size}`);
 
-    // Upsert into tuna_migration_ledger
+    // Upsert into tuna_migration_ledger - first clear old data, then insert fresh
     const now = new Date().toISOString();
+    
+    // Delete all existing records (full refresh)
+    await supabase.from("tuna_migration_ledger").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
     const upsertRows = Array.from(walletMap.entries()).map(
       ([wallet, data]) => ({
         wallet_address: wallet,
@@ -149,17 +224,16 @@ Deno.serve(async (req) => {
     );
 
     if (upsertRows.length > 0) {
-      // Batch upsert in chunks of 500
       const CHUNK_SIZE = 500;
       for (let i = 0; i < upsertRows.length; i += CHUNK_SIZE) {
         const chunk = upsertRows.slice(i, i + CHUNK_SIZE);
         const { error } = await supabase
           .from("tuna_migration_ledger")
-          .upsert(chunk, { onConflict: "wallet_address" });
+          .insert(chunk);
 
         if (error) {
-          console.error(`Upsert error for chunk ${i}:`, error);
-          throw new Error(`Database upsert failed: ${error.message}`);
+          console.error(`Insert error for chunk ${i}:`, error);
+          throw new Error(`Database insert failed: ${error.message}`);
         }
       }
     }
@@ -177,8 +251,9 @@ Deno.serve(async (req) => {
       total_tokens_received: totalTokens,
       unique_senders: walletMap.size,
       total_transactions: totalTxs,
-      pages_fetched: page,
-      raw_transactions_scanned: allTransactions.length,
+      ata_address: ataAddress,
+      total_ata_signatures: allSignatures.length,
+      total_parsed: totalParsed,
       scanned_at: now,
     };
 
