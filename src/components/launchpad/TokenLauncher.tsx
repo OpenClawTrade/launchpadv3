@@ -37,7 +37,9 @@ import {
   Coins,
   Users,
   Loader2,
-  Camera
+  Camera,
+  PartyPopper,
+  Lock,
 } from "lucide-react";
 
 interface MemeToken {
@@ -100,7 +102,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   // Idempotency key to prevent duplicate launches - regenerated on successful launch or ticker change
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
-  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "realistic" | "phantom" | "holders">("random");
+  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "realistic" | "phantom" | "holders" | "fun">("random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
     name: "",
@@ -163,6 +165,19 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   });
   const [holdersImageFile, setHoldersImageFile] = useState<File | null>(null);
   const [holdersImagePreview, setHoldersImagePreview] = useState<string | null>(null);
+
+  // FUN mode state
+  const [funModeUnlocked, setFunModeUnlocked] = useState(() => localStorage.getItem('fun_mode_unlocked') === 'true');
+  const [funPasswordInput, setFunPasswordInput] = useState("");
+  const [funToken, setFunToken] = useState<MemeToken>({
+    name: "", ticker: "", description: "", imageUrl: "",
+  });
+  const [funImageFile, setFunImageFile] = useState<File | null>(null);
+  const [funImagePreview, setFunImagePreview] = useState<string | null>(null);
+  const [funTotalSupply, setFunTotalSupply] = useState(1_000_000_000);
+  const [funLpSol, setFunLpSol] = useState(0.5);
+  const [funLpTokens, setFunLpTokens] = useState(10_000_000);
+  const [isFunLaunching, setIsFunLaunching] = useState(false);
 
   // Banner generation
   const { generateBanner, downloadBanner, clearBanner, isGenerating: isBannerGenerating, bannerUrl } = useBannerGenerator();
@@ -1274,6 +1289,184 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
      }
   }, [phantomWallet, phantomToken, phantomMeme, phantomImagePreview, phantomTradingFee, phantomDevBuySol, toast, uploadPhantomImageIfNeeded, onLaunchSuccess, onShowResult]);
 
+  // FUN mode handlers
+  const uploadFunImageIfNeeded = useCallback(async (): Promise<string> => {
+    if (!funImageFile) return funToken.imageUrl;
+    const fileExt = funImageFile.name.split('.').pop() || 'png';
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `token-images/${fileName}`;
+    const { error: uploadError } = await supabase.storage.from('post-images').upload(filePath, funImageFile);
+    if (uploadError) throw uploadError;
+    const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(filePath);
+    return urlData.publicUrl;
+  }, [funImageFile, funToken.imageUrl]);
+
+  const handleFunImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Max 5MB", variant: "destructive" });
+      return;
+    }
+    setFunImageFile(file);
+    setFunImagePreview(URL.createObjectURL(file));
+  }, [toast]);
+
+  const handleFunPasswordSubmit = useCallback(() => {
+    if (funPasswordInput.toLowerCase().trim() === "tuna") {
+      setFunModeUnlocked(true);
+      localStorage.setItem('fun_mode_unlocked', 'true');
+      toast({ title: "🎉 FUN Mode Unlocked!", description: "Create show-off tokens for your friends" });
+    } else {
+      toast({ title: "Wrong password", description: "Try again", variant: "destructive" });
+    }
+    setFunPasswordInput("");
+  }, [funPasswordInput, toast]);
+
+  const handleFunLaunch = useCallback(async () => {
+    if (!phantomWallet.isConnected || !phantomWallet.address) {
+      toast({ title: "Wallet not connected", description: "Connect Phantom first", variant: "destructive" });
+      return;
+    }
+    if (!funToken.name.trim() || !funToken.ticker.trim()) {
+      toast({ title: "Missing token info", description: "Name and ticker required", variant: "destructive" });
+      return;
+    }
+    if (!funImagePreview && !funToken.imageUrl) {
+      toast({ title: "Image required", description: "Upload an image", variant: "destructive" });
+      return;
+    }
+
+    setIsFunLaunching(true);
+    toast({ title: "🎉 Preparing FUN Token...", description: "Creating zero-fee pool..." });
+
+    try {
+      const imageUrl = await uploadFunImageIfNeeded();
+      const { url: rpcUrl } = getRpcUrl();
+      const connection = new Connection(rpcUrl, "confirmed");
+
+      const { data, error } = await supabase.functions.invoke("fun-mode-create", {
+        body: {
+          name: funToken.name.slice(0, 32),
+          ticker: funToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
+          description: funToken.description || "",
+          imageUrl,
+          phantomWallet: phantomWallet.address,
+          totalSupply: funTotalSupply,
+          lpTokenAmount: funLpTokens,
+          lpSolAmount: funLpSol,
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Failed to prepare FUN transactions");
+
+      const txBase64s: string[] = data.unsignedTransactions || [];
+      if (txBase64s.length === 0) throw new Error("No transactions returned");
+
+      const txIsVersioned: boolean[] = data.txIsVersioned || [];
+      const txLabels: string[] = data.txLabels || ["Create Token", "Create Pool"];
+
+      const deserializeAnyTx = (base64: string, idx: number): Transaction | VersionedTransaction => {
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        if (txIsVersioned[idx]) return VersionedTransaction.deserialize(bytes);
+        try { return VersionedTransaction.deserialize(bytes); } catch { return Transaction.from(bytes); }
+      };
+
+      const ephemeralKeypairs: Map<string, Keypair> = new Map();
+      if (data.ephemeralKeypairs) {
+        for (const [pubkey, secretKeyB58] of Object.entries(data.ephemeralKeypairs)) {
+          ephemeralKeypairs.set(pubkey, Keypair.fromSecretKey(bs58.decode(secretKeyB58 as string)));
+        }
+      }
+      const txRequiredKeypairs: string[][] = data.txRequiredKeypairs || [];
+
+      const signatures: string[] = [];
+      for (let idx = 0; idx < txBase64s.length; idx++) {
+        const tx = deserializeAnyTx(txBase64s[idx], idx);
+        const txLabel = txLabels[idx] || `TX ${idx + 1}`;
+        toast({ title: `Signing ${txLabel}...`, description: `Step ${idx + 1} of ${txBase64s.length}` });
+
+        // Phantom signs first
+        const phantomSigned = await phantomWallet.signTransaction(tx as any);
+        if (!phantomSigned) throw new Error(`${txLabel} cancelled`);
+
+        // Ephemeral keypairs sign after
+        const neededPubkeys = txRequiredKeypairs[idx] || [];
+        if (phantomSigned instanceof Transaction) {
+          const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
+          if (localSigners.length > 0) phantomSigned.partialSign(...localSigners);
+        } else if (phantomSigned instanceof VersionedTransaction) {
+          const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
+          if (localSigners.length > 0) phantomSigned.sign(localSigners);
+        }
+
+        // Submit
+        const rawTx = (phantomSigned as any).serialize();
+        const signature = await connection.sendRawTransaction(rawTx, {
+          skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 3,
+        });
+        signatures.push(signature);
+        toast({ title: `Confirming ${txLabel}...` });
+        await connection.confirmTransaction(signature, "confirmed");
+
+        if (idx < txBase64s.length - 1) await new Promise(r => setTimeout(r, 2000));
+      }
+
+      // Phase 2: Record in DB
+      let recordedTokenId: string | undefined;
+      try {
+        const { data: recordData } = await supabase.functions.invoke("fun-mode-create", {
+          body: {
+            name: funToken.name.slice(0, 32),
+            ticker: funToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
+            description: funToken.description || "",
+            imageUrl,
+            phantomWallet: phantomWallet.address,
+            confirmed: true,
+            mintAddress: data.mintAddress,
+            poolAddress: data.poolAddress,
+          },
+        });
+        recordedTokenId = recordData?.tokenId;
+      } catch (recordErr) {
+        debugLog("warn", "[FUN Launch] Token live but failed to record in DB", {
+          message: recordErr instanceof Error ? recordErr.message : String(recordErr),
+        });
+      }
+
+      onShowResult({
+        success: true,
+        name: funToken.name,
+        ticker: funToken.ticker,
+        mintAddress: data.mintAddress,
+        tokenId: recordedTokenId,
+        imageUrl,
+        onChainSuccess: true,
+        solscanUrl: `https://solscan.io/token/${data.mintAddress}`,
+        message: "🎉 FUN token launched! LP is unlocked, zero fees.",
+      });
+
+      toast({ title: "🎉 FUN Token Launched!", description: `${funToken.name} is live! Share with friends.` });
+
+      // Clear form
+      setFunToken({ name: "", ticker: "", description: "", imageUrl: "" });
+      setFunImageFile(null);
+      setFunImagePreview(null);
+      onLaunchSuccess();
+    } catch (error: any) {
+      onShowResult({ success: false, error: error.message || "FUN launch failed" });
+      toast({ title: "FUN Launch Failed", description: error.message || "Transaction failed", variant: "destructive" });
+    } finally {
+      setIsFunLaunching(false);
+    }
+  }, [phantomWallet, funToken, funImagePreview, funTotalSupply, funLpSol, funLpTokens, toast, uploadFunImageIfNeeded, onLaunchSuccess, onShowResult]);
+
+  // Calculate implied values for FUN mode display
+  const funImpliedPrice = funLpSol / funLpTokens;
+  const funImpliedMarketCapSol = funImpliedPrice * funTotalSupply;
+  const funImpliedMarketCapUsd = solPrice ? funImpliedMarketCapSol * solPrice : null;
+
   const modes = [
     { id: "random" as const, label: "Random", icon: Shuffle },
     { id: "describe" as const, label: "Describe", icon: Sparkles },
@@ -1281,6 +1474,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     { id: "custom" as const, label: "Custom", icon: Pencil },
     { id: "phantom" as const, label: "Phantom", icon: Wallet },
     { id: "holders" as const, label: "Holders", icon: Users },
+    ...(funModeUnlocked ? [{ id: "fun" as const, label: "FUN", icon: PartyPopper }] : []),
   ];
 
   return (
@@ -2293,6 +2487,216 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       <p className="text-xs text-destructive flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3" />
                         Insufficient balance. Need at least 0.02 SOL.
+                      </p>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* FUN Mode - Direct CP-AMM pool, no bonding curve */}
+        {generatorMode === "fun" && (
+          <div className="space-y-4">
+            {!funModeUnlocked ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Lock className="h-4 w-4" />
+                  <span>Enter admin password to unlock FUN mode</span>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="Password..."
+                    value={funPasswordInput}
+                    onChange={(e) => setFunPasswordInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleFunPasswordSubmit()}
+                    className="gate-input"
+                  />
+                  <Button onClick={handleFunPasswordSubmit} className="gate-btn gate-btn-primary">
+                    Unlock
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Warning Banner */}
+                <div className="p-3 rounded-lg border border-warning/30 bg-warning/10">
+                  <div className="flex items-center gap-2 mb-1">
+                    <PartyPopper className="h-4 w-4 text-warning" />
+                    <span className="text-xs font-semibold text-warning">FUN Mode — Show Off Token</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Creates a token with artificially high implied value. LP is <strong>NOT locked</strong>. Zero trading fees. For fun only!
+                  </p>
+                </div>
+
+                {/* Wallet Connection */}
+                {!phantomWallet.isConnected ? (
+                  <Button onClick={phantomWallet.connect} disabled={phantomWallet.isConnecting} className="gate-btn gate-btn-primary w-full">
+                    {phantomWallet.isConnecting ? "Connecting..." : <><Wallet className="h-4 w-4 mr-2" /> Connect Phantom</>}
+                  </Button>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-primary rounded-full" />
+                        <span className="text-sm font-mono text-foreground">{phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}</span>
+                        {phantomWallet.balance !== null && <span className="text-xs text-muted-foreground">{phantomWallet.balance.toFixed(3)} SOL</span>}
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={phantomWallet.disconnect} className="text-muted-foreground hover:text-foreground">
+                        Disconnect
+                      </Button>
+                    </div>
+
+                    {/* Token Info */}
+                    <div className="gate-token-preview">
+                      <div className="gate-token-preview-avatar">
+                        {funImagePreview || funToken.imageUrl ? (
+                          <img src={funImagePreview || funToken.imageUrl} alt="Token" className="w-full h-full object-cover" />
+                        ) : (
+                          <PartyPopper className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="gate-token-preview-info space-y-2">
+                        <Input
+                          value={funToken.name}
+                          onChange={(e) => setFunToken({ ...funToken, name: e.target.value.slice(0, 32) })}
+                          className="gate-input h-8"
+                          placeholder="Token name"
+                          maxLength={32}
+                        />
+                        <div className="flex items-center gap-1">
+                          <span className="text-primary text-sm">$</span>
+                          <Input
+                            value={funToken.ticker}
+                            onChange={(e) => setFunToken({ ...funToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
+                            className="gate-input h-7 w-28 font-mono"
+                            placeholder="TICKER"
+                            maxLength={10}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Textarea
+                      value={funToken.description}
+                      onChange={(e) => setFunToken({ ...funToken, description: e.target.value })}
+                      placeholder="Description (optional)"
+                      className="gate-input gate-textarea"
+                      maxLength={500}
+                    />
+
+                    <Input type="file" accept="image/*" onChange={handleFunImageChange} className="gate-input text-xs" />
+
+                    {/* Pool Configuration */}
+                    <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+                      <h4 className="text-xs font-semibold text-foreground">Pool Configuration</h4>
+
+                      {/* Total Supply */}
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Total Supply</Label>
+                        <Input
+                          type="number"
+                          value={funTotalSupply}
+                          onChange={(e) => setFunTotalSupply(Math.max(1000, Number(e.target.value) || 1_000_000_000))}
+                          className="gate-input text-sm"
+                        />
+                      </div>
+
+                      {/* LP SOL */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">LP SOL</Label>
+                          <span className="text-xs font-semibold text-primary">{funLpSol} SOL</span>
+                        </div>
+                        <Slider
+                          value={[funLpSol * 100]}
+                          onValueChange={(v) => setFunLpSol(v[0] / 100)}
+                          min={1}
+                          max={500}
+                          step={1}
+                        />
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>0.01 SOL</span>
+                          <span>5 SOL</span>
+                        </div>
+                      </div>
+
+                      {/* LP Tokens */}
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Tokens in Pool</Label>
+                        <Input
+                          type="number"
+                          value={funLpTokens}
+                          onChange={(e) => setFunLpTokens(Math.max(1, Math.min(funTotalSupply, Number(e.target.value) || 10_000_000)))}
+                          className="gate-input text-sm"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Remaining {(funTotalSupply - funLpTokens).toLocaleString()} tokens go to your wallet
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Implied Values Display */}
+                    <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Coins className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-semibold">Implied Values (what Phantom shows)</span>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Price per token</span>
+                          <span className="text-primary font-mono">{funImpliedPrice.toExponential(4)} SOL</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Implied Market Cap</span>
+                          <span className="text-primary font-semibold">{funImpliedMarketCapSol.toFixed(2)} SOL</span>
+                        </div>
+                        {funImpliedMarketCapUsd !== null && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Implied Market Cap (USD)</span>
+                            <span className="text-primary font-bold">${funImpliedMarketCapUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Holder wallet value</span>
+                          <span className="text-primary font-bold">
+                            {funImpliedMarketCapUsd !== null
+                              ? `~$${((funTotalSupply - funLpTokens) * funImpliedPrice * (solPrice || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                              : `${((funTotalSupply - funLpTokens) * funImpliedPrice).toFixed(2)} SOL`
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">LP Locked</span>
+                          <span className="text-warning font-semibold">❌ No</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Trading Fees</span>
+                          <span className="text-primary font-semibold">0%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Badge variant="warning" className="w-full justify-center py-1.5">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      LP is NOT locked — for fun only
+                    </Badge>
+
+                    <Button
+                      onClick={handleFunLaunch}
+                      disabled={isFunLaunching || !funToken.name.trim() || !funToken.ticker.trim() || (!funImagePreview && !funToken.imageUrl) || (phantomWallet.balance !== null && phantomWallet.balance < funLpSol + 0.02)}
+                      className="gate-btn gate-btn-primary w-full"
+                    >
+                      {isFunLaunching ? <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</> : <><PartyPopper className="h-4 w-4 mr-2" /> Launch FUN Token (~{(funLpSol + 0.02).toFixed(2)} SOL)</>}
+                    </Button>
+
+                    {phantomWallet.balance !== null && phantomWallet.balance < funLpSol + 0.02 && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Insufficient balance. Need at least {(funLpSol + 0.02).toFixed(2)} SOL.
                       </p>
                     )}
                   </>
