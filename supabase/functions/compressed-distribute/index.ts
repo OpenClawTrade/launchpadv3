@@ -17,6 +17,7 @@ serve(async (req) => {
       mintAddress,
       destinations,
       amountPerWallet,
+      perWalletAmounts, // optional array of per-wallet amounts
       action, // "distribute" | "check-pool" | "compress"
     } = await req.json();
 
@@ -176,7 +177,12 @@ serve(async (req) => {
 
     for (let i = 0; i < destinations.length; i++) {
       const dest = destinations[i];
-      logs.push(`[${i + 1}/${destinations.length}] Transferring to ${dest.slice(0, 8)}...`);
+      // Use per-wallet amount if provided, otherwise use base amount
+      const walletAmount = perWalletAmounts && perWalletAmounts[i] != null
+        ? perWalletAmounts[i]
+        : amountPerWallet;
+      const walletRawAmount = Math.round(walletAmount * Math.pow(10, decimals));
+      logs.push(`[${i + 1}/${destinations.length}] Sending ${walletAmount} to ${dest.slice(0, 8)}...`);
 
       try {
         const destPubkey = new PublicKey(dest);
@@ -185,7 +191,7 @@ serve(async (req) => {
           connection,
           sourceKeypair,
           mint,
-          rawAmount,
+          walletRawAmount,
           sourceKeypair, // owner
           destPubkey
         );

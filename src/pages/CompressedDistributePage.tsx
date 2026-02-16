@@ -40,6 +40,7 @@ export default function CompressedDistributePage() {
   const updateDestinations = updateField("compressed-destinations", setDestinations);
   const updateHolderMint = updateField("compressed-holder-mint", setHolderMint);
 
+  const [randomizeAmount, setRandomizeAmount] = useState(true);
   const [running, setRunning] = useState(false);
   const [fetchingHolders, setFetchingHolders] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>(() => {
@@ -195,11 +196,22 @@ export default function CompressedDistributePage() {
           addLog(`${retryRound > 0 ? "[Retry] " : ""}Batch ${batchNum}/${totalBatches} (${batch.length} wallets)...`);
 
           try {
+            // Generate per-wallet random amounts if enabled
+            const baseAmount = parseFloat(amount);
+            let perWalletAmounts: number[] | undefined;
+            if (randomizeAmount) {
+              perWalletAmounts = batch.map(() => {
+                const randomOffset = Math.floor(Math.random() * 10) + 1; // 1-10
+                return baseAmount + randomOffset;
+              });
+            }
+
             const distResult = await callEdgeFunction("compressed-distribute", {
               sourcePrivateKey: sourceKey,
               mintAddress,
               destinations: batch,
-              amountPerWallet: parseFloat(amount),
+              amountPerWallet: baseAmount,
+              perWalletAmounts,
               action: "distribute",
             });
             distResult.logs?.forEach((l: string) => addLog(l));
@@ -388,6 +400,16 @@ export default function CompressedDistributePage() {
           <label className="text-xs text-zinc-500 mb-1 block">Amount per wallet (token units)</label>
           <input value={amount} onChange={e => updateAmount(e.target.value)} type="number" step="0.000001"
             className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={running} />
+          <label className="flex items-center gap-2 mt-2 text-xs text-zinc-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={randomizeAmount}
+              onChange={e => setRandomizeAmount(e.target.checked)}
+              className="accent-orange-500"
+              disabled={running}
+            />
+            Randomize amount (±1-10 range around base) — each wallet gets a different amount
+          </label>
         </div>
 
         <div>
