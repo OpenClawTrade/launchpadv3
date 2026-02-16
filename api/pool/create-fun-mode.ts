@@ -6,6 +6,7 @@ import {
   Transaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
+  ComputeBudgetProgram,
 } from '@solana/web3.js';
 import {
   createInitializeMint2Instruction,
@@ -139,6 +140,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ===== TX1: Create Mint + Mint Supply to Creator =====
     const tx1 = new Transaction();
 
+    // Priority fees to ensure TX lands on-chain
+    tx1.add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 })
+    );
+
     // Create mint account
     const mintRent = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
     tx1.add(
@@ -226,6 +233,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tokenBProgram: TOKEN_PROGRAM_ID,
       isLockLiquidity: false, // LP NOT locked
     });
+
+    // Add priority fees to pool TX
+    const priorityIxs = [
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }),
+    ];
+    // Prepend priority fee instructions to the pool transaction
+    poolTx.instructions.unshift(...priorityIxs);
 
     // Set blockhash for pool TX
     const latest2 = await getBlockhashWithRetry(connection);

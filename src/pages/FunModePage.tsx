@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Connection, Transaction, VersionedTransaction, Keypair } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction, Keypair, ComputeBudgetProgram } from "@solana/web3.js";
 import bs58 from "bs58";
 import { debugLog } from "@/lib/debugLogger";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
@@ -22,6 +22,72 @@ interface MemeToken {
   ticker: string;
   description: string;
   imageUrl: string;
+}
+
+/** Send a raw transaction and confirm it with periodic rebroadcasts (standard Solana reliability pattern) */
+async function sendAndConfirmWithRetry(
+  connection: Connection,
+  rawTx: Buffer | Uint8Array,
+  blockhash: string,
+  lastValidBlockHeight: number,
+  label = "TX"
+): Promise<string> {
+  const signature = await connection.sendRawTransaction(rawTx, {
+    skipPreflight: false,
+    preflightCommitment: "confirmed",
+    maxRetries: 0, // we handle retries ourselves
+  });
+
+  console.log(`[sendAndConfirmWithRetry] ${label} sent: ${signature}`);
+
+  return new Promise<string>((resolve, reject) => {
+    let done = false;
+
+    const poll = async () => {
+      while (!done) {
+        await new Promise((r) => setTimeout(r, 2000));
+        if (done) return;
+
+        try {
+          // Check current block height
+          const currentHeight = await connection.getBlockHeight("confirmed");
+          if (currentHeight > lastValidBlockHeight) {
+            done = true;
+            reject(new Error(`${label}: Transaction expired (block height exceeded)`));
+            return;
+          }
+
+          // Check signature status
+          const statuses = await connection.getSignatureStatuses([signature]);
+          const status = statuses?.value?.[0];
+
+          if (status?.err) {
+            done = true;
+            reject(new Error(`${label}: Transaction failed on-chain: ${JSON.stringify(status.err)}`));
+            return;
+          }
+
+          if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
+            done = true;
+            resolve(signature);
+            return;
+          }
+
+          // Re-broadcast (idempotent — same signature)
+          console.log(`[sendAndConfirmWithRetry] ${label} re-sending...`);
+          await connection.sendRawTransaction(rawTx, {
+            skipPreflight: true,
+            maxRetries: 0,
+          }).catch(() => {}); // ignore re-send errors
+        } catch (err) {
+          console.warn(`[sendAndConfirmWithRetry] ${label} poll error:`, err);
+          // continue polling
+        }
+      }
+    };
+
+    poll();
+  });
 }
 
 const FUN_PRESETS = [
@@ -167,12 +233,9 @@ export default function FunModePage() {
         }
 
         const rawTx = (phantomSigned as any).serialize();
-        const signature = await connection.sendRawTransaction(rawTx, {
-          skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 5,
-        });
+        toast({ title: `Sending ${txLabel}...`, description: "Broadcasting & confirming..." });
+        const signature = await sendAndConfirmWithRetry(connection, rawTx, blockhash, lastValidBlockHeight, txLabel);
         signatures.push(signature);
-        toast({ title: `Confirming ${txLabel}...` });
-        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
 
         if (idx < txBase64s.length - 1) await new Promise(r => setTimeout(r, 2000));
       }
@@ -259,10 +322,8 @@ export default function FunModePage() {
       if (!signedTx) throw new Error("Transaction signing cancelled");
 
       const rawTx = (signedTx as any).serialize();
-      const signature = await connection.sendRawTransaction(rawTx, { skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 5 });
-
-      toast({ title: "⏳ Confirming...", description: "Waiting for on-chain confirmation" });
-      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+      toast({ title: "⏳ Sending & Confirming...", description: "Broadcasting with retries..." });
+      await sendAndConfirmWithRetry(connection, rawTx, blockhash, lastValidBlockHeight, "Remove LP");
 
       toast({ title: "✅ LP Removed!", description: "Your SOL is back in your wallet. The token is now untradeable." });
       localStorage.removeItem('fun_last_pool_address');
