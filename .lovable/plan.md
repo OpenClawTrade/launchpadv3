@@ -1,76 +1,41 @@
 
 
-# Compressed Distribution: Speed, Resume & Copy Fixes
+## Fix: Reduce 30-Second Delay on Decompress Page
 
-## Problems Identified
+### Root Cause
+When the user clicks "Decompress", the code dynamically imports **4 large SDK bundles from esm.sh** before doing anything. These imports are ~2-5MB total and happen every single click (browser may cache after first load, but initial load is brutal).
 
-1. **Timeout**: The edge function processes 10 wallets sequentially (transfer + confirmTx for each). Each transfer takes ~2-5s, so 10 wallets = 20-50s. With dynamic imports adding ~5s overhead, batches near the timeout limit and sometimes exceed it.
-2. **No resume**: When it gets stuck, there's no way to skip already-completed wallets on restart.
-3. **Destination not copyable**: Truncated addresses can't be copied to verify on Solscan.
+After that, it also:
+1. Creates an ATA transaction, signs it, sends it, and **waits for confirmation**
+2. Fetches compressed token accounts
+3. Then finally builds the decompress transaction and shows the wallet prompt
 
-## Plan
+### Fix Strategy
 
-### 1. Make destination addresses copyable (Frontend)
-**File**: `src/pages/CompressedDistributePage.tsx`
-- Show full destination address (or at least more characters) in the results table
-- Add a copy button on each row using the existing `copyToClipboard` utility
-- Show a small toast/indicator on copy
+**1. Preload SDKs on page mount instead of on click**
+- Move the 4 dynamic imports into a `useEffect` that runs when the page loads
+- Store the loaded modules in a `useRef` so they're ready instantly when the user clicks "Decompress"
+- Show a subtle loading indicator while SDKs load in the background
 
-### 2. Increase batch parallelism (Edge Function)
-**File**: `supabase/functions/compressed-distribute/index.ts`
-- Instead of sequential transfers, send all transfers in the batch using `Promise.allSettled` (parallel)
-- Skip `confirmTx` during the batch loop — instead collect signatures and confirm them in bulk afterward, or skip confirmation entirely (the client already tracks success/failure)
-- This reduces a 10-wallet batch from ~30s to ~5s
+**2. Use installed packages instead of esm.sh imports**
+- `@solana/web3.js` and `@solana/spl-token` are already installed as project dependencies
+- Import them directly instead of fetching from esm.sh, eliminating 2 of the 4 remote loads
+- Only the Light Protocol packages (`stateless.js`, `compressed-token`) need remote loading
 
-### 3. Increase batch size (Frontend)
-**File**: `src/pages/CompressedDistributePage.tsx`
-- Increase `BATCH_SIZE` from 10 to 20 (since parallel processing makes each batch faster)
-- Add a small delay between batches (500ms) to avoid rate limiting
+**3. Combine ATA + Decompress into one transaction**
+- Instead of sending a separate ATA creation transaction, waiting for confirmation, then building the decompress transaction, combine both instructions into a single transaction
+- This eliminates one full round-trip (sign + send + confirm), saving ~10-15 seconds
 
-### 4. Add resume capability (Frontend)
-**File**: `src/pages/CompressedDistributePage.tsx`
-- Track which wallets have been successfully sent to in localStorage (`compressed-sent-wallets` as a Set)
-- On start, filter out already-sent wallets from the destination list
-- Add a "Resume" button that appears when there are unsent wallets remaining
-- Add a "Reset Progress" button to clear the sent-wallets tracking
-- Display progress like "1523/10400 sent" persistently
+### Technical Changes
 
-### 5. Add timeout handling (Edge Function)
-**File**: `supabase/functions/compressed-distribute/index.ts`
-- Add a self-imposed 120s time guard — if approaching timeout, return partial results with what was completed
-- The client already handles partial results and can retry the rest
+**File: `src/pages/DecompressPage.tsx`**
 
-## Technical Details
+- Add a `useEffect` + `useRef` to preload the Light Protocol SDKs on mount
+- Replace `esm.sh` imports of `@solana/web3.js` and `@solana/spl-token` with direct imports from installed packages
+- Merge the ATA instruction and decompress instructions into a single transaction so the user only sees one wallet prompt
+- Add a loading state (e.g., "Preparing SDK...") on mount so the user knows when the tool is ready
 
-### Edge function parallel transfers (key change):
-```typescript
-// BEFORE: sequential
-for (const dest of destinations) {
-  const txId = await transfer(...);
-  await confirmTx(connection, txId);
-}
-
-// AFTER: parallel with allSettled
-const transferPromises = destinations.map(async (dest, i) => {
-  const txId = await transfer(connection, sourceKeypair, mint, amount, sourceKeypair, new PublicKey(dest));
-  return { destination: dest, signature: txId, status: "success" };
-});
-const settled = await Promise.allSettled(transferPromises);
-```
-
-### Resume tracking (key change):
-```typescript
-// On start, filter already-sent wallets
-const sentWallets = new Set(JSON.parse(localStorage.getItem("compressed-sent-wallets") || "[]"));
-const unsent = destList.filter(d => !sentWallets.has(d));
-
-// After each successful batch, persist sent wallets
-sentWallets.add(wallet);
-localStorage.setItem("compressed-sent-wallets", JSON.stringify([...sentWallets]));
-```
-
-### Copyable addresses (key change):
-- Add click-to-copy on each destination cell showing full address
-- Use existing `copyToClipboard` from `src/lib/clipboard.ts`
-- Add Solscan link for each destination wallet
+### Expected Result
+- **Before**: ~30 seconds from click to wallet prompt
+- **After**: ~2-5 seconds (just RPC calls to fetch proofs + build transaction), assuming SDKs preloaded during page load
 
