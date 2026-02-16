@@ -184,20 +184,25 @@ export default function DecompressPage() {
         addLog(`Decompressing batch ${i + 1}/${items.length} (${Number(amount) / Math.pow(10, balance.decimals)} tokens)...`);
 
         try {
+          // Step 3a: Ensure ATA exists before decompress
+          addLog("Ensuring token account exists...");
+          const ataIx = createAssociatedTokenAccountIdempotentInstruction(
+            ownerPubkey, ata, ownerPubkey, mint, tokenProgramId
+          );
+          const ataTx = new Transaction().add(ataIx);
+          const { blockhash: ataBlockhash, lastValidBlockHeight: ataHeight } = await connection.getLatestBlockhash("confirmed");
+          ataTx.recentBlockhash = ataBlockhash;
+          ataTx.feePayer = ownerPubkey;
+          const signedAtaTx = await provider.signTransaction(ataTx);
+          const ataSig = await connection.sendRawTransaction(signedAtaTx.serialize(), { skipPreflight: true });
+          await connection.confirmTransaction({ signature: ataSig, blockhash: ataBlockhash, lastValidBlockHeight: ataHeight }, "confirmed");
+          addLog("Token account ready.");
+
           // Proxy connection that intercepts sendTransaction to use wallet signing
           const proxyConnection = new Proxy(connection, {
             get(target: any, prop: string) {
               if (prop === 'sendTransaction' || prop === 'sendAndConfirmTransaction') {
                 return async (tx: any, ...args: any[]) => {
-                  // Add ATA creation instruction at the front of the transaction
-                  const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-                    ownerPubkey, ata, ownerPubkey, mint, tokenProgramId
-                  );
-                  // Prepend ATA ix so it's created in the same tx
-                  if (tx.instructions) {
-                    tx.instructions.unshift(ataIx);
-                  }
-
                   if (!tx.recentBlockhash) {
                     const { blockhash } = await target.getLatestBlockhash("confirmed");
                     tx.recentBlockhash = blockhash;
