@@ -1,47 +1,42 @@
 
 
-## Fix FUN Mode: Use Working TokenLauncher Pattern
+## Fix: Remove Duplicate ComputeBudgetProgram Instructions
 
-### Problem
-The FUN mode uses a custom `sendAndConfirmWithRetry` function that polls `getSignatureStatuses` every 2 seconds. This is unreliable because:
-- HTTP polling is slower and can be rate-limited by the RPC
-- The SDK's `confirmTransaction` uses WebSocket subscriptions for instant confirmation detection
-- The working Phantom launch flow in `TokenLauncher.tsx` uses `confirmTransaction` and works fine
+### Root Cause
 
-### Solution
-Replace `sendAndConfirmWithRetry` with the exact `submitAndConfirmRpc` pattern from `TokenLauncher.tsx` (lines 1173-1217), which:
-1. Sends the raw transaction once
-2. Starts a `setInterval` rebroadcast every 3 seconds
-3. Uses `connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')` for confirmation (WebSocket-based)
-4. Cleans up the interval in a `finally` block
-5. Waits 2 seconds between sequential transactions
+The transaction fails because it contains **duplicate** `ComputeBudgetProgram` instructions, which Solana rejects:
 
-### Changes
+1. The **backend** (`api/pool/create-fun-mode.ts` lines 144-147) adds `setComputeUnitLimit(400K)` + `setComputeUnitPrice(1M microLamports)`
+2. The **frontend** (`FunModePage.tsx` lines 201-204) ALSO prepends `setComputeUnitLimit(400K)` + `setComputeUnitPrice(1M microLamports)`
+
+Solana only allows ONE of each ComputeBudget instruction type per transaction. Duplicates cause the transaction to be silently dropped by validators -- it gets a signature from the RPC but never lands in a block, eventually timing out with "block height exceeded."
+
+The working TokenLauncher does NOT have this problem because it does not double-inject priority fees.
+
+### Fix
 
 **File: `src/pages/FunModePage.tsx`**
 
-1. **Delete** the `sendAndConfirmWithRetry` function (lines 27-91)
+Remove the frontend priority fee injection (lines 200-205). The backend already handles this correctly with the right values (400K CU, 1M microLamports).
 
-2. **Replace** with `submitAndConfirmRpc` copied from TokenLauncher:
-```text
-async function submitAndConfirmRpc(
-  connection, rawTx, label
-):
-  - Get fresh blockhash
-  - sendRawTransaction (skipPreflight: false)
-  - Start setInterval rebroadcast every 3s
-  - connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
-  - Check confirmation.value.err
-  - clearInterval in finally
-  - Wait 2s sync buffer
-  - Return signature
+```
+REMOVE these lines:
+  tx.instructions.unshift(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 }),
+  );
+  console.log(`[FUN Launch] Added priority fees to ${txLabel}...`);
 ```
 
-3. **Update launch loop** (line 243): Change `sendAndConfirmWithRetry(connection, rawTx, blockhash, lastValidBlockHeight, txLabel)` to `submitAndConfirmRpc(connection, rawTx, txLabel)`
-
-4. **Update Remove LP** (line 332): Same change for the Remove LP flow
-
-5. **Keep** the frontend priority fee injection (lines 217-222) -- this is correct and ensures high priority regardless of backend state
+Keep everything else as-is -- the fresh blockhash injection, the `submitAndConfirmRpc` confirmation pattern, and the ephemeral keypair signing are all correct.
 
 ### Why This Will Work
-This is the exact same code path that successfully launches tokens in the Phantom launch mode. No custom logic, no manual polling -- just the battle-tested SDK confirmation method with rebroadcast.
+
+- The backend already includes the correct priority fee instructions in both TX1 and TX2
+- Removing the frontend duplicate makes each transaction have exactly one of each ComputeBudget instruction
+- This matches the TokenLauncher pattern exactly, where priority fees come only from the backend
+
+### Risk
+
+None. The backend values (400K CU, 1M microLamports) are already the higher values we want.
+
