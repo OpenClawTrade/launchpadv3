@@ -1,30 +1,23 @@
 
-# Fix Launch Result Modal: Color Scheme + Overflow
 
-## Issues
-1. The "Launch Failed" modal still uses hardcoded green colors (`hsl(160,30%,6%)`, `hsl(160,20%,10%)`) instead of the new theme variables
-2. Long error messages (like base58 signatures) overflow the dialog borders -- no text wrapping or truncation
+# Update Logo, Favicon, and Social Preview Thumbnails
 
-## Changes
+## What will be done
 
-### File: `src/pages/FunLauncherPage.tsx`
+1. **Copy the uploaded logo** (`user-uploads://unanew.png`) to `public/logo.png`, replacing the current file
+2. **Update `index.html`** metadata so the favicon and all social preview images (Open Graph for Telegram/X/etc.) point to the new logo -- these references already point to `/logo.png`, so they should work automatically after the file copy
+3. **Also copy to `src/assets/`** if the logo is referenced anywhere in React components via import
 
-**Color fixes (line ~782-829):**
-- `bg-[hsl(160,30%,6%)]` -> `bg-card` (uses theme variable)
-- `border-primary/30` stays (already uses theme primary)
-- `shadow-[0_0_60px_rgba(16,185,129,0.15)]` -> `shadow-[0_0_60px_hsl(var(--primary)/0.15)]`
-- `bg-[hsl(160,20%,10%)]` (token info card, contract card) -> `bg-background`
+## Files affected
 
-**Overflow fix (line ~802):**
-- Wrap the error description in a container with `break-all overflow-hidden max-w-full` so long signatures wrap within the dialog instead of overflowing
-- Add `word-break: break-all` to the error text element
-- Optionally truncate signatures to show first/last characters with "..." in between
+| File | Change |
+|------|--------|
+| `public/logo.png` | Replaced with the new sushi-crab logo |
+| `index.html` | Verify existing references are correct (likely no code change needed since it already uses `/logo.png`) |
 
-### Summary
-| Line | Current | New |
-|------|---------|-----|
-| 782 | `bg-[hsl(160,30%,6%)]` | `bg-card` |
-| 782 | `shadow-[...rgba(16,185,129,...)]` | `shadow-[0_0_60px_hsl(var(--primary)/0.15)]` |
-| 802 | Plain text error | `break-all` + text truncation for long signatures |
-| 810 | `bg-[hsl(160,20%,10%)]` | `bg-background` |
-| 829 | `bg-[hsl(160,20%,10%)]` | `bg-background` |
+## Result
+- Favicon in browser tab: new logo
+- Telegram link previews: new logo
+- X.com (Twitter) card previews: new logo
+- Any in-app logo references: new logo
+
