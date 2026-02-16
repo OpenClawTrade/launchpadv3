@@ -214,6 +214,12 @@ export default function FunModePage() {
         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
         if (tx instanceof Transaction) {
           tx.recentBlockhash = blockhash;
+          // Prepend priority fee instructions to ensure TX lands on-chain
+          tx.instructions.unshift(
+            ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+            ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 }),
+          );
+          console.log(`[FUN Launch] Added priority fees to ${txLabel} (400K CU, 1M microLamports)`);
         } else if (tx instanceof VersionedTransaction) {
           tx.message.recentBlockhash = blockhash;
         }
