@@ -1,113 +1,114 @@
 
 
-## FUN MODE - Direct Pool Launch (No Bonding Curve)
+## FUN Mode Enhancements: Preset Suggestions, Fun Tone, and Remove LP Button
 
 ### Overview
-A new admin-only launch mode called "FUN" that creates tokens directly on a Meteora DAMM V2 (CP-AMM) pool -- bypassing the bonding curve entirely. This creates tokens with artificially high implied market caps that show inflated USD values in wallets like Phantom and Jupiter.
+Three improvements to the FUN mode section:
+1. **Preset suggestions** showing exactly what values to enter to make a wallet show ~$30K, ~$100K, or ~$1M
+2. **Fun, non-serious tone** with playful copy and a "Surprise a friend" vibe
+3. **Remove LP button** so non-technical users can easily pull their liquidity back after the joke
 
-### How The "Show Off" Trick Works
-1. Mint a token with a small circulating supply (e.g., 100K-10M tokens)
-2. Create a DAMM V2 pool with very little SOL liquidity (e.g., 0.1-1 SOL) against the tokens
-3. The pool price = SOL deposited / tokens deposited, so small SOL + small tokens = high price per token
-4. Phantom/Jupiter reads this pool price and multiplies by holdings, showing inflated USD values (e.g., $30,000)
-5. LP is NOT locked -- creator can withdraw it anytime
-6. Zero trading fees so friends can "trade" freely
+---
 
-**Example math:** 1 SOL (~$150) liquidity against 100,000 tokens = $0.0015/token. Give someone 20M tokens (from unminted reserve) and Phantom shows ~$30,000 in their wallet. The actual redeemable value is near zero due to thin liquidity.
+### 1. Preset Suggestion Cards
 
-### Access Control
-- Admin password gate: user must enter password "tuna" to unlock the FUN mode tab (consistent with Tunnel tool pattern using localStorage)
-- Mode only visible after password entry
+Add clickable preset cards above the pool configuration that auto-fill the values:
 
-### Architecture
+| Preset | Total Supply | LP Tokens | LP SOL | Tokens to Friend | Phantom Shows |
+|--------|-------------|-----------|--------|-------------------|---------------|
+| "$30K Flex" | 1,000,000,000 | 100,000 | 0.01 | 20,000,000 | ~$30,000 |
+| "$100K Baller" | 1,000,000,000 | 50,000 | 0.01 | 20,000,000 | ~$100,000 |
+| "$1M Whale" | 1,000,000,000 | 10,000 | 0.01 | 50,000,000 | ~$1,000,000+ |
 
-The key difference from existing modes: FUN mode does NOT use the DBC (Dynamic Bonding Curve) SDK. Instead it uses the **CP-AMM SDK** (`@meteora-ag/cp-amm-sdk`) which is already installed, to create a direct DAMM V2 pool.
+Clicking a preset fills `funTotalSupply`, `funLpTokens`, `funLpSol` automatically and shows a toast like "Values set for the $30K flex!"
 
-### New Backend: `api/pool/create-fun-mode.ts` (Vercel API)
+The math explanation will be shown below the presets:
+- "How it works: You put tiny SOL in pool with few tokens. Pool price = SOL / tokens. Phantom multiplies that price by your friend's holdings. Boom -- instant millionaire (on paper)."
 
-Creates a token + DAMM V2 pool in one flow:
+### 2. Fun Tone Overhaul
 
-1. Create SPL token mint (using treasury or vanity address)
-2. Mint configurable supply to creator wallet
-3. Create DAMM V2 pool via `CpAmm.createCustomPool`:
-   - Token A = new token, Token B = wSOL
-   - `isLockLiquidity: false` (LP NOT locked)
-   - Zero base fees (`startingFeeBps: 0, endingFeeBps: 0`)
-   - No dynamic fees
-   - Immediate activation
-4. Return unsigned transactions for Phantom signing (same 2-TX sequential flow)
+Replace the current warning banner and copy with playful text:
 
-**Parameters:**
-- `name`, `ticker`, `description`, `imageUrl` (standard)
-- `totalSupply` (configurable, default 1,000,000,000)
-- `lpTokenAmount` (how many tokens to seed into pool)
-- `lpSolAmount` (how much SOL to seed into pool, e.g., 0.1 SOL)
-- `phantomWallet` (creator/payer)
+- **Header**: "FUN Mode -- Prank Your Friends" with PartyPopper icon
+- **Subtitle**: "Surprise a friend by sending them $1,000,000 worth of tokens (wink wink). Just pick a preset below and launch!"
+- **Warning badge** changed from serious "LP is NOT locked" to: "This is FUN mode -- not financial advice, just vibes. LP is not locked so you can pull it back anytime."
+- **Implied Values section header**: "What your friend will see in Phantom" instead of "Implied Values"
+- **Holder wallet value label**: "Your friend's reaction" instead of "Holder wallet value"
+- Add a small note: "Pro tip: Send the tokens to your friend's wallet after launch. They'll open Phantom and see $$$ -- priceless."
 
-### New Edge Function: `fun-mode-create`
+### 3. Remove LP Button (Post-Launch)
 
-Thin proxy (same pattern as `fun-phantom-create`) that forwards to the Vercel API and returns serialized transactions.
+**New Vercel API: `api/pool/remove-fun-lp.ts`**
 
-### Frontend Changes
+Uses the CP-AMM SDK's `removeAllLiquidityAndClosePosition()` method:
+- Takes `poolAddress`, `positionNftMint`, and `phantomWallet` as inputs
+- Fetches the pool state and position state from on-chain
+- Builds an unsigned transaction to remove all liquidity and close the position
+- Returns the serialized transaction for Phantom signing
 
-**`src/components/launchpad/TokenLauncher.tsx`:**
+Parameters needed:
+- `poolAddress` -- the DAMM V2 pool address
+- `phantomWallet` -- the owner wallet
 
-1. Add `"fun"` to the `generatorMode` union type
-2. Add FUN mode to the modes array (with Coins icon), hidden until admin password entered
-3. Add password gate state (localStorage key `fun_mode_unlocked`)
-4. Add FUN-specific state: `funLpSol` (default 0.5), `funLpTokens` (default 10,000,000), `funTotalSupply` (default 1,000,000,000)
+**New Edge Function: `fun-mode-remove-lp/index.ts`**
 
-**FUN mode UI panel:**
-- Password input (shown once, stored in localStorage)
-- Token name/ticker/description/image (reuse existing custom form)
-- "Total Supply" input (how many tokens to mint)
-- "LP SOL" slider (0.01 - 5 SOL, how much SOL in pool)
-- "LP Tokens" input (how many tokens to seed in pool)
-- Calculated display: "Implied price per token", "Implied market cap"
-- Warning badge: "LP is NOT locked -- for fun only"
-- Launch button triggers `handleFunLaunch` using same 2-TX sequential Phantom signing
+Thin proxy to the Vercel API (same pattern as `fun-mode-create`).
 
-### Database
-- FUN mode tokens are stored in existing `fun_tokens` table with a new flag or `launch_type = 'fun_mode'` to distinguish them
-- No bonding curve state needed (no `tokens` table entry)
+**Frontend: New "Remove LP" section in TokenLauncher.tsx**
+
+Add a collapsible section below the launch button (or a separate card) titled "Already launched? Remove your LP":
+- Input field for the pool address (or auto-populate from the last launch result)
+- "Remove LP and Get SOL Back" button
+- On click: calls the edge function, gets unsigned TX, signs with Phantom, submits
+- Shows toast on success: "LP removed! Your SOL is back in your wallet."
+- Warning text: "This removes all liquidity. The token will become untradeable."
+
+The remove LP flow stores the `poolAddress` from the most recent FUN launch in localStorage so the user doesn't have to re-enter it.
+
+---
 
 ### Technical Details
 
-**CP-AMM pool creation via SDK:**
+**New files:**
+- `api/pool/remove-fun-lp.ts` -- Vercel API endpoint using `CpAmm.removeAllLiquidityAndClosePosition()`
+- `supabase/functions/fun-mode-remove-lp/index.ts` -- Edge function proxy
+
+**Modified files:**
+- `src/components/launchpad/TokenLauncher.tsx`:
+  - Add preset cards array and click handlers to auto-fill values
+  - Rewrite FUN mode copy to be playful/fun tone
+  - Add `handleRemoveFunLp` callback
+  - Add "Remove LP" UI section with pool address input and button
+  - Store last launched pool address in state/localStorage
+
+**`api/pool/remove-fun-lp.ts` approach:**
 ```text
-import { CpAmm } from "@meteora-ag/cp-amm-sdk";
-
 const cpAmm = new CpAmm(connection);
-const { initSqrtPrice, liquidityDelta } = cpAmm.preparePoolCreationParams({
-  tokenAAmount: new BN(lpTokenAmount * 10**9),
-  tokenBAmount: new BN(lpSolLamports),
-  minSqrtPrice: MIN_SQRT_PRICE,
-  maxSqrtPrice: MAX_SQRT_PRICE,
-});
 
-// Zero fees, no lock, immediate activation
-const { tx, pool, position } = await cpAmm.createCustomPool({
-  payer, creator,
-  positionNft: positionNftMint,
-  tokenAMint: newTokenMint,
-  tokenBMint: WSOL_MINT,
-  tokenAAmount, tokenBAmount,
-  sqrtMinPrice: MIN_SQRT_PRICE,
-  sqrtMaxPrice: MAX_SQRT_PRICE,
-  initSqrtPrice, liquidityDelta,
-  poolFees: { baseFee: zeroFeeConfig, padding: [] },
-  hasAlphaVault: false,
-  collectFeeMode: 0,
-  activationPoint: new BN(0),
-  activationType: 0, // slot-based, immediate
-  isLockLiquidity: false,
+// Fetch pool and position state
+const poolState = await cpAmm.getPoolState(poolAddress);
+// Find position NFT owned by the user
+// Build removeAllLiquidityAndClosePosition TX
+const txBuilder = cpAmm.removeAllLiquidityAndClosePosition({
+  owner: phantomPubkey,
+  position: positionPubkey,
+  positionNftAccount: positionNftAccount,
+  poolState,
+  positionState,
+  tokenAAmountThreshold: new BN(0),
+  tokenBAmountThreshold: new BN(0),
+  vestings: [],
+  currentPoint: poolState.sqrtPrice,
 });
+// Serialize and return unsigned TX
 ```
 
-**Files to create:**
-- `api/pool/create-fun-mode.ts`
-- `supabase/functions/fun-mode-create/index.ts`
-
-**Files to modify:**
-- `src/components/launchpad/TokenLauncher.tsx` (add FUN mode tab + UI + launch handler)
-
+**Preset click handler (frontend):**
+```text
+const FUN_PRESETS = [
+  { label: "$30K Flex", supply: 1_000_000_000, lpTokens: 100_000, lpSol: 0.01, sendTokens: 20_000_000 },
+  { label: "$100K Baller", supply: 1_000_000_000, lpTokens: 50_000, lpSol: 0.01, sendTokens: 20_000_000 },
+  { label: "$1M Whale", supply: 1_000_000_000, lpTokens: 10_000, lpSol: 0.01, sendTokens: 50_000_000 },
+];
+// onClick: setFunTotalSupply, setFunLpTokens, setFunLpSol
+```
