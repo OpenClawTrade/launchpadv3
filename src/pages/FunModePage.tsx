@@ -24,14 +24,15 @@ interface MemeToken {
   imageUrl: string;
 }
 
-/** Send a raw transaction and confirm using SDK's WebSocket-based confirmTransaction (matches TokenLauncher pattern) */
+/** Send a raw transaction and confirm — matches TokenLauncher's working pattern exactly */
 async function submitAndConfirmRpc(
   connection: Connection,
   rawTx: Buffer | Uint8Array,
-  blockhash: string,
-  lastValidBlockHeight: number,
   label = "TX"
 ): Promise<string> {
+  // Fresh blockhash for confirmation (matches TokenLauncher line 1175)
+  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+
   const signature = await connection.sendRawTransaction(rawTx, {
     skipPreflight: false,
     preflightCommitment: 'confirmed',
@@ -54,8 +55,8 @@ async function submitAndConfirmRpc(
     const confirmStart = Date.now();
     const confirmation = await connection.confirmTransaction({
       signature,
-      blockhash,
-      lastValidBlockHeight,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
     }, 'confirmed');
 
     if (confirmation.value.err) {
@@ -177,13 +178,16 @@ export default function FunModePage() {
       const deserializeAnyTx = (base64: string, idx: number): Transaction | VersionedTransaction => {
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
         if (txIsVersioned[idx]) return VersionedTransaction.deserialize(bytes);
-        try { return VersionedTransaction.deserialize(bytes); } catch { return Transaction.from(bytes); }
+        // When not versioned, deserialize as legacy Transaction directly (don't try VersionedTransaction first)
+        return Transaction.from(bytes);
       };
 
       const ephemeralKeypairs: Map<string, Keypair> = new Map();
       if (data.ephemeralKeypairs) {
         for (const [pubkey, secretKeyB58] of Object.entries(data.ephemeralKeypairs)) {
-          ephemeralKeypairs.set(pubkey, Keypair.fromSecretKey(bs58.decode(secretKeyB58 as string)));
+          const kp = Keypair.fromSecretKey(bs58.decode(secretKeyB58 as string));
+          ephemeralKeypairs.set(pubkey, kp);
+          console.log(`[FUN Launch] Loaded ephemeral keypair: ${pubkey} (verified: ${kp.publicKey.toBase58() === pubkey})`);
         }
       }
       const txRequiredKeypairs: string[][] = data.txRequiredKeypairs || [];
@@ -192,14 +196,15 @@ export default function FunModePage() {
       for (let idx = 0; idx < txBase64s.length; idx++) {
         const tx = deserializeAnyTx(txBase64s[idx], idx);
         const txLabel = txLabels[idx] || `TX ${idx + 1}`;
+        const isLegacy = tx instanceof Transaction;
+        console.log(`[FUN Launch] ${txLabel}: deserialized as ${isLegacy ? 'Legacy' : 'Versioned'} transaction`);
 
         // Fetch fresh blockhash and set it on the TX BEFORE signing to prevent expiry
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-        if (tx instanceof Transaction) {
-          tx.recentBlockhash = blockhash;
-          // Priority fees already included by backend - do NOT add duplicates
-        } else if (tx instanceof VersionedTransaction) {
-          tx.message.recentBlockhash = blockhash;
+        const { blockhash } = await connection.getLatestBlockhash("confirmed");
+        if (isLegacy) {
+          (tx as Transaction).recentBlockhash = blockhash;
+        } else {
+          (tx as VersionedTransaction).message.recentBlockhash = blockhash;
         }
 
         toast({ title: `Signing ${txLabel}...`, description: `Step ${idx + 1} of ${txBase64s.length}` });
@@ -207,18 +212,26 @@ export default function FunModePage() {
         const phantomSigned = await phantomWallet.signTransaction(tx as any);
         if (!phantomSigned) throw new Error(`${txLabel} cancelled`);
 
+        // Apply ephemeral keypair signatures (mint, positionNft)
         const neededPubkeys = txRequiredKeypairs[idx] || [];
+        console.log(`[FUN Launch] ${txLabel}: needs ${neededPubkeys.length} ephemeral sigs: ${neededPubkeys.join(', ')}`);
+        
         if (phantomSigned instanceof Transaction) {
           const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
+          console.log(`[FUN Launch] ${txLabel}: found ${localSigners.length} signers (instanceof Transaction = true)`);
           if (localSigners.length > 0) phantomSigned.partialSign(...localSigners);
         } else if (phantomSigned instanceof VersionedTransaction) {
           const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
+          console.log(`[FUN Launch] ${txLabel}: found ${localSigners.length} signers (instanceof VersionedTransaction = true)`);
           if (localSigners.length > 0) phantomSigned.sign(localSigners);
+        } else {
+          console.error(`[FUN Launch] ${txLabel}: WARNING - phantomSigned is NEITHER Transaction nor VersionedTransaction!`, typeof phantomSigned);
         }
 
         const rawTx = (phantomSigned as any).serialize();
+        console.log(`[FUN Launch] ${txLabel}: serialized ${rawTx.length} bytes`);
         toast({ title: `Sending ${txLabel}...`, description: "Broadcasting & confirming..." });
-        const signature = await submitAndConfirmRpc(connection, rawTx, blockhash, lastValidBlockHeight, txLabel);
+        const signature = await submitAndConfirmRpc(connection, rawTx, txLabel);
         signatures.push(signature);
 
         if (idx < txBase64s.length - 1) await new Promise(r => setTimeout(r, 2000));
@@ -307,7 +320,7 @@ export default function FunModePage() {
 
       const rawTx = (signedTx as any).serialize();
       toast({ title: "⏳ Sending & Confirming...", description: "Broadcasting with retries..." });
-      await submitAndConfirmRpc(connection, rawTx, blockhash, lastValidBlockHeight, "Remove LP");
+      await submitAndConfirmRpc(connection, rawTx, "Remove LP");
 
       toast({ title: "✅ LP Removed!", description: "Your SOL is back in your wallet. The token is now untradeable." });
       localStorage.removeItem('fun_last_pool_address');
