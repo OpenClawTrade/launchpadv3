@@ -417,18 +417,7 @@ export default function MigratePage() {
 
         {/* Stats Bar */}
         {holders.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card className="p-4 text-center bg-card border-border">
-              <div className="text-2xl font-bold text-foreground">{stats.totalHolders}</div>
-              <div className="text-xs text-muted-foreground">Snapshot Holders</div>
-            </Card>
-            <Card className="p-4 text-center bg-card border-border">
-              <div className="text-2xl font-bold text-primary">
-                {stats.migratedHolders}{" "}
-                <span className="text-sm text-muted-foreground">({stats.holderPct}%)</span>
-              </div>
-              <div className="text-xs text-muted-foreground">Agreed to Migrate</div>
-            </Card>
+          <div className="grid grid-cols-3 gap-3">
             <Card className="p-4 text-center bg-card border-border">
               <div className="text-2xl font-bold text-foreground">
                 {formatNumber(stats.totalSupply)}
