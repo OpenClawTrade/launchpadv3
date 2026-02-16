@@ -1,21 +1,27 @@
 
 
-## Fix: Preset Selection Visual Feedback
+## Fix: Remove Unused `getTreasuryKeypair()` Call Causing "Invalid character" Error
 
-### Problem
-The preset buttons call `handleFunPresetClick` which correctly sets `funTotalSupply`, `funLpTokens`, and `funLpSol` state -- but there is no visual indicator showing which preset is currently selected. The buttons all look the same before and after clicking.
+### Root Cause
 
-### Solution
-Add a `selectedPreset` state variable that tracks which preset (by label) is currently active. Apply a highlighted style (e.g., `border-primary bg-primary/10`) to the selected preset button. Clear the selection when the user manually changes any pool config value.
+In `api/pool/create-fun-mode.ts`, line 129 calls `getTreasuryKeypair()` which runs `bs58.decode()` on the `TREASURY_PRIVATE_KEY` environment variable. If that key contains any character not in the base58 alphabet, it throws `"Invalid character"` -- which gets caught by the generic catch block and returned as the 500 error.
 
-### Changes
+**The treasury keypair is never used in this function.** All transactions use `phantomPubkey` as the fee payer, and the only ephemeral keypairs are `mintKeypair` and `positionNftMint` (both generated fresh). The treasury call is dead code that causes a crash.
 
-**File: `src/pages/FunModePage.tsx`**
+### Fix
 
-1. Add new state: `const [selectedPreset, setSelectedPreset] = useState<string | null>(null);`
-2. In `handleFunPresetClick`, also call `setSelectedPreset(preset.label)`
-3. On the preset `<button>`, conditionally apply a selected class:
-   - Selected: `border-primary bg-primary/10 ring-2 ring-primary/30`
-   - Default: `border-border bg-secondary/50`
-4. Clear `selectedPreset` to `null` when user manually edits Total Supply, LP SOL slider, or Tokens in Pool inputs (so custom values deselect any preset)
+**File: `api/pool/create-fun-mode.ts`**
+
+Remove line 129:
+```
+const treasuryKeypair = getTreasuryKeypair();
+```
+
+This single line removal eliminates the unnecessary base58 decode that is crashing the function. No other code references `treasuryKeypair`.
+
+### Why This Works
+
+- The function builds two transactions signed by ephemeral keypairs (mint + position NFT) and the user's Phantom wallet
+- Treasury is not involved in FUN mode token creation
+- Removing the call prevents the base58 decode error while changing zero functional behavior
 
