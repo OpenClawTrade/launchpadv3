@@ -779,7 +779,7 @@ export default function FunLauncherPage() {
 
       {/* Launch Result Modal */}
       <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
-        <DialogContent className="bg-[hsl(160,30%,6%)] border border-primary/30 rounded-2xl !w-[calc(100vw-2rem)] !max-w-[420px] !left-1/2 !-translate-x-1/2 p-0 overflow-visible shadow-[0_0_60px_rgba(16,185,129,0.15)]">
+        <DialogContent className="bg-card border border-primary/30 rounded-2xl !w-[calc(100vw-2rem)] !max-w-[420px] !left-1/2 !-translate-x-1/2 p-0 overflow-hidden shadow-[0_0_60px_hsl(var(--primary)/0.15)]">
           {/* Header */}
           <div className="relative px-5 pt-6 pb-4">
             <DialogHeader className="text-center">
@@ -799,7 +799,7 @@ export default function FunLauncherPage() {
               <DialogDescription className="text-muted-foreground mt-2 text-sm">
                 {launchResult?.success
                   ? `${launchResult.name} ($${launchResult.ticker}) is now live on Solana!`
-                  : launchResult?.error || "Something went wrong"}
+                  : <span className="break-all">{launchResult?.error || "Something went wrong"}</span>}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -807,7 +807,7 @@ export default function FunLauncherPage() {
           {launchResult?.success && (
             <div className="px-5 pb-6 space-y-5">
               {/* Token Info Card */}
-              <div className="flex items-center gap-4 p-4 rounded-xl bg-[hsl(160,20%,10%)] border border-primary/20">
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-background border border-primary/20">
                 {launchResult.imageUrl && (
                   <div className="relative shrink-0">
                     <div className="absolute inset-0 bg-primary/20 rounded-xl blur-md" />
@@ -826,7 +826,7 @@ export default function FunLauncherPage() {
 
               {/* Contract Address Card */}
               {launchResult.mintAddress && (
-                <div className="p-4 rounded-xl bg-[hsl(160,20%,10%)] border border-primary/20">
+                <div className="p-4 rounded-xl bg-background border border-primary/20">
                   <p className="text-xs text-muted-foreground mb-2 font-medium">Contract Address</p>
                   <div className="flex items-center gap-3">
                     <code className="flex-1 text-sm font-mono text-foreground break-all leading-relaxed">
