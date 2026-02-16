@@ -2,10 +2,10 @@
 /* Clean, modern, professional trading platform design */
 
 .gate-theme {
-  /* Core Brand Colors - Gate.io Green */
-  --gate-primary: 152 69% 41%;              /* #00D26A - Gate green */
-  --gate-primary-hover: 152 69% 35%;
-  --gate-primary-light: 152 69% 95%;
+  /* Core Brand Colors - OpenClaw Red */
+  --gate-primary: 0 84% 60%;
+  --gate-primary-hover: 0 84% 50%;
+  --gate-primary-light: 0 84% 15%;
   
   /* Semantic Colors */
   --gate-success: 152 69% 41%;              /* Green */
@@ -49,23 +49,29 @@
 /* Dark Mode */
 .gate-theme.dark,
 .dark .gate-theme {
-  --gate-bg-primary: 220 13% 6%;            /* #0B0E11 */
-  --gate-bg-secondary: 220 13% 9%;          /* #14171A */
-  --gate-bg-tertiary: 220 13% 12%;          /* #1C2127 */
-  --gate-bg-card: 220 13% 10%;
-  --gate-bg-elevated: 220 13% 14%;
-  --gate-bg-input: 220 13% 12%;
+  --gate-bg-primary: 240 20% 4%;
+  --gate-bg-secondary: 240 15% 7%;
+  --gate-bg-tertiary: 240 15% 10%;
+  --gate-bg-card: 240 15% 7%;
+  --gate-bg-elevated: 240 15% 12%;
+  --gate-bg-input: 240 15% 10%;
   
-  --gate-text-primary: 0 0% 98%;
-  --gate-text-secondary: 220 9% 55%;
-  --gate-text-muted: 220 9% 45%;
+  --gate-text-primary: 214 32% 91%;
+  --gate-text-secondary: 215 16% 57%;
+  --gate-text-muted: 215 16% 47%;
   
-  --gate-border: 220 13% 18%;
-  --gate-border-hover: 220 13% 25%;
+  --gate-border: 240 15% 14%;
+  --gate-border-hover: 240 15% 20%;
   
-  --gate-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --gate-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --gate-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --gate-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --gate-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --gate-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* Nebula background */
+  background:
+    radial-gradient(ellipse at 20% 50%, hsl(0 84% 60% / 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, hsl(187 80% 53% / 0.04) 0%, transparent 50%),
+    hsl(240 20% 4%);
 }
 
 /* Apply Gate theme */
@@ -84,14 +90,14 @@
   top: 0;
   z-index: 50;
   width: 100%;
-  min-height: 56px;
+  min-height: 42px;
 }
 
 .gate-header-inner {
-  max-width: 1400px;
+  max-width: 1050px;
   margin: 0 auto;
-  padding: 0 16px;
-  height: 56px;
+  padding: 0 12px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -116,9 +122,9 @@
 }
 
 .gate-logo-icon {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, hsl(var(--gate-primary)), hsl(152 69% 30%));
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, hsl(var(--gate-primary)), hsl(0 84% 45%));
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -253,8 +259,8 @@
 /* ===== INPUTS ===== */
 .gate-input {
   width: 100%;
-  height: 44px;
-  padding: 0 14px;
+  height: 34px;
+  padding: 0 10px;
   font-size: 14px;
   background-color: hsl(var(--gate-bg-input));
   border: 1px solid hsl(var(--gate-border));
@@ -356,8 +362,8 @@
 }
 
 .gate-token-avatar {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   overflow: hidden;
   background-color: hsl(var(--gate-bg-tertiary));
@@ -409,7 +415,7 @@
 
 .gate-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, hsl(var(--gate-primary)), hsl(152 69% 50%));
+  background: linear-gradient(90deg, hsl(var(--gate-primary)), hsl(0 84% 70%));
   border-radius: var(--gate-radius-full);
   transition: width 0.3s ease;
 }
@@ -703,8 +709,8 @@
 /* ===== SCROLLBAR ===== */
 .gate-theme::-webkit-scrollbar,
 .gate-theme *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 .gate-theme::-webkit-scrollbar-track,
@@ -755,8 +761,8 @@
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .gate-header-inner {
-    height: 56px;
-    padding: 0 12px;
+    height: 42px;
+    padding: 0 10px;
   }
   
   .gate-launch-modes {
@@ -988,7 +994,7 @@
 
 /* Progress bar */
 .gate-theme [class*="Progress"] [class*="Indicator"] {
-  background: linear-gradient(90deg, hsl(var(--gate-primary)), hsl(152 69% 55%)) !important;
+  background: linear-gradient(90deg, hsl(var(--gate-primary)), hsl(0 84% 70%)) !important;
 }
 
 /* Skeleton */
