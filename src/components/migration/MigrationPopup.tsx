@@ -42,7 +42,7 @@ export function MigrationPopup() {
           </div>
           <DialogDescription className="text-left space-y-3 pt-2">
             <p>
-              <strong className="text-foreground">$TUNA is migrating</strong> from the old pump.fun contract to a new ecosystem powering TUNA OS, OpenClaw, and fee distribution.
+              <strong className="text-foreground">$TUNA is migrating</strong> from the old pump.fun contract to a new ecosystem powering OpenTuna, OpenClaw, and fee distribution.
             </p>
             <p>
               Head over to the Migration page to learn more and register your tokens for the swap.

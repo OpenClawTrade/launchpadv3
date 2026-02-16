@@ -9,8 +9,8 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
-              <img src="/tuna-logo.png" alt="TUNA OS" className="h-6 w-6 rounded" />
-              <span className="font-bold">TUNA OS</span>
+              <img src="/tuna-logo.png" alt="OpenTuna" className="h-6 w-6 rounded" />
+              <span className="font-bold">OpenTuna</span>
             </div>
             <p className="text-sm text-muted-foreground">
               The AI Agent Operating System for autonomous trading and token launches on Solana.
@@ -83,7 +83,7 @@ export function Footer() {
 
         {/* Bottom */}
         <div className="pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <p>© 2025 TUNA OS. All rights reserved.</p>
+          <p>© 2025 OpenTuna. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <span>Built on Solana</span>
             <span>•</span>
