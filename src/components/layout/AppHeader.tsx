@@ -52,14 +52,14 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
     <header className="gate-header">
       <div className="gate-header-inner">
         <div className="flex items-center gap-3">
-          <Link to="/" className="gate-logo" aria-label="TUNA OS">
+          <Link to="/" className="gate-logo" aria-label="OpenTuna">
             <img
               src={HEADER_LOGO_SRC}
               alt="TUNA OS"
               className="h-8 w-8 rounded-lg object-cover"
               loading="eager"
             />
-            <span className="text-lg font-bold">TUNA OS</span>
+            <span className="text-lg font-bold">OpenTuna</span>
           </Link>
           
           <div className="hidden sm:block">
