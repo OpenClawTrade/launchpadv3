@@ -27,21 +27,26 @@ interface MemeToken {
 /** Send a raw transaction and confirm — matches TokenLauncher's working pattern exactly */
 async function submitAndConfirmRpc(
   connection: Connection,
-  rawTx: Buffer | Uint8Array,
-  label = "TX"
+  rawTx: Buffer | Uint8Array | null,
+  label = "TX",
+  existingSignature?: string
 ): Promise<string> {
-  // Fresh blockhash for confirmation (matches TokenLauncher line 1175)
   const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-
-  const signature = await connection.sendRawTransaction(rawTx, {
-    skipPreflight: false,
-    preflightCommitment: 'confirmed',
-    maxRetries: 0,
-  });
-  console.log(`[FUN Launch] ✅ ${label} sent: ${signature}`);
+  
+  let signature = existingSignature;
+  if (!signature && rawTx) {
+    signature = await connection.sendRawTransaction(rawTx, {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+      maxRetries: 0,
+    });
+  }
+  
+  if (!signature) throw new Error("No signature provided or generated");
+  console.log(`[FUN Launch] ✅ ${label} signature: ${signature}`);
 
   // Rebroadcast every 3s in parallel
-  const resendInterval = setInterval(async () => {
+  const resendInterval = (rawTx && !existingSignature) ? setInterval(async () => {
     try {
       await connection.sendRawTransaction(rawTx, {
         skipPreflight: true,
@@ -49,7 +54,7 @@ async function submitAndConfirmRpc(
       });
       console.log(`[FUN Launch] 🔄 ${label} rebroadcast`);
     } catch {}
-  }, 3000);
+  }, 3000) : null;
 
   try {
     const confirmStart = Date.now();
@@ -64,7 +69,7 @@ async function submitAndConfirmRpc(
     }
     console.log(`[FUN Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
   } finally {
-    clearInterval(resendInterval);
+    if (resendInterval) clearInterval(resendInterval);
   }
 
   // 2s buffer for RPC sync before next TX
@@ -209,34 +214,24 @@ export default function FunModePage() {
 
         toast({ title: `Signing ${txLabel}...`, description: `Step ${idx + 1} of ${txBase64s.length}` });
 
-        const phantomSigned = await phantomWallet.signTransaction(tx as any);
-        if (!phantomSigned) throw new Error(`${txLabel} cancelled`);
-
-        // Apply ephemeral keypair signatures (mint, positionNft)
         const neededPubkeys = txRequiredKeypairs[idx] || [];
-        console.log(`[FUN Launch] ${txLabel}: needs ${neededPubkeys.length} ephemeral sigs: ${neededPubkeys.join(', ')}`);
-        
-        // Duck-type check: Phantom may return a TX from its own bundled web3.js,
-        // so instanceof fails across realms. Use method existence instead.
         const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
-        console.log(`[FUN Launch] ${txLabel}: found ${localSigners.length} ephemeral signers to apply`);
         
         if (localSigners.length > 0) {
-          if (typeof (phantomSigned as any).partialSign === 'function') {
-            (phantomSigned as Transaction).partialSign(...localSigners);
-            console.log(`[FUN Launch] ${txLabel}: applied partialSign (legacy path)`);
-          } else if (typeof (phantomSigned as any).sign === 'function') {
-            (phantomSigned as VersionedTransaction).sign(localSigners);
-            console.log(`[FUN Launch] ${txLabel}: applied sign (versioned path)`);
+          console.log(`[FUN Launch] ${txLabel}: applying ${localSigners.length} ephemeral sigs BEFORE wallet`);
+          if (isLegacy) {
+            (tx as Transaction).partialSign(...localSigners);
           } else {
-            console.error(`[FUN Launch] ${txLabel}: No sign method found on returned object`);
+            (tx as VersionedTransaction).sign(localSigners);
           }
         }
 
-        const rawTx = (phantomSigned as any).serialize();
-        console.log(`[FUN Launch] ${txLabel}: serialized ${rawTx.length} bytes`);
-        toast({ title: `Sending ${txLabel}...`, description: "Broadcasting & confirming..." });
-        const signature = await submitAndConfirmRpc(connection, rawTx, txLabel);
+        toast({ title: `Action required in Phantom`, description: `Approve ${txLabel}` });
+        const signature = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signature) throw new Error(`${txLabel} cancelled or failed`);
+
+        toast({ title: `Confirming ${txLabel}...`, description: "Waiting for network..." });
+        await submitAndConfirmRpc(connection, null, txLabel, signature);
         signatures.push(signature);
 
         if (idx < txBase64s.length - 1) await new Promise(r => setTimeout(r, 2000));
@@ -319,13 +314,12 @@ export default function FunModePage() {
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
       tx.recentBlockhash = blockhash;
 
-      toast({ title: "✍️ Sign in Phantom...", description: "Approve the LP removal transaction" });
-      const signedTx = await phantomWallet.signTransaction(tx as any);
-      if (!signedTx) throw new Error("Transaction signing cancelled");
+      toast({ title: `Action required in Phantom`, description: `Approve LP removal` });
+      const signature = await phantomWallet.signAndSendTransaction(tx as any);
+      if (!signature) throw new Error("Transaction cancelled or failed");
 
-      const rawTx = (signedTx as any).serialize();
-      toast({ title: "⏳ Sending & Confirming...", description: "Broadcasting with retries..." });
-      await submitAndConfirmRpc(connection, rawTx, "Remove LP");
+      toast({ title: "⏳ Confirming...", description: "Waiting for network..." });
+      await submitAndConfirmRpc(connection, null, "Remove LP", signature);
 
       toast({ title: "✅ LP Removed!", description: "Your SOL is back in your wallet. The token is now untradeable." });
       localStorage.removeItem('fun_last_pool_address');

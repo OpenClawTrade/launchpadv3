@@ -821,35 +821,24 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       for (let idx = 0; idx < txBase64s.length; idx++) {
         const tx = deserializeAnyTx(txBase64s[idx], idx);
         
-        // Step 1: Phantom signs FIRST (injects Lighthouse protection instructions)
-        const phantomSigned = await phantomWallet.signTransaction(tx as any);
-        if (!phantomSigned) throw new Error("Transaction signing cancelled");
-
-        // Step 2: PartialSign with ephemeral keypairs AFTER Phantom (preserves Lighthouse)
+        // Apply ephemeral keypair signatures BEFORE wallet signs and sends
         const neededPubkeys = txRequiredKeypairs[idx] || [];
-        if (phantomSigned instanceof Transaction) {
-          const localSigners = neededPubkeys
-            .map(pk => ephemeralKeypairs.get(pk))
-            .filter((kp): kp is Keypair => !!kp);
-          if (localSigners.length > 0) {
-            phantomSigned.partialSign(...localSigners);
-          }
-        } else if (phantomSigned instanceof VersionedTransaction) {
-          const localSigners = neededPubkeys
-            .map(pk => ephemeralKeypairs.get(pk))
-            .filter((kp): kp is Keypair => !!kp);
-          if (localSigners.length > 0) {
-            phantomSigned.sign(localSigners);
+        const localSigners = neededPubkeys
+          .map(pk => ephemeralKeypairs.get(pk))
+          .filter((kp): kp is Keypair => !!kp);
+          
+        if (localSigners.length > 0) {
+          if (tx instanceof Transaction) {
+            (tx as Transaction).partialSign(...localSigners);
+          } else {
+            (tx as VersionedTransaction).sign(localSigners);
           }
         }
 
-        // Step 3: Submit via our RPC
-        const rawTx = (phantomSigned as any).serialize();
-        const signature = await connection.sendRawTransaction(rawTx, {
-          skipPreflight: false,
-          preflightCommitment: "confirmed",
-          maxRetries: 3,
-        });
+        // Phantom handles simulation, signing, and sending
+        toast({ title: `Action required in Phantom`, description: `Approve Transaction ${idx + 1}` });
+        const signature = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signature) throw new Error("Transaction cancelled or failed");
 
         signatures.push(signature);
         await connection.confirmTransaction(signature, "confirmed");
@@ -1156,45 +1145,35 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         }
       };
       
-      // Sign single TX: Phantom first (Lighthouse injection) → ephemeral keys second
-      const signTx = async (tx: Transaction | VersionedTransaction, idx: number, label: string) => {
-        console.log(`[Phantom Launch] signTransaction (Phantom-first): ${label} (${idx + 1}/${txsToSign.length})...`);
+      const signAndSendTx = async (tx: Transaction | VersionedTransaction, idx: number, label: string) => {
+        console.log(`[Phantom Launch] signAndSendTransaction: ${label} (${idx + 1}/${txsToSign.length})...`);
         
-        const phantomSigned = await phantomWallet.signTransaction(tx as any);
-        if (!phantomSigned) throw new Error(`${label} was cancelled or failed`);
+        // Ephemeral keys sign BEFORE wallet signs and sends
+        const neededPubkeys = txRequiredKeypairs[idx] || [];
+        const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
         
-        // Now dApp signs with ephemeral keypairs (Lighthouse instructions already added)
-        applyEphemeralSigs(phantomSigned, idx, label);
-        
-        return phantomSigned;
+        if (localSigners.length > 0) {
+          if (tx instanceof Transaction) {
+            tx.partialSign(...localSigners);
+          } else {
+            tx.sign(localSigners);
+          }
+        }
+
+        const signature = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signature) throw new Error(`${label} was cancelled or failed`);
+        return signature;
       };
       
       // Submit + confirm via dApp's own RPC (per Phantom docs)
-      const submitAndConfirmRpc = async (signedTx: Transaction | VersionedTransaction, label: string) => {
-        const rawTx = (signedTx as any).serialize();
+      const confirmTx = async (signature: string, label: string) => {
         const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-        
-        const signature = await connection.sendRawTransaction(rawTx, {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-          maxRetries: 0,
-        });
-        console.log(`[Phantom Launch] ✅ ${label} sent:`, signature);
+        console.log(`[Phantom Launch] ✅ ${label} confirming:`, signature);
         signatures.push(signature);
-        
-        // Rebroadcast every 3s in parallel
-        const resendInterval = setInterval(async () => {
-          try {
-            await connection.sendRawTransaction(rawTx, {
-              skipPreflight: true,
-              maxRetries: 0,
-            });
-            console.log(`[Phantom Launch] 🔄 ${label} rebroadcast`);
-          } catch {}
-        }, 3000);
         
         try {
           const confirmStart = Date.now();
+          const latestBlockhash = await connection.getLatestBlockhash('confirmed');
           const confirmation = await connection.confirmTransaction({
             signature,
             blockhash: latestBlockhash.blockhash,
@@ -1206,7 +1185,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           }
           console.log(`[Phantom Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
         } finally {
-          clearInterval(resendInterval);
+          // No interval to clear
         }
         
         // 2s buffer for Phantom's RPC to sync before next TX signing
@@ -1221,9 +1200,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       for (let i = 0; i < txsToSign.length; i++) {
         const txLabel = txLabels[i] || `Transaction ${i + 1}`;
         toast({ title: `Signing ${txLabel}...`, description: `Step ${i + 1} of ${txsToSign.length}` });
-        const signedTx = await signTx(txsToSign[i], i, txLabel);
-        toast({ title: `Submitting ${txLabel}...`, description: `Waiting for confirmation...` });
-        await submitAndConfirmRpc(signedTx, txLabel);
+        const signature = await signAndSendTx(txsToSign[i], i, txLabel);
+        toast({ title: `Confirming ${txLabel}...`, description: `Waiting for network...` });
+        await confirmTx(signature, txLabel);
       }
       
       console.log('[Phantom Launch] ✅ All transactions confirmed!', { signatures });
@@ -1389,25 +1368,22 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         const txLabel = txLabels[idx] || `TX ${idx + 1}`;
         toast({ title: `Signing ${txLabel}...`, description: `Step ${idx + 1} of ${txBase64s.length}` });
 
-        // Phantom signs first
-        const phantomSigned = await phantomWallet.signTransaction(tx as any);
-        if (!phantomSigned) throw new Error(`${txLabel} cancelled`);
-
-        // Ephemeral keypairs sign after
+        // Ephemeral keypairs sign BEFORE wallet
         const neededPubkeys = txRequiredKeypairs[idx] || [];
-        if (phantomSigned instanceof Transaction) {
-          const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
-          if (localSigners.length > 0) phantomSigned.partialSign(...localSigners);
-        } else if (phantomSigned instanceof VersionedTransaction) {
-          const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
-          if (localSigners.length > 0) phantomSigned.sign(localSigners);
+        const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
+        
+        if (localSigners.length > 0) {
+          if (tx instanceof Transaction) {
+            tx.partialSign(...localSigners);
+          } else {
+            tx.sign(localSigners);
+          }
         }
 
-        // Submit
-        const rawTx = (phantomSigned as any).serialize();
-        const signature = await connection.sendRawTransaction(rawTx, {
-          skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 3,
-        });
+        // Sign and Send via Phantom
+        toast({ title: `Action required in Phantom`, description: `Approve ${txLabel}` });
+        const signature = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signature) throw new Error(`${txLabel} cancelled or failed`);
         signatures.push(signature);
         toast({ title: `Confirming ${txLabel}...` });
         await connection.confirmTransaction(signature, "confirmed");
@@ -1521,20 +1497,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         throw new Error("Failed to deserialize transaction");
       }
 
-      // Sign with Phantom
-      toast({ title: "✍️ Sign in Phantom...", description: "Approve the LP removal transaction" });
-      const signedTx = await phantomWallet.signTransaction(tx as any);
-      if (!signedTx) throw new Error("Transaction signing cancelled");
-
-      // Submit
       const { url: rpcUrl } = getRpcUrl();
       const connection = new Connection(rpcUrl, "confirmed");
-      const rawTx = (signedTx as any).serialize();
-      const signature = await connection.sendRawTransaction(rawTx, {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
-        maxRetries: 3,
-      });
+
+      // Sign and Send with Phantom
+      toast({ title: "Action required in Phantom", description: "Approve the LP removal transaction" });
+      const signature = await phantomWallet.signAndSendTransaction(tx as any);
+      if (!signature) throw new Error("Transaction cancelled or failed");
 
       toast({ title: "⏳ Confirming...", description: "Waiting for on-chain confirmation" });
       await connection.confirmTransaction(signature, "confirmed");

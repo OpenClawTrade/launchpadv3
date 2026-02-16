@@ -193,8 +193,7 @@ export default function DecompressPage() {
           const { blockhash: ataBlockhash, lastValidBlockHeight: ataHeight } = await connection.getLatestBlockhash("confirmed");
           ataTx.recentBlockhash = ataBlockhash;
           ataTx.feePayer = ownerPubkey;
-          const signedAtaTx = await provider.signTransaction(ataTx);
-          const ataSig = await connection.sendRawTransaction(signedAtaTx.serialize(), { skipPreflight: true });
+          const { signature: ataSig } = await provider.signAndSendTransaction(ataTx);
           await connection.confirmTransaction({ signature: ataSig, blockhash: ataBlockhash, lastValidBlockHeight: ataHeight }, "confirmed");
           addLog("Token account ready.");
 
@@ -209,8 +208,7 @@ export default function DecompressPage() {
                   }
                   tx.feePayer = ownerPubkey;
 
-                  const signedTx = await provider.signTransaction(tx);
-                  const sig = await target.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
+                  const { signature: sig } = await provider.signAndSendTransaction(tx);
 
                   const latestBlockhash = await target.getLatestBlockhash("confirmed");
                   await target.confirmTransaction({

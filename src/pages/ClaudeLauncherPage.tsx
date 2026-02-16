@@ -58,7 +58,7 @@ import { useBannerGenerator } from "@/hooks/useBannerGenerator";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import { usePhantomWallet } from "@/hooks/usePhantomWallet";
-import { VersionedTransaction, Transaction, Keypair } from "@solana/web3.js";
+import { VersionedTransaction, Transaction, Keypair, Connection } from "@solana/web3.js";
 import bs58 from "bs58";
 import "@/styles/gate-theme.css";
 
@@ -603,44 +603,35 @@ export default function ClaudeLauncherPage() {
           }
         }
 
-        // Step 1: Phantom signs FIRST (injects Lighthouse)
-        const phantomSigned = await phantomWallet.signTransaction(tx);
-        if (!phantomSigned) throw new Error(`${txName} signing cancelled`);
-        
-        // Step 2: PartialSign with ephemeral keypairs AFTER Phantom
+        // Apply ephemeral keypair signatures BEFORE wallet signs and sends
         const neededPubkeys = txRequiredKeypairs[i] || [];
-        if (phantomSigned instanceof Transaction) {
-          const localSigners = neededPubkeys
-            .map(pk => ephemeralKeypairs.get(pk))
-            .filter((kp): kp is Keypair => !!kp);
-          if (localSigners.length > 0) {
-            phantomSigned.partialSign(...localSigners);
-          }
-        } else if (phantomSigned instanceof VersionedTransaction) {
-          const localSigners = neededPubkeys
-            .map(pk => ephemeralKeypairs.get(pk))
-            .filter((kp): kp is Keypair => !!kp);
-          if (localSigners.length > 0) {
-            phantomSigned.sign(localSigners);
+        const localSigners = neededPubkeys
+          .map(pk => ephemeralKeypairs.get(pk))
+          .filter((kp): kp is Keypair => !!kp);
+
+        if (localSigners.length > 0) {
+          if (tx instanceof Transaction) {
+            tx.partialSign(...localSigners);
+          } else {
+            tx.sign(localSigners);
           }
         }
 
-        // Step 3: Submit via our RPC
-        const result = await fetch(rpcUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'sendTransaction',
-            params: [
-              Buffer.from((phantomSigned as any).serialize()).toString('base64'), 
-              { skipPreflight: false, preflightCommitment: 'confirmed' }
-            ]
-          })
-        }).then(r => r.json());
+        const connection = new Connection(rpcUrl, 'confirmed');
 
-        if (result.error) throw new Error(result.error.message || `${txName} TX failed`);
+        // Phantom handles simulation, signing, and sending
+        toast({ title: `Action required in Phantom`, description: `Approve ${txName}` });
+        const signature = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signature) throw new Error(`${txName} was cancelled or failed`);
+
+        // Wait for confirmation
+        toast({ title: `Confirming ${txName}...`, description: "Waiting for network..." });
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+        await connection.confirmTransaction({
+          signature,
+          blockhash,
+          lastValidBlockHeight
+        }, 'confirmed');
         
         if (i < unsignedTransactions.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 2000));
