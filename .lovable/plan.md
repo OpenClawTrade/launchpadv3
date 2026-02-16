@@ -1,25 +1,82 @@
 
+## Add "Received Tokens" Ledger Tab to Migration Page
 
-## Show "Done" After Decompression and Prevent Re-decompress
+### Overview
+Create a new "Received" tab in the Migrate section that shows an accurate, on-chain-verified ledger of all token transfers received by the collection wallet. This tab will be the source of truth for distributing new tokens.
 
-### What Changes
-After a token is successfully decompressed, instead of showing the "Decompress" button again, the UI will show a "Done" badge with a checkmark. The button will be disabled/replaced so the user cannot trigger decompression again.
+### What It Does
+- New edge function (`scan-collection-wallet`) calls Helius to fetch ALL token transfer history for the collection wallet, filtered to the old $TUNA mint
+- Aggregates transfers by sender wallet: total tokens, number of transactions, first/last transfer timestamps
+- Stores results in a new `tuna_migration_ledger` database table
+- New "Received" tab on /migrate shows this data with statistics and a Refresh button
+
+### Database Changes
+
+**New table: `tuna_migration_ledger`**
+- `id` (uuid, PK)
+- `wallet_address` (text, unique) -- sender address
+- `total_tokens_received` (numeric) -- aggregated total
+- `tx_count` (integer) -- number of separate transfers
+- `first_transfer_at` (timestamptz) -- earliest transaction timestamp
+- `last_transfer_at` (timestamptz) -- latest transaction timestamp
+- `last_scanned_at` (timestamptz) -- when this record was last updated by the scanner
+- `created_at` (timestamptz)
+
+RLS: public read access (no auth needed for viewing), no public writes.
+
+### New Edge Function: `scan-collection-wallet`
+
+1. Calls Helius Enhanced Transactions API to get ALL transactions involving the collection wallet
+2. Filters for old $TUNA mint token transfers TO the collection wallet
+3. Groups by sender wallet, sums amounts, counts transactions, tracks timestamps
+4. Upserts results into `tuna_migration_ledger` table
+5. Returns summary statistics
+
+Uses existing `HELIUS_API_KEY` secret.
+
+### UI Changes (MigratePage.tsx)
+
+**New "Received" tab** added alongside "Snapshot Holders" and "Migrated":
+
+**Top Stats Cards:**
+- Total Tokens Received (with % of total supply)
+- Unique Senders
+- Total Transactions
+- Last Scanned timestamp
+
+**Refresh Button:** Calls the edge function to re-scan on-chain data and updates the table
+
+**Table Columns:**
+- Wallet (truncated + copy button)
+- Tokens Received (formatted number)
+- % of Supply
+- TX Count
+- First Transfer (date/time)
+- Last Transfer (date/time)
+- Solscan link
+
+Sorted by tokens received descending.
 
 ### Technical Details
 
-**File: `src/pages/DecompressPage.tsx`**
+**Edge function flow:**
+```text
+User clicks Refresh
+  -> POST /scan-collection-wallet
+  -> Helius: fetch all transactions for collection wallet
+  -> Filter: only old TUNA mint transfers TO collection wallet
+  -> Aggregate by sender: sum amounts, count txs, min/max timestamps
+  -> Upsert into tuna_migration_ledger
+  -> Return summary + full list
+```
 
-1. Add a new state to track which mints have been successfully decompressed:
-   ```
-   const [decompressedMints, setDecompressedMints] = useState<Set<string>>(new Set());
-   ```
+**Helius API used:** Enhanced Transaction History (`/v0/addresses/{address}/transactions`) with pagination to get complete history.
 
-2. After successful decompression (where the toast "Decompression complete!" fires), add the mint to the set:
-   ```
-   setDecompressedMints(prev => new Set(prev).add(balance.mint));
-   ```
+**Files to create:**
+- `supabase/functions/scan-collection-wallet/index.ts`
 
-3. In the balances rendering section, check if a mint is in the decompressed set. If so, replace the "Decompress" button with a green "Done" indicator (Check icon + "Done" text). If not, show the normal "Decompress" button.
+**Files to modify:**
+- `src/pages/MigratePage.tsx` (add Received tab, refresh button, stats)
 
-4. Also skip re-checking balances after decompression (remove the `await checkBalances()` call at the end) to avoid re-fetching and showing stale compressed balances that haven't been pruned from the indexer yet -- this is what causes the issue in the screenshot where it still shows 30M tokens after decompressing.
-
+**Database migration:**
+- Create `tuna_migration_ledger` table with RLS policies
