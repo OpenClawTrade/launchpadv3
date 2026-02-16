@@ -158,12 +158,13 @@ export default function FunModePage() {
         }
 
         const rawTx = (phantomSigned as any).serialize();
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
         const signature = await connection.sendRawTransaction(rawTx, {
-          skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 3,
+          skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 5,
         });
         signatures.push(signature);
         toast({ title: `Confirming ${txLabel}...` });
-        await connection.confirmTransaction(signature, "confirmed");
+        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
 
         if (idx < txBase64s.length - 1) await new Promise(r => setTimeout(r, 2000));
       }
