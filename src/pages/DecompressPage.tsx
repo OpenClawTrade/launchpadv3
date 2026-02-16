@@ -254,11 +254,16 @@ export default function DecompressPage() {
       }
 
       const humanAmount = Number(totalDecompressed) / Math.pow(10, balance.decimals);
-      addLog(`\n✅ Done! Decompressed ${humanAmount.toLocaleString()} tokens`);
-      addLog("Tokens should now appear in your wallet!");
 
-      toast({ title: "Decompression complete!", description: `${humanAmount.toLocaleString()} tokens are now in your wallet` });
-      setDecompressedMints(prev => new Set(prev).add(balance.mint));
+      if (totalDecompressed > BigInt(0)) {
+        addLog(`\n✅ Done! Decompressed ${humanAmount.toLocaleString()} tokens`);
+        addLog("Tokens should now appear in your wallet!");
+        toast({ title: "Decompression complete!", description: `${humanAmount.toLocaleString()} tokens are now in your wallet` });
+        setDecompressedMints(prev => new Set(prev).add(balance.mint));
+      } else {
+        addLog(`\n⚠️ No tokens were decompressed. Please try again.`);
+        toast({ title: "No tokens decompressed", description: "All batches failed. Please try again.", variant: "destructive" });
+      }
     } catch (e: any) {
       addLog(`Error: ${e.message}`);
       toast({ title: "Decompress failed", description: e.message, variant: "destructive" });
