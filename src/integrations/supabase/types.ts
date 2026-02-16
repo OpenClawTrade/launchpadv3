@@ -7258,6 +7258,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tuna_migration_transactions: {
+        Row: {
+          amount_sent: number
+          created_at: string
+          id: string
+          tx_signature: string
+          verified_at: string
+          wallet_address: string
+        }
+        Insert: {
+          amount_sent?: number
+          created_at?: string
+          id?: string
+          tx_signature: string
+          verified_at?: string
+          wallet_address: string
+        }
+        Update: {
+          amount_sent?: number
+          created_at?: string
+          id?: string
+          tx_signature?: string
+          verified_at?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       tunnel_distribution_runs: {
         Row: {
           amount_per_wallet: number
