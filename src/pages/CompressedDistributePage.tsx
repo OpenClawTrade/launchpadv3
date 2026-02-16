@@ -1,10 +1,13 @@
 import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Download, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, Copy, ExternalLink, Trash2 } from "lucide-react";
 import WhaleScanner from "@/components/admin/WhaleScanner";
 import { useNavigate } from "react-router-dom";
+import { copyToClipboard } from "@/lib/clipboard";
+import { toast } from "@/hooks/use-toast";
 
 const ADMIN_PASSWORD = "tuna";
+const BATCH_SIZE = 20;
 
 interface LogEntry {
   time: string;
@@ -18,6 +21,15 @@ interface DistResult {
   signature?: string;
   error?: string;
 }
+
+// Resume tracking helpers
+const SENT_WALLETS_KEY = "compressed-sent-wallets";
+const getSentWallets = (): Set<string> => {
+  try { return new Set(JSON.parse(localStorage.getItem(SENT_WALLETS_KEY) || "[]")); } catch { return new Set(); }
+};
+const persistSentWallets = (s: Set<string>) => {
+  try { localStorage.setItem(SENT_WALLETS_KEY, JSON.stringify([...s])); } catch {}
+};
 
 export default function CompressedDistributePage() {
   const [authorized, setAuthorized] = useState(() => localStorage.getItem("compressed-auth") === "1");
@@ -54,6 +66,7 @@ export default function CompressedDistributePage() {
       return JSON.parse(localStorage.getItem("compressed-stats") || '{"total":0,"success":0,"failed":0,"totalCostSol":0,"costPerWallet":0}');
     } catch { return { total: 0, success: 0, failed: 0, totalCostSol: 0, costPerWallet: 0 }; }
   });
+  const [sentWalletsCount, setSentWalletsCount] = useState(() => getSentWallets().size);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const addLog = useCallback((message: string, type: LogEntry["type"] = "info") => {
@@ -94,7 +107,6 @@ export default function CompressedDistributePage() {
     return data;
   };
 
-  // Fetch all holders from a token mint
   const fetchHolders = async () => {
     if (!holderMint.trim()) {
       addLog("Enter a token mint address to fetch holders", "error");
@@ -102,12 +114,10 @@ export default function CompressedDistributePage() {
     }
     setFetchingHolders(true);
     addLog(`Fetching all holders for ${holderMint.trim()}...`);
-
     try {
       const data = await callEdgeFunction("fetch-token-holders", { mintAddress: holderMint.trim() });
       const holders: string[] = data.holders || [];
       addLog(`Found ${holders.length} unique holders (${data.pages} pages fetched)`, "success");
-
       if (holders.length > 0) {
         const newDest = holders.join("\n");
         updateDestinations(newDest);
@@ -118,26 +128,47 @@ export default function CompressedDistributePage() {
     } catch (err: any) {
       addLog(`Error fetching holders: ${err.message}`, "error");
     }
-
     setFetchingHolders(false);
   };
 
-  const startDistribution = async () => {
-    const destList = destinations.trim().split("\n").map(d => d.trim()).filter(Boolean);
-    if (!sourceKey || !mintAddress || !destList.length) {
+  const handleCopy = async (text: string) => {
+    const ok = await copyToClipboard(text);
+    if (ok) toast({ title: "Copied!", description: text.slice(0, 20) + "..." });
+  };
+
+  const startDistribution = async (resumeMode = false) => {
+    const allDests = destinations.trim().split("\n").map(d => d.trim()).filter(Boolean);
+    if (!sourceKey || !mintAddress || !allDests.length) {
       addLog("Missing required fields", "error");
       return;
     }
-    const invalid = destList.filter(d => !isValidSolanaAddress(d));
+    const invalid = allDests.filter(d => !isValidSolanaAddress(d));
     if (invalid.length) {
       invalid.forEach(a => addLog(`Invalid address: ${a}`, "error"));
       return;
     }
 
+    // Resume: filter out already-sent wallets
+    const sentWallets = resumeMode ? getSentWallets() : new Set<string>();
+    const destList = resumeMode ? allDests.filter(d => !sentWallets.has(d)) : allDests;
+
+    if (resumeMode && destList.length === 0) {
+      addLog("All wallets already sent! Use Reset Progress to start fresh.", "success");
+      return;
+    }
+    if (resumeMode) {
+      addLog(`Resuming: ${sentWallets.size} already sent, ${destList.length} remaining`, "warn");
+    }
+
     setRunning(true);
-    setLogs([]); localStorage.removeItem("compressed-logs");
-    persistResults([]);
-    persistStats({ total: destList.length, success: 0, failed: 0, totalCostSol: 0, costPerWallet: 0 });
+    if (!resumeMode) {
+      setLogs([]); localStorage.removeItem("compressed-logs");
+      persistResults([]);
+      persistStats({ total: allDests.length, success: 0, failed: 0, totalCostSol: 0, costPerWallet: 0 });
+      // Clear sent wallets on fresh start
+      localStorage.removeItem(SENT_WALLETS_KEY);
+      setSentWalletsCount(0);
+    }
 
     try {
       // Step 1: Ensure token pool exists
@@ -145,16 +176,14 @@ export default function CompressedDistributePage() {
       const poolResult = await callEdgeFunction("compressed-distribute", {
         sourcePrivateKey: sourceKey,
         mintAddress,
-        destinations: destList.slice(0, 10), // only need a small batch for pool check
+        destinations: destList.slice(0, 10),
         amountPerWallet: parseFloat(amount),
         action: "check-pool",
       });
       poolResult.logs?.forEach((l: string) => addLog(l));
-      if (poolResult.costSol > 0) {
-        addLog(`Pool setup cost: ${poolResult.costSol.toFixed(6)} SOL`, "info");
-      }
+      if (poolResult.costSol > 0) addLog(`Pool setup cost: ${poolResult.costSol.toFixed(6)} SOL`, "info");
 
-      // Step 2: Compress tokens from ATA
+      // Step 2: Compress tokens
       addLog("Step 2/3: Compressing tokens from ATA...");
       const compressResult = await callEdgeFunction("compressed-distribute", {
         sourcePrivateKey: sourceKey,
@@ -166,24 +195,21 @@ export default function CompressedDistributePage() {
       compressResult.logs?.forEach((l: string) => addLog(l));
       addLog(`Compression cost: ${compressResult.costSol?.toFixed(6) || "0"} SOL`, "info");
 
-      // Step 3: Distribute compressed tokens in batches with retry
-      addLog(`Step 3/3: Distributing to ${destList.length} wallets...`);
-      const BATCH_SIZE = 10;
+      // Step 3: Distribute in parallel batches
+      addLog(`Step 3/3: Distributing to ${destList.length} wallets (batch size: ${BATCH_SIZE})...`);
       const MAX_RETRIES = 3;
-      const allResults: DistResult[] = [];
-      let totalSuccess = 0;
+      const allResults: DistResult[] = resumeMode ? [...results] : [];
+      let totalSuccess = resumeMode ? sentWallets.size : 0;
       let totalFailed = 0;
       let totalTxCount = 0;
       let totalCostSol = 0;
 
-      // First pass
       let pendingWallets = [...destList];
       let retryRound = 0;
 
       while (pendingWallets.length > 0 && retryRound <= MAX_RETRIES) {
         if (retryRound > 0) {
           addLog(`\n🔄 Retry round ${retryRound}/${MAX_RETRIES} — ${pendingWallets.length} wallets remaining...`, "warn");
-          // Small delay before retry
           await new Promise(r => setTimeout(r, 2000));
         }
 
@@ -196,14 +222,10 @@ export default function CompressedDistributePage() {
           addLog(`${retryRound > 0 ? "[Retry] " : ""}Batch ${batchNum}/${totalBatches} (${batch.length} wallets)...`);
 
           try {
-            // Generate per-wallet random amounts if enabled
             const baseAmount = parseFloat(amount);
             let perWalletAmounts: number[] | undefined;
             if (randomizeAmount) {
-              perWalletAmounts = batch.map(() => {
-                const randomOffset = Math.floor(Math.random() * 10) + 1; // 1-10
-                return baseAmount + randomOffset;
-              });
+              perWalletAmounts = batch.map(() => baseAmount + Math.floor(Math.random() * 10) + 1);
             }
 
             const distResult = await callEdgeFunction("compressed-distribute", {
@@ -221,9 +243,10 @@ export default function CompressedDistributePage() {
                 if (r.status === "success") {
                   totalSuccess++;
                   allResults.push(r);
+                  // Track sent wallet for resume
+                  sentWallets.add(r.destination);
                 } else {
                   failedThisRound.push(r.destination);
-                  // Only add to results on final retry
                   if (retryRound === MAX_RETRIES) {
                     totalFailed++;
                     allResults.push(r);
@@ -231,13 +254,11 @@ export default function CompressedDistributePage() {
                 }
               }
               persistResults(allResults);
+              persistSentWallets(sentWallets);
+              setSentWalletsCount(sentWallets.size);
             }
-            if (distResult.stats) {
-              totalCostSol += distResult.stats.totalCostSol || 0;
-            }
-            if (distResult.signatures) {
-              totalTxCount += distResult.signatures.length;
-            }
+            if (distResult.stats) totalCostSol += distResult.stats.totalCostSol || 0;
+            if (distResult.signatures) totalTxCount += distResult.signatures.length;
           } catch (batchErr: any) {
             addLog(`Batch ${batchNum} error: ${batchErr.message}`, "error");
             failedThisRound.push(...batch);
@@ -248,34 +269,37 @@ export default function CompressedDistributePage() {
             }
           }
 
-          // Update running stats
           persistStats({
-            total: destList.length,
+            total: allDests.length,
             success: totalSuccess,
             failed: retryRound === MAX_RETRIES ? totalFailed : 0,
             pendingRetry: failedThisRound.length,
             totalTxCount,
             totalCostSol,
-            costPerWallet: destList.length > 0 ? totalCostSol / destList.length : 0,
+            costPerWallet: allDests.length > 0 ? totalCostSol / allDests.length : 0,
           });
+
+          // Small delay between batches to avoid rate limiting
+          if (i + BATCH_SIZE < pendingWallets.length) {
+            await new Promise(r => setTimeout(r, 500));
+          }
         }
 
         pendingWallets = failedThisRound;
         retryRound++;
       }
 
-      // Final stats
       const finalStats = {
-        total: destList.length,
+        total: allDests.length,
         success: totalSuccess,
         failed: totalFailed,
         totalTxCount,
         totalCostSol,
-        costPerWallet: destList.length > 0 ? totalCostSol / destList.length : 0,
+        costPerWallet: allDests.length > 0 ? totalCostSol / allDests.length : 0,
       };
       persistStats(finalStats);
       addLog(`\n✅ Distribution complete!`, "success");
-      addLog(`Total: ${totalSuccess}/${destList.length} wallets success, ${totalFailed} failed`, totalFailed > 0 ? "warn" : "success");
+      addLog(`Total: ${totalSuccess}/${allDests.length} wallets success, ${totalFailed} failed`, totalFailed > 0 ? "warn" : "success");
       addLog(`Total transactions: ${totalTxCount}`, "success");
       addLog(`Total cost: ${totalCostSol.toFixed(6)} SOL`, "success");
     } catch (err: any) {
@@ -285,7 +309,6 @@ export default function CompressedDistributePage() {
     setRunning(false);
   };
 
-  // Retry only failed wallets from previous run
   const retryFailed = async () => {
     const failedWallets = results.filter(r => r.status === "failed").map(r => r.destination);
     if (!failedWallets.length) {
@@ -293,11 +316,15 @@ export default function CompressedDistributePage() {
       return;
     }
     addLog(`Retrying ${failedWallets.length} failed wallets...`, "warn");
-    // Set destinations to only failed wallets and restart
     updateDestinations(failedWallets.join("\n"));
-    // Small delay for state to update
     await new Promise(r => setTimeout(r, 100));
     startDistribution();
+  };
+
+  const resetProgress = () => {
+    localStorage.removeItem(SENT_WALLETS_KEY);
+    setSentWalletsCount(0);
+    addLog("Resume progress cleared. Next run will start fresh.", "info");
   };
 
   if (!authorized) {
@@ -337,6 +364,7 @@ export default function CompressedDistributePage() {
   const logColor = { info: "text-zinc-400", success: "text-green-400", error: "text-red-400", warn: "text-yellow-400" };
   const failedCount = results.filter(r => r.status === "failed").length;
   const destCount = destinations.trim().split("\n").filter(Boolean).length;
+  const hasResumeData = sentWalletsCount > 0 && sentWalletsCount < destCount;
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
@@ -349,6 +377,28 @@ export default function CompressedDistributePage() {
         <p className="text-xs text-zinc-500">
           Uses ZK Compression (Light Protocol) to distribute tokens without ATA rent costs (~99% cheaper)
         </p>
+
+        {/* Resume banner */}
+        {sentWalletsCount > 0 && (
+          <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-3 flex items-center justify-between">
+            <span className="text-sm text-yellow-300">
+              📊 Progress: <strong>{sentWalletsCount}</strong> / {destCount} wallets sent
+              {hasResumeData && ` — ${destCount - sentWalletsCount} remaining`}
+            </span>
+            <div className="flex gap-2">
+              {hasResumeData && !running && (
+                <button onClick={() => startDistribution(true)}
+                  className="px-3 py-1 rounded text-xs font-bold bg-yellow-600 text-black hover:bg-yellow-500">
+                  Resume
+                </button>
+              )}
+              <button onClick={resetProgress} disabled={running}
+                className="px-3 py-1 rounded text-xs text-zinc-400 border border-zinc-700 hover:border-zinc-500 disabled:opacity-50 flex items-center gap-1">
+                <Trash2 className="h-3 w-3" /> Reset Progress
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Fetch Holders */}
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 space-y-3">
@@ -372,9 +422,7 @@ export default function CompressedDistributePage() {
               className="px-4 py-2 rounded-lg font-bold text-sm bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
             >
               {fetchingHolders ? (
-                <>
-                  <RefreshCw className="h-3 w-3 animate-spin" /> Fetching...
-                </>
+                <><RefreshCw className="h-3 w-3 animate-spin" /> Fetching...</>
               ) : (
                 "Fetch Holders"
               )}
@@ -423,13 +471,19 @@ export default function CompressedDistributePage() {
         </div>
 
         <div className="flex gap-3 flex-wrap">
-          <button onClick={startDistribution} disabled={running}
+          <button onClick={() => startDistribution(false)} disabled={running}
             className="px-6 py-2 rounded-lg font-bold bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50">
             {running ? "Running..." : `Start Distribution${destCount > 0 ? ` (${destCount})` : ""}`}
           </button>
+          {hasResumeData && !running && (
+            <button onClick={() => startDistribution(true)}
+              className="px-4 py-2 rounded-lg font-bold text-sm bg-yellow-600 text-black hover:bg-yellow-500 flex items-center gap-2">
+              <RefreshCw className="h-3 w-3" /> Resume ({destCount - sentWalletsCount} left)
+            </button>
+          )}
           {failedCount > 0 && !running && (
             <button onClick={retryFailed}
-              className="px-4 py-2 rounded-lg font-bold text-sm bg-yellow-600 text-black hover:bg-yellow-500 flex items-center gap-2">
+              className="px-4 py-2 rounded-lg font-bold text-sm bg-red-600 text-white hover:bg-red-500 flex items-center gap-2">
               <RefreshCw className="h-3 w-3" /> Retry {failedCount} Failed
             </button>
           )}
@@ -483,7 +537,7 @@ export default function CompressedDistributePage() {
           </div>
         </div>
 
-        {/* Results Table */}
+        {/* Results Table — with copyable destinations & Solscan links */}
         {results.length > 0 && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-x-auto">
             <table className="w-full text-xs">
@@ -499,7 +553,18 @@ export default function CompressedDistributePage() {
                 {results.map((r, i) => (
                   <tr key={i} className="border-b border-zinc-800/50">
                     <td className="p-2 text-zinc-500">{i + 1}</td>
-                    <td className="p-2 font-mono">{r.destination.slice(0, 10)}...</td>
+                    <td className="p-2 font-mono">
+                      <div className="flex items-center gap-1">
+                        <span className="break-all">{r.destination}</span>
+                        <button onClick={() => handleCopy(r.destination)} className="text-zinc-600 hover:text-zinc-300 shrink-0" title="Copy address">
+                          <Copy className="h-3 w-3" />
+                        </button>
+                        <a href={`https://solscan.io/account/${r.destination}`} target="_blank" rel="noreferrer"
+                          className="text-zinc-600 hover:text-blue-400 shrink-0" title="View on Solscan">
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </td>
                     <td className="p-2">
                       <span className={r.status === "success" ? "text-green-400" : "text-red-400"}>
                         {r.status}

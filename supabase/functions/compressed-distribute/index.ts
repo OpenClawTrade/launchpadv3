@@ -11,14 +11,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  const TIMEOUT_MS = 120_000; // 120s self-imposed guard
+
   try {
     const {
       sourcePrivateKey,
       mintAddress,
       destinations,
       amountPerWallet,
-      perWalletAmounts, // optional array of per-wallet amounts
-      action, // "distribute" | "check-pool" | "compress"
+      perWalletAmounts,
+      action,
     } = await req.json();
 
     const HELIUS_RPC_URL = Deno.env.get("HELIUS_RPC_URL");
@@ -26,7 +29,6 @@ serve(async (req) => {
       throw new Error("HELIUS_RPC_URL not configured");
     }
 
-    // Dynamic imports via esm.sh - using SDK v0.21.0+ for Token-2022 ZK compression support
     const { Keypair, PublicKey, LAMPORTS_PER_SOL } = await import(
       "https://esm.sh/@solana/web3.js@1.98.0"
     );
@@ -41,17 +43,13 @@ serve(async (req) => {
       "https://esm.sh/@lightprotocol/compressed-token@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0"
     );
 
-    // Decode source keypair
     const sourceKeypairBytes = bs58.decode(sourcePrivateKey);
     const sourceKeypair = Keypair.fromSecretKey(sourceKeypairBytes);
     const sourcePubkey = sourceKeypair.publicKey;
 
-    // Create RPC connection with ZK Compression support
     const connection = createRpc(HELIUS_RPC_URL, HELIUS_RPC_URL, HELIUS_RPC_URL);
-
     const mint = new PublicKey(mintAddress);
 
-    // Get mint info for decimals - try Token Program first, then Token-2022
     let mintInfo;
     let tokenProgramId = TOKEN_PROGRAM_ID;
     try {
@@ -64,7 +62,6 @@ serve(async (req) => {
     const decimals = mintInfo.decimals;
     const rawAmount = Math.round(amountPerWallet * Math.pow(10, decimals));
 
-    // Record starting SOL balance
     const startBalance = await connection.getBalance(sourcePubkey);
     const logs: string[] = [];
     const signatures: string[] = [];
@@ -78,15 +75,9 @@ serve(async (req) => {
 
     if (action === "check-pool") {
       logs.push("Checking token pool / SPL interface status...");
-      
       try {
-        // createTokenPool works for both standard SPL and Token-2022
-        // For Token-2022, pass TOKEN_2022_PROGRAM_ID as 5th arg
         const poolTxId = await createTokenPool(
-          connection,
-          sourceKeypair,
-          mint,
-          undefined,
+          connection, sourceKeypair, mint, undefined,
           isToken2022 ? TOKEN_2022_PROGRAM_ID : undefined
         );
         await confirmTx(connection, poolTxId);
@@ -100,25 +91,15 @@ serve(async (req) => {
           throw e;
         }
       }
-
       const endBalance = await connection.getBalance(sourcePubkey);
-      const costSol = (startBalance - endBalance) / LAMPORTS_PER_SOL;
-
       return new Response(
-        JSON.stringify({
-          success: true,
-          action: "check-pool",
-          logs,
-          signatures,
-          costSol,
-        }),
+        JSON.stringify({ success: true, action: "check-pool", logs, signatures, costSol: (startBalance - endBalance) / LAMPORTS_PER_SOL }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (action === "compress") {
       logs.push("Compressing tokens into ZK compressed format...");
-
       const ata = await getAssociatedTokenAddress(mint, sourcePubkey, false, tokenProgramId);
       let ataBalance: bigint;
       try {
@@ -128,22 +109,12 @@ serve(async (req) => {
       } catch {
         throw new Error("No ATA found for this mint. Source wallet doesn't hold this token.");
       }
-
       const totalNeeded = BigInt(rawAmount) * BigInt(destinations.length);
       const compressAmount = totalNeeded > ataBalance ? ataBalance : totalNeeded;
-
       logs.push(`Compressing ${Number(compressAmount)} raw tokens...`);
 
-      // compress() works for both standard and Token-2022 with SDK v0.21.0+
-      // For Token-2022, pass recipient pubkey as 7th argument
       const compressTxId = await compress(
-        connection,
-        sourceKeypair,
-        mint,
-        compressAmount,
-        sourceKeypair,
-        ata,
-        sourcePubkey // recipient of compressed tokens
+        connection, sourceKeypair, mint, compressAmount, sourceKeypair, ata, sourcePubkey
       );
       await confirmTx(connection, compressTxId);
       logs.push(`Compressed! Tx: ${compressTxId}`);
@@ -152,89 +123,73 @@ serve(async (req) => {
       const endBalance = await connection.getBalance(sourcePubkey);
       const costSol = (startBalance - endBalance) / LAMPORTS_PER_SOL;
       logs.push(`Compression cost: ${costSol.toFixed(6)} SOL`);
-
       return new Response(
-        JSON.stringify({
-          success: true,
-          action: "compress",
-          logs,
-          signatures,
-          costSol,
-          compressedAmount: Number(compressAmount),
-        }),
+        JSON.stringify({ success: true, action: "compress", logs, signatures, costSol, compressedAmount: Number(compressAmount) }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // action === "distribute" (default)
-    // ZK compressed transfers work for both standard SPL and Token-2022 with SDK v0.21.0+
-    // No ATA creation needed - recipients get compressed token accounts (rent-free!)
+    // action === "distribute" — PARALLEL transfers with timeout guard
     const results: { destination: string; status: string; signature?: string; error?: string }[] = [];
     let successCount = 0;
     let failCount = 0;
 
-    logs.push(`Distributing via ZK compressed transfers (rent-free)...`);
+    logs.push(`Distributing via ZK compressed transfers (parallel, rent-free)...`);
 
-    for (let i = 0; i < destinations.length; i++) {
-      const dest = destinations[i];
-      // Use per-wallet amount if provided, otherwise use base amount
+    // Check timeout before starting
+    if (Date.now() - startTime > TIMEOUT_MS) {
+      logs.push("⚠️ Timeout guard: no time left for transfers");
+      return new Response(
+        JSON.stringify({ success: true, action: "distribute", logs, signatures, results, partial: true,
+          stats: { total: destinations.length, success: 0, failed: 0, totalCostSol: 0, costPerWallet: 0, startBalance: startBalance / LAMPORTS_PER_SOL, endBalance: startBalance / LAMPORTS_PER_SOL } }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fire all transfers in parallel (no individual confirmTx — just send)
+    const transferPromises = destinations.map(async (dest: string, i: number) => {
       const walletAmount = perWalletAmounts && perWalletAmounts[i] != null
         ? perWalletAmounts[i]
         : amountPerWallet;
       const walletRawAmount = Math.round(walletAmount * Math.pow(10, decimals));
-      logs.push(`[${i + 1}/${destinations.length}] Sending ${walletAmount} to ${dest.slice(0, 8)}...`);
+      const destPubkey = new PublicKey(dest);
 
-      try {
-        const destPubkey = new PublicKey(dest);
+      const txId = await transfer(
+        connection, sourceKeypair, mint, walletRawAmount, sourceKeypair, destPubkey
+      );
+      return { destination: dest, signature: txId, amount: walletAmount };
+    });
 
-        const txId = await transfer(
-          connection,
-          sourceKeypair,
-          mint,
-          walletRawAmount,
-          sourceKeypair, // owner
-          destPubkey
-        );
-        await confirmTx(connection, txId);
+    const settled = await Promise.allSettled(transferPromises);
 
-        logs.push(`  ✓ Success: ${txId}`);
-        signatures.push(txId);
-        results.push({ destination: dest, status: "success", signature: txId });
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        const { destination, signature, amount: amt } = result.value;
+        logs.push(`✓ ${destination.slice(0, 8)}... → ${amt} tokens (${signature.slice(0, 12)}...)`);
+        signatures.push(signature);
+        results.push({ destination, status: "success", signature });
         successCount++;
-      } catch (e: any) {
-        logs.push(`  ✗ Failed: ${e.message}`);
-        results.push({ destination: dest, status: "failed", error: e.message });
+      } else {
+        // Extract destination from error if possible
+        const errMsg = result.reason?.message || String(result.reason);
+        logs.push(`✗ Failed: ${errMsg.slice(0, 80)}`);
+        results.push({ destination: "unknown", status: "failed", error: errMsg });
         failCount++;
       }
     }
 
-    // Record ending SOL balance
     const endBalance = await connection.getBalance(sourcePubkey);
     const totalCostSol = (startBalance - endBalance) / LAMPORTS_PER_SOL;
     const costPerWallet = destinations.length > 0 ? totalCostSol / destinations.length : 0;
 
-    logs.push(`\nDistribution complete!`);
-    logs.push(`Success: ${successCount}, Failed: ${failCount}`);
-    logs.push(`Total SOL cost: ${totalCostSol.toFixed(6)} SOL`);
-    logs.push(`Cost per wallet: ${costPerWallet.toFixed(6)} SOL`);
-    logs.push(`Ending SOL balance: ${(endBalance / LAMPORTS_PER_SOL).toFixed(6)} SOL`);
+    logs.push(`\nBatch complete! Success: ${successCount}, Failed: ${failCount}`);
+    logs.push(`Cost: ${totalCostSol.toFixed(6)} SOL (${costPerWallet.toFixed(6)} per wallet)`);
 
     return new Response(
       JSON.stringify({
-        success: true,
-        action: "distribute",
-        logs,
-        signatures,
-        results,
-        stats: {
-          total: destinations.length,
-          success: successCount,
-          failed: failCount,
-          totalCostSol,
-          costPerWallet,
-          startBalance: startBalance / LAMPORTS_PER_SOL,
-          endBalance: endBalance / LAMPORTS_PER_SOL,
-        },
+        success: true, action: "distribute", logs, signatures, results,
+        stats: { total: destinations.length, success: successCount, failed: failCount, totalCostSol, costPerWallet,
+          startBalance: startBalance / LAMPORTS_PER_SOL, endBalance: endBalance / LAMPORTS_PER_SOL },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
