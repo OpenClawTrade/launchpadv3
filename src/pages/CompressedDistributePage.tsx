@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw } from "lucide-react";
 import WhaleScanner from "@/components/admin/WhaleScanner";
 import { useNavigate } from "react-router-dom";
 
@@ -28,6 +28,7 @@ export default function CompressedDistributePage() {
   const [mintAddress, setMintAddress] = useState(() => localStorage.getItem("compressed-mint") || "");
   const [amount, setAmount] = useState(() => localStorage.getItem("compressed-amount") || "1");
   const [destinations, setDestinations] = useState(() => localStorage.getItem("compressed-destinations") || "");
+  const [holderMint, setHolderMint] = useState(() => localStorage.getItem("compressed-holder-mint") || "");
 
   const updateField = (key: string, setter: (v: string) => void) => (v: string) => {
     setter(v);
@@ -37,8 +38,10 @@ export default function CompressedDistributePage() {
   const updateMint = updateField("compressed-mint", setMintAddress);
   const updateAmount = updateField("compressed-amount", setAmount);
   const updateDestinations = updateField("compressed-destinations", setDestinations);
+  const updateHolderMint = updateField("compressed-holder-mint", setHolderMint);
 
   const [running, setRunning] = useState(false);
+  const [fetchingHolders, setFetchingHolders] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>(() => {
     try { return JSON.parse(localStorage.getItem("compressed-logs") || "[]"); } catch { return []; }
   });
@@ -56,7 +59,7 @@ export default function CompressedDistributePage() {
     const time = new Date().toLocaleTimeString();
     setLogs(prev => {
       const next = [...prev, { time, message, type }];
-      try { localStorage.setItem("compressed-logs", JSON.stringify(next.slice(-200))); } catch {}
+      try { localStorage.setItem("compressed-logs", JSON.stringify(next.slice(-500))); } catch {}
       setTimeout(() => logEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
       return next;
     });
@@ -77,10 +80,9 @@ export default function CompressedDistributePage() {
     return /^[1-9A-HJ-NP-Za-km-z]+$/.test(addr);
   };
 
-  const callEdgeFunction = async (body: any) => {
-    const { data, error } = await supabase.functions.invoke("compressed-distribute", { body });
+  const callEdgeFunction = async (name: string, body: any) => {
+    const { data, error } = await supabase.functions.invoke(name, { body });
     if (error) {
-      // Try parse error body
       try {
         const errBody = await error.context?.json?.();
         if (errBody?.error) throw new Error(errBody.error);
@@ -91,14 +93,38 @@ export default function CompressedDistributePage() {
     return data;
   };
 
+  // Fetch all holders from a token mint
+  const fetchHolders = async () => {
+    if (!holderMint.trim()) {
+      addLog("Enter a token mint address to fetch holders", "error");
+      return;
+    }
+    setFetchingHolders(true);
+    addLog(`Fetching all holders for ${holderMint.trim()}...`);
+
+    try {
+      const data = await callEdgeFunction("fetch-token-holders", { mintAddress: holderMint.trim() });
+      const holders: string[] = data.holders || [];
+      addLog(`Found ${holders.length} unique holders (${data.pages} pages fetched)`, "success");
+
+      if (holders.length > 0) {
+        const newDest = holders.join("\n");
+        updateDestinations(newDest);
+        addLog(`Loaded ${holders.length} wallets into destination field`, "success");
+      } else {
+        addLog("No holders found for this token", "warn");
+      }
+    } catch (err: any) {
+      addLog(`Error fetching holders: ${err.message}`, "error");
+    }
+
+    setFetchingHolders(false);
+  };
+
   const startDistribution = async () => {
     const destList = destinations.trim().split("\n").map(d => d.trim()).filter(Boolean);
     if (!sourceKey || !mintAddress || !destList.length) {
       addLog("Missing required fields", "error");
-      return;
-    }
-    if (destList.length > 100) {
-      addLog("Max 100 wallets allowed for testing", "error");
       return;
     }
     const invalid = destList.filter(d => !isValidSolanaAddress(d));
@@ -115,10 +141,10 @@ export default function CompressedDistributePage() {
     try {
       // Step 1: Ensure token pool exists
       addLog("Step 1/3: Checking token pool...");
-      const poolResult = await callEdgeFunction({
+      const poolResult = await callEdgeFunction("compressed-distribute", {
         sourcePrivateKey: sourceKey,
         mintAddress,
-        destinations: destList,
+        destinations: destList.slice(0, 10), // only need a small batch for pool check
         amountPerWallet: parseFloat(amount),
         action: "check-pool",
       });
@@ -129,59 +155,101 @@ export default function CompressedDistributePage() {
 
       // Step 2: Compress tokens from ATA
       addLog("Step 2/3: Compressing tokens from ATA...");
-      const compressResult = await callEdgeFunction({
+      const compressResult = await callEdgeFunction("compressed-distribute", {
         sourcePrivateKey: sourceKey,
         mintAddress,
-        destinations: destList,
+        destinations: destList.slice(0, 10),
         amountPerWallet: parseFloat(amount),
         action: "compress",
       });
       compressResult.logs?.forEach((l: string) => addLog(l));
       addLog(`Compression cost: ${compressResult.costSol?.toFixed(6) || "0"} SOL`, "info");
 
-      // Step 3: Distribute compressed tokens in batches
-      addLog("Step 3/3: Distributing compressed tokens...");
+      // Step 3: Distribute compressed tokens in batches with retry
+      addLog(`Step 3/3: Distributing to ${destList.length} wallets...`);
       const BATCH_SIZE = 10;
+      const MAX_RETRIES = 3;
       const allResults: DistResult[] = [];
       let totalSuccess = 0;
       let totalFailed = 0;
       let totalTxCount = 0;
       let totalCostSol = 0;
 
-      for (let i = 0; i < destList.length; i += BATCH_SIZE) {
-        const batch = destList.slice(i, i + BATCH_SIZE);
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(destList.length / BATCH_SIZE);
-        addLog(`Batch ${batchNum}/${totalBatches} (${batch.length} wallets)...`);
+      // First pass
+      let pendingWallets = [...destList];
+      let retryRound = 0;
 
-        try {
-          const distResult = await callEdgeFunction({
-            sourcePrivateKey: sourceKey,
-            mintAddress,
-            destinations: batch,
-            amountPerWallet: parseFloat(amount),
-            action: "distribute",
-          });
-          distResult.logs?.forEach((l: string) => addLog(l));
-
-          if (distResult.results) {
-            allResults.push(...distResult.results);
-            persistResults(allResults);
-          }
-          if (distResult.stats) {
-            totalSuccess += distResult.stats.success || 0;
-            totalFailed += distResult.stats.failed || 0;
-            totalCostSol += distResult.stats.totalCostSol || 0;
-          }
-          if (distResult.signatures) {
-            totalTxCount += distResult.signatures.length;
-          }
-        } catch (batchErr: any) {
-          addLog(`Batch ${batchNum} error: ${batchErr.message}`, "error");
-          batch.forEach(d => allResults.push({ destination: d, status: "failed", error: batchErr.message }));
-          totalFailed += batch.length;
-          persistResults(allResults);
+      while (pendingWallets.length > 0 && retryRound <= MAX_RETRIES) {
+        if (retryRound > 0) {
+          addLog(`\n🔄 Retry round ${retryRound}/${MAX_RETRIES} — ${pendingWallets.length} wallets remaining...`, "warn");
+          // Small delay before retry
+          await new Promise(r => setTimeout(r, 2000));
         }
+
+        const failedThisRound: string[] = [];
+
+        for (let i = 0; i < pendingWallets.length; i += BATCH_SIZE) {
+          const batch = pendingWallets.slice(i, i + BATCH_SIZE);
+          const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+          const totalBatches = Math.ceil(pendingWallets.length / BATCH_SIZE);
+          addLog(`${retryRound > 0 ? "[Retry] " : ""}Batch ${batchNum}/${totalBatches} (${batch.length} wallets)...`);
+
+          try {
+            const distResult = await callEdgeFunction("compressed-distribute", {
+              sourcePrivateKey: sourceKey,
+              mintAddress,
+              destinations: batch,
+              amountPerWallet: parseFloat(amount),
+              action: "distribute",
+            });
+            distResult.logs?.forEach((l: string) => addLog(l));
+
+            if (distResult.results) {
+              for (const r of distResult.results) {
+                if (r.status === "success") {
+                  totalSuccess++;
+                  allResults.push(r);
+                } else {
+                  failedThisRound.push(r.destination);
+                  // Only add to results on final retry
+                  if (retryRound === MAX_RETRIES) {
+                    totalFailed++;
+                    allResults.push(r);
+                  }
+                }
+              }
+              persistResults(allResults);
+            }
+            if (distResult.stats) {
+              totalCostSol += distResult.stats.totalCostSol || 0;
+            }
+            if (distResult.signatures) {
+              totalTxCount += distResult.signatures.length;
+            }
+          } catch (batchErr: any) {
+            addLog(`Batch ${batchNum} error: ${batchErr.message}`, "error");
+            failedThisRound.push(...batch);
+            if (retryRound === MAX_RETRIES) {
+              totalFailed += batch.length;
+              batch.forEach(d => allResults.push({ destination: d, status: "failed", error: batchErr.message }));
+              persistResults(allResults);
+            }
+          }
+
+          // Update running stats
+          persistStats({
+            total: destList.length,
+            success: totalSuccess,
+            failed: retryRound === MAX_RETRIES ? totalFailed : 0,
+            pendingRetry: failedThisRound.length,
+            totalTxCount,
+            totalCostSol,
+            costPerWallet: destList.length > 0 ? totalCostSol / destList.length : 0,
+          });
+        }
+
+        pendingWallets = failedThisRound;
+        retryRound++;
       }
 
       // Final stats
@@ -194,7 +262,8 @@ export default function CompressedDistributePage() {
         costPerWallet: destList.length > 0 ? totalCostSol / destList.length : 0,
       };
       persistStats(finalStats);
-      addLog(`Total: ${totalSuccess} wallets success, ${totalFailed} failed`, "success");
+      addLog(`\n✅ Distribution complete!`, "success");
+      addLog(`Total: ${totalSuccess}/${destList.length} wallets success, ${totalFailed} failed`, totalFailed > 0 ? "warn" : "success");
       addLog(`Total transactions: ${totalTxCount}`, "success");
       addLog(`Total cost: ${totalCostSol.toFixed(6)} SOL`, "success");
     } catch (err: any) {
@@ -202,6 +271,21 @@ export default function CompressedDistributePage() {
     }
 
     setRunning(false);
+  };
+
+  // Retry only failed wallets from previous run
+  const retryFailed = async () => {
+    const failedWallets = results.filter(r => r.status === "failed").map(r => r.destination);
+    if (!failedWallets.length) {
+      addLog("No failed wallets to retry", "warn");
+      return;
+    }
+    addLog(`Retrying ${failedWallets.length} failed wallets...`, "warn");
+    // Set destinations to only failed wallets and restart
+    updateDestinations(failedWallets.join("\n"));
+    // Small delay for state to update
+    await new Promise(r => setTimeout(r, 100));
+    startDistribution();
   };
 
   if (!authorized) {
@@ -239,6 +323,8 @@ export default function CompressedDistributePage() {
   }
 
   const logColor = { info: "text-zinc-400", success: "text-green-400", error: "text-red-400", warn: "text-yellow-400" };
+  const failedCount = results.filter(r => r.status === "failed").length;
+  const destCount = destinations.trim().split("\n").filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
@@ -252,6 +338,38 @@ export default function CompressedDistributePage() {
           Uses ZK Compression (Light Protocol) to distribute tokens without ATA rent costs (~99% cheaper)
         </p>
 
+        {/* Fetch Holders */}
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 space-y-3">
+          <h3 className="text-sm font-bold text-orange-400 flex items-center gap-2">
+            <Download className="h-4 w-4" /> Fetch Token Holders
+          </h3>
+          <p className="text-xs text-zinc-500">
+            Enter a token mint address to fetch all holders and auto-populate destination wallets
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={holderMint}
+              onChange={e => updateHolderMint(e.target.value)}
+              placeholder="Token mint address (e.g. NV2RYH954cTJ3ckFUpvfqaQXU4ARqqDH3562nFSpump)"
+              className="flex-1 px-3 py-2 rounded-lg text-sm bg-black border border-zinc-700 text-white font-mono"
+              disabled={fetchingHolders || running}
+            />
+            <button
+              onClick={fetchHolders}
+              disabled={fetchingHolders || running || !holderMint.trim()}
+              className="px-4 py-2 rounded-lg font-bold text-sm bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+            >
+              {fetchingHolders ? (
+                <>
+                  <RefreshCw className="h-3 w-3 animate-spin" /> Fetching...
+                </>
+              ) : (
+                "Fetch Holders"
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Form */}
         <div className="grid gap-4 md:grid-cols-2">
           <div>
@@ -260,7 +378,7 @@ export default function CompressedDistributePage() {
               className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={running} />
           </div>
           <div>
-            <label className="text-xs text-zinc-500 mb-1 block">Token Mint Address</label>
+            <label className="text-xs text-zinc-500 mb-1 block">Token Mint Address (to distribute)</label>
             <input value={mintAddress} onChange={e => updateMint(e.target.value)}
               className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white font-mono" disabled={running} />
           </div>
@@ -273,17 +391,26 @@ export default function CompressedDistributePage() {
         </div>
 
         <div>
-          <label className="text-xs text-zinc-500 mb-1 block">Destination Wallets (one per line, max 100)</label>
-          <textarea value={destinations} onChange={e => updateDestinations(e.target.value)} rows={8}
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs text-zinc-500">Destination Wallets (one per line)</label>
+            <span className="text-xs text-zinc-600">{destCount} wallets</span>
+          </div>
+          <textarea value={destinations} onChange={e => updateDestinations(e.target.value)} rows={10}
             className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white font-mono"
             placeholder={"wallet1address\nwallet2address\nwallet3address"} disabled={running} />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <button onClick={startDistribution} disabled={running}
             className="px-6 py-2 rounded-lg font-bold bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50">
-            {running ? "Running..." : "Start Distribution"}
+            {running ? "Running..." : `Start Distribution${destCount > 0 ? ` (${destCount})` : ""}`}
           </button>
+          {failedCount > 0 && !running && (
+            <button onClick={retryFailed}
+              className="px-4 py-2 rounded-lg font-bold text-sm bg-yellow-600 text-black hover:bg-yellow-500 flex items-center gap-2">
+              <RefreshCw className="h-3 w-3" /> Retry {failedCount} Failed
+            </button>
+          )}
           <button onClick={() => { setLogs([]); localStorage.removeItem("compressed-logs"); persistResults([]); persistStats({ total: 0, success: 0, failed: 0, totalCostSol: 0, costPerWallet: 0 }); }}
             disabled={running}
             className="px-4 py-2 rounded-lg text-sm text-zinc-400 border border-zinc-800 hover:border-zinc-600 disabled:opacity-50">
