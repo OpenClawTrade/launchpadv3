@@ -143,6 +143,15 @@ export default function FunModePage() {
       for (let idx = 0; idx < txBase64s.length; idx++) {
         const tx = deserializeAnyTx(txBase64s[idx], idx);
         const txLabel = txLabels[idx] || `TX ${idx + 1}`;
+
+        // Fetch fresh blockhash and set it on the TX BEFORE signing to prevent expiry
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+        if (tx instanceof Transaction) {
+          tx.recentBlockhash = blockhash;
+        } else if (tx instanceof VersionedTransaction) {
+          tx.message.recentBlockhash = blockhash;
+        }
+
         toast({ title: `Signing ${txLabel}...`, description: `Step ${idx + 1} of ${txBase64s.length}` });
 
         const phantomSigned = await phantomWallet.signTransaction(tx as any);
@@ -158,7 +167,6 @@ export default function FunModePage() {
         }
 
         const rawTx = (phantomSigned as any).serialize();
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
         const signature = await connection.sendRawTransaction(rawTx, {
           skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 5,
         });
@@ -240,17 +248,21 @@ export default function FunModePage() {
       let tx: Transaction;
       try { tx = Transaction.from(bytes); } catch { throw new Error("Failed to deserialize transaction"); }
 
+      // Fetch fresh blockhash and set it on the TX BEFORE signing to prevent expiry
+      const { url: rpcUrl } = getRpcUrl();
+      const connection = new Connection(rpcUrl, "confirmed");
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+      tx.recentBlockhash = blockhash;
+
       toast({ title: "✍️ Sign in Phantom...", description: "Approve the LP removal transaction" });
       const signedTx = await phantomWallet.signTransaction(tx as any);
       if (!signedTx) throw new Error("Transaction signing cancelled");
 
-      const { url: rpcUrl } = getRpcUrl();
-      const connection = new Connection(rpcUrl, "confirmed");
       const rawTx = (signedTx as any).serialize();
-      const signature = await connection.sendRawTransaction(rawTx, { skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 3 });
+      const signature = await connection.sendRawTransaction(rawTx, { skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 5 });
 
       toast({ title: "⏳ Confirming...", description: "Waiting for on-chain confirmation" });
-      await connection.confirmTransaction(signature, "confirmed");
+      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
 
       toast({ title: "✅ LP Removed!", description: "Your SOL is back in your wallet. The token is now untradeable." });
       localStorage.removeItem('fun_last_pool_address');
