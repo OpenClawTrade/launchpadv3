@@ -28,10 +28,10 @@ interface MemeToken {
 async function submitAndConfirmRpc(
   connection: Connection,
   rawTx: Buffer | Uint8Array,
+  blockhash: string,
+  lastValidBlockHeight: number,
   label = "TX"
 ): Promise<string> {
-  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-
   const signature = await connection.sendRawTransaction(rawTx, {
     skipPreflight: false,
     preflightCommitment: 'confirmed',
@@ -54,8 +54,8 @@ async function submitAndConfirmRpc(
     const confirmStart = Date.now();
     const confirmation = await connection.confirmTransaction({
       signature,
-      blockhash: latestBlockhash.blockhash,
-      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+      blockhash,
+      lastValidBlockHeight,
     }, 'confirmed');
 
     if (confirmation.value.err) {
@@ -218,7 +218,7 @@ export default function FunModePage() {
 
         const rawTx = (phantomSigned as any).serialize();
         toast({ title: `Sending ${txLabel}...`, description: "Broadcasting & confirming..." });
-        const signature = await submitAndConfirmRpc(connection, rawTx, txLabel);
+        const signature = await submitAndConfirmRpc(connection, rawTx, blockhash, lastValidBlockHeight, txLabel);
         signatures.push(signature);
 
         if (idx < txBase64s.length - 1) await new Promise(r => setTimeout(r, 2000));
@@ -307,7 +307,7 @@ export default function FunModePage() {
 
       const rawTx = (signedTx as any).serialize();
       toast({ title: "⏳ Sending & Confirming...", description: "Broadcasting with retries..." });
-      await submitAndConfirmRpc(connection, rawTx, "Remove LP");
+      await submitAndConfirmRpc(connection, rawTx, blockhash, lastValidBlockHeight, "Remove LP");
 
       toast({ title: "✅ LP Removed!", description: "Your SOL is back in your wallet. The token is now untradeable." });
       localStorage.removeItem('fun_last_pool_address');
