@@ -142,8 +142,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Priority fees to ensure TX lands on-chain
     tx1.add(
-      ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 })
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
     );
 
     // Create mint account
@@ -237,7 +237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Add priority fees to pool TX
     const priorityIxs = [
       ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 }),
     ];
     // Prepend priority fee instructions to the pool transaction
     poolTx.instructions.unshift(...priorityIxs);

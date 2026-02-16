@@ -24,70 +24,53 @@ interface MemeToken {
   imageUrl: string;
 }
 
-/** Send a raw transaction and confirm it with periodic rebroadcasts (standard Solana reliability pattern) */
-async function sendAndConfirmWithRetry(
+/** Send a raw transaction and confirm using SDK's WebSocket-based confirmTransaction (matches TokenLauncher pattern) */
+async function submitAndConfirmRpc(
   connection: Connection,
   rawTx: Buffer | Uint8Array,
-  blockhash: string,
-  lastValidBlockHeight: number,
   label = "TX"
 ): Promise<string> {
+  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+
   const signature = await connection.sendRawTransaction(rawTx, {
     skipPreflight: false,
-    preflightCommitment: "confirmed",
-    maxRetries: 0, // we handle retries ourselves
+    preflightCommitment: 'confirmed',
+    maxRetries: 0,
   });
+  console.log(`[FUN Launch] ✅ ${label} sent: ${signature}`);
 
-  console.log(`[sendAndConfirmWithRetry] ${label} sent: ${signature}`);
+  // Rebroadcast every 3s in parallel
+  const resendInterval = setInterval(async () => {
+    try {
+      await connection.sendRawTransaction(rawTx, {
+        skipPreflight: true,
+        maxRetries: 0,
+      });
+      console.log(`[FUN Launch] 🔄 ${label} rebroadcast`);
+    } catch {}
+  }, 3000);
 
-  return new Promise<string>((resolve, reject) => {
-    let done = false;
+  try {
+    const confirmStart = Date.now();
+    const confirmation = await connection.confirmTransaction({
+      signature,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    }, 'confirmed');
 
-    const poll = async () => {
-      while (!done) {
-        await new Promise((r) => setTimeout(r, 2000));
-        if (done) return;
+    if (confirmation.value.err) {
+      throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+    }
+    console.log(`[FUN Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
+  } finally {
+    clearInterval(resendInterval);
+  }
 
-        try {
-          // Check current block height
-          const currentHeight = await connection.getBlockHeight("confirmed");
-          if (currentHeight > lastValidBlockHeight) {
-            done = true;
-            reject(new Error(`${label}: Transaction expired (block height exceeded)`));
-            return;
-          }
+  // 2s buffer for RPC sync before next TX
+  console.log(`[FUN Launch] Waiting 2s for RPC sync...`);
+  await new Promise((r) => setTimeout(r, 2000));
 
-          // Check signature status
-          const statuses = await connection.getSignatureStatuses([signature]);
-          const status = statuses?.value?.[0];
-
-          if (status?.err) {
-            done = true;
-            reject(new Error(`${label}: Transaction failed on-chain: ${JSON.stringify(status.err)}`));
-            return;
-          }
-
-          if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
-            done = true;
-            resolve(signature);
-            return;
-          }
-
-          // Re-broadcast (idempotent — same signature)
-          console.log(`[sendAndConfirmWithRetry] ${label} re-sending...`);
-          await connection.sendRawTransaction(rawTx, {
-            skipPreflight: true,
-            maxRetries: 0,
-          }).catch(() => {}); // ignore re-send errors
-        } catch (err) {
-          console.warn(`[sendAndConfirmWithRetry] ${label} poll error:`, err);
-          // continue polling
-        }
-      }
-    };
-
-    poll();
-  });
+  return signature;
 }
 
 const FUN_PRESETS = [
@@ -240,7 +223,7 @@ export default function FunModePage() {
 
         const rawTx = (phantomSigned as any).serialize();
         toast({ title: `Sending ${txLabel}...`, description: "Broadcasting & confirming..." });
-        const signature = await sendAndConfirmWithRetry(connection, rawTx, blockhash, lastValidBlockHeight, txLabel);
+        const signature = await submitAndConfirmRpc(connection, rawTx, txLabel);
         signatures.push(signature);
 
         if (idx < txBase64s.length - 1) await new Promise(r => setTimeout(r, 2000));
@@ -329,7 +312,7 @@ export default function FunModePage() {
 
       const rawTx = (signedTx as any).serialize();
       toast({ title: "⏳ Sending & Confirming...", description: "Broadcasting with retries..." });
-      await sendAndConfirmWithRetry(connection, rawTx, blockhash, lastValidBlockHeight, "Remove LP");
+      await submitAndConfirmRpc(connection, rawTx, "Remove LP");
 
       toast({ title: "✅ LP Removed!", description: "Your SOL is back in your wallet. The token is now untradeable." });
       localStorage.removeItem('fun_last_pool_address');
