@@ -365,3 +365,6 @@ verify_jwt = false
 
 [functions.sol-whale-scanner]
 verify_jwt = false
+
+[functions.scan-collection-wallet]
+verify_jwt = false

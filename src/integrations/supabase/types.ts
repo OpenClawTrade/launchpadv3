@@ -7222,6 +7222,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tuna_migration_ledger: {
+        Row: {
+          created_at: string
+          first_transfer_at: string | null
+          id: string
+          last_scanned_at: string | null
+          last_transfer_at: string | null
+          total_tokens_received: number
+          tx_count: number
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          first_transfer_at?: string | null
+          id?: string
+          last_scanned_at?: string | null
+          last_transfer_at?: string | null
+          total_tokens_received?: number
+          tx_count?: number
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          first_transfer_at?: string | null
+          id?: string
+          last_scanned_at?: string | null
+          last_transfer_at?: string | null
+          total_tokens_received?: number
+          tx_count?: number
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       tuna_migration_snapshot: {
         Row: {
           amount_sent: number | null
