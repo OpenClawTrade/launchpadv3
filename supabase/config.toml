@@ -371,3 +371,6 @@ verify_jwt = false
 
 [functions.fun-mode-create]
 verify_jwt = false
+
+[functions.fun-mode-remove-lp]
+verify_jwt = false

@@ -178,6 +178,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const [funLpSol, setFunLpSol] = useState(0.5);
   const [funLpTokens, setFunLpTokens] = useState(10_000_000);
   const [isFunLaunching, setIsFunLaunching] = useState(false);
+  const [funRemovePoolAddress, setFunRemovePoolAddress] = useState(() => localStorage.getItem('fun_last_pool_address') || "");
+  const [isRemovingFunLp, setIsRemovingFunLp] = useState(false);
 
   // Banner generation
   const { generateBanner, downloadBanner, clearBanner, isGenerating: isBannerGenerating, bannerUrl } = useBannerGenerator();
@@ -1447,7 +1449,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         message: "🎉 FUN token launched! LP is unlocked, zero fees.",
       });
 
-      toast({ title: "🎉 FUN Token Launched!", description: `${funToken.name} is live! Share with friends.` });
+      toast({ title: "🎉 FUN Token Launched!", description: `${funToken.name} is live! Send tokens to your friend's wallet!` });
+
+      // Save pool address for remove LP
+      if (data.poolAddress) {
+        localStorage.setItem('fun_last_pool_address', data.poolAddress);
+        setFunRemovePoolAddress(data.poolAddress);
+      }
 
       // Clear form
       setFunToken({ name: "", ticker: "", description: "", imageUrl: "" });
@@ -1461,6 +1469,87 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       setIsFunLaunching(false);
     }
   }, [phantomWallet, funToken, funImagePreview, funTotalSupply, funLpSol, funLpTokens, toast, uploadFunImageIfNeeded, onLaunchSuccess, onShowResult]);
+
+  // FUN mode presets
+  const FUN_PRESETS = [
+    { label: "💰 $30K Flex", emoji: "💰", supply: 1_000_000_000, lpTokens: 100_000, lpSol: 0.01, sendTokens: 20_000_000, desc: "Send 20M tokens → friend sees ~$30K" },
+    { label: "🤑 $100K Baller", emoji: "🤑", supply: 1_000_000_000, lpTokens: 50_000, lpSol: 0.01, sendTokens: 20_000_000, desc: "Send 20M tokens → friend sees ~$100K" },
+    { label: "🐳 $1M Whale", emoji: "🐳", supply: 1_000_000_000, lpTokens: 10_000, lpSol: 0.01, sendTokens: 50_000_000, desc: "Send 50M tokens → friend sees ~$1M+" },
+  ];
+
+  const handleFunPresetClick = useCallback((preset: typeof FUN_PRESETS[0]) => {
+    setFunTotalSupply(preset.supply);
+    setFunLpTokens(preset.lpTokens);
+    setFunLpSol(preset.lpSol);
+    toast({ title: `${preset.emoji} Values set!`, description: preset.desc });
+  }, [toast]);
+
+  // Remove FUN LP handler
+  const handleRemoveFunLp = useCallback(async () => {
+    if (!phantomWallet.isConnected || !phantomWallet.address) {
+      toast({ title: "Wallet not connected", description: "Connect Phantom first", variant: "destructive" });
+      return;
+    }
+    if (!funRemovePoolAddress.trim()) {
+      toast({ title: "Pool address required", description: "Enter the pool address from your FUN launch", variant: "destructive" });
+      return;
+    }
+
+    setIsRemovingFunLp(true);
+    toast({ title: "🔄 Preparing LP removal...", description: "Building transaction..." });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("fun-mode-remove-lp", {
+        body: {
+          poolAddress: funRemovePoolAddress.trim(),
+          phantomWallet: phantomWallet.address,
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Failed to prepare remove LP transaction");
+
+      const txBase64 = data.unsignedTransaction;
+      if (!txBase64) throw new Error("No transaction returned");
+
+      // Deserialize
+      const bytes = Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0));
+      let tx: Transaction;
+      try {
+        tx = Transaction.from(bytes);
+      } catch {
+        throw new Error("Failed to deserialize transaction");
+      }
+
+      // Sign with Phantom
+      toast({ title: "✍️ Sign in Phantom...", description: "Approve the LP removal transaction" });
+      const signedTx = await phantomWallet.signTransaction(tx as any);
+      if (!signedTx) throw new Error("Transaction signing cancelled");
+
+      // Submit
+      const { url: rpcUrl } = getRpcUrl();
+      const connection = new Connection(rpcUrl, "confirmed");
+      const rawTx = (signedTx as any).serialize();
+      const signature = await connection.sendRawTransaction(rawTx, {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+        maxRetries: 3,
+      });
+
+      toast({ title: "⏳ Confirming...", description: "Waiting for on-chain confirmation" });
+      await connection.confirmTransaction(signature, "confirmed");
+
+      toast({ title: "✅ LP Removed!", description: "Your SOL is back in your wallet. The token is now untradeable." });
+      
+      // Clear the saved pool address
+      localStorage.removeItem('fun_last_pool_address');
+      setFunRemovePoolAddress("");
+    } catch (error: any) {
+      toast({ title: "Remove LP Failed", description: error.message || "Transaction failed", variant: "destructive" });
+    } finally {
+      setIsRemovingFunLp(false);
+    }
+  }, [phantomWallet, funRemovePoolAddress, toast]);
 
   // Calculate implied values for FUN mode display
   const funImpliedPrice = funLpSol / funLpTokens;
@@ -2496,7 +2585,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           </div>
         )}
 
-        {/* FUN Mode - Direct CP-AMM pool, no bonding curve */}
+        {/* FUN Mode — Prank Your Friends 🎉 */}
         {generatorMode === "fun" && (
           <div className="space-y-4">
             {!funModeUnlocked ? (
@@ -2521,14 +2610,40 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
               </div>
             ) : (
               <>
-                {/* Warning Banner */}
-                <div className="p-3 rounded-lg border border-warning/30 bg-warning/10">
+                {/* Fun Header */}
+                <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
                   <div className="flex items-center gap-2 mb-1">
-                    <PartyPopper className="h-4 w-4 text-warning" />
-                    <span className="text-xs font-semibold text-warning">FUN Mode — Show Off Token</span>
+                    <PartyPopper className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-bold text-foreground">FUN Mode — Prank Your Friends 🎉</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Creates a token with artificially high implied value. LP is <strong>NOT locked</strong>. Zero trading fees. For fun only!
+                    Surprise a friend by sending them <strong>$1,000,000 worth of tokens</strong> (wink wink). 
+                    Pick a preset below and launch!
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1 italic">
+                    This is FUN mode — not financial advice, just vibes. LP is not locked so you can pull it back anytime.
+                  </p>
+                </div>
+
+                {/* Preset Cards */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-foreground">Quick Presets — click to auto-fill:</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {FUN_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        onClick={() => handleFunPresetClick(preset)}
+                        className="p-2 rounded-lg border border-border bg-secondary/50 hover:bg-primary/10 hover:border-primary/30 transition-all text-center"
+                      >
+                        <div className="text-lg">{preset.emoji}</div>
+                        <div className="text-xs font-bold text-foreground">{preset.label.replace(preset.emoji + ' ', '')}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{preset.desc.split('→')[1]?.trim()}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    <strong>How it works:</strong> You put tiny SOL in pool with few tokens. Pool price = SOL ÷ tokens. 
+                    Phantom multiplies that price by your friend's holdings. Boom — instant millionaire (on paper). 🤫
                   </p>
                 </div>
 
@@ -2594,7 +2709,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                     <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
                       <h4 className="text-xs font-semibold text-foreground">Pool Configuration</h4>
 
-                      {/* Total Supply */}
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Total Supply</Label>
                         <Input
@@ -2605,7 +2719,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                         />
                       </div>
 
-                      {/* LP SOL */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs text-muted-foreground">LP SOL</Label>
@@ -2624,7 +2737,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                         </div>
                       </div>
 
-                      {/* LP Tokens */}
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Tokens in Pool</Label>
                         <Input
@@ -2639,11 +2751,11 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       </div>
                     </div>
 
-                    {/* Implied Values Display */}
+                    {/* What your friend will see in Phantom */}
                     <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
                       <div className="flex items-center gap-2 mb-2">
                         <Coins className="h-4 w-4 text-primary" />
-                        <span className="text-xs font-semibold">Implied Values (what Phantom shows)</span>
+                        <span className="text-xs font-semibold">What your friend will see in Phantom 👀</span>
                       </div>
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between">
@@ -2660,8 +2772,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                             <span className="text-primary font-bold">${funImpliedMarketCapUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                           </div>
                         )}
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Holder wallet value</span>
+                        <div className="flex justify-between border-t border-border pt-1 mt-1">
+                          <span className="text-muted-foreground">🤯 Your friend's reaction</span>
                           <span className="text-primary font-bold">
                             {funImpliedMarketCapUsd !== null
                               ? `~$${((funTotalSupply - funLpTokens) * funImpliedPrice * (solPrice || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -2680,10 +2792,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                       </div>
                     </div>
 
-                    <Badge variant="warning" className="w-full justify-center py-1.5">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      LP is NOT locked — for fun only
-                    </Badge>
+                    <p className="text-[10px] text-muted-foreground text-center italic">
+                      💡 Pro tip: Send the tokens to your friend's wallet after launch. They'll open Phantom and see $$$ — priceless.
+                    </p>
 
                     <Button
                       onClick={handleFunLaunch}
@@ -2699,6 +2810,37 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                         Insufficient balance. Need at least {(funLpSol + 0.02).toFixed(2)} SOL.
                       </p>
                     )}
+
+                    {/* Remove LP Section */}
+                    <details className="group mt-2">
+                      <summary className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                        <RefreshCw className="h-3 w-3" />
+                        <span>Already launched? Remove your LP & get SOL back</span>
+                      </summary>
+                      <div className="mt-3 p-3 rounded-lg border border-border bg-muted/30 space-y-3">
+                        <p className="text-[10px] text-muted-foreground">
+                          Paste the pool address from your FUN launch to remove all liquidity and get your SOL back.
+                          ⚠️ This makes the token untradeable.
+                        </p>
+                        <Input
+                          placeholder="Pool address..."
+                          value={funRemovePoolAddress}
+                          onChange={(e) => setFunRemovePoolAddress(e.target.value)}
+                          className="gate-input font-mono text-sm"
+                        />
+                        <Button
+                          onClick={handleRemoveFunLp}
+                          disabled={isRemovingFunLp || !funRemovePoolAddress.trim()}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          {isRemovingFunLp 
+                            ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Removing LP...</>
+                            : <><RefreshCw className="h-4 w-4 mr-2" /> Remove LP & Get SOL Back</>
+                          }
+                        </Button>
+                      </div>
+                    </details>
                   </>
                 )}
               </>
