@@ -72,13 +72,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cpAmm = new CpAmm(connection);
 
     // Fetch pool state
-    const poolState = await cpAmm.getPoolState(poolPubkey);
+    const poolState = await cpAmm.fetchPoolState(poolPubkey);
     if (!poolState) {
       return res.status(404).json({ error: 'Pool not found or not a CP-AMM pool' });
     }
 
     // Find positions owned by this wallet
-    const positions = await cpAmm.getPositionsByPool(poolPubkey);
+    const positions = await cpAmm.getAllPositionsByPool(poolPubkey);
     
     // Filter positions owned by the user
     const userPositions = positions.filter(
@@ -100,13 +100,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Build remove liquidity + close position transaction
     const removeTx = await cpAmm.removeAllLiquidityAndClosePosition({
       owner: ownerPubkey,
-      position: position.pubkey || position.address,
+      position: position.publicKey || position.address,
       positionNftAccount: getAssociatedTokenAddressSync(
-        position.positionNftMint || position.nftMint,
+        position.account?.positionNftMint || position.positionNftMint || position.nftMint,
         ownerPubkey
       ),
       poolState,
-      positionState,
+      positionState: position.account || position,
       tokenAAmountThreshold: new BN(0),
       tokenBAmountThreshold: new BN(0),
       vestings: [],
@@ -116,20 +116,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Set blockhash and fee payer
     const latest = await getBlockhashWithRetry(connection);
     
-    let txToSerialize: Transaction;
-    if (removeTx instanceof Transaction) {
-      txToSerialize = removeTx;
-    } else if (removeTx.transaction) {
-      txToSerialize = removeTx.transaction;
-    } else {
-      // It might be a TransactionBuilder pattern
-      txToSerialize = removeTx as any;
-    }
-    
-    txToSerialize.recentBlockhash = latest.blockhash;
-    txToSerialize.feePayer = ownerPubkey;
+    removeTx.recentBlockhash = latest.blockhash;
+    removeTx.feePayer = ownerPubkey;
 
-    const serialized = txToSerialize.serialize({ 
+    const serialized = removeTx.serialize({ 
       requireAllSignatures: false, 
       verifySignatures: false 
     });
