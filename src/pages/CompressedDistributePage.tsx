@@ -1,13 +1,17 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Download, RefreshCw, Copy, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, Copy, ExternalLink, Trash2, Wallet } from "lucide-react";
 import WhaleScanner from "@/components/admin/WhaleScanner";
 import { useNavigate } from "react-router-dom";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "@/hooks/use-toast";
+import { Keypair, PublicKey, Connection } from "@solana/web3.js";
+import { getAssociatedTokenAddress } from "@solana/spl-token";
+import bs58 from "bs58";
 
 const ADMIN_PASSWORD = "tuna";
 const BATCH_SIZE = 20;
+const HELIUS_PUBLIC_RPC = "https://mainnet.helius-rpc.com/?api-key=15319bf4-4506-4808-8780-5764b2338e1a";
 
 interface LogEntry {
   time: string;
@@ -55,6 +59,8 @@ export default function CompressedDistributePage() {
   const [randomizeAmount, setRandomizeAmount] = useState(true);
   const [running, setRunning] = useState(false);
   const [fetchingHolders, setFetchingHolders] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState<string | null>(null);
+  const [fetchingBalance, setFetchingBalance] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>(() => {
     try { return JSON.parse(localStorage.getItem("compressed-logs") || "[]"); } catch { return []; }
   });
@@ -68,6 +74,42 @@ export default function CompressedDistributePage() {
   });
   const [sentWalletsCount, setSentWalletsCount] = useState(() => getSentWallets().size);
   const logEndRef = useRef<HTMLDivElement>(null);
+
+  // Derive source wallet public key from private key
+  const sourceWalletAddress = useMemo(() => {
+    if (!sourceKey.trim()) return null;
+    try {
+      const decoded = bs58.decode(sourceKey.trim());
+      const kp = Keypair.fromSecretKey(decoded);
+      return kp.publicKey.toBase58();
+    } catch {
+      return null;
+    }
+  }, [sourceKey]);
+
+  // Fetch token balance when source key or mint changes
+  const fetchTokenBalance = useCallback(async () => {
+    if (!sourceWalletAddress || !mintAddress.trim()) {
+      setTokenBalance(null);
+      return;
+    }
+    setFetchingBalance(true);
+    try {
+      const connection = new Connection(HELIUS_PUBLIC_RPC, "confirmed");
+      const mint = new PublicKey(mintAddress.trim());
+      const owner = new PublicKey(sourceWalletAddress);
+      const ata = await getAssociatedTokenAddress(mint, owner);
+      const resp = await connection.getTokenAccountBalance(ata);
+      setTokenBalance(resp.value.uiAmountString || "0");
+    } catch {
+      setTokenBalance("N/A");
+    }
+    setFetchingBalance(false);
+  }, [sourceWalletAddress, mintAddress]);
+
+  useEffect(() => {
+    fetchTokenBalance();
+  }, [fetchTokenBalance]);
 
   const addLog = useCallback((message: string, type: LogEntry["type"] = "info") => {
     const time = new Date().toLocaleTimeString();
@@ -115,13 +157,31 @@ export default function CompressedDistributePage() {
     setFetchingHolders(true);
     addLog(`Fetching all holders for ${holderMint.trim()}...`);
     try {
-      const data = await callEdgeFunction("fetch-token-holders", { mintAddress: holderMint.trim() });
-      const holders: string[] = data.holders || [];
-      addLog(`Found ${holders.length} unique holders (${data.pages} pages fetched)`, "success");
+      // Check cache first
+      const cacheKey = `compressed-holders-${holderMint.trim()}`;
+      const cached = localStorage.getItem(cacheKey);
+      let holders: string[] = [];
+
+      if (cached) {
+        holders = JSON.parse(cached);
+        addLog(`Loaded ${holders.length} holders from cache`, "success");
+      } else {
+        const data = await callEdgeFunction("fetch-token-holders", { mintAddress: holderMint.trim() });
+        holders = data.holders || [];
+        addLog(`Found ${holders.length} unique holders (${data.pages} pages fetched)`, "success");
+        // Cache the results
+        if (holders.length > 0) {
+          try { localStorage.setItem(cacheKey, JSON.stringify(holders)); } catch {}
+        }
+      }
+
       if (holders.length > 0) {
-        const newDest = holders.join("\n");
+        // Filter out already-sent wallets
+        const sentWallets = getSentWallets();
+        const filtered = holders.filter(h => !sentWallets.has(h));
+        const newDest = filtered.join("\n");
         updateDestinations(newDest);
-        addLog(`Loaded ${holders.length} wallets into destination field`, "success");
+        addLog(`Loaded ${filtered.length} wallets into destination field (${holders.length - filtered.length} already sent, skipped)`, "success");
       } else {
         addLog("No holders found for this token", "warn");
       }
@@ -436,11 +496,44 @@ export default function CompressedDistributePage() {
             <label className="text-xs text-zinc-500 mb-1 block">Source Private Key (bs58)</label>
             <input value={sourceKey} onChange={e => updateSourceKey(e.target.value)} type="password"
               className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white" disabled={running} />
+            {sourceWalletAddress && (
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs bg-zinc-900/50 border border-zinc-800 rounded-lg px-2 py-1.5">
+                <Wallet className="h-3 w-3 text-orange-400 shrink-0" />
+                <span className="text-zinc-400 font-mono break-all">{sourceWalletAddress}</span>
+                <button onClick={() => handleCopy(sourceWalletAddress)} className="text-zinc-600 hover:text-zinc-300 shrink-0" title="Copy address">
+                  <Copy className="h-3 w-3" />
+                </button>
+                <a href={`https://solscan.io/account/${sourceWalletAddress}`} target="_blank" rel="noreferrer"
+                  className="text-zinc-600 hover:text-blue-400 shrink-0" title="View on Solscan">
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs text-zinc-500 mb-1 block">Token Mint Address (to distribute)</label>
             <input value={mintAddress} onChange={e => updateMint(e.target.value)}
               className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-white font-mono" disabled={running} />
+            {mintAddress && sourceWalletAddress && (
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs bg-zinc-900/50 border border-zinc-800 rounded-lg px-2 py-1.5">
+                <span className="text-zinc-500">Balance:</span>
+                {fetchingBalance ? (
+                  <RefreshCw className="h-3 w-3 animate-spin text-zinc-500" />
+                ) : (
+                  <span className="text-green-400 font-mono font-bold">{tokenBalance ?? "—"}</span>
+                )}
+                <button onClick={fetchTokenBalance} className="text-zinc-600 hover:text-zinc-300 shrink-0 ml-auto" title="Refresh balance">
+                  <RefreshCw className="h-3 w-3" />
+                </button>
+                <button onClick={() => handleCopy(mintAddress)} className="text-zinc-600 hover:text-zinc-300 shrink-0" title="Copy mint">
+                  <Copy className="h-3 w-3" />
+                </button>
+                <a href={`https://solscan.io/token/${mintAddress}`} target="_blank" rel="noreferrer"
+                  className="text-zinc-600 hover:text-blue-400 shrink-0" title="View token on Solscan">
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
           </div>
         </div>
 
