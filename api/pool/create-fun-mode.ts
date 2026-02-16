@@ -190,12 +190,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       maxSqrtPrice: MAX_SQRT_PRICE,
     });
 
-    // Zero fee config
-    const zeroBaseFee = getBaseFeeParams({
+    // Minimal fee config (0.01% - lowest allowed by CP-AMM)
+    const minBaseFee = getBaseFeeParams({
       baseFeeMode: BaseFeeMode.FeeTimeSchedulerLinear,
       feeTimeSchedulerParam: {
-        startingFeeBps: 0,
-        endingFeeBps: 0,
+        startingFeeBps: 1,
+        endingFeeBps: 1,
         numberOfPeriod: 0,
         totalDuration: 0,
       },
@@ -221,7 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       initSqrtPrice,
       liquidityDelta,
       poolFees: {
-        baseFee: zeroBaseFee,
+        baseFee: minBaseFee,
         padding: [],
         dynamicFee: null,
       },
