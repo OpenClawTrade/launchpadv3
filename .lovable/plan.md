@@ -1,82 +1,52 @@
 
-## Add "Received Tokens" Ledger Tab to Migration Page
+
+## Revert Phantom Mode to 2-TX Launch Method
 
 ### Overview
-Create a new "Received" tab in the Migrate section that shows an accurate, on-chain-verified ledger of all token transfers received by the collection wallet. This tab will be the source of truth for distributing new tokens.
+The current Phantom launch uses a complex 3-transaction flow (Config, Pool, Dev Buy) with Jito bundles and `signAllTransactions` for Lighthouse chaining. Since `signAllTransactions` suggestions aren't working reliably in Phantom, we revert to a simpler **2-TX sequential sign-after-confirm** flow where the dev buy is merged back into the pool transaction.
 
-### What It Does
-- New edge function (`scan-collection-wallet`) calls Helius to fetch ALL token transfer history for the collection wallet, filtered to the old $TUNA mint
-- Aggregates transfers by sender wallet: total tokens, number of transactions, first/last transfer timestamps
-- Stores results in a new `tuna_migration_ledger` database table
-- New "Received" tab on /migrate shows this data with statistics and a Refresh button
+### What Changes
 
-### Database Changes
+**Backend: `api/pool/create-phantom.ts`**
+- Set `skipDevBuyMerge = false` (always merge dev buy into pool TX instead of keeping it as separate TX3)
+- Remove Jito tip injection logic (no longer needed without a separate dev buy TX)
+- This means the backend always returns 2 transactions: TX1 (Create Config) + TX2 (Create Pool + Dev Buy merged)
 
-**New table: `tuna_migration_ledger`**
-- `id` (uuid, PK)
-- `wallet_address` (text, unique) -- sender address
-- `total_tokens_received` (numeric) -- aggregated total
-- `tx_count` (integer) -- number of separate transfers
-- `first_transfer_at` (timestamptz) -- earliest transaction timestamp
-- `last_transfer_at` (timestamptz) -- latest transaction timestamp
-- `last_scanned_at` (timestamptz) -- when this record was last updated by the scanner
-- `created_at` (timestamptz)
+**Frontend: `src/components/launchpad/TokenLauncher.tsx` (`handlePhantomLaunch`)**
+- Remove the 3-TX Jito bundle code path (`if (useJitoBundle && txsToSign.length >= 3)`)
+- Remove the 3-TX sequential code path (`else if (txsToSign.length >= 3)`)
+- Keep only the 2-TX sequential sign-after-confirm loop (the existing `else` branch at line 1278-1288)
+- Each TX is signed individually with `signTransaction` (one Phantom popup per TX), submitted, and confirmed before the next
+- Remove `signAllTransactions` usage entirely from the Phantom launch flow
+- Remove Jito bundle imports if no longer used elsewhere
 
-RLS: public read access (no auth needed for viewing), no public writes.
+**Frontend: `src/components/launchpad/TokenLauncher.tsx` (`handleHoldersLaunch`)**
+- Same simplification: remove `signAllTransactions` handling, use the 2-TX sequential loop
 
-### New Edge Function: `scan-collection-wallet`
+**No changes to `fun-phantom-create` edge function** (it just proxies to the Vercel API and returns whatever transactions come back)
 
-1. Calls Helius Enhanced Transactions API to get ALL transactions involving the collection wallet
-2. Filters for old $TUNA mint token transfers TO the collection wallet
-3. Groups by sender wallet, sums amounts, counts transactions, tracks timestamps
-4. Upserts results into `tuna_migration_ledger` table
-5. Returns summary statistics
+### Flow After Change
 
-Uses existing `HELIUS_API_KEY` secret.
-
-### UI Changes (MigratePage.tsx)
-
-**New "Received" tab** added alongside "Snapshot Holders" and "Migrated":
-
-**Top Stats Cards:**
-- Total Tokens Received (with % of total supply)
-- Unique Senders
-- Total Transactions
-- Last Scanned timestamp
-
-**Refresh Button:** Calls the edge function to re-scan on-chain data and updates the table
-
-**Table Columns:**
-- Wallet (truncated + copy button)
-- Tokens Received (formatted number)
-- % of Supply
-- TX Count
-- First Transfer (date/time)
-- Last Transfer (date/time)
-- Solscan link
-
-Sorted by tokens received descending.
+```text
+1. User clicks Launch
+2. Backend prepares 2 unsigned TXs: Config + Pool (with dev buy merged)
+3. Frontend: sign TX1 via signTransaction -> submit -> wait for confirmed
+4. Frontend: 2s sync buffer
+5. Frontend: sign TX2 via signTransaction -> submit -> wait for confirmed
+6. Frontend: Phase 2 DB record
+```
 
 ### Technical Details
 
-**Edge function flow:**
-```text
-User clicks Refresh
-  -> POST /scan-collection-wallet
-  -> Helius: fetch all transactions for collection wallet
-  -> Filter: only old TUNA mint transfers TO collection wallet
-  -> Aggregate by sender: sum amounts, count txs, min/max timestamps
-  -> Upsert into tuna_migration_ledger
-  -> Return summary + full list
-```
+**`api/pool/create-phantom.ts`:**
+- Line 243: Change `const skipDevBuyMerge = effectiveDevBuySol > 0;` to `const skipDevBuyMerge = false;`
+- Remove the `addJitoTipToLastTx` call and related imports/function (lines ~30-56)
 
-**Helius API used:** Enhanced Transaction History (`/v0/addresses/{address}/transactions`) with pagination to get complete history.
+**`src/components/launchpad/TokenLauncher.tsx` (`handlePhantomLaunch`):**
+- Remove lines ~1199-1288 (the 3-TX Jito and 3-TX sequential branches)
+- Keep only the simple sequential loop (lines 1278-1288 become the sole path)
+- Remove `submitJitoBundle`, `waitForBundleConfirmation`, `createJitoTipInstruction`, `getRandomTipAccount` imports if unused elsewhere
 
-**Files to create:**
-- `supabase/functions/scan-collection-wallet/index.ts`
+**`src/components/launchpad/TokenLauncher.tsx` (`handleHoldersLaunch`):**
+- Simplify to use the same 2-TX sequential sign-after-confirm pattern (replace the current for-loop at lines 804-838)
 
-**Files to modify:**
-- `src/pages/MigratePage.tsx` (add Received tab, refresh button, stats)
-
-**Database migration:**
-- Create `tuna_migration_ledger` table with RLS policies
