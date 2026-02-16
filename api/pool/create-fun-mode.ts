@@ -126,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       lpSol: validLpSol,
     });
 
-    const treasuryKeypair = getTreasuryKeypair();
+    
     const rpcUrl = process.env.HELIUS_RPC_URL;
     if (!rpcUrl) throw new Error('HELIUS_RPC_URL not configured');
     const connection = new Connection(rpcUrl, 'confirmed');
