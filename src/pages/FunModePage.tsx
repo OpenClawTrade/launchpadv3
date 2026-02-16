@@ -75,9 +75,9 @@ async function submitAndConfirmRpc(
 }
 
 const FUN_PRESETS = [
-  { label: "💰 $30K Flex", emoji: "💰", supply: 1_000_000_000, lpTokens: 100_000, lpSol: 0.01, sendTokens: 20_000_000, desc: "Send 20M tokens → friend sees ~$30K" },
-  { label: "🤑 $100K Baller", emoji: "🤑", supply: 1_000_000_000, lpTokens: 50_000, lpSol: 0.01, sendTokens: 20_000_000, desc: "Send 20M tokens → friend sees ~$100K" },
-  { label: "🐳 $1M Whale", emoji: "🐳", supply: 1_000_000_000, lpTokens: 10_000, lpSol: 0.01, sendTokens: 50_000_000, desc: "Send 50M tokens → friend sees ~$1M+" },
+  { label: "💰 $30K Flex", emoji: "💰", supply: 1_000_000_000, lpTokens: 50_000_000, lpSol: 5, sendTokens: 20_000_000, desc: "Send 20M tokens → friend sees ~$30K" },
+  { label: "🤑 $100K Baller", emoji: "🤑", supply: 1_000_000_000, lpTokens: 25_000_000, lpSol: 5, sendTokens: 20_000_000, desc: "Send 20M tokens → friend sees ~$100K" },
+  { label: "🐳 $1M Whale", emoji: "🐳", supply: 1_000_000_000, lpTokens: 5_000_000, lpSol: 5, sendTokens: 50_000_000, desc: "Send 50M tokens → friend sees ~$1M+" },
 ];
 
 export default function FunModePage() {
@@ -89,7 +89,7 @@ export default function FunModePage() {
   const [funImageFile, setFunImageFile] = useState<File | null>(null);
   const [funImagePreview, setFunImagePreview] = useState<string | null>(null);
   const [funTotalSupply, setFunTotalSupply] = useState(1_000_000_000);
-  const [funLpSol, setFunLpSol] = useState(0.5);
+  const [funLpSol, setFunLpSol] = useState(5);
   const [funLpTokens, setFunLpTokens] = useState(10_000_000);
   const [isFunLaunching, setIsFunLaunching] = useState(false);
   const [funRemovePoolAddress, setFunRemovePoolAddress] = useState(() => localStorage.getItem('fun_last_pool_address') || "");
@@ -470,13 +470,13 @@ export default function FunModePage() {
                   <Slider
                     value={[funLpSol * 100]}
                     onValueChange={(v) => { setFunLpSol(v[0] / 100); setSelectedPreset(null); }}
-                    min={1}
-                    max={500}
-                    step={1}
+                    min={100}
+                    max={2000}
+                    step={50}
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>0.01 SOL</span>
-                    <span>5 SOL</span>
+                    <span>1 SOL</span>
+                    <span>20 SOL</span>
                   </div>
                 </div>
 
