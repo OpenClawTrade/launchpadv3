@@ -245,7 +245,13 @@ export default function MigratePage() {
       const data = res.data;
       if (data?.error) throw new Error(data.error);
 
-      toast.success(`Migration registered! ${data.amount_sent ? `${Number(data.amount_sent).toLocaleString()} $TUNA verified.` : ""}`);
+      const totalSent = data.total_sent ? Number(data.total_sent).toLocaleString() : "";
+      const txCount = data.tx_count || 1;
+      if (txCount > 1) {
+        toast.success(`Transfer #${txCount} registered! Total: ${totalSent} $TUNA across ${txCount} transactions.`);
+      } else {
+        toast.success(`Migration registered! ${data.amount_sent ? `${Number(data.amount_sent).toLocaleString()} $TUNA verified.` : ""}`);
+      }
       setTxSignature("");
       await loadData();
     } catch (err: any) {

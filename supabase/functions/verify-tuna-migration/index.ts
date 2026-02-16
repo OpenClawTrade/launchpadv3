@@ -24,19 +24,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate signature format - Solana tx signatures are base58 encoded, typically 87-88 chars
     const trimmedSig = tx_signature.trim();
     if (trimmedSig.length < 80 || trimmedSig.length > 100) {
       return new Response(
-        JSON.stringify({ error: `Invalid transaction signature length (${trimmedSig.length} chars). A valid Solana signature is 87-88 characters. Make sure you copied the full signature from your wallet or Solscan.` }),
+        JSON.stringify({ error: `Invalid transaction signature length (${trimmedSig.length} chars). A valid Solana signature is 87-88 characters.` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check for valid base58 characters
     if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(trimmedSig)) {
       return new Response(
-        JSON.stringify({ error: "Invalid transaction signature format. It should only contain base58 characters. Make sure you didn't copy extra spaces or characters." }),
+        JSON.stringify({ error: "Invalid transaction signature format." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -56,9 +54,27 @@ Deno.serve(async (req) => {
       );
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check for duplicate TX signature in transactions table
+    const { data: existingTx } = await supabase
+      .from("tuna_migration_transactions")
+      .select("id")
+      .eq("tx_signature", trimmedSig)
+      .maybeSingle();
+
+    if (existingTx) {
+      return new Response(
+        JSON.stringify({ error: "This transaction has already been submitted." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Fetch parsed transaction from Helius
     const heliusUrl = `https://api.helius.xyz/v0/transactions/?api-key=${heliusKey}`;
-    console.log(`[verify-migration] Checking tx: ${trimmedSig.slice(0, 12)}... (len=${trimmedSig.length}) for wallet: ${wallet_address.slice(0, 8)}...`);
+    console.log(`[verify-migration] Checking tx: ${trimmedSig.slice(0, 12)}... for wallet: ${wallet_address.slice(0, 8)}...`);
     
     const heliusRes = await fetch(heliusUrl, {
       method: "POST",
@@ -69,15 +85,12 @@ Deno.serve(async (req) => {
     if (!heliusRes.ok) {
       const errText = await heliusRes.text();
       console.error("Helius error:", heliusRes.status, errText);
-      
-      // Parse Helius error for better user messaging
       let userMsg = "Failed to fetch transaction data.";
       if (errText.includes("invalid transaction-id")) {
-        userMsg = "Invalid transaction signature. Please copy the FULL signature from Solscan or your wallet history (it should be 87-88 characters long).";
+        userMsg = "Invalid transaction signature. Please copy the FULL signature from Solscan.";
       } else {
         userMsg += " Please wait a minute and try again.";
       }
-      
       return new Response(
         JSON.stringify({ error: userMsg }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -93,35 +106,26 @@ Deno.serve(async (req) => {
     }
 
     const tx = parsedTxs[0];
-    console.log(`[verify-migration] TX type: ${tx.type}, source: ${tx.source}, desc: ${tx.description?.slice(0, 100)}`);
 
     // Look for token transfer of old TUNA to collection wallet
     let senderWallet: string | null = null;
     let amountSent = 0;
 
-    // Method 1: Check tokenTransfers in Helius parsed format (direct SPL transfers)
+    // Method 1: tokenTransfers
     const tokenTransfers = tx.tokenTransfers || [];
     for (const transfer of tokenTransfers) {
-      if (
-        transfer.mint === OLD_MINT &&
-        transfer.toUserAccount === COLLECTION_WALLET
-      ) {
+      if (transfer.mint === OLD_MINT && transfer.toUserAccount === COLLECTION_WALLET) {
         senderWallet = transfer.fromUserAccount;
         amountSent += transfer.tokenAmount;
       }
     }
 
-    // Method 2: If no direct match, check all token transfers for the old mint
-    // and look for the collection wallet in any position (covers DEX/swap routes)
+    // Method 2: inner instructions
     if (!senderWallet || amountSent <= 0) {
-      const accountData = tx.accountData || [];
       const instructions = tx.instructions || [];
-      
-      // Check if any inner instruction involves old TUNA transfer to collection wallet
       for (const ix of instructions) {
         const innerIxs = ix.innerInstructions || [];
         for (const inner of innerIxs) {
-          // Check parsed token transfers within inner instructions
           if (inner.tokenTransfers) {
             for (const t of inner.tokenTransfers) {
               if (t.mint === OLD_MINT && t.toUserAccount === COLLECTION_WALLET) {
@@ -134,7 +138,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Method 3: Check nativeTransfers and token balance changes as fallback
+    // Method 3: balance changes
     if (!senderWallet || amountSent <= 0) {
       const tokenBalanceChanges = tx.tokenBalanceChanges || [];
       let collectionReceived = 0;
@@ -155,23 +159,19 @@ Deno.serve(async (req) => {
       if (collectionReceived > 0 && senderAddress) {
         senderWallet = senderAddress;
         amountSent = collectionReceived;
-        console.log(`[verify-migration] Found via balance changes: sender=${senderAddress}, amount=${collectionReceived}`);
       }
     }
 
     if (!senderWallet || amountSent <= 0) {
-      console.error(`[verify-migration] No matching transfer found. tokenTransfers: ${JSON.stringify(tokenTransfers.slice(0, 3))}, type: ${tx.type}`);
       return new Response(
         JSON.stringify({
-          error: "This transaction does not contain a transfer of old $TUNA to the collection wallet. Make sure you sent tokens to: " + COLLECTION_WALLET.slice(0, 6) + "..." + COLLECTION_WALLET.slice(-4),
+          error: "This transaction does not contain a transfer of old $TUNA to the collection wallet.",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[verify-migration] ✅ Found transfer: sender=${senderWallet.slice(0,8)}..., amount=${amountSent}`);
-
-    // Verify the sender matches the wallet_address provided
+    // Verify sender matches
     if (senderWallet !== wallet_address) {
       return new Response(
         JSON.stringify({
@@ -181,82 +181,62 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Use service role to update migration snapshot
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log(`[verify-migration] ✅ Transfer verified: ${amountSent} from ${senderWallet.slice(0, 8)}...`);
 
-    // Check if wallet exists in snapshot
-    const { data: holder, error: holderErr } = await supabase
+    // Insert into transactions table
+    const { error: txInsertErr } = await supabase
+      .from("tuna_migration_transactions")
+      .insert({
+        wallet_address,
+        tx_signature: trimmedSig,
+        amount_sent: amountSent,
+      });
+
+    if (txInsertErr) {
+      console.error("TX insert error:", txInsertErr);
+      return new Response(
+        JSON.stringify({ error: "Failed to record transaction. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Calculate total amount sent across all transactions for this wallet
+    const { data: allTxs } = await supabase
+      .from("tuna_migration_transactions")
+      .select("amount_sent")
+      .eq("wallet_address", wallet_address);
+
+    const totalSent = (allTxs || []).reduce((sum, t) => sum + Number(t.amount_sent), 0);
+    const txCount = (allTxs || []).length;
+
+    // Upsert snapshot record
+    const { data: holder } = await supabase
       .from("tuna_migration_snapshot")
-      .select("id, wallet_address, token_balance, has_migrated")
+      .select("id")
       .eq("wallet_address", wallet_address)
       .maybeSingle();
 
-    let holderId: string;
-
-    if (!holder) {
-      // Wallet not in snapshot — auto-add it
-      console.log(`[verify-migration] Wallet ${wallet_address.slice(0,8)}... not in snapshot, auto-adding with amount ${amountSent}`);
-      const { data: newHolder, error: insertErr } = await supabase
+    if (holder) {
+      await supabase
+        .from("tuna_migration_snapshot")
+        .update({
+          has_migrated: true,
+          amount_sent: totalSent,
+          tx_signature: trimmedSig,
+          migrated_at: new Date().toISOString(),
+        })
+        .eq("id", holder.id);
+    } else {
+      await supabase
         .from("tuna_migration_snapshot")
         .insert({
           wallet_address,
-          token_balance: amountSent,
-          has_migrated: false,
-        })
-        .select("id")
-        .single();
-
-      if (insertErr || !newHolder) {
-        console.error("Auto-insert error:", insertErr);
-        return new Response(
-          JSON.stringify({ error: "Failed to register wallet. Please try again." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      holderId = newHolder.id;
-    } else {
-      if (holder.has_migrated) {
-        return new Response(
-          JSON.stringify({ error: "This wallet has already been registered for migration." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      holderId = holder.id;
-    }
-
-    // Check for duplicate TX signature
-    const { data: existingTx } = await supabase
-      .from("tuna_migration_snapshot")
-      .select("id")
-      .eq("tx_signature", trimmedSig)
-      .maybeSingle();
-
-    if (existingTx) {
-      return new Response(
-        JSON.stringify({ error: "This transaction has already been submitted." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Update migration record
-    const { error: updateErr } = await supabase
-      .from("tuna_migration_snapshot")
-      .update({
-        has_migrated: true,
-        amount_sent: amountSent,
-        tx_signature: trimmedSig,
-        migrated_at: new Date().toISOString(),
-      })
-      .eq("id", holderId);
-
-    if (updateErr) {
-      console.error("Update error:", updateErr);
-      return new Response(
-        JSON.stringify({ error: "Failed to register migration. Please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+          token_balance: totalSent,
+          has_migrated: true,
+          amount_sent: totalSent,
+          tx_signature: trimmedSig,
+          migrated_at: new Date().toISOString(),
+        });
     }
 
     return new Response(
@@ -264,7 +244,11 @@ Deno.serve(async (req) => {
         success: true,
         wallet: wallet_address,
         amount_sent: amountSent,
-        message: "Migration registered successfully!",
+        total_sent: totalSent,
+        tx_count: txCount,
+        message: txCount > 1
+          ? `Transfer #${txCount} registered! Total: ${totalSent.toLocaleString()} $TUNA across ${txCount} transactions.`
+          : "Migration registered successfully!",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
