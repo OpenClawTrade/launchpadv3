@@ -368,3 +368,6 @@ verify_jwt = false
 
 [functions.scan-collection-wallet]
 verify_jwt = false
+
+[functions.fun-mode-create]
+verify_jwt = false
