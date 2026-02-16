@@ -55,7 +55,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           <Link to="/" className="gate-logo" aria-label="OpenTuna">
             <img
               src={HEADER_LOGO_SRC}
-              alt="TUNA OS"
+              alt="OpenTuna"
               className="h-8 w-8 rounded-lg object-cover"
               loading="eager"
             />

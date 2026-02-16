@@ -207,7 +207,7 @@ export default function CareersPage() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm">Back to TUNA OS</span>
+            <span className="text-sm">Back to OpenTuna</span>
           </Link>
           <Button onClick={handleApplyClick} className="bg-primary hover:bg-primary/90 gap-2">
             <XLogo className="h-4 w-4" weight="fill" />
@@ -229,7 +229,7 @@ export default function CareersPage() {
             </span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Join the team building TUNA OS — the world's first AI agent operating system for autonomous trading and token launches on Solana.
+            Join the team building OpenTuna — the world's first AI agent operating system for autonomous trading and token launches on Solana.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border">
@@ -334,13 +334,13 @@ export default function CareersPage() {
                 </div>
                 <div>
                   <CardTitle className="text-2xl">Beta Testers Wanted</CardTitle>
-                  <p className="text-muted-foreground">Help shape the future of TUNA OS</p>
+                  <p className="text-muted-foreground">Help shape the future of OpenTuna</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <p className="text-muted-foreground">
-                We're looking for experienced crypto users, developers, and traders to beta test the TUNA OS platform 
+                We're looking for experienced crypto users, developers, and traders to beta test the OpenTuna platform 
                 before public launch. As a beta tester, you'll get early access to features, provide feedback directly 
                 to the team, and help us identify and fix issues.
               </p>
