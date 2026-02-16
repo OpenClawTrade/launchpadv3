@@ -1,9 +1,16 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Wallet, ArrowDown, Check, ExternalLink, Copy, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PublicKey, Transaction } from "@solana/web3.js";
+import {
+  createAssociatedTokenAccountIdempotentInstruction,
+  getAssociatedTokenAddress,
+  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+} from "@solana/spl-token";
 
 interface CompressedBalance {
   mint: string;
@@ -14,6 +21,12 @@ interface CompressedBalance {
   tokenProgram: string;
 }
 
+// Light Protocol SDK modules loaded at runtime
+interface LightSdk {
+  createRpc: any;
+  decompress: any;
+}
+
 export default function DecompressPage() {
   const [walletAddress, setWalletAddress] = useState("");
   const [walletConnected, setWalletConnected] = useState(false);
@@ -22,9 +35,34 @@ export default function DecompressPage() {
   const [balances, setBalances] = useState<CompressedBalance[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [signatures, setSignatures] = useState<string[]>([]);
+  const [sdkReady, setSdkReady] = useState(false);
+  const sdkRef = useRef<LightSdk | null>(null);
   const { toast } = useToast();
 
   const addLog = (msg: string) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+
+  // Preload Light Protocol SDKs on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [stateless, compressedToken] = await Promise.all([
+          import("https://esm.sh/@lightprotocol/stateless.js@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0" as any),
+          import("https://esm.sh/@lightprotocol/compressed-token@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0" as any),
+        ]);
+        if (!cancelled) {
+          sdkRef.current = {
+            createRpc: stateless.createRpc,
+            decompress: compressedToken.decompress,
+          };
+          setSdkReady(true);
+        }
+      } catch (e) {
+        console.error("Failed to preload Light SDK", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const connectWallet = useCallback(async () => {
     try {
@@ -92,11 +130,16 @@ export default function DecompressPage() {
 
   const decompressToken = useCallback(async (balance: CompressedBalance) => {
     if (!walletAddress) return;
+    if (!sdkRef.current) {
+      toast({ title: "SDK still loading", description: "Please wait a moment and try again", variant: "destructive" });
+      return;
+    }
+
     setDecompressing(balance.mint);
     addLog(`Decompressing ${balance.balance.toLocaleString()} tokens (${balance.mint.slice(0, 8)}...)...`);
 
     try {
-      // Step 1: Get RPC URL and decompress info from edge function
+      // Step 1: Get RPC URL from edge function
       const { data, error } = await supabase.functions.invoke("decompress-token", {
         body: { walletAddress, mintAddress: balance.mint, action: "decompress" },
       });
@@ -108,149 +151,96 @@ export default function DecompressPage() {
       const rpcUrl = data.data.rpcUrl;
       if (!rpcUrl) throw new Error("RPC URL not available");
 
-      addLog("Loading ZK Compression SDK...");
-
-      // Step 2: Load Light Protocol SDK in browser
-      const [web3js, splToken, stateless, compressedToken] = await Promise.all([
-        import("https://esm.sh/@solana/web3.js@1.98.0" as any),
-        import("https://esm.sh/@solana/spl-token@0.4.9" as any),
-        import("https://esm.sh/@lightprotocol/stateless.js@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0" as any),
-        import("https://esm.sh/@lightprotocol/compressed-token@0.21.0?no-dts&target=es2022&deps=@solana/web3.js@1.98.0" as any),
-      ]);
-
-      const { PublicKey, Transaction } = web3js;
-      const { createAssociatedTokenAccountIdempotentInstruction, getAssociatedTokenAddress, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } = splToken;
-      const { createRpc } = stateless;
-      const { decompress } = compressedToken;
+      // Step 2: Use preloaded SDK
+      const { createRpc, decompress } = sdkRef.current;
 
       const connection = createRpc(rpcUrl, rpcUrl, rpcUrl);
       const mint = new PublicKey(balance.mint);
       const ownerPubkey = new PublicKey(walletAddress);
-
       const tokenProgramId = balance.tokenProgram === "token-2022" ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
       const ata = await getAssociatedTokenAddress(mint, ownerPubkey, false, tokenProgramId);
 
-      addLog("Building decompress transaction...");
+      addLog("Fetching compressed accounts...");
 
-      // Step 3: Get Phantom provider for signing
       const provider = (window as any).solana || (window as any).phantom?.solana;
       if (!provider) throw new Error("Wallet not connected");
 
-      // Step 4: Create ATA if needed, then decompress
-      // First ensure ATA exists
-      const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-        ownerPubkey, ownerPubkey, ata, mint, tokenProgramId
-      );
-
-      // Send ATA creation tx first
-      try {
-        const { blockhash } = await connection.getLatestBlockhash("confirmed");
-        const ataTx = new Transaction().add(ataIx);
-        ataTx.recentBlockhash = blockhash;
-        ataTx.feePayer = ownerPubkey;
-
-        const signedAtaTx = await provider.signTransaction(ataTx);
-        const ataSig = await connection.sendRawTransaction(signedAtaTx.serialize(), { skipPreflight: true });
-        addLog(`ATA ensured: ${ataSig.slice(0, 16)}...`);
-        
-        // Wait for confirmation
-        await connection.confirmTransaction(ataSig, "confirmed");
-      } catch (e: any) {
-        // ATA might already exist, that's fine
-        if (!e.message?.includes("already") && !e.message?.includes("0x0")) {
-          addLog(`ATA note: ${e.message?.slice(0, 80)}`);
-        }
-      }
-
-      // Step 5: Execute decompress using Light Protocol SDK
-      // The decompress function requires a Keypair for signing, but we have Phantom.
-      // We need to create a "wallet adapter" that wraps Phantom as a Keypair-like signer.
-      
-      // Create a signer wrapper that uses Phantom for signing
-      const walletSigner = {
-        publicKey: ownerPubkey,
-        secretKey: new Uint8Array(64), // dummy, not used
-        // The SDK calls .publicKey and may pass this as a signer to sendAndConfirmTransaction
-      };
-
-      // Alternative: use lower-level approach - call the RPC directly
-      // The Helius ZK Compression RPC supports decompressing via a special method
-      
-      addLog("Executing decompress via ZK Compression...");
-
-      // Use the decompress function with a custom signing approach
-      // decompress(rpc, payer, mint, amount, owner, tokenAccount)
-      // Since we can't pass a Keypair, we'll build the transaction manually
-      
-      // Get compressed accounts for this mint
+      // Step 3: Get compressed accounts
       const compressedAccounts = await connection.getCompressedTokenAccountsByOwner(ownerPubkey, { mint });
       const items = compressedAccounts.items || compressedAccounts || [];
-      
       if (!items.length) throw new Error("No compressed accounts found");
 
-      // Process each compressed account
+      // Step 4: Process each compressed account
       let totalDecompressed = BigInt(0);
-      
+      const newSignatures: string[] = [...signatures];
+
       for (let i = 0; i < items.length; i++) {
         const account = items[i];
         const parsed = account.parsed || account;
         const amount = BigInt(parsed.amount?.toString?.() || "0");
-        
         if (amount === BigInt(0)) continue;
-        
+
         addLog(`Decompressing batch ${i + 1}/${items.length} (${Number(amount) / Math.pow(10, balance.decimals)} tokens)...`);
 
         try {
-          // The SDK's decompress function handles building the right instructions
-          // including Merkle proofs, nullifiers, etc.
-          // We need to intercept the transaction before it's sent so the user can sign it.
-          
-          // Create a proxy connection that intercepts sendTransaction
+          // Proxy connection that intercepts sendTransaction to use wallet signing
           const proxyConnection = new Proxy(connection, {
-            get(target, prop) {
+            get(target: any, prop: string) {
               if (prop === 'sendTransaction' || prop === 'sendAndConfirmTransaction') {
                 return async (tx: any, ...args: any[]) => {
-                  // Intercept: let Phantom sign instead
-                  if (tx.recentBlockhash === undefined) {
+                  // Add ATA creation instruction at the front of the transaction
+                  const ataIx = createAssociatedTokenAccountIdempotentInstruction(
+                    ownerPubkey, ata, ownerPubkey, mint, tokenProgramId
+                  );
+                  // Prepend ATA ix so it's created in the same tx
+                  if (tx.instructions) {
+                    tx.instructions.unshift(ataIx);
+                  }
+
+                  if (!tx.recentBlockhash) {
                     const { blockhash } = await target.getLatestBlockhash("confirmed");
                     tx.recentBlockhash = blockhash;
                   }
                   tx.feePayer = ownerPubkey;
-                  
+
                   const signedTx = await provider.signTransaction(tx);
                   const sig = await target.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
-                  
-                  // Wait for confirmation
+
                   const latestBlockhash = await target.getLatestBlockhash("confirmed");
                   await target.confirmTransaction({
                     signature: sig,
                     blockhash: latestBlockhash.blockhash,
                     lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
                   }, "confirmed");
-                  
+
                   return sig;
                 };
               }
-              return (target as any)[prop];
+              return target[prop];
             }
           });
 
+          // Dummy signer — signing is handled by the proxy
+          const walletSigner = {
+            publicKey: ownerPubkey,
+            secretKey: new Uint8Array(64),
+          };
+
           const sig = await decompress(
             proxyConnection,
-            walletSigner, // payer (signing intercepted by proxy)
+            walletSigner,
             mint,
             amount,
-            walletSigner, // owner
+            walletSigner,
             ata
           );
 
           addLog(`✓ Decompressed! Tx: ${sig?.slice?.(0, 16) || sig}...`);
-          if (sig) signatures.push(String(sig));
-          setSignatures([...signatures]);
+          if (sig) newSignatures.push(String(sig));
+          setSignatures([...newSignatures]);
           totalDecompressed += amount;
         } catch (e: any) {
           addLog(`✗ Batch ${i + 1} failed: ${e.message?.slice(0, 100)}`);
-          // If user rejected, stop
           if (e.message?.includes("reject") || e.message?.includes("User rejected")) {
             throw new Error("Transaction rejected by user");
           }
@@ -260,10 +250,8 @@ export default function DecompressPage() {
       const humanAmount = Number(totalDecompressed) / Math.pow(10, balance.decimals);
       addLog(`\n✅ Done! Decompressed ${humanAmount.toLocaleString()} tokens`);
       addLog("Tokens should now appear in your wallet!");
-      
+
       toast({ title: "Decompression complete!", description: `${humanAmount.toLocaleString()} tokens are now in your wallet` });
-      
-      // Refresh balances
       await checkBalances();
     } catch (e: any) {
       addLog(`Error: ${e.message}`);
@@ -290,6 +278,12 @@ export default function DecompressPage() {
           <p className="text-muted-foreground text-sm">
             Convert your ZK compressed tokens into regular SPL tokens so they appear in your wallet
           </p>
+          {!sdkReady && (
+            <div className="flex items-center justify-center gap-2 mt-2 text-xs text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Preparing SDK...
+            </div>
+          )}
         </div>
 
         {/* Wallet Connection */}
@@ -380,7 +374,7 @@ export default function DecompressPage() {
                   </div>
                   <Button
                     onClick={() => decompressToken(b)}
-                    disabled={!walletConnected || decompressing !== null}
+                    disabled={!walletConnected || decompressing !== null || !sdkReady}
                     className="gap-2 shrink-0"
                   >
                     {decompressing === b.mint ? (
