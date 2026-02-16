@@ -87,7 +87,7 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
       </div>
       
       <div className="flex items-center justify-between text-[10px]">
-        <span className="font-semibold text-primary">
+        <span className="font-semibold text-green-500">
           {formatUsdMarketCap(token.market_cap_sol ?? 0, solPrice)}
         </span>
         <div className="flex items-center gap-1 text-muted-foreground">

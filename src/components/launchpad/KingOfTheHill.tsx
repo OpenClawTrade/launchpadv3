@@ -159,7 +159,7 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mb-2 sm:mb-3 text-[10px] sm:text-sm">
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground">MC:</span>
-          <span className="font-semibold text-primary">
+          <span className="font-semibold text-green-500">
             ${marketCapUsd >= 1000 ? `${(marketCapUsd / 1000).toFixed(1)}K` : marketCapUsd.toFixed(0)}
           </span>
         </div>
