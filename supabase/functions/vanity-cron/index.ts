@@ -9,11 +9,11 @@ const corsHeaders = {
 };
 
 // Configuration
-const TARGET_SUFFIX = 'TUNA'; // Case-SENSITIVE matching (must be exact: TUNA)
+const TARGET_SUFFIX = 'TUNA'; // Displayed uppercase, matched case-insensitively
 const TARGET_AVAILABLE = 500; // Keep at least 500 available
 const MAX_DURATION_MS = 8000; // 8 seconds (safe for edge function CPU limits)
 const BATCH_SIZE = 10; // Smaller batches to stay within CPU budget
-const CASE_SENSITIVE = true; // Enable case-sensitive matching
+const CASE_SENSITIVE = false; // Case-insensitive matching for ~60x faster generation
 const YIELD_EVERY = 1; // Yield CPU every attempt to avoid compute limit
 
 // XOR encryption for secret key storage

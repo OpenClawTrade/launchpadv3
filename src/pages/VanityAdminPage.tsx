@@ -401,7 +401,7 @@ const VanityAdminPage = () => {
                   Vanity Generator Admin
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Server-side vanity address generation (case-sensitive)
+                  Server-side vanity address generation (case-insensitive, displayed as TUNA)
                 </p>
               </div>
             </div>
@@ -484,7 +484,7 @@ const VanityAdminPage = () => {
                   className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground font-mono uppercase"
                 />
                 <p className="text-xs text-muted-foreground">
-                  1-5 chars (ALL CAPS, CASE-SENSITIVE)
+                  1-5 chars (case-insensitive matching, displayed uppercase)
                 </p>
               </div>
               <div className="grid gap-2">
