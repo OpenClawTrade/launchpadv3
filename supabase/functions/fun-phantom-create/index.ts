@@ -248,6 +248,11 @@ Deno.serve(async (req) => {
     let mintAddress: string;
     let dbcPoolAddress: string | null = null;
     let unsignedTransactions: string[] = [];
+    let txLabels: string[] = [];
+    let txRequiredKeypairs: string[][] = [];
+    let ephemeralKeypairs: Record<string, string> = {};
+    let txIsVersioned: boolean[] = [];
+    let vanityKeypairId: string | null = null;
 
     try {
       // Call the pool creation API - will return unsigned transactions for Phantom to sign
@@ -301,6 +306,11 @@ Deno.serve(async (req) => {
       mintAddress = poolData.mintAddress;
       dbcPoolAddress = poolData.dbcPoolAddress || poolData.poolAddress;
       unsignedTransactions = poolData.unsignedTransactions || [];
+      txLabels = poolData.txLabels || [];
+      txRequiredKeypairs = poolData.txRequiredKeypairs || [];
+      ephemeralKeypairs = poolData.ephemeralKeypairs || {};
+      txIsVersioned = poolData.txIsVersioned || [];
+      vanityKeypairId = poolData.vanityKeypairId || null;
       
       console.log("[fun-phantom-create] ✅ Transactions prepared (NOT recorded in DB yet):", { 
         mintAddress, 
@@ -359,11 +369,11 @@ Deno.serve(async (req) => {
         dbcPoolAddress,
         imageUrl: storedImageUrl,
         unsignedTransactions,
-        txLabels: poolData.txLabels || [],
-        txRequiredKeypairs: poolData.txRequiredKeypairs || [],
-        ephemeralKeypairs: poolData.ephemeralKeypairs || {},
-        txIsVersioned: poolData.txIsVersioned || [],
-        vanityKeypairId: poolData.vanityKeypairId || null,
+        txLabels,
+        txRequiredKeypairs,
+        ephemeralKeypairs,
+        txIsVersioned,
+        vanityKeypairId,
         onChainSuccess: false,
         solscanUrl: `https://solscan.io/token/${mintAddress}`,
         tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}`,
