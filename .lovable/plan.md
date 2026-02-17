@@ -1,51 +1,39 @@
 
 
-## Fix: Tweet Scanner Missing All Launch Commands
+## Migration Page Overhaul: Post-Migration Success View
 
-### Problem
-The scanner is missing every `!launch` command tweet. Here's why:
+### Overview
 
-1. **X Official API credits are depleted** (402 error), so every scan falls back to twitterapi.io
-2. The search query `(tunalaunch OR launchtuna OR "!launch") -is:retweet` on twitterapi.io matches the word "launch" too broadly
-3. twitterapi.io returns 20 random tweets containing "launch" -- none of which are actual `!launch` commands
-4. All 20 tweets get skipped as "no launch command", and the real command tweets from your users never appear in results
+Replace the current "migrating" state of the page with a "Migration Succeeded" view. Add wallet connect for personalized status, and an info section about the 24-hour anti-dump protection mechanism.
 
-### Solution
+### Changes
 
-**1. Fix the search query for twitterapi.io**
+**File: `src/pages/MigratePage.tsx`**
 
-The twitterapi.io search engine handles quoted phrases differently than the official X API. Change the query to be more specific by using exact username mentions instead of the broad "!launch" term:
+**1. Replace Hero Section (lines 352-364)**
+- Swap "TUNA is Migrating" with a green success banner: "Migration Succeeded"
+- Update subtitle to: "The migration window has closed. X holders migrated Y tokens to the new TUNA."
+- Pull stats from existing `stats` object for the numbers
 
-```
-(@tunalaunch OR @buildtuna) -is:retweet
-```
+**2. Add "Your Migration Status" Card (new, after hero)**
+- If wallet not connected: show "Connect Wallet" button (uses existing `login()` from `useAuth`)
+- If wallet connected: query `tuna_migration_ledger` for the connected `solanaAddress`
+  - Show: tokens migrated, % of old supply, estimated new TUNA allocation (same %), and a TX link placeholder (empty until distribution happens)
+  - If wallet not found in ledger: show "This wallet did not participate in the migration"
 
-This ensures only tweets that mention the bot accounts are returned -- which is exactly the tweets that contain launch commands. Users must mention @tunalaunch or @buildtuna for the command to work anyway.
+**3. Add "Distribution & Protection" Info Card (new, after status card)**
+Content:
+- "For the first 24 hours, migrated coins will stay in the developer wallet to ensure no dumps occur on launch day"
+- "Trading fees generated during the first 24 hours will be used to buy back TUNA after any migrated user sells -- protecting the chart"
+- "Distribution will be done one by one, automatically, with delays between each transfer"
+- Use Shield/Clock/TrendingUp icons for visual structure
 
-**2. Add a secondary "!launch" keyword scan**
+**4. Remove/Hide Migration Form and Countdown**
+- Hide the countdown timer card (lines 469-498) -- migration is over
+- Hide the "I've Sent My Tokens" form card (lines 551-595) -- no longer accepting submissions
+- Hide the "How to Migrate" instructions card (lines 519-549)
+- Keep the snapshot/migrated/received tabs for transparency
 
-For users who type `!launch` without mentioning the bot account (like @AzureW5's tweet), add a **separate narrower query**:
+### No Database Changes Required
+All needed data exists in `tuna_migration_ledger` and `tuna_migration_snapshot`.
 
-```
-"!launch" -is:retweet -is:reply
-```
-
-Run this as a second search call only if the first query returns few results, to avoid wasting API credits.
-
-**3. Increase result count on twitterapi.io**
-
-The twitterapi.io fallback currently doesn't set a `count` parameter, defaulting to 20. This is too few when results are polluted. Add `count=50` to get more results and increase the chance of catching actual commands.
-
-### Technical Changes
-
-**File: `supabase/functions/agent-scan-twitter/index.ts`**
-
-- Update the `searchQuery` variable (line ~996) to use mention-based query when falling back to twitterapi.io
-- In `searchMentionsViaTwitterApiIo` function (~line 336), add `count=50` parameter
-- Add a secondary search for `"!launch"` pattern if the primary search returns 0 command tweets
-- Log which tweets are being returned for better debugging
-
-### Risk Assessment
-- Low risk: only changes how tweets are found, not how they're processed
-- The mention-based query is more reliable because users must tag the bot for the system to work
-- The `!launch` fallback query ensures edge cases (like @AzureW5) are still caught
