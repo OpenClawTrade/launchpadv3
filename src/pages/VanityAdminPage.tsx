@@ -69,7 +69,7 @@ const VanityAdminPage = () => {
 
   // Configurable suffix - defaults to 'TNA' (case-sensitive matching)
   const [targetSuffix, setTargetSuffix] = useState<string>(() => {
-    return localStorage.getItem('vanity_target_suffix') || 'TNA';
+    return (localStorage.getItem('vanity_target_suffix') || 'TUNA').toUpperCase();
   });
 
   const MAX_AUTO_RUNS = 30;
@@ -258,7 +258,7 @@ const VanityAdminPage = () => {
           'x-vanity-secret': authSecret,
         },
         body: JSON.stringify({
-          suffix: targetSuffix.toLowerCase(),
+          suffix: targetSuffix,
           ...(typeof targetCount === 'number' && targetCount > 0 ? { targetCount } : {}),
           ...(ignoreTarget ? { ignoreTarget: true } : {}),
         }),
@@ -478,12 +478,12 @@ const VanityAdminPage = () => {
                   type="text"
                   maxLength={5}
                   value={targetSuffix}
-                  onChange={(e) => setTargetSuffix(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
-                  placeholder="TNA"
-                  className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground font-mono"
+                  onChange={(e) => setTargetSuffix(e.target.value.replace(/[^A-Z0-9]/g, '').toUpperCase())}
+                  placeholder="TUNA"
+                  className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground font-mono uppercase"
                 />
                 <p className="text-xs text-muted-foreground">
-                  1-5 chars (CASE-SENSITIVE)
+                  1-5 chars (ALL CAPS, CASE-SENSITIVE)
                 </p>
               </div>
               <div className="grid gap-2">
