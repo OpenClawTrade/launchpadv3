@@ -46,12 +46,6 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
         </div>
 
           <nav className="hidden md:flex items-center gap-2">
-            <Link to="/migrate">
-              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
-                <ArrowsClockwise className="h-4 w-4" weight="bold" />
-                Migrate
-              </Button>
-            </Link>
             <Link to="/trade">
               <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-sm font-medium">
                 Trade
@@ -77,6 +71,12 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
               <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
                 <Fish className="h-4 w-4" weight="duotone" />
                 OpenTuna
+              </Button>
+            </Link>
+            <Link to="/migrate">
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
+                <ArrowsClockwise className="h-4 w-4" weight="bold" />
+                Migrate
               </Button>
             </Link>
             
@@ -110,10 +110,6 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
               </SheetTrigger>
               <SheetContent side="right" className="bg-card border-border">
                 <nav className="flex flex-col gap-2 mt-8">
-                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />
-                    <span className="text-white text-sm font-medium">Migrate</span>
-                  </Link>
                   {/* Mobile Chain Switcher */}
                   <div className="px-4 py-2 border-b border-border mb-2">
                     <p className="text-xs text-muted-foreground mb-2">Select Chain</p>
@@ -136,6 +132,10 @@ export function LaunchpadLayout({ children, showKingOfTheHill = true }: Launchpa
                   <Link to="/opentuna" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <Fish className="h-4 w-4" weight="duotone" />
                     <span className="text-foreground text-sm font-medium">OpenTuna</span>
+                  </Link>
+                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />
+                    <span className="text-white text-sm font-medium">Migrate</span>
                   </Link>
                 </nav>
               </SheetContent>
