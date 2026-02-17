@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     // Rate limiting removed per user request
 
     const body = await req.json();
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, feeMode, devBuySol: rawDevBuySol } = body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, feeMode, devBuySol: rawDevBuySol, specificVanityId } = body;
     
     // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
     const MIN_FEE_BPS = 10;
@@ -275,6 +275,7 @@ Deno.serve(async (req) => {
           tradingFeeBps: tradingFeeBps || 200, // Default 2%, allow 0.1%-10%
           devBuySol, // Dev buy amount - atomic with pool creation to prevent frontrunning
           useVanityAddress: true, // Use pre-generated TNA vanity addresses from pool
+          specificVanityId: specificVanityId || null, // Force specific vanity keypair for official launches
         }),
       });
 

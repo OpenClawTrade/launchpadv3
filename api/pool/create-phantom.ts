@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import bs58 from 'bs58';
 import { createMeteoraPool, createMeteoraPoolWithMint } from '../../lib/meteora.js';
 import { PLATFORM_FEE_WALLET } from '../../lib/config.js';
-import { getAvailableVanityAddress, releaseVanityAddress } from '../../lib/vanityGenerator.js';
+import { getAvailableVanityAddress, getSpecificVanityAddress, releaseVanityAddress } from '../../lib/vanityGenerator.js';
 import { getAddressLookupTable } from '../../lib/addressLookupTable.js';
 
 
@@ -107,6 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       phantomWallet,
       feeRecipientWallet,
       useVanityAddress = true,
+      specificVanityId = null, // Force use a specific vanity keypair by ID (for official launches)
       tradingFeeBps: rawFeeBps = 200, // Default 2%, range 10-1000 (0.1%-10%)
       devBuySol = 0, // Optional dev buy amount in SOL (atomic with pool creation)
     } = req.body;
@@ -147,7 +148,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Try to get a pre-generated vanity address from pool
     let vanityKeypair: { id: string; publicKey: string; keypair: Keypair } | null = null;
     
-    if (useVanityAddress) {
+    if (specificVanityId) {
+      // Force use a specific reserved vanity keypair (for official launches)
+      try {
+        vanityKeypair = await getSpecificVanityAddress(specificVanityId);
+        if (vanityKeypair) {
+          vanityKeypairId = vanityKeypair.id;
+          console.log('[create-phantom] 🔒 Using SPECIFIC vanity mint address:', vanityKeypair.publicKey, '(ID:', specificVanityId, ')');
+        } else {
+          console.error('[create-phantom] ❌ CRITICAL: Specific vanity keypair not found:', specificVanityId);
+          return res.status(400).json({ 
+            success: false, 
+            error: `Specific vanity keypair not found: ${specificVanityId}. Launch aborted to prevent wrong address.` 
+          });
+        }
+      } catch (vanityError) {
+        console.error('[create-phantom] ❌ CRITICAL: Failed to get specific vanity address:', vanityError);
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Failed to retrieve specific vanity keypair. Launch aborted.' 
+        });
+      }
+    } else if (useVanityAddress) {
       try {
         vanityKeypair = await getAvailableVanityAddress('tuna');
         if (vanityKeypair) {

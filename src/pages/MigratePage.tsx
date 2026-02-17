@@ -561,7 +561,7 @@ function MigratePageContent() {
               <div>
                 <p className="font-semibold text-foreground text-sm">24-Hour Launch Protection</p>
                 <p className="text-sm text-muted-foreground">
-                  For the first 24 hours, migrated coins will stay in the developer wallet to ensure no dumps occur on launch day.
+                  After launch, the migrated supply will be locked in the developer wallet for 24 hours. This prevents migrated users from selling immediately and protects the chart during the critical first day of trading.
                 </p>
               </div>
             </div>
@@ -569,9 +569,9 @@ function MigratePageContent() {
             <div className="flex items-start gap-3">
               <TrendingUp className="w-5 h-5 text-primary mt-0.5 shrink-0" />
               <div>
-                <p className="font-semibold text-foreground text-sm">Fee-Powered Buyback</p>
+                <p className="font-semibold text-foreground text-sm">Auto Buyback Protection</p>
                 <p className="text-sm text-muted-foreground">
-                  Trading fees generated during the first 24 hours will be used to buy back TUNA after any migrated user sells — protecting the chart and letting the token grow organically.
+                  If any migrated user sells after receiving their tokens, trading fees generated in the first 24 hours will be automatically used to buy back TUNA — offsetting sell pressure and letting the token grow organically.
                 </p>
               </div>
             </div>
@@ -581,7 +581,7 @@ function MigratePageContent() {
               <div>
                 <p className="font-semibold text-foreground text-sm">Staggered Distribution</p>
                 <p className="text-sm text-muted-foreground">
-                  Distribution will be done one by one, automatically, with delays between each transfer — ensuring smooth, safe delivery to all migrated holders.
+                  After the 24-hour lock, tokens will be distributed to migrated holders one by one with delays between each transfer — preventing a mass sell-off and ensuring smooth, safe delivery.
                 </p>
               </div>
             </div>
