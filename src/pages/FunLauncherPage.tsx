@@ -26,6 +26,7 @@ import { StatsCards } from "@/components/launchpad/StatsCards";
 import { TokenTable } from "@/components/launchpad/TokenTable";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
+import { LaunchCountdown } from "@/components/LaunchCountdown";
 import { JustLaunched } from "@/components/launchpad/JustLaunched";
 import { FeeDistributionPie } from "@/components/launchpad/FeeDistributionPie";
 import { SolPriceDisplay } from "@/components/layout/SolPriceDisplay";
@@ -318,6 +319,13 @@ export default function FunLauncherPage() {
       {isSolana && (
         <div className="mt-4">
           <TokenTickerBar />
+        </div>
+      )}
+
+      {/* Token Launch Countdown */}
+      {isSolana && (
+        <div className="max-w-[1400px] mx-auto px-4 pt-4">
+          <LaunchCountdown compact />
         </div>
       )}
 
