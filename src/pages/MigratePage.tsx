@@ -138,6 +138,10 @@ function MigratePageContent() {
 
   const countdown = useCountdown(config?.deadline_at || null);
 
+  // Fixed launch countdown target — 15 hours from Feb 17 2026 ~14:00 UTC
+  const LAUNCH_TARGET = "2026-02-18T05:00:00Z";
+  const launchCountdown = useCountdown(LAUNCH_TARGET);
+
   useEffect(() => {
     loadData();
     loadLedger();
@@ -380,6 +384,32 @@ function MigratePageContent() {
   return (
     <LaunchpadLayout showKingOfTheHill={false}>
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+        {/* Token Launch Countdown */}
+        {!launchCountdown.expired && (
+          <Card className="p-4 sm:p-6 bg-primary/5 border-primary/30 text-center space-y-3">
+            <div className="flex items-center justify-center gap-2 text-primary">
+              <Timer className="w-5 h-5" />
+              <span className="text-sm font-semibold uppercase tracking-wider">Token Launch</span>
+            </div>
+            <div className="flex justify-center gap-2 sm:gap-4">
+              {[
+                { value: launchCountdown.h, label: "Hours" },
+                { value: launchCountdown.m, label: "Min" },
+                { value: launchCountdown.s, label: "Sec" },
+              ].map(({ value, label }) => (
+                <div key={label} className="flex flex-col items-center">
+                  <div className="bg-card border border-border rounded-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                    <span className="text-2xl sm:text-3xl font-bold text-foreground font-mono">
+                      {value.toString().padStart(2, "0")}
+                    </span>
+                  </div>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground mt-1 uppercase tracking-wider">{label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">New $TUNA launches when the timer hits zero</p>
+          </Card>
+        )}
          {/* Hero Section - Migration Succeeded */}
         <div className="text-center space-y-4">
           <Badge className="bg-primary/10 text-primary border-primary/30 text-sm px-4 py-1">
