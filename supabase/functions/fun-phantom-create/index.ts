@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     const tradingFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(Number(rawFeeBps) || DEFAULT_FEE_BPS)));
     
     // Validate dev buy amount (max 10 SOL to prevent abuse)
-    const devBuySol = Math.max(0, Math.min(10, Number(rawDevBuySol) || 0));
+    const devBuySol = Math.max(0, Math.min(100, Number(rawDevBuySol) || 0));
     console.log("[fun-phantom-create] Validated tradingFeeBps:", tradingFeeBps, "from raw:", rawFeeBps);
     console.log("[fun-phantom-create] Dev buy amount:", devBuySol, "SOL");
 

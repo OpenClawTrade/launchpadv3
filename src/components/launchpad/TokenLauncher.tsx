@@ -841,7 +841,16 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         if (!signature) throw new Error("Transaction cancelled or failed");
 
         signatures.push(signature);
-        await connection.confirmTransaction(signature, "confirmed");
+        // Use proper lastValidBlockHeight for confirmation
+        const { blockhash: confirmBlockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+        const confirmation = await connection.confirmTransaction({
+          signature,
+          blockhash: confirmBlockhash,
+          lastValidBlockHeight,
+        }, "confirmed");
+        if (confirmation.value.err) {
+          throw new Error(`Transaction ${idx + 1} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+        }
         
         // 2s sync buffer for Phantom RPC to see confirmed state before next TX
         if (idx < txBase64s.length - 1) {
@@ -1145,15 +1154,21 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         }
       };
       
-      const signAndSendTx = async (tx: Transaction | VersionedTransaction, idx: number, label: string) => {
+      const signAndSendTx = async (tx: Transaction | VersionedTransaction, idx: number, label: string): Promise<{ signature: string; blockhash: string; lastValidBlockHeight: number }> => {
         console.log(`[Phantom Launch] signAndSendTransaction: ${label} (${idx + 1}/${txsToSign.length})...`);
         
         // Fetch fresh blockhash to prevent "block height exceeded" expiry
-        const { blockhash } = await connection.getLatestBlockhash("confirmed");
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+        
+        // Duck-typing for blockhash injection (cross-realm instanceof can fail)
         if (tx instanceof Transaction) {
           tx.recentBlockhash = blockhash;
         } else if (tx instanceof VersionedTransaction) {
           tx.message.recentBlockhash = blockhash;
+        } else if ('recentBlockhash' in tx) {
+          (tx as any).recentBlockhash = blockhash;
+        } else if ('message' in tx && (tx as any).message) {
+          (tx as any).message.recentBlockhash = blockhash;
         }
         
         // Ephemeral keys sign BEFORE wallet signs and sends
@@ -1161,46 +1176,41 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
         
         if (localSigners.length > 0) {
-          if (tx instanceof Transaction) {
+          // Duck-typing for signing too
+          if (typeof (tx as any).partialSign === 'function' && tx instanceof Transaction) {
             tx.partialSign(...localSigners);
-          } else {
-            tx.sign(localSigners);
+          } else if (typeof (tx as any).sign === 'function') {
+            (tx as any).sign(localSigners);
           }
         }
 
         const signature = await phantomWallet.signAndSendTransaction(tx as any);
         if (!signature) throw new Error(`${label} was cancelled or failed`);
-        return signature;
+        return { signature, blockhash, lastValidBlockHeight };
       };
       
-      // Submit + confirm via dApp's own RPC (per Phantom docs)
-      const confirmTx = async (signature: string, label: string) => {
-        const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-        console.log(`[Phantom Launch] ✅ ${label} confirming:`, signature);
-        signatures.push(signature);
+      // Confirm using the SAME blockhash/lastValidBlockHeight from signing (not a fresh one)
+      const confirmTx = async (sig: string, label: string, blockhash: string, lastValidBlockHeight: number) => {
+        console.log(`[Phantom Launch] ✅ ${label} confirming:`, sig);
+        signatures.push(sig);
         
-        try {
-          const confirmStart = Date.now();
-          const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-          const confirmation = await connection.confirmTransaction({
-            signature,
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-          }, 'confirmed');
-          
-          if (confirmation.value.err) {
-            throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
-          }
-          console.log(`[Phantom Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
-        } finally {
-          // No interval to clear
+        const confirmStart = Date.now();
+        const confirmation = await connection.confirmTransaction({
+          signature: sig,
+          blockhash,
+          lastValidBlockHeight,
+        }, 'confirmed');
+        
+        if (confirmation.value.err) {
+          throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
         }
+        console.log(`[Phantom Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
         
         // 2s buffer for Phantom's RPC to sync before next TX signing
         console.log(`[Phantom Launch] Waiting 2s for Phantom RPC sync...`);
         await new Promise((r) => setTimeout(r, 2000));
         
-        return signature;
+        return sig;
       };
       
       // === 2-TX SEQUENTIAL MODE (Sign-After-Confirm) ===
@@ -1208,9 +1218,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       for (let i = 0; i < txsToSign.length; i++) {
         const txLabel = txLabels[i] || `Transaction ${i + 1}`;
         toast({ title: `Signing ${txLabel}...`, description: `Step ${i + 1} of ${txsToSign.length}` });
-        const signature = await signAndSendTx(txsToSign[i], i, txLabel);
+        const { signature, blockhash, lastValidBlockHeight } = await signAndSendTx(txsToSign[i], i, txLabel);
         toast({ title: `Confirming ${txLabel}...`, description: `Waiting for network...` });
-        await confirmTx(signature, txLabel);
+        await confirmTx(signature, txLabel, blockhash, lastValidBlockHeight);
       }
       
       console.log('[Phantom Launch] ✅ All transactions confirmed!', { signatures });
