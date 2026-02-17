@@ -147,6 +147,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
   const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
   const [phantomDescribePrompt, setPhantomDescribePrompt] = useState("");
   const [phantomRealisticPrompt, setPhantomRealisticPrompt] = useState("");
+  const [phantomLaunchCode, setPhantomLaunchCode] = useState("");
 
   // Holders mode state (mirrors Phantom)
   const [holdersSubMode, setHoldersSubMode] = useState<"random" | "describe" | "custom">("random");
@@ -1054,8 +1055,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             tradingFeeBps: phantomTradingFee,
             devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
             feeMode: feeMode || 'standard',
-            // To force a specific vanity address for official TUNA launch:
-            specificVanityId: 'beef27e2-e826-46b7-a8f5-8a796ea97efb',
+            ...(phantomLaunchCode.trim() === 'OFFICIAL-TUNA' ? { specificVanityId: 'beef27e2-e826-46b7-a8f5-8a796ea97efb' } : {}),
           },
         }),
         60_000,
@@ -2207,7 +2207,21 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                   </p>
                 </div>
 
-                {/* Sub-mode selector for Phantom */}
+                {/* Launch Code (hidden unless filled) */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Launch Code (optional)</label>
+                  <Input
+                    type="password"
+                    placeholder="Enter code for reserved address"
+                    value={phantomLaunchCode}
+                    onChange={(e) => setPhantomLaunchCode(e.target.value)}
+                    className="h-9 bg-secondary/50 border-0 rounded-lg text-sm font-mono placeholder:text-muted-foreground/60"
+                  />
+                  {phantomLaunchCode.trim() === 'OFFICIAL-TUNA' && (
+                    <p className="text-[10px] text-primary font-semibold">🔒 Reserved vanity address will be used (EpAAWyTH...myTUna)</p>
+                  )}
+                </div>
+
                 <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
                   {[
                     { id: "random" as const, label: "Random", icon: Shuffle },
