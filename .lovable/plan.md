@@ -1,61 +1,49 @@
 
 
-## Fix: Phantom Launch "Block Height Exceeded" on TX2 + Dev Buy Cap
+## Fix: Phantom Launch TX2 "Block Height Exceeded" + Dev Buy
 
-### Problems Found
+### Root Cause (found after deep code review)
 
-1. **Block height exceeded on TX2**: The `confirmTx` function in Phantom mode just waits passively for confirmation. If the transaction doesn't land quickly (network congestion, no priority fees), the blockhash expires. The FUN mode works because it uses `submitAndConfirmRpc` which does proper confirmation with `lastValidBlockHeight` tracking. The Phantom mode's `confirmTx` fetches a new blockhash for confirmation but doesn't rebroadcast or track block height properly.
+Two distinct problems are causing the launch to fail:
 
-2. **Dev buy capped at 10 SOL on backend**: The edge function `fun-phantom-create` still has `Math.min(10, ...)` on line 70, silently clamping any dev buy above 10 SOL. The frontend was raised to 100 SOL but the backend wasn't updated.
+**Problem 1: Confirmation uses wrong blockhash**
+When `signAndSendTransaction` is called, Phantom may inject its own blockhash (for Lighthouse protection). The frontend then tries to confirm using the blockhash IT set before signing -- but the on-chain transaction has Phantom's blockhash. This mismatch causes `confirmTransaction` to give up early ("block height exceeded") even though the transaction may have actually landed.
 
-### Root Cause Analysis
-
-| Aspect | FUN Mode (works) | Phantom Mode (broken) |
-|--------|------------------|-----------------------|
-| Confirmation | `submitAndConfirmRpc` with proper `lastValidBlockHeight` | Custom `confirmTx` that fetches blockhash twice redundantly |
-| Fresh blockhash | Yes, before each sign | Yes (added last fix) |
-| Dev buy cap | No backend cap | 10 SOL cap in edge function |
+**Problem 2: TX2 too large when dev buy is merged**
+The backend merges the dev buy swap into the pool creation transaction (`skipDevBuyMerge = false`). This makes TX2 very large. Phantom Lighthouse needs ~100-150 bytes of headroom to add its protection instructions. If TX2 exceeds ~1100 bytes, Lighthouse fails silently and the transaction either doesn't land or is rejected.
 
 ### Fix Plan
 
-**File 1: `src/components/launchpad/TokenLauncher.tsx`**
+**File 1: `src/components/launchpad/TokenLauncher.tsx` -- Phantom Launch flow (lines 1157-1224)**
 
-Replace the custom `confirmTx` function with the proven `submitAndConfirmRpc` pattern from FUN mode:
+Replace the `confirmTx` function with a polling-based approach using `getSignatureStatuses` instead of `confirmTransaction`. This does NOT depend on matching the blockhash -- it just polls for the signature to appear on-chain.
 
-- Extract the `submitAndConfirmRpc` helper (or import it) to use the same confirmation logic: fetch `lastValidBlockHeight`, confirm with proper params, include 2s sync buffer
-- Remove the redundant double-`getLatestBlockhash` calls in the current `confirmTx`
-- Also use duck-typing for the blockhash replacement in `signAndSendTx` to guard against cross-realm `instanceof` failures (as documented in project memory)
-
-Specifically:
-1. Add a `submitAndConfirmRpc` function near the top of the launch handler (matching FUN mode's pattern)
-2. Replace the `confirmTx` function body with a call to `submitAndConfirmRpc(connection, null, label, signature)`
-3. In `signAndSendTx`, add duck-type fallback: if neither `instanceof` matches, check for `message.recentBlockhash` property and set it
-
-**File 2: `supabase/functions/fun-phantom-create/index.ts`**
-
-- Change line 70 from `Math.min(10, ...)` to `Math.min(100, ...)` to match the frontend's `DEV_BUY_MAX_SOL = 100`
-
-### Technical Details
-
-```text
-signAndSendTx (updated)
-  1. Fetch fresh blockhash
-  2. Set blockhash using duck-typing (not just instanceof)
-  3. Ephemeral keys sign
-  4. Phantom signAndSendTransaction
-  5. Return signature
-
-confirmTx (replaced with submitAndConfirmRpc pattern)
-  1. Fetch latestBlockhash with lastValidBlockHeight
-  2. confirmTransaction with proper params
-  3. Check confirmation.value.err
-  4. 2s sync buffer
+```
+confirmTx (new implementation):
+  1. Poll getSignatureStatuses([signature]) every 2 seconds
+  2. If status.err -> throw with on-chain error
+  3. If confirmationStatus === 'confirmed' or 'finalized' -> success
+  4. Timeout after 60 seconds
+  5. 2-second sync buffer before next TX
 ```
 
-### Changes Summary
+Also apply the same fix to the Holders flow (lines 845-858) which has the identical bug.
+
+**File 2: `api/pool/create-phantom.ts` (line ~167)**
+
+Change `skipDevBuyMerge = false` to `skipDevBuyMerge = true`. This keeps the dev buy as a separate TX3, ensuring each transaction stays small enough for Phantom Lighthouse to add its instructions. The frontend's sequential signing loop already handles any number of transactions.
+
+### What this means for the user
+
+- Launch becomes a 3-step signing flow when dev buy is used: Config -> Pool -> Dev Buy
+- Each step has a reliable confirmation that won't falsely fail
+- Dev buy is still atomic with pool creation (happens right after pool confirms, before anyone else can trade)
+- The 100 SOL dev buy cap (already fixed in edge function) continues to work correctly
+
+### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/launchpad/TokenLauncher.tsx` | Replace `confirmTx` with `submitAndConfirmRpc` pattern; add duck-typing for blockhash replacement |
-| `supabase/functions/fun-phantom-create/index.ts` | Raise dev buy cap from 10 to 100 SOL |
+| `src/components/launchpad/TokenLauncher.tsx` | Replace `confirmTx` with signature polling (both Phantom + Holders flows) |
+| `api/pool/create-phantom.ts` | Set `skipDevBuyMerge = true` to keep TX2 small |
 
