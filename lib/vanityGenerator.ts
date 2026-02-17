@@ -31,9 +31,9 @@ export function decryptSecretKey(encryptedHex: string, encryptionKey: string): U
   return new Uint8Array(decrypted);
 }
 
-// Check if address ends with target suffix (case-SENSITIVE)
+// Check if address ends with target suffix (case-INSENSITIVE for faster generation)
 function matchesSuffix(address: string, suffix: string): boolean {
-  return address.endsWith(suffix);
+  return address.toLowerCase().endsWith(suffix.toLowerCase());
 }
 
 // Generate a single keypair and check suffix
