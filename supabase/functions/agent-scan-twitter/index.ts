@@ -1116,6 +1116,68 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ===== STANDALONE CATCH-UP: completed launches missing replies =====
+      if (canPostReplies) {
+        const catchUpCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+        const { data: unrepliedPosts } = await supabase
+          .from("agent_social_posts")
+          .select("id, post_id, post_author, fun_token_id, parsed_name, parsed_symbol")
+          .eq("platform", "twitter")
+          .eq("status", "completed")
+          .gt("created_at", catchUpCutoff)
+          .not("fun_token_id", "is", null)
+          .limit(5);
+
+        if (unrepliedPosts && unrepliedPosts.length > 0) {
+          console.log(`[agent-scan-twitter] 🔍 Checking ${unrepliedPosts.length} completed posts for missing replies`);
+          for (const post of unrepliedPosts) {
+            const { data: alreadyReplied } = await supabase
+              .from("twitter_bot_replies")
+              .select("id")
+              .eq("tweet_id", post.post_id)
+              .maybeSingle();
+
+            if (alreadyReplied) continue;
+
+            const { data: tokenData } = await supabase
+              .from("fun_tokens")
+              .select("mint_address, name, ticker")
+              .eq("id", post.fun_token_id!)
+              .single();
+
+            if (!tokenData?.mint_address) continue;
+
+            const tokenName = tokenData.name || post.parsed_name || "Token";
+            const tokenTicker = tokenData.ticker || post.parsed_symbol || "TOKEN";
+            const catchUpReplyText = `🐟 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${tokenData.mint_address}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
+
+            const catchUpResult = await replyToTweet(
+              post.post_id,
+              catchUpReplyText,
+              twitterApiIoKey || "",
+              loginCookies || "",
+              proxyUrl || "",
+              post.post_author || undefined,
+              replyAuthSession,
+              oauthCreds,
+            );
+
+            if (catchUpResult.success && catchUpResult.replyId) {
+              await supabase.from("twitter_bot_replies").insert({
+                tweet_id: post.post_id,
+                tweet_author: post.post_author,
+                tweet_text: "(standalone catch-up)",
+                reply_text: catchUpReplyText.slice(0, 500),
+                reply_id: catchUpResult.replyId,
+              });
+              console.log(`[agent-scan-twitter] ✅ STANDALONE catch-up reply sent for ${post.post_id}`);
+            } else {
+              console.warn(`[agent-scan-twitter] ❌ Standalone catch-up reply failed for ${post.post_id}: ${catchUpResult.error}`);
+            }
+          }
+        }
+      }
+
       // Sort tweets by ID descending (newest first) to process in order
       const sortedTweets = [...tweets].sort((a, b) => {
         // Tweet IDs are snowflake IDs - larger = newer
