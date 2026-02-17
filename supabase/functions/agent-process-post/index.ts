@@ -742,7 +742,9 @@ export async function processLaunchPost(
   postAuthorId: string | null,
   rawContent: string,
   meteoraApiUrl: string,
-  attachedMediaUrl: string | null = null // Image attached to tweet/post (not from text parsing)
+  attachedMediaUrl: string | null = null,
+  autoGenerate: boolean = false,
+  generatePrompt: string | null = null
 ): Promise<{
   success: boolean;
   mintAddress?: string;
@@ -777,6 +779,369 @@ export async function processLaunchPost(
     };
   }
 
+  // === AUTO-GENERATE MODE (!launch <text>) ===
+  if (autoGenerate && generatePrompt) {
+    console.log(`[agent-process-post] 🚀 Auto-generate mode: "${generatePrompt}"`);
+    
+    // Call fun-generate to get AI-generated name, ticker, description, and image
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    let genResult: { name: string; ticker: string; description: string; imageUrl: string } | null = null;
+    
+    try {
+      const genResponse = await fetch(`${supabaseUrl}/functions/v1/fun-generate`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${supabaseKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          description: generatePrompt,
+          imageStyle: "realistic",
+        }),
+      });
+      
+      const genData = await genResponse.json();
+      
+      if (genData.success && genData.meme) {
+        genResult = {
+          name: genData.meme.name,
+          ticker: genData.meme.ticker,
+          description: genData.meme.description,
+          imageUrl: genData.meme.imageUrl,
+        };
+        console.log(`[agent-process-post] ✅ Auto-generated: ${genResult.name} ($${genResult.ticker})`);
+      } else {
+        console.error(`[agent-process-post] ❌ fun-generate failed:`, genData.error);
+      }
+    } catch (err) {
+      console.error(`[agent-process-post] ❌ fun-generate call failed:`, err);
+    }
+    
+    if (!genResult) {
+      const { data: failedPost } = await supabase
+        .from("agent_social_posts")
+        .insert({
+          platform,
+          post_id: postId,
+          post_url: postUrl,
+          post_author: postAuthor,
+          post_author_id: postAuthorId,
+          raw_content: rawContent.slice(0, 1000),
+          status: "failed",
+          error_message: "AI image generation failed",
+          processed_at: new Date().toISOString(),
+        })
+        .select("id")
+        .maybeSingle();
+      
+      return {
+        success: false,
+        error: "AI image generation failed. Please try again.",
+        socialPostId: failedPost?.id,
+        shouldReply: true,
+        replyText: `🐟 Hey @${postAuthor || "there"}! Image generation failed. Please try again in a moment.`,
+      };
+    }
+    
+    // Re-host the AI-generated image
+    let finalImageUrl = genResult.imageUrl;
+    try {
+      const hosted = await rehostImageIfNeeded(supabase, finalImageUrl, genResult.ticker, postId);
+      if (hosted !== finalImageUrl) {
+        console.log(`[agent-process-post] ✅ Auto-gen image re-hosted: ${hosted.slice(0, 80)}...`);
+      }
+      finalImageUrl = hosted;
+    } catch (e) {
+      console.warn(`[agent-process-post] ⚠️ Auto-gen image re-host failed, using original URL`);
+    }
+    
+    // Build a synthetic parsed object and continue with the standard launch flow
+    // We override the parsed data with auto-generated values
+    const parsed: ParsedLaunchData = {
+      name: genResult.name,
+      symbol: genResult.ticker,
+      description: genResult.description,
+      image: finalImageUrl,
+      website: null,
+      twitter: postUrl || null,
+      telegram: null,
+      discord: null,
+      wallet: null,
+    };
+    
+    // Insert pending record with auto-generate flag
+    const { data: socialPost, error: insertError } = await supabase
+      .from("agent_social_posts")
+      .insert({
+        platform,
+        post_id: postId,
+        post_url: postUrl,
+        post_author: postAuthor,
+        post_author_id: postAuthorId,
+        wallet_address: null,
+        raw_content: rawContent.slice(0, 1000),
+        parsed_name: parsed.name,
+        parsed_symbol: parsed.symbol,
+        parsed_description: parsed.description,
+        parsed_image_url: finalImageUrl,
+        parsed_website: null,
+        parsed_twitter: postUrl,
+        status: "processing",
+      })
+      .select("id")
+      .single();
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        return { success: false, error: "Post already being processed" };
+      }
+      console.error("[agent-process-post] Insert error:", insertError);
+      return { success: false, error: "Database error" };
+    }
+
+    const socialPostId = socialPost.id;
+
+    try {
+      const creatorWallet = "TUNA_NO_WALLET_" + crypto.randomUUID().slice(0, 8);
+      
+      const agent = await getOrCreateAgent(
+        supabase,
+        creatorWallet,
+        parsed.name,
+        postAuthor || undefined
+      );
+      if (!agent) {
+        throw new Error("Failed to get or create agent");
+      }
+
+      const { data: agentData } = await supabase
+        .from("agents")
+        .select("last_launch_at, total_tokens_launched, launches_today")
+        .eq("id", agent.id)
+        .single();
+
+      const launchesToday = await getWalletLaunchesToday(supabase, agent.id);
+      if (launchesToday >= DAILY_LAUNCH_LIMIT) {
+        throw new Error("Daily limit of 3 Agent launches per X account reached");
+      }
+
+      await supabase
+        .from("agent_social_posts")
+        .update({ agent_id: agent.id })
+        .eq("id", socialPostId);
+
+      // Sanitize
+      const cleanName = parsed.name
+        .replace(/https?:\/\/\S+/gi, "")
+        .replace(/[,.:;!?]+$/, "")
+        .trim()
+        .slice(0, 32);
+      const cleanSymbol = parsed.symbol
+        .replace(/https?:\/\/\S+/gi, "")
+        .replace(/[^a-zA-Z0-9.]/g, "")
+        .toUpperCase()
+        .slice(0, 10);
+
+      // Pre-create SubTuna
+      const isReply = !!(postUrl && postUrl.includes("/status/") && rawContent.includes("@"));
+      const styleSourceUsername = isReply && postAuthor ? postAuthor : (postAuthor || undefined);
+      
+      let finalTicker = cleanSymbol;
+      const { data: existingSubtuna } = await supabase
+        .from("subtuna")
+        .select("id")
+        .eq("ticker", cleanSymbol)
+        .limit(1)
+        .maybeSingle();
+      
+      if (existingSubtuna) {
+        const randomSuffix = Math.floor(Math.random() * 9000) + 1000;
+        finalTicker = `${cleanSymbol}${randomSuffix}`;
+      }
+
+      const { data: preCreatedSubtuna } = await supabase
+        .from("subtuna")
+        .insert({
+          fun_token_id: null,
+          agent_id: agent.id,
+          ticker: finalTicker,
+          name: `t/${finalTicker}`,
+          description: parsed.description || `Welcome to the official community for $${cleanSymbol}!`,
+          icon_url: finalImageUrl,
+          style_source_username: styleSourceUsername?.replace("@", "") || null,
+        })
+        .select("id, ticker")
+        .single();
+
+      const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${finalTicker}` : null;
+
+      // Launch token
+      const websiteForOnChain = communityUrl || null;
+      const twitterForOnChain = postUrl || null;
+      
+      console.log(`[agent-process-post] 🚀 Auto-launching: ${cleanName} ($${cleanSymbol})`);
+
+      const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cleanName,
+          ticker: cleanSymbol,
+          description: parsed.description || `${cleanName} - Launched via !launch on ${platform}`,
+          imageUrl: finalImageUrl,
+          websiteUrl: websiteForOnChain,
+          twitterUrl: twitterForOnChain,
+          serverSideSign: true,
+          feeRecipientWallet: null,
+          useVanityAddress: true,
+        }),
+      });
+
+      const result = await vercelResponse.json();
+
+      if (!vercelResponse.ok || !result.success) {
+        if (preCreatedSubtuna) {
+          await supabase.from("subtuna").delete().eq("id", preCreatedSubtuna.id);
+        }
+        throw new Error(result.error || "Token creation failed");
+      }
+      
+      if (!result.confirmed) {
+        if (preCreatedSubtuna) {
+          await supabase.from("subtuna").delete().eq("id", preCreatedSubtuna.id);
+        }
+        throw new Error("Token transactions not confirmed on-chain");
+      }
+
+      const mintAddress = result.mintAddress as string;
+      const dbcPoolAddress = result.dbcPoolAddress as string | null;
+
+      // 70% fee split for !launch tokens (vs 80% for !tunalaunch)
+      const AUTO_LAUNCH_FEE_BPS = 7000;
+
+      let funTokenId: string | null = null;
+      const { data: existingToken } = await supabase
+        .from("fun_tokens")
+        .select("id")
+        .eq("mint_address", mintAddress)
+        .maybeSingle();
+
+      if (existingToken?.id) {
+        funTokenId = existingToken.id;
+        await supabase
+          .from("fun_tokens")
+          .update({
+            agent_id: agent.id,
+            agent_fee_share_bps: AUTO_LAUNCH_FEE_BPS,
+            image_url: finalImageUrl,
+            website_url: websiteForOnChain,
+            twitter_url: twitterForOnChain,
+            description: parsed.description,
+          })
+          .eq("id", funTokenId);
+      } else {
+        const { data: inserted } = await supabase
+          .from("fun_tokens")
+          .insert({
+            name: cleanName,
+            ticker: cleanSymbol,
+            description: parsed.description || null,
+            image_url: finalImageUrl,
+            creator_wallet: null,
+            mint_address: mintAddress,
+            dbc_pool_address: dbcPoolAddress,
+            status: "active",
+            price_sol: 0.00000003,
+            website_url: communityUrl || null,
+            twitter_url: postUrl || null,
+            agent_id: agent.id,
+            agent_fee_share_bps: AUTO_LAUNCH_FEE_BPS,
+            chain: "solana",
+          })
+          .select("id")
+          .single();
+        funTokenId = inserted?.id || null;
+      }
+
+      if (funTokenId) {
+        await supabase.from("agent_tokens").insert({
+          agent_id: agent.id,
+          fun_token_id: funTokenId,
+          source_platform: platform,
+          source_post_id: postId,
+          source_post_url: postUrl,
+        });
+
+        if (preCreatedSubtuna) {
+          await supabase.from("subtuna").update({ fun_token_id: funTokenId }).eq("id", preCreatedSubtuna.id);
+          
+          const { data: existingWelcome } = await supabase
+            .from("subtuna_posts")
+            .select("id")
+            .eq("subtuna_id", preCreatedSubtuna.id)
+            .eq("is_pinned", true)
+            .limit(1)
+            .maybeSingle();
+
+          if (!existingWelcome) {
+            await supabase.from("subtuna_posts").insert({
+              subtuna_id: preCreatedSubtuna.id,
+              author_agent_id: agent.id,
+              title: `Welcome to $${cleanSymbol}! 🎉`,
+              content: `**${cleanName}** has officially launched via !launch!\n\nThis is the official community for $${cleanSymbol}.\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+              post_type: "text",
+              is_agent_post: true,
+              is_pinned: true,
+            });
+          }
+        }
+      }
+
+      // Update agent stats
+      await supabase
+        .from("agents")
+        .update({
+          total_tokens_launched: (agentData?.total_tokens_launched || 0) + 1,
+          launches_today: (agentData?.launches_today || 0) + 1,
+          last_launch_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", agent.id);
+
+      await supabase
+        .from("agent_social_posts")
+        .update({
+          status: "completed",
+          fun_token_id: funTokenId,
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", socialPostId);
+
+      console.log(`[agent-process-post] ✅ Auto-launch complete: ${mintAddress}`);
+
+      return {
+        success: true,
+        mintAddress,
+        tradeUrl: `https://tuna.fun/launchpad/${mintAddress}`,
+        socialPostId,
+        tokenName: cleanName,
+        tokenSymbol: cleanSymbol,
+        imageUrl: finalImageUrl,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error(`[agent-process-post] Auto-launch failed:`, errorMessage);
+      await supabase
+        .from("agent_social_posts")
+        .update({ status: "failed", error_message: errorMessage, processed_at: new Date().toISOString() })
+        .eq("id", socialPostId);
+      return { success: false, error: errorMessage, socialPostId };
+    }
+  }
+
+  // === STANDARD MODE (!tunalaunch) ===
   // Validate the post content with detailed feedback
   const validation = validateLaunchPost(rawContent);
   
@@ -1012,7 +1377,7 @@ export async function processLaunchPost(
     // Check daily launch limit (secondary check - primary is in agent-scan-twitter)
     const launchesToday = await getWalletLaunchesToday(supabase, agent.id);
     if (launchesToday >= DAILY_LAUNCH_LIMIT) {
-      throw new Error("Daily limit of 10 Agent launches per X account reached");
+      throw new Error("Daily limit of 3 Agent launches per X account reached");
     }
 
     // Update social post with agent ID
@@ -1469,7 +1834,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { platform, postId, postUrl, postAuthor, postAuthorId, content, mediaUrl } = body;
+    const { platform, postId, postUrl, postAuthor, postAuthorId, content, mediaUrl, autoGenerate, generatePrompt } = body;
 
     if (!platform || !postId || !content) {
       return new Response(
@@ -1499,7 +1864,9 @@ Deno.serve(async (req) => {
       postAuthorId || null,
       content,
       meteoraApiUrl,
-      mediaUrl || null // Pass attached image from tweet
+      mediaUrl || null,
+      autoGenerate ? true : false,
+      generatePrompt || null
     );
 
     return new Response(JSON.stringify(result), {

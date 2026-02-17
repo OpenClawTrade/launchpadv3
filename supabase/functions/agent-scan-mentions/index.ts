@@ -371,8 +371,13 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Check if contains !tunalaunch command
-        if (!tweetText.toLowerCase().includes("!tunalaunch")) {
+        // Check if contains launch command (!tunalaunch or !launch <text>)
+        const hasStandardCommand = tweetText.toLowerCase().includes("!tunalaunch");
+        const launchMatch = tweetText.match(/!launch\s+(.+?)(?:\n|$)/i);
+        const isAutoLaunch = launchMatch && !tweetText.toLowerCase().includes("!tunalaunch") && !tweetText.toLowerCase().includes("!launchtuna");
+        const autoLaunchPrompt = isAutoLaunch ? launchMatch[1].trim() : null;
+        
+        if (!hasStandardCommand && !isAutoLaunch) {
           continue;
         }
 
@@ -469,6 +474,11 @@ Deno.serve(async (req) => {
               postAuthorId: authorId,
               content: tweetText,
               source: "mentions_backup",
+              // !launch auto-generate fields
+              ...(isAutoLaunch && autoLaunchPrompt ? {
+                autoGenerate: true,
+                generatePrompt: autoLaunchPrompt,
+              } : {}),
             }),
           }
         );
