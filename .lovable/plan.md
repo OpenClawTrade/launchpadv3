@@ -1,109 +1,65 @@
 
 
-## Fix: Promise.race Bug + Dev Buy Cap in Backend API + Comprehensive Logging
+## Fix: Use signTransaction + sendRawTransaction Instead of signAndSendTransaction
 
-### Critical Bug Found: Promise.race Kills Polling
+### The Real Problem
 
-The `Promise.race([websocketConfirm(), pollingConfirm()])` pattern is fundamentally broken:
+`signAndSendTransaction` tells Phantom to **send the transaction through Phantom's own RPC node**. Your code then polls **your Helius RPC** for the signature. Helius never saw that transaction because it was submitted elsewhere. 30 polls, 90 seconds, nothing found. The transaction probably landed on-chain just fine — your RPC simply never indexed it.
 
-- `websocketConfirm()` fetches a fresh blockhash and calls `confirmTransaction`. If the RPC doesn't find the signature before that blockhash expires (~150 blocks / ~60s), it **throws** "block height exceeded"
-- `Promise.race` **rejects immediately** when ANY promise rejects -- it does NOT wait for the other
-- So the polling method (which would have found the TX) never gets a chance
+This is not an RPC reliability issue. This is a routing issue. Two different pipes.
 
-This is why Config TX succeeds on-chain but the frontend reports "block height exceeded" -- the WebSocket method rejects first and kills the race.
+### The Fix (one change, solves everything)
 
-### Second Bug: Dev Buy Still Capped at 10 SOL in Vercel API
+**Stop using `signAndSendTransaction`. Use `signTransaction` instead.**
 
-`api/pool/create-phantom.ts` line 120 still has `Math.min(10, ...)`. The edge function was fixed to 100 but the actual API endpoint that builds transactions was not.
+Flow becomes:
+1. Phantom signs the transaction (adds Lighthouse instructions) — returns signed TX, does NOT send it
+2. Frontend applies ephemeral keypair signatures (mint, config)
+3. Frontend sends via `connection.sendRawTransaction` through YOUR Helius RPC
+4. Frontend confirms via YOUR Helius RPC — same pipe, instant visibility
 
-### Third Issue: Prompt Delay
+### Balance Check Cleanup
 
-The balance check tries 3 RPC endpoints sequentially (5s timeout each). If the first one is slow, this adds 5-10s before anything visible happens. Should use parallel racing instead.
-
----
-
-### Fix 1: `src/components/launchpad/TokenLauncher.tsx` -- Phantom Flow confirmTx
-
-Wrap `websocketConfirm` in a catch so it returns a never-resolving promise on error, letting polling continue:
-
-```text
-websocketConfirm:
-  try confirmTransaction
-  if err -> return new Promise that never resolves (let polling win)
-  
-pollingConfirm:
-  poll getSignatureStatuses every 2s for 90s
-  searchTransactionHistory: true
-  
-Promise.race([websocketConfirm(), pollingConfirm()])
-  -> now only rejects if BOTH fail (polling timeout)
-```
-
-### Fix 2: Same fix for Holders Flow (lines 847-868)
-
-Same `Promise.race` bug exists. Apply identical catch-wrapper pattern.
-
-### Fix 3: `api/pool/create-phantom.ts` line 120
-
-Change `Math.min(10, ...)` to `Math.min(100, ...)`.
-
-### Fix 4: Speed up balance check
-
-Race all 3 RPC balance fetches in parallel instead of sequential. First success wins.
-
-### Fix 5: Comprehensive debug logging
-
-Add timestamped logs at every step of the launch flow:
-- Time from "Launch clicked" to edge function call
-- Time from edge function response to first Phantom prompt
-- Time for each confirmation attempt (WebSocket vs polling winner)
-- Full error details with signature links
+Remove the 3-RPC parallel race for balance. You have paid Helius — just use it. One call, fast. If it fails, fall back to the cached balance from the hook. No publicnode, no solana-mainnet.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/launchpad/TokenLauncher.tsx` | Fix Promise.race in both Phantom and Holders flows; parallel balance check; detailed logging |
-| `api/pool/create-phantom.ts` | Change dev buy cap from 10 to 100 SOL (line 120) |
+| `src/components/launchpad/TokenLauncher.tsx` | Replace `signAndSendTx` to use `signTransaction` + `sendRawTransaction`; simplify balance check to single Helius call; simplify `confirmTx` since same-RPC confirmation is reliable |
 
-### Technical Detail: The Safe Promise.race Pattern
+### Technical Detail
 
-```typescript
-const confirmTx = async (sig: string, label: string) => {
-  const t0 = Date.now();
-  
-  // WebSocket: catch errors so it never rejects the race
-  const wsConfirm = async () => {
-    try {
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-      const c = await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
-      if (c.value.err) throw new Error(`${label} on-chain error: ${JSON.stringify(c.value.err)}`);
-      return "websocket";
-    } catch (e) {
-      // On-chain errors should propagate
-      if (e instanceof Error && e.message.includes("on-chain error")) throw e;
-      // Other errors (block height exceeded, timeout): DON'T reject, let polling win
-      console.warn(`[Phantom Launch] WS confirm failed for ${label}, falling back to polling:`, e);
-      return new Promise<never>(() => {}); // Never resolves, never rejects
-    }
-  };
+**`signAndSendTx` replacement (lines ~1194-1227):**
 
-  // Polling: always the reliable fallback
-  const pollConfirm = async () => {
-    while (Date.now() - t0 < 90000) {
-      const { value } = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true });
-      const s = value?.[0];
-      if (s?.err) throw new Error(`${label} on-chain error: ${JSON.stringify(s.err)}`);
-      if (s?.confirmationStatus === "confirmed" || s?.confirmationStatus === "finalized") return "polling";
-      await new Promise(r => setTimeout(r, 2000));
-    }
-    throw new Error(`${label} timed out after 90s. Solscan: https://solscan.io/tx/${sig}`);
-  };
+```text
+OLD:
+  1. Inject fresh blockhash
+  2. Apply ephemeral keypair signatures
+  3. phantomWallet.signAndSendTransaction(tx) — Phantom sends via ITS RPC
+  4. Return signature
 
-  const method = await Promise.race([wsConfirm(), pollConfirm()]);
-  console.log(`[Phantom Launch] ${label} confirmed via ${method} in ${Date.now() - t0}ms`);
-  await new Promise(r => setTimeout(r, 2000)); // sync buffer
-};
+NEW:
+  1. Inject fresh blockhash from Helius
+  2. Apply ephemeral keypair signatures  
+  3. phantomWallet.signTransaction(tx) — Phantom signs only, does NOT send
+  4. connection.sendRawTransaction(signedTx.serialize()) — sent via YOUR Helius
+  5. Return signature
 ```
 
-This ensures the WebSocket path NEVER kills the polling fallback.
+**`confirmTx` simplification (lines ~1230-1298):**
+
+Since the transaction is now sent through the same Helius RPC that confirms it, the WebSocket confirmation will work reliably. Keep polling as a safety net but it should rarely be needed.
+
+**Balance check (lines ~1012-1052):**
+
+Replace 3-endpoint parallel race with single `connection.getBalance(walletPubkey)` call. Fall back to cached `phantomWallet.balance` if it fails. One RPC, zero delay.
+
+### What This Means
+
+- Signing prompt appears instantly (no multi-RPC balance race)
+- Confirmation works every time (same RPC sends and confirms)
+- No more "not found yet" polls — Helius sees its own transactions immediately
+- Dev buy stays merged in TX2 (2-transaction flow unchanged)
+- Lighthouse protection still works (signTransaction triggers it too)
+
