@@ -1226,6 +1226,64 @@ Deno.serve(async (req) => {
               } else {
                 console.error(`[agent-scan-twitter] ❌ FAILED to send catch-up reply to @${username}:`, replyResult.error);
               }
+          }
+        }
+
+          // Catch-up: completed launch but reply was never sent (e.g. base64 bug killed reply)
+          if (existing.status === "completed" && canPostReplies && username) {
+            const { data: alreadyReplied } = await supabase
+              .from("twitter_bot_replies")
+              .select("id")
+              .eq("tweet_id", tweetId)
+              .maybeSingle();
+
+            if (!alreadyReplied) {
+              // Get mint details via fun_token_id
+              const { data: postData } = await supabase
+                .from("agent_social_posts")
+                .select("fun_token_id, parsed_name, parsed_symbol, parsed_image_url")
+                .eq("id", existing.id)
+                .single();
+
+              let mintAddress: string | null = null;
+              if (postData?.fun_token_id) {
+                const { data: tokenData } = await supabase
+                  .from("fun_tokens")
+                  .select("mint_address, name, ticker, image_url")
+                  .eq("id", postData.fun_token_id)
+                  .single();
+                mintAddress = tokenData?.mint_address || null;
+
+                if (mintAddress) {
+                  const tokenName = tokenData?.name || postData?.parsed_name || "Token";
+                  const tokenTicker = tokenData?.ticker || postData?.parsed_symbol || "TOKEN";
+                  const catchUpReplyText = `🐟 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${mintAddress}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
+
+                  const catchUpReply = await replyToTweet(
+                    tweetId,
+                    catchUpReplyText,
+                    twitterApiIoKey || "",
+                    loginCookies || "",
+                    proxyUrl || "",
+                    username,
+                    replyAuthSession,
+                    oauthCreds
+                  );
+
+                  if (catchUpReply.success && catchUpReply.replyId) {
+                    await supabase.from("twitter_bot_replies").insert({
+                      tweet_id: tweetId,
+                      tweet_author: username,
+                      tweet_text: normalizedText.slice(0, 500),
+                      reply_text: catchUpReplyText.slice(0, 500),
+                      reply_id: catchUpReply.replyId,
+                    });
+                    console.log(`[agent-scan-twitter] ✅ Catch-up SUCCESS reply sent to @${username} for ${tweetId} (CA: ${mintAddress})`);
+                  } else {
+                    console.error(`[agent-scan-twitter] ❌ FAILED catch-up success reply to @${username}:`, catchUpReply.error);
+                  }
+                }
+              }
             }
           }
 
