@@ -7,6 +7,17 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
+  CoinbaseWalletAdapter,
+  TrustWalletAdapter,
+  LedgerWalletAdapter,
+  Coin98WalletAdapter,
+  SafePalWalletAdapter,
+  TokenPocketWalletAdapter,
+  NightlyWalletAdapter,
+  KeystoneWalletAdapter,
+  NufiWalletAdapter,
+  SpotWalletAdapter,
+  TrezorWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
@@ -29,6 +40,17 @@ export function SolanaWalletAdapterProvider({ children }: { children: ReactNode 
     () => [
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter(),
+      new CoinbaseWalletAdapter(),
+      new TrustWalletAdapter(),
+      new LedgerWalletAdapter(),
+      new Coin98WalletAdapter(),
+      new SafePalWalletAdapter(),
+      new TokenPocketWalletAdapter(),
+      new NightlyWalletAdapter(),
+      new KeystoneWalletAdapter(),
+      new NufiWalletAdapter(),
+      new SpotWalletAdapter(),
+      new TrezorWalletAdapter(),
     ],
     []
   );
