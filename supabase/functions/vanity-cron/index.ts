@@ -9,10 +9,10 @@ const corsHeaders = {
 };
 
 // Configuration
-const TARGET_SUFFIX = 'TNA'; // Case-SENSITIVE matching (must be exact: TNA)
+const TARGET_SUFFIX = 'TUNA'; // Case-SENSITIVE matching (must be exact: TUNA)
 const TARGET_AVAILABLE = 500; // Keep at least 500 available
-const MAX_DURATION_MS = 3000; // 3 seconds max (very conservative)
-const BATCH_SIZE = 20; // Very small batches
+const MAX_DURATION_MS = 25000; // 25 seconds (safe for edge function limits)
+const BATCH_SIZE = 100; // Larger batches for better throughput
 const CASE_SENSITIVE = true; // Enable case-sensitive matching
 const YIELD_EVERY = 5; // Yield CPU every 5 attempts
 
