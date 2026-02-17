@@ -841,15 +841,28 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         if (!signature) throw new Error("Transaction cancelled or failed");
 
         signatures.push(signature);
-        // Use proper lastValidBlockHeight for confirmation
-        const { blockhash: confirmBlockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-        const confirmation = await connection.confirmTransaction({
-          signature,
-          blockhash: confirmBlockhash,
-          lastValidBlockHeight,
-        }, "confirmed");
-        if (confirmation.value.err) {
-          throw new Error(`Transaction ${idx + 1} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+        // Polling-based confirmation — immune to Phantom blockhash injection
+        const confirmStart = Date.now();
+        const TIMEOUT_MS = 60000;
+        const POLL_INTERVAL_MS = 2000;
+        let confirmed = false;
+        while (Date.now() - confirmStart < TIMEOUT_MS) {
+          const { value } = await connection.getSignatureStatuses([signature]);
+          const status = value?.[0];
+          if (status) {
+            if (status.err) {
+              throw new Error(`Transaction ${idx + 1} failed on-chain: ${JSON.stringify(status.err)}`);
+            }
+            if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+              console.log(`[Holders Launch] TX${idx + 1} ${status.confirmationStatus} in ${Date.now() - confirmStart}ms`);
+              confirmed = true;
+              break;
+            }
+          }
+          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        }
+        if (!confirmed) {
+          throw new Error(`Transaction ${idx + 1} confirmation timed out. Check Solscan: ${signature}`);
         }
         
         // 2s sync buffer for Phantom RPC to see confirmed state before next TX
@@ -1189,28 +1202,36 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         return { signature, blockhash, lastValidBlockHeight };
       };
       
-      // Confirm using the SAME blockhash/lastValidBlockHeight from signing (not a fresh one)
-      const confirmTx = async (sig: string, label: string, blockhash: string, lastValidBlockHeight: number) => {
-        console.log(`[Phantom Launch] ✅ ${label} confirming:`, sig);
+      // Polling-based confirmation using getSignatureStatuses
+      // This does NOT depend on matching blockhash — works even when Phantom injects its own
+      const confirmTx = async (sig: string, label: string) => {
+        console.log(`[Phantom Launch] ✅ ${label} confirming via polling:`, sig);
         signatures.push(sig);
         
         const confirmStart = Date.now();
-        const confirmation = await connection.confirmTransaction({
-          signature: sig,
-          blockhash,
-          lastValidBlockHeight,
-        }, 'confirmed');
+        const TIMEOUT_MS = 60000;
+        const POLL_INTERVAL_MS = 2000;
         
-        if (confirmation.value.err) {
-          throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+        while (Date.now() - confirmStart < TIMEOUT_MS) {
+          const { value } = await connection.getSignatureStatuses([sig]);
+          const status = value?.[0];
+          
+          if (status) {
+            if (status.err) {
+              throw new Error(`${label} failed on-chain: ${JSON.stringify(status.err)}`);
+            }
+            if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+              console.log(`[Phantom Launch] ✅ ${label} ${status.confirmationStatus} in ${Date.now() - confirmStart}ms`);
+              // 2s buffer for Phantom's RPC to sync before next TX signing
+              await new Promise((r) => setTimeout(r, 2000));
+              return sig;
+            }
+          }
+          
+          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         }
-        console.log(`[Phantom Launch] ✅ ${label} confirmed in ${Date.now() - confirmStart}ms`);
         
-        // 2s buffer for Phantom's RPC to sync before next TX signing
-        console.log(`[Phantom Launch] Waiting 2s for Phantom RPC sync...`);
-        await new Promise((r) => setTimeout(r, 2000));
-        
-        return sig;
+        throw new Error(`${label} confirmation timed out after ${TIMEOUT_MS / 1000}s. Check Solscan: ${sig}`);
       };
       
       // === 2-TX SEQUENTIAL MODE (Sign-After-Confirm) ===
@@ -1218,9 +1239,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       for (let i = 0; i < txsToSign.length; i++) {
         const txLabel = txLabels[i] || `Transaction ${i + 1}`;
         toast({ title: `Signing ${txLabel}...`, description: `Step ${i + 1} of ${txsToSign.length}` });
-        const { signature, blockhash, lastValidBlockHeight } = await signAndSendTx(txsToSign[i], i, txLabel);
+        const { signature } = await signAndSendTx(txsToSign[i], i, txLabel);
         toast({ title: `Confirming ${txLabel}...`, description: `Waiting for network...` });
-        await confirmTx(signature, txLabel, blockhash, lastValidBlockHeight);
+        await confirmTx(signature, txLabel);
       }
       
       console.log('[Phantom Launch] ✅ All transactions confirmed!', { signatures });
