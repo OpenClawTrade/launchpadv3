@@ -192,6 +192,54 @@ export async function getAvailableVanityAddress(suffix: string): Promise<{
   };
 }
 
+// Get a specific vanity address by ID (for reserved/official launches)
+export async function getSpecificVanityAddress(keypairId: string): Promise<{
+  id: string;
+  publicKey: string;
+  keypair: Keypair;
+} | null> {
+  const encryptionKey = process.env.TREASURY_PRIVATE_KEY?.slice(0, 32) || 'default-encryption-key-12345678';
+  
+  let supabase;
+  try {
+    supabase = getSupabaseClient();
+  } catch (e) {
+    console.log(`[vanity] Supabase credentials not configured, skipping specific vanity lookup`);
+    return null;
+  }
+  
+  const { data, error } = await supabase
+    .from('vanity_keypairs')
+    .select('id, public_key, secret_key_encrypted, status')
+    .eq('id', keypairId)
+    .single();
+  
+  if (error || !data) {
+    console.error(`[vanity] Failed to fetch specific vanity keypair ${keypairId}:`, error?.message);
+    return null;
+  }
+  
+  console.log(`[vanity] Found specific vanity keypair: ${data.public_key} (status: ${data.status})`);
+  
+  // Update status to 'reserved' if not already
+  if (data.status !== 'used') {
+    await supabase
+      .from('vanity_keypairs')
+      .update({ status: 'reserved' })
+      .eq('id', keypairId);
+  }
+  
+  // Decrypt the secret key
+  const secretKeyBytes = decryptSecretKey(data.secret_key_encrypted, encryptionKey);
+  const keypair = Keypair.fromSecretKey(secretKeyBytes);
+  
+  return {
+    id: data.id,
+    publicKey: data.public_key,
+    keypair,
+  };
+}
+
 // Mark vanity address as used for a token
 export async function markVanityAddressUsed(keypairId: string, tokenId: string): Promise<void> {
   const supabase = getSupabaseClient();
