@@ -1,51 +1,28 @@
 
 
-## Fix: Set Per-User Launch Limit to 3 Per Day + Add Limit to Backup Scanner
+## ✅ COMPLETED: !launch command + 3/day limit
 
-The rate-limiting infrastructure already exists in `agent-scan-twitter` but is configured to 10 launches per day. The backup scanner (`agent-scan-mentions`) has no per-user limit at all.
+### What was implemented
 
-### Changes
+1. **`!launch <text>` command** — Users can tweet `!launch cat` (or any text) and the system:
+   - Detects the command in `agent-scan-twitter`, `agent-scan-mentions`, and `twitter-mention-launcher`
+   - Calls `fun-generate` with `imageStyle: "realistic"` to create AI-generated name, ticker, description, and image
+   - Launches the token on-chain with 70% creator fee split (vs 80% for `!tunalaunch`)
+   - Sets `twitter_url` to the source tweet, `website_url` to the SubTuna community page
+   - Replies with token image, CA, and details
 
-#### 1. `supabase/functions/agent-scan-twitter/index.ts`
+2. **3/day per-user limit** — All three scanners enforce max 3 launches per X account per 24 hours, with a reply when the limit is hit.
 
-| Line | Current | New |
-|------|---------|-----|
-| 814 | `DAILY_LAUNCH_LIMIT_PER_AUTHOR = 10` | `DAILY_LAUNCH_LIMIT_PER_AUTHOR = 3` |
-| 1254 | `"Daily limit of 10 Agent launches"` | `"Daily limit of 3 Agent launches"` |
-| 1262 | Reply text says "daily limit of 10" | Reply text says "daily limit of 3" |
+### Files modified
 
-#### 2. `supabase/functions/agent-scan-mentions/index.ts`
+| File | Changes |
+|------|---------|
+| `supabase/functions/agent-scan-twitter/index.ts` | Added `!launch` to search query, command detection, autoGenerate pass-through, dynamic fee % in reply |
+| `supabase/functions/agent-scan-mentions/index.ts` | Added `!launch` detection, per-author daily limit, autoGenerate pass-through |
+| `supabase/functions/agent-process-post/index.ts` | Added `autoGenerate` flow calling `fun-generate`, 70% fee split, full launch pipeline |
+| `supabase/functions/twitter-mention-launcher/index.ts` | Added `!launch` to LAUNCH_COMMANDS patterns |
 
-Add the same per-author rate limit check that `agent-scan-twitter` has, before calling `agent-process-post`:
+### Remaining (not yet implemented)
 
-- Add `getAuthorLaunchesToday()` helper function (same as in `agent-scan-twitter`)
-- Before processing each mention, count completed launches by that `authorId` in the last 24 hours
-- If count >= 3, skip processing and reply with the rate limit message
-- Record the attempt as `status: "failed"` with error `"Daily limit of 3 Agent launches per X account reached"`
-
-#### 3. `supabase/functions/agent-process-post/index.ts`
-
-Update the secondary safety check constant:
-
-| Line | Current | New |
-|------|---------|-----|
-| 733 | `DAILY_LAUNCH_LIMIT = 10` | `DAILY_LAUNCH_LIMIT = 3` |
-
-### Reply Message (when limit hit)
-
-```
-Hey @username! You've reached the daily limit of 3 launches per X account.
-
-Please try again tomorrow!
-```
-
-### Files to modify
-
-| File | Change |
-|------|--------|
-| `supabase/functions/agent-scan-twitter/index.ts` | Change constant from 10 to 3, update reply text |
-| `supabase/functions/agent-scan-mentions/index.ts` | Add per-author daily limit check with reply |
-| `supabase/functions/agent-process-post/index.ts` | Change secondary limit constant from 10 to 3 |
-
-All three edge functions will be redeployed after changes.
-
+- `/panel` page for fee claiming via Privy X OAuth login
+- `agent-creator-claim` dynamic fee split based on `agent_fee_share_bps`

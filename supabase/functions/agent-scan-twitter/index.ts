@@ -993,7 +993,7 @@ Deno.serve(async (req) => {
       }
 
       // Try Official X API first (Bearer Token), fallback to twitterapi.io
-      const searchQuery = "(tunalaunch OR launchtuna) -is:retweet";
+      const searchQuery = "(tunalaunch OR launchtuna OR \"!launch\") -is:retweet";
       let tweets: TweetResult[] = [];
       let rateLimited = false;
       let searchMethod = "none";
@@ -1126,6 +1126,11 @@ Deno.serve(async (req) => {
         const tweetId = tweet.id;
         const tweetText = tweet.text;
         const normalizedText = tweetText.replace(/!launchtuna/gi, "!tunalaunch");
+        
+        // Detect !launch <text> command (distinct from !tunalaunch)
+        const launchMatch = tweetText.match(/!launch\s+(.+?)(?:\n|$)/i);
+        const isAutoLaunch = launchMatch && !tweetText.toLowerCase().includes("!tunalaunch") && !tweetText.toLowerCase().includes("!launchtuna");
+        const autoLaunchPrompt = isAutoLaunch ? launchMatch[1].trim() : null;
         const username = tweet.author_username;
         const authorId = tweet.author_id;
         
@@ -1171,9 +1176,9 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Validate command presence
-        if (!normalizedText.toLowerCase().includes("!tunalaunch")) {
-          console.log(`[agent-scan-twitter] Skipping ${tweetId} - no !tunalaunch command`);
+        // Validate command presence - accept !tunalaunch, !launchtuna, or !launch <text>
+        if (!normalizedText.toLowerCase().includes("!tunalaunch") && !isAutoLaunch) {
+          console.log(`[agent-scan-twitter] Skipping ${tweetId} - no launch command`);
           results.push({ tweetId, status: "skipped_no_command" });
           continue;
         }
@@ -1300,7 +1305,12 @@ Deno.serve(async (req) => {
               postAuthor: username,
               postAuthorId: authorId,
               content: normalizedText,
-              mediaUrl: mediaUrl || null, // Pass attached image from tweet
+              mediaUrl: mediaUrl || null,
+              // !launch auto-generate fields
+              ...(isAutoLaunch && autoLaunchPrompt ? {
+                autoGenerate: true,
+                generatePrompt: autoLaunchPrompt,
+              } : {}),
             }),
           }
         );
@@ -1327,7 +1337,8 @@ Deno.serve(async (req) => {
               console.log(`[agent-scan-twitter] ⏭️ Skipping reply to ${tweetId} - already replied`);
             } else {
               // New format: full CA, no links, token name/symbol, with image
-              const replyText = `🐟 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
+              const feePercent = isAutoLaunch ? "70" : "80";
+              const replyText = `🐟 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by TUNA Agents - ${feePercent}% of fees go to you! Launch your token on TUNA dot FUN`;
 
               const replyResult = await replyToTweet(
                 tweetId,
