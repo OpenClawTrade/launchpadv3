@@ -845,16 +845,55 @@ export async function processLaunchPost(
       };
     }
     
-    // Re-host the AI-generated image
+    // Re-host the AI-generated image (handle base64 data URLs from fun-generate)
     let finalImageUrl = genResult.imageUrl;
     try {
-      const hosted = await rehostImageIfNeeded(supabase, finalImageUrl, genResult.ticker, postId);
-      if (hosted !== finalImageUrl) {
-        console.log(`[agent-process-post] ✅ Auto-gen image re-hosted: ${hosted.slice(0, 80)}...`);
+      if (finalImageUrl.startsWith("data:image")) {
+        // Base64 image from AI generation - upload to storage
+        const base64Match = finalImageUrl.match(/^data:image\/\w+;base64,(.+)$/);
+        if (!base64Match) {
+          throw new Error("Invalid base64 data URL format");
+        }
+        const imageBuffer = Uint8Array.from(atob(base64Match[1]), c => c.charCodeAt(0));
+        const fileName = `${Date.now()}-${genResult.ticker.toLowerCase()}-${crypto.randomUUID()}.png`;
+        const filePath = `fun-tokens/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(filePath, imageBuffer, {
+            contentType: "image/png",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(`Storage upload failed: ${uploadError.message}`);
+        }
+
+        const { data: publicUrl } = supabase.storage
+          .from("post-images")
+          .getPublicUrl(filePath);
+
+        finalImageUrl = publicUrl.publicUrl;
+        console.log(`[agent-process-post] ✅ Auto-gen base64 image uploaded: ${finalImageUrl.slice(0, 80)}...`);
+      } else {
+        // HTTP URL - re-host as usual
+        const hosted = await rehostImageIfNeeded(supabase, finalImageUrl, genResult.ticker, postId);
+        if (hosted !== finalImageUrl) {
+          console.log(`[agent-process-post] ✅ Auto-gen image re-hosted: ${hosted.slice(0, 80)}...`);
+        }
+        finalImageUrl = hosted;
       }
-      finalImageUrl = hosted;
     } catch (e) {
-      console.warn(`[agent-process-post] ⚠️ Auto-gen image re-host failed, using original URL`);
+      console.error(`[agent-process-post] ❌ Auto-gen image re-host/upload failed:`, e);
+      // Don't silently continue with base64 - fail the launch
+      if (genResult.imageUrl.startsWith("data:image")) {
+        return {
+          success: false,
+          error: "Failed to upload AI-generated image",
+          shouldReply: true,
+          replyText: `🐟 Hey @${postAuthor || "there"}! Image upload failed. Please try again in a moment.`,
+        };
+      }
     }
     
     // Build a synthetic parsed object and continue with the standard launch flow
