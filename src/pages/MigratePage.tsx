@@ -13,7 +13,9 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { SolanaWalletAdapterProvider } from "@/providers/SolanaWalletAdapterProvider";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -115,8 +117,9 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
-export default function MigratePage() {
-  const { solanaAddress, login } = useAuth();
+function MigratePageContent() {
+  const { publicKey } = useWallet();
+  const solanaAddress = publicKey?.toBase58() || null;
   const [config, setConfig] = useState<MigrationConfig | null>(null);
   const [holders, setHolders] = useState<SnapshotHolder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -506,10 +509,7 @@ export default function MigratePage() {
           {!solanaAddress ? (
             <div className="text-center py-6 space-y-3">
               <p className="text-muted-foreground">Connect your wallet to see your migration status and estimated new TUNA allocation.</p>
-              <Button onClick={login} className="gap-2">
-                <Wallet className="w-4 h-4" />
-                Connect Wallet
-              </Button>
+              <WalletMultiButton className="!bg-primary !text-primary-foreground !rounded-md !px-4 !py-2 !text-sm !font-medium hover:!bg-primary/90 !transition-colors" />
             </div>
           ) : userLedgerLoading ? (
             <div className="text-center py-6 text-muted-foreground">Loading your migration data...</div>
@@ -867,5 +867,13 @@ export default function MigratePage() {
         </Card>
       </div>
     </LaunchpadLayout>
+  );
+}
+
+export default function MigratePage() {
+  return (
+    <SolanaWalletAdapterProvider>
+      <MigratePageContent />
+    </SolanaWalletAdapterProvider>
   );
 }
