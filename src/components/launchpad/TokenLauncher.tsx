@@ -835,15 +835,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           }
         }
 
-        // Phantom signs, we send via our Helius RPC
+        // Phantom handles simulation, signing, and sending
         toast({ title: `Action required in Phantom`, description: `Approve Transaction ${idx + 1}` });
-        const signedTx = await phantomWallet.signTransaction(tx as any);
-        if (!signedTx) throw new Error("Transaction cancelled or failed");
-        const rawTx = signedTx instanceof VersionedTransaction
-          ? signedTx.serialize()
-          : (signedTx as Transaction).serialize();
-        const signature = await connection.sendRawTransaction(rawTx, { skipPreflight: true, maxRetries: 3 });
-        console.log(`[Holders Launch] TX${idx + 1} sent via Helius: ${signature}`);
+        const signature = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signature) throw new Error("Transaction cancelled or failed");
 
         signatures.push(signature);
         // Hybrid confirmation: race WebSocket + polling (safe pattern — WS never rejects the race)
@@ -1473,15 +1468,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           }
         }
 
-        // Phantom signs, we send via our Helius RPC
+        // Sign and Send via Phantom
         toast({ title: `Action required in Phantom`, description: `Approve ${txLabel}` });
-        const signedTx = await phantomWallet.signTransaction(tx as any);
-        if (!signedTx) throw new Error(`${txLabel} cancelled or failed`);
-        const rawTx = signedTx instanceof VersionedTransaction
-          ? signedTx.serialize()
-          : (signedTx as Transaction).serialize();
-        const signature = await connection.sendRawTransaction(rawTx, { skipPreflight: true, maxRetries: 3 });
-        console.log(`[FUN Launch] ${txLabel} sent via Helius: ${signature}`);
+        const signature = await phantomWallet.signAndSendTransaction(tx as any);
+        if (!signature) throw new Error(`${txLabel} cancelled or failed`);
         signatures.push(signature);
         toast({ title: `Confirming ${txLabel}...` });
         await connection.confirmTransaction(signature, "confirmed");
@@ -1598,13 +1588,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       const { url: rpcUrl } = getRpcUrl();
       const connection = new Connection(rpcUrl, "confirmed");
 
-      // Phantom signs, we send via our Helius RPC
+      // Sign and Send with Phantom
       toast({ title: "Action required in Phantom", description: "Approve the LP removal transaction" });
-      const signedTx = await phantomWallet.signTransaction(tx as any);
-      if (!signedTx) throw new Error("Transaction cancelled or failed");
-      const rawTx = (signedTx as Transaction).serialize();
-      const signature = await connection.sendRawTransaction(rawTx, { skipPreflight: true, maxRetries: 3 });
-      console.log(`[LP Remove] TX sent via Helius: ${signature}`);
+      const signature = await phantomWallet.signAndSendTransaction(tx as any);
+      if (!signature) throw new Error("Transaction cancelled or failed");
 
       toast({ title: "⏳ Confirming...", description: "Waiting for on-chain confirmation" });
       await connection.confirmTransaction(signature, "confirmed");
