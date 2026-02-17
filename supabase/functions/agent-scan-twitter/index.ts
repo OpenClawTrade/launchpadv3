@@ -336,6 +336,7 @@ async function searchMentionsViaTwitterApiIo(
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
   searchUrl.searchParams.set("query", query);
   searchUrl.searchParams.set("queryType", "Latest");
+  searchUrl.searchParams.set("count", "50");
 
   let lastStatus = 0;
   let lastBody: any = null;
@@ -993,7 +994,9 @@ Deno.serve(async (req) => {
       }
 
       // Try Official X API first (Bearer Token), fallback to twitterapi.io
-      const searchQuery = "(tunalaunch OR launchtuna OR \"!launch\") -is:retweet";
+      const officialSearchQuery = "(tunalaunch OR launchtuna OR \"!launch\") -is:retweet";
+      const twitterApiIoMentionQuery = "(@tunalaunch OR @buildtuna) -is:retweet";
+      const twitterApiIoLaunchQuery = "\"!launch\" -is:retweet -is:reply";
       let tweets: TweetResult[] = [];
       let rateLimited = false;
       let searchMethod = "none";
@@ -1001,7 +1004,7 @@ Deno.serve(async (req) => {
       if (xBearerToken) {
         try {
           console.log("[agent-scan-twitter] Searching via Official X API (Bearer Token)...");
-          tweets = await searchMentionsViaOfficialApi(searchQuery, xBearerToken);
+          tweets = await searchMentionsViaOfficialApi(officialSearchQuery, xBearerToken);
           searchMethod = "official_x_api";
           console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via Official X API`);
         } catch (err) {
@@ -1016,10 +1019,28 @@ Deno.serve(async (req) => {
           // Try fallback if twitterapi.io is configured
           if (twitterApiIoKey && !rateLimited) {
             try {
-              console.log("[agent-scan-twitter] Falling back to twitterapi.io...");
-              tweets = await searchMentionsViaTwitterApiIo(searchQuery, twitterApiIoKey);
+              console.log("[agent-scan-twitter] Falling back to twitterapi.io with mention query:", twitterApiIoMentionQuery);
+              tweets = await searchMentionsViaTwitterApiIo(twitterApiIoMentionQuery, twitterApiIoKey);
               searchMethod = "twitterapi_io_fallback";
-              console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io fallback`);
+              console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io mention query`);
+              tweets.forEach((t, i) => console.log(`  [${i}] @${t.author_username}: ${t.text.substring(0, 80)}`));
+
+              // Secondary search: if mention query found few results, also search for "!launch" keyword
+              if (tweets.length < 5) {
+                console.log("[agent-scan-twitter] Few mention results, running secondary !launch keyword search...");
+                const launchTweets = await searchMentionsViaTwitterApiIo(twitterApiIoLaunchQuery, twitterApiIoKey);
+                console.log(`[agent-scan-twitter] Found ${launchTweets.length} tweets via !launch keyword search`);
+                launchTweets.forEach((t, i) => console.log(`  [kw-${i}] @${t.author_username}: ${t.text.substring(0, 80)}`));
+                // Merge, deduplicating by tweet ID
+                const existingIds = new Set(tweets.map(t => t.id));
+                for (const t of launchTweets) {
+                  if (!existingIds.has(t.id)) {
+                    tweets.push(t);
+                    existingIds.add(t.id);
+                  }
+                }
+                console.log(`[agent-scan-twitter] Total merged tweets: ${tweets.length}`);
+              }
             } catch (fallbackErr) {
               const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
               if (fallbackMsg.includes("RATE_LIMITED") || fallbackMsg.includes("[429]")) {
@@ -1033,10 +1054,27 @@ Deno.serve(async (req) => {
       } else if (twitterApiIoKey) {
         // No Bearer Token, use twitterapi.io directly
         try {
-          console.log("[agent-scan-twitter] Searching via twitterapi.io...");
-          tweets = await searchMentionsViaTwitterApiIo(searchQuery, twitterApiIoKey);
+          console.log("[agent-scan-twitter] Searching via twitterapi.io with mention query:", twitterApiIoMentionQuery);
+          tweets = await searchMentionsViaTwitterApiIo(twitterApiIoMentionQuery, twitterApiIoKey);
           searchMethod = "twitterapi_io";
-          console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io`);
+          console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io mention query`);
+          tweets.forEach((t, i) => console.log(`  [${i}] @${t.author_username}: ${t.text.substring(0, 80)}`));
+
+          // Secondary search: if mention query found few results, also search for "!launch" keyword
+          if (tweets.length < 5) {
+            console.log("[agent-scan-twitter] Few mention results, running secondary !launch keyword search...");
+            const launchTweets = await searchMentionsViaTwitterApiIo(twitterApiIoLaunchQuery, twitterApiIoKey);
+            console.log(`[agent-scan-twitter] Found ${launchTweets.length} tweets via !launch keyword search`);
+            launchTweets.forEach((t, i) => console.log(`  [kw-${i}] @${t.author_username}: ${t.text.substring(0, 80)}`));
+            const existingIds = new Set(tweets.map(t => t.id));
+            for (const t of launchTweets) {
+              if (!existingIds.has(t.id)) {
+                tweets.push(t);
+                existingIds.add(t.id);
+              }
+            }
+            console.log(`[agent-scan-twitter] Total merged tweets: ${tweets.length}`);
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           if (msg.includes("RATE_LIMITED") || msg.includes("[429]")) {
