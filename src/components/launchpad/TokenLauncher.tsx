@@ -73,7 +73,7 @@ interface TokenLauncherProps {
   onShowResult: (result: LaunchResult) => void;
 }
 
-const DEV_BUY_MAX_SOL = 10;
+const DEV_BUY_MAX_SOL = 100;
 const DEV_BUY_DECIMALS = 2;
 const DEV_BUY_INPUT_RE = /^\d*(?:\.\d{0,2})?$/;
 
