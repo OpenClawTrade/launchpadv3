@@ -1054,8 +1054,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             tradingFeeBps: phantomTradingFee,
             devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
             feeMode: feeMode || 'standard',
-            // To force a specific vanity address (e.g. for official TUNA launch):
-            // specificVanityId: 'beef27e2-e826-46b7-a8f5-8a796ea97efb',
+            // To force a specific vanity address for official TUNA launch:
+            specificVanityId: 'beef27e2-e826-46b7-a8f5-8a796ea97efb',
           },
         }),
         60_000,
