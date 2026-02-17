@@ -1148,6 +1148,14 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       const signAndSendTx = async (tx: Transaction | VersionedTransaction, idx: number, label: string) => {
         console.log(`[Phantom Launch] signAndSendTransaction: ${label} (${idx + 1}/${txsToSign.length})...`);
         
+        // Fetch fresh blockhash to prevent "block height exceeded" expiry
+        const { blockhash } = await connection.getLatestBlockhash("confirmed");
+        if (tx instanceof Transaction) {
+          tx.recentBlockhash = blockhash;
+        } else if (tx instanceof VersionedTransaction) {
+          tx.message.recentBlockhash = blockhash;
+        }
+        
         // Ephemeral keys sign BEFORE wallet signs and sends
         const neededPubkeys = txRequiredKeypairs[idx] || [];
         const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
