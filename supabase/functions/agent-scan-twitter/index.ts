@@ -1237,100 +1237,12 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existing) {
-          // Catch-up: if it previously failed and we never replied (because reply creds were missing), send a one-time help reply.
-          if (existing.status === "failed" && canPostReplies && username) {
-            const { data: alreadyReplied } = await supabase
-              .from("twitter_bot_replies")
-              .select("id")
-              .eq("tweet_id", tweetId)
-              .maybeSingle();
-
-            if (!alreadyReplied) {
-              const helpText = `🐟 Hey @${username}! Your !tunalaunch is missing required fields.\n\n❌ Token name (add: name: YourTokenName)\n❌ Ticker symbol (add: symbol: TICKER)\n\nExample:\n!tunalaunch\nname: My Token\nsymbol: MTK\n[Attach your token image]`;
-
-              const replyResult = await replyToTweet(
-                tweetId,
-                helpText,
-                twitterApiIoKey || "",
-                loginCookies || "",
-                proxyUrl || "",
-                username,
-                replyAuthSession,
-                oauthCreds
-              );
-
-              if (replyResult.success && replyResult.replyId) {
-                await supabase.from("twitter_bot_replies").insert({
-                  tweet_id: tweetId,
-                  tweet_author: username,
-                  tweet_text: normalizedText.slice(0, 500),
-                  reply_text: helpText.slice(0, 500),
-                  reply_id: replyResult.replyId,
-                });
-                console.log(`[agent-scan-twitter] ✅ Catch-up reply sent to @${username} for ${tweetId}`);
-              } else {
-                console.error(`[agent-scan-twitter] ❌ FAILED to send catch-up reply to @${username}:`, replyResult.error);
-              }
-          }
-        }
-
-          // Catch-up: completed launch but reply was never sent (e.g. base64 bug killed reply)
-          if (existing.status === "completed" && canPostReplies && username) {
-            const { data: alreadyReplied } = await supabase
-              .from("twitter_bot_replies")
-              .select("id")
-              .eq("tweet_id", tweetId)
-              .maybeSingle();
-
-            if (!alreadyReplied) {
-              // Get mint details via fun_token_id
-              const { data: postData } = await supabase
-                .from("agent_social_posts")
-                .select("fun_token_id, parsed_name, parsed_symbol, parsed_image_url")
-                .eq("id", existing.id)
-                .single();
-
-              let mintAddress: string | null = null;
-              if (postData?.fun_token_id) {
-                const { data: tokenData } = await supabase
-                  .from("fun_tokens")
-                  .select("mint_address, name, ticker, image_url")
-                  .eq("id", postData.fun_token_id)
-                  .single();
-                mintAddress = tokenData?.mint_address || null;
-
-                if (mintAddress) {
-                  const tokenName = tokenData?.name || postData?.parsed_name || "Token";
-                  const tokenTicker = tokenData?.ticker || postData?.parsed_symbol || "TOKEN";
-                  const catchUpReplyText = `🐟 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${mintAddress}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
-
-                  const catchUpReply = await replyToTweet(
-                    tweetId,
-                    catchUpReplyText,
-                    twitterApiIoKey || "",
-                    loginCookies || "",
-                    proxyUrl || "",
-                    username,
-                    replyAuthSession,
-                    oauthCreds
-                  );
-
-                  if (catchUpReply.success && catchUpReply.replyId) {
-                    await supabase.from("twitter_bot_replies").insert({
-                      tweet_id: tweetId,
-                      tweet_author: username,
-                      tweet_text: normalizedText.slice(0, 500),
-                      reply_text: catchUpReplyText.slice(0, 500),
-                      reply_id: catchUpReply.replyId,
-                    });
-                    console.log(`[agent-scan-twitter] ✅ Catch-up SUCCESS reply sent to @${username} for ${tweetId} (CA: ${mintAddress})`);
-                  } else {
-                    console.error(`[agent-scan-twitter] ❌ FAILED catch-up success reply to @${username}:`, catchUpReply.error);
-                  }
-                }
-              }
-            }
-          }
+          // ===== IN-LOOP CATCH-UP: DISABLED to prevent spam =====
+          // Both "failed" help-reply catch-up and "completed" success-reply catch-up
+          // have been disabled. The reply attempts fail (404/403) but never record
+          // a twitter_bot_replies row, so they retry infinitely every scan cycle,
+          // causing spam. If replies need to be retried, implement a separate
+          // one-shot mechanism with a max-attempts counter.
 
           results.push({ tweetId, status: "already_processed" });
           continue;
