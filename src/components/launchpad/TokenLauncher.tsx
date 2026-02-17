@@ -841,31 +841,34 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         if (!signature) throw new Error("Transaction cancelled or failed");
 
         signatures.push(signature);
-        // Polling-based confirmation — immune to Phantom blockhash injection
+        // Hybrid confirmation: race WebSocket + polling with searchTransactionHistory
         const confirmStart = Date.now();
-        const TIMEOUT_MS = 60000;
-        const POLL_INTERVAL_MS = 2000;
-        let confirmed = false;
-        while (Date.now() - confirmStart < TIMEOUT_MS) {
-          const { value } = await connection.getSignatureStatuses([signature]);
-          const status = value?.[0];
-          if (status) {
-            if (status.err) {
-              throw new Error(`Transaction ${idx + 1} failed on-chain: ${JSON.stringify(status.err)}`);
-            }
-            if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-              console.log(`[Holders Launch] TX${idx + 1} ${status.confirmationStatus} in ${Date.now() - confirmStart}ms`);
-              confirmed = true;
-              break;
-            }
-          }
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        }
-        if (!confirmed) {
-          throw new Error(`Transaction ${idx + 1} confirmation timed out. Check Solscan: ${signature}`);
-        }
         
-        // 2s sync buffer for Phantom RPC to see confirmed state before next TX
+        const wsConfirm = async () => {
+          const { blockhash: fb, lastValidBlockHeight: fh } = await connection.getLatestBlockhash("confirmed");
+          const c = await connection.confirmTransaction({ signature, blockhash: fb, lastValidBlockHeight: fh }, "confirmed");
+          if (c.value.err) throw new Error(`Transaction ${idx + 1} failed on-chain: ${JSON.stringify(c.value.err)}`);
+        };
+        
+        const pollConfirm = async () => {
+          while (Date.now() - confirmStart < 90000) {
+            try {
+              const { value } = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+              const s = value?.[0];
+              if (s) {
+                if (s.err) throw new Error(`Transaction ${idx + 1} failed on-chain: ${JSON.stringify(s.err)}`);
+                if (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized') return;
+              }
+            } catch (e) { if (e instanceof Error && e.message.includes('failed on-chain')) throw e; }
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+          throw new Error(`Transaction ${idx + 1} confirmation timed out. Check Solscan: ${signature}`);
+        };
+        
+        await Promise.race([wsConfirm(), pollConfirm()]);
+        console.log(`[Holders Launch] TX${idx + 1} confirmed in ${Date.now() - confirmStart}ms`);
+        
+        // 2s sync buffer before next TX
         if (idx < txBase64s.length - 1) {
           await new Promise((r) => setTimeout(r, 2000));
         }
@@ -1202,36 +1205,62 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         return { signature, blockhash, lastValidBlockHeight };
       };
       
-      // Polling-based confirmation using getSignatureStatuses
-      // This does NOT depend on matching blockhash — works even when Phantom injects its own
+      // Hybrid confirmation: race WebSocket-based confirmTransaction against polling
+      // This handles Phantom sending via its own RPC (our RPC may not have the TX in recent cache)
       const confirmTx = async (sig: string, label: string) => {
-        console.log(`[Phantom Launch] ✅ ${label} confirming via polling:`, sig);
+        console.log(`[Phantom Launch] ✅ ${label} confirming (hybrid):`, sig);
         signatures.push(sig);
         
         const confirmStart = Date.now();
-        const TIMEOUT_MS = 60000;
-        const POLL_INTERVAL_MS = 2000;
         
-        while (Date.now() - confirmStart < TIMEOUT_MS) {
-          const { value } = await connection.getSignatureStatuses([sig]);
-          const status = value?.[0];
-          
-          if (status) {
-            if (status.err) {
-              throw new Error(`${label} failed on-chain: ${JSON.stringify(status.err)}`);
-            }
-            if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-              console.log(`[Phantom Launch] ✅ ${label} ${status.confirmationStatus} in ${Date.now() - confirmStart}ms`);
-              // 2s buffer for Phantom's RPC to sync before next TX signing
-              await new Promise((r) => setTimeout(r, 2000));
-              return sig;
-            }
+        // Method 1: WebSocket-based confirmTransaction with fresh blockhash from OUR RPC
+        // The blockhash here is just a timeout mechanism — it doesn't need to match the TX's blockhash
+        const websocketConfirm = async (): Promise<string> => {
+          const { blockhash: freshBlockhash, lastValidBlockHeight: freshHeight } = 
+            await connection.getLatestBlockhash("confirmed");
+          const confirmation = await connection.confirmTransaction({
+            signature: sig,
+            blockhash: freshBlockhash,
+            lastValidBlockHeight: freshHeight,
+          }, "confirmed");
+          if (confirmation.value.err) {
+            throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
           }
-          
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        }
+          return "websocket";
+        };
         
-        throw new Error(`${label} confirmation timed out after ${TIMEOUT_MS / 1000}s. Check Solscan: ${sig}`);
+        // Method 2: Polling with searchTransactionHistory (checks ledger, not just recent cache)
+        const pollingConfirm = async (): Promise<string> => {
+          const TIMEOUT_MS = 90000;
+          const POLL_INTERVAL_MS = 2000;
+          while (Date.now() - confirmStart < TIMEOUT_MS) {
+            try {
+              const { value } = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true });
+              const status = value?.[0];
+              if (status) {
+                if (status.err) {
+                  throw new Error(`${label} failed on-chain: ${JSON.stringify(status.err)}`);
+                }
+                if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+                  return "polling";
+                }
+              }
+            } catch (e) {
+              // Ignore polling errors, keep trying
+              if (e instanceof Error && e.message.includes('failed on-chain')) throw e;
+            }
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+          }
+          throw new Error(`${label} confirmation timed out after ${TIMEOUT_MS / 1000}s. Check Solscan: ${sig}`);
+        };
+        
+        // Race both methods — whichever confirms first wins
+        const method = await Promise.race([websocketConfirm(), pollingConfirm()]);
+        console.log(`[Phantom Launch] ✅ ${label} confirmed via ${method} in ${Date.now() - confirmStart}ms`);
+        
+        // 2s buffer for RPC sync before next TX signing
+        await new Promise((r) => setTimeout(r, 2000));
+        return sig;
       };
       
       // === 2-TX SEQUENTIAL MODE (Sign-After-Confirm) ===
