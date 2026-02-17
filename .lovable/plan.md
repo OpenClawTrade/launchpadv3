@@ -1,92 +1,83 @@
 
-## Fix: Standalone Catch-Up for Completed Launches Missing Replies
 
-### Root Cause
+# Fix Vanity Address System: TNA -> TUNA Migration
 
-The catch-up logic added previously is inside the tweet processing loop (lines 1232-1288 of `agent-scan-twitter` and similar in `agent-scan-mentions`). This only fires if the tweet appears in the current API scan batch (latest ~100 tweets). Since the completed-but-unreplied tweets (Woof, Sybil, PopcatInu) are now older than the latest 100 tweets, they never enter the loop and the catch-up never triggers.
+## Issues Found
 
-### Solution
+### 1. No cron job exists
+The `vanity-cron` edge function has **no pg_cron schedule** set up. There is no cron job in `cron.job` table. The function only runs when manually triggered from the admin page. That's why it never auto-runs to reach 500.
 
-Add a **standalone catch-up query** that runs BEFORE the tweet loop in `agent-scan-twitter`. This query directly checks the database for any `agent_social_posts` with `status = 'completed'` that have no matching entry in `twitter_bot_replies`, then sends the missing replies.
+### 2. Suffix mismatch: multiple places still use 'TNA' instead of 'TUNA'
+The edge function correctly generates `tuna` suffix, but **6 files** still request `tna` when reserving vanity addresses:
 
-### Changes
+| File | Line | Current | Fix |
+|------|------|---------|-----|
+| `api/pool/create-fun.ts` | 389 | `getAvailableVanityAddress('TNA')` | Change to `'tuna'` |
+| `api/pool/create-phantom.ts` | 152 | `getAvailableVanityAddress('TNA')` | Change to `'tuna'` |
+| `supabase/functions/bags-agent-launch/index.ts` | 43 | `p_suffix: 'tna'` | Change to `'tuna'` |
+| `supabase/functions/pump-agent-launch/index.ts` | 41 | `p_suffix: 'tna'` | Change to `'tuna'` |
+| `api/vanity/progress.ts` | 42 | default suffix `'TNA'` | Change to `'tuna'` |
+| Comments in multiple files | various | "TNA suffix" | Update to "TUNA suffix" |
 
-#### 1. `supabase/functions/agent-scan-twitter/index.ts`
+### 3. Database state confirms the problem
+- `tna` suffix: 45 available, 199 reserved, 116 used
+- `tuna` suffix: only 3 available (from recent manual runs)
 
-Insert a new block AFTER the lock is acquired and credentials are set up (around line 1117, before the tweet sorting/processing loop), but only when `canPostReplies` is true:
+The generator is producing `tuna` addresses but all consumers are requesting `tna`, so the new addresses never get used.
 
-```text
-// ===== STANDALONE CATCH-UP: completed launches missing replies =====
-if (canPostReplies) {
-  // Find completed launches from last 48 hours with no reply
-  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-  const { data: unrepliedPosts } = await supabase
-    .from("agent_social_posts")
-    .select("id, post_id, post_author, fun_token_id, parsed_name, parsed_symbol")
-    .eq("platform", "twitter")
-    .eq("status", "completed")
-    .gt("created_at", cutoff)
-    .not("fun_token_id", "is", null)
-    .limit(5);  // Max 5 catch-ups per scan cycle
+### 4. Case-insensitive matching is already correct
+The `vanity-cron` edge function correctly uses `CASE_SENSITIVE = false` and stores suffix as `tuna` (lowercase). The `matchesSuffix` function does `.toLowerCase()` comparison. This means any case combo (TUNA, tuna, TuNa) will match -- this is correct.
 
-  if (unrepliedPosts && unrepliedPosts.length > 0) {
-    for (const post of unrepliedPosts) {
-      // Check if reply already exists
-      const { data: alreadyReplied } = await supabase
-        .from("twitter_bot_replies")
-        .select("id")
-        .eq("tweet_id", post.post_id)
-        .maybeSingle();
+## Plan
 
-      if (alreadyReplied) continue;
+### Step 1: Set up pg_cron job for auto-generation
+Create a cron job to invoke `vanity-cron` every minute so it auto-fills to 500:
 
-      // Fetch token details
-      const { data: tokenData } = await supabase
-        .from("fun_tokens")
-        .select("mint_address, name, ticker")
-        .eq("id", post.fun_token_id)
-        .single();
+```sql
+-- Enable extensions
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
 
-      if (!tokenData?.mint_address) continue;
-
-      const tokenName = tokenData.name || post.parsed_name || "Token";
-      const tokenTicker = tokenData.ticker || post.parsed_symbol || "TOKEN";
-      const replyText = `Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${tokenData.mint_address}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
-
-      const replyResult = await replyToTweet(
-        post.post_id, replyText, ...credentials
-      );
-
-      if (replyResult.success && replyResult.replyId) {
-        await supabase.from("twitter_bot_replies").insert({
-          tweet_id: post.post_id,
-          tweet_author: post.post_author,
-          tweet_text: "(catch-up)",
-          reply_text: replyText.slice(0, 500),
-          reply_id: replyResult.replyId,
-        });
-        console.log(`[agent-scan-twitter] STANDALONE catch-up reply sent for ${post.post_id}`);
-      }
-    }
-  }
-}
+SELECT cron.schedule(
+  'vanity-cron-every-minute',
+  '* * * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://ptwytypavumcrbofspno.supabase.co/functions/v1/vanity-cron',
+    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44"}'::jsonb,
+    body:='{"time": "now"}'::jsonb
+  ) AS request_id;
+  $$
+);
 ```
 
-#### 2. `supabase/functions/agent-scan-mentions/index.ts`
+### Step 2: Update all consumers from 'TNA' to 'tuna'
 
-Add the same standalone catch-up block inside the lock, before the mentions loop. Uses the same pattern but with OAuth credentials instead of cookie-based auth.
+**`api/pool/create-fun.ts`** (line 389):
+- `getAvailableVanityAddress('TNA')` -> `getAvailableVanityAddress('tuna')`
 
-### Why This Works
+**`api/pool/create-phantom.ts`** (line 152):
+- `getAvailableVanityAddress('TNA')` -> `getAvailableVanityAddress('tuna')`
 
-- Queries the database directly instead of relying on the Twitter API to return old tweets
-- Runs every scan cycle (every 5 minutes) so missed replies get sent quickly
-- Limited to 5 catch-ups per cycle and 48-hour window to avoid spam
-- Dedup via `twitter_bot_replies` prevents double-replies
-- Both scanners get the logic so whichever runs first sends the reply
+**`supabase/functions/bags-agent-launch/index.ts`** (line 43):
+- `p_suffix: 'tna'` -> `p_suffix: 'tuna'`
 
-### Files to modify
-- `supabase/functions/agent-scan-twitter/index.ts` -- add standalone catch-up block before tweet loop
-- `supabase/functions/agent-scan-mentions/index.ts` -- add standalone catch-up block before mentions loop
+**`supabase/functions/pump-agent-launch/index.ts`** (line 41):
+- `p_suffix: 'tna'` -> `p_suffix: 'tuna'`
 
-### Deployment
-Both edge functions will be redeployed after changes.
+**`api/vanity/progress.ts`** (line 42):
+- Default suffix `'TNA'` -> `'tuna'`
+
+Update all comments referencing "TNA suffix" to "TUNA suffix" in these files.
+
+### Step 3: Redeploy edge functions
+- `bags-agent-launch`
+- `pump-agent-launch`
+
+(The `api/` files are Vercel serverless functions and deploy automatically on push.)
+
+### Summary
+After these changes:
+- The cron job auto-invokes `vanity-cron` every minute, generating case-insensitive TUNA addresses until 500 are available
+- All launch functions correctly request `tuna` suffix addresses from the pool
+- Addresses display as "TUNA" across the site regardless of actual base58 casing
