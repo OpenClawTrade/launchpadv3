@@ -37,21 +37,21 @@ export function MigrationPopup() {
       <DialogContent className="sm:max-w-md border-amber-500/30 bg-card">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
-            <ArrowsClockwise className="h-6 w-6 text-amber-400 animate-spin" style={{ animationDuration: "3s" }} weight="bold" />
-            <DialogTitle className="text-xl">$TUNA Token Migration</DialogTitle>
+            <ArrowsClockwise className="h-6 w-6 text-amber-400" weight="bold" />
+            <DialogTitle className="text-xl">$TUNA Migration Complete</DialogTitle>
           </div>
           <DialogDescription className="text-left space-y-3 pt-2">
             <p>
-              <strong className="text-foreground">$TUNA is migrating</strong> from the old pump.fun contract to a new ecosystem powering OpenTuna, OpenClaw, and fee distribution.
+              <strong className="text-foreground">$TUNA migration has succeeded!</strong> The migration window is now closed.
             </p>
             <p>
-              Head over to the Migration page to learn more and register your tokens for the swap.
+              Connect your wallet on the Migration page to check your status and see your estimated new TUNA allocation.
             </p>
           </DialogDescription>
         </DialogHeader>
         <div className="flex gap-2 pt-2">
           <Button onClick={goToMigrate} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold">
-            Go to Migration
+            Check My Status
           </Button>
           <Button onClick={dismiss} variant="outline" className="flex-1">
             Dismiss

@@ -34,6 +34,9 @@ import {
   RefreshCw,
   Inbox,
   Hash,
+  CheckCircle2,
+  Wallet,
+  Timer,
 } from "lucide-react";
 
 const OLD_MINT = "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump";
@@ -126,6 +129,9 @@ export default function MigratePage() {
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [userLedgerEntry, setUserLedgerEntry] = useState<LedgerEntry | null>(null);
+  const [userLedgerLoading, setUserLedgerLoading] = useState(false);
+  const [userNotFound, setUserNotFound] = useState(false);
 
   const countdown = useCountdown(config?.deadline_at || null);
 
@@ -137,6 +143,28 @@ export default function MigratePage() {
   useEffect(() => {
     if (solanaAddress) {
       setWalletInput(solanaAddress);
+      // Look up user's migration status
+      setUserLedgerLoading(true);
+      setUserNotFound(false);
+      supabase
+        .from("tuna_migration_ledger")
+        .select("*")
+        .eq("wallet_address", solanaAddress)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setUserLedgerEntry({
+              ...data,
+              total_tokens_received: Number(data.total_tokens_received),
+              tx_count: Number(data.tx_count),
+            });
+            setUserNotFound(false);
+          } else {
+            setUserLedgerEntry(null);
+            setUserNotFound(true);
+          }
+          setUserLedgerLoading(false);
+        });
     }
   }, [solanaAddress]);
 
@@ -349,17 +377,19 @@ export default function MigratePage() {
   return (
     <LaunchpadLayout showKingOfTheHill={false}>
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-        {/* Hero Section */}
+         {/* Hero Section - Migration Succeeded */}
         <div className="text-center space-y-4">
-          <Badge variant="outline" className="border-primary text-primary text-sm px-4 py-1">
-            Token Migration
+          <Badge className="bg-primary/10 text-primary border-primary/30 text-sm px-4 py-1">
+            <CheckCircle2 className="w-4 h-4 mr-1.5 inline" />
+            Migration Complete
           </Badge>
           <h1 className="text-3xl md:text-5xl font-bold text-foreground">
-            $TUNA is Migrating
+            Migration Succeeded
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            From pump.fun to our own launchpad — a critical step to properly fund
-            the TUNA OS ecosystem and sustain long-term growth.
+            The migration window has closed.{" "}
+            <span className="text-foreground font-semibold">{ledgerStats.uniqueSenders}</span> holders migrated{" "}
+            <span className="text-foreground font-semibold">{formatNumber(ledgerStats.totalReceived)}</span> tokens to the new TUNA.
           </p>
         </div>
 
@@ -466,132 +496,96 @@ export default function MigratePage() {
           )}
         </Card>
 
-        {/* Countdown Timer */}
-        {config && (
-          <Card className="p-6 text-center bg-card border-border">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <Clock className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-bold text-foreground">Migration Window</h2>
-            </div>
-            {countdown.expired ? (
-              <div className="text-destructive font-bold text-2xl">Migration Window Closed</div>
-            ) : (
-              <div className="flex justify-center gap-4">
-                {[
-                  { value: countdown.h, label: "Hours" },
-                  { value: countdown.m, label: "Minutes" },
-                  { value: countdown.s, label: "Seconds" },
-                ].map((unit) => (
-                  <div key={unit.label} className="text-center">
-                    <div className="text-4xl md:text-5xl font-mono font-bold text-primary">
-                      {String(unit.value).padStart(2, "0")}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">{unit.label}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground mt-3">
-              Holders who send their $TUNA within this window will receive the equivalent % of new tokens.
-            </p>
-          </Card>
-        )}
-
-        {/* Stats Bar */}
-        {holders.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
-            <Card className="p-4 text-center bg-card border-border">
-              <div className="text-2xl font-bold text-foreground">
-                {formatNumber(stats.totalSupply)}
-              </div>
-              <div className="text-xs text-muted-foreground">Total Supply Snapshot</div>
-            </Card>
-            <Card className="p-4 text-center bg-card border-border">
-              <div className="text-2xl font-bold text-primary">
-                {formatNumber(stats.migratedSupply)}{" "}
-                <span className="text-sm text-muted-foreground">({stats.supplyPct}%)</span>
-              </div>
-              <div className="text-xs text-muted-foreground">Supply Migrating</div>
-            </Card>
-          </div>
-        )}
-
-        {/* Deposit Instructions */}
+        {/* Your Migration Status Card */}
         <Card className="p-6 space-y-4 bg-card border-border">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <ArrowRight className="w-5 h-5 text-primary" />
-            How to Migrate
+            <Wallet className="w-5 h-5 text-primary" />
+            Your Migration Status
           </h2>
-          <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
-            <li>
-              Check your wallet is in the snapshot table below
-            </li>
-            <li>
-              Send your old $TUNA tokens to the collection wallet:
-              <div className="mt-2 bg-secondary/50 rounded-lg p-3 flex items-center justify-between gap-2 font-mono text-sm text-foreground break-all">
-                <span>{COLLECTION_WALLET}</span>
-                <CopyButton text={COLLECTION_WALLET} label="Collection wallet" />
-              </div>
-            </li>
-            <li>
-              Come back here, paste your wallet address and the transaction signature — the amount will be verified automatically
-            </li>
-            <li>
-              Once migration completes, you'll receive new $TUNA proportional to your verified transfer
-            </li>
-          </ol>
 
-          <div className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">Old $TUNA Mint: </span>
-            <span className="font-mono break-all">{OLD_MINT}</span>
-            <CopyButton text={OLD_MINT} label="Mint address" />
-          </div>
-        </Card>
-
-        {/* Migration Form */}
-        <Card className="p-6 space-y-4 bg-card border-border">
-          <h2 className="text-xl font-bold text-foreground">I've Sent My Tokens</h2>
-
-          {countdown.expired && config ? (
-            <p className="text-destructive font-semibold">
-              The migration window has closed. New submissions are no longer accepted.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-foreground block mb-1">
-                  Your Wallet Address
-                </label>
-                <Input
-                  placeholder="Enter the Solana wallet address you sent from"
-                  value={walletInput}
-                  onChange={(e) => setWalletInput(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-foreground block mb-1">
-                  Transaction Signature
-                </label>
-                <Input
-                  placeholder="Paste the tx signature of your transfer"
-                  value={txSignature}
-                  onChange={(e) => setTxSignature(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  The amount sent will be detected automatically from the transaction.
-                </p>
-              </div>
-
-              <Button
-                onClick={handleSubmitMigration}
-                disabled={submitting || !walletInput || !txSignature.trim()}
-                className="w-full"
-              >
-                {submitting ? "Verifying..." : "Verify & Register Migration"}
+          {!solanaAddress ? (
+            <div className="text-center py-6 space-y-3">
+              <p className="text-muted-foreground">Connect your wallet to see your migration status and estimated new TUNA allocation.</p>
+              <Button onClick={login} className="gap-2">
+                <Wallet className="w-4 h-4" />
+                Connect Wallet
               </Button>
             </div>
-          )}
+          ) : userLedgerLoading ? (
+            <div className="text-center py-6 text-muted-foreground">Loading your migration data...</div>
+          ) : userNotFound ? (
+            <div className="text-center py-6 space-y-2">
+              <p className="text-muted-foreground">This wallet did not participate in the migration.</p>
+              <p className="text-xs text-muted-foreground font-mono">{solanaAddress}</p>
+            </div>
+          ) : userLedgerEntry ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card className="p-3 text-center bg-secondary/30 border-border">
+                <div className="text-lg font-bold text-foreground">
+                  {userLedgerEntry.total_tokens_received.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+                <div className="text-xs text-muted-foreground">Tokens Migrated</div>
+              </Card>
+              <Card className="p-3 text-center bg-secondary/30 border-border">
+                <div className="text-lg font-bold text-primary">
+                  {((userLedgerEntry.total_tokens_received / TOTAL_OLD_SUPPLY) * 100).toFixed(4)}%
+                </div>
+                <div className="text-xs text-muted-foreground">% of Old Supply</div>
+              </Card>
+              <Card className="p-3 text-center bg-secondary/30 border-border">
+                <div className="text-lg font-bold text-foreground">
+                  {((userLedgerEntry.total_tokens_received / TOTAL_OLD_SUPPLY) * 100).toFixed(4)}%
+                </div>
+                <div className="text-xs text-muted-foreground">Est. New TUNA Share</div>
+              </Card>
+              <Card className="p-3 text-center bg-secondary/30 border-border">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Pending
+                </div>
+                <div className="text-xs text-muted-foreground">Distribution TX</div>
+              </Card>
+            </div>
+          ) : null}
+        </Card>
+
+        {/* Distribution & Protection Info Card */}
+        <Card className="p-6 space-y-5 bg-card border-border">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Shield className="w-5 h-5 text-primary" />
+            Distribution & Anti-Dump Protection
+          </h2>
+
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <Timer className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-foreground text-sm">24-Hour Launch Protection</p>
+                <p className="text-sm text-muted-foreground">
+                  For the first 24 hours, migrated coins will stay in the developer wallet to ensure no dumps occur on launch day.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <TrendingUp className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-foreground text-sm">Fee-Powered Buyback</p>
+                <p className="text-sm text-muted-foreground">
+                  Trading fees generated during the first 24 hours will be used to buy back TUNA after any migrated user sells — protecting the chart and letting the token grow organically.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-foreground text-sm">Staggered Distribution</p>
+                <p className="text-sm text-muted-foreground">
+                  Distribution will be done one by one, automatically, with delays between each transfer — ensuring smooth, safe delivery to all migrated holders.
+                </p>
+              </div>
+            </div>
+          </div>
         </Card>
 
         {/* Snapshot Table */}
