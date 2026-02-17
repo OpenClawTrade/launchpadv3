@@ -1,39 +1,48 @@
 
 
-## Migration Page Overhaul: Post-Migration Success View
+## Add Solana Wallet Adapter to the Migration Page
 
 ### Overview
 
-Replace the current "migrating" state of the page with a "Migration Succeeded" view. Add wallet connect for personalized status, and an info section about the 24-hour anti-dump protection mechanism.
+Replace the Privy-based "Connect Wallet" on the `/migrate` page with the standard **Solana Wallet Adapter**, which natively supports Phantom, Solflare, Backpack, and other popular Solana wallets -- including mobile deep-link support.
 
-### Changes
+### What Changes
 
-**File: `src/pages/MigratePage.tsx`**
+**1. Install new dependencies**
+- `@solana/wallet-adapter-base`
+- `@solana/wallet-adapter-react`
+- `@solana/wallet-adapter-react-ui`
+- `@solana/wallet-adapter-wallets` (includes Phantom, Solflare, Backpack, etc.)
 
-**1. Replace Hero Section (lines 352-364)**
-- Swap "TUNA is Migrating" with a green success banner: "Migration Succeeded"
-- Update subtitle to: "The migration window has closed. X holders migrated Y tokens to the new TUNA."
-- Pull stats from existing `stats` object for the numbers
+**2. Create a lightweight Solana Wallet Adapter provider for the migrate page**
+- New file: `src/providers/SolanaWalletAdapterProvider.tsx`
+- Wraps `ConnectionProvider` + `WalletProvider` + `WalletModalProvider`
+- Uses the same Helius RPC URL already configured in the project
+- Only used on the migrate page, keeping it isolated from the rest of the app's Privy auth
 
-**2. Add "Your Migration Status" Card (new, after hero)**
-- If wallet not connected: show "Connect Wallet" button (uses existing `login()` from `useAuth`)
-- If wallet connected: query `tuna_migration_ledger` for the connected `solanaAddress`
-  - Show: tokens migrated, % of old supply, estimated new TUNA allocation (same %), and a TX link placeholder (empty until distribution happens)
-  - If wallet not found in ledger: show "This wallet did not participate in the migration"
+**3. Update the Migration Page**
+- File: `src/pages/MigratePage.tsx`
+- Remove the dependency on `useAuth()` for `solanaAddress` and `login`
+- Instead, use `useWallet()` from `@solana/wallet-adapter-react` to get the connected wallet's public key
+- Replace the "Connect Wallet" button with the Wallet Adapter's `WalletMultiButton` component, which shows a wallet selection modal supporting all popular Solana wallets
+- Wrap the migrate page content with the new `SolanaWalletAdapterProvider`
 
-**3. Add "Distribution & Protection" Info Card (new, after status card)**
-Content:
-- "For the first 24 hours, migrated coins will stay in the developer wallet to ensure no dumps occur on launch day"
-- "Trading fees generated during the first 24 hours will be used to buy back TUNA after any migrated user sells -- protecting the chart"
-- "Distribution will be done one by one, automatically, with delays between each transfer"
-- Use Shield/Clock/TrendingUp icons for visual structure
+**4. Import wallet adapter styles**
+- Import `@solana/wallet-adapter-react-ui/styles.css` for the wallet modal UI
 
-**4. Remove/Hide Migration Form and Countdown**
-- Hide the countdown timer card (lines 469-498) -- migration is over
-- Hide the "I've Sent My Tokens" form card (lines 551-595) -- no longer accepting submissions
-- Hide the "How to Migrate" instructions card (lines 519-549)
-- Keep the snapshot/migrated/received tabs for transparency
+### Technical Details
 
-### No Database Changes Required
-All needed data exists in `tuna_migration_ledger` and `tuna_migration_snapshot`.
+```text
+Before:
+  MigratePage --> useAuth() (Privy) --> solanaAddress
+
+After:
+  SolanaWalletAdapterProvider
+    --> MigratePage --> useWallet() --> publicKey.toBase58()
+```
+
+- The wallet adapter only provides address lookup (no transaction signing needed on this page)
+- Mobile users can connect via Phantom/Solflare mobile apps through deep links
+- The rest of the app continues using Privy for authentication -- this change is scoped to `/migrate` only
+- The ledger lookup logic stays exactly the same, just the source of the wallet address changes
 
