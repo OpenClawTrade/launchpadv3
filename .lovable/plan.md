@@ -1,80 +1,93 @@
 
 
-## Fix Vanity Generator: TUNA Suffix + True Background Scanning
+## Fix: Catch-Up Replies for Completed Launches Missing Replies
 
-### Issue 1: Wrong suffix "TNA" hardcoded in 4 backend files
+### Problem
 
-The frontend was updated to "TUNA" but **all backend files still use "TNA"**:
+When a tweet is processed and a token is successfully launched, but the reply fails (e.g., due to the base64 image bug), subsequent scans see the tweet as `status: "completed"` in `agent_social_posts` and skip it entirely -- never checking if a reply was actually sent.
 
-| File | Line | Current | Fix |
-|------|------|---------|-----|
-| `supabase/functions/vanity-cron/index.ts` | 12 | `TARGET_SUFFIX = 'TNA'` | `TARGET_SUFFIX = 'TUNA'` |
-| `api/vanity/batch.ts` | 18 | `DEFAULT_SUFFIX = 'TNA'` | `DEFAULT_SUFFIX = 'TUNA'` |
-| `api/vanity/generate.ts` | 22 | `DEFAULT_SUFFIX = 'TNA'` | `DEFAULT_SUFFIX = 'TUNA'` |
-| `lib/vanityGenerator.ts` | 35-36 | Case-insensitive match (`toLowerCase`) | Case-SENSITIVE match (`endsWith` exact) |
+The catch-up logic at line 1194-1233 of `agent-scan-twitter` only handles `status === "failed"`. There is zero handling for `status === "completed"` with a missing reply.
 
-### Issue 2: Case-sensitive matching is broken
+Same issue exists in `agent-scan-mentions` (line 453-455) -- no catch-up at all.
 
-`lib/vanityGenerator.ts` line 35-36 uses `toLowerCase()` for matching, meaning it accepts any case variation (e.g. "tuna", "Tuna", "tUNA") instead of strictly uppercase "TUNA". Must change to exact/case-sensitive matching.
+### Fix
 
-### Issue 3: "Kicked out" during background scanning
-
-The "Auto-Run" feature relies on the browser sequentially calling `api/vanity/batch` (55s each). If the browser tab sleeps, the network drops, or the Vercel function times out, the loop dies.
-
-**Fix:** Make the `vanity-cron` edge function the true background worker. It already runs server-side but is hardcoded to "TNA" with a tiny 3-second duration. Update it to:
-- Use "TUNA" suffix
-- Increase `MAX_DURATION_MS` to 25000 (25s, safe for edge function limits)
-- Increase `BATCH_SIZE` to 100
-- Add a manual trigger button on the admin page that calls the edge function directly (fire-and-forget, no waiting)
-- The admin page can poll status independently without blocking
+Add catch-up reply logic for completed launches that are missing entries in `twitter_bot_replies`.
 
 ### Changes
 
-#### 1. `lib/vanityGenerator.ts` - Fix case-sensitive matching
+#### 1. `supabase/functions/agent-scan-twitter/index.ts`
 
-Change `matchesSuffix` to do exact case-sensitive comparison:
+After the existing `failed` catch-up block (line 1230), add a new block for `completed` status:
+
 ```typescript
-function matchesSuffix(address: string, suffix: string): boolean {
-  return address.endsWith(suffix); // Case-sensitive: TUNA only
+// Existing: catch-up for failed (help reply)
+if (existing.status === "failed" && canPostReplies && username) {
+  // ... existing help reply logic ...
+}
+
+// NEW: catch-up for completed launches missing a reply
+if (existing.status === "completed" && canPostReplies && username) {
+  const { data: alreadyReplied } = await supabase
+    .from("twitter_bot_replies")
+    .select("id")
+    .eq("tweet_id", tweetId)
+    .maybeSingle();
+
+  if (!alreadyReplied) {
+    // Fetch the launch details from agent_social_posts
+    const { data: postData } = await supabase
+      .from("agent_social_posts")
+      .select("mint_address, token_name, token_ticker, image_url")
+      .eq("id", existing.id)
+      .single();
+
+    if (postData?.mint_address) {
+      const replyText = `Token launched on $SOL!\n\n$${postData.token_ticker || "TOKEN"} - ${postData.token_name || "Token"}\nCA: ${postData.mint_address}\n\nPowered by TUNA Agents! Launch your token on TUNA dot FUN`;
+
+      // Send reply with image if available
+      const replyResult = await replyToTweet(...);
+
+      if (replyResult.success && replyResult.replyId) {
+        await supabase.from("twitter_bot_replies").insert({...});
+        console.log("Catch-up success reply sent");
+      }
+    }
+  }
 }
 ```
 
-#### 2. `api/vanity/batch.ts` - Update default suffix
+#### 2. `supabase/functions/agent-scan-mentions/index.ts`
+
+Add the same catch-up logic at line 453 (currently just does `continue` with no checks):
 
 ```typescript
-const DEFAULT_SUFFIX = 'TUNA';
+if (existing) {
+  // NEW: catch-up for completed launches missing a reply
+  if (existing.status === "completed") {
+    const { data: alreadyReplied } = await supabase
+      .from("twitter_bot_replies")
+      .select("id")
+      .eq("tweet_id", tweetId)
+      .maybeSingle();
+
+    if (!alreadyReplied) {
+      // Fetch mint details and send catch-up reply
+      // ... same pattern as above ...
+    }
+  }
+  results.push({ tweetId, status: "already_processed" });
+  continue;
+}
 ```
 
-#### 3. `api/vanity/generate.ts` - Update default suffix
+### Technical Details
 
-```typescript
-const DEFAULT_SUFFIX = 'TUNA';
-```
-
-#### 4. `supabase/functions/vanity-cron/index.ts` - Fix suffix + boost performance
-
-- Change `TARGET_SUFFIX` from `'TNA'` to `'TUNA'`
-- Increase `MAX_DURATION_MS` from 3000 to 25000
-- Increase `BATCH_SIZE` from 20 to 100
-- Store suffix as `'tuna'` (lowercase) in DB for consistency with existing queries
-
-#### 5. `src/pages/VanityAdminPage.tsx` - Add "Run Background" button
-
-Add a button that calls the `vanity-cron` edge function directly (fire-and-forget). This way the generation runs fully server-side and the user can close the page without killing the process. The page can poll `/api/vanity/status` to see new results appear.
-
-### Summary
-
-| What | Before | After |
-|------|--------|-------|
-| Suffix | "TNA" in all backends | "TUNA" everywhere |
-| Case matching | Case-insensitive (any case) | Case-sensitive (exact TUNA) |
-| Background scanning | Browser-dependent loop | Server-side edge function, fire-and-forget |
-| Edge function duration | 3 seconds | 25 seconds |
+- Need to check which columns exist on `agent_social_posts` for retrieving mint_address/token_name/token_ticker (the data needed for the reply text)
+- Both scanners get the same catch-up logic so whichever runs first will send the missed reply
+- The `twitter_bot_replies` dedup check prevents double-replies if both scanners try
 
 ### Files to modify
-- `lib/vanityGenerator.ts`
-- `api/vanity/batch.ts`
-- `api/vanity/generate.ts`
-- `supabase/functions/vanity-cron/index.ts`
-- `src/pages/VanityAdminPage.tsx`
+- `supabase/functions/agent-scan-twitter/index.ts`
+- `supabase/functions/agent-scan-mentions/index.ts`
 
