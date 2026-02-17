@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Cpu, Database, Play, RefreshCw, Sparkles, Zap, Square } from 'lucide-react';
+import { ArrowLeft, Cpu, Database, Play, RefreshCw, Sparkles, Zap, Square, Server } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VanityStats {
   total: number;
@@ -501,7 +502,7 @@ const VanityAdminPage = () => {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 onClick={() => triggerGenerationOnce({ ignoreTarget: true })}
                 disabled={isGenerating || isAutoRunning}
@@ -538,6 +539,30 @@ const VanityAdminPage = () => {
                     {targetAvailable > 0 ? `Auto-Run to ${targetAvailable}` : 'Auto-Run (no target)'}
                   </>
                 )}
+              </Button>
+              <Button
+                onClick={async () => {
+                  toast.info('Triggering server-side background generation...');
+                  try {
+                    const { data, error } = await supabase.functions.invoke('vanity-cron', {
+                      body: { suffix: targetSuffix },
+                    });
+                    if (error) {
+                      toast.error(`Background trigger failed: ${error.message}`);
+                    } else {
+                      toast.success(`Background run complete! Found ${data?.found ?? 0} addresses (${data?.attempts ?? 0} attempts in ${Math.round((data?.duration ?? 0) / 1000)}s)`);
+                      fetchStatus();
+                    }
+                  } catch (err: any) {
+                    toast.error(`Background trigger error: ${err.message}`);
+                  }
+                }}
+                variant="outline"
+                className="flex-1 border-primary/50"
+                size="lg"
+              >
+                <Server className="w-4 h-4 mr-2" />
+                Run Background (Server)
               </Button>
             </div>
 

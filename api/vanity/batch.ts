@@ -15,7 +15,7 @@ function applyCors(res: VercelResponse) {
 }
 
 // Configuration for batch generation
-const DEFAULT_SUFFIX = 'TNA'; // Case-SENSITIVE matching (exact: TNA)
+const DEFAULT_SUFFIX = 'TUNA'; // Case-SENSITIVE matching (exact: TUNA)
 const MAX_DURATION_MS = 55000;
 const BATCH_SIZE = 3000; // Higher batch size for maximum throughput
 
