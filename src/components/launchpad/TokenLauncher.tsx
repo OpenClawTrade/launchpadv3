@@ -1140,27 +1140,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       
       const signatures: string[] = [];
       
-      // Apply ephemeral keypair signatures AFTER Phantom has signed
-      const applyEphemeralSigs = (signedTx: Transaction | VersionedTransaction, idx: number, label: string) => {
-        const neededPubkeys = txRequiredKeypairs[idx] || [];
-        if (signedTx instanceof Transaction) {
-          const localSigners = neededPubkeys
-            .map(pk => ephemeralKeypairs.get(pk))
-            .filter((kp): kp is Keypair => !!kp);
-          if (localSigners.length > 0) {
-            signedTx.partialSign(...localSigners);
-            console.log(`[Phantom Launch] ${label}: partialSigned with ${localSigners.length} ephemeral keypairs`);
-          }
-        } else if (signedTx instanceof VersionedTransaction) {
-          const localSigners = neededPubkeys
-            .map(pk => ephemeralKeypairs.get(pk))
-            .filter((kp): kp is Keypair => !!kp);
-          if (localSigners.length > 0) {
-            signedTx.sign(localSigners);
-            console.log(`[Phantom Launch] ${label}: signed with ${localSigners.length} ephemeral keypairs (versioned)`);
-          }
-        }
-      };
+       // (dead applyEphemeralSigs removed — ephemeral signing now happens after Phantom)
       
       const signAndSendTx = async (tx: Transaction | VersionedTransaction, idx: number, label: string): Promise<{ signature: string; blockhash: string; lastValidBlockHeight: number }> => {
         console.log(`[Phantom Launch] signTransaction + sendRawTransaction: ${label} (${idx + 1}/${txsToSign.length})...`);
@@ -1179,28 +1159,28 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           (tx as any).message.recentBlockhash = blockhash;
         }
         
-        // Ephemeral keys sign BEFORE Phantom signs
-        const neededPubkeys = txRequiredKeypairs[idx] || [];
-        const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
-        
-        if (localSigners.length > 0) {
-          if (typeof (tx as any).partialSign === 'function' && tx instanceof Transaction) {
-            tx.partialSign(...localSigners);
-          } else if (typeof (tx as any).sign === 'function') {
-            (tx as any).sign(localSigners);
-          }
-        }
-
-        // Phantom signs only — does NOT send (keeps Lighthouse protection)
-        const signedTx = await phantomWallet.signTransaction(tx as any);
-        if (!signedTx) throw new Error(`${label} was cancelled or failed`);
-        
-        // Send through OUR Helius RPC — same pipe that confirms
-        const rawTx = signedTx instanceof VersionedTransaction
-          ? signedTx.serialize()
-          : typeof (signedTx as any).serialize === 'function'
-            ? (signedTx as Transaction).serialize()
-            : (signedTx as any).serialize({ requireAllSignatures: false, verifySignatures: false });
+         // Phantom signs FIRST — does NOT send (keeps Lighthouse protection)
+         const signedTx = await phantomWallet.signTransaction(tx as any);
+         if (!signedTx) throw new Error(`${label} was cancelled or failed`);
+         
+         // Apply ephemeral sigs AFTER Phantom (cross-realm safe via duck-typing)
+         const neededPubkeys = txRequiredKeypairs[idx] || [];
+         const localSigners = neededPubkeys.map(pk => ephemeralKeypairs.get(pk)).filter((kp): kp is Keypair => !!kp);
+         
+         if (localSigners.length > 0) {
+           if (typeof (signedTx as any).partialSign === 'function') {
+             (signedTx as any).partialSign(...localSigners);
+             console.log(`[Phantom Launch] ${label}: partialSigned ${localSigners.length} ephemeral keypairs AFTER Phantom`);
+           } else if (typeof (signedTx as any).sign === 'function') {
+             (signedTx as any).sign(localSigners);
+             console.log(`[Phantom Launch] ${label}: signed ${localSigners.length} ephemeral keypairs AFTER Phantom (versioned)`);
+           }
+         }
+         
+         // Serialize via duck-typing (cross-realm safe)
+         const rawTx = typeof (signedTx as any).serialize === 'function'
+           ? (signedTx as any).serialize()
+           : Buffer.from((signedTx as any).serialize());
         
         const signature = await connection.sendRawTransaction(rawTx, {
           skipPreflight: true,
