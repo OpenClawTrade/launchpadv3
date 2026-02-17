@@ -1,65 +1,77 @@
 
 
-## Fix: Use signTransaction + sendRawTransaction Instead of signAndSendTransaction
+## Root Cause: Ephemeral Signatures Lost — Signing Order Bug
 
-### The Real Problem
+### What's Actually Happening
 
-`signAndSendTransaction` tells Phantom to **send the transaction through Phantom's own RPC node**. Your code then polls **your Helius RPC** for the signature. Helius never saw that transaction because it was submitted elsewhere. 30 polls, 90 seconds, nothing found. The transaction probably landed on-chain just fine — your RPC simply never indexed it.
+The transaction is being **sent to Helius just fine**. Helius accepts it into its mempool. But **validators silently drop it** because it has **missing signatures**.
 
-This is not an RPC reliability issue. This is a routing issue. Two different pipes.
+Here's the bug:
 
-### The Fix (one change, solves everything)
+1. Lines 1182-1192: Ephemeral keypairs (mint, config) call `partialSign()` on the transaction **BEFORE** Phantom
+2. Line 1195: Phantom's `signTransaction()` receives the transaction, deserializes it internally using **its own bundled @solana/web3.js**, adds its signature, and returns a **new object**
+3. Phantom's cross-realm deserialization **strips the ephemeral signatures** that were applied in step 1
+4. The transaction is serialized and sent with only Phantom's signature — missing the required ephemeral ones
+5. Validators see missing required signers and silently drop the transaction
+6. Polling returns `null` forever because the transaction never landed
 
-**Stop using `signAndSendTransaction`. Use `signTransaction` instead.**
+This is why `skipPreflight: true` hides the error — preflight simulation would have caught "missing required signature". And it's why you see the transaction "sent" but never "found".
 
-Flow becomes:
-1. Phantom signs the transaction (adds Lighthouse instructions) — returns signed TX, does NOT send it
-2. Frontend applies ephemeral keypair signatures (mint, config)
-3. Frontend sends via `connection.sendRawTransaction` through YOUR Helius RPC
-4. Frontend confirms via YOUR Helius RPC — same pipe, instant visibility
+There's even a dead function `applyEphemeralSigs` at line 1144 that was meant to fix this — it applies signatures AFTER Phantom — but it's never called. The old pre-Phantom signing at 1182-1192 is still doing the work.
 
-### Balance Check Cleanup
+### The Fix
 
-Remove the 3-RPC parallel race for balance. You have paid Helius — just use it. One call, fast. If it fails, fall back to the cached balance from the hook. No publicnode, no solana-mainnet.
+**Sign ephemeral keys AFTER Phantom returns the signed transaction, not before.** Use duck-typing to handle the cross-realm `instanceof` issue.
+
+### Changes in `src/components/launchpad/TokenLauncher.tsx`
+
+**1. Remove pre-Phantom ephemeral signing (lines 1182-1192)**
+
+Delete the block that calls `partialSign` / `sign` before Phantom.
+
+**2. After Phantom signs (line 1195-1196), apply ephemeral signatures using duck-typing**
+
+```text
+const signedTx = await phantomWallet.signTransaction(tx);
+
+// Apply ephemeral sigs AFTER Phantom (cross-realm safe)
+const neededPubkeys = txRequiredKeypairs[idx] || [];
+const localSigners = neededPubkeys
+  .map(pk => ephemeralKeypairs.get(pk))
+  .filter(Boolean);
+
+if (localSigners.length > 0) {
+  if (typeof signedTx.partialSign === 'function') {
+    signedTx.partialSign(...localSigners);   // Legacy Transaction
+  } else if (typeof signedTx.sign === 'function') {
+    signedTx.sign(localSigners);             // VersionedTransaction
+  }
+}
+```
+
+**3. Fix serialization to also use duck-typing (lines 1199-1203)**
+
+```text
+const rawTx = typeof signedTx.serialize === 'function'
+  ? signedTx.serialize()
+  : Buffer.from(signedTx.serialize());
+```
+
+**4. Remove dead `applyEphemeralSigs` function (lines 1144-1162)**
+
+It's unused. Clean it up.
+
+### Why This Is The Real Fix
+
+- Phantom can't strip signatures that don't exist yet when it signs
+- Ephemeral keys sign the exact same message bytes (blockhash hasn't changed)
+- Duck-typing avoids all cross-realm `instanceof` failures
+- The transaction arrives at validators with ALL required signatures
+- `sendRawTransaction` via Helius still works — same-pipe confirmation stays reliable
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/launchpad/TokenLauncher.tsx` | Replace `signAndSendTx` to use `signTransaction` + `sendRawTransaction`; simplify balance check to single Helius call; simplify `confirmTx` since same-RPC confirmation is reliable |
-
-### Technical Detail
-
-**`signAndSendTx` replacement (lines ~1194-1227):**
-
-```text
-OLD:
-  1. Inject fresh blockhash
-  2. Apply ephemeral keypair signatures
-  3. phantomWallet.signAndSendTransaction(tx) — Phantom sends via ITS RPC
-  4. Return signature
-
-NEW:
-  1. Inject fresh blockhash from Helius
-  2. Apply ephemeral keypair signatures  
-  3. phantomWallet.signTransaction(tx) — Phantom signs only, does NOT send
-  4. connection.sendRawTransaction(signedTx.serialize()) — sent via YOUR Helius
-  5. Return signature
-```
-
-**`confirmTx` simplification (lines ~1230-1298):**
-
-Since the transaction is now sent through the same Helius RPC that confirms it, the WebSocket confirmation will work reliably. Keep polling as a safety net but it should rarely be needed.
-
-**Balance check (lines ~1012-1052):**
-
-Replace 3-endpoint parallel race with single `connection.getBalance(walletPubkey)` call. Fall back to cached `phantomWallet.balance` if it fails. One RPC, zero delay.
-
-### What This Means
-
-- Signing prompt appears instantly (no multi-RPC balance race)
-- Confirmation works every time (same RPC sends and confirms)
-- No more "not found yet" polls — Helius sees its own transactions immediately
-- Dev buy stays merged in TX2 (2-transaction flow unchanged)
-- Lighthouse protection still works (signTransaction triggers it too)
+| `src/components/launchpad/TokenLauncher.tsx` | Move ephemeral signing after Phantom; duck-type everything; remove dead code |
 
