@@ -811,7 +811,7 @@ async function getAuthorLaunchesToday(
   return count || 0;
 }
 
-const DAILY_LAUNCH_LIMIT_PER_AUTHOR = 10;
+const DAILY_LAUNCH_LIMIT_PER_AUTHOR = 3;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -1251,7 +1251,7 @@ Deno.serve(async (req) => {
               wallet_address: "unknown",
               raw_content: normalizedText.slice(0, 1000),
               status: "failed",
-              error_message: "Daily limit of 10 Agent launches per X account reached",
+              error_message: "Daily limit of 3 Agent launches per X account reached",
               processed_at: new Date().toISOString(),
             });
 
@@ -1259,7 +1259,7 @@ Deno.serve(async (req) => {
 
             // Reply with rate limit message
             if (canPostReplies) {
-              const rateLimitText = `🐟 Hey @${username}! There is a daily limit of 10 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
+              const rateLimitText = `🐟 Hey @${username}! There is a daily limit of 3 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
               
               const rateLimitReply = await replyToTweet(
                 tweetId,

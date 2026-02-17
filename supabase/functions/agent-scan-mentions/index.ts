@@ -376,6 +376,67 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Layer 6: Per-author daily launch limit (max 3 per day)
+        const DAILY_LAUNCH_LIMIT_PER_AUTHOR = 3;
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { count: authorLaunchesToday } = await supabase
+          .from("agent_social_posts")
+          .select("id", { count: "exact", head: true })
+          .eq("platform", "twitter")
+          .eq("post_author_id", authorId)
+          .eq("status", "completed")
+          .gte("processed_at", oneDayAgo);
+
+        if ((authorLaunchesToday || 0) >= DAILY_LAUNCH_LIMIT_PER_AUTHOR) {
+          console.log(`[agent-scan-mentions] @${username} (${authorId}) hit daily limit: ${authorLaunchesToday}/${DAILY_LAUNCH_LIMIT_PER_AUTHOR}`);
+
+          // Record the attempt as rate-limited
+          await supabase.from("agent_social_posts").insert({
+            platform: "twitter",
+            post_id: tweetId,
+            post_url: `https://x.com/${username || "i"}/status/${tweetId}`,
+            post_author: username,
+            post_author_id: authorId,
+            raw_content: tweetText.slice(0, 1000),
+            status: "failed",
+            error_message: "Daily limit of 3 Agent launches per X account reached",
+            processed_at: new Date().toISOString(),
+          });
+
+          results.push({ tweetId, status: "rate_limited", error: "Daily limit reached" });
+
+          // Reply with rate limit message
+          const { data: existingRateLimitReply } = await supabase
+            .from("twitter_bot_replies")
+            .select("id")
+            .eq("tweet_id", tweetId)
+            .maybeSingle();
+
+          if (!existingRateLimitReply) {
+            const rateLimitText = `🐟 Hey @${username}! There is a daily limit of 3 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
+            const rateLimitReply = await replyToTweet(
+              tweetId,
+              rateLimitText,
+              consumerKey,
+              consumerSecret,
+              accessToken,
+              accessTokenSecret
+            );
+
+            if (rateLimitReply.success && rateLimitReply.replyId) {
+              await supabase.from("twitter_bot_replies").insert({
+                tweet_id: tweetId,
+                tweet_author: username,
+                tweet_text: tweetText.slice(0, 500),
+                reply_text: rateLimitText.slice(0, 500),
+                reply_id: rateLimitReply.replyId,
+              });
+              console.log(`[agent-scan-mentions] ✅ Sent rate limit reply to ${tweetId}`);
+            }
+          }
+          continue;
+        }
+
         // Check if already processed (deduplication with primary scanner)
         const { data: existing } = await supabase
           .from("agent_social_posts")

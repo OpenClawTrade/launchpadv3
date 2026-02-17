@@ -730,7 +730,7 @@ async function getWalletLaunchesToday(
   return count || 0;
 }
 
-const DAILY_LAUNCH_LIMIT = 10;
+const DAILY_LAUNCH_LIMIT = 3;
 
 // Process a social post and launch token
 export async function processLaunchPost(
