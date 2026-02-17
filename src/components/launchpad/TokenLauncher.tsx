@@ -841,32 +841,41 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         if (!signature) throw new Error("Transaction cancelled or failed");
 
         signatures.push(signature);
-        // Hybrid confirmation: race WebSocket + polling with searchTransactionHistory
+        // Hybrid confirmation: race WebSocket + polling (safe pattern — WS never rejects the race)
         const confirmStart = Date.now();
+        const txLabel = `Transaction ${idx + 1}`;
+        console.log(`[Holders Launch] ⏳ ${txLabel} confirming (hybrid):`, signature);
         
-        const wsConfirm = async () => {
-          const { blockhash: fb, lastValidBlockHeight: fh } = await connection.getLatestBlockhash("confirmed");
-          const c = await connection.confirmTransaction({ signature, blockhash: fb, lastValidBlockHeight: fh }, "confirmed");
-          if (c.value.err) throw new Error(`Transaction ${idx + 1} failed on-chain: ${JSON.stringify(c.value.err)}`);
+        const wsConfirm = async (): Promise<string> => {
+          try {
+            const { blockhash: fb, lastValidBlockHeight: fh } = await connection.getLatestBlockhash("confirmed");
+            const c = await connection.confirmTransaction({ signature, blockhash: fb, lastValidBlockHeight: fh }, "confirmed");
+            if (c.value.err) throw new Error(`${txLabel} failed on-chain: ${JSON.stringify(c.value.err)}`);
+            return "websocket";
+          } catch (e) {
+            if (e instanceof Error && e.message.includes('on-chain')) throw e;
+            console.warn(`[Holders Launch] WS confirm failed for ${txLabel}, falling back to polling:`, e instanceof Error ? e.message : e);
+            return new Promise<never>(() => {}); // Never resolves — lets polling win
+          }
         };
         
-        const pollConfirm = async () => {
+        const pollConfirm = async (): Promise<string> => {
           while (Date.now() - confirmStart < 90000) {
             try {
               const { value } = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
               const s = value?.[0];
               if (s) {
-                if (s.err) throw new Error(`Transaction ${idx + 1} failed on-chain: ${JSON.stringify(s.err)}`);
-                if (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized') return;
+                if (s.err) throw new Error(`${txLabel} failed on-chain: ${JSON.stringify(s.err)}`);
+                if (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized') return "polling";
               }
-            } catch (e) { if (e instanceof Error && e.message.includes('failed on-chain')) throw e; }
+            } catch (e) { if (e instanceof Error && e.message.includes('on-chain')) throw e; }
             await new Promise((r) => setTimeout(r, 2000));
           }
-          throw new Error(`Transaction ${idx + 1} confirmation timed out. Check Solscan: ${signature}`);
+          throw new Error(`${txLabel} confirmation timed out after 90s. Check Solscan: https://solscan.io/tx/${signature}`);
         };
         
-        await Promise.race([wsConfirm(), pollConfirm()]);
-        console.log(`[Holders Launch] TX${idx + 1} confirmed in ${Date.now() - confirmStart}ms`);
+        const method = await Promise.race([wsConfirm(), pollConfirm()]);
+        console.log(`[Holders Launch] ✅ ${txLabel} confirmed via ${method} in ${Date.now() - confirmStart}ms`);
         
         // 2s sync buffer before next TX
         if (idx < txBase64s.length - 1) {
@@ -1000,26 +1009,38 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
       const totalNeeded = estimatedTxFees + phantomDevBuySol;
       let currentBalance: number | null = null;
       
-      // Try multiple RPC endpoints to get balance
+      // Race all RPC endpoints in parallel — first success wins (eliminates sequential delay)
       const walletPubkey = new PublicKey(phantomWallet.address!);
+      const balanceStart = Date.now();
       const rpcEndpoints = [
         { conn: connection, name: "primary" },
         { conn: new Connection("https://solana.publicnode.com", "confirmed"), name: "publicnode" },
         { conn: new Connection("https://api.mainnet-beta.solana.com", "confirmed"), name: "solana-mainnet" },
       ];
       
-      for (const { conn, name } of rpcEndpoints) {
-        try {
-          const freshBalance = await Promise.race([
+      try {
+        // Manual Promise.any polyfill (ES2021 not available)
+        const balancePromises = rpcEndpoints.map(({ conn, name }) =>
+          Promise.race([
             conn.getBalance(walletPubkey),
             new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
-          ]);
-          currentBalance = freshBalance / 1e9;
-          console.log(`[Phantom Launch] Fresh balance from ${name}: ${currentBalance} SOL`);
-          if (currentBalance > 0) break; // Got a valid balance
-        } catch (e) {
-          console.warn(`[Phantom Launch] Balance fetch failed (${name}):`, e);
-        }
+          ]).then(bal => {
+            const solBal = bal / 1e9;
+            console.log(`[Phantom Launch] Balance from ${name}: ${solBal} SOL (${Date.now() - balanceStart}ms)`);
+            if (solBal <= 0) throw new Error("zero balance");
+            return solBal;
+          })
+        );
+        // Race: first resolved promise wins; if all reject we catch below
+        const result = await new Promise<number>((resolve, reject) => {
+          let rejections = 0;
+          balancePromises.forEach(p => {
+            p.then(resolve).catch(() => { rejections++; if (rejections === balancePromises.length) reject(new Error("all failed")); });
+          });
+        });
+        currentBalance = result;
+      } catch {
+        console.warn(`[Phantom Launch] All parallel balance fetches failed (${Date.now() - balanceStart}ms)`);
       }
       
       // Fallback to cached balance from hook
@@ -1205,35 +1226,45 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
         return { signature, blockhash, lastValidBlockHeight };
       };
       
-      // Hybrid confirmation: race WebSocket-based confirmTransaction against polling
-      // This handles Phantom sending via its own RPC (our RPC may not have the TX in recent cache)
+      // Hybrid confirmation: race WebSocket vs polling (safe pattern — WS never rejects the race)
       const confirmTx = async (sig: string, label: string) => {
-        console.log(`[Phantom Launch] ✅ ${label} confirming (hybrid):`, sig);
+        console.log(`[Phantom Launch] ⏳ ${label} confirming (hybrid):`, sig);
+        console.log(`[Phantom Launch] Solscan: https://solscan.io/tx/${sig}`);
         signatures.push(sig);
         
         const confirmStart = Date.now();
         
-        // Method 1: WebSocket-based confirmTransaction with fresh blockhash from OUR RPC
-        // The blockhash here is just a timeout mechanism — it doesn't need to match the TX's blockhash
+        // Method 1: WebSocket — wrapped in catch so it NEVER rejects the race
         const websocketConfirm = async (): Promise<string> => {
-          const { blockhash: freshBlockhash, lastValidBlockHeight: freshHeight } = 
-            await connection.getLatestBlockhash("confirmed");
-          const confirmation = await connection.confirmTransaction({
-            signature: sig,
-            blockhash: freshBlockhash,
-            lastValidBlockHeight: freshHeight,
-          }, "confirmed");
-          if (confirmation.value.err) {
-            throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+          try {
+            const { blockhash: freshBlockhash, lastValidBlockHeight: freshHeight } = 
+              await connection.getLatestBlockhash("confirmed");
+            console.log(`[Phantom Launch] WS confirm using blockhash ${freshBlockhash.slice(0, 8)}… (height ${freshHeight})`);
+            const confirmation = await connection.confirmTransaction({
+              signature: sig,
+              blockhash: freshBlockhash,
+              lastValidBlockHeight: freshHeight,
+            }, "confirmed");
+            if (confirmation.value.err) {
+              throw new Error(`${label} failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+            }
+            return "websocket";
+          } catch (e) {
+            // On-chain errors MUST propagate
+            if (e instanceof Error && e.message.includes('on-chain')) throw e;
+            // Block height exceeded / timeout / network errors → DON'T reject, let polling win
+            console.warn(`[Phantom Launch] WS confirm failed for ${label} (${Date.now() - confirmStart}ms), falling back to polling:`, e instanceof Error ? e.message : e);
+            return new Promise<never>(() => {}); // Never resolves, never rejects
           }
-          return "websocket";
         };
         
-        // Method 2: Polling with searchTransactionHistory (checks ledger, not just recent cache)
+        // Method 2: Polling with searchTransactionHistory — always the reliable fallback
         const pollingConfirm = async (): Promise<string> => {
           const TIMEOUT_MS = 90000;
           const POLL_INTERVAL_MS = 2000;
+          let pollCount = 0;
           while (Date.now() - confirmStart < TIMEOUT_MS) {
+            pollCount++;
             try {
               const { value } = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true });
               const status = value?.[0];
@@ -1242,19 +1273,23 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
                   throw new Error(`${label} failed on-chain: ${JSON.stringify(status.err)}`);
                 }
                 if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+                  console.log(`[Phantom Launch] Polling found ${label} as ${status.confirmationStatus} after ${pollCount} polls (${Date.now() - confirmStart}ms)`);
                   return "polling";
                 }
+                console.log(`[Phantom Launch] Poll #${pollCount}: ${label} status = ${status.confirmationStatus || 'processing'} (${Date.now() - confirmStart}ms)`);
+              } else {
+                console.log(`[Phantom Launch] Poll #${pollCount}: ${label} not found yet (${Date.now() - confirmStart}ms)`);
               }
             } catch (e) {
-              // Ignore polling errors, keep trying
-              if (e instanceof Error && e.message.includes('failed on-chain')) throw e;
+              if (e instanceof Error && e.message.includes('on-chain')) throw e;
+              console.warn(`[Phantom Launch] Poll #${pollCount} error:`, e instanceof Error ? e.message : e);
             }
             await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
           }
-          throw new Error(`${label} confirmation timed out after ${TIMEOUT_MS / 1000}s. Check Solscan: ${sig}`);
+          throw new Error(`${label} confirmation timed out after ${TIMEOUT_MS / 1000}s. Solscan: https://solscan.io/tx/${sig}`);
         };
         
-        // Race both methods — whichever confirms first wins
+        // Race — WS errors become never-resolving promises, so only polling can reject
         const method = await Promise.race([websocketConfirm(), pollingConfirm()]);
         console.log(`[Phantom Launch] ✅ ${label} confirmed via ${method} in ${Date.now() - confirmStart}ms`);
         

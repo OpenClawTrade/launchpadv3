@@ -117,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const DEFAULT_FEE_BPS = 200;
     const tradingFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(Number(rawFeeBps) || DEFAULT_FEE_BPS)));
     // Validate dev buy amount (max 10 SOL to prevent abuse)
-    const effectiveDevBuySol = Math.max(0, Math.min(10, Number(devBuySol) || 0));
+    const effectiveDevBuySol = Math.max(0, Math.min(100, Number(devBuySol) || 0));
     console.log('[create-phantom] Validated tradingFeeBps:', tradingFeeBps, 'from raw:', rawFeeBps);
     console.log('[create-phantom] Dev buy amount:', effectiveDevBuySol, 'SOL');
 
