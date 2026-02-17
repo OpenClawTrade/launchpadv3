@@ -199,7 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Use pool vanity keypair if available, otherwise random
     // skipDevBuyMerge=true: keep dev buy as separate TX3 for Jito bundle submission
     // This prevents Phantom Lighthouse from blocking the oversized merged transaction
-    const skipDevBuyMerge = true; // Keep dev buy as separate TX3 for Lighthouse headroom
+    const skipDevBuyMerge = false; // Merge dev buy into pool TX2 (2-TX flow)
     
     if (vanityKeypair) {
       const result = await createMeteoraPoolWithMint({
