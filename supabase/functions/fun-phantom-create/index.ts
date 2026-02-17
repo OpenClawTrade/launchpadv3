@@ -353,17 +353,21 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        // Return data needed for Phase 2 after confirmation
         name: name.slice(0, 50),
         ticker: ticker.toUpperCase().slice(0, 5),
         mintAddress,
         dbcPoolAddress,
         imageUrl: storedImageUrl,
-        unsignedTransactions, // Return transactions for Phantom to sign
-        onChainSuccess: false, // Not yet confirmed
+        unsignedTransactions,
+        txLabels: poolData.txLabels || [],
+        txRequiredKeypairs: poolData.txRequiredKeypairs || [],
+        ephemeralKeypairs: poolData.ephemeralKeypairs || {},
+        txIsVersioned: poolData.txIsVersioned || [],
+        vanityKeypairId: poolData.vanityKeypairId || null,
+        onChainSuccess: false,
         solscanUrl: `https://solscan.io/token/${mintAddress}`,
         tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}`,
-        message: "🚀 Ready for Phantom signature. Token will be recorded after confirmation.",
+        message: "Ready for Phantom signature.",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
