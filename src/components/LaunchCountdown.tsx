@@ -36,28 +36,17 @@ export function LaunchCountdown({ compact = false }: { compact?: boolean }) {
 
   if (compact) {
     return (
-      <Card className="p-3 sm:p-4 bg-primary/5 border-primary/30 text-center space-y-2">
-        <div className="flex items-center justify-center gap-1.5 text-primary">
-          <Timer className="w-4 h-4" />
-          <span className="text-xs font-semibold uppercase tracking-wider">Token Launch</span>
+      <div className="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-card border border-border">
+        <Timer className="w-4 h-4 text-primary shrink-0" />
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Token Launch</span>
+        <div className="flex items-center gap-1 font-mono text-lg font-bold text-foreground">
+          <span className="bg-secondary rounded px-1.5 py-0.5">{h.toString().padStart(2, "0")}</span>
+          <span className="text-muted-foreground">:</span>
+          <span className="bg-secondary rounded px-1.5 py-0.5">{m.toString().padStart(2, "0")}</span>
+          <span className="text-muted-foreground">:</span>
+          <span className="bg-secondary rounded px-1.5 py-0.5">{s.toString().padStart(2, "0")}</span>
         </div>
-        <div className="flex justify-center gap-1.5 sm:gap-2">
-          {[
-            { value: h, label: "H" },
-            { value: m, label: "M" },
-            { value: s, label: "S" },
-          ].map(({ value, label }) => (
-            <div key={label} className="flex flex-col items-center">
-              <div className="bg-card border border-border rounded-md w-11 h-11 sm:w-14 sm:h-14 flex items-center justify-center">
-                <span className="text-lg sm:text-xl font-bold text-foreground font-mono">
-                  {value.toString().padStart(2, "0")}
-                </span>
-              </div>
-              <span className="text-[9px] text-muted-foreground mt-0.5 uppercase">{label}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
+      </div>
     );
   }
 
