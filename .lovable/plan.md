@@ -1,56 +1,71 @@
 
+## Fix: Standalone Catch-Up for Completed Launches Missing Replies
 
-## Fix: Catch-Up Replies for Completed Launches Missing Replies
+### Root Cause
 
-### Problem
+The catch-up logic added previously is inside the tweet processing loop (lines 1232-1288 of `agent-scan-twitter` and similar in `agent-scan-mentions`). This only fires if the tweet appears in the current API scan batch (latest ~100 tweets). Since the completed-but-unreplied tweets (Woof, Sybil, PopcatInu) are now older than the latest 100 tweets, they never enter the loop and the catch-up never triggers.
 
-When a tweet is processed and a token is successfully launched, but the reply fails (e.g., due to the base64 image bug), subsequent scans see the tweet as `status: "completed"` in `agent_social_posts` and skip it entirely -- never checking if a reply was actually sent.
+### Solution
 
-The catch-up logic at line 1194-1233 of `agent-scan-twitter` only handles `status === "failed"`. There is zero handling for `status === "completed"` with a missing reply.
-
-Same issue exists in `agent-scan-mentions` (line 453-455) -- no catch-up at all.
-
-### Fix
-
-Add catch-up reply logic for completed launches that are missing entries in `twitter_bot_replies`.
+Add a **standalone catch-up query** that runs BEFORE the tweet loop in `agent-scan-twitter`. This query directly checks the database for any `agent_social_posts` with `status = 'completed'` that have no matching entry in `twitter_bot_replies`, then sends the missing replies.
 
 ### Changes
 
 #### 1. `supabase/functions/agent-scan-twitter/index.ts`
 
-After the existing `failed` catch-up block (line 1230), add a new block for `completed` status:
+Insert a new block AFTER the lock is acquired and credentials are set up (around line 1117, before the tweet sorting/processing loop), but only when `canPostReplies` is true:
 
-```typescript
-// Existing: catch-up for failed (help reply)
-if (existing.status === "failed" && canPostReplies && username) {
-  // ... existing help reply logic ...
-}
+```text
+// ===== STANDALONE CATCH-UP: completed launches missing replies =====
+if (canPostReplies) {
+  // Find completed launches from last 48 hours with no reply
+  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const { data: unrepliedPosts } = await supabase
+    .from("agent_social_posts")
+    .select("id, post_id, post_author, fun_token_id, parsed_name, parsed_symbol")
+    .eq("platform", "twitter")
+    .eq("status", "completed")
+    .gt("created_at", cutoff)
+    .not("fun_token_id", "is", null)
+    .limit(5);  // Max 5 catch-ups per scan cycle
 
-// NEW: catch-up for completed launches missing a reply
-if (existing.status === "completed" && canPostReplies && username) {
-  const { data: alreadyReplied } = await supabase
-    .from("twitter_bot_replies")
-    .select("id")
-    .eq("tweet_id", tweetId)
-    .maybeSingle();
+  if (unrepliedPosts && unrepliedPosts.length > 0) {
+    for (const post of unrepliedPosts) {
+      // Check if reply already exists
+      const { data: alreadyReplied } = await supabase
+        .from("twitter_bot_replies")
+        .select("id")
+        .eq("tweet_id", post.post_id)
+        .maybeSingle();
 
-  if (!alreadyReplied) {
-    // Fetch the launch details from agent_social_posts
-    const { data: postData } = await supabase
-      .from("agent_social_posts")
-      .select("mint_address, token_name, token_ticker, image_url")
-      .eq("id", existing.id)
-      .single();
+      if (alreadyReplied) continue;
 
-    if (postData?.mint_address) {
-      const replyText = `Token launched on $SOL!\n\n$${postData.token_ticker || "TOKEN"} - ${postData.token_name || "Token"}\nCA: ${postData.mint_address}\n\nPowered by TUNA Agents! Launch your token on TUNA dot FUN`;
+      // Fetch token details
+      const { data: tokenData } = await supabase
+        .from("fun_tokens")
+        .select("mint_address, name, ticker")
+        .eq("id", post.fun_token_id)
+        .single();
 
-      // Send reply with image if available
-      const replyResult = await replyToTweet(...);
+      if (!tokenData?.mint_address) continue;
+
+      const tokenName = tokenData.name || post.parsed_name || "Token";
+      const tokenTicker = tokenData.ticker || post.parsed_symbol || "TOKEN";
+      const replyText = `Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${tokenData.mint_address}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
+
+      const replyResult = await replyToTweet(
+        post.post_id, replyText, ...credentials
+      );
 
       if (replyResult.success && replyResult.replyId) {
-        await supabase.from("twitter_bot_replies").insert({...});
-        console.log("Catch-up success reply sent");
+        await supabase.from("twitter_bot_replies").insert({
+          tweet_id: post.post_id,
+          tweet_author: post.post_author,
+          tweet_text: "(catch-up)",
+          reply_text: replyText.slice(0, 500),
+          reply_id: replyResult.replyId,
+        });
+        console.log(`[agent-scan-twitter] STANDALONE catch-up reply sent for ${post.post_id}`);
       }
     }
   }
@@ -59,35 +74,19 @@ if (existing.status === "completed" && canPostReplies && username) {
 
 #### 2. `supabase/functions/agent-scan-mentions/index.ts`
 
-Add the same catch-up logic at line 453 (currently just does `continue` with no checks):
+Add the same standalone catch-up block inside the lock, before the mentions loop. Uses the same pattern but with OAuth credentials instead of cookie-based auth.
 
-```typescript
-if (existing) {
-  // NEW: catch-up for completed launches missing a reply
-  if (existing.status === "completed") {
-    const { data: alreadyReplied } = await supabase
-      .from("twitter_bot_replies")
-      .select("id")
-      .eq("tweet_id", tweetId)
-      .maybeSingle();
+### Why This Works
 
-    if (!alreadyReplied) {
-      // Fetch mint details and send catch-up reply
-      // ... same pattern as above ...
-    }
-  }
-  results.push({ tweetId, status: "already_processed" });
-  continue;
-}
-```
-
-### Technical Details
-
-- Need to check which columns exist on `agent_social_posts` for retrieving mint_address/token_name/token_ticker (the data needed for the reply text)
-- Both scanners get the same catch-up logic so whichever runs first will send the missed reply
-- The `twitter_bot_replies` dedup check prevents double-replies if both scanners try
+- Queries the database directly instead of relying on the Twitter API to return old tweets
+- Runs every scan cycle (every 5 minutes) so missed replies get sent quickly
+- Limited to 5 catch-ups per cycle and 48-hour window to avoid spam
+- Dedup via `twitter_bot_replies` prevents double-replies
+- Both scanners get the logic so whichever runs first sends the reply
 
 ### Files to modify
-- `supabase/functions/agent-scan-twitter/index.ts`
-- `supabase/functions/agent-scan-mentions/index.ts`
+- `supabase/functions/agent-scan-twitter/index.ts` -- add standalone catch-up block before tweet loop
+- `supabase/functions/agent-scan-mentions/index.ts` -- add standalone catch-up block before mentions loop
 
+### Deployment
+Both edge functions will be redeployed after changes.
