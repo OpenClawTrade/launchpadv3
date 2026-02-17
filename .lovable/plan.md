@@ -1,83 +1,51 @@
 
 
-# Fix Vanity Address System: TNA -> TUNA Migration
+## Fix: Tweet Scanner Missing All Launch Commands
 
-## Issues Found
+### Problem
+The scanner is missing every `!launch` command tweet. Here's why:
 
-### 1. No cron job exists
-The `vanity-cron` edge function has **no pg_cron schedule** set up. There is no cron job in `cron.job` table. The function only runs when manually triggered from the admin page. That's why it never auto-runs to reach 500.
+1. **X Official API credits are depleted** (402 error), so every scan falls back to twitterapi.io
+2. The search query `(tunalaunch OR launchtuna OR "!launch") -is:retweet` on twitterapi.io matches the word "launch" too broadly
+3. twitterapi.io returns 20 random tweets containing "launch" -- none of which are actual `!launch` commands
+4. All 20 tweets get skipped as "no launch command", and the real command tweets from your users never appear in results
 
-### 2. Suffix mismatch: multiple places still use 'TNA' instead of 'TUNA'
-The edge function correctly generates `tuna` suffix, but **6 files** still request `tna` when reserving vanity addresses:
+### Solution
 
-| File | Line | Current | Fix |
-|------|------|---------|-----|
-| `api/pool/create-fun.ts` | 389 | `getAvailableVanityAddress('TNA')` | Change to `'tuna'` |
-| `api/pool/create-phantom.ts` | 152 | `getAvailableVanityAddress('TNA')` | Change to `'tuna'` |
-| `supabase/functions/bags-agent-launch/index.ts` | 43 | `p_suffix: 'tna'` | Change to `'tuna'` |
-| `supabase/functions/pump-agent-launch/index.ts` | 41 | `p_suffix: 'tna'` | Change to `'tuna'` |
-| `api/vanity/progress.ts` | 42 | default suffix `'TNA'` | Change to `'tuna'` |
-| Comments in multiple files | various | "TNA suffix" | Update to "TUNA suffix" |
+**1. Fix the search query for twitterapi.io**
 
-### 3. Database state confirms the problem
-- `tna` suffix: 45 available, 199 reserved, 116 used
-- `tuna` suffix: only 3 available (from recent manual runs)
+The twitterapi.io search engine handles quoted phrases differently than the official X API. Change the query to be more specific by using exact username mentions instead of the broad "!launch" term:
 
-The generator is producing `tuna` addresses but all consumers are requesting `tna`, so the new addresses never get used.
-
-### 4. Case-insensitive matching is already correct
-The `vanity-cron` edge function correctly uses `CASE_SENSITIVE = false` and stores suffix as `tuna` (lowercase). The `matchesSuffix` function does `.toLowerCase()` comparison. This means any case combo (TUNA, tuna, TuNa) will match -- this is correct.
-
-## Plan
-
-### Step 1: Set up pg_cron job for auto-generation
-Create a cron job to invoke `vanity-cron` every minute so it auto-fills to 500:
-
-```sql
--- Enable extensions
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
-
-SELECT cron.schedule(
-  'vanity-cron-every-minute',
-  '* * * * *',
-  $$
-  SELECT net.http_post(
-    url:='https://ptwytypavumcrbofspno.supabase.co/functions/v1/vanity-cron',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0d3l0eXBhdnVtY3Jib2ZzcG5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTIyODksImV4cCI6MjA4MjQ4ODI4OX0.7FFIiwQTgqIQn4lzyDHPTsX-6PD5MPqgZSdVVsH9A44"}'::jsonb,
-    body:='{"time": "now"}'::jsonb
-  ) AS request_id;
-  $$
-);
+```
+(@tunalaunch OR @buildtuna) -is:retweet
 ```
 
-### Step 2: Update all consumers from 'TNA' to 'tuna'
+This ensures only tweets that mention the bot accounts are returned -- which is exactly the tweets that contain launch commands. Users must mention @tunalaunch or @buildtuna for the command to work anyway.
 
-**`api/pool/create-fun.ts`** (line 389):
-- `getAvailableVanityAddress('TNA')` -> `getAvailableVanityAddress('tuna')`
+**2. Add a secondary "!launch" keyword scan**
 
-**`api/pool/create-phantom.ts`** (line 152):
-- `getAvailableVanityAddress('TNA')` -> `getAvailableVanityAddress('tuna')`
+For users who type `!launch` without mentioning the bot account (like @AzureW5's tweet), add a **separate narrower query**:
 
-**`supabase/functions/bags-agent-launch/index.ts`** (line 43):
-- `p_suffix: 'tna'` -> `p_suffix: 'tuna'`
+```
+"!launch" -is:retweet -is:reply
+```
 
-**`supabase/functions/pump-agent-launch/index.ts`** (line 41):
-- `p_suffix: 'tna'` -> `p_suffix: 'tuna'`
+Run this as a second search call only if the first query returns few results, to avoid wasting API credits.
 
-**`api/vanity/progress.ts`** (line 42):
-- Default suffix `'TNA'` -> `'tuna'`
+**3. Increase result count on twitterapi.io**
 
-Update all comments referencing "TNA suffix" to "TUNA suffix" in these files.
+The twitterapi.io fallback currently doesn't set a `count` parameter, defaulting to 20. This is too few when results are polluted. Add `count=50` to get more results and increase the chance of catching actual commands.
 
-### Step 3: Redeploy edge functions
-- `bags-agent-launch`
-- `pump-agent-launch`
+### Technical Changes
 
-(The `api/` files are Vercel serverless functions and deploy automatically on push.)
+**File: `supabase/functions/agent-scan-twitter/index.ts`**
 
-### Summary
-After these changes:
-- The cron job auto-invokes `vanity-cron` every minute, generating case-insensitive TUNA addresses until 500 are available
-- All launch functions correctly request `tuna` suffix addresses from the pool
-- Addresses display as "TUNA" across the site regardless of actual base58 casing
+- Update the `searchQuery` variable (line ~996) to use mention-based query when falling back to twitterapi.io
+- In `searchMentionsViaTwitterApiIo` function (~line 336), add `count=50` parameter
+- Add a secondary search for `"!launch"` pattern if the primary search returns 0 command tweets
+- Log which tweets are being returned for better debugging
+
+### Risk Assessment
+- Low risk: only changes how tweets are found, not how they're processed
+- The mention-based query is more reliable because users must tag the bot for the system to work
+- The `!launch` fallback query ensures edge cases (like @AzureW5) are still caught
