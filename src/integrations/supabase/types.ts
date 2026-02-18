@@ -8431,6 +8431,16 @@ export type Database = {
         Args: { p_error_message: string; p_job_id: string }
         Returns: undefined
       }
+      backend_get_and_reserve_specific_vanity_keypair: {
+        Args: { p_keypair_id: string }
+        Returns: {
+          id: string
+          public_key: string
+          secret_key_encrypted: string
+          status: string
+          suffix: string
+        }[]
+      }
       backend_get_recent_vanity_keypairs: {
         Args: { p_limit?: number; p_suffix?: string }
         Returns: {

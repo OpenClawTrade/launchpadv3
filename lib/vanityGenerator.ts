@@ -217,8 +217,9 @@ export async function getSpecificVanityAddress(keypairId: string): Promise<{
     return null;
   }
   
-  // Use SECURITY DEFINER function to bypass RLS (vanity_keypairs has USING(false) policy)
-  const { data: rows, error } = await supabase.rpc('backend_get_specific_vanity_keypair', {
+  // Use atomic SECURITY DEFINER function that fetches AND reserves in one call
+  // This bypasses RLS and avoids the separate table UPDATE that would fail with anon key
+  const { data: rows, error } = await supabase.rpc('backend_get_and_reserve_specific_vanity_keypair', {
     p_keypair_id: keypairId,
   });
   const data = rows?.[0] ?? null;
@@ -229,14 +230,6 @@ export async function getSpecificVanityAddress(keypairId: string): Promise<{
   }
   
   console.log(`[vanity] Found specific vanity keypair: ${data.public_key} (status: ${data.status})`);
-  
-  // Update status to 'reserved' if not already
-  if (data.status !== 'used') {
-    await supabase
-      .from('vanity_keypairs')
-      .update({ status: 'reserved' })
-      .eq('id', keypairId);
-  }
   
   // Decrypt the secret key
   const secretKeyBytes = decryptSecretKey(data.secret_key_encrypted, encryptionKey);
