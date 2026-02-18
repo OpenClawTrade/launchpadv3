@@ -8442,6 +8442,16 @@ export type Database = {
           used_for_token_id: string
         }[]
       }
+      backend_get_specific_vanity_keypair: {
+        Args: { p_keypair_id: string }
+        Returns: {
+          id: string
+          public_key: string
+          secret_key_encrypted: string
+          status: string
+          suffix: string
+        }[]
+      }
       backend_get_used_vanity_keypairs: {
         Args: { p_limit?: number }
         Returns: {

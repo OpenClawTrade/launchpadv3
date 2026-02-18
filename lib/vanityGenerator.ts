@@ -208,11 +208,11 @@ export async function getSpecificVanityAddress(keypairId: string): Promise<{
     return null;
   }
   
-  const { data, error } = await supabase
-    .from('vanity_keypairs')
-    .select('id, public_key, secret_key_encrypted, status')
-    .eq('id', keypairId)
-    .single();
+  // Use SECURITY DEFINER function to bypass RLS (vanity_keypairs has USING(false) policy)
+  const { data: rows, error } = await supabase.rpc('backend_get_specific_vanity_keypair', {
+    p_keypair_id: keypairId,
+  });
+  const data = rows?.[0] ?? null;
   
   if (error || !data) {
     console.error(`[vanity] Failed to fetch specific vanity keypair ${keypairId}:`, error?.message);
