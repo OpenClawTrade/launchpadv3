@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
 import { DomainRouter } from "@/components/DomainRouter";
+import { MatrixBackground } from "@/components/claw/MatrixBackground";
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
@@ -91,6 +92,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <ErrorBoundary>
+              <MatrixBackground />
               <BrowserRouter>
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
