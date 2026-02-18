@@ -47,14 +47,14 @@ function generateAndCheck(suffix: string): { keypair: Keypair; address: string }
   return null;
 }
 
-// Get Supabase client using anon key (works with SECURITY DEFINER functions)
+// Get Supabase client - MUST use service role key to bypass RLS on vanity_keypairs
 function getSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL;
-  // Prefer service role key but fall back to anon key for SECURITY DEFINER functions
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  // Service role key required - vanity_keypairs RLS blocks anon key
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase credentials not configured');
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for vanity keypair operations (table has RLS that blocks anon access)');
   }
   
   return createClient(supabaseUrl, supabaseKey);
