@@ -79,8 +79,7 @@ function ClawModeContent() {
 
   return (
     <div className="claw-theme claw-nebula">
-      <MatrixBackground />
-      <div className="relative" style={{ zIndex: 1 }}>
+        <div className="relative" style={{ zIndex: 1 }}>
         <header className="sticky top-0 backdrop-blur-md border-b" style={{ background: "hsl(var(--claw-bg) / 0.85)", borderColor: "hsl(var(--claw-border))", zIndex: 50 }}>
           <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
