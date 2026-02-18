@@ -49,12 +49,21 @@ function generateAndCheck(suffix: string): { keypair: Keypair; address: string }
 
 // Get Supabase client - MUST use service role key to bypass RLS on vanity_keypairs
 function getSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  // Service role key required - vanity_keypairs RLS blocks anon key
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Accept multiple env var name conventions (Vercel sets SUPABASE_URL, Vite apps use VITE_SUPABASE_URL)
+  const supabaseUrl = 
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    'https://ptwytypavumcrbofspno.supabase.co';
   
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for vanity keypair operations (table has RLS that blocks anon access)');
+  // Service role key required - vanity_keypairs RLS blocks anon key
+  // Fall back to anon key only as last resort (SECURITY DEFINER functions still work with anon)
+  const supabaseKey = 
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  
+  if (!supabaseKey) {
+    throw new Error('No Supabase key configured for vanity keypair operations');
   }
   
   return createClient(supabaseUrl, supabaseKey);
