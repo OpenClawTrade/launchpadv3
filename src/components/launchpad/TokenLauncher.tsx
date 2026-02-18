@@ -1055,7 +1055,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
             tradingFeeBps: phantomTradingFee,
             devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
             feeMode: feeMode || 'standard',
-            ...(phantomLaunchCode.trim() === 'OFFICIAL-TUNA' ? { specificVanityId: 'beef27e2-e826-46b7-a8f5-8a796ea97efb' } : {}),
+            // specificVanityId removed - reserved keypair no longer exists in pool
           },
         }),
         60_000,
