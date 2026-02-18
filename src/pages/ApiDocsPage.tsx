@@ -1200,7 +1200,7 @@ curl -X GET "${BASE_URL}/api-swap/pool?address=POOL_ADDRESS" \\
                   code={`// pages/index.tsx - Complete Launchpad Page
 import { useState, useEffect } from 'react';
 
-const API_KEY = process.env.NEXT_PUBLIC_TUNA_API_KEY!;
+const API_KEY = "YOUR_API_KEY_HERE";
 const API_URL = "${BASE_URL}";
 
 interface Token {
