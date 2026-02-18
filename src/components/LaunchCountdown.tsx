@@ -36,7 +36,7 @@ export function LaunchCountdown({ compact = false }: { compact?: boolean }) {
     return (
       <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-primary/10 border border-primary/30">
         <Timer className="w-4 h-4 text-primary shrink-0" />
-        <span className="text-sm font-semibold text-primary">Token Is LIVE EpAAWyTHAcanJiHjX246jfB9L5xfLGXbNYzxwjmyTUNA</span>
+        <span className="text-sm font-semibold text-primary">Token is almost ready to go Live</span>
       </div>
     );
   }
