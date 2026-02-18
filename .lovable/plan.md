@@ -1,54 +1,35 @@
 
-## Add Matrix Background to All Pages
+## Fix: Matrix Background Covering Page Content (Missing Tabs)
 
-The Matrix rain background from Claw Mode will be applied globally across every page in the app by mounting it once at the root level in `App.tsx`, underneath all routes.
+### Root Cause
 
-### Approach
+The `MatrixBackground` canvas is `position: fixed` with `z-index: 0`. Page content in `.gate-theme` and other page wrappers has no explicit `z-index`, which means they sit in the default stacking context at `z-index: auto`. In CSS stacking rules, a `position: fixed` element with `z-index: 0` paints **on top of** in-flow content with no explicit z-index — this is why the Matrix rain canvas overlaps and hides tabs, content panels, and UI elements across all pages.
 
-The `MatrixBackground` component is a fixed-position canvas (`position: fixed; z-index: 0`) with `pointer-events: none`, so it is already designed to sit passively behind all content without interfering with any interactions. It just needs to be rendered once at the app root level.
+### The Fix
 
-**No changes needed to any individual page file.**
+Change the canvas `z-index` from `0` to `-1` in `MatrixBackground.tsx`. This is the correct and minimal fix:
 
-### Files to Change
+- `z-index: -1` places the canvas **below all page content** in every stacking context automatically
+- No changes needed to any individual page or CSS file
+- Pointer events are already `none`, so this has zero behavioral impact
+- The canvas will still be visible through semi-transparent backgrounds (the dark page backgrounds have some transparency that lets the rain show through)
 
-**`src/App.tsx`**
-- Import `MatrixBackground` from `@/components/claw/MatrixBackground`
-- Render it once inside the `ErrorBoundary`, outside of `<Routes>`, so it persists across all route navigations without remounting
-
-**`src/App.css`** (minor)
-- Remove the `max-width: 1280px` and `padding` from `#root` that could clip the full-screen canvas — or just leave it, since the canvas is `fixed` and ignores the `#root` box model entirely. No change needed here.
-
-### Technical Details
-
-```text
-App.tsx structure after change:
-
-<ErrorBoundary>
-  <MatrixBackground />          ← Added here (fixed, z-index 0, pointer-events-none)
-  <BrowserRouter>
-    <DomainRouter />
-    <Suspense fallback={<RouteLoader />}>
-      <Routes>
-        ... all routes unchanged ...
-      </Routes>
-    </Suspense>
-  </BrowserRouter>
-</ErrorBoundary>
-```
-
-The canvas is already coded with:
-- `position: fixed` and `inset-0` — covers the full viewport always
-- `pointer-events: none` — never blocks clicks or interactions
-- `z-index: 0` — sits behind all page content
-- Auto-resizes on window resize
-- Renders at ~12fps to stay lightweight
-- Mixes green Matrix rain characters (katakana + digits) with occasional 🦞 lobster emojis
-
-The `/claw` page already has its own `<MatrixBackground />` render — it will now receive a second instance. To avoid double-rendering on `/claw`, the component in `ClawModePage.tsx` will be removed since the global one covers it.
-
-### Summary of Changes
+### Files Changed
 
 | File | Change |
 |---|---|
-| `src/App.tsx` | Add `<MatrixBackground />` once at root level |
-| `src/pages/ClawModePage.tsx` | Remove the now-redundant local `<MatrixBackground />` |
+| `src/components/claw/MatrixBackground.tsx` | Change `style={{ zIndex: 0 }}` to `style={{ zIndex: -1 }}` on the canvas element |
+
+### Why This Works
+
+```text
+Before:
+  canvas (fixed, z-index: 0)  ← paints over auto-stacked content
+  page content (z-index: auto = 0 but loses tie-break to positioned fixed)
+
+After:
+  page content (z-index: auto) ← always above
+  canvas (fixed, z-index: -1)  ← always below all content
+```
+
+This is the standard pattern for background canvas effects and requires only a single character change.
