@@ -58,7 +58,7 @@ const FILTER_TABS = [
   { id: "hot", label: "🔥 Hot" },
   { id: "top", label: "👑 Top" },
   { id: "agents", label: "🤖 Agents" },
-  { id: "promoted", label: "⭐ Promoted" },
+  
 ] as const;
 
 type FilterTab = typeof FILTER_TABS[number]["id"];
@@ -154,7 +154,7 @@ export default function FunLauncherPage() {
       case "hot": return [...tokens].filter(t => (t.bonding_progress ?? 0) >= 30).sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0));
       case "top": return [...tokens].sort((a, b) => (b.market_cap_sol ?? 0) - (a.market_cap_sol ?? 0));
       case "agents": return tokens.filter(t => !!t.agent_id);
-      case "promoted": return tokens.filter(t => promotedTokenIds.has(t.id));
+      
       default: return tokens;
     }
   }, [tokens, activeFilter, promotedTokenIds]);
