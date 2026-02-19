@@ -1,86 +1,79 @@
 
-## Fix "Create Token" — No Page Refresh + Styled Dialog
+## Redesign: Professional "Create Token" Popup
 
-### Root Cause
+### The Problem
 
-Both buttons use a plain HTML `<a href="/?create=1">` anchor tag instead of React Router's `<Link>`. A bare `<a>` tag causes a **full browser page reload**, which means the SPA state is wiped and the `?create=1` query param reads correctly only after reload — making the dialog flicker open after a hard refresh. On other pages (Agents, Trending, etc.) it navigates away entirely to `/` before the dialog can open.
+The current dialog looks unprofessional because of two layered issues:
 
----
+1. **Double-wrapped container**: The `DialogContent` has its own background/border, AND the `TokenLauncher` inside it renders another `gate-card` (with its own border, header, padding). This creates a box-within-a-box that looks broken.
 
-### Fix 1 — Stop the Page Reload (Sidebar + AppHeader)
+2. **Wrong theme accent**: The previous fix used green `#4ade80` accents, but the app's design system uses **red `#e84040`** (as defined in `gate-theme.css`: `--gate-primary: 0 84% 60%`). The dialog should match the actual app theme.
 
-**`src/components/layout/Sidebar.tsx`**
+3. **Radix default styling bleeds through**: The `DialogContent` from Radix has its own `bg-background`, `rounded-lg`, padding and close button which conflict with the custom styling.
 
-Change:
-```tsx
-<a href="/?create=1" onClick={onLinkClick} ...>
+### The Fix — Two Parts
+
+#### Part 1 — `TokenLauncher.tsx`: Extract card wrapper into a "bare" variant
+
+Add a `bare?: boolean` prop to `TokenLauncher`. When `bare={true}` (used inside the dialog), skip the `<Card className="gate-card">` wrapper and render just the inner content directly. This eliminates the double-border/double-background issue.
+
 ```
-To:
-```tsx
-<Link to="/?create=1" onClick={onLinkClick} ...>
-```
-Import `Link` from `react-router-dom` (it's already imported).
+Before (inside dialog):
+  DialogContent (dark bg, border)
+    └── Card.gate-card (another dark bg, another border)
+          └── content
 
-**`src/components/layout/AppHeader.tsx`**
-
-Change:
-```tsx
-<a href="/?create=1" ...>
-```
-To:
-```tsx
-<Link to="/?create=1" ...>
-```
-Import `Link` from `react-router-dom`.
-
-This alone fixes the page refresh — React Router handles `?create=1` as a client-side navigation.
-
----
-
-### Fix 2 — Style the Dialog (FunLauncherPage)
-
-The current dialog at lines 462–471 is bare-bones:
-```tsx
-<DialogContent className="!max-w-2xl !w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-0"
-  style={{ background: "#141414", border: "1px solid #2a2a2a" }}>
-  <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3"
-    style={{ background: "#141414", borderBottom: "1px solid #2a2a2a" }}>
-    <h2 className="text-[15px] font-bold text-white">Create Token</h2>
-  </div>
-  <div className="p-4">
-    <TokenLauncher ... />
-  </div>
-</DialogContent>
+After:
+  DialogContent (styled shell)
+    └── content (no wrapping card)
 ```
 
-Replace with a polished dark modal:
+#### Part 2 — `FunLauncherPage.tsx`: Restyle the Dialog shell to match app theme
 
-- **Gradient header bar** — `#141414` → `#1a1a1a` gradient with green `#4ade80` accent left-border
-- **Rocket emoji + title** styled with the green brand color
-- **Subtle green glow** on the dialog border (`box-shadow: 0 0 40px rgba(74,222,128,0.08)`)
-- **Proper close button** — styled X icon in top-right matching app theme
-- **Max width 680px**, `border-radius: 12px`, scroll contained inside
-- **Header sticky** with a thin `#4ade80` top border line for brand identity
+The redesigned modal shell:
 
-#### New Dialog Structure:
 ```
-┌─────────────────────────────────────────────┐  ← green top border line
-│ 🚀 Create Token                          [X] │  ← dark header (#1a1a1a)
-│ ─────────────────────────────────────────── │  ← separator
-│                                             │
-│         < TokenLauncher form >              │  ← scrollable body
-│                                             │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐  ← red (#e84040) top accent line (2px)
+│ [🚀] CREATE TOKEN              [Launch Agent] [X] │  ← header: near-black bg
+│ ────────────────────────────────────────────── │  ← 1px border-bottom
+│                                                │
+│  [Random] [Describe] [Realistic] [Custom]      │  ← mode tabs (from TokenLauncher)
+│  [Phantom] [Holders]                           │
+│                                                │
+│         < form content >                       │  ← scrollable body
+│                                                │
+└──────────────────────────────────────────────┘
 ```
 
----
+**Specific styling changes:**
+- `background: #0a0a0b` (true terminal black matching `gate-bg-card`)
+- `border: 1px solid #1c1c1f` (matching `gate-border`)
+- `border-radius: 6px` (matching app's flat `--gate-radius-xl: 6px`, NOT 12px)
+- Top accent line: `background: linear-gradient(90deg, #e84040, #c42c2c, transparent)` (red brand color)
+- Left border on header: `border-left: 3px solid #e84040`
+- Box shadow: `0 0 60px rgba(232,64,64,0.06), 0 24px 48px rgba(0,0,0,0.9)`
+- Header: `background: #0d0d0f`, sticky, `border-bottom: 1px solid #1c1c1f`
+- Scrollable body: `overflow-y: auto`, no extra padding beyond what `TokenLauncher` already provides
+- Remove Radix's default close button (`[cmdk-dialog-overlay]`) by hiding via CSS override
+- Max width: `700px`, full mobile width with `calc(100vw - 1rem)` 
+- Max height: `90vh`, body scrolls independently
 
-### Files to Change
+**Header contents (left → right):**
+- `🚀` emoji + `CREATE TOKEN` in white (uppercase, bold, 14px)
+- Subtitle: `Launch on Solana` in muted monospace
+- Right side: Red "Launch Agent" button (`/agents` link) + X close button
+
+### Technical Notes
+
+- `TokenLauncher` already has 6 mode tabs (Random, Describe, Realistic, Custom, Phantom, Holders) — these don't need to be reimplemented in the dialog, they're already inside the component
+- The `gate-card` wrapping in `TokenLauncher` provides `gate-card-header` (with "Launch Meme Coin" title + "Launch Agent" button) and `gate-card-body` — when `bare={true}`, we skip the outer `<Card>` but can keep the inner structure, or remove the redundant header since the dialog already has one
+- The Radix `DialogContent` has a built-in close button (`DialogClose`) — we'll hide it with `[&>button:first-child]:hidden` and render our own styled X button inside the header
+
+### Files Changed
 
 | File | Change |
 |---|---|
-| `src/components/layout/Sidebar.tsx` | `<a href>` → `<Link to>` for Create Token button |
-| `src/components/layout/AppHeader.tsx` | `<a href>` → `<Link to>` for Create Token button |
-| `src/pages/FunLauncherPage.tsx` | Restyle the Create Token `<Dialog>` block (lines 461–471) |
+| `src/components/launchpad/TokenLauncher.tsx` | Add `bare?: boolean` prop; when true, skip `<Card className="gate-card">` outer wrapper and the internal header (since dialog provides it) |
+| `src/pages/FunLauncherPage.tsx` | Restyle `DialogContent` block (lines 462–505) with red terminal theme, remove double-container, pass `bare` prop to `TokenLauncher` |
 
-No other files need changes. The `TokenLauncher` component itself is untouched — only its container dialog gets the visual upgrade.
+No CSS file changes needed — all styling is inline to avoid specificity conflicts with Radix overrides.
