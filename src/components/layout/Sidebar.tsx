@@ -4,8 +4,9 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import clawLogo from "@/assets/claw-logo.png";
 
-const LOGO_SRC = "/claw-logo.png";
+const LOGO_SRC = clawLogo;
 
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home, exact: true },
@@ -35,7 +36,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
       {/* Logo */}
       <div className="px-4 pt-5 pb-4">
         <Link to="/" onClick={onLinkClick} className="flex items-center gap-2">
-          <img src={LOGO_SRC} alt="Claw Mode" className="h-7 w-7 object-contain" />
+          <img src={LOGO_SRC} alt="Claw Mode" className="h-7 w-7 object-contain" style={{ mixBlendMode: "screen" }} />
           <div className="flex flex-col">
             <span className="text-[13px] font-bold font-mono leading-tight" style={{ color: "#4ade80" }}>CLAW</span>
             <span className="text-[11px] font-mono text-white/50 leading-tight">MODE</span>
