@@ -1,76 +1,65 @@
 
-# Replace /trade with Advanced Trading Hub
+# Fix: SDK Page — Remove "OpenTuna" / Tuna Branding, Use "Claw" / ClawMode
 
-## What's Happening Now
+## The Problem
 
-The `/trade` route (`TradePage.tsx`) loads a Jupiter Terminal — a third-party external swap widget. This is not the platform's own designed trading interface.
+The **SDK page** at `/opentuna` has multiple leftover references to the old "OpenTuna" / "tuna.fun" brand:
 
-The actual **advanced trading UI** already exists: it's `FunTokenDetailPage` at `/launchpad/:mintAddress`, which shows the full token header, stats ribbon, bonding curve bar, trade panel, wallet sidebar, and more.
+1. **Route path** — `/opentuna` → should be `/sdk` (or at least de-tuna'd)
+2. **Page title in `OpenTunaPage.tsx`** — the tab headers say things like Hub, Hatch, DNA, etc. which are fine, but the page itself is still named `OpenTunaPage` and the file/route is `/opentuna`
+3. **SDK code snippets in `OpenTunaHub.tsx`** — references to old `@opentuna/sdk`, `ota_live_...` API key prefix, `npm install @opentuna/sdk`, `SubTuna` in agent descriptions
+4. **`OpenTunaDocs.tsx`** — some code blocks still reference `@opentuna/sdk` and `OpenTuna` class (though most already updated to `@openclaw/sdk`)
+5. **Sidebar** — "SDK" link correctly points to `/opentuna` — the path just needs renaming
 
-The user wants `/trade` to be an **advanced trading hub** where you can:
-1. Browse and search tokens launched on the platform
-2. Select a token
-3. Trade it using the existing advanced trading interface
+## The Fixes
 
-## The Plan
+### 1. `src/App.tsx` — Change route from `/opentuna` to `/sdk`
+```
+<Route path="/opentuna" element={<OpenTunaPage />} />
+→
+<Route path="/sdk" element={<OpenTunaPage />} />
+```
+Also keep a redirect from `/opentuna` → `/sdk` for backward compatibility (the `DomainRouter` currently redirects `os.clawmode.fun` → `/opentuna`, so update that too).
 
-### 1. Redesign `src/pages/TradePage.tsx`
+### 2. `src/components/layout/Sidebar.tsx` — Update nav link target
+```
+{ to: "/opentuna", label: "SDK", icon: Code2 }
+→
+{ to: "/sdk", label: "SDK", icon: Code2 }
+```
 
-Replace the Jupiter Terminal page entirely with a new **Trading Hub** layout inside `LaunchpadLayout`. The page will:
+### 3. `src/components/DomainRouter.tsx` — Update subdomain redirect
+```
+navigate("/opentuna", { replace: true })
+→
+navigate("/sdk", { replace: true })
+```
 
-**Header section:**
-- Title: "Trade" with a "Live" badge (matching the platform's mono/terminal aesthetic)
-- Subtitle: "Select a token to start trading"
-- Search bar to filter tokens by name or ticker
+### 4. `src/components/opentuna/OpenTunaHub.tsx` — Fix visible tuna text:
+- `"npm install @opentuna/sdk"` → `"npm install @openclaw/sdk"`
+- `"Community manager for SubTuna and X..."` → `"Community manager for Claw Mode and X..."`
+- `"Generate API keys to access OpenTuna programmatically..."` → `"Generate API keys to access Claw SDK programmatically..."`
+- `ota_live_...` API key prefixes in code snippets → `oca_live_...`
+- `curl ... @opentuna/sdk` install hint → `@openclaw/sdk`
 
-**Token grid/list:**
-- Pull all tokens from the existing `useLaunchpad()` hook (same data source as the home page)
-- Show filter tabs: All · Bonding · Graduated · Hot
-- Each token card shows: image, name, ticker, price in SOL, market cap, 24h volume, bonding progress (if bonding), status badge
-- Clicking a token card navigates to `/launchpad/:mintAddress` — the full advanced trading page
-
-**No countdown, no Jupiter Terminal** — those are removed entirely.
-
-### 2. Keep the countdown logic as a soft gate (optional)
-
-Since the `countdown_timers` table with `trade_launch` record exists, we can optionally keep the countdown gate to show the hub only when `isExpired`. But since the user is asking to show the trading hub now, the countdown will be removed and the hub shown directly.
-
-### 3. Sidebar label stays "Terminal"
-
-No change needed to `Sidebar.tsx` — the label "Terminal" already points to `/trade`.
+### 5. `src/components/opentuna/OpenTunaDocs.tsx` — Fix remaining tuna SDK references in code blocks:
+- `import { OpenTuna } from '@opentuna/sdk'` → `import { OpenClaw } from '@openclaw/sdk'`
+- `new OpenTuna({ apiKey: 'ota_live_...' })` → `new OpenClaw({ apiKey: 'oca_live_...' })`
+- `npm install @opentuna/sdk` → `npm install @openclaw/sdk`
 
 ## Files Changed
 
 | File | Change |
 |---|---|
-| `src/pages/TradePage.tsx` | Full replacement — remove Jupiter Terminal, add token search + grid that links to `/launchpad/:mintAddress` |
+| `src/App.tsx` | Route `/opentuna` → `/sdk`, add redirect for old path |
+| `src/components/layout/Sidebar.tsx` | Nav link `to="/opentuna"` → `to="/sdk"` |
+| `src/components/DomainRouter.tsx` | Redirect target `/opentuna` → `/sdk` |
+| `src/components/opentuna/OpenTunaHub.tsx` | Fix 4–5 visible tuna text strings |
+| `src/components/opentuna/OpenTunaDocs.tsx` | Fix remaining `@opentuna/sdk` / `OpenTuna` class / `ota_live_` in code blocks |
 
-## Visual Layout
+## What Does NOT Change
 
-```text
-/trade  ─────────────────────────────────────────
- [Terminal]   [Live ●]
- Select a token to start advanced trading
-
- [Search tokens...]
-
- [All] [Bonding] [Graduated] [Hot]
-
- ┌──────────┐ ┌──────────┐ ┌──────────┐
- │ 🪙 $PEPE │ │ 🐸 $FROG │ │ 🚀 $MOON │
- │ $0.0012  │ │ $0.0008  │ │ $0.0034  │
- │ MC: $12K │ │ MC: $8K  │ │ MC: $34K │
- │ ▓▓▓▓░ 65%│ │ ░░░░░ 12%│ │ GRADUATED│
- └──────────┘ └──────────┘ └──────────┘
-        ↓ click any token ↓
- /launchpad/:mintAddress  (existing full trading UI)
-```
-
-## Technical Notes
-
-- Uses `useLaunchpad()` hook already in the codebase — no new data fetching needed
-- Same filtering/sorting logic as the home `FunLauncherPage` (hot score, bonding, graduated tabs)
-- Token cards link to `/launchpad/:mintAddress` using `react-router-dom`'s `Link`
-- Styled consistent with the platform's dark mono aesthetic (`#0a0a0a`, `#111`, `#222`, `font-mono`)
-- Removes all Jupiter Terminal code (the `JupiterTerminal` component, the `useCountdown` hook, the countdown DB fetch) — cleans up the file significantly
-- Keeps `LaunchpadLayout` as the wrapper for consistent sidebar/header/footer
+- All component file names stay as-is (`OpenTunaHub`, `OpenTunaHatch`, etc.) — these are internal code names, not visible to users
+- The tab labels (Hub, Hatch, DNA, Sonar, Fins, etc.) stay the same — they're already brand-neutral
+- Database table names (`opentuna_agents`, etc.) are untouched — backend is separate from branding
+- CSS class names like `opentuna-card`, `opentuna-button` stay as-is — internal style tokens
