@@ -1102,8 +1102,8 @@ await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
 
           {/* Document Footer */}
           <div className="text-center text-sm text-muted-foreground pt-8 border-t border-border">
-            <p>This whitepaper is a living document and will be updated as the TUNA platform evolves.</p>
-            <p className="mt-2">© 2026 TUNA Protocol. All rights reserved.</p>
+            <p>This whitepaper is a living document and will be updated as the Claw Mode platform evolves.</p>
+            <p className="mt-2">© 2026 Claw Mode. All rights reserved.</p>
           </div>
         </div>
       </main>
