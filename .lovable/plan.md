@@ -1,157 +1,94 @@
 
-## Replace All `tuna.fun` → `ClawMode.fun` Site-Wide
+## Fix /trade — Repair Infinite Loop + Build Real Trading Terminal
 
-### Scope
+### What's broken and why
 
-The domain `tuna.fun` appears in **~35 files** across frontend pages, edge functions, public assets, and SDK docs. Every occurrence will be replaced with `ClawMode.fun` (matching the casing convention — lowercase for URLs: `clawmode.fun`).
+**Bug 1 — Infinite re-render crash (the console error)**
 
-Note: subdomain patterns like `{subdomain}.tuna.fun` become `{subdomain}.clawmode.fun`.
+In `TradePage`, line 97 executes on every render:
+```tsx
+const targetTime = timer?.target_time ? new Date(timer.target_time) : null;
+```
+Every render creates a *new* `Date` object, even when `timer.target_time` hasn't changed. The `useCountdown` hook lists `targetTime` as a `useEffect` dependency. React compares by reference — a new object always looks "changed" — so the effect re-fires, calls `setTimeLeft(...)`, which triggers a re-render, which creates another new `Date`... infinite loop.
 
----
+**Fix:** Derive `targetTime` as a stable string timestamp (not a Date object) and convert *inside* the hook so the reference never changes between renders unless the string itself changes.
 
-### Frontend Pages — 8 files
+**Bug 2 — No actual trading interface**
 
-**`src/pages/AgentConnectPage.tsx`**
-- Line 285: `https://tuna.fun/skill.md` → `https://clawmode.fun/skill.md`
-- Line 402: `https://tuna.fun/skill.md` → `https://clawmode.fun/skill.md`
-- Line 403: `https://tuna.fun/skill.json` → `https://clawmode.fun/skill.json`
-- Line 412: `https://tuna.fun/skill.md` → `https://clawmode.fun/skill.md`
-- Line 421: `https://tuna.fun/skill.json` → `https://clawmode.fun/skill.json`
-- Line 424: `https://tuna.fun/skill.md` → `https://clawmode.fun/skill.md`
-
-**`src/pages/AgentDocsPage.tsx`**
-- Line 44: `API_BASE_URL = "https://tuna.fun/functions/v1"` → `https://clawmode.fun/functions/v1`
-
-**`src/pages/ApiDocsPage.tsx`**
-- Line 953: `"launchpadUrl": "https://tuna.fun/fun/..."` → `https://clawmode.fun/fun/...`
-
-**`src/pages/ApiDashboardPage.tsx`**
-- Line 648: `*.tuna.fun` display text → `*.clawmode.fun`
-- Line 955: `https://${lp.subdomain}.tuna.fun` → `https://${lp.subdomain}.clawmode.fun`
-- Line 960: `{lp.subdomain}.tuna.fun` display → `{lp.subdomain}.clawmode.fun`
-
-**`src/pages/ApiBuilderPage.tsx`**
-- Line 345: `{subdomain}.tuna.fun` display → `{subdomain}.clawmode.fun`
-- Line 463: `.tuna.fun` suffix label → `.clawmode.fun`
-
-**`src/pages/WhitepaperPage.tsx`**
-- Line 192: `https://tuna.fun/api/agents/launch` → `https://clawmode.fun/api/agents/launch`
-- Line 357: `https://tuna.fun/api/agents/register` → `https://clawmode.fun/api/agents/register`
-- Line 548: `https://tuna.fun/api` → `https://clawmode.fun/api`
-- Line 724: `os.tuna.fun` → `os.clawmode.fun`
-- Lines 1082–1085: All `https://tuna.fun/...` links → `https://clawmode.fun/...`
-
-**`src/components/opentuna/OpenTunaHub.tsx`**
-- Line 236: `https://tuna.fun/api/...` → `https://clawmode.fun/api/...`
-
-**`src/components/DomainRouter.tsx`**
-- Line 16: `"os.tuna.fun"` → `"os.clawmode.fun"`
-- Line 16 comment: `os.tuna.fun` → `os.clawmode.fun`
+The countdown timer in the database expired on **2026-02-01** (weeks ago). So `isExpired = true`, and the page shows "Trading is Live!" + a button back to `/`. There is no embedded trading UI. The user clicks "Terminal" in the sidebar and lands on a dead-end screen.
 
 ---
 
-### Edge Functions — 14 files
+### Solution
 
-**`supabase/functions/agent-social-post/index.ts`**
-- Line 197: `https://tuna.fun/tunabook/post/${post.id}` → `https://clawmode.fun/tunabook/post/${post.id}`
+Replace the dead-end `TradePage` with a full trading terminal that:
 
-**`supabase/functions/agent-social-comment/index.ts`**
-- Line 168: `https://tuna.fun/tunabook/post/${postId}` → `https://clawmode.fun/tunabook/post/${postId}`
-
-**`supabase/functions/agent-discover/index.ts`**
-- Lines 72–77: All `tuna.fun` skill file URLs → `clawmode.fun`
-
-**`supabase/functions/agent-auto-engage/index.ts`**
-- Line 281: `tuna.fun/launchpad/` → `clawmode.fun/launchpad/`
-- Line 401: `tuna.fun` mention in prompt → `clawmode.fun`
-- Line 412: `tuna.fun` in prompt → `clawmode.fun`
-- Line 440: `tuna.fun` in SystemTUNA prompt → `clawmode.fun`
-
-**`supabase/functions/agent-hourly-post/index.ts`**
-- Line 100: `tuna.fun/agents` → `clawmode.fun/agents`
-
-**`supabase/functions/api-launch-token/index.ts`**
-- Line 206: `https://tuna.fun/fun/` → `https://clawmode.fun/fun/`
-
-**`supabase/functions/api-launchpad/index.ts`**
-- Line 232: `${subdomain}.tuna.fun` → `${subdomain}.clawmode.fun`
-
-**`supabase/functions/api-deploy/index.ts`**
-- Line 195: `${launchpad.subdomain}.tuna.fun` → `${launchpad.subdomain}.clawmode.fun`
-- Line 254: `${launchpad.subdomain}.tuna.fun` → `${launchpad.subdomain}.clawmode.fun`
-
-**`supabase/functions/bags-agent-launch/index.ts`**
-- Line 108: `https://tuna.fun/t/${ticker}` → `https://clawmode.fun/t/${ticker}`
-
-**`supabase/functions/subtuna-crosspost-x/index.ts`**
-- Line 162: `https://tuna.fun/t/${subtuna.ticker}` → `https://clawmode.fun/t/${subtuna.ticker}`
-
-**`supabase/functions/colosseum-submit/index.ts`**
-- Lines 138–141: All `tuna.fun` links → `clawmode.fun`
-- Line 202: `https://tuna.fun/og-image.png` → `https://clawmode.fun/og-image.png`
-
-**`supabase/functions/colosseum-bridge/index.ts`**
-- Lines 65–67: All `tuna.fun` links → `clawmode.fun`
-
-**`supabase/functions/colosseum-auto-engage/index.ts`**
-- Lines 15–27: All `tuna.fun` mentions in comment templates → `clawmode.fun`
-
-**`supabase/functions/opentuna-fin-browse/index.ts`**
-- Line 301: User-Agent string `+https://tuna.fun` → `+https://clawmode.fun`
+1. Fixes the `useMemo`/string-based `targetTime` to eliminate the infinite loop permanently
+2. Shows the actual trading interface since the countdown has already expired
+3. Embeds the **Jupiter Terminal** via their hosted iframe script (the standard Solana DEX terminal, already used by many projects — zero new dependencies)
+4. Keeps the countdown view working correctly for future use if the timer is reset
 
 ---
 
-### Public Assets — 5 files
+### Implementation
 
-**`public/skill.md`**
-- Lines 5–7: `homepage`, `connect`, `discovery` URLs
-- Lines 70–72: skill file URLs in JSON response examples
-- Line 162: `tradeUrl` example
+**`src/pages/TradePage.tsx` — full rewrite**
 
-**`public/skill.json`**
-- Lines 5–8: `homepage`, `documentation`, `connect`, `skill_file`
-- Lines 83–84: `companion_files` heartbeat/rules URLs
+```
+Structure:
+- useEffect fetches countdown_timers as before
+- targetTimeStr derived as string (not Date) using useMemo to stabilise reference
+- useCountdown accepts a string, converts to Date internally — no new object each render
+- When isExpired (current state): show the Jupiter Terminal iframe embedded in a proper layout
+- When not expired: show the countdown card (unchanged visually)
+```
 
-**`public/TUNA_WHITEPAPER.md`**
-- All `tuna.fun` occurrences (~10) → `clawmode.fun`
+The Jupiter Terminal is embedded using their official method:
+```html
+<script src="https://terminal.jup.ag/main-v3.js" data-preload />
+```
+Then initialised with:
+```js
+window.Jupiter.init({
+  displayMode: "integrated",
+  integratedTargetId: "jupiter-terminal-container",
+  endpoint: "<RPC endpoint>",
+  defaultExplorer: "Solscan",
+});
+```
 
-**`public/robots.txt`**
-- Line 17: `Sitemap: https://tuna.fun/sitemap.xml` → `https://clawmode.fun/sitemap.xml`
+This renders a full-featured swap terminal (SOL ↔ any token) inside a `<div id="jupiter-terminal-container">` on the page. No API key required. No new npm packages.
 
-**`public/sdk/README.md`**
-- All `tuna.fun` badge/link references (~8) → `clawmode.fun`
+**Layout when trading is live:**
+```
+┌────────────────────────────────────────────┐
+│  Sidebar (existing)                         │
+│  ┌─────────────────────────────────────┐   │
+│  │  AppHeader                          │   │
+│  ├─────────────────────────────────────┤   │
+│  │  "Terminal" title + live badge      │   │
+│  │  ┌───────────────────────────────┐  │   │
+│  │  │  Jupiter Terminal iframe      │  │   │
+│  │  │  (full swap UI, any token)    │  │   │
+│  │  └───────────────────────────────┘  │   │
+│  └─────────────────────────────────────┘   │
+└────────────────────────────────────────────┘
+```
 
-**`public/sdk/src/index.ts`**
-- Line 8: `BASE_URL = 'https://tuna.fun/api'` → `https://clawmode.fun/api`
+**Files changed:**
 
-**`public/sdk/package.json`**
-- Line 22: `"homepage": "https://tuna.fun"` → `https://clawmode.fun`
+| File | Change |
+|---|---|
+| `src/pages/TradePage.tsx` | Fix infinite loop; replace expired state with embedded Jupiter Terminal |
+
+No database changes. No new dependencies. No edge function changes.
 
 ---
 
-### SDK Docs — 4 files
+### Technical details
 
-**`sdk/src/index.ts`**
-- Line 132: `BASE_URL = 'https://tuna.fun/api'` → `https://clawmode.fun/api`
-
-**`sdk/docs/API.md`**
-- Lines 211–214: All `tuna.fun` links → `clawmode.fun`
-
-**`sdk/package.json`**
-- Line 95: `"homepage": "https://tuna.fun/opentuna"` → `https://clawmode.fun/opentuna`
-
-**`sdk/README.md`**
-- Lines 5–8, 270–273: All `tuna.fun` badge/link references → `clawmode.fun`
-
-**`sdk/examples/basic-launch.ts`**
-- Lines 61, 100–101: `tuna.fun/t/AGENT`, `tuna.fun/token/...`, `tuna.fun/t/AGENT` → `clawmode.fun`
-
----
-
-### Technical Notes
-
-- All replacements are pure string substitutions — `tuna.fun` → `clawmode.fun`
-- No logic changes in any file
-- Edge functions redeploy automatically
-- The `index.html` canonical URL and OG/Twitter URLs already correctly point to `clawmode.lovable.app` — once the custom domain `clawmode.fun` is connected in Lovable settings, those should be updated to `clawmode.fun` too. For now those remain as-is since the custom domain isn't configured yet.
-- Total: ~35 files, ~200 individual URL replacements
+- `targetTime` will be derived with `useMemo(() => timer?.target_time ?? null, [timer?.target_time])` — a string, stable reference
+- `useCountdown` accepts `string | null` and creates the `Date` object internally via `useMemo` so it never causes dependency churn
+- Jupiter Terminal script is loaded dynamically via `useEffect` (appending a `<script>` tag) and cleaned up on unmount — safe with React's strict mode and lazy route loading
+- The RPC endpoint passed to Jupiter will be the public Solana mainnet endpoint (`https://api.mainnet-beta.solana.com`) — no secrets required
+- The countdown card for future use keeps the same visual design as today
