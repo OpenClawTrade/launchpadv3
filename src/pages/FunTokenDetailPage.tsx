@@ -3,15 +3,13 @@ import { useFunToken } from "@/hooks/useFunToken";
 import { usePoolState } from "@/hooks/usePoolState";
 import { useAuth } from "@/hooks/useAuth";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { BondingCurveProgress } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { UniversalTradePanel } from "@/components/launchpad/UniversalTradePanel";
 import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { 
@@ -25,7 +23,10 @@ import {
   ArrowLeft,
   Users,
   Timer,
-  Briefcase
+  Briefcase,
+  Zap,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
@@ -43,9 +44,9 @@ function formatTokenAmount(amount: number): string {
 }
 
 function formatSolAmount(amount: number): string {
-  if (!amount || amount === 0) return "0 SOL";
-  if (amount >= 1000) return `${(amount / 1000).toFixed(2)}K SOL`;
-  return `${amount.toFixed(4)} SOL`;
+  if (!amount || amount === 0) return "0.00";
+  if (amount >= 1000) return `${(amount / 1000).toFixed(2)}K`;
+  return amount.toFixed(4);
 }
 
 export default function FunTokenDetailPage() {
@@ -56,7 +57,6 @@ export default function FunTokenDetailPage() {
 
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');
 
-  // Live pool state for accurate bonding progress
   const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
     mintAddress: token?.mint_address || '',
     enabled: !!token?.mint_address && token?.status === 'active',
@@ -95,22 +95,27 @@ export default function FunTokenDetailPage() {
   const handleRefresh = () => {
     refetch();
     refetchPoolState();
-    toast({ title: "Data refreshed!" });
+    toast({ title: "Refreshed" });
   };
 
-  // Use live pool state when available, fallback to database values
   const bondingProgress = livePoolState?.bondingProgress ?? token?.bonding_progress ?? 0;
   const realSolReserves = (bondingProgress / 100) * GRADUATION_THRESHOLD;
   const isGraduated = token?.status === 'graduated';
   const isBonding = token?.status === 'active';
+  const priceChange = (token as any)?.price_change_24h || 0;
+  const isPriceUp = priceChange >= 0;
 
   if (isLoading) {
     return (
       <LaunchpadLayout>
-        <div className="space-y-4 max-w-4xl mx-auto">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-64 w-full" />
+        <div className="space-y-3 max-w-5xl mx-auto">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <Skeleton className="lg:col-span-2 h-96 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
         </div>
       </LaunchpadLayout>
     );
@@ -130,7 +135,6 @@ export default function FunTokenDetailPage() {
     );
   }
 
-  // Build compatible token object for TradePanelWithSwap
   const tokenForTradePanel = {
     id: token.id,
     mint_address: token.mint_address || '',
@@ -167,319 +171,282 @@ export default function FunTokenDetailPage() {
 
   return (
     <LaunchpadLayout showKingOfTheHill={true}>
-      <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Back Button + Token Header */}
-        <div className="flex items-center gap-4">
+      <div className="max-w-5xl mx-auto space-y-0">
+
+        {/* ── TOKEN HEADER BAR ── */}
+        <div className="flex items-center gap-3 px-0 py-3 border-b border-border/40">
           <Link to="/">
-            <Button variant="ghost" size="icon" className="h-10 w-10">
-              <ArrowLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+              <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div className="flex items-center gap-3 flex-1">
-            <Avatar className="h-10 w-10 rounded-lg">
-              <AvatarImage src={token.image_url || undefined} />
-              <AvatarFallback className="rounded-lg text-sm font-bold">
-                {(token.ticker || '??').slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h1 className="font-bold text-lg">{token.name}</h1>
-              <span className="text-sm text-muted-foreground">${token.ticker}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleRefresh}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={copyAddress}>
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={shareToken}>
-              <Share2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
 
-        {/* Token Info Card */}
-        <Card className="gate-card p-4 sm:p-5">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Avatar className="h-20 w-20 rounded-xl border-2 border-border mx-auto sm:mx-0">
-              <AvatarImage src={token.image_url || undefined} />
-              <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary rounded-xl">
-                {(token.ticker || '??').slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+          <Avatar className="h-9 w-9 rounded-lg border border-border/50 shrink-0">
+            <AvatarImage src={token.image_url || undefined} />
+            <AvatarFallback className="rounded-lg text-xs font-bold bg-primary/10 text-primary">
+              {(token.ticker || '??').slice(0, 2)}
+            </AvatarFallback>
+          </Avatar>
 
-            <div className="flex-1 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                <h2 className="text-xl font-bold">{token.name}</h2>
-                <Badge variant="secondary" className="text-xs">${token.ticker}</Badge>
-                {isGraduated && (
-                  <Badge variant="secondary" className="text-xs">
-                    🎓 Graduated
-                  </Badge>
-                )}
-                {isBonding && (
-                  <Badge variant="outline" className="text-xs border-primary text-primary">
-                    📈 Bonding
-                  </Badge>
-                )}
-                {(token as any).fee_mode === 'holder_rewards' && (
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                    💎 Holder Rewards
-                  </Badge>
-                )}
-                {(token as any).launchpad_type === 'bags' && (
-                  <BagsBadge mintAddress={token.mint_address || undefined} size="md" />
-                )}
-                {(token as any).launchpad_type === 'pumpfun' && (
-                  <PumpBadge mintAddress={token.mint_address || undefined} size="md" />
-                )}
-                {/* Phantom: only explicit launchpad_type */}
-                {(token as any).launchpad_type === 'phantom' && (
-                  <PhantomBadge mintAddress={token.mint_address || undefined} size="md" />
-                )}
-              </div>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="font-bold text-sm font-mono truncate">{token.name}</span>
+            <span className="text-muted-foreground text-xs font-mono shrink-0">${token.ticker}</span>
 
-              {/* Creator */}
-              <p className="text-sm text-muted-foreground mt-1">
-                Created by <span className="font-medium text-foreground">
-                  {token.creator_wallet
-                    ? `${token.creator_wallet.slice(0, 6)}...${token.creator_wallet.slice(-4)}`
-                    : 'Unknown'}
-                </span>
-              </p>
-
-              {/* Description */}
-              {token.description && (
-                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                  {token.description}
-                </p>
-              )}
-
-              {/* Social Links */}
-              <div className="flex items-center justify-center sm:justify-start gap-2 mt-3 flex-wrap">
-                {token.website_url && (
-                  <a href={token.website_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5 px-3 text-xs">
-                      <Globe className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Website</span>
-                    </Button>
-                  </a>
-                )}
-                {token.twitter_url && (
-                  <a href={token.twitter_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-8 w-8 sm:w-auto px-0 sm:px-2">
-                      <Twitter className="h-3.5 w-3.5" />
-                    </Button>
-                  </a>
-                )}
-                {token.telegram_url && (
-                  <a href={token.telegram_url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-8 w-8 sm:w-auto px-0 sm:px-2">
-                      <MessageCircle className="h-3.5 w-3.5" />
-                    </Button>
-                  </a>
-                )}
-                {token.mint_address && (
-                  <a 
-                    href={`https://solscan.io/token/${token.mint_address}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5 px-3 text-xs">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Solscan</span>
-                    </Button>
-                  </a>
-                )}
-                <a
-                  href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex"
-                >
-                  <Button size="sm" className="h-8 gap-1.5 px-3 text-xs bg-accent hover:bg-accent/90 text-accent-foreground border-0">
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span className="hidden xs:inline">Axiom</span>
-                  </Button>
-                </a>
-                {(token as any).launchpad_type === 'bags' && token.mint_address && (
-                  <a
-                    href={`https://bags.fm/coin/${token.mint_address}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex"
-                  >
-                    <Button size="sm" className="h-8 gap-1.5 px-3 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border-0">
-                      <Briefcase className="h-3.5 w-3.5" />
-                      <span className="hidden xs:inline">bags.fm</span>
-                    </Button>
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="gate-card p-3 text-center">
-            <p className="text-xs text-muted-foreground">Market Cap</p>
-            <p className="text-lg font-bold truncate">
-              {formatUsd(token.market_cap_sol || 0)}
-            </p>
-          </Card>
-          <Card className="gate-card p-3 text-center">
-            <p className="text-xs text-muted-foreground">24h Volume</p>
-            <p className="text-lg font-bold truncate">
-              {formatSolAmount(token.volume_24h_sol || 0)}
-            </p>
-          </Card>
-          <Card className="gate-card p-3 text-center">
-            <p className="text-xs text-muted-foreground">Holders</p>
-            <p className="text-lg font-bold">
-              {token.holder_count || 0}
-            </p>
-          </Card>
-          <Card className="gate-card p-3 text-center">
-            <p className="text-xs text-muted-foreground">Price</p>
-            <p className="text-lg font-bold">
-              {(token.price_sol || 0).toFixed(9)}
-            </p>
-          </Card>
-        </div>
-
-        {/* Bonding Curve Progress - Only for bonding tokens */}
-        {isBonding && (
-          <Card className="gate-card p-4">
-            <BondingCurveProgress
-              progress={bondingProgress}
-              realSolReserves={realSolReserves}
-              graduationThreshold={GRADUATION_THRESHOLD}
-            />
-            {livePoolState && (
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                🔴 Live from Meteora
-              </p>
+            {isGraduated && (
+              <span className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/20">
+                🎓 GRADUATED
+              </span>
             )}
-          </Card>
-        )}
-
-        {/* Holder Rewards Info - Only for holder_rewards tokens */}
-        {(token as any).fee_mode === 'holder_rewards' && (
-          <Card className="gate-card p-4">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <Users className="h-4 w-4 text-green-400" />
-              Holder Rewards
-              <Badge className="bg-green-500/20 text-green-400 text-[10px]">ACTIVE</Badge>
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="bg-secondary/30 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1">
-                  <Timer className="h-3 w-3" />
-                  Distribution
-                </div>
-                <div className="text-lg font-bold text-green-400">Every 5 min</div>
-              </div>
-              <div className="bg-secondary/30 rounded-lg p-3">
-                <div className="text-muted-foreground text-xs mb-1">Min. Holding</div>
-                <div className="text-lg font-bold">0.3%</div>
-                <div className="text-xs text-muted-foreground">of supply</div>
-              </div>
-            </div>
-            
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p className="flex items-center gap-2">
-                <span className="text-green-400">✓</span>
-                Top 50 holders share 50% of trading fees
-              </p>
-              <p className="flex items-center gap-2">
-                <span className="text-green-400">✓</span>
-                Proportional to token balance
-              </p>
-              <p className="flex items-center gap-2">
-                <span className="text-green-400">✓</span>
-                Automatic SOL payouts every 5 minutes
-              </p>
-            </div>
-          </Card>
-        )}
-
-        {/* Trading Section - Two Column on Desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Trade Panel */}
-          <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              🚀 Trade {token.ticker}
-            </h3>
-            
-            {/* For bonding tokens - use existing TradePanelWithSwap */}
             {isBonding && (
-              <TradePanelWithSwap
-                token={tokenForTradePanel}
-                userBalance={0}
-              />
+              <span className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/20">
+                ⚡ BONDING
+              </span>
             )}
+            {(token as any).fee_mode === 'holder_rewards' && (
+              <span className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+                💎 REWARDS
+              </span>
+            )}
+            {(token as any).launchpad_type === 'bags' && (
+              <BagsBadge mintAddress={token.mint_address || undefined} size="sm" />
+            )}
+            {(token as any).launchpad_type === 'pumpfun' && (
+              <PumpBadge mintAddress={token.mint_address || undefined} size="sm" />
+            )}
+            {(token as any).launchpad_type === 'phantom' && (
+              <PhantomBadge mintAddress={token.mint_address || undefined} size="sm" />
+            )}
+          </div>
 
-            {/* For graduated tokens - use UniversalTradePanel (Jupiter-powered) */}
+          {/* Actions */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRefresh} title="Refresh">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={copyAddress} title="Copy address">
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={shareToken} title="Share">
+              <Share2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* ── STATS RIBBON ── */}
+        <div className="grid grid-cols-4 divide-x divide-border/40 border-b border-border/40 bg-card/30">
+          <div className="px-4 py-3">
+            <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-mono mb-0.5">Mkt Cap</p>
+            <p className="text-sm font-bold font-mono">{formatUsd(token.market_cap_sol || 0)}</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-mono mb-0.5">24h Vol</p>
+            <p className="text-sm font-bold font-mono">{formatSolAmount(token.volume_24h_sol || 0)} <span className="text-[10px] text-muted-foreground">SOL</span></p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-mono mb-0.5">Holders</p>
+            <p className="text-sm font-bold font-mono">{(token.holder_count || 0).toLocaleString()}</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-mono mb-0.5">Price</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-bold font-mono">{(token.price_sol || 0).toFixed(8)}</p>
+              {priceChange !== 0 && (
+                <span className={`text-[10px] font-mono flex items-center gap-0.5 ${isPriceUp ? 'text-green-400' : 'text-destructive'}`}>
+                  {isPriceUp ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                  {Math.abs(priceChange).toFixed(1)}%
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── BONDING CURVE BAR ── */}
+        {isBonding && (
+          <div className="px-4 py-3 border-b border-border/40 bg-card/20">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5 text-warning" />
+                <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Bonding Curve</span>
+                {livePoolState && (
+                  <span className="flex items-center gap-1 text-[10px] font-mono text-red-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse inline-block" />
+                    LIVE
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-bold font-mono text-warning">{bondingProgress.toFixed(1)}%</span>
+            </div>
+            <Progress 
+              value={bondingProgress} 
+              className="h-1.5 bg-secondary"
+              style={{ 
+                '--progress-glow': bondingProgress > 80 ? '0 0 8px hsl(var(--warning) / 0.6)' : 'none'
+              } as any}
+            />
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] font-mono text-muted-foreground">{realSolReserves.toFixed(2)} SOL raised</span>
+              <span className="text-[10px] font-mono text-muted-foreground">Goal: {GRADUATION_THRESHOLD} SOL</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── SOCIAL LINKS + META ── */}
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-border/40">
+          {token.creator_wallet ? (
+            <span className="text-[10px] font-mono text-muted-foreground">
+              by <span className="text-foreground/70">{token.creator_wallet.slice(0, 6)}...{token.creator_wallet.slice(-4)}</span>
+            </span>
+          ) : (
+            <span className="text-[10px] font-mono text-muted-foreground">by <span className="text-foreground/70">Unknown</span></span>
+          )}
+
+          <span className="text-border/60 text-xs">·</span>
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {formatDistanceToNow(new Date(token.created_at), { addSuffix: true })}
+          </span>
+
+          {token.description && (
+            <>
+              <span className="text-border/60 text-xs hidden sm:inline">·</span>
+              <span className="text-[10px] text-muted-foreground line-clamp-1 hidden sm:inline max-w-xs">{token.description}</span>
+            </>
+          )}
+
+          <div className="flex items-center gap-1 ml-auto">
+            {token.website_url && (
+              <a href={token.website_url} target="_blank" rel="noopener noreferrer">
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-mono gap-1">
+                  <Globe className="h-3 w-3" />Website
+                </Button>
+              </a>
+            )}
+            {token.twitter_url && (
+              <a href={token.twitter_url} target="_blank" rel="noopener noreferrer">
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-mono gap-1">
+                  <Twitter className="h-3 w-3" />Twitter
+                </Button>
+              </a>
+            )}
+            {token.telegram_url && (
+              <a href={token.telegram_url} target="_blank" rel="noopener noreferrer">
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-mono gap-1">
+                  <MessageCircle className="h-3 w-3" />TG
+                </Button>
+              </a>
+            )}
+            {token.mint_address && (
+              <a href={`https://solscan.io/token/${token.mint_address}`} target="_blank" rel="noopener noreferrer">
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-mono gap-1">
+                  <ExternalLink className="h-3 w-3" />Solscan
+                </Button>
+              </a>
+            )}
+            <a
+              href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button size="sm" className="h-6 px-2 text-[10px] font-mono gap-1 bg-accent hover:bg-accent/80 text-accent-foreground border-0">
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                Axiom
+              </Button>
+            </a>
+            {(token as any).launchpad_type === 'bags' && token.mint_address && (
+              <a href={`https://bags.fm/coin/${token.mint_address}`} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" className="h-6 px-2 text-[10px] font-mono gap-1 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border-0">
+                  <Briefcase className="h-3 w-3" />bags.fm
+                </Button>
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* ── MAIN TRADING SECTION ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-4">
+          {/* Trade Panel — 2/3 */}
+          <div className="lg:col-span-2">
+            {isBonding && (
+              <TradePanelWithSwap token={tokenForTradePanel} userBalance={0} />
+            )}
             {isGraduated && token.mint_address && (
-              <UniversalTradePanel 
-                token={{
-                  mint_address: token.mint_address,
-                  ticker: token.ticker,
-                  name: token.name,
-                  decimals: 9,
-                }}
+              <UniversalTradePanel
+                token={{ mint_address: token.mint_address, ticker: token.ticker, name: token.name, decimals: 9 }}
                 userTokenBalance={0}
               />
             )}
+            {!isBonding && !isGraduated && (
+              <div className="border border-border/40 rounded-lg p-8 text-center">
+                <p className="text-muted-foreground text-sm font-mono">Trading not available</p>
+                <p className="text-muted-foreground text-xs mt-1">This token's status: {token.status}</p>
+              </div>
+            )}
           </div>
 
-          {/* Wallet Card - Sidebar on Desktop */}
+          {/* Wallet Sidebar — 1/3 */}
           <div className="lg:col-span-1">
             <EmbeddedWalletCard />
           </div>
         </div>
 
-        {/* Contract Info */}
-        {token.mint_address && (
-          <Card className="gate-card p-4">
-            <h3 className="font-semibold mb-3">Contract Info</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Token Address</span>
-                <div className="flex items-center gap-2">
-                  <code className="text-xs bg-secondary px-2 py-1 rounded">
-                    {token.mint_address.slice(0, 8)}...{token.mint_address.slice(-8)}
-                  </code>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyAddress}>
-                    <Copy className="h-3 w-3" />
-                  </Button>
+        {/* ── HOLDER REWARDS INFO ── */}
+        {(token as any).fee_mode === 'holder_rewards' && (
+          <div className="border border-border/40 rounded-lg p-4 mt-4">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+              <Users className="h-3.5 w-3.5 text-green-400" />
+              Holder Rewards
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/20">ACTIVE</span>
+            </h3>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="bg-secondary/20 rounded-lg p-3 border border-border/30">
+                <div className="flex items-center gap-1 text-muted-foreground text-[10px] font-mono mb-1">
+                  <Timer className="h-3 w-3" /> DISTRIBUTION
                 </div>
+                <div className="text-sm font-bold font-mono text-green-400">Every 5 min</div>
               </div>
-              {token.dbc_pool_address && (
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Pool Address</span>
-                  <code className="text-xs bg-secondary px-2 py-1 rounded">
-                    {token.dbc_pool_address.slice(0, 8)}...{token.dbc_pool_address.slice(-8)}
-                  </code>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Supply</span>
-                <span>{formatTokenAmount(TOTAL_SUPPLY)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Created</span>
-                <span>{formatDistanceToNow(new Date(token.created_at), { addSuffix: true })}</span>
+              <div className="bg-secondary/20 rounded-lg p-3 border border-border/30">
+                <div className="text-muted-foreground text-[10px] font-mono mb-1">MIN HOLDING</div>
+                <div className="text-sm font-bold font-mono">0.3%</div>
+                <div className="text-[10px] font-mono text-muted-foreground">of supply</div>
               </div>
             </div>
-          </Card>
+            <div className="space-y-1.5 text-xs font-mono text-muted-foreground">
+              <p className="flex items-center gap-2"><span className="text-green-400">✓</span> Top 50 holders share 50% of trading fees</p>
+              <p className="flex items-center gap-2"><span className="text-green-400">✓</span> Proportional to token balance</p>
+              <p className="flex items-center gap-2"><span className="text-green-400">✓</span> Automatic SOL payouts every 5 minutes</p>
+            </div>
+          </div>
         )}
+
+        {/* ── CONTRACT INFO ── */}
+        {token.mint_address && (
+          <div className="border border-border/40 rounded-lg p-3 mt-4 mb-4">
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-[10px] font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground uppercase tracking-wider">Contract</span>
+                <code className="text-foreground/80">{token.mint_address.slice(0, 8)}...{token.mint_address.slice(-8)}</code>
+                <button onClick={copyAddress} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Copy className="h-3 w-3" />
+                </button>
+                <a href={`https://solscan.io/token/${token.mint_address}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+              {token.dbc_pool_address && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground uppercase tracking-wider">Pool</span>
+                  <code className="text-foreground/80">{token.dbc_pool_address.slice(0, 8)}...{token.dbc_pool_address.slice(-8)}</code>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground uppercase tracking-wider">Supply</span>
+                <span className="text-foreground/80">{formatTokenAmount(TOTAL_SUPPLY)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </LaunchpadLayout>
   );
