@@ -69,15 +69,15 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
       {/* Create Token CTA */}
       <div className="px-3 pb-4 space-y-3">
-        <a
-          href="/?create=1"
+        <Link
+          to="/?create=1"
           onClick={onLinkClick}
           className="flex items-center justify-center gap-2 w-full py-2 rounded-md text-[13px] font-bold text-black transition-opacity hover:opacity-90"
           style={{ background: "#4ade80" }}
         >
           <Plus className="h-4 w-4" />
           Create Token
-        </a>
+        </Link>
         <div className="text-center text-[10px] text-white/20 font-mono">
           clawmode.io
         </div>
