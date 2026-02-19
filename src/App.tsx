@@ -11,6 +11,7 @@ import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
 import { DomainRouter } from "@/components/DomainRouter";
 import { MatrixBackground } from "@/components/claw/MatrixBackground";
+import { StickyStatsFooter } from "@/components/layout/StickyStatsFooter";
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
@@ -94,6 +95,7 @@ const App = () => (
             <Sonner />
             <ErrorBoundary>
               <MatrixBackground />
+              <StickyStatsFooter />
               <BrowserRouter>
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
