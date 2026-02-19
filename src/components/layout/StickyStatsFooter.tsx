@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useClawStats } from "@/hooks/useClawStats";
 
 export function StickyStatsFooter() {
@@ -22,18 +23,25 @@ export function StickyStatsFooter() {
   const agentPosts = stats?.totalAgentPosts ?? 0;
   const payouts = (stats?.totalAgentPayouts ?? 0).toFixed(2);
 
-  return (
+  const footer = (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 flex items-center md:pl-[160px]"
       style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
         height: "40px",
+        zIndex: 99999,
         background: "#111114",
         borderTop: "1px solid #2a2a2a",
+        display: "flex",
+        alignItems: "center",
+        paddingLeft: "160px",
       }}
     >
-      <div className="flex items-center justify-between w-full px-4 overflow-x-auto">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingLeft: "16px", paddingRight: "16px", overflowX: "auto" }}>
         {/* Stats */}
-        <div className="flex items-center gap-0 shrink-0">
+        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
           <StatItem label="TOKENS" value={tokens.toLocaleString()} />
           <Divider />
           <StatItem label="AGENTS" value={agents.toLocaleString()} />
@@ -46,13 +54,23 @@ export function StickyStatsFooter() {
         </div>
 
         {/* Connection status */}
-        <div className="flex items-center gap-2 shrink-0 ml-6">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0, marginLeft: "24px" }}>
           <span
-            className={`inline-block w-2 h-2 rounded-full ${isOnline ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
+            style={{
+              display: "inline-block",
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: isOnline ? "#22c55e" : "#ef4444",
+            }}
           />
           <span
-            className="font-mono text-xs font-medium"
-            style={{ color: isOnline ? "#22c55e" : "#ef4444" }}
+            style={{
+              fontFamily: "monospace",
+              fontSize: "12px",
+              fontWeight: 500,
+              color: isOnline ? "#22c55e" : "#ef4444",
+            }}
           >
             {isOnline ? "Connection is stable" : "Disconnected"}
           </span>
@@ -60,6 +78,8 @@ export function StickyStatsFooter() {
       </div>
     </div>
   );
+
+  return createPortal(footer, document.body);
 }
 
 function StatItem({ label, value }: { label: string; value: string | number }) {
