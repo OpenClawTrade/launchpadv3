@@ -298,7 +298,7 @@ async function executeHttpAction(params: {
       try {
         const response = await fetch(url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; OpenTuna/1.0; +https://tuna.fun)',
+            'User-Agent': 'Mozilla/5.0 (compatible; OpenTuna/1.0; +https://clawmode.fun)',
             'Accept': 'text/html,application/xhtml+xml',
           },
         });

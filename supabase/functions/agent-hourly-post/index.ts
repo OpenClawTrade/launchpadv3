@@ -97,7 +97,7 @@ const buildTweet = (stats: DailyStats, topAgent: TopAgent | null): string => {
 
 ${agentSection}
 
-🔗 tuna.fun/agents
+🔗 clawmode.fun/agents
 
 #TunaFun #AIAgents #Solana`;
 };

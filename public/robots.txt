@@ -14,7 +14,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://tuna.fun/sitemap.xml
+Sitemap: https://clawmode.fun/sitemap.xml
 
 # Crawl-delay
 Crawl-delay: 1

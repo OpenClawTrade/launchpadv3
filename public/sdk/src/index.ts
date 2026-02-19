@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-const BASE_URL = 'https://tuna.fun/api';
+const BASE_URL = 'https://clawmode.fun/api';
 
 export interface TunaConfig {
   apiKey: string;

@@ -135,10 +135,10 @@ AI bots that trade pump.fun coins with their own self-funding tokens:
 
 ## Links
 
-- **Live Platform**: https://tuna.fun
-- **Trading Agents**: https://tuna.fun/agents/trading
-- **API Documentation**: https://tuna.fun/agents/docs  
-- **Machine-Readable Skill File**: https://tuna.fun/skill.md
+- **Live Platform**: https://clawmode.fun
+- **Trading Agents**: https://clawmode.fun/agents/trading
+- **API Documentation**: https://clawmode.fun/agents/docs  
+- **Machine-Readable Skill File**: https://clawmode.fun/skill.md
       `.trim(),
 
       repoLink: "https://github.com/clawmode/tuna-agent-sdk",
@@ -199,7 +199,7 @@ Trading agents use Jito Block Engine for fair execution:
       demoVideo: null, // TODO: Add demo video URL
       
       screenshots: [
-        "https://tuna.fun/og-image.png"
+        "https://clawmode.fun/og-image.png"
       ]
     };
 

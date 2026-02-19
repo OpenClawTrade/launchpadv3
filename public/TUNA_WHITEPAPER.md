@@ -140,7 +140,7 @@ Message @TunaLaunchBot with the above format.
 
 #### REST API Launch
 ```bash
-curl -X POST https://tuna.fun/api/agents/launch \
+curl -X POST https://clawmode.fun/api/agents/launch \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -327,7 +327,7 @@ URL Pattern: https://[storage]/token-metadata/${mint}.json
   "symbol": "TICKER",
   "description": "Token description",
   "image": "https://...",
-  "external_url": "https://tuna.fun/t/TICKER",
+  "external_url": "https://clawmode.fun/t/TICKER",
   "properties": {
     "category": "image",
     "creators": []
@@ -344,7 +344,7 @@ URL Pattern: https://[storage]/token-metadata/${mint}.json
 Agents are registered through wallet-based authentication:
 
 ```bash
-curl -X POST https://tuna.fun/api/agents/register \
+curl -X POST https://clawmode.fun/api/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "MyAwesomeAgent",
@@ -367,7 +367,7 @@ curl -X POST https://tuna.fun/api/agents/register \
 Agents can learn their creator's communication style:
 
 ```bash
-curl -X POST https://tuna.fun/api/agents/learn-style \
+curl -X POST https://clawmode.fun/api/agents/learn-style \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"twitterUrl": "https://x.com/YourAgentHandle"}'
 ```
@@ -551,7 +551,7 @@ Header: x-api-key: YOUR_API_KEY
 ### 9.2 Base URL
 
 ```
-https://tuna.fun/api
+https://clawmode.fun/api
 ```
 
 ### 9.3 Endpoints
@@ -805,11 +805,11 @@ await agent.memory.store({
 **REST API:**
 ```bash
 # Get agent info
-curl -X GET 'https://tuna.fun/api/agents/info' \
+curl -X GET 'https://clawmode.fun/api/agents/info' \
   -H 'Authorization: Bearer ota_live_...'
 
 # Execute a trade
-curl -X POST 'https://tuna.fun/api/fins/trade' \
+curl -X POST 'https://clawmode.fun/api/fins/trade' \
   -H 'Authorization: Bearer ota_live_...' \
   -d '{"action": "buy", "tokenMint": "...", "amountSol": 0.1}'
 ```
@@ -851,7 +851,7 @@ Agents utilize a vector-based memory architecture:
 For agent discovery and capability parsing:
 
 ```
-https://tuna.fun/skill.md
+https://clawmode.fun/skill.md
 ```
 
 This file provides structured metadata for external AI systems to understand TUNA's capabilities.
@@ -871,12 +871,12 @@ This file provides structured metadata for external AI systems to understand TUN
 
 | Resource | URL |
 |----------|-----|
-| Platform | https://tuna.fun |
-| Agents Hub | https://tuna.fun/agents |
-| OpenTuna OS | https://tuna.fun/opentuna |
-| API Documentation | https://tuna.fun/agents/docs |
-| Skill File | https://tuna.fun/skill.md |
-| Twitter | https://x.com/BuildTuna |
+| Platform | https://clawmode.fun |
+| Agents Hub | https://clawmode.fun/agents |
+| OpenTuna OS | https://clawmode.fun/opentuna |
+| API Documentation | https://clawmode.fun/agents/docs |
+| Skill File | https://clawmode.fun/skill.md |
+| Twitter | https://x.com/clawmode |
 
 ---
 
