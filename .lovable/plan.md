@@ -1,112 +1,157 @@
 
-## Replace All @buildtuna → @clawmode (Full Execution)
+## Replace All `tuna.fun` → `ClawMode.fun` Site-Wide
 
-### What's left to change
+### Scope
 
-The previous plan covered 13 frontend files and 6 edge functions. Below is the exact, file-by-file breakdown of every remaining occurrence.
+The domain `tuna.fun` appears in **~35 files** across frontend pages, edge functions, public assets, and SDK docs. Every occurrence will be replaced with `ClawMode.fun` (matching the casing convention — lowercase for URLs: `clawmode.fun`).
+
+Note: subdomain patterns like `{subdomain}.tuna.fun` become `{subdomain}.clawmode.fun`.
 
 ---
 
-### Frontend — 8 files
+### Frontend Pages — 8 files
 
-**`src/components/layout/AppHeader.tsx`**
-- Line 68: `x.com/buildtuna` → `x.com/clawmode`
-
-**`src/components/layout/Footer.tsx`**
-- Line 69: `x.com/buildtuna` → `x.com/clawmode`
-- Line 75: `t.me/buildtuna` → `t.me/clawmode`
-
-**`src/components/agents/AgentIdeaGenerator.tsx`**
-- Line 368: `@BuildTuna` → `@ClawMode` (in the tweet code preview)
-
-**`src/components/launchpad/PromoteModal.tsx`**
-- Line 74: `twitter.com/buildtuna/status/` → `twitter.com/clawmode/status/`
-
-**`src/components/admin/XBotRulesForm.tsx`**
-- Line 25: `"@buildtuna"` → `"@clawmode"` in DEFAULT_MENTIONS array
-- Line 27: `"buildtuna"` → `"clawmode"` in SUGGESTED_KEYWORDS array
+**`src/pages/AgentConnectPage.tsx`**
+- Line 285: `https://tuna.fun/skill.md` → `https://clawmode.fun/skill.md`
+- Line 402: `https://tuna.fun/skill.md` → `https://clawmode.fun/skill.md`
+- Line 403: `https://tuna.fun/skill.json` → `https://clawmode.fun/skill.json`
+- Line 412: `https://tuna.fun/skill.md` → `https://clawmode.fun/skill.md`
+- Line 421: `https://tuna.fun/skill.json` → `https://clawmode.fun/skill.json`
+- Line 424: `https://tuna.fun/skill.md` → `https://clawmode.fun/skill.md`
 
 **`src/pages/AgentDocsPage.tsx`**
-- Line 385: `@BuildTuna !tunalaunch` → `@ClawMode !tunalaunch` (code block)
-- Line 397: `@BuildTuna` → `@ClawMode` (description text)
-- Line 999: `@BuildTuna` → `@ClawMode` (FAQ answer)
-- Line 1086: tweet intent URL `@BuildTuna` → `@ClawMode`
+- Line 44: `API_BASE_URL = "https://tuna.fun/functions/v1"` → `https://clawmode.fun/functions/v1`
 
-**`src/pages/AgentClaimPage.tsx`**
-- Line 535: `@BuildTuna` → `@ClawMode` (card description)
-- Line 644: `@BuildTuna` → `@ClawMode` (empty state text)
+**`src/pages/ApiDocsPage.tsx`**
+- Line 953: `"launchpadUrl": "https://tuna.fun/fun/..."` → `https://clawmode.fun/fun/...`
 
-**`src/pages/CareersPage.tsx`**
-- Line 189: recipient_id `buildtuna` → `clawmode`
-- Line 433: `DM @buildtuna on X` → `DM @clawmode on X`
+**`src/pages/ApiDashboardPage.tsx`**
+- Line 648: `*.tuna.fun` display text → `*.clawmode.fun`
+- Line 955: `https://${lp.subdomain}.tuna.fun` → `https://${lp.subdomain}.clawmode.fun`
+- Line 960: `{lp.subdomain}.tuna.fun` display → `{lp.subdomain}.clawmode.fun`
+
+**`src/pages/ApiBuilderPage.tsx`**
+- Line 345: `{subdomain}.tuna.fun` display → `{subdomain}.clawmode.fun`
+- Line 463: `.tuna.fun` suffix label → `.clawmode.fun`
 
 **`src/pages/WhitepaperPage.tsx`**
-- Line 1087: `x.com/BuildTuna` → `x.com/clawmode`
+- Line 192: `https://tuna.fun/api/agents/launch` → `https://clawmode.fun/api/agents/launch`
+- Line 357: `https://tuna.fun/api/agents/register` → `https://clawmode.fun/api/agents/register`
+- Line 548: `https://tuna.fun/api` → `https://clawmode.fun/api`
+- Line 724: `os.tuna.fun` → `os.clawmode.fun`
+- Lines 1082–1085: All `https://tuna.fun/...` links → `https://clawmode.fun/...`
 
-**`src/pages/ClaudeLauncherPage.tsx`**
-- Line 1020: `x.com/buildtuna` → `x.com/clawmode`
-- Line 1058: `x.com/buildtuna` → `x.com/clawmode`
+**`src/components/opentuna/OpenTunaHub.tsx`**
+- Line 236: `https://tuna.fun/api/...` → `https://clawmode.fun/api/...`
 
-**`src/pages/BagsAgentsPage.tsx`**
-- Line 55: default twitter value `x.com/BuildTuna` → `x.com/clawmode`
-- Line 336: placeholder `x.com/BuildTuna` → `x.com/clawmode`
+**`src/components/DomainRouter.tsx`**
+- Line 16: `"os.tuna.fun"` → `"os.clawmode.fun"`
+- Line 16 comment: `os.tuna.fun` → `os.clawmode.fun`
 
 ---
 
-### Edge Functions — 6 files
+### Edge Functions — 14 files
 
-**`supabase/functions/twitter-auto-reply/index.ts`**
-- Line 456: log string `@buildtuna tweets` → `@clawmode tweets`
-- Line 458: `to:buildtuna` query → `to:clawmode`
-- Line 470: log string `to @buildtuna` → `to @clawmode`
-- Line 475: self-filter `!== "buildtuna"` → `!== "clawmode"`
-- Line 491: `searchQuery = "to:buildtuna (replies)"` → `"to:clawmode (replies)"`
-- Line 535: self-filter `!== "buildtuna"` → `!== "clawmode"`
+**`supabase/functions/agent-social-post/index.ts`**
+- Line 197: `https://tuna.fun/tunabook/post/${post.id}` → `https://clawmode.fun/tunabook/post/${post.id}`
 
-**`supabase/functions/promo-mention-reply/index.ts`**
-- Line 19: `"buildtuna"` in BOT_USERNAMES Set → `"clawmode"`
-- Line 113: search query `@buildtuna` → `@clawmode`
-- Line 283: return type `"buildtuna"` → `"clawmode"`
-- Line 286: `includes("@buildtuna")` → `includes("@clawmode")`
-- Line 294: `return "buildtuna"` → `return "clawmode"`
+**`supabase/functions/agent-social-comment/index.ts`**
+- Line 168: `https://tuna.fun/tunabook/post/${postId}` → `https://clawmode.fun/tunabook/post/${postId}`
 
-**`supabase/functions/promo-mention-scan/index.ts`**
-- Line 13: `"buildtuna"` in BOT_USERNAMES → `"clawmode"`
-- Line 53: search query `@buildtuna` → `@clawmode`
-- Line 101: `includes("@buildtuna")` → `includes("@clawmode")`
-- Line 109: `return "buildtuna"` → `return "clawmode"`
+**`supabase/functions/agent-discover/index.ts`**
+- Lines 72–77: All `tuna.fun` skill file URLs → `clawmode.fun`
 
-**`supabase/functions/agent-idea-generate/index.ts`**
-- Line 82: prompt `@buildtuna mention` → `@clawmode mention`
-- Line 119: fallback tweetText `@buildtuna` → `@clawmode`
-- Line 186: fallback tweetText `@buildtuna` → `@clawmode`
+**`supabase/functions/agent-auto-engage/index.ts`**
+- Line 281: `tuna.fun/launchpad/` → `clawmode.fun/launchpad/`
+- Line 401: `tuna.fun` mention in prompt → `clawmode.fun`
+- Line 412: `tuna.fun` in prompt → `clawmode.fun`
+- Line 440: `tuna.fun` in SystemTUNA prompt → `clawmode.fun`
 
 **`supabase/functions/agent-hourly-post/index.ts`**
-- Line 317: `twitter.com/buildtuna/status/` → `twitter.com/clawmode/status/`
+- Line 100: `tuna.fun/agents` → `clawmode.fun/agents`
 
-**`supabase/functions/promote-post/index.ts`**
-- Line 275: `twitter.com/buildtuna/status/` → `twitter.com/clawmode/status/`
+**`supabase/functions/api-launch-token/index.ts`**
+- Line 206: `https://tuna.fun/fun/` → `https://clawmode.fun/fun/`
+
+**`supabase/functions/api-launchpad/index.ts`**
+- Line 232: `${subdomain}.tuna.fun` → `${subdomain}.clawmode.fun`
+
+**`supabase/functions/api-deploy/index.ts`**
+- Line 195: `${launchpad.subdomain}.tuna.fun` → `${launchpad.subdomain}.clawmode.fun`
+- Line 254: `${launchpad.subdomain}.tuna.fun` → `${launchpad.subdomain}.clawmode.fun`
 
 **`supabase/functions/bags-agent-launch/index.ts`**
-- Line 109: fallback `x.com/BuildTuna` → `x.com/clawmode`
+- Line 108: `https://tuna.fun/t/${ticker}` → `https://clawmode.fun/t/${ticker}`
+
+**`supabase/functions/subtuna-crosspost-x/index.ts`**
+- Line 162: `https://tuna.fun/t/${subtuna.ticker}` → `https://clawmode.fun/t/${subtuna.ticker}`
+
+**`supabase/functions/colosseum-submit/index.ts`**
+- Lines 138–141: All `tuna.fun` links → `clawmode.fun`
+- Line 202: `https://tuna.fun/og-image.png` → `https://clawmode.fun/og-image.png`
+
+**`supabase/functions/colosseum-bridge/index.ts`**
+- Lines 65–67: All `tuna.fun` links → `clawmode.fun`
+
+**`supabase/functions/colosseum-auto-engage/index.ts`**
+- Lines 15–27: All `tuna.fun` mentions in comment templates → `clawmode.fun`
+
+**`supabase/functions/opentuna-fin-browse/index.ts`**
+- Line 301: User-Agent string `+https://tuna.fun` → `+https://clawmode.fun`
 
 ---
 
-### What is intentionally NOT changed
+### Public Assets — 5 files
 
-| Item | Reason |
-|---|---|
-| `supabase/migrations/` SQL files | Migration history is immutable — can't rewrite past migrations |
-| `supabase/functions/test-proxy/index.ts` line 90 | This is a health-check that looks up the username on Twitter API — needs to match the live account name. Will update to `clawmode`. |
-| `supabase/functions/test-community/index.ts` lines 200–219 | Admin debug tool that checks community membership. Will update the variable name and username string. |
-| `supabase/functions/colosseum-submit/index.ts` lines 144, 195 | GitHub repo link and team twitter — will update to `clawmode`. |
-| `src/pages/PromoMentionsAdminPage.tsx` line 264 | Display-only code snippet showing search query. Will update to `@clawmode`. |
+**`public/skill.md`**
+- Lines 5–7: `homepage`, `connect`, `discovery` URLs
+- Lines 70–72: skill file URLs in JSON response examples
+- Line 162: `tradeUrl` example
+
+**`public/skill.json`**
+- Lines 5–8: `homepage`, `documentation`, `connect`, `skill_file`
+- Lines 83–84: `companion_files` heartbeat/rules URLs
+
+**`public/TUNA_WHITEPAPER.md`**
+- All `tuna.fun` occurrences (~10) → `clawmode.fun`
+
+**`public/robots.txt`**
+- Line 17: `Sitemap: https://tuna.fun/sitemap.xml` → `https://clawmode.fun/sitemap.xml`
+
+**`public/sdk/README.md`**
+- All `tuna.fun` badge/link references (~8) → `clawmode.fun`
+
+**`public/sdk/src/index.ts`**
+- Line 8: `BASE_URL = 'https://tuna.fun/api'` → `https://clawmode.fun/api`
+
+**`public/sdk/package.json`**
+- Line 22: `"homepage": "https://tuna.fun"` → `https://clawmode.fun`
+
+---
+
+### SDK Docs — 4 files
+
+**`sdk/src/index.ts`**
+- Line 132: `BASE_URL = 'https://tuna.fun/api'` → `https://clawmode.fun/api`
+
+**`sdk/docs/API.md`**
+- Lines 211–214: All `tuna.fun` links → `clawmode.fun`
+
+**`sdk/package.json`**
+- Line 95: `"homepage": "https://tuna.fun/opentuna"` → `https://clawmode.fun/opentuna`
+
+**`sdk/README.md`**
+- Lines 5–8, 270–273: All `tuna.fun` badge/link references → `clawmode.fun`
+
+**`sdk/examples/basic-launch.ts`**
+- Lines 61, 100–101: `tuna.fun/t/AGENT`, `tuna.fun/token/...`, `tuna.fun/t/AGENT` → `clawmode.fun`
 
 ---
 
 ### Technical Notes
 
-- Edge functions redeploy automatically on file save — no manual deploy needed
-- The `determineMentionType` return type strings (`"buildtuna"`) are string literals used as internal event types. These also need updating to `"clawmode"` so downstream logic handles them correctly
-- All changes are pure string replacements — zero logic changes
-- Total: ~15 frontend files + 8 edge function files
+- All replacements are pure string substitutions — `tuna.fun` → `clawmode.fun`
+- No logic changes in any file
+- Edge functions redeploy automatically
+- The `index.html` canonical URL and OG/Twitter URLs already correctly point to `clawmode.lovable.app` — once the custom domain `clawmode.fun` is connected in Lovable settings, those should be updated to `clawmode.fun` too. For now those remain as-is since the custom domain isn't configured yet.
+- Total: ~35 files, ~200 individual URL replacements
