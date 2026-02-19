@@ -1211,9 +1211,14 @@ Deno.serve(async (req) => {
           "🐟 Token launched!",
           "🐟 To launch a token",
           "🐟 To launch your token",
+          "🦞 Hey @",
+          "🦞 Token launched!",
+          "🦞 Trading Agent launched",
           "Powered by TUNA Agents",
+          "Powered by Claw Mode",
           "is now live on TUNA!",
           "80% of fees go to you",
+          "80% of fees fund your agent",
         ];
         if (botReplySignatures.some(sig => tweetText.includes(sig))) {
           console.log(`[agent-scan-twitter] ⏭️ Skipping ${tweetId} - looks like a bot reply`);
@@ -1430,7 +1435,7 @@ Deno.serve(async (req) => {
               }
             } else if (processResult.error?.includes("parse")) {
               // Fallback: format help for parsing errors
-              const formatHelpText = `🐟 Hey @${username}! To launch your token, please use this format:\n\n!tunalaunch\nName: YourTokenName\nSymbol: $TICKER\n\nDon't forget to attach an image!`;
+              const formatHelpText = `🦞 Hey @${username}! To launch your token, please use this format:\n\n!clawmode\nName: YourTokenName\nSymbol: $TICKER\n\nDon't forget to attach an image!`;
 
               const helpReplyResult = await replyToTweet(
                 tweetId,
