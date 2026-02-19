@@ -133,7 +133,7 @@ const TrendingPage = () => {
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
 
-        <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-4 py-4 sm:py-8">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 pb-24">
         {/* Active Narrative Banner */}
         {activeNarrative && (
           <Card className="mb-4 sm:mb-8 border-primary/50 bg-gradient-to-r from-primary/10 via-transparent to-primary/5">
@@ -326,7 +326,7 @@ const TrendingPage = () => {
             <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
             Top 50 Trending (DexScreener)
           </h2>
-          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
             {loading ? (
               Array.from({ length: 12 }).map((_, i) => (
                 <Card key={i}>
@@ -349,55 +349,56 @@ const TrendingPage = () => {
               </Card>
             ) : (
               tokens.map((token) => (
-                <Card key={token.id} className="hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="absolute -top-1 -left-1 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                          {token.rank}
-                        </div>
+                <Card key={token.id} className="hover:bg-muted/50 transition-colors overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="flex items-start gap-0">
+                      {/* Rank strip */}
+                      <div className="w-7 flex-shrink-0 flex items-center justify-center py-3 text-xs font-bold text-muted-foreground border-r border-border" style={{ background: "rgba(255,255,255,0.03)" }}>
+                        {token.rank}
+                      </div>
+                      <div className="flex items-center gap-2.5 p-2.5 flex-1 min-w-0">
                         {token.image_url ? (
                           <img 
                             src={token.image_url} 
                             alt={token.name || token.symbol || "Token"} 
-                            className="w-10 h-10 rounded-full bg-muted"
+                            className="w-9 h-9 rounded-full bg-muted flex-shrink-0 object-cover"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = "/placeholder.svg";
                             }}
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
+                          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0">
                             {(token.symbol || token.name || "?").charAt(0)}
                           </div>
                         )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <span className="font-semibold text-sm truncate">
-                            {token.name || token.symbol || "Unknown"}
-                          </span>
-                          {token.url && (
-                            <a 
-                              href={token.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-primary"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="font-semibold text-sm truncate leading-tight">
+                              {token.name || token.symbol || "Unknown"}
+                            </span>
+                            {token.url && (
+                              <a 
+                                href={token.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-primary flex-shrink-0"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                          {token.symbol && (
+                            <span className="text-[11px] text-muted-foreground">${token.symbol}</span>
                           )}
+                          {token.description && (
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5 leading-tight">
+                              {token.description}
+                            </p>
+                          )}
+                          <Badge variant="outline" className="text-[9px] mt-1 px-1 py-0 h-4">
+                            {token.chain_id}
+                          </Badge>
                         </div>
-                        {token.symbol && token.name && (
-                          <span className="text-xs text-muted-foreground">${token.symbol}</span>
-                        )}
-                        {token.description && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            {token.description}
-                          </p>
-                        )}
-                        <Badge variant="outline" className="text-[10px] mt-1">
-                          {token.chain_id}
-                        </Badge>
                       </div>
                     </div>
                   </CardContent>
