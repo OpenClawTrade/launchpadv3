@@ -99,27 +99,27 @@
   }
 
   .dark {
-    /* Claw Mode Dark Terminal */
-    --background: 0 0% 4%;
-    --background-secondary: 240 10% 6%;
-    --background-tertiary: 240 8% 9%;
-    --foreground: 214 32% 91%;
-    --foreground-secondary: 215 16% 52%;
+    /* Claw Mode Dark Terminal — Pure Black */
+    --background: 0 0% 2%;
+    --background-secondary: 240 8% 5%;
+    --background-tertiary: 240 6% 7%;
+    --foreground: 214 28% 88%;
+    --foreground-secondary: 215 14% 50%;
 
-    --card: 240 10% 5%;
-    --card-foreground: 214 32% 91%;
+    --card: 240 8% 4%;
+    --card-foreground: 214 28% 88%;
 
-    --popover: 240 10% 6%;
-    --popover-foreground: 214 32% 91%;
+    --popover: 240 8% 5%;
+    --popover-foreground: 214 28% 88%;
 
     --primary: 0 84% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 10% 8%;
-    --secondary-foreground: 214 32% 91%;
+    --secondary: 240 8% 7%;
+    --secondary-foreground: 214 28% 88%;
 
-    --muted: 240 10% 9%;
-    --muted-foreground: 215 12% 40%;
+    --muted: 240 8% 8%;
+    --muted-foreground: 215 10% 36%;
 
     --accent: 187 80% 15%;
     --accent-foreground: 187 80% 60%;
@@ -127,21 +127,27 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 12%;
-    --border-light: 240 10% 16%;
-    --input: 240 10% 10%;
+    --border: 240 8% 11%;
+    --border-light: 240 8% 14%;
+    --input: 240 8% 9%;
     --ring: 0 84% 60%;
 
-    --sidebar-background: 0 0% 4%;
-    --sidebar-foreground: 214 32% 91%;
+    --sidebar-background: 0 0% 2%;
+    --sidebar-foreground: 214 28% 88%;
     --sidebar-primary: 0 84% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 84% 10%;
+    --sidebar-accent: 0 84% 8%;
     --sidebar-accent-foreground: 0 84% 60%;
-    --sidebar-border: 240 10% 12%;
+    --sidebar-border: 240 8% 11%;
     --sidebar-ring: 0 84% 60%;
 
-    --shadow-glow: 0 0 30px hsl(0 84% 60% / 0.15);
+    --shadow-glow: 0 0 30px hsl(0 84% 60% / 0.12);
+
+    /* Success color for green values */
+    --success: 142 60% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
   }
 }
 

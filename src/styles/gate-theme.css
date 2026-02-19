@@ -1,75 +1,76 @@
-/* Claw Mode Design System — Dark Terminal Theme */
+/* Claw Mode Design System — Dark Terminal */
 
 .gate-theme {
   /* Core Brand Colors */
   --gate-primary: 0 84% 60%;
   --gate-primary-hover: 0 84% 50%;
-  --gate-primary-light: 0 84% 10%;
+  --gate-primary-light: 0 84% 8%;
 
   /* Semantic Colors */
-  --gate-success: 142 70% 45%;
+  --gate-success: 142 60% 40%;
   --gate-danger: 0 72% 51%;
   --gate-warning: 38 92% 50%;
   --gate-info: 210 100% 50%;
 
-  /* Background layers */
-  --gate-bg-primary: 0 0% 4%;
-  --gate-bg-secondary: 240 10% 7%;
-  --gate-bg-tertiary: 240 8% 10%;
-  --gate-bg-card: 240 10% 6%;
-  --gate-bg-elevated: 240 10% 8%;
-  --gate-bg-input: 240 8% 8%;
+  /* Background layers — true black terminal */
+  --gate-bg-primary: 0 0% 2%;
+  --gate-bg-secondary: 240 8% 5%;
+  --gate-bg-tertiary: 240 6% 7%;
+  --gate-bg-card: 240 8% 4%;
+  --gate-bg-elevated: 240 8% 6%;
+  --gate-bg-input: 240 6% 7%;
 
   /* Text colors */
-  --gate-text-primary: 214 32% 91%;
-  --gate-text-secondary: 215 16% 55%;
-  --gate-text-muted: 215 12% 40%;
+  --gate-text-primary: 214 28% 88%;
+  --gate-text-secondary: 215 14% 50%;
+  --gate-text-muted: 215 10% 36%;
   --gate-text-inverse: 0 0% 100%;
 
   /* Border colors */
-  --gate-border: 240 10% 13%;
-  --gate-border-hover: 240 10% 20%;
+  --gate-border: 240 8% 11%;
+  --gate-border-hover: 240 8% 18%;
   --gate-border-focus: 0 84% 60%;
 
   /* Effects */
-  --gate-shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
-  --gate-shadow-md: 0 4px 12px rgba(0,0,0,0.6);
-  --gate-shadow-lg: 0 8px 24px rgba(0,0,0,0.7);
-  --gate-shadow-xl: 0 16px 48px rgba(0,0,0,0.8);
+  --gate-shadow-sm: 0 1px 2px rgba(0,0,0,0.6);
+  --gate-shadow-md: 0 4px 12px rgba(0,0,0,0.7);
+  --gate-shadow-lg: 0 8px 24px rgba(0,0,0,0.8);
+  --gate-shadow-xl: 0 16px 48px rgba(0,0,0,0.9);
 
   /* Radius — flat terminal panels */
   --gate-radius-sm: 3px;
-  --gate-radius-md: 5px;
-  --gate-radius-lg: 6px;
-  --gate-radius-xl: 8px;
+  --gate-radius-md: 4px;
+  --gate-radius-lg: 5px;
+  --gate-radius-xl: 6px;
   --gate-radius-full: 9999px;
 }
+
 
 /* Dark Mode */
 .gate-theme.dark,
 .dark .gate-theme {
-  --gate-bg-primary: 0 0% 4%;
-  --gate-bg-secondary: 240 10% 6%;
-  --gate-bg-tertiary: 240 8% 9%;
-  --gate-bg-card: 240 10% 5%;
-  --gate-bg-elevated: 240 10% 8%;
-  --gate-bg-input: 240 8% 7%;
+  --gate-bg-primary: 0 0% 2%;
+  --gate-bg-secondary: 240 8% 4%;
+  --gate-bg-tertiary: 240 6% 6%;
+  --gate-bg-card: 240 8% 3%;
+  --gate-bg-elevated: 240 8% 5%;
+  --gate-bg-input: 240 6% 6%;
 
-  --gate-text-primary: 214 32% 91%;
-  --gate-text-secondary: 215 16% 52%;
-  --gate-text-muted: 215 12% 38%;
+  --gate-text-primary: 214 28% 88%;
+  --gate-text-secondary: 215 14% 48%;
+  --gate-text-muted: 215 10% 34%;
 
-  --gate-border: 240 10% 12%;
-  --gate-border-hover: 240 10% 18%;
+  --gate-border: 240 8% 10%;
+  --gate-border-hover: 240 8% 16%;
 
-  --gate-shadow-sm: 0 1px 2px rgba(0,0,0,0.6);
-  --gate-shadow-md: 0 4px 12px rgba(0,0,0,0.7);
-  --gate-shadow-lg: 0 8px 24px rgba(0,0,0,0.8);
+  --gate-shadow-sm: 0 1px 2px rgba(0,0,0,0.7);
+  --gate-shadow-md: 0 4px 12px rgba(0,0,0,0.8);
+  --gate-shadow-lg: 0 8px 24px rgba(0,0,0,0.9);
 
   background:
-    radial-gradient(ellipse at 15% 40%, hsl(0 84% 60% / 0.03) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 15%, hsl(187 80% 53% / 0.03) 0%, transparent 55%),
-    hsl(0 0% 4%);
+    radial-gradient(ellipse at 15% 40%, hsl(0 84% 60% / 0.025) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, hsl(187 80% 53% / 0.02) 0%, transparent 55%),
+    hsl(0 0% 2%);
 }
 
 /* Apply base */
@@ -82,14 +83,14 @@
 
 /* ===== HEADER ===== */
 .gate-header {
-  background: rgba(10, 10, 12, 0.97);
+  background: rgba(5, 5, 6, 0.98);
   border-bottom: 1px solid hsl(var(--gate-border));
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 50;
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
 }
 
 .gate-header-inner {
