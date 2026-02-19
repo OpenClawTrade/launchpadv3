@@ -13,13 +13,9 @@ import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
 function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
   const usdValue = marketCapSol * solPrice;
   if (!Number.isFinite(usdValue) || usdValue <= 0) return "$0";
-  if (usdValue >= 1_000_000) {
-    return `$${(usdValue / 1_000_000).toFixed(2)}M`;
-  } else if (usdValue >= 1_000) {
-    return `$${(usdValue / 1_000).toFixed(1)}K`;
-  } else {
-    return `$${usdValue.toFixed(0)}`;
-  }
+  if (usdValue >= 1_000_000) return `$${(usdValue / 1_000_000).toFixed(2)}M`;
+  if (usdValue >= 1_000) return `$${(usdValue / 1_000).toFixed(1)}K`;
+  return `$${usdValue.toFixed(0)}`;
 }
 
 function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
@@ -28,71 +24,63 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
   const isPhantom = token.launchpad_type === 'phantom';
-  const linkPath = (token.agent_id || isTradingAgent || isPumpFun || isBags) 
-    ? `/t/${token.ticker}` 
+  const linkPath = (token.agent_id || isTradingAgent || isPumpFun || isBags)
+    ? `/t/${token.ticker}`
     : `/launchpad/${token.mint_address || token.id}`;
 
   return (
     <Link
       to={linkPath}
       className={cn(
-        "flex-shrink-0 w-[160px] sm:w-[180px] p-3 rounded-lg border border-border bg-card/80",
-        "hover:border-primary/50 hover:bg-secondary/50 transition-all duration-200 group"
+        "flex-shrink-0 w-[130px] p-2 rounded border border-border",
+        "bg-[hsl(240_10%_5%)] hover:border-primary/40 hover:bg-white/[0.02] transition-all duration-150 group"
       )}
     >
-      <div className="flex items-center gap-2.5 mb-2">
+      <div className="flex items-center gap-1.5 mb-1.5">
         {token.image_url ? (
           <img
             src={token.image_url}
             alt={token.name}
-            className="w-9 h-9 rounded-lg object-cover border border-border/50"
+            className="w-8 h-8 rounded object-cover border border-border/50 flex-shrink-0"
             onError={(e) => {
               (e.target as HTMLImageElement).src = "/placeholder.svg";
             }}
           />
         ) : (
-          <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary flex-shrink-0">
             {token.ticker?.slice(0, 2)}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-xs text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1">
+          <h3 className="font-semibold text-[11px] text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-0.5">
             {token.name}
-            {token.launchpad_type === 'pumpfun' ? (
-              <PumpBadge size="sm" showText={false} mintAddress={token.mint_address ?? undefined} />
-            ) : isBags ? (
-              <BagsBadge showText={false} mintAddress={token.mint_address ?? undefined} />
-            ) : isPhantom ? (
-              <PhantomBadge showText={false} size="sm" mintAddress={token.mint_address ?? undefined} />
-            ) : isTradingAgent ? (
-              <span 
-                title="Trading Agent Token" 
-                className="flex items-center gap-0.5 bg-amber-500/20 text-amber-400 px-1 py-0 rounded-full flex-shrink-0"
-              >
-                <Bot className="w-2.5 h-2.5" />
-                <span className="text-[8px] font-medium">TRADER</span>
+            {isPumpFun && <PumpBadge size="sm" showText={false} mintAddress={token.mint_address ?? undefined} />}
+            {isBags && <BagsBadge showText={false} mintAddress={token.mint_address ?? undefined} />}
+            {isPhantom && <PhantomBadge showText={false} size="sm" mintAddress={token.mint_address ?? undefined} />}
+            {isTradingAgent && (
+              <span className="flex items-center gap-0.5 bg-amber-500/15 text-amber-400 px-0.5 rounded flex-shrink-0">
+                <Bot className="w-2 h-2" />
               </span>
-            ) : token.agent_id ? (
-              <span 
-                title="AI Agent Token" 
-                className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1 py-0 rounded-full flex-shrink-0"
-              >
-                <Bot className="w-2.5 h-2.5" />
-                <span className="text-[8px] font-medium">AI</span>
+            )}
+            {!isTradingAgent && token.agent_id && (
+              <span className="flex items-center gap-0.5 bg-purple-500/15 text-purple-400 px-0.5 rounded flex-shrink-0">
+                <Bot className="w-2 h-2" />
               </span>
-            ) : null}
+            )}
           </h3>
-          <span className="text-[10px] text-muted-foreground">${token.ticker}</span>
+          <span className="text-[9px] text-muted-foreground font-mono">${token.ticker}</span>
         </div>
       </div>
-      
-      <div className="flex items-center justify-between text-[10px]">
-        <span className="font-semibold text-green-500">
+
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold font-mono text-green-400">
           {formatUsdMarketCap(token.market_cap_sol ?? 0, solPrice)}
         </span>
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Clock className="w-2.5 h-2.5" />
-          <span>{formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}</span>
+        <div className="flex items-center gap-0.5 text-muted-foreground/60">
+          <Clock className="w-2 h-2" />
+          <span className="text-[9px] font-mono">
+            {formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}
+          </span>
         </div>
       </div>
     </Link>
@@ -100,58 +88,48 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
 }
 
 export function JustLaunched() {
-  // Use dedicated hook that fetches ONLY 10 recent tokens
   const { tokens, isLoading } = useJustLaunched();
 
-  if (isLoading) {
-    return (
-      <div className="w-full">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Rocket className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-bold">Just Launched</h2>
-          <span className="text-sm text-muted-foreground hidden sm:inline">— Last 24 Hours</span>
-        </div>
-        <div className="flex gap-3 pb-3 overflow-hidden">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex-shrink-0 w-[160px] sm:w-[180px] p-3 rounded-lg border border-border bg-card/80">
-              <div className="flex items-center gap-2.5 mb-2">
-                <Skeleton className="w-9 h-9 rounded-lg" />
+  return (
+    <div className="w-full">
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-2">
+        <Rocket className="w-3.5 h-3.5 text-primary" />
+        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+          Just Launched
+        </span>
+        <span className="text-[10px] text-muted-foreground/50">— Last 24 Hours</span>
+        <div className="flex-1 h-px bg-border ml-1" />
+      </div>
+
+      {isLoading ? (
+        <div className="flex gap-2 pb-1 overflow-hidden">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="flex-shrink-0 w-[130px] p-2 rounded border border-border bg-[hsl(240_10%_5%)]">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Skeleton className="w-8 h-8 rounded flex-shrink-0" />
                 <div className="flex-1 space-y-1">
-                  <Skeleton className="h-3 w-16" />
-                  <Skeleton className="h-2 w-10" />
+                  <Skeleton className="h-2.5 w-14" />
+                  <Skeleton className="h-2 w-9" />
                 </div>
               </div>
               <div className="flex justify-between">
-                <Skeleton className="h-3 w-12" />
-                <Skeleton className="h-3 w-10" />
+                <Skeleton className="h-2.5 w-10" />
+                <Skeleton className="h-2.5 w-8" />
               </div>
             </div>
           ))}
         </div>
-      </div>
-    );
-  }
-
-  if (tokens.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="w-full">
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <Rocket className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold">Just Launched</h2>
-        <span className="text-sm text-muted-foreground hidden sm:inline">— Last 24 Hours</span>
-      </div>
-      
-      <ScrollArea className="w-full">
-        <div className="flex gap-3 pb-3">
-          {tokens.map((token) => (
-            <JustLaunchedCard key={token.id} token={token} />
-          ))}
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      ) : tokens.length === 0 ? null : (
+        <ScrollArea className="w-full">
+          <div className="flex gap-2 pb-2">
+            {tokens.map((token) => (
+              <JustLaunchedCard key={token.id} token={token} />
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+      )}
     </div>
   );
 }

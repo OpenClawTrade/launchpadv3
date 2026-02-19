@@ -1,209 +1,117 @@
 import { Link } from "react-router-dom";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Crown, Copy, CheckCircle, Users, Clock, Gem, Bot } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Crown, Users, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
 import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
 
 const GRADUATION_THRESHOLD = 85;
 
-function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
-  const [copied, setCopied] = useState(false);
-  const { toast } = useToast();
+function KothRow({ token, rank }: { token: KingToken; rank: number }) {
   const { solPrice } = useSolPrice();
-
-  const copyAddress = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (token.mint_address) {
-      navigator.clipboard.writeText(token.mint_address);
-      setCopied(true);
-      toast({ title: "Copied!", description: "Contract address copied" });
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   const progress = token.bonding_progress ?? 0;
   const marketCapUsd = (token.market_cap_sol ?? 0) * (solPrice || 0);
-  const realSolReserves = (progress / 100) * GRADUATION_THRESHOLD;
-  const tradingFeePct = (token.trading_fee_bps ?? 200) / 100;
-  const isHolderRewards = token.fee_mode === 'holders';
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
   const isPhantom = token.launchpad_type === 'phantom';
   const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
-  
+
   const tradeUrl = (isPumpFun || isBags || isTradingAgent)
-    ? `/t/${token.ticker}` 
-    : token.agent_id 
-      ? `/t/${token.ticker}` 
+    ? `/t/${token.ticker}`
+    : token.agent_id
+      ? `/t/${token.ticker}`
       : `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`;
 
-  const getRankStyles = (r: number) => {
-    if (r === 1) return "border-primary/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-lg shadow-primary/10";
-    if (r === 2) return "border-border/50 bg-card/80";
-    return "border-border/50 bg-card/80";
-  };
-
-  const getRankBadgeStyles = (r: number) => {
-    if (r === 1) return "bg-primary text-primary-foreground";
-    if (r === 2) return "bg-muted-foreground/80 text-background";
-    return "bg-amber-700 text-white";
-  };
+  const rankColors = ["text-yellow-400", "text-slate-300", "text-orange-600"];
+  const rankBg = ["bg-yellow-400/10", "bg-slate-300/10", "bg-orange-600/10"];
 
   return (
     <Link
       to={tradeUrl}
       className={cn(
-        "relative flex flex-col p-2 sm:p-4 rounded-lg sm:rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:shadow-xl group hover:animate-koth-pulse",
-        getRankStyles(rank)
+        "flex items-center gap-3 px-3 py-2 border-b border-border/60 last:border-b-0",
+        "hover:bg-white/[0.03] transition-colors group"
       )}
     >
-      <div 
-        className={cn(
-          "absolute -top-1.5 -left-1.5 sm:-top-2 sm:-left-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold shadow-md z-10",
-          getRankBadgeStyles(rank)
-        )}
-      >
+      {/* Rank */}
+      <span className={cn(
+        "text-[10px] font-bold font-mono w-5 text-center flex-shrink-0 rounded px-0.5",
+        rankColors[rank - 1] || "text-muted-foreground",
+        rankBg[rank - 1] || ""
+      )}>
         #{rank}
+      </span>
+
+      {/* Avatar */}
+      <div className="w-7 h-7 rounded flex-shrink-0 overflow-hidden bg-secondary">
+        {token.image_url ? (
+          <img
+            src={token.image_url}
+            alt={token.name}
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-muted-foreground">
+            {token.ticker?.slice(0, 2)}
+          </div>
+        )}
       </div>
 
-      <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
-        <div className="relative flex-shrink-0">
-          {token.image_url ? (
-            <img
-              src={token.image_url}
-              alt={token.name}
-              className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg object-cover border border-border/50"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = "/placeholder.svg";
-              }}
-            />
-          ) : (
-            <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg bg-primary/20 flex items-center justify-center text-xs sm:text-sm font-bold text-primary">
-              {token.ticker?.slice(0, 2)}
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1">
+      {/* Name + progress */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1 mb-0.5">
+          <span className="text-[12px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
             {token.name}
-            {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
-              <span title="Holder Rewards" aria-label="Holder Rewards">
-                <Gem className="w-3 h-3 text-accent flex-shrink-0" />
-              </span>
-            )}
-            {/* Trading Agent badge (amber) takes priority, then regular AI agent */}
-            {isTradingAgent ? (
-              <span 
-                title="Trading Agent Token" 
-                className="flex items-center gap-0.5 bg-amber-500/20 text-amber-400 px-1 py-0 rounded-full flex-shrink-0"
-              >
-                <Bot className="w-2.5 h-2.5" />
-                <span className="text-[8px] font-medium">TRADER</span>
-              </span>
-            ) : token.agent_id ? (
-              <span title="AI Agent Token" className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1 py-0 rounded-full flex-shrink-0">
-                <Bot className="w-2.5 h-2.5" />
-                <span className="text-[8px] font-medium">AI</span>
-              </span>
-            ) : null}
-            {isPumpFun && (
-              <PumpBadge 
-                mintAddress={token.mint_address ?? undefined} 
-                showText={false} 
-                size="sm"
-                className="px-0 py-0 bg-transparent hover:bg-transparent"
-              />
-            )}
-            {isBags && (
-              <BagsBadge 
-                mintAddress={token.mint_address ?? undefined} 
-                showText={false}
-              />
-            )}
-            {isPhantom && !isPumpFun && !isBags && (
-              <PhantomBadge 
-                mintAddress={token.mint_address ?? undefined} 
-                showText={false}
-                size="sm"
-              />
-            )}
-          </h3>
-          <span className="text-[10px] sm:text-xs text-muted-foreground">${token.ticker}</span>
-        </div>
-
-        <button
-          onClick={copyAddress}
-          className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
-          title="Copy contract address"
-        >
-          {copied ? (
-            <CheckCircle className="w-3.5 h-3.5 text-primary" />
-          ) : (
-            <Copy className="w-3.5 h-3.5" />
-          )}
-          <span>CA</span>
-        </button>
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mb-2 sm:mb-3 text-[10px] sm:text-sm">
-        <div className="flex items-center gap-1">
-          <span className="text-muted-foreground">MC:</span>
-          <span className="font-semibold text-green-500">
-            ${marketCapUsd >= 1000 ? `${(marketCapUsd / 1000).toFixed(1)}K` : marketCapUsd.toFixed(0)}
           </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Users className="w-3 h-3 text-muted-foreground" />
-          <span className="font-semibold">{token.holder_count ?? 0}</span>
-        </div>
-        <Badge 
-          variant="outline" 
-          className={cn(
-            "text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0",
-            tradingFeePct !== 2 ? "border-primary/50 text-primary" : "border-border text-muted-foreground"
+          {isTradingAgent && (
+            <span className="flex items-center gap-0.5 bg-amber-500/15 text-amber-400 px-1 rounded-full flex-shrink-0">
+              <Bot className="w-2 h-2" />
+              <span className="text-[8px] font-medium">TRADER</span>
+            </span>
           )}
-        >
-          {tradingFeePct}%
-        </Badge>
-      </div>
-
-      <div className="mb-2 sm:mb-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] sm:text-xs text-muted-foreground">Progress</span>
+          {!isTradingAgent && token.agent_id && (
+            <span className="flex items-center gap-0.5 bg-purple-500/15 text-purple-400 px-1 rounded-full flex-shrink-0">
+              <Bot className="w-2 h-2" />
+              <span className="text-[8px] font-medium">AI</span>
+            </span>
+          )}
+          {isPumpFun && <PumpBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" className="px-0 py-0 bg-transparent hover:bg-transparent" />}
+          {isBags && <BagsBadge mintAddress={token.mint_address ?? undefined} showText={false} />}
+          {isPhantom && !isPumpFun && !isBags && <PhantomBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" />}
+        </div>
+        {/* Progress bar */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-0.5 bg-border rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full"
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
+          </div>
           <span className={cn(
-            "text-[10px] sm:text-sm font-bold",
-            progress >= 50 ? "text-primary" : "text-foreground"
+            "text-[10px] font-mono flex-shrink-0",
+            progress >= 50 ? "text-primary" : "text-muted-foreground"
           )}>
-            {progress.toFixed(1)}%
+            {progress.toFixed(0)}%
           </span>
         </div>
-        <Progress 
-          value={Math.min(progress, 100)} 
-          className={cn(
-            "h-1.5 sm:h-2",
-            progress >= 80 && "shadow-[0_0_8px_hsl(var(--primary)/0.4)]"
-          )}
-        />
       </div>
 
-      <div className="flex items-center justify-between text-[9px] sm:text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-          <span className="truncate">{formatDistanceToNow(new Date(token.created_at), { addSuffix: true })}</span>
+      {/* Stats */}
+      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+        <span className="text-[11px] font-bold font-mono text-green-400">
+          ${marketCapUsd >= 1000 ? `${(marketCapUsd / 1000).toFixed(1)}K` : marketCapUsd.toFixed(0)}
+        </span>
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <Users className="w-2.5 h-2.5" />
+          <span className="text-[10px] font-mono">{token.holder_count ?? 0}</span>
         </div>
-        <span className="font-medium tabular-nums hidden sm:inline">
-          {realSolReserves.toFixed(2)} / {GRADUATION_THRESHOLD} SOL
+        <span className="text-[9px] text-muted-foreground/60 font-mono">
+          {formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}
         </span>
       </div>
     </Link>
@@ -211,54 +119,44 @@ function TokenCard({ token, rank }: { token: KingToken; rank: number }) {
 }
 
 export function KingOfTheHill() {
-  // Use dedicated hook that fetches ONLY 3 tokens
   const { tokens, isLoading } = useKingOfTheHill();
-
-  if (isLoading) {
-    return (
-      <div className="w-full">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Crown className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-bold">King of the Hill</h2>
-          <span className="text-sm text-muted-foreground hidden sm:inline">— Soon to Graduate</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="p-2 sm:p-4 rounded-xl border border-border bg-card">
-              <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
-                <Skeleton className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg flex-shrink-0" />
-                <div className="flex-1 min-w-0 space-y-1 sm:space-y-2">
-                  <Skeleton className="h-3 sm:h-4 w-16 sm:w-24" />
-                  <Skeleton className="h-2 sm:h-3 w-10 sm:w-16" />
-                </div>
-              </div>
-              <div className="space-y-2 sm:space-y-3">
-                <Skeleton className="h-3 sm:h-4 w-full" />
-                <Skeleton className="h-1.5 sm:h-2 w-full" />
-                <Skeleton className="h-2 sm:h-3 w-20 sm:w-32" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!tokens || tokens.length === 0) {
-    return null;
-  }
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <Crown className="w-5 h-5 text-accent" />
-        <h2 className="text-lg font-bold">King of the Hill</h2>
-        <span className="text-sm text-muted-foreground hidden sm:inline">— Soon to Graduate</span>
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-2">
+        <Crown className="w-3.5 h-3.5 text-yellow-400" />
+        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+          King of the Hill
+        </span>
+        <span className="text-[10px] text-muted-foreground/50">— Soon to Graduate</span>
+        <div className="flex-1 h-px bg-border ml-1" />
       </div>
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {tokens.map((token, index) => (
-          <TokenCard key={token.id} token={token} rank={index + 1} />
-        ))}
+
+      {/* Panel */}
+      <div className="bg-[hsl(240_10%_5%)] border border-border rounded-md overflow-hidden">
+        {isLoading ? (
+          <>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2 border-b border-border/60 last:border-b-0">
+                <Skeleton className="w-5 h-4 rounded" />
+                <Skeleton className="w-7 h-7 rounded flex-shrink-0" />
+                <div className="flex-1 space-y-1">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-0.5 w-full" />
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <Skeleton className="h-3 w-12" />
+                  <Skeleton className="h-2.5 w-8" />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : !tokens || tokens.length === 0 ? null : (
+          tokens.map((token, index) => (
+            <KothRow key={token.id} token={token} rank={index + 1} />
+          ))
+        )}
       </div>
     </div>
   );

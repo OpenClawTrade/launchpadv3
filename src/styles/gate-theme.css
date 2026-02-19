@@ -1,80 +1,78 @@
-/* Gate.io Inspired Theme - Professional Crypto Exchange Aesthetic */
-/* Clean, modern, professional trading platform design */
+/* Claw Mode Design System — Dark Terminal Theme */
 
 .gate-theme {
-  /* Core Brand Colors - OpenClaw Red */
+  /* Core Brand Colors */
   --gate-primary: 0 84% 60%;
   --gate-primary-hover: 0 84% 50%;
-  --gate-primary-light: 0 84% 15%;
-  
+  --gate-primary-light: 0 84% 10%;
+
   /* Semantic Colors */
-  --gate-success: 152 69% 41%;              /* Green */
-  --gate-danger: 0 72% 51%;                 /* Red #F04438 */
-  --gate-warning: 38 92% 50%;               /* Orange */
-  --gate-info: 210 100% 50%;                /* Blue */
-  
-  /* Background layers - Light Theme */
-  --gate-bg-primary: 0 0% 100%;             /* Pure white */
-  --gate-bg-secondary: 220 20% 97%;         /* #F5F5F7 */
-  --gate-bg-tertiary: 220 14% 95%;          /* #EAECEF */
-  --gate-bg-card: 0 0% 100%;                /* White cards */
-  --gate-bg-elevated: 0 0% 100%;
-  --gate-bg-input: 220 20% 97%;
-  
+  --gate-success: 142 70% 45%;
+  --gate-danger: 0 72% 51%;
+  --gate-warning: 38 92% 50%;
+  --gate-info: 210 100% 50%;
+
+  /* Background layers */
+  --gate-bg-primary: 0 0% 4%;
+  --gate-bg-secondary: 240 10% 7%;
+  --gate-bg-tertiary: 240 8% 10%;
+  --gate-bg-card: 240 10% 6%;
+  --gate-bg-elevated: 240 10% 8%;
+  --gate-bg-input: 240 8% 8%;
+
   /* Text colors */
-  --gate-text-primary: 220 13% 5%;          /* Near black #0D1421 */
-  --gate-text-secondary: 220 9% 46%;        /* Gray #707A8A */
-  --gate-text-muted: 220 9% 62%;            /* Lighter gray */
-  --gate-text-inverse: 0 0% 100%;           /* White text */
-  
+  --gate-text-primary: 214 32% 91%;
+  --gate-text-secondary: 215 16% 55%;
+  --gate-text-muted: 215 12% 40%;
+  --gate-text-inverse: 0 0% 100%;
+
   /* Border colors */
-  --gate-border: 220 13% 91%;               /* #EAECEF */
-  --gate-border-hover: 220 13% 80%;
-  --gate-border-focus: 152 69% 41%;
-  
+  --gate-border: 240 10% 13%;
+  --gate-border-hover: 240 10% 20%;
+  --gate-border-focus: 0 84% 60%;
+
   /* Effects */
-  --gate-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --gate-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --gate-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --gate-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
-  
-  /* Radius */
-  --gate-radius-sm: 6px;
-  --gate-radius-md: 10px;
-  --gate-radius-lg: 14px;
-  --gate-radius-xl: 20px;
+  --gate-shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+  --gate-shadow-md: 0 4px 12px rgba(0,0,0,0.6);
+  --gate-shadow-lg: 0 8px 24px rgba(0,0,0,0.7);
+  --gate-shadow-xl: 0 16px 48px rgba(0,0,0,0.8);
+
+  /* Radius — flat terminal panels */
+  --gate-radius-sm: 3px;
+  --gate-radius-md: 5px;
+  --gate-radius-lg: 6px;
+  --gate-radius-xl: 8px;
   --gate-radius-full: 9999px;
 }
 
 /* Dark Mode */
 .gate-theme.dark,
 .dark .gate-theme {
-  --gate-bg-primary: 240 20% 4%;
-  --gate-bg-secondary: 240 15% 7%;
-  --gate-bg-tertiary: 240 15% 10%;
-  --gate-bg-card: 240 15% 7%;
-  --gate-bg-elevated: 240 15% 12%;
-  --gate-bg-input: 240 15% 10%;
-  
-  --gate-text-primary: 214 32% 91%;
-  --gate-text-secondary: 215 16% 57%;
-  --gate-text-muted: 215 16% 47%;
-  
-  --gate-border: 240 15% 14%;
-  --gate-border-hover: 240 15% 20%;
-  
-  --gate-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --gate-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --gate-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --gate-bg-primary: 0 0% 4%;
+  --gate-bg-secondary: 240 10% 6%;
+  --gate-bg-tertiary: 240 8% 9%;
+  --gate-bg-card: 240 10% 5%;
+  --gate-bg-elevated: 240 10% 8%;
+  --gate-bg-input: 240 8% 7%;
 
-  /* Nebula background */
+  --gate-text-primary: 214 32% 91%;
+  --gate-text-secondary: 215 16% 52%;
+  --gate-text-muted: 215 12% 38%;
+
+  --gate-border: 240 10% 12%;
+  --gate-border-hover: 240 10% 18%;
+
+  --gate-shadow-sm: 0 1px 2px rgba(0,0,0,0.6);
+  --gate-shadow-md: 0 4px 12px rgba(0,0,0,0.7);
+  --gate-shadow-lg: 0 8px 24px rgba(0,0,0,0.8);
+
   background:
-    radial-gradient(ellipse at 20% 50%, hsl(0 84% 60% / 0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, hsl(187 80% 53% / 0.04) 0%, transparent 50%),
-    hsl(240 20% 4%);
+    radial-gradient(ellipse at 15% 40%, hsl(0 84% 60% / 0.03) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, hsl(187 80% 53% / 0.03) 0%, transparent 55%),
+    hsl(0 0% 4%);
 }
 
-/* Apply Gate theme */
+/* Apply base */
 .gate-theme {
   background-color: hsl(var(--gate-bg-primary));
   color: hsl(var(--gate-text-primary));
@@ -84,20 +82,21 @@
 
 /* ===== HEADER ===== */
 .gate-header {
-  background-color: hsl(var(--gate-bg-card));
+  background: rgba(10, 10, 12, 0.97);
   border-bottom: 1px solid hsl(var(--gate-border));
+  backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 50;
   width: 100%;
-  min-height: 42px;
+  min-height: 48px;
 }
 
 .gate-header-inner {
-  max-width: 1050px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 12px;
-  height: 42px;
+  padding: 0 16px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -114,51 +113,53 @@
 .gate-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 20px;
+  gap: 8px;
+  font-size: 15px;
   font-weight: 700;
   color: hsl(var(--gate-text-primary));
+  font-family: 'IBM Plex Mono', monospace;
   flex-shrink: 0;
+  letter-spacing: -0.01em;
 }
 
 .gate-logo-icon {
-  width: 24px;
-  height: 24px;
-  background: linear-gradient(135deg, hsl(var(--gate-primary)), hsl(0 84% 45%));
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
+/* Flat nav links */
 .gate-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0;
 }
 
 .gate-nav-link {
-  padding: 8px 16px;
-  font-size: 14px;
+  padding: 6px 12px;
+  font-size: 13px;
   font-weight: 500;
   color: hsl(var(--gate-text-secondary));
-  border-radius: var(--gate-radius-md);
-  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .gate-nav-link:hover {
   color: hsl(var(--gate-text-primary));
-  background-color: hsl(var(--gate-bg-secondary));
+  border-bottom-color: hsl(var(--gate-border-hover));
 }
 
 .gate-nav-link.active {
   color: hsl(var(--gate-primary));
-  background-color: hsl(var(--gate-primary-light));
+  border-bottom-color: hsl(var(--gate-primary));
 }
 
-/* ===== CARDS ===== */
+/* ===== CARDS — flat dark panels ===== */
 .gate-card {
   background-color: hsl(var(--gate-bg-card));
   border: 1px solid hsl(var(--gate-border));
@@ -167,7 +168,7 @@
 }
 
 .gate-card-header {
-  padding: 16px 20px;
+  padding: 10px 14px;
   border-bottom: 1px solid hsl(var(--gate-border));
   display: flex;
   align-items: center;
@@ -175,16 +176,18 @@
 }
 
 .gate-card-title {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
-  color: hsl(var(--gate-text-primary));
+  color: hsl(var(--gate-text-secondary));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .gate-card-body {
-  padding: 20px;
+  padding: 14px;
 }
 
 /* ===== BUTTONS ===== */
@@ -192,14 +195,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: var(--gate-radius-md);
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
@@ -210,8 +213,6 @@
 
 .gate-btn-primary:hover {
   background-color: hsl(var(--gate-primary-hover));
-  transform: translateY(-1px);
-  box-shadow: var(--gate-shadow-md);
 }
 
 .gate-btn-secondary {
@@ -241,38 +242,37 @@
 }
 
 .gate-btn-sm {
-  padding: 6px 12px;
-  font-size: 13px;
+  padding: 5px 10px;
+  font-size: 12px;
 }
 
 .gate-btn-lg {
-  padding: 14px 28px;
-  font-size: 16px;
+  padding: 12px 24px;
+  font-size: 14px;
 }
 
 .gate-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
-  transform: none;
 }
 
 /* ===== INPUTS ===== */
 .gate-input {
   width: 100%;
-  height: 34px;
-  padding: 0 10px;
-  font-size: 14px;
+  height: 32px;
+  padding: 0 9px;
+  font-size: 13px;
   background-color: hsl(var(--gate-bg-input));
   border: 1px solid hsl(var(--gate-border));
   border-radius: var(--gate-radius-md);
   color: hsl(var(--gate-text-primary));
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .gate-input:focus {
   outline: none;
   border-color: hsl(var(--gate-primary));
-  box-shadow: 0 0 0 3px hsl(var(--gate-primary) / 0.1);
+  box-shadow: 0 0 0 2px hsl(var(--gate-primary) / 0.12);
 }
 
 .gate-input::placeholder {
@@ -280,31 +280,35 @@
 }
 
 .gate-textarea {
-  min-height: 100px;
-  padding: 12px 14px;
+  min-height: 90px;
+  padding: 10px 12px;
   resize: vertical;
+  height: auto;
 }
 
-/* ===== TABS ===== */
+/* ===== TABS — underline style ===== */
 .gate-tabs {
-  display: inline-flex;
-  background-color: hsl(var(--gate-bg-secondary));
-  border-radius: var(--gate-radius-lg);
-  padding: 4px;
-  gap: 4px;
+  display: flex;
+  border-bottom: 1px solid hsl(var(--gate-border));
+  gap: 0;
+  background: transparent;
+  padding: 0;
 }
 
 .gate-tab {
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 500;
-  color: hsl(var(--gate-text-secondary));
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--gate-text-muted));
   background: transparent;
   border: none;
-  border-radius: var(--gate-radius-md);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .gate-tab:hover {
@@ -312,12 +316,11 @@
 }
 
 .gate-tab.active {
-  background-color: hsl(var(--gate-bg-card));
-  color: hsl(var(--gate-text-primary));
-  box-shadow: var(--gate-shadow-sm);
+  color: hsl(var(--gate-primary));
+  border-bottom-color: hsl(var(--gate-primary));
 }
 
-/* ===== TABLE ===== */
+/* ===== TABLE — ultra compact ===== */
 .gate-table-wrapper {
   overflow-x: auto;
 }
@@ -328,11 +331,11 @@
 }
 
 .gate-table th {
-  padding: 14px 16px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: hsl(var(--gate-text-muted));
   text-align: left;
   background-color: hsl(var(--gate-bg-secondary));
@@ -340,8 +343,8 @@
 }
 
 .gate-table td {
-  padding: 14px 16px;
-  font-size: 14px;
+  padding: 8px 12px;
+  font-size: 12px;
   color: hsl(var(--gate-text-primary));
   border-bottom: 1px solid hsl(var(--gate-border));
 }
@@ -350,21 +353,25 @@
   border-bottom: none;
 }
 
+.gate-table tr:nth-child(even) td {
+  background-color: hsl(var(--gate-bg-secondary) / 0.4);
+}
+
 .gate-table tr:hover td {
-  background-color: hsl(var(--gate-bg-secondary) / 0.5);
+  background-color: hsl(0 0% 100% / 0.03);
 }
 
 /* ===== TOKEN ROW ===== */
 .gate-token-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .gate-token-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: 4px;
   overflow: hidden;
   background-color: hsl(var(--gate-bg-tertiary));
   flex-shrink: 0;
@@ -382,18 +389,19 @@
 .gate-token-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .gate-token-name {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: hsl(var(--gate-text-primary));
 }
 
 .gate-token-ticker {
-  font-size: 12px;
-  color: hsl(var(--gate-text-secondary));
+  font-size: 10px;
+  color: hsl(var(--gate-text-muted));
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 /* ===== PRICE CHANGE ===== */
@@ -407,16 +415,15 @@
 
 /* ===== PROGRESS BAR ===== */
 .gate-progress {
-  height: 6px;
+  height: 2px;
   background-color: hsl(var(--gate-bg-tertiary));
-  border-radius: var(--gate-radius-full);
+  border-radius: 1px;
   overflow: hidden;
 }
 
 .gate-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, hsl(var(--gate-primary)), hsl(0 84% 70%));
-  border-radius: var(--gate-radius-full);
+  background: hsl(var(--gate-primary));
   transition: width 0.3s ease;
 }
 
@@ -424,237 +431,157 @@
 .gate-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: var(--gate-radius-full);
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 3px;
   background-color: hsl(var(--gate-bg-secondary));
-  color: hsl(var(--gate-text-secondary));
+  color: hsl(var(--gate-text-muted));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .gate-badge-success {
-  background-color: hsl(var(--gate-success) / 0.1);
+  background-color: hsl(var(--gate-success) / 0.12);
   color: hsl(var(--gate-success));
 }
 
 .gate-badge-danger {
-  background-color: hsl(var(--gate-danger) / 0.1);
+  background-color: hsl(var(--gate-danger) / 0.12);
   color: hsl(var(--gate-danger));
 }
 
 .gate-badge-warning {
-  background-color: hsl(var(--gate-warning) / 0.1);
+  background-color: hsl(var(--gate-warning) / 0.12);
   color: hsl(var(--gate-warning));
 }
 
 .gate-badge-primary {
-  background-color: hsl(var(--gate-primary) / 0.1);
+  background-color: hsl(var(--gate-primary) / 0.12);
   color: hsl(var(--gate-primary));
 }
 
-/* ===== STAT CARDS ===== */
+/* ===== STAT CARDS — compact ribbon ===== */
 .gate-stat-card {
-  background-color: hsl(var(--gate-bg-card));
-  border: 1px solid hsl(var(--gate-border));
-  border-radius: var(--gate-radius-lg);
-  padding: 16px 20px;
+  background-color: transparent;
+  padding: 8px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 .gate-stat-label {
-  font-size: 12px;
-  color: hsl(var(--gate-text-secondary));
+  font-size: 10px;
+  font-weight: 600;
+  color: hsl(var(--gate-text-muted));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .gate-stat-value {
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 700;
   color: hsl(var(--gate-text-primary));
+  font-family: 'IBM Plex Mono', monospace;
+  line-height: 1;
 }
 
 .gate-stat-sub {
-  font-size: 12px;
+  font-size: 10px;
   color: hsl(var(--gate-text-muted));
-}
-
-/* ===== PAGINATION ===== */
-.gate-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-top: 1px solid hsl(var(--gate-border));
-}
-
-.gate-pagination-info {
-  font-size: 13px;
-  color: hsl(var(--gate-text-secondary));
-}
-
-.gate-pagination-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.gate-page-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: hsl(var(--gate-text-secondary));
-  background: transparent;
-  border: 1px solid hsl(var(--gate-border));
-  border-radius: var(--gate-radius-md);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.gate-page-btn:hover:not(:disabled) {
-  background-color: hsl(var(--gate-bg-secondary));
-  color: hsl(var(--gate-text-primary));
-}
-
-.gate-page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ===== COPY BUTTON ===== */
-.gate-copy-btn {
-  padding: 4px;
-  color: hsl(var(--gate-text-muted));
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.gate-copy-btn:hover {
-  color: hsl(var(--gate-primary));
-  background-color: hsl(var(--gate-primary) / 0.1);
-}
-
-/* ===== LINKS ===== */
-.gate-link {
-  color: hsl(var(--gate-primary));
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: opacity 0.2s ease;
-}
-
-.gate-link:hover {
-  opacity: 0.8;
-}
-
-/* ===== WALLET DISPLAY ===== */
-.gate-wallet {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background-color: hsl(var(--gate-bg-secondary));
-  border-radius: var(--gate-radius-md);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
-  color: hsl(var(--gate-text-secondary));
 }
 
-/* ===== EMPTY STATE ===== */
-.gate-empty {
-  text-align: center;
-  padding: 48px 24px;
-  color: hsl(var(--gate-text-muted));
-}
-
-/* ===== TICKER BAR ===== */
+/* ===== TICKER BAR — mono terminal strip ===== */
 .gate-ticker-bar {
-  background-color: hsl(var(--gate-bg-card));
+  background-color: hsl(240 10% 6%);
   border-bottom: 1px solid hsl(var(--gate-border));
   overflow: hidden;
+  height: 30px;
+  display: flex;
+  align-items: center;
 }
-
-/* .gate-ticker-inner replaced by .animate-ticker in index.css */
 
 .gate-ticker-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   flex-shrink: 0;
+  padding: 0 12px;
+  border-right: 1px solid hsl(var(--gate-border));
 }
 
 .gate-ticker-item img {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
 }
 
 .gate-ticker-symbol {
-  font-size: 14px;
-  font-weight: 500;
-  color: hsl(var(--gate-text-primary));
+  font-size: 11px;
+  font-weight: 600;
+  color: hsl(var(--gate-text-secondary));
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
 }
 
 .gate-ticker-price {
-  font-size: 14px;
-  color: hsl(var(--gate-text-secondary));
+  font-size: 11px;
+  color: hsl(var(--gate-text-muted));
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .gate-ticker-change {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 /* ===== LAUNCH BOX ===== */
 .gate-launch-box {
   background-color: hsl(var(--gate-bg-card));
   border: 1px solid hsl(var(--gate-border));
-  border-radius: var(--gate-radius-xl);
-  padding: 24px;
+  border-radius: var(--gate-radius-lg);
+  padding: 16px;
   box-shadow: var(--gate-shadow-md);
 }
 
 .gate-launch-box-title {
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 700;
   color: hsl(var(--gate-text-primary));
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .gate-launch-modes {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 6px;
+  margin-bottom: 14px;
 }
 
 .gate-launch-mode {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 8px;
-  font-size: 12px;
+  gap: 4px;
+  padding: 8px 6px;
+  font-size: 11px;
   font-weight: 500;
   color: hsl(var(--gate-text-secondary));
   background-color: hsl(var(--gate-bg-secondary));
   border: 1px solid hsl(var(--gate-border));
-  border-radius: var(--gate-radius-md);
+  border-radius: var(--gate-radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .gate-launch-mode:hover {
@@ -664,29 +591,150 @@
 
 .gate-launch-mode.active {
   border-color: hsl(var(--gate-primary));
-  background-color: hsl(var(--gate-primary) / 0.1);
+  background-color: hsl(var(--gate-primary) / 0.08);
   color: hsl(var(--gate-primary));
 }
 
 .gate-launch-mode svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
+}
+
+/* ===== SCROLLBAR — thin thread ===== */
+.gate-theme::-webkit-scrollbar,
+.gate-theme *::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+.gate-theme::-webkit-scrollbar-track,
+.gate-theme *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gate-theme::-webkit-scrollbar-thumb,
+.gate-theme *::-webkit-scrollbar-thumb {
+  background: hsl(var(--gate-border));
+  border-radius: 2px;
+}
+
+.gate-theme::-webkit-scrollbar-thumb:hover,
+.gate-theme *::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--gate-text-muted));
+}
+
+/* ===== PAGINATION ===== */
+.gate-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-top: 1px solid hsl(var(--gate-border));
+}
+
+.gate-pagination-info {
+  font-size: 11px;
+  color: hsl(var(--gate-text-muted));
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.gate-pagination-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.gate-page-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: hsl(var(--gate-text-secondary));
+  background: transparent;
+  border: 1px solid hsl(var(--gate-border));
+  border-radius: var(--gate-radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gate-page-btn:hover:not(:disabled) {
+  background-color: hsl(var(--gate-bg-secondary));
+  color: hsl(var(--gate-text-primary));
+}
+
+.gate-page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ===== COPY BUTTON ===== */
+.gate-copy-btn {
+  padding: 3px;
+  color: hsl(var(--gate-text-muted));
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gate-copy-btn:hover {
+  color: hsl(var(--gate-primary));
+  background-color: hsl(var(--gate-primary) / 0.08);
+}
+
+/* ===== LINKS ===== */
+.gate-link {
+  color: hsl(var(--gate-primary));
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: opacity 0.15s ease;
+}
+
+.gate-link:hover {
+  opacity: 0.75;
+}
+
+/* ===== WALLET ===== */
+.gate-wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  background-color: hsl(var(--gate-bg-secondary));
+  border: 1px solid hsl(var(--gate-border));
+  border-radius: var(--gate-radius-sm);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: hsl(var(--gate-text-secondary));
+}
+
+/* ===== EMPTY STATE ===== */
+.gate-empty {
+  text-align: center;
+  padding: 36px 20px;
+  color: hsl(var(--gate-text-muted));
+  font-size: 12px;
 }
 
 /* ===== TOKEN PREVIEW ===== */
 .gate-token-preview {
   display: flex;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 12px;
   background-color: hsl(var(--gate-bg-secondary));
-  border-radius: var(--gate-radius-lg);
+  border-radius: var(--gate-radius-md);
   border: 1px solid hsl(var(--gate-border));
 }
 
 .gate-token-preview-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: var(--gate-radius-md);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--gate-radius-sm);
   overflow: hidden;
   background-color: hsl(var(--gate-bg-tertiary));
   flex-shrink: 0;
@@ -706,52 +754,19 @@
   min-width: 0;
 }
 
-/* ===== SCROLLBAR ===== */
-.gate-theme::-webkit-scrollbar,
-.gate-theme *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.gate-theme::-webkit-scrollbar-track,
-.gate-theme *::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.gate-theme::-webkit-scrollbar-thumb,
-.gate-theme *::-webkit-scrollbar-thumb {
-  background: hsl(var(--gate-border));
-  border-radius: 4px;
-}
-
-.gate-theme::-webkit-scrollbar-thumb:hover,
-.gate-theme *::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--gate-text-muted));
-}
-
 /* ===== ANIMATIONS ===== */
 @keyframes gate-fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .gate-animate-in {
-  animation: gate-fadeIn 0.3s ease-out;
+  animation: gate-fadeIn 0.25s ease-out;
 }
 
 @keyframes gate-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .gate-spin {
@@ -761,30 +776,30 @@
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .gate-header-inner {
-    height: 42px;
+    height: 44px;
     padding: 0 10px;
   }
-  
+
   .gate-launch-modes {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .gate-stat-card {
-    padding: 12px 16px;
+    padding: 6px 12px;
   }
-  
+
   .gate-stat-value {
-    font-size: 20px;
+    font-size: 14px;
   }
-  
+
   .gate-launch-box {
-    padding: 16px;
+    padding: 12px;
   }
-  
+
   .gate-table th,
   .gate-table td {
-    padding: 10px 12px;
-    font-size: 13px;
+    padding: 7px 10px;
+    font-size: 11px;
   }
 }
 
@@ -793,124 +808,14 @@
     width: 100%;
     overflow-x: auto;
   }
-  
+
   .gate-tab {
-    padding: 8px 14px;
-    font-size: 13px;
+    padding: 7px 12px;
+    font-size: 11px;
   }
 }
 
-/* ===== GLOBAL OVERRIDES FOR HARDCODED COLORS ===== */
-/* Override common hardcoded hex colors with theme tokens */
-
-/* Dark backgrounds -> background tokens */
-.gate-theme [class*="bg-[#0d0d0f]"],
-.gate-theme [class*="bg-[#0a0a0c]"],
-.gate-theme [class*="bg-[#0b0e11]"] {
-  background-color: hsl(var(--gate-bg-primary)) !important;
-}
-
-.gate-theme [class*="bg-[#12121a]"],
-.gate-theme [class*="bg-[#14171a]"],
-.gate-theme [class*="bg-[#1a1a1f]"],
-.gate-theme [class*="bg-[#1c2127]"] {
-  background-color: hsl(var(--gate-bg-secondary)) !important;
-}
-
-.gate-theme [class*="bg-[#252530]"],
-.gate-theme [class*="bg-[#2a2a35]"] {
-  background-color: hsl(var(--gate-bg-tertiary)) !important;
-}
-
-/* Borders */
-.gate-theme [class*="border-[#1a1a1f]"],
-.gate-theme [class*="border-[#2a2a35]"] {
-  border-color: hsl(var(--gate-border)) !important;
-}
-
-/* Primary accent (green) */
-.gate-theme [class*="text-[#00d4aa]"],
-.gate-theme [class*="text-[#00d26a]"],
-.gate-theme [class*="text-emerald-"],
-.gate-theme [class*="text-teal-"] {
-  color: hsl(var(--gate-primary)) !important;
-}
-
-.gate-theme [class*="bg-[#00d4aa]"],
-.gate-theme [class*="bg-[#00d26a]"] {
-  background-color: hsl(var(--gate-primary)) !important;
-}
-
-.gate-theme [class*="border-[#00d4aa]"],
-.gate-theme [class*="border-[#00d26a]"] {
-  border-color: hsl(var(--gate-primary)) !important;
-}
-
-/* Text colors */
-.gate-theme [class*="text-white"] {
-  color: hsl(var(--gate-text-primary)) !important;
-}
-
-.gate-theme [class*="text-gray-300"],
-.gate-theme [class*="text-gray-400"] {
-  color: hsl(var(--gate-text-secondary)) !important;
-}
-
-.gate-theme [class*="text-gray-500"],
-.gate-theme [class*="text-gray-600"] {
-  color: hsl(var(--gate-text-muted)) !important;
-}
-
-/* Override shadcn Card component */
-.gate-theme .card,
-.gate-theme [class*="Card"],
-.gate-theme div[class*="rounded-lg"][class*="border"][class*="bg-"] {
-  background-color: hsl(var(--gate-bg-card)) !important;
-  border-color: hsl(var(--gate-border)) !important;
-}
-
-/* Button overrides for gate theme */
-.gate-theme button[class*="bg-[#"] {
-  background-color: hsl(var(--gate-bg-tertiary)) !important;
-  border-color: hsl(var(--gate-border)) !important;
-  color: hsl(var(--gate-text-primary)) !important;
-}
-
-.gate-theme button[class*="bg-[#"]:hover {
-  background-color: hsl(var(--gate-bg-elevated)) !important;
-}
-
-/* Input overrides */
-.gate-theme input[class*="bg-[#"],
-.gate-theme textarea[class*="bg-[#"] {
-  background-color: hsl(var(--gate-bg-input)) !important;
-  border-color: hsl(var(--gate-border)) !important;
-  color: hsl(var(--gate-text-primary)) !important;
-}
-
-.gate-theme input[class*="bg-[#"]::placeholder,
-.gate-theme textarea[class*="bg-[#"]::placeholder {
-  color: hsl(var(--gate-text-muted)) !important;
-}
-
-/* Sheet/Dialog backgrounds */
-.gate-theme [data-state="open"][class*="bg-[#"] {
-  background-color: hsl(var(--gate-bg-card)) !important;
-}
-
-/* Ensure proper contrast for primary buttons */
-.gate-theme .gate-btn-primary,
-.gate-theme button[class*="bg-primary"] {
-  background-color: hsl(var(--gate-primary)) !important;
-  color: white !important;
-}
-
-.gate-theme .gate-btn-primary:hover,
-.gate-theme button[class*="bg-primary"]:hover {
-  background-color: hsl(var(--gate-primary-hover)) !important;
-}
-
-/* Fix specific components with aggressive overrides */
+/* ===== COMPONENT OVERRIDES ===== */
 .gate-theme .bg-card {
   background-color: hsl(var(--gate-bg-card)) !important;
 }
@@ -943,34 +848,29 @@
   color: hsl(var(--gate-primary)) !important;
 }
 
-/* Toast/notification styling */
+.gate-theme .gate-btn-primary,
+.gate-theme button[class*="bg-primary"] {
+  background-color: hsl(var(--gate-primary)) !important;
+  color: white !important;
+}
+
+.gate-theme .gate-btn-primary:hover,
+.gate-theme button[class*="bg-primary"]:hover {
+  background-color: hsl(var(--gate-primary-hover)) !important;
+}
+
+/* Toast */
 .gate-theme [data-sonner-toaster] [data-sonner-toast] {
   background-color: hsl(var(--gate-bg-card)) !important;
   border-color: hsl(var(--gate-border)) !important;
   color: hsl(var(--gate-text-primary)) !important;
 }
 
-/* Dialog/Sheet content */
+/* Dialog/Sheet */
 .gate-theme [data-radix-dialog-content],
 .gate-theme [data-radix-sheet-content] {
   background-color: hsl(var(--gate-bg-card)) !important;
   border-color: hsl(var(--gate-border)) !important;
-}
-
-/* Tabs */
-.gate-theme [role="tablist"] {
-  background-color: hsl(var(--gate-bg-secondary)) !important;
-  border-radius: var(--gate-radius-lg);
-  padding: 4px;
-}
-
-.gate-theme [role="tab"] {
-  color: hsl(var(--gate-text-secondary)) !important;
-}
-
-.gate-theme [role="tab"][data-state="active"] {
-  background-color: hsl(var(--gate-bg-card)) !important;
-  color: hsl(var(--gate-text-primary)) !important;
 }
 
 /* Dropdown menus */
@@ -984,17 +884,9 @@
   border: 1px solid hsl(var(--gate-border)) !important;
 }
 
-/* Badge styles */
-.gate-theme .badge,
-.gate-theme [class*="Badge"] {
-  background-color: hsl(var(--gate-bg-secondary)) !important;
-  color: hsl(var(--gate-text-secondary)) !important;
-  border-color: hsl(var(--gate-border)) !important;
-}
-
 /* Progress bar */
 .gate-theme [class*="Progress"] [class*="Indicator"] {
-  background: linear-gradient(90deg, hsl(var(--gate-primary)), hsl(0 84% 70%)) !important;
+  background: hsl(var(--gate-primary)) !important;
 }
 
 /* Skeleton */

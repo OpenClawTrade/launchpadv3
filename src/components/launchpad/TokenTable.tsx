@@ -193,27 +193,27 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
   );
 
   const ColumnHeader = ({ title, count, color }: { title: string; count: number; color: string }) => (
-    <div className={`flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/30`}>
+    <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/20">
       <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${color}`} />
-        <span className="text-xs font-bold text-foreground uppercase tracking-wider">{title}</span>
+        <div className={`w-1.5 h-1.5 rounded-full ${color}`} />
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{title}</span>
       </div>
-      <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{count}</span>
+      <span className="text-[9px] font-mono text-muted-foreground/60 bg-secondary/60 px-1.5 py-0.5 rounded">{count}</span>
     </div>
   );
 
   return (
     <div className="w-full">
       {/* 3-Column Trading Terminal Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         {/* Column 1: New Pairs */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-md overflow-hidden">
           <ColumnHeader title="New Pairs" count={newPairs.length} color="bg-primary" />
-          <div className="overflow-y-auto max-h-[600px] scrollbar-thin">
+          <div className="overflow-y-auto max-h-[680px] scrollbar-thin">
             {isLoading ? (
               <ColumnSkeleton />
             ) : newPairs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-xs">No new pairs yet</div>
+              <div className="text-center py-10 text-muted-foreground text-[11px]">No new pairs yet</div>
             ) : (
               newPairs.map((token, i) => <TokenRow key={token.id} token={token} index={i} />)
             )}
@@ -221,27 +221,27 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
         </div>
 
         {/* Column 2: Almost Bonded */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-md overflow-hidden">
           <ColumnHeader title="Almost Bonded" count={almostBonded.length} color="bg-warning" />
-          <div className="overflow-y-auto max-h-[600px] scrollbar-thin">
+          <div className="overflow-y-auto max-h-[680px] scrollbar-thin">
             {isLoading ? (
               <ColumnSkeleton />
             ) : almostBonded.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-xs">No tokens almost bonded</div>
+              <div className="text-center py-10 text-muted-foreground text-[11px]">No tokens almost bonded</div>
             ) : (
               almostBonded.map((token, i) => <TokenRow key={token.id} token={token} index={i} />)
             )}
           </div>
         </div>
 
-        {/* Column 3: Bonded / Near Graduation */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <ColumnHeader title="Bonded" count={bonded.length} color="bg-success" />
-          <div className="overflow-y-auto max-h-[600px] scrollbar-thin">
+        {/* Column 3: Bonded */}
+        <div className="bg-card border border-border rounded-md overflow-hidden">
+          <ColumnHeader title="Bonded" count={bonded.length} color="bg-green-500" />
+          <div className="overflow-y-auto max-h-[680px] scrollbar-thin">
             {isLoading ? (
               <ColumnSkeleton />
             ) : bonded.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-xs">No bonded tokens</div>
+              <div className="text-center py-10 text-muted-foreground text-[11px]">No bonded tokens</div>
             ) : (
               bonded.map((token, i) => <TokenRow key={token.id} token={token} index={i} />)
             )}
