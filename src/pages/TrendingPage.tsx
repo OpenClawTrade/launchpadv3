@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, TrendingUp, Sparkles, ExternalLink, Clock, History, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
-const HEADER_LOGO_SRC = "/tuna-logo.png";
+import { TrendingUp, Sparkles, ExternalLink, Clock, History, RefreshCw } from "lucide-react";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { Footer } from "@/components/layout/Footer";
 
 interface TrendingToken {
   id: string;
@@ -44,6 +45,7 @@ interface NarrativeHistory {
 }
 
 const TrendingPage = () => {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [tokens, setTokens] = useState<TrendingToken[]>([]);
   const [narratives, setNarratives] = useState<TrendingNarrative[]>([]);
   const [narrativeHistory, setNarrativeHistory] = useState<NarrativeHistory[]>([]);
@@ -126,39 +128,12 @@ const TrendingPage = () => {
   }, {} as Record<string, NarrativeHistory[]>);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" />
-              <span className="text-lg font-bold">TUNA</span>
-            </Link>
-            <div className="hidden xs:flex items-center gap-2 text-muted-foreground">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="text-sm">Narratives</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            {nextRotation && (
-              <div className="hidden sm:flex items-center gap-1 text-xs text-orange-400">
-                <RefreshCw className="h-3 w-3" />
-                <span>Next rotation {formatDistanceToNow(nextRotation, { addSuffix: true })}</span>
-              </div>
-            )}
-            {lastSynced && (
-              <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                <span className="hidden xs:inline">Updated </span>
-                <span>{formatDistanceToNow(lastSynced, { addSuffix: true })}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen" style={{ background: "#141414" }}>
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+      <div className="md:ml-[160px] flex flex-col min-h-screen">
+        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
 
-      <main className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-4 py-4 sm:py-8">
         {/* Active Narrative Banner */}
         {activeNarrative && (
           <Card className="mb-4 sm:mb-8 border-primary/50 bg-gradient-to-r from-primary/10 via-transparent to-primary/5">
@@ -431,7 +406,9 @@ const TrendingPage = () => {
             )}
           </div>
         </div>
-      </main>
+        </main>
+        <Footer />
+      </div>
     </div>
   );
 };

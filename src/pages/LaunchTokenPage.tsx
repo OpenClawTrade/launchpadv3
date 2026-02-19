@@ -1,36 +1,25 @@
-import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
 import { LaunchTokenForm, WalletBalanceCard } from "@/components/launchpad";
-import { ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { Footer } from "@/components/layout/Footer";
 
 export default function LaunchTokenPage() {
+  const [mobileOpen, setMobileOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="flex items-center gap-4 px-4 h-14">
-          <Link to="/launchpad">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <span className="font-bold">Launch Token</span>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <div className="text-center py-8 px-4">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-2">Launch on TUNA</h1>
-        <p className="text-muted-foreground">
-          Create a coin, raise money, and share with friends.
-        </p>
-      </div>
-
-      {/* Form */}
-      <div className="px-4 pb-8 space-y-4 max-w-2xl mx-auto">
-        <WalletBalanceCard minRequired={0.05} />
-        <LaunchTokenForm />
+    <div className="min-h-screen" style={{ background: "#141414" }}>
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+      <div className="md:ml-[160px] flex flex-col min-h-screen">
+        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
+        <main className="flex-1 px-4 py-8 max-w-2xl mx-auto w-full">
+          <h1 className="text-2xl font-bold text-white mb-2">Launch Token</h1>
+          <p className="text-sm mb-6" style={{ color: "#888" }}>Create a coin, raise money, and share with friends.</p>
+          <WalletBalanceCard minRequired={0.05} />
+          <div className="mt-4">
+            <LaunchTokenForm />
+          </div>
+        </main>
+        <Footer />
       </div>
     </div>
   );

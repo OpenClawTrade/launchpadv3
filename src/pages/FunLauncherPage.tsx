@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +25,8 @@ import { BaseLauncher } from "@/components/launchpad/BaseLauncher";
 import { LaunchCountdown } from "@/components/LaunchCountdown";
 import { PromoteModal } from "@/components/launchpad/PromoteModal";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
-import { Link } from "react-router-dom";
+import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
+import { Link, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import {
   ChevronLeft, ChevronRight, PartyPopper, XCircle, ExternalLink, Copy, CheckCircle,
@@ -71,6 +72,7 @@ export default function FunLauncherPage() {
   const { tokens: kothTokens, isLoading: kothLoading } = useKingOfTheHill();
   const { chain, chainConfig, isSolana, isChainEnabled } = useChainRoute();
   const { setChain } = useChain();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [claimsPage, setClaimsPage] = useState(1);
   const [creatorFeesPage, setCreatorFeesPage] = useState(1);
@@ -98,6 +100,15 @@ export default function FunLauncherPage() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("new");
   const [adminWallet] = useState("");
   const { isAdmin } = useIsAdmin(adminWallet || null);
+
+  // Create token dialog — triggered by ?create=1 URL param
+  const showCreateDialog = searchParams.get("create") === "1";
+  const openCreateDialog = () => setSearchParams({ create: "1" });
+  const closeCreateDialog = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("create");
+    setSearchParams(newParams);
+  };
 
   const totalClaimed = claimsSummary?.totalClaimedSol ?? 0;
   const totalPayouts = useMemo(() => distributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0), [distributions]);
@@ -211,6 +222,12 @@ export default function FunLauncherPage() {
                       <Skeleton className="w-full h-full rounded-lg" style={{ background: "#2a2a2a" }} />
                     </div>
                   ))
+                  : justLaunchedTokens.length === 0
+                  ? (
+                    <div className="flex items-center gap-2 py-4 px-3 rounded-lg" style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}>
+                      <span className="text-[11px]" style={{ color: "#666" }}>No new tokens in the last 48h — check back soon!</span>
+                    </div>
+                  )
                   : justLaunchedTokens.slice(0, 12).map(token => (
                     <Link
                       key={token.id}
@@ -438,6 +455,18 @@ export default function FunLauncherPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Token Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={(open) => !open && closeCreateDialog()}>
+        <DialogContent className="!max-w-2xl !w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-0" style={{ background: "#141414", border: "1px solid #2a2a2a" }}>
+          <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3" style={{ background: "#141414", borderBottom: "1px solid #2a2a2a" }}>
+            <h2 className="text-[15px] font-bold text-white">Create Token</h2>
+          </div>
+          <div className="p-4">
+            <TokenLauncher onLaunchSuccess={handleLaunchSuccess} onShowResult={handleShowResult} />
+          </div>
         </DialogContent>
       </Dialog>
 
