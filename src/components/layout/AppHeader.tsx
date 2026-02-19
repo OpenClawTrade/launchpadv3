@@ -74,14 +74,14 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
           <XLogo className="h-3.5 w-3.5" weight="fill" />
         </a>
 
-        <a
-          href="/?create=1"
+        <Link
+          to="/?create=1"
           className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-bold text-black transition-opacity hover:opacity-90 flex-shrink-0"
           style={{ background: "#4ade80" }}
         >
           <Plus className="h-3.5 w-3.5" />
           Create Token
-        </a>
+        </Link>
       </div>
     </header>
   );

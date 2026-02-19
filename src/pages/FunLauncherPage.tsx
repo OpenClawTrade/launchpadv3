@@ -30,7 +30,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import {
   ChevronLeft, ChevronRight, PartyPopper, XCircle, ExternalLink, Copy, CheckCircle,
-  Crown, Coins, Wallet, Trophy, BarChart3, Users, AlertCircle, Flame, Bot, Clock,
+  Crown, Coins, Wallet, Trophy, BarChart3, Users, AlertCircle, Flame, Bot, Clock, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -460,11 +460,45 @@ export default function FunLauncherPage() {
 
       {/* Create Token Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={(open) => !open && closeCreateDialog()}>
-        <DialogContent className="!max-w-2xl !w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-0" style={{ background: "#141414", border: "1px solid #2a2a2a" }}>
-          <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3" style={{ background: "#141414", borderBottom: "1px solid #2a2a2a" }}>
-            <h2 className="text-[15px] font-bold text-white">Create Token</h2>
+        <DialogContent
+          className="!max-w-[680px] !w-[calc(100vw-2rem)] max-h-[90vh] overflow-hidden flex flex-col p-0"
+          style={{
+            background: "#141414",
+            border: "1px solid #2a2a2a",
+            borderRadius: "12px",
+            boxShadow: "0 0 40px rgba(74,222,128,0.08), 0 24px 48px rgba(0,0,0,0.6)",
+          }}
+        >
+          {/* Green top accent line */}
+          <div style={{ height: "2px", background: "linear-gradient(90deg, #4ade80, #22c55e, transparent)", flexShrink: 0 }} />
+
+          {/* Header */}
+          <div
+            className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 flex-shrink-0"
+            style={{
+              background: "linear-gradient(180deg, #1a1a1a 0%, #141414 100%)",
+              borderBottom: "1px solid #2a2a2a",
+              borderLeft: "3px solid #4ade80",
+            }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">🚀</span>
+              <div>
+                <h2 className="text-[15px] font-bold" style={{ color: "#4ade80" }}>Create Token</h2>
+                <p className="text-[11px] text-white/40 font-mono leading-tight">Launch on Solana</p>
+              </div>
+            </div>
+            <button
+              onClick={closeCreateDialog}
+              className="flex items-center justify-center h-7 w-7 rounded-md transition-colors hover:bg-white/10"
+              style={{ color: "#666" }}
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <div className="p-4">
+
+          {/* Scrollable body */}
+          <div className="overflow-y-auto flex-1 p-5">
             <TokenLauncher onLaunchSuccess={handleLaunchSuccess} onShowResult={handleShowResult} />
           </div>
         </DialogContent>
