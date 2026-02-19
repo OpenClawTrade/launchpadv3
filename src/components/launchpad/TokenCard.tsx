@@ -1,221 +1,133 @@
 import { Link } from "react-router-dom";
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { VerifiedBadge } from "@/components/ui/verified-badge";
-import { BondingCurveProgress } from "./BondingCurveProgress";
-import { Token } from "@/hooks/useLaunchpad";
-import { useSolPrice } from "@/hooks/useSolPrice";
-import { TrendingUp, TrendingDown, Users, Clock, ChevronRight, Zap, Sparkles, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { Bot, Crown, Flame } from "lucide-react";
+import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
 import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
 
-function formatUsdMarketCap(marketCapSol: number, solPrice: number): string {
-  const usdValue = marketCapSol * solPrice;
-  if (!Number.isFinite(usdValue) || usdValue <= 0) return "$0";
-  if (usdValue >= 1_000_000) {
-    return `$${(usdValue / 1_000_000).toFixed(2)}M`;
-  } else if (usdValue >= 1_000) {
-    return `$${(usdValue / 1_000).toFixed(1)}K`;
-  } else {
-    return `$${usdValue.toFixed(0)}`;
-  }
-}
-
 interface TokenCardProps {
-  token: Token & { trading_fee_bps?: number; fee_mode?: 'creator' | 'holder_rewards'; agent_id?: string | null; launchpad_type?: string | null; trading_agent_id?: string | null; is_trading_agent_token?: boolean };
+  token: FunToken;
+  solPrice: number | null;
+  isPromoted?: boolean;
 }
 
-export function TokenCard({ token }: TokenCardProps) {
-  const { solPrice } = useSolPrice();
-  const isGraduated = token.status === 'graduated';
-  const priceChange = (token as any).price_change_24h || 0;
-  const isPositive = priceChange >= 0;
-  const isHot = token.volume_24h_sol > 1;
-  const isNew = Date.now() - new Date(token.created_at).getTime() < 24 * 60 * 60 * 1000;
-  const tradingFeePct = ((token as any).trading_fee_bps || 200) / 100; // Convert bps to %
-  const isHolderRewards = token.fee_mode === 'holder_rewards';
+function formatUsd(mcapSol: number | null | undefined, solPrice: number | null): string {
+  if (!mcapSol || !solPrice) return "$0";
+  const usd = mcapSol * solPrice;
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(2)}M`;
+  if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
+  return `$${usd.toFixed(0)}`;
+}
+
+function formatAge(createdAt: string): string {
+  return formatDistanceToNow(new Date(createdAt), { addSuffix: false })
+    .replace("about ", "")
+    .replace(" hours", "h").replace(" hour", "h")
+    .replace(" minutes", "m").replace(" minute", "m")
+    .replace(" days", "d").replace(" day", "d")
+    .replace(" months", "mo").replace(" month", "mo");
+}
+
+export function TokenCard({ token, solPrice, isPromoted }: TokenCardProps) {
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
-  const isTradingAgent = !!(token.trading_agent_id || token.is_trading_agent_token);
-  // Detect Phantom: explicit tag OR user-paid launch (has creator_wallet, not an agent, not pump/bags)
   const isPhantom = token.launchpad_type === 'phantom';
-  
-  // Trade URL logic - pump.fun and bags tokens link to SubTuna (they all have communities)
-  const tradeUrl = (isPumpFun || isBags || isTradingAgent)
-    ? `/t/${token.ticker}` 
-    : token.agent_id 
-      ? `/t/${token.ticker}` 
-      : `/launchpad/${token.mint_address}`;
+  const isAgent = !!token.agent_id;
+  const isNearGrad = (token.bonding_progress ?? 0) >= 80;
+
+  const tradeUrl = (isPumpFun || isBags || isAgent)
+    ? `/t/${token.ticker}`
+    : `/launchpad/${token.mint_address}`;
+
+  const mcapFormatted = formatUsd(token.market_cap_sol, solPrice);
 
   return (
-    <Link to={tradeUrl}>
-      <Card className="relative overflow-hidden p-4 hover:bg-secondary/50 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer group">
-        {/* Hot indicator glow */}
-        {isHot && !isGraduated && (
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent pointer-events-none" />
-        )}
+    <Link
+      to={tradeUrl}
+      className="pf-card group block rounded-lg overflow-hidden transition-all duration-150 hover:scale-[1.01]"
+    >
+      {/* Token Image — takes up ~55% of card height */}
+      <div className="relative w-full" style={{ paddingBottom: "62%" }}>
+        <div className="absolute inset-0">
+          {token.image_url ? (
+            <img
+              src={token.image_url}
+              alt={token.name}
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-2xl font-bold pf-card-fallback">
+              {token.ticker?.slice(0, 2)}
+            </div>
+          )}
 
-        <div className="flex gap-4">
-          {/* Token Image */}
-          <div className="relative">
-            <Avatar className="h-14 w-14 rounded-xl border-2 border-border group-hover:border-primary/50 transition-colors shadow-sm">
-              <AvatarImage src={token.image_url || undefined} alt={token.name} className="object-cover" />
-              <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-primary/20 to-primary/5 text-primary rounded-xl">
-                {token.ticker.slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
-            {/* Status indicator - calculate progress from real reserves */}
-            {(() => {
-              const threshold = token.graduation_threshold_sol || 85;
-              const progress = token.real_sol_reserves > 0 ? (token.real_sol_reserves / threshold) * 100 : 0;
-              
-              if (isGraduated) {
-                return (
-                  <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-background">
-                    <Sparkles className="h-2.5 w-2.5 text-white" />
-                  </div>
-                );
-              } else if (progress >= 80) {
-                return (
-                  <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1 border-2 border-background animate-pulse">
-                    <Zap className="h-2.5 w-2.5 text-primary-foreground" />
-                  </div>
-                );
-              }
-              return null;
-            })()}
-          </div>
+          {/* Gradient overlay on image bottom */}
+          <div className="absolute inset-x-0 bottom-0 h-1/2 pf-img-overlay" />
 
-          {/* Token Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-base truncate group-hover:text-primary transition-colors">
-                {token.name}
-              </h3>
-              <Badge variant="secondary" className="text-xs font-mono px-1.5 py-0">
-                ${token.ticker}
-              </Badge>
-              {isNew && !isGraduated && (
-                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[10px] px-1.5 py-0">
-                  NEW
-                </Badge>
-              )}
-              {isGraduated && (
-                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px] px-1.5 py-0">
-                  LIVE
-                </Badge>
-              )}
-              {isHot && !isGraduated && (
-                <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] px-1.5 py-0">
+          {/* MC + badges overlay */}
+          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
+            <span className="text-[11px] font-bold font-mono text-white">{mcapFormatted}</span>
+            <div className="flex items-center gap-1">
+              {isNearGrad && (
+                <span className="text-[9px] px-1 py-0.5 rounded font-bold pf-badge-hot">
                   🔥 HOT
-                </Badge>
-              )}
-              {/* Holder Rewards badge */}
-              {isHolderRewards && (
-                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px] px-1.5 py-0">
-                  💎 HOLDER
-                </Badge>
-              )}
-              {/* Mutually exclusive: pump.fun badge, bags badge, phantom badge, then agent badge */}
-              {isPumpFun ? (
-                <PumpBadge mintAddress={token.mint_address} />
-              ) : isBags ? (
-                <BagsBadge mintAddress={token.mint_address} />
-              ) : isPhantom ? (
-                <PhantomBadge mintAddress={token.mint_address} />
-              ) : isTradingAgent ? (
-                <span 
-                  className="flex items-center gap-0.5 bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full"
-                  title="Trading Agent Token"
-                >
-                  <Bot className="h-3 w-3" />
-                  <span className="text-[10px] font-medium">TRADER</span>
                 </span>
-              ) : token.agent_id ? (
-                <span 
-                  className="flex items-center gap-0.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full"
-                  title="AI Agent Token"
-                >
-                  <Bot className="h-3 w-3" />
-                  <span className="text-[10px] font-medium">AI</span>
-                </span>
-              ) : null}
-              {/* Trading fee badge - show if not default 2% */}
-              <Badge 
-                variant="outline" 
-                className={`text-[10px] px-1.5 py-0 ${tradingFeePct !== 2 ? 'border-primary/50 text-primary' : 'border-border text-muted-foreground'}`}
-              >
-                {tradingFeePct}% fee
-              </Badge>
-            </div>
-
-            {/* Creator */}
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-              <span>by</span>
-              <span className="font-medium text-foreground/80 truncate max-w-[100px]">
-                {token.profiles?.display_name || token.creator_wallet.slice(0, 6) + '...'}
-              </span>
-              {token.profiles?.verified_type && (
-                <VerifiedBadge type={token.profiles.verified_type as 'blue' | 'gold'} />
               )}
-              <span className="text-muted-foreground/60">•</span>
-              <Clock className="h-3 w-3" />
-              <span>{formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}</span>
-            </div>
-
-            {/* Stats Row */}
-            <div className="flex items-center gap-3 mt-2.5 text-xs flex-wrap">
-              {/* Market cap in USD with change */}
-              <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
-                <span className="text-foreground font-semibold">
-                  {formatUsdMarketCap(token.market_cap_sol, solPrice)}
+              {isAgent && (
+                <span className="text-[9px] px-1 py-0.5 rounded font-bold pf-badge-agent">
+                  <Bot className="h-2.5 w-2.5 inline" /> AI
                 </span>
-                <div className={`flex items-center gap-0.5 ${isPositive ? "text-green-500" : "text-red-500"}`}>
-                  {isPositive ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : (
-                    <TrendingDown className="h-3 w-3" />
-                  )}
-                  <span className="font-medium">{isPositive ? "+" : ""}{priceChange.toFixed(1)}%</span>
-                </div>
-              </div>
-              
-              {/* Holders */}
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Users className="h-3 w-3" />
-                <span>{token.holder_count}</span>
-              </div>
-
-              {/* Volume if significant */}
-              {token.volume_24h_sol > 0 && (
-                <div className="text-muted-foreground">
-                  <span className="text-foreground/70">Vol:</span> {token.volume_24h_sol.toFixed(1)} SOL
-                </div>
+              )}
+              {isPromoted && (
+                <span className="text-[9px] px-1 py-0.5 rounded font-bold pf-badge-promoted">
+                  <Crown className="h-2.5 w-2.5 inline" />
+                </span>
               )}
             </div>
-
-            {/* Bonding Curve - Compact - Use real_sol_reserves for accurate progress */}
-            {!isGraduated && (
-              <div className="mt-3">
-                <BondingCurveProgress
-                  realSolReserves={token.real_sol_reserves}
-                  graduationThreshold={token.graduation_threshold_sol || 85}
-                  showDetails={false}
-                  compact
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Arrow */}
-          <div className="flex items-center self-center">
-            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
           </div>
         </div>
-      </Card>
+      </div>
+
+      {/* Card body */}
+      <div className="p-2.5">
+        {/* Name + ticker row */}
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <span className="text-[12px] font-bold text-white truncate leading-tight">
+            {token.name}
+          </span>
+          <span className="text-[10px] font-mono flex-shrink-0 pf-ticker">
+            ${token.ticker}
+          </span>
+        </div>
+
+        {/* Source badges + age */}
+        <div className="flex items-center gap-1 mb-1">
+          {isPumpFun && <PumpBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" className="px-0 py-0 bg-transparent hover:bg-transparent" />}
+          {isBags && <BagsBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" className="px-0 py-0 bg-transparent hover:bg-transparent" />}
+          {isPhantom && <PhantomBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" />}
+          <span className="text-[9px] font-mono pf-age">{formatAge(token.created_at)} ago</span>
+        </div>
+
+        {/* Description */}
+        {token.description && (
+          <p className="text-[10px] leading-tight line-clamp-2 pf-desc">
+            {token.description}
+          </p>
+        )}
+
+        {/* Bonding progress bar */}
+        <div className="mt-2 h-0.5 w-full rounded-full overflow-hidden pf-progress-bg">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${Math.min(token.bonding_progress ?? 0, 100)}%`,
+              background: isNearGrad ? "#ea580c" : "#4ade80",
+            }}
+          />
+        </div>
+      </div>
     </Link>
   );
 }
