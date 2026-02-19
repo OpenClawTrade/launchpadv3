@@ -30,7 +30,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import {
   ChevronLeft, ChevronRight, PartyPopper, XCircle, ExternalLink, Copy, CheckCircle,
-  Crown, Coins, Wallet, Trophy, BarChart3, Users, AlertCircle, Flame, Bot, Clock, X,
+  Coins, Wallet, Trophy, BarChart3, Users, AlertCircle, Flame, Bot, Clock, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -278,8 +278,8 @@ export default function FunLauncherPage() {
             {kothTokens && kothTokens.length > 0 && (
               <div className="px-4 pt-4">
                 <div className="flex items-center gap-2 mb-2.5">
-                  <Crown className="h-3.5 w-3.5 text-yellow-400" />
-                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#888" }}>King of the Hill</span>
+                  <img src="/claw-logo.png" alt="Claw" className="h-4 w-4 object-contain" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#888" }}>King of the Claws</span>
                   <span style={{ color: "#444", fontSize: "10px" }}>— Soon to Graduate</span>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
