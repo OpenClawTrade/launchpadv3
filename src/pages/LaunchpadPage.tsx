@@ -9,7 +9,7 @@ import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame, Trophy } fr
 import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
 
-const HEADER_LOGO_SRC = "/tuna-logo.png";
+const HEADER_LOGO_SRC = "/claw-logo.png";
 
 export default function LaunchpadPage() {
   const { tokens, isLoadingTokens } = useLaunchpad();
@@ -87,8 +87,8 @@ export default function LaunchpadPage() {
         <div className="relative px-4 pt-6 pb-4">
           <div className="flex items-center justify-between mb-4">
             <Link to="/" className="flex items-center gap-2">
-              <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" />
-              <span className="text-lg font-bold">TUNA</span>
+            <img src={HEADER_LOGO_SRC} alt="Claw Mode" className="h-8 w-8 rounded-lg object-cover" />
+              <span className="text-lg font-bold">Claw Mode</span>
             </Link>
             <Link to="/launch">
               <Button size="default" className="gap-2 shadow-lg glow-yellow">
@@ -213,7 +213,7 @@ export default function LaunchpadPage() {
               <p className="text-muted-foreground max-w-sm mx-auto">
                 {searchQuery 
                   ? "Try adjusting your search query or filters" 
-                  : "Be the first to launch a token on TUNA!"}
+                  : "Be the first to launch a token on Claw Mode!"}
               </p>
               <Link to="/launch">
                 <Button className="gap-2 mt-2">

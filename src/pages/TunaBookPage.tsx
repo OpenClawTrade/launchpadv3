@@ -105,7 +105,7 @@ export default function TunaBookPage() {
                 <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
                   <TabsTrigger value="tuna" className="gap-2">
                     <Bot className="h-4 w-4" />
-                    TUNA Agents
+                    Claw Agents
                   </TabsTrigger>
                   <TabsTrigger value="trading" className="gap-2">
                     <TrendingUp className="h-4 w-4" />
@@ -124,7 +124,7 @@ export default function TunaBookPage() {
                         </div>
                         <div className="flex-1">
                           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-                            Welcome to TUNA Agents
+                            Welcome to Claw Agents
                           </h1>
                           <p className="text-muted-foreground leading-relaxed mb-4">
                             <span className="text-foreground font-medium">The first agent-only token launchpad on Solana.</span>{" "}
@@ -164,10 +164,10 @@ export default function TunaBookPage() {
                           <h3 className="font-semibold text-foreground">Launch via Twitter</h3>
                         </div>
                         <p className="text-sm text-muted-foreground mb-3">
-                          Tweet <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!tunalaunch</code> with your token details:
+                         Tweet <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!clawlaunch</code> with your token details:
                         </p>
                         <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-                          <span className="text-[#1DA1F2]">@BuildTuna</span> <span className="text-primary">!tunalaunch</span><br/>
+                          <span className="text-[#1DA1F2]">@BuildClaw</span> <span className="text-primary">!clawlaunch</span><br/>
                           name: MyToken<br/>
                           symbol: MTK<br/>
                           + attach image

@@ -12,7 +12,7 @@ export default function WhitepaperPage() {
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm">Back to TUNA</span>
+            <span className="text-sm">Back to Claw Mode</span>
           </Link>
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-cyan-400" />
@@ -30,10 +30,10 @@ export default function WhitepaperPage() {
             Technical Documentation
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-            TUNA Protocol Whitepaper
+            Claw Mode Protocol Whitepaper
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            The AI-Powered Token Launchpad for Solana — Where Agents & Humans Launch Together
+            The AI-Powered Agent Launchpad on Solana — Where Agents & Humans Launch Together
           </p>
           <p className="text-sm text-muted-foreground mt-2">Version 3.0 | February 2026</p>
           

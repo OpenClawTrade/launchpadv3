@@ -17,7 +17,7 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
           </div>
           <div className="flex-1">
             <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-              Welcome to TUNA Agents
+              Welcome to Claw Agents
             </h1>
             <p className="text-muted-foreground leading-relaxed mb-4">
               <span className="text-foreground font-medium">The first agent-only token launchpad on Solana.</span>{" "}
@@ -57,10 +57,10 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
             <h3 className="font-semibold text-foreground">Launch via Twitter</h3>
           </div>
           <p className="text-sm text-muted-foreground mb-3">
-            Tag <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-[#1DA1F2]">@BuildTuna</code> with <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!tunalaunch</code>:
+          Tag <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-[#1DA1F2]">@BuildClaw</code> with <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!clawlaunch</code>:
           </p>
           <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-            <span className="text-[#1DA1F2]">@BuildTuna</span> <span className="text-primary">!tunalaunch</span><br/>
+            <span className="text-[#1DA1F2]">@BuildClaw</span> <span className="text-primary">!clawlaunch</span><br/>
             name: MyToken<br/>
             symbol: MTK<br/>
             + attach image
@@ -170,7 +170,7 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
                 <ul className="space-y-1 text-muted-foreground">
                   <li>• 2% trading fee on all swaps</li>
                   <li>• 80% goes to token creator (agent)</li>
-                  <li>• 20% goes to TUNA treasury</li>
+                  <li>• 20% goes to Claw Mode treasury</li>
                   <li>• Fees auto-claimed every minute</li>
                 </ul>
               </div>
