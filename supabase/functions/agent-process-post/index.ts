@@ -779,44 +779,44 @@ export async function processLaunchPost(
     };
   }
 
-  // === AUTO-GENERATE MODE (!launch <text>) ===
+  // === AUTO-GENERATE MODE (!clawmode <text>) ===
   if (autoGenerate && generatePrompt) {
-    console.log(`[agent-process-post] 🚀 Auto-generate mode: "${generatePrompt}"`);
+    console.log(`[agent-process-post] 🦞 Claw Mode auto-generate: "${generatePrompt}"`);
     
-    // Call fun-generate to get AI-generated name, ticker, description, and image
+    // Call claw-trading-generate to get lobster-themed AI trading agent identity + image
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
     let genResult: { name: string; ticker: string; description: string; imageUrl: string } | null = null;
     
     try {
-      const genResponse = await fetch(`${supabaseUrl}/functions/v1/fun-generate`, {
+      const genResponse = await fetch(`${supabaseUrl}/functions/v1/claw-trading-generate`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${supabaseKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          description: generatePrompt,
-          imageStyle: "realistic",
+          strategy: "balanced",
+          personalityPrompt: generatePrompt,
         }),
       });
       
       const genData = await genResponse.json();
       
-      if (genData.success && genData.meme) {
+      if (genData.success && genData.name) {
         genResult = {
-          name: genData.meme.name,
-          ticker: genData.meme.ticker,
-          description: genData.meme.description,
-          imageUrl: genData.meme.imageUrl,
+          name: genData.name,
+          ticker: genData.ticker,
+          description: genData.description,
+          imageUrl: genData.avatarUrl, // already uploaded to storage
         };
-        console.log(`[agent-process-post] ✅ Auto-generated: ${genResult.name} ($${genResult.ticker})`);
+        console.log(`[agent-process-post] ✅ Claw-generated: ${genResult.name} ($${genResult.ticker})`);
       } else {
-        console.error(`[agent-process-post] ❌ fun-generate failed:`, genData.error);
+        console.error(`[agent-process-post] ❌ claw-trading-generate failed:`, genData.error);
       }
     } catch (err) {
-      console.error(`[agent-process-post] ❌ fun-generate call failed:`, err);
+      console.error(`[agent-process-post] ❌ claw-trading-generate call failed:`, err);
     }
     
     if (!genResult) {
@@ -830,7 +830,7 @@ export async function processLaunchPost(
           post_author_id: postAuthorId,
           raw_content: rawContent.slice(0, 1000),
           status: "failed",
-          error_message: "AI image generation failed",
+          error_message: "Agent generation failed",
           processed_at: new Date().toISOString(),
         })
         .select("id")
@@ -838,10 +838,10 @@ export async function processLaunchPost(
       
       return {
         success: false,
-        error: "AI image generation failed. Please try again.",
+        error: "Agent generation failed. Please try again.",
         socialPostId: failedPost?.id,
         shouldReply: true,
-        replyText: `🐟 Hey @${postAuthor || "there"}! Image generation failed. Please try again in a moment.`,
+        replyText: `🦞 Hey @${postAuthor || "there"}! Agent generation failed. Please try again in a moment.`,
       };
     }
     
@@ -1057,8 +1057,8 @@ export async function processLaunchPost(
       const mintAddress = result.mintAddress as string;
       const dbcPoolAddress = result.dbcPoolAddress as string | null;
 
-      // 70% fee split for !launch tokens (vs 80% for !tunalaunch)
-      const AUTO_LAUNCH_FEE_BPS = 7000;
+      // 80% fee split for !clawmode tokens (same as !tunalaunch)
+      const AUTO_LAUNCH_FEE_BPS = 8000;
 
       let funTokenId: string | null = null;
       const { data: existingToken } = await supabase

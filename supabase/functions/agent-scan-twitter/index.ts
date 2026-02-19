@@ -994,9 +994,9 @@ Deno.serve(async (req) => {
       }
 
       // Try Official X API first (Bearer Token), fallback to twitterapi.io
-      const officialSearchQuery = "(tunalaunch OR launchtuna OR \"!launch\") -is:retweet";
-      const twitterApiIoMentionQuery = "(@tunalaunch OR @buildtuna) -is:retweet";
-      const twitterApiIoLaunchQuery = "\"!launch\" -is:retweet -is:reply";
+      const officialSearchQuery = "(tunalaunch OR launchtuna OR \"!clawmode\") -is:retweet";
+      const twitterApiIoMentionQuery = "(@tunalaunch OR @buildclaw) -is:retweet";
+      const twitterApiIoLaunchQuery = "\"!clawmode\" -is:retweet -is:reply";
       let tweets: TweetResult[] = [];
       let rateLimited = false;
       let searchMethod = "none";
@@ -1060,11 +1060,11 @@ Deno.serve(async (req) => {
           console.log(`[agent-scan-twitter] Found ${tweets.length} tweets via twitterapi.io mention query`);
           tweets.forEach((t, i) => console.log(`  [${i}] @${t.author_username}: ${t.text.substring(0, 80)}`));
 
-          // Secondary search: if mention query found few results, also search for "!launch" keyword
+          // Secondary search: if mention query found few results, also search for "!clawmode" keyword
           if (tweets.length < 5) {
-            console.log("[agent-scan-twitter] Few mention results, running secondary !launch keyword search...");
+            console.log("[agent-scan-twitter] Few mention results, running secondary !clawmode keyword search...");
             const launchTweets = await searchMentionsViaTwitterApiIo(twitterApiIoLaunchQuery, twitterApiIoKey);
-            console.log(`[agent-scan-twitter] Found ${launchTweets.length} tweets via !launch keyword search`);
+            console.log(`[agent-scan-twitter] Found ${launchTweets.length} tweets via !clawmode keyword search`);
             launchTweets.forEach((t, i) => console.log(`  [kw-${i}] @${t.author_username}: ${t.text.substring(0, 80)}`));
             const existingIds = new Set(tweets.map(t => t.id));
             for (const t of launchTweets) {
@@ -1172,10 +1172,10 @@ Deno.serve(async (req) => {
         const tweetText = tweet.text;
         const normalizedText = tweetText.replace(/!launchtuna/gi, "!tunalaunch");
         
-        // Detect !launch <text> command (distinct from !tunalaunch)
-        const launchMatch = tweetText.match(/!launch\s+(.+?)(?:\n|$)/i);
-        const isAutoLaunch = launchMatch && !tweetText.toLowerCase().includes("!tunalaunch") && !tweetText.toLowerCase().includes("!launchtuna");
-        const autoLaunchPrompt = isAutoLaunch ? launchMatch[1].trim() : null;
+        // Detect !clawmode <text> command (replaces !launch)
+        const clawmodeMatch = tweetText.match(/!clawmode\s+(.+?)(?:\n|$)/i);
+        const isAutoLaunch = !!clawmodeMatch;
+        const autoLaunchPrompt = isAutoLaunch ? clawmodeMatch[1].trim() : null;
         const username = tweet.author_username;
         const authorId = tweet.author_id;
         
@@ -1352,8 +1352,9 @@ Deno.serve(async (req) => {
               console.log(`[agent-scan-twitter] ⏭️ Skipping reply to ${tweetId} - already replied`);
             } else {
               // New format: full CA, no links, token name/symbol, with image
-              const feePercent = isAutoLaunch ? "70" : "80";
-              const replyText = `🐟 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by TUNA Agents - ${feePercent}% of fees go to you! Launch your token on TUNA dot FUN`;
+              const replyText = isAutoLaunch
+                ? `🦞 Trading Agent launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by Claw Mode - 80% of fees fund your agent!`
+                : `🦞 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by Claw Mode - 80% of fees go to you!`;
 
               const replyResult = await replyToTweet(
                 tweetId,
