@@ -1,262 +1,263 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { Clock, Rocket, Zap } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
+import { Search, Zap, TrendingUp, Flame, Layers } from "lucide-react";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
+import { useFunTokensPaginated, FunToken } from "@/hooks/useFunTokensPaginated";
+import { Input } from "@/components/ui/input";
 
-interface CountdownTimer {
-  id: string;
-  target_time: string;
-  title: string;
-  is_active: boolean;
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function formatSol(val: number | null | undefined): string {
+  if (!val) return "0 SOL";
+  if (val >= 1000) return `${(val / 1000).toFixed(1)}K SOL`;
+  return `${val.toFixed(2)} SOL`;
 }
 
-// Accepts a string to avoid new Date() object reference churn
-function useCountdown(targetTimeStr: string | null) {
-  const targetMs = useMemo(
-    () => (targetTimeStr ? new Date(targetTimeStr).getTime() : null),
-    [targetTimeStr]
-  );
-
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [isExpired, setIsExpired] = useState(false);
-
-  useEffect(() => {
-    if (!targetMs) return;
-
-    const calculate = () => {
-      const diff = targetMs - Date.now();
-      if (diff <= 0) {
-        setIsExpired(true);
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-        return;
-      }
-      setIsExpired(false);
-      setTimeLeft({
-        days: Math.floor(diff / 86400000),
-        hours: Math.floor((diff % 86400000) / 3600000),
-        minutes: Math.floor((diff % 3600000) / 60000),
-        seconds: Math.floor((diff % 60000) / 1000),
-      });
-    };
-
-    calculate();
-    const id = setInterval(calculate, 1000);
-    return () => clearInterval(id);
-  }, [targetMs]);
-
-  return { timeLeft, isExpired };
+function formatUsd(mcapSol: number | null | undefined, solPrice = 150): string {
+  if (!mcapSol) return "$0";
+  const usd = mcapSol * solPrice;
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(2)}M`;
+  if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
+  return `$${usd.toFixed(0)}`;
 }
 
-// Jupiter Terminal component
-function JupiterTerminal() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const initialized = useRef(false);
+// ─── Token row card ───────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (initialized.current) return;
-
-    const SCRIPT_SRC = "https://terminal.jup.ag/main-v3.js";
-
-    const initJupiter = () => {
-      try {
-        (window as any).Jupiter?.init({
-          displayMode: "integrated",
-          integratedTargetId: "jupiter-terminal-container",
-          endpoint: "https://api.mainnet-beta.solana.com",
-          defaultExplorer: "Solscan",
-          strictTokenList: false,
-        });
-        initialized.current = true;
-        setStatus("ready");
-      } catch (e) {
-        console.error("[Jupiter] init error", e);
-        setStatus("error");
-      }
-    };
-
-    if ((window as any).Jupiter) {
-      initJupiter();
-      return;
-    }
-
-    // Load script if not present
-    if (!document.querySelector(`script[src="${SCRIPT_SRC}"]`)) {
-      const script = document.createElement("script");
-      script.src = SCRIPT_SRC;
-      script.async = true;
-      script.onload = () => {
-        // Small delay for Jupiter to register itself
-        setTimeout(initJupiter, 300);
-      };
-      script.onerror = () => setStatus("error");
-      document.body.appendChild(script);
-    } else {
-      // Script tag exists, poll for Jupiter
-      const poll = setInterval(() => {
-        if ((window as any).Jupiter) {
-          clearInterval(poll);
-          initJupiter();
-        }
-      }, 100);
-      const timeout = setTimeout(() => {
-        clearInterval(poll);
-        if (!(window as any).Jupiter) setStatus("error");
-      }, 10000);
-      return () => {
-        clearInterval(poll);
-        clearTimeout(timeout);
-      };
-    }
-  }, []);
-
-  if (status === "error") {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
-        <p className="text-muted-foreground">Unable to load the trading terminal.</p>
-        <a
-          href="https://jup.ag"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary underline text-sm"
-        >
-          Trade directly on Jupiter →
-        </a>
-      </div>
-    );
-  }
+function TradeTokenCard({ token }: { token: FunToken }) {
+  const isGraduated = token.status === "graduated";
+  const isNearGrad = (token.bonding_progress ?? 0) >= 80;
+  const tradeUrl = token.mint_address ? `/launchpad/${token.mint_address}` : `/t/${token.ticker}`;
+  const priceChange = token.price_change_24h ?? 0;
 
   return (
-    <div className="relative min-h-[600px]">
-      {status === "loading" && (
-        <div className="absolute inset-0 flex items-center justify-center z-10">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            <p className="text-sm text-muted-foreground">Loading terminal...</p>
+    <Link
+      to={tradeUrl}
+      className="group flex items-center gap-3 px-3 py-2.5 border border-border/40 rounded-lg hover:border-primary/40 hover:bg-primary/5 transition-all duration-150"
+    >
+      {/* Image */}
+      <div className="flex-shrink-0 w-9 h-9 rounded-md overflow-hidden bg-muted">
+        {token.image_url ? (
+          <img
+            src={token.image_url}
+            alt={token.name}
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xs font-bold font-mono text-muted-foreground">
+            {token.ticker?.slice(0, 2)}
           </div>
+        )}
+      </div>
+
+      {/* Name + ticker */}
+      <div className="min-w-0 w-28 flex-shrink-0">
+        <div className="text-[12px] font-semibold text-foreground truncate leading-tight">{token.name}</div>
+        <div className="text-[10px] font-mono text-muted-foreground">${token.ticker}</div>
+      </div>
+
+      {/* Mcap */}
+      <div className="hidden sm:block min-w-0 w-24 flex-shrink-0">
+        <div className="text-[11px] font-mono text-foreground">{formatUsd(token.market_cap_sol)}</div>
+        <div className="text-[9px] text-muted-foreground">Market Cap</div>
+      </div>
+
+      {/* Volume */}
+      <div className="hidden md:block min-w-0 w-24 flex-shrink-0">
+        <div className="text-[11px] font-mono text-foreground">{formatSol(token.volume_24h_sol)}</div>
+        <div className="text-[9px] text-muted-foreground">Vol 24h</div>
+      </div>
+
+      {/* Price change */}
+      <div className="hidden lg:block min-w-0 w-16 flex-shrink-0">
+        <div className={`text-[11px] font-mono font-semibold ${priceChange >= 0 ? "text-green-400" : "text-destructive"}`}>
+          {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(1)}%
         </div>
-      )}
-      <div
-        id="jupiter-terminal-container"
-        ref={containerRef}
-        className="w-full min-h-[600px]"
-      />
-    </div>
+        <div className="text-[9px] text-muted-foreground">24h</div>
+      </div>
+
+      {/* Bonding bar / status */}
+      <div className="flex-1 min-w-0">
+        {isGraduated ? (
+          <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-bold bg-green-500/15 text-green-400 border border-green-500/30">
+            ✓ Graduated
+          </span>
+        ) : (
+          <div className="space-y-0.5">
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>{isNearGrad ? "🔥" : ""}Bonding</span>
+              <span>{Math.round(token.bonding_progress ?? 0)}%</span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(token.bonding_progress ?? 0, 100)}%`,
+                  background: isNearGrad ? "#ea580c" : "hsl(var(--primary))",
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Trade button */}
+      <div className="flex-shrink-0">
+        <span className="text-[10px] font-mono font-bold text-primary border border-primary/40 px-2 py-1 rounded group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-150">
+          TRADE →
+        </span>
+      </div>
+    </Link>
   );
 }
 
-const TimeBlock = ({ value, label }: { value: number; label: string }) => (
-  <div className="flex flex-col items-center">
-    <div className="bg-card border border-border rounded-xl w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center shadow-lg">
-      <span className="text-3xl sm:text-4xl font-bold text-primary">
-        {value.toString().padStart(2, "0")}
-      </span>
-    </div>
-    <span className="text-xs sm:text-sm text-muted-foreground mt-2 uppercase tracking-wider">
-      {label}
-    </span>
-  </div>
-);
+// ─── Filter tabs ──────────────────────────────────────────────────────────────
+
+type FilterTab = "all" | "bonding" | "graduated" | "hot";
+
+const TABS: { id: FilterTab; label: string; icon: React.ReactNode }[] = [
+  { id: "all", label: "All", icon: <Layers className="h-3 w-3" /> },
+  { id: "bonding", label: "Bonding", icon: <TrendingUp className="h-3 w-3" /> },
+  { id: "graduated", label: "Graduated", icon: <Zap className="h-3 w-3" /> },
+  { id: "hot", label: "Hot", icon: <Flame className="h-3 w-3" /> },
+];
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function TradePage() {
-  const [timer, setTimer] = useState<CountdownTimer | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
-  useEffect(() => {
-    async function fetchTimer() {
-      const { data, error } = await supabase
-        .from("countdown_timers")
-        .select("*")
-        .eq("id", "trade_launch")
-        .maybeSingle();
+  const { tokens, totalCount, isLoading } = useFunTokensPaginated(page, PAGE_SIZE);
 
-      if (error) console.error("Error fetching countdown:", error);
-      if (data) setTimer(data as CountdownTimer);
-      setIsLoading(false);
+  const filtered = useMemo(() => {
+    let list = tokens;
+
+    // Tab filter
+    if (activeTab === "bonding") list = list.filter((t) => t.status !== "graduated");
+    if (activeTab === "graduated") list = list.filter((t) => t.status === "graduated");
+    if (activeTab === "hot") list = list.filter((t) => (t.bonding_progress ?? 0) >= 60);
+
+    // Search filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.ticker.toLowerCase().includes(q) ||
+          (t.description ?? "").toLowerCase().includes(q)
+      );
     }
 
-    fetchTimer();
-
-    const channel = supabase
-      .channel("countdown-updates")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "countdown_timers", filter: "id=eq.trade_launch" },
-        (payload) => {
-          if (payload.new) setTimer(payload.new as CountdownTimer);
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  // Stable string reference — no new Date() on every render
-  const targetTimeStr = useMemo(
-    () => timer?.target_time ?? null,
-    [timer?.target_time]
-  );
-
-  const { timeLeft, isExpired } = useCountdown(targetTimeStr);
+    return list;
+  }, [tokens, activeTab, search]);
 
   return (
     <LaunchpadLayout>
-      {isLoading ? (
-        <div className="animate-pulse space-y-6 max-w-2xl mx-auto mt-16">
-          <div className="h-10 bg-muted rounded w-3/4 mx-auto" />
-          <div className="flex justify-center gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="w-20 h-20 bg-muted rounded-xl" />
+      <div className="space-y-4 max-w-4xl">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <h1 className="text-xl font-bold font-mono text-foreground">Terminal</h1>
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-[10px] font-bold font-mono">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse inline-block" />
+                LIVE
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground font-mono">
+              Select a token to start advanced trading
+            </p>
+          </div>
+          <div className="text-[10px] font-mono text-muted-foreground">
+            {totalCount.toLocaleString()} tokens
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search by name or ticker..."
+            className="pl-8 h-9 text-sm font-mono bg-secondary/30 border-border/60 focus-visible:border-primary/60"
+          />
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex items-center gap-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setPage(1); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-mono font-semibold transition-all duration-150 ${
+                activeTab === tab.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Column headers */}
+        <div className="flex items-center gap-3 px-3 text-[9px] font-mono text-muted-foreground uppercase tracking-widest border-b border-border/30 pb-1.5">
+          <div className="w-9 flex-shrink-0" />
+          <div className="w-28 flex-shrink-0">Token</div>
+          <div className="hidden sm:block w-24 flex-shrink-0">Market Cap</div>
+          <div className="hidden md:block w-24 flex-shrink-0">Vol 24h</div>
+          <div className="hidden lg:block w-16 flex-shrink-0">24h %</div>
+          <div className="flex-1">Bonding / Status</div>
+          <div className="flex-shrink-0 w-16" />
+        </div>
+
+        {/* Token list */}
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="h-14 rounded-lg bg-secondary/20 animate-pulse" />
             ))}
           </div>
-        </div>
-      ) : isExpired ? (
-        // Trading is live — show Jupiter Terminal
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-foreground">Terminal</h1>
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-semibold">
-              <Zap className="h-3 w-3" />
-              Live
-            </span>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground font-mono text-sm">
+            {search ? `No tokens matching "${search}"` : "No tokens found"}
           </div>
-          <p className="text-sm text-muted-foreground">
-            Swap any Solana token via the best DEX aggregator.
-          </p>
-          <Card className="overflow-hidden">
-            <JupiterTerminal />
-          </Card>
-        </div>
-      ) : (
-        // Countdown still active
-        <div className="flex items-center justify-center min-h-[calc(100vh-180px)]">
-          <Card className="gate-card max-w-2xl w-full p-8 sm:p-12 text-center">
-            <div className="space-y-8">
-              <div className="space-y-2">
-                <Clock className="h-12 w-12 text-primary mx-auto mb-4" />
-                <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
-                  {timer?.title || "Trading goes Live"}
-                </h1>
-                <p className="text-muted-foreground text-lg">
-                  Get ready for the launch
-                </p>
-              </div>
-              <div className="flex justify-center gap-3 sm:gap-6">
-                <TimeBlock value={timeLeft.days} label="Days" />
-                <TimeBlock value={timeLeft.hours} label="Hours" />
-                <TimeBlock value={timeLeft.minutes} label="Minutes" />
-                <TimeBlock value={timeLeft.seconds} label="Seconds" />
-              </div>
-              <div className="pt-4 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  Stay tuned! Trading will be available soon.
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
+        ) : (
+          <div className="space-y-1.5">
+            {filtered.map((token) => (
+              <TradeTokenCard key={token.id} token={token} />
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!search && totalCount > PAGE_SIZE && (
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="text-[11px] font-mono px-3 py-1.5 border border-border/50 rounded hover:border-primary/50 disabled:opacity-30 transition-all"
+            >
+              ← Prev
+            </button>
+            <span className="text-[11px] font-mono text-muted-foreground">
+              {page} / {Math.ceil(totalCount / PAGE_SIZE)}
+            </span>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= Math.ceil(totalCount / PAGE_SIZE)}
+              className="text-[11px] font-mono px-3 py-1.5 border border-border/50 rounded hover:border-primary/50 disabled:opacity-30 transition-all"
+            >
+              Next →
+            </button>
+          </div>
+        )}
+      </div>
     </LaunchpadLayout>
   );
 }
