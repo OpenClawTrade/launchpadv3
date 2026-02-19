@@ -179,7 +179,7 @@ export default function FunTokenDetailPage() {
             <Avatar className="h-10 w-10 rounded-lg">
               <AvatarImage src={token.image_url || undefined} />
               <AvatarFallback className="rounded-lg text-sm font-bold">
-                {token.ticker.slice(0, 2)}
+                {(token.ticker || '??').slice(0, 2)}
               </AvatarFallback>
             </Avatar>
             <div>
@@ -206,7 +206,7 @@ export default function FunTokenDetailPage() {
             <Avatar className="h-20 w-20 rounded-xl border-2 border-border mx-auto sm:mx-0">
               <AvatarImage src={token.image_url || undefined} />
               <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary rounded-xl">
-                {token.ticker.slice(0, 2)}
+                {(token.ticker || '??').slice(0, 2)}
               </AvatarFallback>
             </Avatar>
 
@@ -244,7 +244,9 @@ export default function FunTokenDetailPage() {
               {/* Creator */}
               <p className="text-sm text-muted-foreground mt-1">
                 Created by <span className="font-medium text-foreground">
-                  {token.creator_wallet.slice(0, 6)}...{token.creator_wallet.slice(-4)}
+                  {token.creator_wallet
+                    ? `${token.creator_wallet.slice(0, 6)}...${token.creator_wallet.slice(-4)}`
+                    : 'Unknown'}
                 </span>
               </p>
 
