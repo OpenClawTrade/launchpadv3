@@ -1,28 +1,25 @@
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import {
-  BarChart3,
-  ExternalLink,
   Copy,
   CheckCircle,
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   TrendingDown,
   Users,
   Flame,
-  Megaphone,
   Crown,
   Gem,
   Bot,
+  ExternalLink,
+  Zap,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
@@ -36,301 +33,248 @@ interface TokenTableProps {
 
 export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTableProps) {
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const pageSize = 15;
+  const pageSize = 60;
 
-  // Server-side pagination - fetches ONLY tokens for current page
-  const { tokens, totalCount, isLoading, refetch } = useFunTokensPaginated(page, pageSize);
-
-  // Calculate total pages from server count
+  const { tokens, totalCount, isLoading } = useFunTokensPaginated(page, pageSize);
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     navigator.clipboard.writeText(text);
     setCopiedAddress(text);
     toast({ title: "Copied!", description: "Address copied to clipboard" });
     setTimeout(() => setCopiedAddress(null), 2000);
   };
 
-  const formatUsdMarketCap = (mcapSol: number | null | undefined) => {
+  const formatUsd = (mcapSol: number | null | undefined) => {
     if (!mcapSol || !solPrice) return "$0";
     const usd = mcapSol * solPrice;
-    if (usd >= 1000000) return `$${(usd / 1000000).toFixed(2)}M`;
-    if (usd >= 1000) return `$${(usd / 1000).toFixed(1)}K`;
+    if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(2)}M`;
+    if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
     return `$${usd.toFixed(0)}`;
   };
 
-  const MobileTokenCard = ({ token, index }: { token: typeof tokens[number]; index: number }) => {
+  const formatAge = (createdAt: string | null) => {
+    if (!createdAt) return "-";
+    return formatDistanceToNow(new Date(createdAt), { addSuffix: false });
+  };
+
+  // Segment tokens into 3 columns by bonding progress
+  const newPairs = tokens.filter(t => (t.bonding_progress ?? 0) < 30);
+  const almostBonded = tokens.filter(t => (t.bonding_progress ?? 0) >= 30 && (t.bonding_progress ?? 0) < 80);
+  const bonded = tokens.filter(t => (t.bonding_progress ?? 0) >= 80);
+
+  const TokenRow = ({ token, index }: { token: typeof tokens[number]; index: number }) => {
     const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
     const isPromoted = promotedTokenIds?.has(token.id) || false;
-    const isHolderRewards = token.fee_mode === 'holders';
     const isPumpFun = token.launchpad_type === 'pumpfun';
     const isBags = token.launchpad_type === 'bags';
     const isPhantom = token.launchpad_type === 'phantom';
-    
-    // pump.fun and bags tokens always link to SubTuna
-    const tradeUrl = (isPumpFun || isBags)
-      ? `/t/${token.ticker}` 
-      : token.agent_id 
-        ? `/t/${token.ticker}` 
-        : `/launchpad/${token.mint_address}`;
+    const isAgent = !!token.agent_id;
+
+    const tradeUrl = (isPumpFun || isBags || isAgent)
+      ? `/t/${token.ticker}`
+      : `/launchpad/${token.mint_address}`;
+
+    const priceChange = token.price_change_24h;
+    const progress = token.bonding_progress ?? 0;
 
     return (
       <Link
         to={tradeUrl}
-        className={`block p-3 border-b border-border last:border-b-0 hover:bg-secondary/30 transition-colors ${isPromoted ? "ring-2 ring-warning/50 ring-inset bg-warning/5" : ""}`}
+        className={`
+          flex items-center gap-2 px-3 py-2 border-b border-border/50 last:border-b-0
+          hover:bg-secondary/40 transition-colors group cursor-pointer
+          ${isPromoted ? "bg-warning/5 border-l-2 border-l-warning" : ""}
+        `}
       >
-        <div className="flex items-start gap-3">
-          <div className={`gate-token-avatar flex-shrink-0 ${isPromoted ? "ring-2 ring-warning" : ""}`}>
-            {token.image_url ? (
-              <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">
-                {token.ticker?.slice(0, 2)}
-              </div>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-foreground truncate flex items-center gap-1">
-                {token.name}
-                {isNearGraduation && <Flame className="h-3 w-3 text-orange-500 flex-shrink-0" />}
-                {isPromoted && <Crown className="h-3 w-3 text-warning flex-shrink-0" />}
-                                {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
-                                  <span title="Holder Rewards" aria-label="Holder Rewards">
-                                    <Gem className="h-3 w-3 text-accent flex-shrink-0" />
-                                  </span>
-                                )}
-                                {(token.agent_id || isPumpFun) && (
-                                  <span title="AI Agent Token" className="flex-shrink-0">
-                                    <Bot className="h-3 w-3 text-purple-400" />
-                                  </span>
-                                )}
-                                {isPumpFun ? (
-                                  <PumpBadge 
-                                    mintAddress={token.mint_address ?? undefined} 
-                                    showText={false} 
-                                    size="sm"
-                                    className="px-0 py-0 bg-transparent hover:bg-transparent"
-                                  />
-                                ) : isBags ? (
-                                  <BagsBadge 
-                                    mintAddress={token.mint_address ?? undefined} 
-                                    showText={false} 
-                                    size="sm"
-                                    className="px-0 py-0 bg-transparent hover:bg-transparent"
-                                  />
-                                ) : isPhantom ? (
-                                  <PhantomBadge 
-                                    mintAddress={token.mint_address ?? undefined} 
-                                    showText={false} 
-                                    size="sm"
-                                  />
-                                ) : null}
-                              </span>
-              <span className="text-xs text-muted-foreground">${token.ticker}</span>
+        {/* Token Image */}
+        <div className={`
+          relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-secondary
+          ${isNearGraduation ? "ring-1 ring-orange-500" : ""}
+          ${isPromoted ? "ring-1 ring-warning" : ""}
+        `}>
+          {token.image_url ? (
+            <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+              {token.ticker?.slice(0, 2)}
             </div>
-            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-              <span>{token.created_at ? formatDistanceToNow(new Date(token.created_at), { addSuffix: false }) : "-"}</span>
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {token.holder_count ?? 0}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <Progress value={token.bonding_progress ?? 0} className="h-1.5 flex-1" />
-              <span className="text-xs text-muted-foreground w-10 text-right">{(token.bonding_progress ?? 0).toFixed(0)}%</span>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            <span className="font-semibold text-sm">{formatUsdMarketCap(token.market_cap_sol)}</span>
-            {token.price_change_24h != null ? (
-              <span className={`flex items-center gap-0.5 text-xs font-medium ${token.price_change_24h > 0 ? "text-primary" : token.price_change_24h < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                {token.price_change_24h > 0 && <TrendingUp className="h-3 w-3" />}
-                {token.price_change_24h < 0 && <TrendingDown className="h-3 w-3" />}
-                {token.price_change_24h === 0 ? "0%" : `${token.price_change_24h > 0 ? "+" : ""}${token.price_change_24h.toFixed(1)}%`}
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">0%</span>
-            )}
+          )}
+          {/* Source badge overlay */}
+          <div className="absolute -bottom-0.5 -right-0.5">
+            {isPumpFun ? (
+              <PumpBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" className="px-0 py-0 bg-transparent hover:bg-transparent" />
+            ) : isBags ? (
+              <BagsBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" className="px-0 py-0 bg-transparent hover:bg-transparent" />
+            ) : isPhantom ? (
+              <PhantomBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" />
+            ) : null}
           </div>
         </div>
+
+        {/* Token Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-xs font-semibold text-foreground truncate leading-tight">
+              {token.name}
+            </span>
+            {isNearGraduation && <Flame className="h-2.5 w-2.5 text-orange-500 flex-shrink-0" />}
+            {isPromoted && <Crown className="h-2.5 w-2.5 text-warning flex-shrink-0" />}
+            {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
+              <Gem className="h-2.5 w-2.5 text-accent-foreground flex-shrink-0" />
+            )}
+            {isAgent && <Bot className="h-2.5 w-2.5 text-purple-400 flex-shrink-0" />}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] text-muted-foreground">${token.ticker}</span>
+            <span className="text-[10px] text-muted-foreground/60">·</span>
+            <span className="text-[10px] text-muted-foreground/60">{formatAge(token.created_at)}</span>
+          </div>
+          {/* Bonding progress bar */}
+          <Progress value={progress} className="h-0.5 mt-1 w-full" />
+        </div>
+
+        {/* Stats */}
+        <div className="flex flex-col items-end gap-0.5 flex-shrink-0 min-w-[60px]">
+          <span className="text-xs font-semibold text-foreground">{formatUsd(token.market_cap_sol)}</span>
+          {priceChange != null ? (
+            <span className={`text-[10px] font-medium flex items-center gap-0.5 ${
+              priceChange > 0 ? "text-success" : priceChange < 0 ? "text-destructive" : "text-muted-foreground"
+            }`}>
+              {priceChange > 0 ? <TrendingUp className="h-2.5 w-2.5" /> : priceChange < 0 ? <TrendingDown className="h-2.5 w-2.5" /> : null}
+              {priceChange === 0 ? "0%" : `${priceChange > 0 ? "+" : ""}${priceChange.toFixed(1)}%`}
+            </span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground">0%</span>
+          )}
+          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+            <Users className="h-2.5 w-2.5" />{token.holder_count ?? 0}
+          </span>
+        </div>
+
+        {/* Quick Buy Button */}
+        <Button
+          size="sm"
+          className="h-6 px-2 text-[10px] font-bold bg-primary/15 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/30 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.open(`https://raydium.io/swap/?inputMint=sol&outputMint=${token.mint_address}`, '_blank');
+          }}
+        >
+          <Zap className="h-3 w-3 mr-0.5" />
+          Buy
+        </Button>
       </Link>
     );
   };
 
-  const MobileLoadingSkeleton = () => (
-    <div className="p-3 border-b border-border">
-      <div className="flex items-start gap-3">
-        <Skeleton className="h-9 w-9 rounded-full flex-shrink-0" />
-        <div className="flex-1">
-          <Skeleton className="h-4 w-24 mb-1" />
-          <Skeleton className="h-3 w-16 mb-2" />
-          <Skeleton className="h-1.5 w-full" />
+  const ColumnSkeleton = () => (
+    <div>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-2 px-3 py-2 border-b border-border/50">
+          <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+          <div className="flex-1">
+            <Skeleton className="h-3 w-24 mb-1" />
+            <Skeleton className="h-2 w-16 mb-1" />
+            <Skeleton className="h-0.5 w-full" />
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="h-2 w-8" />
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <Skeleton className="h-4 w-12" />
-          <Skeleton className="h-3 w-10" />
-        </div>
+      ))}
+    </div>
+  );
+
+  const ColumnHeader = ({ title, count, color }: { title: string; count: number; color: string }) => (
+    <div className={`flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/30`}>
+      <div className="flex items-center gap-2">
+        <div className={`w-2 h-2 rounded-full ${color}`} />
+        <span className="text-xs font-bold text-foreground uppercase tracking-wider">{title}</span>
       </div>
+      <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{count}</span>
     </div>
   );
 
   return (
-    <Card className="gate-card">
-      <div className="gate-card-header">
-        <h2 className="gate-card-title">
-          <BarChart3 className="h-5 w-5 text-primary" />
-          Live Tokens
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-          <span className="text-xs text-muted-foreground">Real-time</span>
+    <div className="w-full">
+      {/* 3-Column Trading Terminal Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Column 1: New Pairs */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <ColumnHeader title="New Pairs" count={newPairs.length} color="bg-primary" />
+          <div className="overflow-y-auto max-h-[600px] scrollbar-thin">
+            {isLoading ? (
+              <ColumnSkeleton />
+            ) : newPairs.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-xs">No new pairs yet</div>
+            ) : (
+              newPairs.map((token, i) => <TokenRow key={token.id} token={token} index={i} />)
+            )}
+          </div>
+        </div>
+
+        {/* Column 2: Almost Bonded */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <ColumnHeader title="Almost Bonded" count={almostBonded.length} color="bg-warning" />
+          <div className="overflow-y-auto max-h-[600px] scrollbar-thin">
+            {isLoading ? (
+              <ColumnSkeleton />
+            ) : almostBonded.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-xs">No tokens almost bonded</div>
+            ) : (
+              almostBonded.map((token, i) => <TokenRow key={token.id} token={token} index={i} />)
+            )}
+          </div>
+        </div>
+
+        {/* Column 3: Bonded / Near Graduation */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <ColumnHeader title="Bonded" count={bonded.length} color="bg-success" />
+          <div className="overflow-y-auto max-h-[600px] scrollbar-thin">
+            {isLoading ? (
+              <ColumnSkeleton />
+            ) : bonded.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-xs">No bonded tokens</div>
+            ) : (
+              bonded.map((token, i) => <TokenRow key={token.id} token={token} index={i} />)
+            )}
+          </div>
         </div>
       </div>
 
-      {isMobile ? (
-        <div className="divide-y divide-border">
-          {isLoading ? (
-            Array.from({ length: 10 }).map((_, i) => <MobileLoadingSkeleton key={i} />)
-          ) : tokens.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">No tokens launched yet. Be the first!</div>
-          ) : (
-            tokens.map((token, index) => <MobileTokenCard key={token.id} token={token} index={(page - 1) * pageSize + index} />)
-          )}
-        </div>
-      ) : (
-        <div className="gate-table-wrapper">
-          <table className="gate-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Token</th>
-                <th>Age</th>
-                <th>24h</th>
-                <th>Market Cap</th>
-                <th>Holders</th>
-                <th>Progress</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 10 }).map((_, i) => (
-                  <tr key={i}>
-                    <td><Skeleton className="h-4 w-6" /></td>
-                    <td><div className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-full" /><Skeleton className="h-4 w-24" /></div></td>
-                    <td><Skeleton className="h-4 w-10" /></td>
-                    <td><Skeleton className="h-4 w-12" /></td>
-                    <td><Skeleton className="h-4 w-16" /></td>
-                    <td><Skeleton className="h-4 w-10" /></td>
-                    <td><Skeleton className="h-2 w-24" /></td>
-                    <td><Skeleton className="h-4 w-16" /></td>
-                  </tr>
-                ))
-              ) : tokens.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">No tokens launched yet. Be the first!</td></tr>
-              ) : (
-                tokens.map((token, index) => {
-                  const isNearGraduation = (token.bonding_progress ?? 0) >= 80;
-                  const isPromoted = promotedTokenIds?.has(token.id) || false;
-                  const isHolderRewards = token.fee_mode === 'holders';
-                  const isPumpFun = token.launchpad_type === 'pumpfun';
-                  const isBags = token.launchpad_type === 'bags';
-                  const isPhantom = token.launchpad_type === 'phantom';
-                  
-                  // pump.fun and bags tokens link to SubTuna
-                  const tradeUrl = (isPumpFun || isBags)
-                    ? `/t/${token.ticker}` 
-                    : token.agent_id 
-                      ? `/t/${token.ticker}` 
-                      : `/launchpad/${token.mint_address}`;
-                  
-                  return (
-                    <tr key={token.id} className={isPromoted ? "ring-2 ring-warning/30 ring-inset bg-warning/5" : ""}>
-                      <td className="text-muted-foreground font-medium">{(page - 1) * pageSize + index + 1}</td>
-                      <td>
-                        <Link to={tradeUrl} className="gate-token-row hover:opacity-80 transition-opacity">
-                          <div className={`gate-token-avatar ${isPromoted ? "ring-2 ring-warning" : ""}`}>
-                            {token.image_url ? <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">{token.ticker?.slice(0, 2)}</div>}
-                          </div>
-                          <div className="gate-token-info">
-                            <span className="gate-token-name flex items-center gap-1">
-                              {token.name}
-                              {isNearGraduation && <Flame className="h-3 w-3 text-orange-500" />}
-                              {isPromoted && <Crown className="h-3 w-3 text-warning" />}
-                              {(token.fee_mode === "holder_rewards" || token.fee_mode === "holders") && (
-                                <span title="Holder Rewards" aria-label="Holder Rewards">
-                                  <Gem className="h-3 w-3 text-accent" />
-                                </span>
-                              )}
-                              {(token.agent_id || isPumpFun) && (
-                                <span title="AI Agent Token" className="flex-shrink-0">
-                                  <Bot className="h-3 w-3 text-purple-400" />
-                                </span>
-                              )}
-                              {isPumpFun ? (
-                                <PumpBadge 
-                                  mintAddress={token.mint_address ?? undefined} 
-                                  showText={false} 
-                                  size="sm"
-                                  className="px-0 py-0 bg-transparent hover:bg-transparent"
-                                />
-                              ) : isBags ? (
-                                <BagsBadge 
-                                  mintAddress={token.mint_address ?? undefined} 
-                                  showText={false} 
-                                  size="sm"
-                                  className="px-0 py-0 bg-transparent hover:bg-transparent"
-                                />
-                              ) : isPhantom ? (
-                                <PhantomBadge 
-                                  mintAddress={token.mint_address ?? undefined} 
-                                  showText={false} 
-                                  size="sm"
-                                />
-                              ) : null}
-                            </span>
-                            <span className="gate-token-ticker">${token.ticker}</span>
-                          </div>
-                        </Link>
-                      </td>
-                      <td><span className="text-muted-foreground text-xs">{token.created_at ? formatDistanceToNow(new Date(token.created_at), { addSuffix: false }) : "-"}</span></td>
-                      <td>{token.price_change_24h != null ? <span className={`flex items-center gap-1 font-medium ${token.price_change_24h > 0 ? "text-primary" : token.price_change_24h < 0 ? "text-destructive" : "text-muted-foreground"}`}>{token.price_change_24h > 0 && <TrendingUp className="h-3 w-3" />}{token.price_change_24h < 0 && <TrendingDown className="h-3 w-3" />}{token.price_change_24h === 0 ? "0.0%" : `${token.price_change_24h > 0 ? "+" : ""}${token.price_change_24h.toFixed(1)}%`}</span> : <span className="text-muted-foreground">0.0%</span>}</td>
-                      <td><span className="font-semibold text-foreground">{formatUsdMarketCap(token.market_cap_sol)}</span></td>
-                      <td><span className="flex items-center gap-1 text-muted-foreground"><Users className="h-3 w-3" />{token.holder_count ?? 0}</span></td>
-                      <td><div className="flex items-center gap-2 min-w-[100px]"><Progress value={token.bonding_progress ?? 0} className="h-1.5 flex-1" /><span className="text-xs text-muted-foreground w-10 text-right">{(token.bonding_progress ?? 0).toFixed(0)}%</span></div></td>
-                      <td>
-                        <div className="flex items-center gap-1">
-                          {token.mint_address && (
-                            <>
-                              <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); copyToClipboard(token.mint_address!); }} className="gate-copy-btn h-7 w-7 p-0">{copiedAddress === token.mint_address ? <CheckCircle className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}</Button>
-                              <a href={`https://solscan.io/token/${token.mint_address}`} target="_blank" rel="noopener noreferrer" className="gate-copy-btn p-1 rounded" onClick={(e) => e.stopPropagation()}><ExternalLink className="h-3.5 w-3.5" /></a>
-                              {!isPromoted && onPromote && <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); onPromote(token.id, token.name, token.ticker); }} className="gate-copy-btn h-7 w-7 p-0 text-warning hover:text-warning hover:bg-warning/10" title="Promote"><Megaphone className="h-3.5 w-3.5" /></Button>}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="gate-pagination flex-wrap gap-2">
-          <span className="gate-pagination-info text-xs sm:text-sm">Page {page} of {totalPages} ({totalCount} tokens)</span>
-          <div className="gate-pagination-buttons">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="gate-page-btn"><ChevronLeft className="h-4 w-4" /> Prev</button>
-            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="gate-page-btn">Next <ChevronRight className="h-4 w-4" /></button>
+        <div className="flex items-center justify-between mt-4 px-2">
+          <span className="text-xs text-muted-foreground">Page {page} of {totalPages} ({totalCount} tokens)</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="h-7 px-2 text-xs"
+            >
+              <ChevronLeft className="h-3 w-3 mr-1" />Prev
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="h-7 px-2 text-xs"
+            >
+              Next<ChevronRight className="h-3 w-3 ml-1" />
+            </Button>
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
