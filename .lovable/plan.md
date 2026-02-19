@@ -1,317 +1,203 @@
 
-## Complete Claw Mode Rebrand — Full Platform Redesign
+## Full Head-to-Toe Visual Redesign — "Claw Mode" Dark Terminal
 
-This is the full audit and implementation plan to rename every "TUNA / OpenTuna" reference to "Claw Mode", apply the dark template aesthetic (inspired by Photon/pump.fun dark UI), update all branding assets (favicon, OG image, logo), and ensure no page, popup, error message, or piece of content is missed.
+### What's Wrong Right Now
 
----
+The screenshot shows the site still looks like the original Gate.io exchange template:
+- Rectangular stat cards with large padded numbers
+- Standard section headers ("King of the Hill", "Just Launched") centered like a blog
+- The token table uses a 3-column card grid layout — not a compact trading terminal
+- Header nav uses colored button pills (Trade, Agents, Claw SDK, Migrate) in a noisy bar
+- The ticker bar looks like a simple exchange price feed
+- The whole page uses the same generic card/table structure as the old template
+- `gate-theme.css` (1,003 lines) is the root of the old design — it still controls everything
 
-### PART 1 — Asset Replacement (Logo, Favicon, OG Image)
-
-The uploaded pixel-art lobster image (`1287A70E-0A3B-469F-81B0-350EC2787E12.png`) becomes the new logo.
-
-**Files to add/update:**
-- Copy logo to `public/claw-logo.png` (main logo, used in header, footer, and all `tuna-logo.png` references)
-- Copy logo to `public/favicon.png` (replaces existing favicon)
-- Copy logo to `public/og-image.png` (replaces OG/Twitter card preview image)
-- Copy logo to `src/assets/claw-logo.png` (for React component imports that import `tuna-logo.png` from assets)
-
-**Where `/tuna-logo.png` is currently used (all must change):**
-- `src/components/layout/AppHeader.tsx` → `HEADER_LOGO_SRC`
-- `src/components/layout/Footer.tsx` → `<img src="/tuna-logo.png">`
-- `src/pages/FunLauncherPage.tsx` → `HEADER_LOGO_SRC = "/tuna-logo.png"`
-- `src/pages/TradePage.tsx` → `src="/tuna-logo.png"`
-- `src/pages/TokenDetailPage.tsx` → `HEADER_LOGO_SRC = "/tuna-logo.png"`
-- `src/pages/LaunchpadPage.tsx` → header logo
-- `src/components/agents/AgentPlatformToken.tsx` → `src="/tuna-logo.png"`
-- `src/components/agents/AgentIdeaGenerator.tsx` → `import tunaLogo from "@/assets/tuna-logo.png"`
-- `src/components/launchpad/MemeLoadingAnimation.tsx` → `TUNA_LOGO_SRC = "/tuna-logo.png"`
+The reference images show a **Photon/Bullx-style dark trading terminal**: ultra-compact rows, full-width token feed, minimal decorative elements, and the launcher form tightly integrated left-side.
 
 ---
 
-### PART 2 — `index.html` Metadata (SEO, OG, Twitter Card)
+### Strategy
 
-**File: `index.html`**
+Instead of patching individual components, this redesign works at 3 levels simultaneously:
 
-Every TUNA/OpenTuna reference replaced:
+1. **`gate-theme.css`** — Completely rewrite the visual variables and base styles to a true dark terminal look (pure black, tighter spacing, sharper borders, red glow accent)
+2. **`src/index.css`** — Reinforce the root dark body, add Claw Mode specific utility classes
+3. **Key page components** — Rebuild the visual shell of `FunLauncherPage.tsx`, `AppHeader.tsx`, `StatsCards.tsx`, `KingOfTheHill.tsx`, `JustLaunched.tsx`, `TokenTable.tsx`, and `TokenTickerBar.tsx`
 
-| Field | Current | New |
+---
+
+### Part 1 — `src/styles/gate-theme.css` — Complete Rewrite
+
+The current file is a 1,003-line Gate.io-inspired stylesheet. It will be fully replaced with a Claw Mode dark terminal theme.
+
+**Key visual changes:**
+
+| Property | Old (Gate.io) | New (Claw Terminal) |
 |---|---|---|
-| `<title>` | "Tuna AI Agent Operating System" | "Claw Mode — AI Agent Launchpad on Solana" |
-| `<meta description>` | TUNA is the AI-powered token launchpad... | Claw Mode is the autonomous AI agent launchpad on Solana... |
-| `<meta keywords>` | ...tuna.fun, TUNA... | ...clawmode, CLAW... |
-| `<meta author>` | TUNA OS | Claw Mode |
-| `og:site_name` | TUNA OS | Claw Mode |
-| `og:title` | TUNA OS v3.1.0... | Claw Mode — AI Agent Launchpad on Solana |
-| `og:description` | Where AI agents & humans launch... | Autonomous AI agents that launch tokens... |
-| `og:image` | `https://tuna.fun/logo.png?v=4` | `/og-image.png` (new lobster logo) |
-| `og:image:alt` | TUNA OS v3.1.0... | Claw Mode... |
-| `twitter:site` | @buildtuna | @buildtuna (keep, same account) |
-| `twitter:title` | TUNA OS v3.1.0... | Claw Mode — AI Agent Launchpad |
-| `twitter:description` | Where AI agents & humans... | Autonomous AI agents... |
-| `twitter:image` | `https://tuna.fun/logo.png?v=4` | `/og-image.png` |
-| `<link rel="icon">` | `/favicon.png` | `/favicon.png` (same path, new image already copied) |
-| JSON-LD `name` | OpenTuna | Claw Mode |
-| JSON-LD creator `name` | OpenTuna | Claw Mode |
+| Background | `hsl(240 20% 4%)` soft dark | `#0a0a0a` pure black |
+| Cards | Rounded, padded white cards | Sharp-edged dark panels `#111114` |
+| Border | `hsl(240 15% 14%)` subtle | `#1e1e24` thin neon-adjacent |
+| Primary accent | Red `0 84% 60%` | Red `#e84040` with glow |
+| Header height | 42px compact | 48px, borderless glass |
+| Table cells | 14px, 14px padding | 12px, 8px padding — ultra compact |
+| Stat cards | Large 24px numbers | Small 18px with mini label above |
+| Scrollbar | 6px thumb | 3px thread-thin thumb |
+| Radius | `--gate-radius-lg: 14px` | `6px` flat panels — no heavy rounding |
+
+The nebula gradient stays but becomes darker/more subtle.
 
 ---
 
-### PART 3 — Global Header (`AppHeader.tsx`)
+### Part 2 — `src/components/layout/AppHeader.tsx` — Redesign
 
-**File: `src/components/layout/AppHeader.tsx`**
+**Current**: Buttons with filled background colors (Trade=red, Agents=red, Claw SDK=green, Migrate=green). Cluttered nav.
 
-- Replace `HEADER_LOGO_SRC = "/tuna-logo.png"` → `/claw-logo.png`
-- Replace `alt="OpenTuna"` → `alt="Claw Mode"`
-- Replace `aria-label="OpenTuna"` → `aria-label="Claw Mode"`
-- Replace `<span className="text-lg font-bold">OpenTuna</span>` → `Claw Mode`
-- Nav link `/opentuna` label "OpenTuna" → rename to `/opentuna` with label "SDK" (or keep route but change label)
-- Mobile menu same changes
-
----
-
-### PART 4 — Footer (`Footer.tsx`)
-
-**File: `src/components/layout/Footer.tsx`**
-
-- Replace `src="/tuna-logo.png"` → `/claw-logo.png`
-- Replace `alt="OpenTuna"` → `alt="Claw Mode"`
-- Replace `<span className="font-bold">OpenTuna</span>` → `Claw Mode`
-- Replace `"TUNA Agents"` in product links → `Claw Agents`
-- Replace `"OpenTuna SDK"` → `Claw SDK`
-- Replace `© 2025 OpenTuna. All rights reserved.` → `© 2025 Claw Mode. All rights reserved.`
-- "The AI Agent Operating System for autonomous trading and token launches on Solana." → "The autonomous AI agent launchpad on Solana."
+**New design:**
+- Flat nav links — no filled buttons, just text with underline-on-hover
+- Active page gets a `border-b-2 border-primary` indicator
+- The lobster logo gets `h-7 w-7` with no rounded border — raw icon
+- Brand name `Claw Mode` in `font-mono` with lobster red tint
+- Right side: X icon, SOL price chip (dark pill), and wallet connect button (red outline)
+- Header background: `bg-[#0a0a0a]/95 backdrop-blur border-b border-[#1e1e24]`
+- Remove all colored button pills from the nav
 
 ---
 
-### PART 5 — Home Page / Main Launcher (`FunLauncherPage.tsx`)
+### Part 3 — `src/components/launchpad/TokenTickerBar.tsx` — Redesign
 
-**File: `src/pages/FunLauncherPage.tsx`** (918 lines)
+**Current**: Standard horizontal scroll bar with token name + % change, using Gate.io styles.
 
-- `HEADER_LOGO_SRC = "/tuna-logo.png"` → `/claw-logo.png`
-- All `alt="OpenTuna"` / `aria-label="OpenTuna"` → Claw Mode
-- `<span className="text-lg font-bold">OpenTuna</span>` → Claw Mode
-- Nav link label "OpenTuna" → "SDK"
-- Mobile menu same
-
----
-
-### PART 6 — Trade Page (`TradePage.tsx`)
-
-**File: `src/pages/TradePage.tsx`**
-
-- `src="/tuna-logo.png"` → `/claw-logo.png`
-- `alt="TUNA"` → `alt="Claw Mode"`
-- `"Start trading now on TUNA"` → `"Start trading now on Claw Mode"`
-- `aria-label="TUNA"` → Claw Mode
+**New design:**
+- Background: solid `#111114` strip, 1px bottom border `#1e1e24`
+- Each item: `font-mono text-[11px]`, tighter gap
+- Positive: bright green `#00d26a`, Negative: `#e84040`
+- Add a vertical `|` separator between items
+- Ticker items use uppercase symbols only
 
 ---
 
-### PART 7 — Token Detail Pages
+### Part 4 — `src/components/launchpad/KingOfTheHill.tsx` — Redesign
 
-**Files: `src/pages/TokenDetailPage.tsx`, `src/pages/FunTokenDetailPage.tsx`**
+**Current**: 3 large cards in a grid with big rounded avatars and centred "King of the Hill" heading.
 
-- `HEADER_LOGO_SRC = "/tuna-logo.png"` → `/claw-logo.png`
-- `alt="TUNA"` → `alt="Claw Mode"`
-- Header logo text "TUNA" → "Claw Mode"
-
----
-
-### PART 8 — Agents Section
-
-**Files: `src/components/agents/AgentHero.tsx`, `src/pages/TunaBookPage.tsx`, `src/components/agents/AgentPlatformToken.tsx`, `src/components/agents/AgentIdeaGenerator.tsx`**
-
-- "Welcome to TUNA Agents" → "Welcome to Claw Agents"
-- "TUNA Agents" tab label → "Claw Agents"
-- `@BuildTuna` X handle references in code examples → `@buildclaw` (or keep @buildtuna but update the display text)
-- `!tunalaunch` command in how-to cards → `!clawlaunch`
-- `src="/tuna-logo.png"` / `import tunaLogo from "@/assets/tuna-logo.png"` → new claw logo
-- `AgentPlatformToken` — `$TUNA` token name and description updated
+**New design:**
+- Section label: LEFT-aligned, small ALL-CAPS `KING OF THE HILL` with `🔥` emoji and thin separator line
+- Cards: ultra-compact horizontal rows stacked in a single dark panel
+  - 28px avatar | name + ticker | progress bar | MC value | age
+- Rank badge: tiny `#1` `#2` `#3` chips in left-edge of the row
+- No more large `hover:scale-[1.02]` hover — just subtle `bg-[#1a1a20]` on hover
+- Panel: `bg-[#111114] border border-[#1e1e24] rounded-md`
 
 ---
 
-### PART 9 — Agent MemeLoading Animation
+### Part 5 — `src/components/launchpad/JustLaunched.tsx` — Redesign
 
-**File: `src/components/launchpad/MemeLoadingAnimation.tsx`**
+**Current**: Horizontal scroll of 160px wide cards with large avatar and text.
 
-- `TUNA_LOGO_SRC = "/tuna-logo.png"` → `/claw-logo.png`
-- `alt="TUNA"` → `alt="Claw Mode"`
-
----
-
-### PART 10 — OpenTuna Page → Rebrand to "Claw SDK" / "OpenClaw"
-
-**File: `src/pages/OpenTunaPage.tsx`** and all components in `src/components/opentuna/`
-
-The `/opentuna` route and all OpenTuna components contain extensive TUNA branding:
-- Page title: "OpenTuna" → "OpenClaw" (or "Claw SDK")
-- All `OpenTuna` class names and display text → OpenClaw
-- API key modal: `npm install @opentuna/sdk` → kept as-is (this is a real package name, or update to `@openclaw/sdk`)
-- `new OpenTuna({ apiKey: '...' })` → update text
-- Tab labels (Hub, Hatch, DNA, etc.) — no branding, keep as-is
-- Back link label → "Back to Claw Mode"
-- `OpenTunaHub` hero text if it mentions TUNA
+**New design:**
+- Same horizontal scroll but cards become **tighter**: `w-[140px]`, `p-2`, avatar `32px`
+- Card background: `bg-[#111114] border border-[#1e1e24]`  
+- Section header: LEFT-aligned `JUST LAUNCHED` with `🚀` and time label
+- Token name truncated to 1 line, ticker below, MC in green, age right-aligned
+- Cards pop slightly on hover with `border-primary/40`
 
 ---
 
-### PART 11 — Whitepaper Page
+### Part 6 — `src/components/launchpad/StatsCards.tsx` — Redesign
 
-**File: `src/pages/WhitepaperPage.tsx`** (1121 lines)
+**Current**: 5 large cards in a grid with big 24px stat values.
 
-Significant content changes:
-- `"Back to TUNA"` → `"Back to Claw Mode"`
-- `"TUNA Protocol Whitepaper"` title → `"Claw Mode Protocol Whitepaper"`
-- `"The AI-Powered Token Launchpad for Solana"` subtitle → updated
-- Section 13 title "OpenTuna Agent OS" → "OpenClaw Agent OS"
-- All `https://tuna.fun` API URLs → `https://clawmode.lovable.app` (or keep tuna.fun if still active)
-- `!tunalaunch` command → `!clawlaunch`
-- `HIGH-PERFORMANCE MINING via ... "TUNA" suffix` → `"CLAW" suffix`
-- `npm install @opentuna/sdk` → `@openclaw/sdk`
-- `new OpenTuna(...)` → `new OpenClaw(...)`
+**New design:**
+- Replace with a single horizontal dark stat bar (like a trading platform info ribbon)
+- `flex flex-row` across full width, `gap-0`, separated by vertical dividers
+- Each stat: icon + label (11px muted) + value (14px bold white) all inline
+- No card borders, just one unified dark `bg-[#111114] border-y border-[#1e1e24]` strip
+- Compact, no wasted vertical space
 
 ---
 
-### PART 12 — Promote Modal
+### Part 7 — `src/components/launchpad/TokenTable.tsx` — Redesign
 
-**File: `src/components/launchpad/PromoteModal.tsx`**
+**Current**: 3-column grid (New Pairs / Almost Bonded / Bonded) with cards.
 
-- `@BuildTuna's X account` → `@BuildClaw's X account` (or keep @buildtuna as the actual social)
-- `setTweetUrl(https://twitter.com/buildtuna/status/...)` — keep as real URL, update display text only
-
----
-
-### PART 13 — Careers Page
-
-**File: `src/pages/CareersPage.tsx`**
-
-- "Back to TUNA" link label → "Back to Claw Mode"
-- Any mention of "TUNA" in job descriptions → "Claw Mode"
-- Footer already handled globally
+**New design** (matching Photon/Bullx reference):
+- Keep the 3-column layout but make columns **borderless panels** with visible header row
+- Column headers: `NEW PAIRS ●` `ALMOST BONDED ●` `BONDED ●` — colored dots, ALL CAPS, smaller text
+- Each token row: ultra-compact `h-10` rows
+  - `28px` avatar | name `font-semibold text-[12px]` + ticker `text-[10px] muted` | progress bar `h-0.5` | MC `text-[11px] font-mono text-green-400` | `+X%` colored | holders `muted` | hover: `[Buy]` pill
+- No Progress bar below the name — integrate it as a thin 1px line at bottom of the row
+- Rows alternating `bg-[#111114]` / `bg-[#0f0f12]` (zebra)
+- Quick buy button appears on row hover, right-edge, `text-[10px] px-1.5 h-5`
 
 ---
 
-### PART 14 — Migrate Page
+### Part 8 — `src/pages/FunLauncherPage.tsx` — Layout Shell Redesign
 
-**File: `src/pages/MigratePage.tsx`**
+**Current**: The page wraps everything in `gate-theme dark`, with large padded `max-w-[1400px]` sections.
 
-- "OpenTuna — API/SDK Platform" → "OpenClaw — API/SDK Platform"
-- "build on TUNA infrastructure" → "build on Claw Mode infrastructure"
-
----
-
-### PART 15 — API Docs Page
-
-**File: `src/pages/ApiDocsPage.tsx`**
-
-- `TUNA Launchpad API` → `Claw Mode Launchpad API`
-- `"TUNA ecosystem"` → `"Claw Mode ecosystem"`
-- Code block content: API endpoint URLs remain functional but labels updated
-- `tuna.fun` references in code comments → `clawmode.lovable.app`
+**New design changes:**
+- Reduce horizontal padding: `px-2 sm:px-4` (tighter)
+- Remove the `gate-theme` wrapper class — apply Claw Mode styles directly through CSS variables
+- The countdown banner redesigned: slim `h-8` red glowing strip, centered monospace text
+- Tab list redesigned: flat `border-b border-[#1e1e24]` underline tabs (not pill tabs) — pure text, active gets red underline
+- Section spacing reduced from `py-6 space-y-6` to `py-2 space-y-3`
+- The left launcher panel stays at `w-[340px]`
 
 ---
 
-### PART 16 — LaunchpadPage (Legacy)
+### Part 9 — `src/index.css` — Root Utility Additions
 
-**File: `src/pages/LaunchpadPage.tsx`**
+Add Claw Mode-specific utility classes:
 
-- Logo alt "TUNA" → "Claw Mode"
-- "Be the first to launch a token on TUNA!" → "on Claw Mode!"
+```css
+/* Claw Mode terminal utilities */
+.claw-panel { background: #111114; border: 1px solid #1e1e24; }
+.claw-panel-dark { background: #0d0d10; border: 1px solid #1e1e24; }
+.claw-text-green { color: #00d26a; }
+.claw-text-red { color: #e84040; }
+.claw-text-mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+.claw-row-hover:hover { background: #1a1a20; }
+.claw-glow-red { box-shadow: 0 0 12px rgba(232, 64, 64, 0.2); }
+```
 
----
-
-### PART 17 — Fun Mode / Password Gate
-
-**File: `src/components/launchpad/TokenLauncher.tsx`**
-
-- Password check `funPasswordInput.toLowerCase().trim() === "tuna"` — keep or change to `"claw"` (if the user wants to update the secret password too)
-
----
-
-### PART 18 — CSS Branding (`.opentuna-*` classes)
-
-**File: `src/index.css`**
-
-The `.opentuna-card`, `.opentuna-gradient-text`, `.opentuna-glow`, `.opentuna-button` CSS classes are used in the opentuna components. These will be renamed to `.openclaw-card` etc. or left as-is since they're internal class names that don't appear in UI text.
-
-The comment `/* OpenTuna Theme - TUNA Brand Colors */` → `/* OpenClaw Theme */`
+Update CSS comments from "TUNA Design System" / "Gate.io Inspired" to "Claw Mode Design System".
 
 ---
 
-### PART 19 — CSS comment in `index.css`
+### Part 10 — `TunaPulse.tsx` Reference Fix
 
-Line 17: `/* TUNA Design System - Gate.io Inspired Professional Theme */` → `/* Claw Mode Design System */`
-
----
-
-### PART 20 — Template Visual Redesign
-
-Inspired by the dark Photon/pump.fun UI in the reference images — clean dark cards, compact rows, darker backgrounds, green/cyan accent on market data. The current design is already close (dark theme, red primary). Key visual adjustments:
-
-**Color Scheme (already done for Claw):**
-- Deep black background (`240 20% 4%`) — already set ✓
-- Red/coral primary (`0 84% 60%`) — already set ✓
-- Teal secondary (`187 80% 53%`) — already set ✓
-- Nebula gradient effect — already set ✓
-
-**Layout adjustments to match template:**
-- Token rows in lists: tighter padding, smaller avatars (32px), column layout matching Photon (name | price | change | volume | MC | buy button)
-- Token cards: more compact, dark card background, subtle border
-- Launch form: contained on left side, token list on right — current layout already similar
+`src/components/launchpad/TunaPulse.tsx` — likely still has TUNA text in its component. Rename display text to "Claw Pulse" or similar.
 
 ---
-
-### PART 21 — Public Files Rename
-
-- `public/TUNA_WHITEPAPER.md` → Keep (backend file, not user-visible)
-- `public/tuna-logo.png` → Keep (for backward compatibility), but all code references updated to `claw-logo.png`
-
----
-
-### PART 22 — `sitemap.xml`
-
-**File: `public/sitemap.xml`**
-
-- Any `tuna.fun` URLs → updated to `clawmode.lovable.app`
-
----
-
-### Summary of All Files Modified
-
-| # | File | Change Type |
-|---|---|---|
-| 1 | `index.html` | Title, meta, OG, Twitter Card — full rebrand |
-| 2 | `public/favicon.png` | Replaced with pixel lobster logo |
-| 3 | `public/og-image.png` | Replaced with pixel lobster logo |
-| 4 | `public/claw-logo.png` | NEW — pixel lobster logo |
-| 5 | `src/assets/claw-logo.png` | NEW — pixel lobster logo (React imports) |
-| 6 | `src/components/layout/AppHeader.tsx` | Logo + all text |
-| 7 | `src/components/layout/Footer.tsx` | Logo + all text |
-| 8 | `src/pages/FunLauncherPage.tsx` | Logo + header text |
-| 9 | `src/pages/TradePage.tsx` | Logo + text |
-| 10 | `src/pages/TokenDetailPage.tsx` | Logo + text |
-| 11 | `src/pages/FunTokenDetailPage.tsx` | Logo + text |
-| 12 | `src/pages/LaunchpadPage.tsx` | Logo + text |
-| 13 | `src/pages/TunaBookPage.tsx` | "TUNA Agents" → "Claw Agents" throughout |
-| 14 | `src/pages/WhitepaperPage.tsx` | All TUNA/OpenTuna text |
-| 15 | `src/pages/OpenTunaPage.tsx` | OpenTuna → OpenClaw everywhere |
-| 16 | `src/pages/CareersPage.tsx` | Back link + descriptions |
-| 17 | `src/pages/MigratePage.tsx` | OpenTuna → OpenClaw |
-| 18 | `src/pages/ApiDocsPage.tsx` | API names + descriptions |
-| 19 | `src/components/agents/AgentHero.tsx` | "TUNA Agents" → "Claw Agents", @BuildTuna |
-| 20 | `src/components/agents/AgentPlatformToken.tsx` | Logo + $TUNA text |
-| 21 | `src/components/agents/AgentIdeaGenerator.tsx` | Logo import + @BuildTuna + !tunalaunch |
-| 22 | `src/components/launchpad/MemeLoadingAnimation.tsx` | Logo |
-| 23 | `src/components/launchpad/PromoteModal.tsx` | @BuildTuna display text |
-| 24 | `src/components/opentuna/OpenTunaApiKeyModal.tsx` | SDK text |
-| 25 | `src/components/opentuna/OpenTunaHatch.tsx` | "OpenTuna agent" text |
-| 26 | `src/components/opentuna/OpenTunaDocs.tsx` | All OpenTuna text |
-| 27 | `src/index.css` | Comment updates |
-| 28 | `public/sitemap.xml` | URL updates |
 
 ### Execution Order
 
-1. Copy logo asset files (new pixel lobster) to `public/` and `src/assets/`
-2. Update `index.html` (SEO + OG metadata)
-3. Update `AppHeader.tsx` and `Footer.tsx` (global header/footer — appears on every page)
-4. Update all page files (FunLauncherPage, TradePage, TokenDetailPage, etc.)
-5. Update all component files (agents, launchpad, opentuna)
-6. Update CSS comments
-7. Update `sitemap.xml`
+```text
+1. Rewrite src/styles/gate-theme.css (dark terminal variables + base styles)
+2. Update src/index.css (utility classes + comment cleanup)
+3. Redesign AppHeader.tsx (flat nav, cleaner header)
+4. Redesign StatsCards.tsx (horizontal info ribbon)
+5. Redesign KingOfTheHill.tsx (compact rows)
+6. Redesign JustLaunched.tsx (tighter cards)
+7. Redesign TokenTickerBar.tsx (mono style)
+8. Redesign TokenTable.tsx (ultra-compact rows)
+9. Update FunLauncherPage.tsx layout shell (tabs, spacing)
+10. Fix TunaPulse.tsx text reference
+```
+
+### What WON'T Change
+
+- All data hooks, API calls, Supabase queries — zero changes
+- The `TokenLauncher.tsx` form (2,891 lines) — functional logic untouched, only wrapper styles change via CSS
+- Route definitions, navigation paths
+- All modal functionality (LaunchResult modal, PromoteModal, etc.)
+- All existing features (King of the Hill data, Just Launched data, Claims, Creators tabs)
+
+### Result
+
+After this redesign, a first-time visitor will see:
+- Pitch-black background with razor-sharp dark panels
+- Ultra-compact token feed that fills the screen like a trading terminal
+- Red/coral accent on interactive elements with subtle glow
+- Monospace numbers for prices and stats
+- No signs of the original Gate.io exchange template
