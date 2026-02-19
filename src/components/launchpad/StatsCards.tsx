@@ -67,26 +67,26 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalAgentP
   ];
 
   return (
-    <div className="w-full flex items-stretch border border-border bg-[hsl(240_10%_6%)] rounded-md overflow-hidden">
+    <div className="w-full flex items-center border-y border-border bg-card overflow-x-auto">
       {stats.map((stat, i) => (
         <div
           key={stat.label}
-          className={`flex-1 flex flex-col justify-center px-4 py-2.5 min-w-0 ${i < stats.length - 1 ? "border-r border-border" : ""}`}
+          className={`flex items-center gap-2 px-4 py-2 flex-shrink-0 ${i < stats.length - 1 ? "border-r border-border" : ""}`}
         >
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <stat.icon className={`h-3 w-3 flex-shrink-0 ${stat.color}`} />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">
+          <stat.icon className={`h-3 w-3 flex-shrink-0 ${stat.color}`} />
+          <div className="flex flex-col min-w-0">
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground leading-none mb-0.5">
               {stat.label}
             </span>
+            <span className="text-[13px] font-bold font-mono text-foreground leading-none">
+              {stat.value}
+            </span>
+            {stat.sub && (
+              <span className="text-[9px] font-mono text-muted-foreground/60 leading-none mt-0.5">
+                {stat.sub}
+              </span>
+            )}
           </div>
-          <div className="text-[15px] font-bold font-mono text-foreground leading-tight truncate">
-            {stat.value}
-          </div>
-          {stat.sub && (
-            <div className="text-[10px] font-mono text-muted-foreground/60 truncate">
-              {stat.sub}
-            </div>
-          )}
         </div>
       ))}
     </div>

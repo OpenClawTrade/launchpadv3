@@ -32,27 +32,27 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
     <Link
       to={linkPath}
       className={cn(
-        "flex-shrink-0 w-[130px] p-2 rounded border border-border",
-        "bg-[hsl(240_10%_5%)] hover:border-primary/40 hover:bg-white/[0.02] transition-all duration-150 group"
+        "flex-shrink-0 w-[120px] p-1.5 rounded border border-border",
+        "bg-card hover:border-primary/50 hover:bg-secondary/40 transition-all duration-150 group"
       )}
     >
-      <div className="flex items-center gap-1.5 mb-1.5">
+      <div className="flex items-center gap-1.5 mb-1">
         {token.image_url ? (
           <img
             src={token.image_url}
             alt={token.name}
-            className="w-8 h-8 rounded object-cover border border-border/50 flex-shrink-0"
+            className="w-7 h-7 rounded object-cover border border-border/50 flex-shrink-0"
             onError={(e) => {
               (e.target as HTMLImageElement).src = "/placeholder.svg";
             }}
           />
         ) : (
-          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary flex-shrink-0">
+          <div className="w-7 h-7 rounded bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary flex-shrink-0">
             {token.ticker?.slice(0, 2)}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-[11px] text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-0.5">
+          <h3 className="font-semibold text-[10px] text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-0.5 leading-tight">
             {token.name}
             {isPumpFun && <PumpBadge size="sm" showText={false} mintAddress={token.mint_address ?? undefined} />}
             {isBags && <BagsBadge showText={false} mintAddress={token.mint_address ?? undefined} />}
@@ -62,24 +62,21 @@ function JustLaunchedCard({ token }: { token: JustLaunchedToken }) {
                 <Bot className="w-2 h-2" />
               </span>
             )}
-            {!isTradingAgent && token.agent_id && (
-              <span className="flex items-center gap-0.5 bg-purple-500/15 text-purple-400 px-0.5 rounded flex-shrink-0">
-                <Bot className="w-2 h-2" />
-              </span>
-            )}
           </h3>
-          <span className="text-[9px] text-muted-foreground font-mono">${token.ticker}</span>
+          <span className="text-[9px] text-muted-foreground font-mono leading-none">${token.ticker}</span>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold font-mono text-green-400">
+        <span className="text-[10px] font-bold font-mono text-emerald-400">
           {formatUsdMarketCap(token.market_cap_sol ?? 0, solPrice)}
         </span>
-        <div className="flex items-center gap-0.5 text-muted-foreground/60">
+        <div className="flex items-center gap-0.5 text-muted-foreground/50">
           <Clock className="w-2 h-2" />
-          <span className="text-[9px] font-mono">
-            {formatDistanceToNow(new Date(token.created_at), { addSuffix: false })}
+          <span className="text-[8px] font-mono">
+            {formatDistanceToNow(new Date(token.created_at), { addSuffix: false })
+              .replace("about ", "").replace(" hours", "h").replace(" hour", "h")
+              .replace(" minutes", "m").replace(" minute", "m").replace(" days", "d")}
           </span>
         </div>
       </div>
