@@ -10,7 +10,7 @@ import { useMeteoraApi } from "@/hooks/useMeteoraApi";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useLaunchRateLimit } from "@/hooks/useLaunchRateLimit";
-import { Loader2, ImageIcon, ChevronDown, ChevronUp, Clock, Users, Coins } from "lucide-react";
+import { Loader2, ImageIcon, ChevronDown, ChevronUp, Clock, Users, Coins, Globe, Twitter, Send, MessageSquare, Rocket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
@@ -21,8 +21,12 @@ interface LaunchTokenFormProps {
   onSuccess?: (mintAddress: string) => void;
 }
 
-// Lazy load a wrapper that uses Privy hooks
 const PrivyWalletProvider = lazy(() => import("./PrivyWalletProvider"));
+
+const SOL_PRESETS = [0.1, 0.5, 1.0, 2.0];
+
+const terminalInput = "w-full bg-[#0a0a0a] border border-[#2a2a2a] text-white font-mono text-sm rounded px-3 py-2.5 placeholder:text-[#444] focus:outline-none focus:border-[#e84040]/60 transition-colors";
+const sectionHeader = "font-mono text-[10px] text-[#e84040] uppercase tracking-widest border-l-2 border-[#e84040] pl-2";
 
 export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const { solanaAddress, isAuthenticated, login, user } = useAuth();
@@ -30,9 +34,8 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const { createPool, isLoading: isApiLoading } = useMeteoraApi();
   const privyAvailable = usePrivyAvailable();
   const navigate = useNavigate();
-  const { allowed: rateLimitAllowed, formattedCountdown, countdown, message: rateLimitMessage, refresh: refreshRateLimit } = useLaunchRateLimit();
-  
-  // Wallet state from Privy (will be set by PrivyWalletProvider)
+  const { allowed: rateLimitAllowed, formattedCountdown, countdown, refresh: refreshRateLimit } = useLaunchRateLimit();
+
   const [wallets, setWallets] = useState<any[]>([]);
   const [signingWalletAddress, setSigningWalletAddress] = useState<string | null>(null);
   const [privySignTransaction, setPrivySignTransaction] = useState<
@@ -40,10 +43,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   >(null);
 
   const handleSignTransactionChange = useCallback(
-    (
-      fn: ((tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>) | null
-    ) => {
-      // IMPORTANT: wrap to prevent React treating fn as a state updater
+    (fn: ((tx: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>) | null) => {
       setPrivySignTransaction(() => fn);
     },
     []
@@ -68,28 +68,38 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSocialLinks, setShowSocialLinks] = useState(false);
-  const [showFeeOptions, setShowFeeOptions] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [imageDragOver, setImageDragOver] = useState(false);
+
+  const { solPrice } = useSolPrice();
+  const usdValue = (formData.initialBuySol * solPrice).toFixed(2);
+
+  const handleImageFile = (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Max 5MB allowed", variant: "destructive" });
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: "Image too large", description: "Max 5MB allowed", variant: "destructive" });
-        return;
-      }
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
+    if (file) handleImageFile(file);
   };
 
-  // Sign transaction using Privy wallet
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setImageDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) handleImageFile(file);
+  };
+
   const signTransaction = useCallback(
     async (tx: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> => {
       if (!privySignTransaction) {
         throw new Error("Wallet is still initializing. Please wait a few seconds and try again.");
       }
-
       return await privySignTransaction(tx);
     },
     [privySignTransaction]
@@ -97,94 +107,54 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isAuthenticated || !solanaAddress) {
       toast({ title: "Please connect your wallet first", variant: "destructive" });
       return;
     }
-
     if (!formData.name || !formData.ticker) {
       toast({ title: "Name and ticker are required", variant: "destructive" });
       return;
     }
-
     if (formData.ticker.length > 10) {
       toast({ title: "Ticker must be 10 characters or less", variant: "destructive" });
       return;
     }
-
-    // Block spam/exploit names and tickers
     if (isBlockedName(formData.name)) {
-      toast({ 
-        title: "Invalid token name", 
-        description: "This name contains blocked content and cannot be used.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Invalid token name", description: "This name contains blocked content.", variant: "destructive" });
       return;
     }
-
     if (isBlockedName(formData.ticker)) {
-      toast({ 
-        title: "Invalid ticker", 
-        description: "This ticker contains blocked content and cannot be used.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Invalid ticker", description: "This ticker contains blocked content.", variant: "destructive" });
       return;
     }
-
     if (isBlockedName(formData.description)) {
-      toast({ 
-        title: "Invalid description", 
-        description: "The description contains blocked content and cannot be used.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Invalid description", description: "The description contains blocked content.", variant: "destructive" });
       return;
     }
-
     if (!privyAvailable) {
-      toast({
-        title: "Wallet not ready",
-        description: "Wallet system is still initializing. Please refresh and try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Wallet not ready", description: "Wallet system is still initializing. Please refresh.", variant: "destructive" });
       return;
     }
-
     if (!privySignTransaction) {
-      toast({
-        title: "No wallet connected",
-        description: "Wait a few seconds for the embedded wallet to load, then try again.",
-        variant: "destructive",
-      });
+      toast({ title: "No wallet connected", description: "Wait a few seconds for the embedded wallet to load.", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
-
     try {
       let imageUrl: string | null = null;
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `token-images/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('post-images')
-          .upload(filePath, imageFile);
-
+        const { error: uploadError } = await supabase.storage.from('post-images').upload(filePath, imageFile);
         if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from('post-images')
-          .getPublicUrl(filePath);
-
+        const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(filePath);
         imageUrl = urlData.publicUrl;
       }
 
-      // Use the Privy signing wallet address (not profile wallet) for transaction creation
       const walletToUse = signingWalletAddress || solanaAddress;
-
-      // Create pool with optional transaction signing
       const data = await createPool(
         {
           creatorWallet: walletToUse,
@@ -200,7 +170,7 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
           initialBuySol: formData.initialBuySol,
           feeMode: formData.feeMode,
         },
-        signTransaction // Pass signing function for on-chain creation
+        signTransaction
       );
 
       if (!data.success) throw new Error('Failed to create token');
@@ -227,13 +197,8 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
     }
   };
 
-  // Live SOL price from Jupiter
-  const { solPrice } = useSolPrice();
-  const usdValue = (formData.initialBuySol * solPrice).toFixed(2);
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Lazy load Privy wallet provider only when available */}
       {privyAvailable && (
         <Suspense fallback={null}>
           <PrivyWalletProvider
@@ -244,261 +209,279 @@ export function LaunchTokenForm({ onSuccess }: LaunchTokenFormProps) {
           />
         </Suspense>
       )}
-      {/* Token Info Section */}
-      <div className="bg-card border border-border rounded-2xl p-5">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-          Token Info
-        </h3>
-        
+
+      {/* Section 1: Token Identity */}
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-5">
+        <div className={`${sectionHeader} mb-4`}>Token Identity</div>
+
         <div className="flex gap-4">
-          {/* Image Upload */}
-          <label className="flex-shrink-0 cursor-pointer group">
-            <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border bg-secondary/30 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-secondary/50 transition-all">
+          {/* Image Drop Zone */}
+          <label
+            className="flex-shrink-0 cursor-pointer"
+            onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
+            onDragLeave={() => setImageDragOver(false)}
+            onDrop={handleDrop}
+          >
+            <div className={`w-32 h-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all ${
+              imageDragOver
+                ? "border-[#e84040] bg-[#e84040]/10"
+                : imagePreview
+                ? "border-[#333]"
+                : "border-[#2a2a2a] hover:border-[#e84040]/40 hover:bg-[#e84040]/5"
+            }`}>
               {imagePreview ? (
-                <img src={imagePreview} alt="Token" className="w-full h-full object-cover rounded-xl" />
+                <img src={imagePreview} alt="Token" className="w-full h-full object-cover rounded-lg" />
               ) : (
                 <>
-                  <ImageIcon className="h-6 w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Upload Image
+                  <ImageIcon className="h-7 w-7 text-[#333]" />
+                  <span className="font-mono text-[9px] text-[#444] uppercase tracking-widest text-center leading-tight">
+                    Drop Image<br />or Click
                   </span>
                 </>
               )}
             </div>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageChange}
-            />
+            <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
           </label>
 
           {/* Name & Ticker */}
           <div className="flex-1 space-y-3">
-            <Input
-              placeholder="Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
-              required
-            />
-            <Input
-              placeholder="Ticker"
-              value={formData.ticker}
-              onChange={(e) => setFormData({ ...formData, ticker: e.target.value.toUpperCase() })}
-              maxLength={10}
-              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
-              required
-            />
+            <div>
+              <label className="font-mono text-[9px] text-[#555] uppercase tracking-widest block mb-1">
+                Token Name *
+                <span className="float-right text-[#333]">{formData.name.length}/32</span>
+              </label>
+              <input
+                className={terminalInput}
+                placeholder="e.g. Moon Dog"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                maxLength={32}
+                required
+              />
+            </div>
+            <div>
+              <label className="font-mono text-[9px] text-[#555] uppercase tracking-widest block mb-1">
+                Ticker *
+                <span className="float-right text-[#333]">{formData.ticker.length}/10</span>
+              </label>
+              <input
+                className={terminalInput}
+                placeholder="e.g. MDOG"
+                value={formData.ticker}
+                onChange={(e) => setFormData({ ...formData, ticker: e.target.value.toUpperCase() })}
+                maxLength={10}
+                required
+              />
+            </div>
           </div>
         </div>
 
         {/* Description */}
-        <Textarea
-          placeholder="Description"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          className="mt-3 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60 min-h-[80px] resize-none"
-        />
+        <div className="mt-4">
+          <label className="font-mono text-[9px] text-[#555] uppercase tracking-widest block mb-1">
+            Description
+            <span className="float-right text-[#333]">{formData.description.length}/300</span>
+          </label>
+          <textarea
+            className={`${terminalInput} min-h-[80px] resize-none`}
+            placeholder="Describe your token..."
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            maxLength={300}
+          />
+        </div>
+      </div>
 
-        {/* Social Links Collapsible */}
+      {/* Section 2: Social Links */}
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-5">
         <Collapsible open={showSocialLinks} onOpenChange={setShowSocialLinks}>
-          <CollapsibleTrigger className="flex items-center gap-2 mt-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
-            Social Links (optional)
-            {showSocialLinks ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
+          <CollapsibleTrigger className="flex items-center justify-between w-full group">
+            <div className={sectionHeader}>Social Links <span className="text-[#333] border-none">(optional)</span></div>
+            {showSocialLinks
+              ? <ChevronUp className="h-3 w-3 text-[#444] group-hover:text-[#e84040] transition-colors" />
+              : <ChevronDown className="h-3 w-3 text-[#444] group-hover:text-[#e84040] transition-colors" />
+            }
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 mt-3">
-            <Input
-              placeholder="Website URL"
-              value={formData.websiteUrl}
-              onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
-              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
-            />
-            <Input
-              placeholder="Twitter URL"
-              value={formData.twitterUrl}
-              onChange={(e) => setFormData({ ...formData, twitterUrl: e.target.value })}
-              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
-            />
-            <Input
-              placeholder="Telegram URL"
-              value={formData.telegramUrl}
-              onChange={(e) => setFormData({ ...formData, telegramUrl: e.target.value })}
-              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
-            />
-            <Input
-              placeholder="Discord URL"
-              value={formData.discordUrl}
-              onChange={(e) => setFormData({ ...formData, discordUrl: e.target.value })}
-              className="h-11 bg-secondary/50 border-0 rounded-xl placeholder:text-muted-foreground/60"
-            />
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Fee Distribution Mode */}
-        <Collapsible open={showFeeOptions} onOpenChange={setShowFeeOptions}>
-          <CollapsibleTrigger className="flex items-center gap-2 mt-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
-            Fee Distribution
-            {showFeeOptions ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 mt-3">
-            {/* Creator Rewards Option */}
-            <label 
-              className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all border-2 ${
-                formData.feeMode === 'creator' 
-                  ? "bg-primary/10 border-primary" 
-                  : "bg-secondary/30 border-transparent hover:bg-secondary/50"
-              }`}
-            >
-              <input 
-                type="radio" 
-                name="feeMode" 
-                value="creator" 
-                checked={formData.feeMode === 'creator'}
-                onChange={() => setFormData({ ...formData, feeMode: 'creator' })}
-                className="sr-only"
+          <CollapsibleContent className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#444]" />
+              <input
+                className={`${terminalInput} pl-8`}
+                placeholder="https://yoursite.com"
+                value={formData.websiteUrl}
+                onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
               />
-              <div className="mt-0.5">
-                <Coins className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <div className="font-medium">Creator Rewards</div>
-                <div className="text-sm text-muted-foreground">
-                  You receive 50% of all trading fees directly
-                </div>
-              </div>
-            </label>
-            
-            {/* Holder Rewards Option */}
-            <label 
-              className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all border-2 ${
-                formData.feeMode === 'holder_rewards' 
-                  ? "bg-primary/10 border-primary" 
-                  : "bg-secondary/30 border-transparent hover:bg-secondary/50"
-              }`}
-            >
-              <input 
-                type="radio" 
-                name="feeMode" 
-                value="holder_rewards" 
-                checked={formData.feeMode === 'holder_rewards'}
-                onChange={() => setFormData({ ...formData, feeMode: 'holder_rewards' })}
-                className="sr-only"
+            </div>
+            <div className="relative">
+              <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#444]" />
+              <input
+                className={`${terminalInput} pl-8`}
+                placeholder="https://twitter.com/..."
+                value={formData.twitterUrl}
+                onChange={(e) => setFormData({ ...formData, twitterUrl: e.target.value })}
               />
-              <div className="mt-0.5">
-                <Users className="h-5 w-5 text-green-500" />
-              </div>
-              <div className="flex-1">
-                <div className="font-medium flex items-center gap-2">
-                  Holder Rewards 
-                  <Badge variant="secondary" className="bg-green-500/20 text-green-400 text-[10px]">NEW</Badge>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Top 50 holders (min 0.3% balance) split 50% of fees every 5 min
-                </div>
-              </div>
-            </label>
+            </div>
+            <div className="relative">
+              <Send className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#444]" />
+              <input
+                className={`${terminalInput} pl-8`}
+                placeholder="https://t.me/..."
+                value={formData.telegramUrl}
+                onChange={(e) => setFormData({ ...formData, telegramUrl: e.target.value })}
+              />
+            </div>
+            <div className="relative">
+              <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#444]" />
+              <input
+                className={`${terminalInput} pl-8`}
+                placeholder="https://discord.gg/..."
+                value={formData.discordUrl}
+                onChange={(e) => setFormData({ ...formData, discordUrl: e.target.value })}
+              />
+            </div>
           </CollapsibleContent>
         </Collapsible>
       </div>
 
-      {/* Initial Buy Section */}
-      <div className="bg-card border border-border rounded-2xl p-5">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-          Initial Buy (optional)
-        </h3>
-        
+      {/* Section 3: Fee Distribution */}
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-5">
+        <div className={`${sectionHeader} mb-4`}>Fee Distribution</div>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Creator Rewards */}
+          <label
+            className={`flex flex-col gap-2 p-3.5 rounded-lg cursor-pointer transition-all border ${
+              formData.feeMode === 'creator'
+                ? "border-[#e84040] bg-[#e84040]/5"
+                : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#333]"
+            }`}
+          >
+            <input type="radio" name="feeMode" value="creator" checked={formData.feeMode === 'creator'} onChange={() => setFormData({ ...formData, feeMode: 'creator' })} className="sr-only" />
+            <div className="flex items-center gap-2">
+              <Coins className={`h-4 w-4 ${formData.feeMode === 'creator' ? 'text-[#e84040]' : 'text-[#555]'}`} />
+              <span className={`font-mono text-xs uppercase tracking-wide ${formData.feeMode === 'creator' ? 'text-[#e84040]' : 'text-[#666]'}`}>Creator</span>
+            </div>
+            <p className="font-mono text-[10px] text-[#555] leading-snug">50% of fees → you</p>
+          </label>
+
+          {/* Holder Rewards */}
+          <label
+            className={`flex flex-col gap-2 p-3.5 rounded-lg cursor-pointer transition-all border ${
+              formData.feeMode === 'holder_rewards'
+                ? "border-green-500/60 bg-green-500/5"
+                : "border-[#1e1e1e] bg-[#0d0d0d] hover:border-[#333]"
+            }`}
+          >
+            <input type="radio" name="feeMode" value="holder_rewards" checked={formData.feeMode === 'holder_rewards'} onChange={() => setFormData({ ...formData, feeMode: 'holder_rewards' })} className="sr-only" />
+            <div className="flex items-center gap-2">
+              <Users className={`h-4 w-4 ${formData.feeMode === 'holder_rewards' ? 'text-green-400' : 'text-[#555]'}`} />
+              <span className={`font-mono text-xs uppercase tracking-wide ${formData.feeMode === 'holder_rewards' ? 'text-green-400' : 'text-[#666]'}`}>Holders</span>
+              <Badge className="bg-green-500/20 text-green-400 text-[8px] px-1 py-0 h-4 font-mono border-0">NEW</Badge>
+            </div>
+            <p className="font-mono text-[10px] text-[#555] leading-snug">50% → top 50 holders</p>
+          </label>
+        </div>
+      </div>
+
+      {/* Section 4: Initial Buy */}
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className={sectionHeader}>Initial Buy</div>
+          <span className="font-mono text-[10px] text-[#555]">optional</span>
+        </div>
+
+        {/* SOL input */}
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center">
-              <span className="text-[10px] font-bold text-white">◎</span>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center">
+              <span className="text-[11px] font-bold text-white">◎</span>
             </div>
+            <span className="font-mono text-xs text-[#666]">SOL</span>
           </div>
-          <Input
+          <input
             type="number"
             min="0"
             step="0.01"
-            placeholder="0.00 SOL"
+            placeholder="0.00"
             value={formData.initialBuySol || ''}
             onChange={(e) => setFormData({ ...formData, initialBuySol: parseFloat(e.target.value) || 0 })}
-            className="h-12 bg-secondary/50 border-0 rounded-xl pl-10 text-lg font-medium placeholder:text-muted-foreground/60"
+            className={`${terminalInput} pl-16 pr-20 text-lg h-12`}
           />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-[#444]">
+            ≈ ${usdValue}
+          </span>
         </div>
-        
-        <p className="text-xs text-muted-foreground mt-3">
-          We recommend a minimum 0.5 SOL initial buy to avoid snipers.
-        </p>
-        
-        <div className="flex items-center justify-between mt-3 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="6" width="18" height="14" rx="2" />
-              <path d="M3 10h18" />
-            </svg>
-            <span>{formData.initialBuySol || 0} SOL</span>
-          </div>
-          <span className="text-muted-foreground">${usdValue}</span>
+
+        {/* Preset buttons */}
+        <div className="grid grid-cols-4 gap-2 mt-3">
+          {SOL_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => setFormData({ ...formData, initialBuySol: preset })}
+              className={`font-mono text-xs py-1.5 rounded border transition-all ${
+                formData.initialBuySol === preset
+                  ? "border-[#e84040] text-[#e84040] bg-[#e84040]/10"
+                  : "border-[#222] text-[#555] hover:border-[#e84040]/40 hover:text-[#888]"
+              }`}
+            >
+              {preset} SOL
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Rate Limit Warning */}
       {!rateLimitAllowed && countdown > 0 && (
-        <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 text-destructive">
-            <Clock className="h-5 w-5" />
-            <span className="font-medium">Rate Limited</span>
+        <div className="bg-[#0f0000] border border-[#e84040]/30 rounded-lg p-4 text-center space-y-2">
+          <div className="flex items-center justify-center gap-2 text-[#e84040]">
+            <Clock className="h-4 w-4" />
+            <span className="font-mono text-xs uppercase tracking-widest">Rate Limited</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Sorry, you've already launched 2 coins in the last 60 minutes.
+          <p className="font-mono text-xs text-[#555]">
+            You've launched 2 tokens in the last 60 minutes.
           </p>
-          <div className="text-2xl font-mono font-bold text-destructive">
-            {formattedCountdown}
-          </div>
-          <p className="text-xs text-muted-foreground">Please wait before launching another token</p>
+          <div className="font-mono text-2xl font-bold text-[#e84040]">{formattedCountdown}</div>
+          <p className="font-mono text-[10px] text-[#444] uppercase tracking-wide">Please wait before launching another token</p>
         </div>
       )}
 
-      {/* CAPTCHA Verification */}
+      {/* CAPTCHA */}
       {isAuthenticated && formData.name && formData.ticker && rateLimitAllowed && (
         <MathCaptcha onVerified={setCaptchaVerified} />
       )}
 
       {/* Launch Button */}
       {isAuthenticated ? (
-        <Button
+        <button
           type="submit"
-          className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
           disabled={isLoading || isApiLoading || !formData.name || !formData.ticker || !captchaVerified || !rateLimitAllowed}
+          className="w-full h-14 bg-[#e84040] hover:bg-[#c73333] disabled:bg-[#2a1515] disabled:text-[#555] text-white font-mono uppercase tracking-widest text-sm rounded transition-all flex items-center justify-center gap-2 group"
         >
           {isLoading || isApiLoading ? (
             <>
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              Creating Token...
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Launching...
             </>
           ) : !rateLimitAllowed ? (
             `Wait ${formattedCountdown}`
           ) : !captchaVerified ? (
-            "Complete verification above"
+            "Complete Verification Above"
           ) : (
-            "Launch Token"
+            <>
+              <Rocket className="h-4 w-4 group-hover:translate-y-[-2px] transition-transform" />
+              Launch Token
+            </>
           )}
-        </Button>
+        </button>
       ) : (
-        <Button
+        <button
           type="button"
           onClick={() => login()}
-          className="w-full h-14 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90"
+          className="w-full h-14 bg-[#e84040] hover:bg-[#c73333] text-white font-mono uppercase tracking-widest text-sm rounded transition-all flex items-center justify-center gap-2"
         >
-          Log in to launch
-        </Button>
+          <Rocket className="h-4 w-4" />
+          Log In To Launch
+        </button>
       )}
     </form>
   );
