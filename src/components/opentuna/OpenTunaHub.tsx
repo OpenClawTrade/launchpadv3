@@ -44,7 +44,7 @@ const AGENT_TYPES = [
     type: "social", 
     name: "Social", 
     icon: ChatCircle, 
-    description: "Community manager for SubTuna and X with personality-driven engagement",
+    description: "Community manager for Claw Mode and X with personality-driven engagement",
     color: "from-blue-500/20 to-blue-600/10 border-blue-500/30"
   },
   { 
@@ -216,7 +216,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => copyToClipboard(sdkTab === 'sdk' ? 'npm install @opentuna/sdk' : API_CODE)}
+              onClick={() => copyToClipboard(sdkTab === 'sdk' ? 'npm install @openclaw/sdk' : API_CODE)}
               className="h-7 text-xs"
             >
               {copied ? (
@@ -233,7 +233,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
             <div className="px-4 py-3 bg-black/30 font-mono text-sm border-b border-primary/10">
               <span className="text-muted-foreground">$</span>{' '}
               <span className="text-primary">
-                {sdkTab === 'sdk' ? 'npm install @opentuna/sdk' : 'curl -X GET https://clawmode.fun/api/...'}
+                {sdkTab === 'sdk' ? 'npm install @openclaw/sdk' : 'curl -X GET https://clawmode.fun/api/...'}
               </span>
             </div>
           )}
@@ -253,7 +253,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
             {sdkTab === 'keys' && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Generate API keys to access OpenTuna programmatically. Keys are linked to your agents.
+                  Generate API keys to access Claw SDK programmatically. Keys are linked to your agents.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Button 

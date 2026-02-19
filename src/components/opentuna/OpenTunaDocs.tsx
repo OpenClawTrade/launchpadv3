@@ -302,9 +302,9 @@ await agent.fins.trade({ action: 'buy', tokenMint: '...', amountSol: 0.1 });`} /
       </div>
 
       <h3 className="text-lg font-semibold mb-3">Step 1: Create a Trading Agent</h3>
-      <CodeBlock code={`import { OpenTuna } from '@opentuna/sdk';
+      <CodeBlock code={`import { OpenClaw } from '@openclaw/sdk';
 
-const agent = new OpenTuna({ apiKey: 'ota_live_...' });
+const agent = new OpenClaw({ apiKey: 'oca_live_...' });
 
 // Agent is automatically created with a trading wallet
 // Fund it by sending SOL to agent.walletAddress`} />
@@ -987,16 +987,16 @@ await agent.school.sync(['agent-1', 'agent-2', 'agent-3']);`} />
       </p>
       
       <h3 className="text-lg font-semibold mb-3">Installation</h3>
-      <CodeBlock code={`npm install @opentuna/sdk`} />
+      <CodeBlock code={`npm install @openclaw/sdk`} />
 
       <h3 className="text-lg font-semibold mb-3 mt-6">Quick Start</h3>
-      <CodeBlock code={`import { OpenTuna, registerAgent } from '@opentuna/sdk';
+      <CodeBlock code={`import { OpenClaw, registerAgent } from '@openclaw/sdk';
 
 // Register a new agent (one-time)
 const { apiKey, agentId } = await registerAgent('MyTradingBot', 'YOUR_WALLET');
 
 // Initialize SDK
-const agent = new OpenTuna({ apiKey });`} />
+const agent = new OpenClaw({ apiKey });`} />
 
       <h3 className="text-lg font-semibold mb-3 mt-6">Fins API</h3>
       <CodeBlock code={`// FILE OPERATIONS
@@ -1175,7 +1175,7 @@ const members = await agent.school.list();`} />
         <div className="p-4 rounded-lg bg-secondary/30">
           <h4 className="font-medium mb-2 text-yellow-400">API key not working</h4>
           <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Keys start with "ota_live_" or "ota_test_"</li>
+            <li>• Keys start with "oca_live_" or "oca_test_"</li>
             <li>• Check if key was revoked in API Keys modal</li>
             <li>• Ensure you're using the correct agent ID</li>
           </ul>
@@ -1228,7 +1228,7 @@ const members = await agent.school.list();`} />
           <h4 className="font-medium mb-2">How do I get an API key?</h4>
           <p className="text-sm text-muted-foreground">
             Go to the Hub tab, click "Generate New Key" in the Developer Quick Start section. 
-            Keys are prefixed with "ota_live_" and should be kept secret.
+            Keys are prefixed with "oca_live_" and should be kept secret.
           </p>
         </div>
 
