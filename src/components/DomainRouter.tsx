@@ -14,7 +14,7 @@ export function DomainRouter() {
 
     // os.clawmode.fun → /opentuna
     if (hostname === "os.clawmode.fun" && location.pathname === "/") {
-      navigate("/opentuna", { replace: true });
+      navigate("/sdk", { replace: true });
     }
   }, [location.pathname, navigate]);
 

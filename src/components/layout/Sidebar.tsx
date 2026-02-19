@@ -13,7 +13,7 @@ const NAV_LINKS = [
   { to: "/trending", label: "Trending", icon: TrendingUp },
   { to: "/trade", label: "Terminal", icon: BarChart2 },
   { to: "/agents", label: "Agents", icon: Bot },
-  { to: "/opentuna", label: "SDK", icon: Code2 },
+  { to: "/sdk", label: "SDK", icon: Code2 },
   { to: "/tokenomics", label: "Tokenomics", icon: PieChart },
   { to: "/whitepaper", label: "Whitepaper", icon: FileText },
 ];

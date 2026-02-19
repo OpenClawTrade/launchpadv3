@@ -139,7 +139,8 @@ const App = () => (
                     <Route path="/admin/colosseum" element={<ColosseumAdminPage />} />
                     <Route path="/partnerfees" element={<PartnerFeesPage />} />
                     <Route path="/whitepaper" element={<WhitepaperPage />} />
-                    <Route path="/opentuna" element={<OpenTunaPage />} />
+                     <Route path="/sdk" element={<OpenTunaPage />} />
+                     <Route path="/opentuna" element={<Navigate to="/sdk" replace />} />
                     <Route path="/careers" element={<CareersPage />} />
                     <Route path="/admin/x-bots" element={<XBotAdminPage />} />
                     <Route path="/admin/follower-scan" element={<FollowerScanPage />} />
