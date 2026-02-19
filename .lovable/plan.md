@@ -1,214 +1,132 @@
 
-## Full pump.fun-Style Redesign — Complete Layout & Visual Overhaul
+## Full Site Audit & Fix Plan
 
-### The Core Problem (What's Actually Wrong)
+### Issues Identified
 
-Comparing the pump.fun screenshot to the current site reveals **two fundamental structural differences** that no amount of CSS tweaking will fix:
+**Issue 1: "Create Token" doesn't work**
+The Sidebar and AppHeader "Create Token" buttons link to `/launch/solana`, which renders `FunLauncherPage` (the home page) — NOT a token creation form. The `TokenLauncher` component was removed from the home page in the redesign, so clicking "Create Token" just refreshes the home page. Fix: open a `Dialog` with the actual `TokenLauncher` form when clicking "Create Token", or use a dedicated `/create` page with `TokenLauncher`.
 
-**1. Layout Architecture:**
-- **pump.fun**: Fixed left sidebar (140px wide) with logo, nav links, and "Create coin" CTA button — main content fills the right 100%
-- **Current site**: Top horizontal header bar with all navigation crammed into it
+**Issue 2: Just Launched shows nothing**
+Database confirms most recent token was `2026-02-18 09:29:12` — more than 24 hours ago. The query is correct, but with 0 results the UI shows blank. Fix: display a "No tokens launched in the last 24h" message and expand the window to 48h as fallback.
 
-**2. Main Content Layout:**
-- **pump.fun**: Full-width token grid (4 columns) with large thumbnail cards showing token image prominently. "Trending coins" horizontal scroll at top. Filter tabs below.
-- **Current site**: Split layout with launcher form on the left (340px) + tabbed token table on the right. King of the Hill and Just Launched stacked above. Stats ribbon.
+**Issue 3: All other pages still use old LaunchpadLayout / gate-theme**
+19 files across pages use `LaunchpadLayout` or `gate-theme dark` which renders the old TUNA OS header and styles. These pages need wrapping in the new Sidebar layout.
 
-**3. Token Cards:**
-- **pump.fun**: Large 180px-wide cards with big image (covers ~60% of card), token name, ticker, MC, description text below — GRID LAYOUT
-- **Current site**: Ultra-compact row-list in 3 columns (New Pairs / Almost Bonded / Bonded)
-
-**4. Color Theme:**
-- **pump.fun**: True black `#141414` background, cards `#1a1a1a` — very subtle dark gray differences. GREEN `#4ade80` as primary accent (not red). Nav background `#1a1a1a`.
-- **Current site**: Near-black with red accent `#e84040`
+**Issue 4: Favicon and logo**
+The uploaded pixel-art lobster image should replace the current favicon AND the sidebar logo (`claw-logo.png`).
 
 ---
 
-### What Will Be Built
+### Files to Change
 
-The redesign keeps ALL existing data hooks, logic, and features — only the visual shell and layout changes.
+#### Group 1 — Fix "Create Token" popup (critical)
+- **`src/pages/FunLauncherPage.tsx`** — Add a `Dialog` that contains `TokenLauncher`. Wire the "Create Token" button in the header to open this dialog via state. This is the standard pump.fun pattern — "Create coin" opens a modal form.
+- **`src/components/layout/AppHeader.tsx`** — Change "Create Token" `Link` to a `button` that triggers the dialog (via a callback prop or URL param approach).
+- **`src/components/layout/Sidebar.tsx`** — Same: change "Create Token" `Link` to open dialog.
 
-**New Layout (Left Sidebar + Right Content):**
-```text
-┌─────────────────────────────────────────────────────────┐
-│ SIDEBAR (w-36)  │  MAIN CONTENT (flex-1)               │
-│                 │                                        │
-│ 🦞 Claw Mode   │  [Search bar]      [Create] [Sign In] │
-│                 │  ─────────────────────────────────── │
-│ 🏠 Home         │  🔥 Trending Coins (horizontal scroll) │
-│ 📺 Livestreams  │  ─────────────────────────────────── │
-│ 📊 Terminal     │  [Boosted ●][Live][New][MC][Replies]  │
-│ 💬 Agents       │                                        │
-│ ⚙️  SDK          │  Token Grid (4 cols):                  │
-│ 📦 Migrate      │  [img][img][img][img]                  │
-│                 │  [img][img][img][img]                  │
-│ [Create Token]  │  ...                                   │
-│                 │                                        │
-│ [App QR / Claw] │                                        │
-└─────────────────────────────────────────────────────────┘
-```
+Best approach: Use a URL param `?create=1` — when `FunLauncherPage` sees `?create=1` in the URL, it opens the create dialog. Clicking "Create Token" anywhere navigates to `/?create=1`. This keeps routing clean and the dialog opens on any page reload to that URL.
 
----
+#### Group 2 — Fix "Just Launched" empty state
+- **`src/hooks/useJustLaunched.ts`** — Change window to 48 hours as fallback, add a `isEmpty` field. Or keep 24h but pass a fallback: if no 24h results, try 48h.
+- **`src/pages/FunLauncherPage.tsx`** — Add empty state message "No tokens launched in the last 24h — check back soon!" when `justLaunchedTokens.length === 0` and not loading.
 
-### Part 1 — Global Layout: Add Left Sidebar
-
-**New file: `src/components/layout/Sidebar.tsx`**
-
-A fixed left sidebar (136px wide on desktop, slide-out on mobile) replacing the top nav:
-
-- Logo at top: lobster icon + "Claw Mode" text in green
-- Nav links with icons: Home (🏠), Livestreams (📺), Terminal (📊), Chat (💬), Agents (🤖), SDK (⚙), Migrate (↔)
-- **"Create Token"** green button at bottom (primary CTA — matches pump.fun's green "Create coin" button)
-- User wallet / sign-in at bottom
-- Background: `#1a1a1a` with `#2a2a2a` border-right
-- Nav link active state: green left border + lighter background
-
----
-
-### Part 2 — Root Layout Wrapper
-
-**Update `src/App.tsx` or create `src/components/layout/RootLayout.tsx`**
-
-Wrap all pages in a flex layout:
+#### Group 3 — Apply new layout to ALL pages using LaunchpadLayout / gate-theme
+Replace `LaunchpadLayout` with the new Sidebar-based layout. The pattern is:
 ```tsx
-<div className="flex min-h-screen bg-[#141414]">
-  <Sidebar />  {/* w-36 fixed left */}
-  <div className="flex-1 ml-36 flex flex-col">
-    <TopBar />  {/* search + wallet connect — replaces header */}
-    <main>{children}</main>
+<div style={{ background: "#141414" }} className="min-h-screen">
+  <Sidebar mobileOpen={...} onMobileClose={...} />
+  <div className="md:ml-[160px] flex flex-col min-h-screen">
+    <AppHeader />
+    <main className="flex-1 p-4">
+      {children}
+    </main>
+    <Footer />
   </div>
 </div>
 ```
 
-The current `AppHeader` gets replaced with a thin `TopBar` (search + wallet row).
+**Update `LaunchpadLayout.tsx`** to use this new pattern internally — since all 19 pages import `LaunchpadLayout`, updating the layout component itself fixes ALL pages simultaneously without touching each file.
+
+Pages affected (all fixed by updating `LaunchpadLayout.tsx` once):
+- `TunaBookPage`, `TunaPostPage`, `SubTunaPage` (agents/tunabook)
+- `AgentDocsPage`, `AgentLeaderboardPage`, `AgentConnectPage`, `AgentDashboardPage`
+- `FunTokenDetailPage`, `TradingAgentProfilePage`
+- `MigratePage`, `AgentClaimPage`
+- Plus: `ApiDashboardPage` (uses `gate-theme dark` directly — needs individual update)
+- Plus: `AgentsPage` (uses `gate-theme dark` directly — needs individual update)
+- Plus: `OpenTunaPage` (has its own header — needs individual update)
+- Plus: `TrendingPage` (has its own header — needs individual update)
+- Plus: `WhitepaperPage` (has its own header with arrow back — needs individual update)
+- Plus: `LaunchTokenPage` (has its own header — needs individual update)
+
+#### Group 4 — Favicon & Logo Update
+- Copy uploaded lobster pixel art to `public/claw-logo.png` (replaces sidebar logo) AND `public/favicon.png` (replaces favicon)
+- `index.html` already references `/favicon.png` — just replacing the file is enough
+- Sidebar already uses `/claw-logo.png` — just replacing the file fixes both
 
 ---
 
-### Part 3 — TopBar (Search + Wallet Row)
+### Detailed Technical Changes
 
-**Update `src/components/layout/AppHeader.tsx`** → becomes a slim top bar:
+**`src/components/layout/LaunchpadLayout.tsx`** — Complete rewrite:
+- Remove old Gate.io header entirely
+- Add `Sidebar` + `AppHeader` instead
+- Keep `children` render and `Footer`
+- Remove `gate-theme dark` wrapper class
+- Keep `showKingOfTheHill` prop (just remove the section or render it above children)
 
-- Left: Search input (full-width dark input, placeholder "Search for token")
-- Right: X icon button + **"Create Token"** green button + **"Sign In"** outline button
-- Background: `#141414`, border-bottom: `1px solid #2a2a2a`
-- Height: 52px
+**`src/pages/FunLauncherPage.tsx`**:
+- Read `?create=1` from URL params — if true, show the `TokenLauncher` dialog on mount
+- Add a `Dialog` wrapping `TokenLauncher` component with proper close handler
+- The `justLaunchedTokens` empty state: add a pill message "No launches in 24h"
 
----
+**`src/components/layout/Sidebar.tsx`** & **`src/components/layout/AppHeader.tsx`**:
+- Change "Create Token" to `Link to="/?create=1"` instead of `/launch/solana`
 
-### Part 4 — FunLauncherPage.tsx — Complete Restructure
+**`src/pages/ApiDashboardPage.tsx`**:
+- Remove `gate-theme dark` wrapper and `ApiHeader` inline component
+- Use `Sidebar` + `AppHeader` directly
 
-The home page becomes a pure token discovery page (no left launcher form — moved to its own Create page):
+**`src/pages/AgentsPage.tsx`**:
+- Remove `gate-theme dark` wrapper
+- Replace `LaunchpadLayout` with `Sidebar` + `AppHeader`
 
-**New structure:**
-1. **Trending Coins** horizontal scroll — large cards (180×220px) with:
-   - Full image taking top 60%
-   - MC overlay on image bottom-left
-   - Token name + ticker below image
-   - Description text (1 line, truncated)
+**`src/pages/OpenTunaPage.tsx`**:
+- Replace custom header with `Sidebar` + `AppHeader`
 
-2. **Filter Tabs Row** (flat underline style):
-   - `Boosted ●` | `Live` | `New` | `Market Cap` | `Replies` | `Last Trade`
-   - Plus "Filter" button and grid/list view toggle on the right
+**`src/pages/TrendingPage.tsx`**:
+- Replace custom header with `Sidebar` + `AppHeader`
 
-3. **Token Grid** (4 columns, responsive):
-   - Cards matching pump.fun style: large image, MC, name, ticker, description
-   - Image aspect ratio ~1:1 with rounded corners
-   - Hover state: slight scale + border glow
+**`src/pages/WhitepaperPage.tsx`**:
+- Replace custom header with `Sidebar` + `AppHeader`
 
-**The token launcher** (create form) moves to the route `/create` and appears in the sidebar nav CTA.
-
----
-
-### Part 5 — Token Card Component
-
-**New file: `src/components/launchpad/TokenCard.tsx`** (replace current compact row style):
-
-```
-┌────────────────────────┐
-│  [Large Token Image]   │  ← ~180px height
-│  $1.05M    [LIVE]      │  ← overlaid on image bottom
-├────────────────────────┤
-│  Token Name    TICKER  │
-│  Description text ...  │  ← truncated 2 lines
-└────────────────────────┘
-```
-
-- Background: `#1a1a1a`
-- Border: `1px solid #2a2a2a`
-- Border radius: `8px`
-- On hover: border color → `#4ade80` (green), slight scale 1.01
+**`src/pages/LaunchTokenPage.tsx`**:
+- Replace custom header with `Sidebar` + `AppHeader`
 
 ---
 
-### Part 6 — Color System Update
+### Technical Notes
 
-**Update `src/index.css` dark mode variables:**
+- The `TokenLauncher` component (2891 lines) is not modified — it's just rendered inside a Dialog
+- All data hooks, Supabase queries, and realtime subscriptions remain untouched
+- The `gate-theme.css` and `tunabook-theme.css` stylesheets still load — they just won't be the visual driver for layouts anymore
+- Mobile sidebar stays the same Sheet drawer pattern
+- The `MigrationPopup` component referenced in `LaunchpadLayout` stays in the new layout
 
-| Variable | Current | New (pump.fun) |
-|---|---|---|
-| `--background` | `0 0% 2%` | `0 0% 8%` (`#141414`) |
-| `--card` | `240 8% 4%` | `0 0% 10%` (`#1a1a1a`) |
-| `--border` | `240 8% 11%` | `0 0% 16%` (`#2a2a2a`) |
-| `--primary` | `0 84% 60%` (RED) | `142 69% 58%` (GREEN `#4ade80`) |
-| `--muted-foreground` | slate | `0 0% 50%` muted gray |
+### Summary of Files to Edit
 
-Note: The lobster logo and "Claw Mode" brand stays — only the accent color shifts from red to green to match pump.fun's aesthetic. (Or we can keep red if user prefers — but pump.fun is definitively green.)
-
----
-
-### Part 7 — Sidebar Navigation on All Pages
-
-All existing pages (`TradePage`, `TunaBookPage`, `WhitepaperPage`, `CareersPage`, etc.) will inherit the sidebar via the root layout wrapper. No per-page header duplication needed.
-
-Current `AppHeader` usage in individual pages (`FunLauncherPage`, `TradePage`, `TokenDetailPage`, `FunTokenDetailPage`) gets removed — the root layout handles it.
-
----
-
-### Part 8 — Mobile Responsive
-
-On mobile (`< 768px`):
-- Sidebar hidden by default
-- Hamburger button in TopBar opens drawer (slide-in from left)
-- Token grid becomes 2-column (or 1-column on very small screens)
-- Trending scroll stays horizontal
-
----
-
-### Part 9 — King of the Hill + Just Launched
-
-Instead of separate sections above the grid, these become **filter tabs** in the main token grid:
-- `New` tab = Just Launched tokens
-- `Top` tab = King of the Hill tokens (by bonding progress / MC)
-- `Live` tab = tokens with active agents
-
-This matches pump.fun's tab approach and eliminates the cluttered stacked sections.
-
----
-
-### Part 10 — Stats Strip
-
-The current stats ribbon becomes a small footer bar or gets moved into the sidebar bottom section (platform stats: X tokens launched, X agents active).
-
----
-
-### Files to Create/Modify
-
-| Action | File | Change |
-|---|---|---|
-| CREATE | `src/components/layout/Sidebar.tsx` | New left sidebar nav |
-| MODIFY | `src/components/layout/AppHeader.tsx` | → slim TopBar (search + wallet) |
-| MODIFY | `src/App.tsx` | Wrap routes in sidebar layout |
-| MODIFY | `src/pages/FunLauncherPage.tsx` | Full restructure → pump.fun grid layout |
-| MODIFY | `src/components/launchpad/TokenTable.tsx` | → pump.fun card grid |
-| MODIFY | `src/components/launchpad/KingOfTheHill.tsx` | Remove as separate section → merge into tabs |
-| MODIFY | `src/components/launchpad/JustLaunched.tsx` | Remove as separate section → merge into tabs |
-| MODIFY | `src/index.css` | Update color variables (background, card, border, primary) |
-| MODIFY | `src/styles/gate-theme.css` | Strip Gate.io legacy classes |
-| MODIFY | `src/components/launchpad/StatsCards.tsx` | Move to sidebar bottom |
-
-### What Does NOT Change
-- All data hooks (`useFunTokensPaginated`, `useKingOfTheHill`, `useJustLaunched`, etc.)
-- Supabase queries and backend calls
-- Token detail pages (TradePage, TokenDetailPage, FunTokenDetailPage)
-- All modal logic (LaunchResult, PromoteModal)
-- All agent pages, whitepaper, careers, SDK pages
-- Route definitions in App.tsx
+| File | Change |
+|---|---|
+| `public/claw-logo.png` | Replace with uploaded pixel lobster |
+| `public/favicon.png` | Replace with uploaded pixel lobster |
+| `src/components/layout/LaunchpadLayout.tsx` | Replace Gate.io header with Sidebar+AppHeader |
+| `src/pages/FunLauncherPage.tsx` | Add create dialog + empty state for Just Launched |
+| `src/components/layout/Sidebar.tsx` | "Create Token" → `/?create=1` |
+| `src/components/layout/AppHeader.tsx` | "Create Token" → `/?create=1` |
+| `src/pages/ApiDashboardPage.tsx` | Remove gate-theme, use Sidebar+AppHeader |
+| `src/pages/AgentsPage.tsx` | Remove gate-theme, use Sidebar+AppHeader |
+| `src/pages/OpenTunaPage.tsx` | Replace custom header with Sidebar+AppHeader |
+| `src/pages/TrendingPage.tsx` | Replace custom header with Sidebar+AppHeader |
+| `src/pages/WhitepaperPage.tsx` | Replace custom header with Sidebar+AppHeader |
+| `src/pages/LaunchTokenPage.tsx` | Replace custom header with Sidebar+AppHeader |
+| `src/hooks/useJustLaunched.ts` | Extend window to 48h fallback |
