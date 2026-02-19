@@ -68,9 +68,12 @@ const VanityAdminPage = () => {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 500;
   });
 
-  // Configurable suffix - defaults to 'TNA' (case-sensitive matching)
+  // Configurable suffix - defaults to 'CLAW' (case-insensitive matching)
   const [targetSuffix, setTargetSuffix] = useState<string>(() => {
-    return (localStorage.getItem('vanity_target_suffix') || 'TUNA').toUpperCase();
+    const stored = localStorage.getItem('vanity_target_suffix');
+    // Force CLAW as default, override any legacy TUNA value
+    if (!stored || stored.toUpperCase() === 'TUNA') return 'CLAW';
+    return stored.toUpperCase();
   });
 
   const MAX_AUTO_RUNS = 30;
@@ -401,7 +404,7 @@ const VanityAdminPage = () => {
                   Vanity Generator Admin
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Server-side vanity address generation (case-insensitive, displayed as TUNA)
+                  Server-side vanity address generation (case-insensitive, displayed as CLAW)
                 </p>
               </div>
             </div>
@@ -480,7 +483,7 @@ const VanityAdminPage = () => {
                   maxLength={5}
                   value={targetSuffix}
                   onChange={(e) => setTargetSuffix(e.target.value.replace(/[^A-Z0-9]/g, '').toUpperCase())}
-                  placeholder="TUNA"
+                  placeholder="CLAW"
                   className="w-full px-3 py-2 border border-border/60 rounded-lg bg-background text-foreground font-mono uppercase"
                 />
                 <p className="text-xs text-muted-foreground">

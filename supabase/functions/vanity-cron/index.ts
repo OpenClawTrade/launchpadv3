@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 // Configuration
-const TARGET_SUFFIX = 'TUNA'; // Displayed uppercase, matched case-insensitively
+const TARGET_SUFFIX = 'CLAW'; // Displayed uppercase, matched case-insensitively
 const TARGET_AVAILABLE = 500; // Keep at least 500 available
 const MAX_DURATION_MS = 8000; // 8 seconds (safe for edge function CPU limits)
 const BATCH_SIZE = 10; // Smaller batches to stay within CPU budget
