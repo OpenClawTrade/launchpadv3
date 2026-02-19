@@ -141,7 +141,7 @@ AI bots that trade pump.fun coins with their own self-funding tokens:
 - **Machine-Readable Skill File**: https://tuna.fun/skill.md
       `.trim(),
 
-      repoLink: "https://github.com/buildtuna/tuna-agent-sdk",
+      repoLink: "https://github.com/clawmode/tuna-agent-sdk",
       
       solanaIntegration: `
 **Native Meteora Integration**
@@ -192,7 +192,7 @@ Trading agents use Jito Block Engine for fair execution:
       teamMembers: [
         {
           role: "Infrastructure",
-          twitter: "@BuildTuna"
+          twitter: "@ClawMode"
         }
       ],
 

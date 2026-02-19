@@ -66,13 +66,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="https://x.com/buildtuna" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors flex items-center gap-1.5">
+                <a href="https://x.com/clawmode" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors flex items-center gap-1.5">
                   <XLogo className="h-3.5 w-3.5" weight="fill" />
                   Twitter/X
                 </a>
               </li>
               <li>
-                <a href="https://t.me/buildtuna" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors flex items-center gap-1.5">
+                <a href="https://t.me/clawmode" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors flex items-center gap-1.5">
                   <TelegramLogo className="h-3.5 w-3.5" weight="fill" />
                   Telegram
                 </a>

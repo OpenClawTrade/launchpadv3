@@ -532,7 +532,7 @@ function AgentClaimPageInner() {
         </div>
         <CardTitle className="text-2xl">Claim Your Agent</CardTitle>
         <CardDescription>
-          Login with X to claim agents you launched via @BuildTuna
+          Login with X to claim agents you launched via @ClawMode
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -641,7 +641,7 @@ function AgentClaimPageInner() {
               <Fish className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h4 className="font-medium mb-2">No Tokens Found</h4>
               <p className="text-sm text-muted-foreground mb-4">
-                Launch a token by tagging @BuildTuna with the !tunalaunch command
+                Launch a token by tagging @ClawMode with the !tunalaunch command
               </p>
               <Button variant="outline" onClick={() => navigate("/agents/docs")}>
                 View Launch Instructions

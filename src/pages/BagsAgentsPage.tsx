@@ -52,7 +52,7 @@ export default function BagsAgentsPage() {
         name: data.meme.name,
         ticker: data.meme.ticker,
         description: data.meme.description,
-        twitter: "https://x.com/BuildTuna",
+        twitter: "https://x.com/clawmode",
         website: "",
       });
 
@@ -333,7 +333,7 @@ export default function BagsAgentsPage() {
                       value={generatedMeme.twitter}
                       onChange={(e) => setGeneratedMeme({ ...generatedMeme, twitter: e.target.value })}
                       className="mt-1 bg-background border-border"
-                      placeholder="https://x.com/BuildTuna"
+                      placeholder="https://x.com/clawmode"
                     />
                   </div>
 

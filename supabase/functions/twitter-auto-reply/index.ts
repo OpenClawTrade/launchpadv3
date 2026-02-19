@@ -453,9 +453,9 @@ serve(async (req) => {
     };
 
     // PRIORITY 1: Check for replies to our own tweets first
-    console.log("[twitter-auto-reply] 🔍 Checking for replies to @buildtuna tweets...");
+    console.log("[twitter-auto-reply] 🔍 Checking for replies to @clawmode tweets...");
     
-    const mentionSearchUrl = `${TWITTERAPI_BASE}/twitter/tweet/advanced_search?query=${encodeURIComponent("to:buildtuna")}&queryType=Latest`;
+    const mentionSearchUrl = `${TWITTERAPI_BASE}/twitter/tweet/advanced_search?query=${encodeURIComponent("to:clawmode")}&queryType=Latest`;
     const mentionResponse = await fetch(mentionSearchUrl, {
       method: "GET",
       headers: {
@@ -467,12 +467,12 @@ serve(async (req) => {
     if (mentionResponse.ok) {
       const mentionData = await mentionResponse.json();
       const mentionTweets: Tweet[] = mentionData.tweets || mentionData.data || [];
-      console.log(`[twitter-auto-reply] 📥 Found ${mentionTweets.length} replies/mentions to @buildtuna`);
+      console.log(`[twitter-auto-reply] 📥 Found ${mentionTweets.length} replies/mentions to @clawmode`);
 
       // Filter for genuine questions/replies we haven't answered AND are recent (last 10 mins)
       const eligibleMentions = mentionTweets.filter(t => 
         !repliedIds.has(t.id) && 
-        t.author?.userName?.toLowerCase() !== "buildtuna" &&
+        t.author?.userName?.toLowerCase() !== "clawmode" &&
         t.text && 
         t.text.length > 10 &&
         isRecentTweet(t, MENTION_MAX_AGE_MINUTES)
@@ -488,7 +488,7 @@ serve(async (req) => {
 
       if (eligibleMentions.length > 0) {
         eligibleTweets = eligibleMentions;
-        searchQuery = "to:buildtuna (replies)";
+        searchQuery = "to:clawmode (replies)";
         console.log(`[twitter-auto-reply] ✅ ${eligibleMentions.length} recent unanswered replies/mentions found`);
       }
     } else {
@@ -532,7 +532,7 @@ serve(async (req) => {
       // Filter out already replied tweets and our own tweets
       eligibleTweets = tweets.filter(t => 
         !repliedIds.has(t.id) && 
-        t.author?.userName?.toLowerCase() !== "buildtuna" &&
+        t.author?.userName?.toLowerCase() !== "clawmode" &&
         t.text && 
         t.text.length > 20
       );

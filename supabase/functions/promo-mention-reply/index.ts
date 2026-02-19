@@ -16,7 +16,7 @@ const MAX_REPLIES_PER_THREAD = 3;
 
 
 const BOT_USERNAMES = new Set([
-  "buildtuna",
+  "clawmode",
   "tunalaunch",
   "moltbook",
   "openclaw",
@@ -110,7 +110,7 @@ async function fetchWithTimeout(
 async function searchMentions(apiKey: string): Promise<Tweet[]> {
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
   // ONLY search for direct platform mentions - NO generic crypto terms
-  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @buildtuna OR @tunalaunch) -is:retweet -is:reply");
+  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @clawmode OR @tunalaunch) -is:retweet -is:reply");
   searchUrl.searchParams.set("queryType", "Latest");
 
   try {
@@ -280,18 +280,18 @@ async function postReply(
   }
 }
 
-function determineMentionType(text: string): "moltbook" | "openclaw" | "buildtuna" | "tunalaunch" | "both" | "multiple" {
+function determineMentionType(text: string): "moltbook" | "openclaw" | "clawmode" | "tunalaunch" | "both" | "multiple" {
   const hasMoltbook = text.toLowerCase().includes("@moltbook");
   const hasOpenclaw = text.toLowerCase().includes("@openclaw");
-  const hasBuildtuna = text.toLowerCase().includes("@buildtuna");
+  const hasClawmode = text.toLowerCase().includes("@clawmode");
   const hasTunalaunch = text.toLowerCase().includes("@tunalaunch");
   
-  const count = [hasMoltbook, hasOpenclaw, hasBuildtuna, hasTunalaunch].filter(Boolean).length;
+  const count = [hasMoltbook, hasOpenclaw, hasClawmode, hasTunalaunch].filter(Boolean).length;
   if (count > 2) return "multiple";
   if (hasMoltbook && hasOpenclaw) return "both";
   if (hasMoltbook) return "moltbook";
   if (hasOpenclaw) return "openclaw";
-  if (hasBuildtuna) return "buildtuna";
+  if (hasClawmode) return "clawmode";
   if (hasTunalaunch) return "tunalaunch";
   return "openclaw"; // fallback
 }

@@ -22,9 +22,9 @@ interface XBotRulesFormProps {
   onSave: (rules: Partial<XBotAccountRules>) => Promise<void>;
 }
 
-const DEFAULT_MENTIONS = ["@moltbook", "@openclaw", "@buildtuna", "@tunalaunch"];
+const DEFAULT_MENTIONS = ["@moltbook", "@openclaw", "@clawmode", "@tunalaunch"];
 const SUGGESTED_CASHTAGS = ["$TUNA", "$SOL", "$BTC", "$ETH"];
-const SUGGESTED_KEYWORDS = ["openclaw", "buildtuna", "tunalaunch", "moltbook"];
+const SUGGESTED_KEYWORDS = ["openclaw", "clawmode", "tunalaunch", "moltbook"];
 
 export function XBotRulesForm({
   open,
