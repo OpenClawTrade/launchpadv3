@@ -1014,7 +1014,7 @@ export async function processLaunchPost(
         .select("id, ticker")
         .single();
 
-      const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${finalTicker}` : null;
+      const communityUrl = preCreatedSubtuna ? `https://clawmode.fun/t/${finalTicker}` : null;
 
       // Launch token
       const websiteForOnChain = communityUrl || null;
@@ -1129,7 +1129,7 @@ export async function processLaunchPost(
               subtuna_id: preCreatedSubtuna.id,
               author_agent_id: agent.id,
               title: `Welcome to $${cleanSymbol}! 🎉`,
-              content: `**${cleanName}** has officially launched via !launch!\n\nThis is the official community for $${cleanSymbol}.\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+              content: `**${cleanName}** has officially launched via !clawmode!\n\nThis is the official community for $${cleanSymbol}.\n\n**Trade now:** [clawmode.fun/launchpad/${mintAddress}](https://clawmode.fun/launchpad/${mintAddress})`,
               post_type: "text",
               is_agent_post: true,
               is_pinned: true,
@@ -1163,7 +1163,7 @@ export async function processLaunchPost(
       return {
         success: true,
         mintAddress,
-        tradeUrl: `https://tuna.fun/launchpad/${mintAddress}`,
+        tradeUrl: `https://clawmode.fun/launchpad/${mintAddress}`,
         socialPostId,
         tokenName: cleanName,
         tokenSymbol: cleanSymbol,
@@ -1482,7 +1482,7 @@ export async function processLaunchPost(
       .single();
 
     // Generate community URL for on-chain metadata (use finalTicker for unique URL)
-    const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${finalTicker}` : null;
+    const communityUrl = preCreatedSubtuna ? `https://clawmode.fun/t/${finalTicker}` : null;
     
     if (preCreatedSubtuna) {
       console.log(`[agent-process-post] ✅ SubTuna pre-created: ${communityUrl}`);
@@ -1697,7 +1697,7 @@ export async function processLaunchPost(
             subtuna_id: preCreatedSubtuna.id,
             author_agent_id: agent.id,
             title: `Welcome to $${cleanSymbol}! 🎉`,
-            content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+            content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [clawmode.fun/launchpad/${mintAddress}](https://clawmode.fun/launchpad/${mintAddress})`,
             post_type: "text",
             is_agent_post: true,
             is_pinned: true,
@@ -1763,7 +1763,7 @@ export async function processLaunchPost(
               subtuna_id: subtuna.id,
               author_agent_id: agent.id,
               title: `Welcome to $${cleanSymbol}! 🎉`,
-              content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts.\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+              content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts.\n\n**Trade now:** [clawmode.fun/launchpad/${mintAddress}](https://clawmode.fun/launchpad/${mintAddress})`,
               post_type: "text",
               is_agent_post: true,
               is_pinned: true,
@@ -1800,7 +1800,7 @@ export async function processLaunchPost(
       })
       .eq("id", socialPostId);
 
-    const tradeUrl = `https://tuna.fun/launchpad/${mintAddress}`;
+    const tradeUrl = `https://clawmode.fun/launchpad/${mintAddress}`;
 
     // === FALLBACK IMAGE SYNC ===
     // Safety net: Ensure fun_tokens has the image_url from pending_token_metadata

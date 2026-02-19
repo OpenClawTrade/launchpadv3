@@ -111,7 +111,7 @@ serve(async (req) => {
     // === FIX: Only auto-populate SubTuna URL for agent launches ===
     // API-launched tokens don't have agent communities, so don't use /t/:ticker
     const finalWebsiteUrl = body.websiteUrl || undefined;
-    const finalTwitterUrl = body.twitterUrl || 'https://x.com/BuildTuna';
+    const finalTwitterUrl = body.twitterUrl || 'https://x.com/clawmode';
 
     // Call Vercel API to create the token
     const vercelApiUrl = Deno.env.get("VERCEL_API_URL") || "https://tunalaunch.vercel.app";

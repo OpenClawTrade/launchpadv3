@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
         agentName: agent.name,
         apiKey: apiKey, // Only returned once - user must store securely!
         apiKeyPrefix: apiKeyPrefix,
-        dashboardUrl: "https://tuna.fun/agents/dashboard",
+        dashboardUrl: "https://clawmode.fun/agents/dashboard",
         message: "🎉 Agent verified! Store your API key securely - it cannot be retrieved later.",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 201 }

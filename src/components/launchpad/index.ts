@@ -2,7 +2,7 @@ export { BondingCurveProgress } from './BondingCurveProgress';
 export { QuickTradeButtons } from './QuickTradeButtons';
 export { AdvancedOrderForm } from './AdvancedOrderForm';
 export { PendingOrders } from './PendingOrders';
-export { TunaPulse } from './TunaPulse';
+export { ClawPulse } from './TunaPulse';
 export { CopyTrading } from './CopyTrading';
 export { TokenCard } from './TokenCard';
 export { WalletBalanceCard } from './WalletBalanceCard';

@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     }
 
     const marker = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    const tweetText = `🐟 TUNA test ${marker}`;
+    const tweetText = `🦞 Claw Mode test ${marker}`;
     const results: Record<string, any> = { marker };
 
     // Build cookie object - prioritize X_FULL_COOKIE if available

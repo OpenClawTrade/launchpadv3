@@ -116,8 +116,8 @@ Deno.serve(async (req) => {
     }
 
     // Set website to SubTuna page if not provided
-    const finalWebsite = website || `https://tuna.fun/t/${ticker.toUpperCase()}`;
-    const finalTwitter = twitter || "https://x.com/BuildTuna";
+    const finalWebsite = website || `https://clawmode.fun/t/${ticker.toUpperCase()}`;
+    const finalTwitter = twitter || "https://x.com/clawmode";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
     formData.append("file", imageBlob, "image.png");
     formData.append("name", name);
     formData.append("symbol", ticker.toUpperCase());
-    formData.append("description", description || `${name} - Launched via TUNA Agents on pump.fun`);
+    formData.append("description", description || `${name} - Launched via Claw Mode Agents on pump.fun`);
     formData.append("twitter", finalTwitter);
     formData.append("website", finalWebsite);
     if (telegram) {

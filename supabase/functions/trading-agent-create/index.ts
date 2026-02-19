@@ -128,7 +128,7 @@ serve(async (req) => {
       .eq("id", tradingAgent.id);
 
      // Prepare metadata for on-chain token
-     const websiteUrl = `https://tuna.fun/t/${finalTicker.toUpperCase()}`;
+     const websiteUrl = `https://clawmode.fun/t/${finalTicker.toUpperCase()}`;
      const finalTwitterUrl = twitterUrl?.trim() || null;
 
      // Check if using an existing token (skip launch)

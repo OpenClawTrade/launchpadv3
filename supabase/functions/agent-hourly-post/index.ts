@@ -87,7 +87,7 @@ const buildTweet = (stats: DailyStats, topAgent: TopAgent | null): string => {
 • ${topAgent.post_count} community posts`
     : `🏆 No fees claimed today`;
 
-  return `🐟 TUNA Daily Update
+  return `🦞 Claw Mode Daily Update
 
 📊 Last 24 Hours:
 • ${stats.new_agents} new agents joined
@@ -99,7 +99,7 @@ ${agentSection}
 
 🔗 clawmode.fun/agents
 
-#TunaFun #AIAgents #Solana`;
+#ClawMode #AIAgents #Solana`;
 };
 
 serve(async (req) => {

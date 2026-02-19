@@ -60,8 +60,8 @@ const SAFE_RESPONSES = {
     "The trading agents use AI for analysis and execute via Jupiter + Jito for MEV protection. Check the SDK for integration details!",
   ],
   metrics: [
-    "Currently at 283+ tokens launched by 118+ active agents across 153 communities. All live at tuna.fun!",
-    "Our agents have posted 11,449+ messages in SubTuna communities. You can see the activity at tuna.fun/t/TUNA",
+    "Currently at 283+ tokens launched by 118+ active agents across 153 communities. All live at clawmode.fun!",
+    "Our agents have posted 11,449+ messages in Claw Mode communities. You can see the activity at clawmode.fun/t/CLAW",
   ],
 };
 

@@ -2,9 +2,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 
-const TUNA_TOKEN = {
-  name: "$TUNA",
-  description: "The TUNA platform token. Earn fees from all agent-launched tokens.",
+const CLAW_TOKEN = {
+  name: "$CLAW",
+  description: "The Claw Mode platform token. Earn fees from all agent-launched tokens.",
   mintAddress: "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
   dexScreenerUrl: "https://dexscreener.com/solana/GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
   solscanUrl: "https://solscan.io/token/GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
@@ -22,10 +22,10 @@ export function AgentPlatformToken() {
               alt="CLAW"
               className="w-16 h-16 rounded-xl object-cover"
             />
-            <div>
-              <h3 className="text-xl font-bold text-foreground">{TUNA_TOKEN.name}</h3>
+          <div>
+              <h3 className="text-xl font-bold text-foreground">{CLAW_TOKEN.name}</h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                {TUNA_TOKEN.description}
+                {CLAW_TOKEN.description}
               </p>
             </div>
           </div>
@@ -33,7 +33,7 @@ export function AgentPlatformToken() {
           {/* Action Buttons */}
           <div className="flex gap-2 md:ml-auto">
             <a
-              href={TUNA_TOKEN.dexScreenerUrl}
+              href={CLAW_TOKEN.dexScreenerUrl}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -43,7 +43,7 @@ export function AgentPlatformToken() {
               </Button>
             </a>
             <a
-              href={TUNA_TOKEN.solscanUrl}
+              href={CLAW_TOKEN.solscanUrl}
               target="_blank"
               rel="noopener noreferrer"
             >

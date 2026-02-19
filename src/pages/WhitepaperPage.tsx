@@ -1067,7 +1067,7 @@ await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Contract Addresses</h3>
             <div className="space-y-2 text-sm">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-card/30 rounded">
-                <span className="text-muted-foreground">$TUNA Token:</span>
+                <span className="text-muted-foreground">$CLAW Token:</span>
                 <code className="text-cyan-400 text-xs">GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump</code>
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-card/30 rounded">
