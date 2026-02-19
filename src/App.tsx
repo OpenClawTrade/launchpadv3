@@ -60,6 +60,7 @@ const CompressedDistributePage = lazy(() => import("./pages/CompressedDistribute
 const DecompressPage = lazy(() => import("./pages/DecompressPage"));
 const FunModePage = lazy(() => import("./pages/FunModePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const TokenomicsPage = lazy(() => import("./pages/TokenomicsPage"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
@@ -146,8 +147,9 @@ const App = () => (
                     <Route path="/admin/tunnel-distribute" element={<TunnelDistributePage />} />
                     <Route path="/admin/compressed-distribute" element={<CompressedDistributePage />} />
                     <Route path="/decompress" element={<DecompressPage />} />
-                    <Route path="/fun" element={<FunModePage />} />
-                    <Route path="*" element={<NotFound />} />
+                     <Route path="/fun" element={<FunModePage />} />
+                     <Route path="/tokenomics" element={<TokenomicsPage />} />
+                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
               </BrowserRouter>

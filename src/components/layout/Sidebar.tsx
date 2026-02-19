@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, X } from "lucide-react";
-import { Fish } from "@phosphor-icons/react";
+import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -14,6 +13,7 @@ const NAV_LINKS = [
   { to: "/trade", label: "Terminal", icon: BarChart2 },
   { to: "/agents", label: "Agents", icon: Bot },
   { to: "/opentuna", label: "SDK", icon: Code2 },
+  { to: "/tokenomics", label: "Tokenomics", icon: PieChart },
 ];
 
 interface SidebarProps {
