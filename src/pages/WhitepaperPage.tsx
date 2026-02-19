@@ -1,25 +1,19 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { ExternalLink, FileText } from "lucide-react";
 import { Footer } from "@/components/layout/Footer";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { useState } from "react";
 
 export default function WhitepaperPage() {
+  const [mobileOpen, setMobileOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm">Back to Claw Mode</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-cyan-400" />
-            <span className="font-semibold">Whitepaper</span>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen" style={{ background: "#141414" }}>
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+      <div className="md:ml-[160px] flex flex-col min-h-screen">
+        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
@@ -1116,6 +1110,7 @@ await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
 
       {/* Site Footer */}
       <Footer />
+      </div>
     </div>
   );
 }

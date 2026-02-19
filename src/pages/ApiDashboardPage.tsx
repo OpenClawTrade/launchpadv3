@@ -409,7 +409,10 @@ export default function ApiDashboardPage() {
   // Not authenticated - show public API info with connect option
   if (!isAuthenticated) {
     return (
-      <div className="gate-theme dark min-h-screen">
+      <div className="min-h-screen" style={{ background: "#141414" }}>
+        <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
+        <div className="md:ml-[160px] flex flex-col min-h-screen">
+        <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
         <ApiHeader />
         <div className="max-w-6xl mx-auto p-4 pt-8 space-y-8">
           {/* Hero Section */}
@@ -597,10 +600,13 @@ export default function ApiDashboardPage() {
 
   if (loading) {
     return (
-      <div className="gate-theme dark min-h-screen">
-        <ApiHeader />
-        <div className="flex items-center justify-center pt-20">
-          <div className="w-8 h-8 border-2 border-transparent border-t-primary rounded-full animate-spin" />
+      <div className="min-h-screen" style={{ background: "#141414" }}>
+        <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
+        <div className="md:ml-[160px] flex flex-col min-h-screen">
+          <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
+          <div className="flex items-center justify-center pt-20">
+            <div className="w-8 h-8 border-2 border-transparent border-t-primary rounded-full animate-spin" />
+          </div>
         </div>
       </div>
     );
@@ -609,8 +615,10 @@ export default function ApiDashboardPage() {
   // No account yet - show signup
   if (!account) {
     return (
-      <div className="gate-theme dark min-h-screen">
-        <ApiHeader />
+      <div className="min-h-screen" style={{ background: "#141414" }}>
+        <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
+        <div className="md:ml-[160px] flex flex-col min-h-screen">
+        <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
         <div className="max-w-2xl mx-auto p-4 pt-8">
           <Card className="gate-card">
             <CardHeader className="text-center">
@@ -717,8 +725,10 @@ export default function ApiDashboardPage() {
 
   // Has account - show dashboard
   return (
-    <div className="gate-theme dark min-h-screen">
-      <ApiHeader />
+    <div className="min-h-screen" style={{ background: "#141414" }}>
+      <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
+      <div className="md:ml-[160px] flex flex-col min-h-screen">
+      <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
       
       <div className="max-w-6xl mx-auto p-4 space-y-6">
         {/* Header */}

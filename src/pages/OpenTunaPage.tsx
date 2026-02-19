@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft } from "lucide-react";
 import { 
   Fish, 
   Egg, 
@@ -25,11 +23,13 @@ import OpenTunaIntegrations from "@/components/opentuna/OpenTunaIntegrations";
 import OpenTunaCurrent from "@/components/opentuna/OpenTunaCurrent";
 import OpenTunaDocs from "@/components/opentuna/OpenTunaDocs";
 import { Footer } from "@/components/layout/Footer";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { AppHeader } from "@/components/layout/AppHeader";
 
 const VALID_TABS = ['hub', 'hatch', 'dna', 'sonar', 'memory', 'fins', 'integrations', 'current', 'docs'];
 
 function OpenTunaContent() {
-  
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.slice(1);
     return VALID_TABS.includes(hash) ? hash : 'hub';
@@ -52,29 +52,13 @@ function OpenTunaContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-primary/20">
-        <div className="max-w-7xl mx-auto flex items-center h-16 px-4">
-          <Link to="/" className="mr-4 p-2 rounded-lg hover:bg-primary/10 transition-colors">
-            <ArrowLeft className="h-5 w-5 text-muted-foreground" />
-          </Link>
-          <Fish className="h-7 w-7 text-primary mr-2" weight="duotone" />
-          <h1 className="text-xl font-bold opentuna-gradient-text">Claw SDK</h1>
-          <span className="ml-2 text-sm text-muted-foreground hidden sm:inline">
-            Autonomous Agent OS
-          </span>
-          <div className="ml-auto flex items-center gap-3">
-            {/* Agent Selector moved to individual tabs for simplicity */}
-            <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded-full border border-primary/20">
-              v1.0
-            </span>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen" style={{ background: "#141414" }}>
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+      <div className="md:ml-[160px] flex flex-col min-h-screen">
+        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="max-w-7xl mx-auto px-4 py-6">
+        {/* Tabs */}
+        <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-6 bg-card/50 border border-primary/20 rounded-xl p-1.5 gap-1 scrollbar-hide">
           <TabsTrigger 
             value="hub" 
@@ -168,10 +152,10 @@ function OpenTunaContent() {
         <TabsContent value="docs" className="mt-0">
           <OpenTunaDocs />
         </TabsContent>
-      </Tabs>
+        </div>
 
-      {/* Footer */}
-      <Footer />
+        <Footer />
+      </div>
     </div>
   );
 }
