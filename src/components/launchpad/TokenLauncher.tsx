@@ -71,6 +71,7 @@ interface LaunchResult {
 interface TokenLauncherProps {
   onLaunchSuccess: () => void;
   onShowResult: (result: LaunchResult) => void;
+  bare?: boolean;
 }
 
 const DEV_BUY_MAX_SOL = 100;
@@ -94,7 +95,7 @@ function formatDevBuySolInput(n: number): string {
   return n.toFixed(DEV_BUY_DECIMALS).replace(/\.?0+$/, "");
 }
 
-export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherProps) {
+export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false }: TokenLauncherProps) {
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
   const { solPrice } = useSolPrice();
@@ -1604,24 +1605,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
     ...(funModeUnlocked ? [{ id: "fun" as const, label: "FUN", icon: PartyPopper }] : []),
   ];
 
-  return (
-    <Card className="gate-card">
-      <div className="gate-card-header flex items-center justify-between">
-        <h3 className="gate-card-title">
-          <Rocket className="h-5 w-5 text-primary" />
-          Launch Meme Coin
-        </h3>
-        <Link to="/agents">
-          <Button 
-            size="sm" 
-            className="bg-red-600 hover:bg-red-700 text-white h-7 text-xs font-bold gap-1"
-          >
-            <Bot className="h-3.5 w-3.5" />
-            Launch Agent
-          </Button>
-        </Link>
-      </div>
-      <div className="gate-card-body space-y-4">
+  const innerContent = (
+    <div className={bare ? "p-5 space-y-4" : "gate-card-body space-y-4"}>
         {/* Mode Selector */}
         <div className="gate-launch-modes">
           {modes.map((mode) => (
@@ -2886,6 +2871,30 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult }: TokenLauncherPr
           </div>
         )}
       </div>
+  );
+
+  if (bare) {
+    return innerContent;
+  }
+
+  return (
+    <Card className="gate-card">
+      <div className="gate-card-header flex items-center justify-between">
+        <h3 className="gate-card-title">
+          <Rocket className="h-5 w-5 text-primary" />
+          Launch Meme Coin
+        </h3>
+        <Link to="/agents">
+          <Button
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 text-white h-7 text-xs font-bold gap-1"
+          >
+            <Bot className="h-3.5 w-3.5" />
+            Launch Agent
+          </Button>
+        </Link>
+      </div>
+      {innerContent}
     </Card>
   );
 }
