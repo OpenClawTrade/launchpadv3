@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -595,6 +597,7 @@ export default function ApiDashboardPage() {
           </div>
         </div>
       </div>
+    </div>
     );
   }
 
@@ -618,107 +621,108 @@ export default function ApiDashboardPage() {
       <div className="min-h-screen" style={{ background: "#141414" }}>
         <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
         <div className="md:ml-[160px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-        <div className="max-w-2xl mx-auto p-4 pt-8">
-          <Card className="gate-card">
-            <CardHeader className="text-center">
-              <Rocket className="w-16 h-16 mx-auto mb-4 text-primary" />
-              <CardTitle className="text-2xl text-foreground">Create Your API Account</CardTitle>
-              <CardDescription className="text-base">
-                Build custom launchpads and earn 1% on every trade
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="bg-secondary/50 rounded-lg p-4 space-y-3 border border-border">
-                <h3 className="font-semibold text-foreground">What you get:</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-primary" />
-                    1% of all trading fees on tokens launched via your API
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Rocket className="w-4 h-4 text-primary" />
-                    AI-generated launchpad ready in minutes
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <ExternalLink className="w-4 h-4 text-primary" />
-                    Free subdomain (*.tuna.fun) or your own custom domain
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-primary" />
-                    Full analytics and fee tracking dashboard
-                  </li>
-                </ul>
-              </div>
+          <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
+          <div className="max-w-2xl mx-auto p-4 pt-8">
+            <Card className="gate-card">
+              <CardHeader className="text-center">
+                <Rocket className="w-16 h-16 mx-auto mb-4 text-primary" />
+                <CardTitle className="text-2xl text-foreground">Create Your API Account</CardTitle>
+                <CardDescription className="text-base">
+                  Build custom launchpads and earn 1% on every trade
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-secondary/50 rounded-lg p-4 space-y-3 border border-border">
+                  <h3 className="font-semibold text-foreground">What you get:</h3>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-primary" />
+                      1% of all trading fees on tokens launched via your API
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Rocket className="w-4 h-4 text-primary" />
+                      AI-generated launchpad ready in minutes
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <ExternalLink className="w-4 h-4 text-primary" />
+                      Free subdomain (*.tuna.fun) or your own custom domain
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-primary" />
+                      Full analytics and fee tracking dashboard
+                    </li>
+                  </ul>
+                </div>
 
-              <div className="space-y-3">
-                <Label htmlFor="feeWallet" className="text-muted-foreground">Fee Wallet Address</Label>
-                <Input
-                  id="feeWallet"
-                  placeholder="Enter wallet address for fee payouts"
-                  value={feeWallet}
-                  onChange={(e) => setFeeWallet(e.target.value)}
-                  className="bg-secondary border-border text-foreground font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Pre-filled with your embedded wallet. Change if you want fees sent elsewhere.
+                <div className="space-y-3">
+                  <Label htmlFor="feeWallet" className="text-muted-foreground">Fee Wallet Address</Label>
+                  <Input
+                    id="feeWallet"
+                    placeholder="Enter wallet address for fee payouts"
+                    value={feeWallet}
+                    onChange={(e) => setFeeWallet(e.target.value)}
+                    className="bg-secondary border-border text-foreground font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Pre-filled with your embedded wallet. Change if you want fees sent elsewhere.
+                  </p>
+                </div>
+
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  size="lg"
+                  onClick={createAccount}
+                  disabled={creating}
+                >
+                  {creating ? "Creating..." : "Create API Account"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* API Key Modal */}
+          <Dialog open={!!newApiKey} onOpenChange={() => setNewApiKey(null)}>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="text-foreground">🎉 Your API Key</DialogTitle>
+                <DialogDescription>
+                  Store this key securely. It won't be shown again!
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="relative">
+                  <Input
+                    type={showApiKey ? "text" : "password"}
+                    value={newApiKey || ""}
+                    readOnly
+                    className="pr-20 font-mono text-sm bg-secondary border-border text-foreground"
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={copyApiKey}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-sm text-destructive">
+                  ⚠️ This is the only time you'll see this key. Copy it now!
                 </p>
               </div>
-
-              <Button 
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
-                size="lg"
-                onClick={createAccount}
-                disabled={creating}
-              >
-                {creating ? "Creating..." : "Create API Account"}
-              </Button>
-            </CardContent>
-          </Card>
+            </DialogContent>
+          </Dialog>
         </div>
-
-        {/* API Key Modal */}
-        <Dialog open={!!newApiKey} onOpenChange={() => setNewApiKey(null)}>
-          <DialogContent className="bg-card border-border">
-            <DialogHeader>
-              <DialogTitle className="text-foreground">🎉 Your API Key</DialogTitle>
-              <DialogDescription>
-                Store this key securely. It won't be shown again!
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="relative">
-                <Input
-                  type={showApiKey ? "text" : "password"}
-                  value={newApiKey || ""}
-                  readOnly
-                  className="pr-20 font-mono text-sm bg-secondary border-border text-foreground"
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                  >
-                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={copyApiKey}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-              <p className="text-sm text-destructive">
-                ⚠️ This is the only time you'll see this key. Copy it now!
-              </p>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
@@ -1057,6 +1061,7 @@ export default function ApiDashboardPage() {
             </div>
           </DialogContent>
         </Dialog>
+      </div>
       </div>
     </div>
   );
