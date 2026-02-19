@@ -461,45 +461,64 @@ export default function FunLauncherPage() {
       {/* Create Token Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={(open) => !open && closeCreateDialog()}>
         <DialogContent
-          className="!max-w-[680px] !w-[calc(100vw-2rem)] max-h-[90vh] overflow-hidden flex flex-col p-0"
+          className="!max-w-[700px] !w-[calc(100vw-1rem)] max-h-[90vh] overflow-hidden flex flex-col p-0 [&>button:first-child]:hidden"
           style={{
-            background: "#141414",
-            border: "1px solid #2a2a2a",
-            borderRadius: "12px",
-            boxShadow: "0 0 40px rgba(74,222,128,0.08), 0 24px 48px rgba(0,0,0,0.6)",
+            background: "#0a0a0b",
+            border: "1px solid #1c1c1f",
+            borderRadius: "6px",
+            boxShadow: "0 0 60px rgba(232,64,64,0.06), 0 24px 48px rgba(0,0,0,0.9)",
           }}
         >
-          {/* Green top accent line */}
-          <div style={{ height: "2px", background: "linear-gradient(90deg, #4ade80, #22c55e, transparent)", flexShrink: 0 }} />
+          {/* Red top accent line */}
+          <div style={{ height: "2px", background: "linear-gradient(90deg, #e84040, #c42c2c, transparent)", flexShrink: 0 }} />
 
           {/* Header */}
           <div
-            className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 flex-shrink-0"
+            className="sticky top-0 z-10 flex items-center justify-between px-5 py-3.5 flex-shrink-0"
             style={{
-              background: "linear-gradient(180deg, #1a1a1a 0%, #141414 100%)",
-              borderBottom: "1px solid #2a2a2a",
-              borderLeft: "3px solid #4ade80",
+              background: "#0d0d0f",
+              borderBottom: "1px solid #1c1c1f",
+              borderLeft: "3px solid #e84040",
             }}
           >
-            <div className="flex items-center gap-2.5">
-              <span className="text-lg">🚀</span>
+            <div className="flex items-center gap-3">
+              <span className="text-base">🚀</span>
               <div>
-                <h2 className="text-[15px] font-bold" style={{ color: "#4ade80" }}>Create Token</h2>
-                <p className="text-[11px] text-white/40 font-mono leading-tight">Launch on Solana</p>
+                <h2 className="text-[13px] font-bold uppercase tracking-widest text-white">Create Token</h2>
+                <p className="text-[10px] text-white/30 font-mono leading-tight">Launch on Solana</p>
               </div>
             </div>
-            <button
-              onClick={closeCreateDialog}
-              className="flex items-center justify-center h-7 w-7 rounded-md transition-colors hover:bg-white/10"
-              style={{ color: "#666" }}
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <Link to="/agents">
+                <button
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wide transition-all"
+                  style={{
+                    background: "#e84040",
+                    color: "#fff",
+                    border: "1px solid #c42c2c",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#c42c2c")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#e84040")}
+                >
+                  <Bot className="h-3 w-3" />
+                  Launch Agent
+                </button>
+              </Link>
+              <button
+                onClick={closeCreateDialog}
+                className="flex items-center justify-center h-7 w-7 rounded transition-colors"
+                style={{ color: "#666", background: "transparent" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Scrollable body */}
-          <div className="overflow-y-auto flex-1 p-5">
-            <TokenLauncher onLaunchSuccess={handleLaunchSuccess} onShowResult={handleShowResult} />
+          <div className="overflow-y-auto flex-1">
+            <TokenLauncher onLaunchSuccess={handleLaunchSuccess} onShowResult={handleShowResult} bare />
           </div>
         </DialogContent>
       </Dialog>
