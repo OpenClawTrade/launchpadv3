@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { PumpBadge } from "@/components/tunabook/PumpBadge";
 import { BagsBadge } from "@/components/tunabook/BagsBadge";
-import { Crown } from "lucide-react";
+
 
 
 const GRADUATION_THRESHOLD = 85;
@@ -113,9 +113,9 @@ export function KingOfTheHill() {
     <div className="w-full">
       {/* Section header */}
       <div className="flex items-center gap-2 mb-2">
-        <Crown className="w-3.5 h-3.5 text-yellow-400" />
+        <img src="/claw-logo.png" alt="Claw" className="w-4 h-4 object-contain" />
         <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-          King of the Hill
+          King of the Claws
         </span>
         <span className="text-[10px] text-muted-foreground/50">— Soon to Graduate</span>
         <div className="flex-1 h-px bg-border ml-1" />
