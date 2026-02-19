@@ -68,7 +68,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
       </nav>
 
       {/* Create Token CTA */}
-      <div className="px-3 pb-4 space-y-3">
+      <div className="px-3 pb-14 space-y-3">
         <Link
           to="/?create=1"
           onClick={onLinkClick}
