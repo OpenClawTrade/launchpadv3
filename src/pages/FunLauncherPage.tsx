@@ -383,24 +383,6 @@ export default function FunLauncherPage() {
               )}
             </div>
 
-            {/* Stats footer strip */}
-            <div
-              className="px-4 py-2.5 flex items-center gap-6 overflow-x-auto no-scrollbar"
-              style={{ background: "#1a1a1a", borderTop: "1px solid #2a2a2a" }}
-            >
-              {[
-                { label: "Tokens", value: String(agentStats?.totalTokensLaunched ?? totalCount) },
-                { label: "Agents", value: String(agentStats?.totalAgents ?? 0) },
-                { label: "Fees Claimed", value: `${formatSOL(totalClaimed)} SOL` },
-                { label: "Agent Posts", value: String(agentStats?.totalAgentPosts ?? 0) },
-                { label: "Payouts", value: `${formatSOL(agentStats?.totalAgentPayouts ?? 0)} SOL` },
-              ].map((stat, i) => (
-                <div key={stat.label} className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[10px] uppercase tracking-wider" style={{ color: "#555" }}>{stat.label}</span>
-                  <span className="text-[12px] font-bold font-mono text-white">{stat.value}</span>
-                </div>
-              ))}
-            </div>
           </main>
         )}
       </div>
