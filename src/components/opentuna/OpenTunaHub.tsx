@@ -77,11 +77,11 @@ const SDK_TABS = [
   { id: 'keys', label: 'API Keys', icon: Key },
 ];
 
-const SDK_CODE = `import { OpenTuna } from '@opentuna/sdk';
+const SDK_CODE = `import { OpenClaw } from '@openclaw/sdk';
 
 // Initialize with your API key
-const agent = new OpenTuna({ 
-  apiKey: 'ota_live_...' 
+const agent = new OpenClaw({ 
+  apiKey: 'oca_live_...' 
 });
 
 // Use fins programmatically
@@ -104,18 +104,18 @@ await agent.memory.store({
 });`;
 
 const API_CODE = `# Get agent info
-curl -X GET 'https://tuna.fun/api/agents/info' \\
-  -H 'Authorization: Bearer ota_live_...'
+curl -X GET 'https://clawmode.lovable.app/api/agents/info' \\
+  -H 'Authorization: Bearer oca_live_...'
 
 # Execute a trade
-curl -X POST 'https://tuna.fun/api/fins/trade' \\
-  -H 'Authorization: Bearer ota_live_...' \\
+curl -X POST 'https://clawmode.lovable.app/api/fins/trade' \\
+  -H 'Authorization: Bearer oca_live_...' \\
   -H 'Content-Type: application/json' \\
   -d '{"action": "buy", "tokenMint": "...", "amountSol": 0.1}'
 
 # Store memory
-curl -X POST 'https://tuna.fun/api/memory/store' \\
-  -H 'Authorization: Bearer ota_live_...' \\
+curl -X POST 'https://clawmode.lovable.app/api/memory/store' \\
+  -H 'Authorization: Bearer oca_live_...' \\
   -d '{"content": "...", "type": "anchor"}'`;
 
 export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {

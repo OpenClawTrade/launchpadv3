@@ -448,9 +448,9 @@ function MigratePageContent() {
                 <div className="flex items-start gap-3">
                   <Globe className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-semibold text-foreground text-sm">OpenTuna — API/SDK Platform</p>
+                    <p className="font-semibold text-foreground text-sm">Claw SDK — API/SDK Platform</p>
                     <p className="text-xs text-muted-foreground">
-                      Full API access for developers to build on TUNA infrastructure. Includes Fin
+                      Full API access for developers to build on Claw Mode infrastructure. Includes Fin
                       trading engine, Sonar analytics, and DNS integration system.
                     </p>
                   </div>

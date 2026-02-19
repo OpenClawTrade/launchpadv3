@@ -62,7 +62,7 @@ import {
 import { XLogo, Fish, ArrowsClockwise } from "@phosphor-icons/react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-const HEADER_LOGO_SRC = "/tuna-logo.png";
+const HEADER_LOGO_SRC = "/claw-logo.png";
 
 interface LaunchResult {
   success: boolean;
@@ -165,14 +165,14 @@ export default function FunLauncherPage() {
       <header className="gate-header">
         <div className="gate-header-inner">
           <div className="flex items-center gap-3">
-            <Link to="/" className="gate-logo" aria-label="OpenTuna">
+            <Link to="/" className="gate-logo" aria-label="Claw Mode">
               <img
                 src={HEADER_LOGO_SRC}
-                alt="OpenTuna"
+                alt="Claw Mode"
                 className="h-8 w-8 rounded-lg object-cover"
                 loading="eager"
               />
-              <span className="text-lg font-bold">OpenTuna</span>
+              <span className="text-lg font-bold">Claw Mode</span>
             </Link>
             
             {/* Chain Switcher */}
@@ -207,7 +207,7 @@ export default function FunLauncherPage() {
             <Link to="/opentuna">
               <Button size="sm" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
                 <Fish className="h-4 w-4" weight="duotone" />
-                OpenTuna
+                Claw SDK
               </Button>
             </Link>
             <Link to="/migrate">
@@ -275,7 +275,7 @@ export default function FunLauncherPage() {
                   </Link>
                   <Link to="/opentuna" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <Fish className="h-4 w-4 text-white" weight="duotone" />
-                    <span className="text-white text-sm font-medium">OpenTuna</span>
+                    <span className="text-white text-sm font-medium">Claw SDK</span>
                   </Link>
                   <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />

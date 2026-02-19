@@ -18,8 +18,8 @@ export function AgentPlatformToken() {
           {/* Token Info */}
           <div className="flex items-center gap-4">
             <img
-              src="/tuna-logo.png"
-              alt="TUNA"
+              src="/claw-logo.png"
+              alt="CLAW"
               className="w-16 h-16 rounded-xl object-cover"
             />
             <div>

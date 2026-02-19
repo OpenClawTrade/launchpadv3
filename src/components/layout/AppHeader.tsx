@@ -22,7 +22,7 @@ import { useChain } from "@/contexts/ChainContext";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 
 const TUNA_CA = "AeeP5ebA5R8srQZkkYwfNyvgYWFtxYqFfc6E6qqypump";
-const HEADER_LOGO_SRC = "/tuna-logo.png";
+const HEADER_LOGO_SRC = "/claw-logo.png";
 
 interface AppHeaderProps {
   showBack?: boolean;
@@ -52,14 +52,14 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
     <header className="gate-header">
       <div className="gate-header-inner">
         <div className="flex items-center gap-3">
-          <Link to="/" className="gate-logo" aria-label="OpenTuna">
+          <Link to="/" className="gate-logo" aria-label="Claw Mode">
             <img
               src={HEADER_LOGO_SRC}
-              alt="OpenTuna"
+              alt="Claw Mode"
               className="h-8 w-8 rounded-lg object-cover"
               loading="eager"
             />
-            <span className="text-lg font-bold">OpenTuna</span>
+            <span className="text-lg font-bold">Claw Mode</span>
           </Link>
           
           <div className="hidden sm:block">
@@ -92,7 +92,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
           <Link to="/opentuna">
             <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
               <Fish className="h-4 w-4" weight="duotone" />
-              OpenTuna
+              Claw SDK
             </Button>
           </Link>
           <Link to="/migrate">
@@ -147,7 +147,7 @@ export function AppHeader({ showBack, backTo = "/", backLabel }: AppHeaderProps)
                 </Link>
                 <Link to="/opentuna" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
                   <Fish className="h-4 w-4" weight="duotone" />
-                  <span className="text-foreground text-sm font-medium">OpenTuna</span>
+                  <span className="text-foreground text-sm font-medium">Claw SDK</span>
                 </Link>
                 <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                   <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />

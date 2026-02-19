@@ -60,7 +60,7 @@ function OpenTunaContent() {
             <ArrowLeft className="h-5 w-5 text-muted-foreground" />
           </Link>
           <Fish className="h-7 w-7 text-primary mr-2" weight="duotone" />
-          <h1 className="text-xl font-bold opentuna-gradient-text">OpenTuna</h1>
+          <h1 className="text-xl font-bold opentuna-gradient-text">Claw SDK</h1>
           <span className="ml-2 text-sm text-muted-foreground hidden sm:inline">
             Autonomous Agent OS
           </span>

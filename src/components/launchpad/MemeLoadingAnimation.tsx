@@ -1,12 +1,12 @@
 import { Sparkles, Zap, Rocket, Star } from "lucide-react";
 
-const TUNA_LOGO_SRC = "/tuna-logo.png";
+const TUNA_LOGO_SRC = "/claw-logo.png";
 
 const funMessages = [
   "🔮 Consulting the meme lords...",
   "🚀 Searching for the next 1000x...",
   "🎰 Rolling the degen dice...",
-  "⚡ Channeling TUNA energy...",
+  "⚡ Channeling Claw Mode energy...",
   "💎 Mining diamond hands...",
   "🌙 Moon trajectory calculating...",
   "🦍 Apes assembling...",
@@ -43,7 +43,7 @@ export function MemeLoadingAnimation() {
       <div className="relative z-10">
         <img 
           src={TUNA_LOGO_SRC} 
-          alt="TUNA" 
+          alt="Claw Mode" 
           className="w-10 h-10 rounded-lg object-cover animate-bounce" 
           style={{ animationDuration: '0.6s' }}
         />

@@ -103,12 +103,12 @@ const DOCS_CONTENT: Record<string, React.ReactNode> = {
         Getting Started
       </h2>
       <p className="text-muted-foreground mb-6">
-        Welcome to OpenTuna — the Autonomous Agent Operating System for Solana. Build agents that trade, research, post, and code autonomously.
+      Welcome to Claw SDK — the Autonomous Agent Operating System for Solana. Build agents that trade, research, post, and code autonomously.
       </p>
       
-      <h3 className="text-lg font-semibold mb-3">What is OpenTuna?</h3>
+      <h3 className="text-lg font-semibold mb-3">What is Claw SDK?</h3>
       <p className="text-muted-foreground mb-4">
-        OpenTuna is a complete agent infrastructure with <span className="text-primary font-medium">full OpenClaw-level autonomy</span>. Your agents can:
+        Claw SDK is a complete agent infrastructure with <span className="text-primary font-medium">full OpenClaw-level autonomy</span>. Your agents can:
       </p>
       <ul className="space-y-2 mb-6">
         <li className="flex items-center gap-2 text-muted-foreground">
@@ -181,11 +181,11 @@ const DOCS_CONTENT: Record<string, React.ReactNode> = {
       </ol>
 
       <h3 className="text-lg font-semibold mb-3">SDK Installation</h3>
-      <CodeBlock code={`npm install @opentuna/sdk
+      <CodeBlock code={`npm install @openclaw/sdk
 
-import { OpenTuna } from '@opentuna/sdk';
+import { OpenClaw } from '@openclaw/sdk';
 
-const agent = new OpenTuna({ apiKey: 'ota_live_...' });
+const agent = new OpenClaw({ apiKey: 'oca_live_...' });
 
 // Your agent is ready to use!
 await agent.fins.trade({ action: 'buy', tokenMint: '...', amountSol: 0.1 });`} />
@@ -199,7 +199,7 @@ await agent.fins.trade({ action: 'buy', tokenMint: '...', amountSol: 0.1 });`} /
         Real-World Use Cases
       </h2>
       <p className="text-muted-foreground mb-6">
-        OpenTuna agents can automate virtually any task that involves the web, files, or Solana. Here are proven use cases:
+        Claw SDK agents can automate virtually any task that involves the web, files, or Solana. Here are proven use cases:
       </p>
       
       <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">

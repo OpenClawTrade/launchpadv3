@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const BASE_URL = "https://api.tuna.fun";
-const APP_URL = "https://tuna.fun";
+const BASE_URL = "https://api.clawmode.lovable.app";
+const APP_URL = "https://clawmode.lovable.app";
 
 export default function ApiDocsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -147,8 +147,8 @@ export default function ApiDocsPage() {
           <TabsContent value="complete-spec" className="space-y-6">
             <Card className="border-border/50 bg-card/50">
               <CardHeader>
-                <CardTitle>TUNA Launchpad API - Complete Specification</CardTitle>
-                <CardDescription>All information needed to implement a fully functional token launchpad</CardDescription>
+              <CardTitle>Claw Mode Launchpad API - Complete Specification</CardTitle>
+              <CardDescription>All information needed to implement a fully functional token launchpad</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <CodeBlock 

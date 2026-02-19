@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles, Download, RefreshCw, Copy, Check, Twitter, Lightbulb, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import tunaLogo from "@/assets/tuna-logo.png";
+import clawLogo from "@/assets/claw-logo.png";
 
 interface GeneratedMeme {
   imageUrl: string;
@@ -148,14 +148,14 @@ export function AgentIdeaGenerator() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <img src={tunaLogo} alt="TUNA" className="w-12 h-12 rounded-full" />
+            <img src={clawLogo} alt="Claw Mode" className="w-12 h-12 rounded-full" />
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">
               Agent Idea Generator
             </h2>
           </div>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Generate viral TUNA-themed meme concepts for your AI agent. 
-            Each meme features our iconic TUNA mascot with unique variations!
+            Generate viral Claw-themed meme concepts for your AI agent. 
+            Each meme features our iconic lobster mascot with unique variations!
           </p>
         </div>
 
@@ -212,10 +212,10 @@ export function AgentIdeaGenerator() {
                     alt={generatedMeme.name}
                     className="w-full h-full object-cover"
                   />
-                  {/* TUNA watermark */}
+                  {/* Claw Mode watermark */}
                   <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                    <img src={tunaLogo} alt="" className="w-4 h-4 rounded-full" />
-                    <span className="text-xs font-medium text-foreground">TUNA</span>
+                    <img src={clawLogo} alt="" className="w-4 h-4 rounded-full" />
+                    <span className="text-xs font-medium text-foreground">CLAW</span>
                   </div>
                 </div>
                 
@@ -397,7 +397,7 @@ export function AgentIdeaGenerator() {
                   }}
                   className={`aspect-square rounded-xl bg-gradient-to-br ${example.bg} border border-border hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-2 p-4`}
                 >
-                  <img src={tunaLogo} alt="" className="w-12 h-12 rounded-full" />
+                  <img src={clawLogo} alt="" className="w-12 h-12 rounded-full" />
                   <span className="text-sm font-medium text-foreground">{example.prompt}</span>
                 </button>
               ))}

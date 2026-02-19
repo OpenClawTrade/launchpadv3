@@ -115,14 +115,14 @@ export default function TradePage() {
       {/* Header */}
       <header className="gate-header">
         <div className="gate-header-inner">
-          <Link to="/" className="gate-logo" aria-label="TUNA">
+          <Link to="/" className="gate-logo" aria-label="Claw Mode">
             <img
-              src="/tuna-logo.png"
-              alt="TUNA"
+              src="/claw-logo.png"
+              alt="Claw Mode"
               className="h-8 w-8 rounded-lg object-cover"
               loading="eager"
             />
-            <span className="text-lg font-bold">TUNA</span>
+            <span className="text-lg font-bold">Claw Mode</span>
           </Link>
 
           <Link to="/">
@@ -153,7 +153,7 @@ export default function TradePage() {
                 Trading is Live!
               </h1>
               <p className="text-muted-foreground text-lg">
-                Start trading now on TUNA
+                Start trading now on Claw Mode
               </p>
               <Link to="/">
                 <Button size="lg" className="mt-4">
