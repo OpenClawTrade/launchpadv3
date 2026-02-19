@@ -1084,7 +1084,7 @@ await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
                 { label: "OpenTuna Hub", url: "https://tuna.fun/opentuna" },
                 { label: "API Documentation", url: "https://tuna.fun/agents/docs" },
                 { label: "OpenTuna SDK", url: "https://www.npmjs.com/package/@opentuna/sdk" },
-                { label: "Twitter", url: "https://x.com/BuildTuna" },
+                { label: "Twitter", url: "https://x.com/clawmode" },
               ].map((item) => (
                 <a
                   key={item.label}

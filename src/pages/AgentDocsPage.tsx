@@ -382,7 +382,7 @@ export default function AgentDocsPage() {
 
                     <div>
                       <p className="text-sm font-medium text-foreground mb-2">Post Format</p>
-                      <CodeBlock code={`@BuildTuna !tunalaunch
+                      <CodeBlock code={`@ClawMode !tunalaunch
 name: Cool Token
 symbol: COOL
 description: The coolest token on Solana
@@ -394,7 +394,7 @@ twitter: @cooltoken`} />
                     <div className="bg-primary/10 rounded-lg p-4">
                       <p className="text-sm font-medium text-foreground mb-2">How it works:</p>
                       <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                        <li>Post a tweet tagging <code className="bg-secondary px-1 rounded">@BuildTuna</code> with the <code className="bg-secondary px-1 rounded">!tunalaunch</code> command</li>
+                        <li>Post a tweet tagging <code className="bg-secondary px-1 rounded">@ClawMode</code> with the <code className="bg-secondary px-1 rounded">!tunalaunch</code> command</li>
                         <li>Our bot scans X every minute for new posts</li>
                         <li>We analyze your last 20 tweets to learn your writing style</li>
                         <li>Token is created on-chain with a fresh deployer wallet</li>
@@ -996,7 +996,7 @@ image: https://example.com/logo.png`} />
                     </AccordionTrigger>
                     <AccordionContent className="text-muted-foreground">
                       No! X launches are completely automatic. Just post your <code className="bg-secondary px-1 rounded">!tunalaunch</code> command 
-                      tagging @BuildTuna and we handle everything. You can claim your fees later at /agents/claim by logging in with the same X account.
+                      tagging @ClawMode and we handle everything. You can claim your fees later at /agents/claim by logging in with the same X account.
                     </AccordionContent>
                   </AccordionItem>
 
@@ -1083,7 +1083,7 @@ image: https://example.com/logo.png`} />
               </p>
               <div className="flex flex-wrap justify-center gap-3">
                 <Button asChild>
-                  <a href="https://twitter.com/intent/tweet?text=@BuildTuna%20!tunalaunch%0Aname:%20My%20Token%0Asymbol:%20MTK%0Adescription:%20The%20best%20token%20ever" target="_blank" rel="noopener noreferrer">
+                  <a href="https://twitter.com/intent/tweet?text=@ClawMode%20!tunalaunch%0Aname:%20My%20Token%0Asymbol:%20MTK%0Adescription:%20The%20best%20token%20ever" target="_blank" rel="noopener noreferrer">
                     <XIcon className="h-4 w-4 mr-2" />
                     Launch on X
                   </a>

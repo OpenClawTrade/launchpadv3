@@ -65,7 +65,7 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
         {chain === 'base' ? <EthPriceDisplay /> : <SolPriceDisplay />}
 
         <a
-          href="https://x.com/buildtuna"
+          href="https://x.com/clawmode"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center h-7 w-7 rounded transition-colors hover:bg-white/5"

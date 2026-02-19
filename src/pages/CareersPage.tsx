@@ -186,7 +186,7 @@ const betaTesterBenefits = [
 
 export default function CareersPage() {
   const handleApplyClick = () => {
-    window.open("https://x.com/messages/compose?recipient_id=buildtuna", "_blank");
+    window.open("https://x.com/messages/compose?recipient_id=clawmode", "_blank");
   };
 
   const getPriorityColor = (priority: Position["priority"]) => {
@@ -430,7 +430,7 @@ export default function CareersPage() {
                 className="bg-primary hover:bg-primary/90 gap-2"
               >
                 <XLogo className="h-5 w-5" weight="fill" />
-                DM @buildtuna on X
+                DM @clawmode on X
               </Button>
             </CardContent>
           </Card>

@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
     }
 
     const finalWebsite = website || `https://tuna.fun/t/${ticker.toUpperCase()}`;
-    const finalTwitter = twitter || "https://x.com/BuildTuna";
+    const finalTwitter = twitter || "https://x.com/clawmode";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

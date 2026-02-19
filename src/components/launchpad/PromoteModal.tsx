@@ -71,7 +71,7 @@ export function PromoteModal({
           if (data.paid) {
             setStatus("paid");
             if (data.tweetId) {
-              setTweetUrl(`https://twitter.com/buildtuna/status/${data.tweetId}`);
+              setTweetUrl(`https://twitter.com/clawmode/status/${data.tweetId}`);
               setStatus("posted");
             }
           } else if (data.status === "expired") {

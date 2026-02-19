@@ -79,7 +79,7 @@ Return ONLY a JSON object (no markdown):
   "ticker": "3-4 letter ticker in CAPS",
   "description": "Catchy description with emoji (max 80 chars)",
   "imagePrompt": "Detailed image generation prompt describing the TUNA mascot in the themed style",
-  "tweetText": "Viral tweet announcing this token (include @buildtuna mention, emojis, max 280 chars)"
+  "tweetText": "Viral tweet announcing this token (include @clawmode mention, emojis, max 280 chars)"
 }`;
 
     const conceptResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -116,7 +116,7 @@ Return ONLY a JSON object (no markdown):
         ticker: "TMAX",
         description: "The ultimate TUNA experience! 🍣🚀",
         imagePrompt: `Cute kawaii tuna sushi character as a ${themeToUse}`,
-        tweetText: `Introducing $TMAX - The ultimate TUNA experience! 🍣🚀\n\nPowered by @buildtuna\n\n#Solana #Memecoins`,
+        tweetText: `Introducing $TMAX - The ultimate TUNA experience! 🍣🚀\n\nPowered by @clawmode\n\n#Solana #Memecoins`,
       };
     }
 
@@ -183,7 +183,7 @@ Make the character look fun, memorable, and perfect for a crypto meme token!`;
           ticker: concept.ticker?.replace(/[^A-Z]/g, "").slice(0, 5) || "TMAX",
           description: concept.description || "TUNA to the moon! 🍣🚀",
           imageUrl,
-          tweetText: concept.tweetText || `Introducing $${concept.ticker} - ${concept.description}\n\nPowered by @buildtuna 🍣`,
+          tweetText: concept.tweetText || `Introducing $${concept.ticker} - ${concept.description}\n\nPowered by @clawmode 🍣`,
           theme: themeToUse,
           palette: randomPalette,
         },

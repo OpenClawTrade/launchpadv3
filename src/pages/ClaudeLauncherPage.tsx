@@ -1017,7 +1017,7 @@ export default function ClaudeLauncherPage() {
                           <span className="text-muted-foreground">Analytics</span>
                           <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
                         </a>
-                        <a href="https://x.com/buildtuna" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
+                        <a href="https://x.com/clawmode" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
                           <Twitter className="h-5 w-5 text-muted-foreground" />
                           <span className="text-muted-foreground">Follow on X</span>
                           <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
@@ -1055,7 +1055,7 @@ export default function ClaudeLauncherPage() {
                 <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                 {lastUpdate ? formatDistanceToNow(lastUpdate, { addSuffix: true }) : "Live"}
               </div>
-              <a href="https://x.com/buildtuna" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+              <a href="https://x.com/clawmode" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
                 <Twitter className="h-5 w-5" />
               </a>
               <Button onClick={() => refetch()} variant="ghost" size="sm" className="gate-btn-ghost">

@@ -314,7 +314,7 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           tweetId,
-          tweetUrl: `https://twitter.com/buildtuna/status/${tweetId}`,
+          tweetUrl: `https://twitter.com/clawmode/status/${tweetId}`,
           stats,
           topAgent,
         }),
