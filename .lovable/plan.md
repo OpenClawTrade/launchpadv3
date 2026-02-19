@@ -1,29 +1,76 @@
 
-# Fix: Restore Sticky Stats Footer
+# Replace /trade with Advanced Trading Hub
 
-## What Happened
+## What's Happening Now
 
-There are two separate stats bars in the codebase — you asked to remove one, and the wrong one was removed:
+The `/trade` route (`TradePage.tsx`) loads a Jupiter Terminal — a third-party external swap widget. This is not the platform's own designed trading interface.
 
-1. **`StickyStatsFooter`** — the proper fixed-position bar at the very bottom of the screen (fixed, always visible, uses `position: fixed` via a React portal). This is what you WANTED to keep.
+The actual **advanced trading UI** already exists: it's `FunTokenDetailPage` at `/launchpad/:mintAddress`, which shows the full token header, stats ribbon, bonding curve bar, trade panel, wallet sidebar, and more.
 
-2. **Inline stats strip in `FunLauncherPage.tsx`** (lines 386–403) — a static `<div>` bar embedded inside the page's `<main>` content. This is the one visible in your screenshot (highlighted in green). This is what you WANTED removed.
+The user wants `/trade` to be an **advanced trading hub** where you can:
+1. Browse and search tokens launched on the platform
+2. Select a token
+3. Trade it using the existing advanced trading interface
 
-What was done previously:
-- The `StickyStatsFooter` import was left in `App.tsx` but it was **never added to the JSX** — so the sticky footer was never rendering.
-- The inline strip in `FunLauncherPage.tsx` was left untouched — it's still there floating in the page.
+## The Plan
 
-## The Fix
+### 1. Redesign `src/pages/TradePage.tsx`
 
-Two changes:
+Replace the Jupiter Terminal page entirely with a new **Trading Hub** layout inside `LaunchpadLayout`. The page will:
 
-### 1. `src/App.tsx` — Render `<StickyStatsFooter />` inside the JSX
-Add `<StickyStatsFooter />` back inside the `<ErrorBoundary>` block (it renders via a React portal to `document.body` so it appears fixed at the bottom regardless of where in the tree it's placed).
+**Header section:**
+- Title: "Trade" with a "Live" badge (matching the platform's mono/terminal aesthetic)
+- Subtitle: "Select a token to start trading"
+- Search bar to filter tokens by name or ticker
 
-### 2. `src/pages/FunLauncherPage.tsx` — Remove the inline stats strip
-Delete the "Stats footer strip" `<div>` block (lines 386–403) — this is the non-sticky bar floating in the page content that should be removed.
+**Token grid/list:**
+- Pull all tokens from the existing `useLaunchpad()` hook (same data source as the home page)
+- Show filter tabs: All · Bonding · Graduated · Hot
+- Each token card shows: image, name, ticker, price in SOL, market cap, 24h volume, bonding progress (if bonding), status badge
+- Clicking a token card navigates to `/launchpad/:mintAddress` — the full advanced trading page
 
-## Result
+**No countdown, no Jupiter Terminal** — those are removed entirely.
 
-- The proper sticky stats bar (TOKENS / AGENTS / FEES CLAIMED / AGENT POSTS / PAYOUTS + Connection indicator) will be fixed at the very bottom of every page.
-- The duplicate inline floating version inside the launcher page will be gone.
+### 2. Keep the countdown logic as a soft gate (optional)
+
+Since the `countdown_timers` table with `trade_launch` record exists, we can optionally keep the countdown gate to show the hub only when `isExpired`. But since the user is asking to show the trading hub now, the countdown will be removed and the hub shown directly.
+
+### 3. Sidebar label stays "Terminal"
+
+No change needed to `Sidebar.tsx` — the label "Terminal" already points to `/trade`.
+
+## Files Changed
+
+| File | Change |
+|---|---|
+| `src/pages/TradePage.tsx` | Full replacement — remove Jupiter Terminal, add token search + grid that links to `/launchpad/:mintAddress` |
+
+## Visual Layout
+
+```text
+/trade  ─────────────────────────────────────────
+ [Terminal]   [Live ●]
+ Select a token to start advanced trading
+
+ [Search tokens...]
+
+ [All] [Bonding] [Graduated] [Hot]
+
+ ┌──────────┐ ┌──────────┐ ┌──────────┐
+ │ 🪙 $PEPE │ │ 🐸 $FROG │ │ 🚀 $MOON │
+ │ $0.0012  │ │ $0.0008  │ │ $0.0034  │
+ │ MC: $12K │ │ MC: $8K  │ │ MC: $34K │
+ │ ▓▓▓▓░ 65%│ │ ░░░░░ 12%│ │ GRADUATED│
+ └──────────┘ └──────────┘ └──────────┘
+        ↓ click any token ↓
+ /launchpad/:mintAddress  (existing full trading UI)
+```
+
+## Technical Notes
+
+- Uses `useLaunchpad()` hook already in the codebase — no new data fetching needed
+- Same filtering/sorting logic as the home `FunLauncherPage` (hot score, bonding, graduated tabs)
+- Token cards link to `/launchpad/:mintAddress` using `react-router-dom`'s `Link`
+- Styled consistent with the platform's dark mono aesthetic (`#0a0a0a`, `#111`, `#222`, `font-mono`)
+- Removes all Jupiter Terminal code (the `JupiterTerminal` component, the `useCountdown` hook, the countdown DB fetch) — cleans up the file significantly
+- Keeps `LaunchpadLayout` as the wrapper for consistent sidebar/header/footer
