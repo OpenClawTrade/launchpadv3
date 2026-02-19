@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
+import { StickyStatsFooter } from "@/components/layout/StickyStatsFooter";
 import { AgentStatsBar } from "@/components/agents/AgentStatsBar";
 import { AgentHero } from "@/components/agents/AgentHero";
 import { AgentPlatformToken } from "@/components/agents/AgentPlatformToken";
@@ -21,7 +22,7 @@ export default function AgentsPage() {
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
-        <main className="flex-1 p-4">
+        <main className="flex-1 p-4 pb-14">
           {showIdeaGenerator ? (
             <div className="space-y-4">
               <Button
@@ -47,6 +48,7 @@ export default function AgentsPage() {
         </main>
         <Footer />
       </div>
+      <StickyStatsFooter />
     </div>
   );
 }

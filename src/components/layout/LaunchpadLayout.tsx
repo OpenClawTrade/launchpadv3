@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
+import { StickyStatsFooter } from "@/components/layout/StickyStatsFooter";
 
 interface LaunchpadLayoutProps {
   children: ReactNode;
@@ -16,11 +17,12 @@ export function LaunchpadLayout({ children }: LaunchpadLayoutProps) {
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-        <main className="flex-1 p-4">
+        <main className="flex-1 p-4 pb-14">
           {children}
         </main>
         <Footer />
       </div>
+      <StickyStatsFooter />
     </div>
   );
 }
