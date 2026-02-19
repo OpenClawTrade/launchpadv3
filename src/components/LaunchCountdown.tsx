@@ -79,7 +79,7 @@ export function LaunchCountdown({ compact = false }: { compact?: boolean }) {
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">New $TUNA launches when the timer hits zero</p>
+      <p className="text-xs text-muted-foreground">New $CLAW launches when the timer hits zero</p>
     </Card>
   );
 }

@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 type PulseFilter = 'new' | 'hot' | 'graduating' | 'volume';
 
-export const TunaPulse = forwardRef<HTMLDivElement, Record<string, never>>(function TunaPulse(_props, ref) {
+export const ClawPulse = forwardRef<HTMLDivElement, Record<string, never>>(function ClawPulse(_props, ref) {
   const [filter, setFilter] = useState<PulseFilter>('hot');
   const queryClient = useQueryClient();
 
@@ -121,7 +121,7 @@ export const TunaPulse = forwardRef<HTMLDivElement, Record<string, never>>(funct
   // Subscribe to realtime token updates
   useEffect(() => {
     const channel = supabase
-      .channel('pulse-tokens-realtime')
+      .channel('claw-pulse-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tokens' },
@@ -162,7 +162,7 @@ export const TunaPulse = forwardRef<HTMLDivElement, Record<string, never>>(funct
             <Zap className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h2 className="font-bold text-lg">TUNA Pulse</h2>
+            <h2 className="font-bold text-lg">Claw Pulse</h2>
             <p className="text-xs text-muted-foreground">Real-time token discovery</p>
           </div>
         </div>
@@ -292,4 +292,4 @@ export const TunaPulse = forwardRef<HTMLDivElement, Record<string, never>>(funct
   );
 });
 
-TunaPulse.displayName = "TunaPulse";
+ClawPulse.displayName = "ClawPulse";

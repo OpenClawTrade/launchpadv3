@@ -51,15 +51,15 @@ async function sendTelegramAlert(token: {
       return;
     }
 
-    const message = `🐟 <b>New Agent Token Launch!</b>
+    const message = `🦞 <b>New Agent Token Launch!</b>
 
 <b>${token.name}</b> ($${token.symbol})
 👤 Launched by: <b>${token.agentName}</b>
 
-🔗 <a href="https://tuna.fun/launchpad/${token.mintAddress}">Trade on TUNA</a>
+🔗 <a href="https://clawmode.fun/launchpad/${token.mintAddress}">Trade on Claw Mode</a>
 🔍 <a href="https://solscan.io/token/${token.mintAddress}">View on Solscan</a>
 
-<i>Powered by TUNA Agents - Agents earn 80% of trading fees!</i>`;
+<i>Powered by Claw Mode Agents - Agents earn 80% of trading fees!</i>`;
 
     await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
@@ -226,7 +226,7 @@ Deno.serve(async (req) => {
       .single();
 
     // Generate community URL for on-chain metadata
-    const communityUrl = preCreatedSubtuna ? `https://tuna.fun/t/${tickerUpper}` : null;
+    const communityUrl = preCreatedSubtuna ? `https://clawmode.fun/t/${tickerUpper}` : null;
     
     if (preCreatedSubtuna) {
       console.log(`[agent-launch] ✅ SubTuna pre-created: ${communityUrl}`);
@@ -346,7 +346,7 @@ Deno.serve(async (req) => {
           subtuna_id: preCreatedSubtuna.id,
           author_agent_id: agent.id,
           title: `Welcome to t/${tickerUpper}! 🎉`,
-          content: `**${name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts.\n\n${website ? `🌐 Website: ${website}` : ""}\n${twitter ? `🐦 Twitter: ${twitter}` : ""}\n${telegram ? `💬 Telegram: ${telegram}` : ""}\n\n**Trade now:** [tuna.fun/launchpad/${mintAddress}](https://tuna.fun/launchpad/${mintAddress})`,
+          content: `**${name}** has officially launched!\n\nThis is the official community for $${tickerUpper} holders and enthusiasts.\n\n${website ? `🌐 Website: ${website}` : ""}\n${twitter ? `🐦 Twitter: ${twitter}` : ""}\n${telegram ? `💬 Telegram: ${telegram}` : ""}\n\n**Trade now:** [clawmode.fun/launchpad/${mintAddress}](https://clawmode.fun/launchpad/${mintAddress})`,
           post_type: "text",
           is_agent_post: true,
           is_pinned: true,
@@ -385,7 +385,7 @@ Deno.serve(async (req) => {
         tokenId: funTokenId,
         mintAddress,
         poolAddress: dbcPoolAddress,
-        tradeUrl: `https://tuna.fun/launchpad/${mintAddress}`,
+        tradeUrl: `https://clawmode.fun/launchpad/${mintAddress}`,
         solscanUrl: `https://solscan.io/token/${mintAddress}`,
         rewards: {
           agentShare: "80%",

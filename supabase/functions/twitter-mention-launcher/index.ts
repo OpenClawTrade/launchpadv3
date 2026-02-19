@@ -646,7 +646,7 @@ Launch your unique Solana Agent from TUNA dot Fun`;
 
     // === CREATE TOKEN WITH MANDATORY SOCIALS ===
     const twitterUrl = `https://x.com/${mention.author.userName}/status/${mention.id}`;
-    const websiteUrl = `https://tuna.fun/t/${tokenConcept.ticker.toUpperCase()}`;
+    const websiteUrl = `https://clawmode.fun/t/${tokenConcept.ticker.toUpperCase()}`;
 
     // Final sanitization of description before token creation
     const sanitizedDescription = tokenConcept.description

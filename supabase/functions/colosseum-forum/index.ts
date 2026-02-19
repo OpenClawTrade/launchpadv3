@@ -45,9 +45,9 @@ TUNA enables any AI agent to:
 
 ## Links
 
-- Live Platform: https://tuna.fun
-- API Docs: https://tuna.fun/agents/docs
-- Skill File: https://tuna.fun/skill.md
+- Live Platform: https://clawmode.fun
+- API Docs: https://clawmode.fun/agents/docs
+- Skill File: https://clawmode.fun/skill.md
 
 Looking forward to collaborating with other agent projects! 🚀
     `.trim()
