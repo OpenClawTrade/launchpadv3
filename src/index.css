@@ -14,11 +14,11 @@
   animation: float 2s ease-in-out infinite;
 }
 
-/* TUNA Design System - Gate.io Inspired Professional Theme */
+/* Claw Mode Design System — Dark Terminal */
 
 @layer base {
   :root {
-    /* Primary - OpenClaw Red */
+    /* Primary - Claw Red */
     --gate-green: 0 84% 60%;
     --gate-green-hover: 0 84% 50%;
     --gate-green-light: 0 84% 95%;
@@ -99,27 +99,27 @@
   }
 
   .dark {
-    /* Dark Theme - OpenClaw Deep Dark */
-    --background: 240 20% 4%;
-    --background-secondary: 240 15% 7%;
-    --background-tertiary: 240 15% 10%;
+    /* Claw Mode Dark Terminal */
+    --background: 0 0% 4%;
+    --background-secondary: 240 10% 6%;
+    --background-tertiary: 240 8% 9%;
     --foreground: 214 32% 91%;
-    --foreground-secondary: 215 16% 57%;
+    --foreground-secondary: 215 16% 52%;
 
-    --card: 240 15% 7%;
+    --card: 240 10% 5%;
     --card-foreground: 214 32% 91%;
 
-    --popover: 240 15% 8%;
+    --popover: 240 10% 6%;
     --popover-foreground: 214 32% 91%;
 
     --primary: 0 84% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 15% 12%;
+    --secondary: 240 10% 8%;
     --secondary-foreground: 214 32% 91%;
 
-    --muted: 240 15% 12%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 240 10% 9%;
+    --muted-foreground: 215 12% 40%;
 
     --accent: 187 80% 15%;
     --accent-foreground: 187 80% 60%;
@@ -127,21 +127,21 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 15% 14%;
-    --border-light: 240 15% 18%;
-    --input: 240 15% 14%;
+    --border: 240 10% 12%;
+    --border-light: 240 10% 16%;
+    --input: 240 10% 10%;
     --ring: 0 84% 60%;
 
-    --sidebar-background: 240 20% 4%;
+    --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 214 32% 91%;
     --sidebar-primary: 0 84% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 84% 15%;
+    --sidebar-accent: 0 84% 10%;
     --sidebar-accent-foreground: 0 84% 60%;
-    --sidebar-border: 240 15% 14%;
+    --sidebar-border: 240 10% 12%;
     --sidebar-ring: 0 84% 60%;
 
-    --shadow-glow: 0 0 30px hsl(0 84% 60% / 0.2);
+    --shadow-glow: 0 0 30px hsl(0 84% 60% / 0.15);
   }
 }
 
@@ -235,8 +235,7 @@
   .animate-ticker {
     display: flex;
     align-items: center;
-    gap: 24px;
-    padding: 8px 16px;
+    gap: 0;
     white-space: nowrap;
     width: max-content;
     animation: ticker-scroll 120s linear infinite;
@@ -426,10 +425,43 @@
   cursor: pointer !important;
 }
 
-/* OpenTuna Theme - TUNA Brand Colors */
+/* Claw Mode Terminal Utilities */
+.claw-panel {
+  background: hsl(240 10% 5%);
+  border: 1px solid hsl(240 10% 12%);
+  border-radius: 6px;
+}
+
+.claw-panel-dark {
+  background: hsl(0 0% 4%);
+  border: 1px solid hsl(240 10% 12%);
+  border-radius: 6px;
+}
+
+.claw-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: hsl(215 12% 40%);
+  margin-bottom: 8px;
+}
+
+.claw-row-hover:hover {
+  background: rgba(255,255,255,0.025);
+}
+
+.claw-glow-red {
+  box-shadow: 0 0 16px rgba(232, 64, 64, 0.15);
+}
+
+/* OpenClaw SDK card */
 .opentuna-card {
   @apply bg-card/50 border border-primary/20 hover:border-primary/40 
-         transition-all duration-200 rounded-xl;
+         transition-all duration-200 rounded-lg;
 }
 
 .opentuna-gradient-text {
@@ -437,11 +469,11 @@
 }
 
 .opentuna-glow {
-  box-shadow: 0 0 20px hsl(152 69% 41% / 0.15);
+  box-shadow: 0 0 20px hsl(152 69% 41% / 0.12);
 }
 
 .opentuna-button {
   @apply bg-gradient-to-r from-green-600 to-emerald-600 
          hover:from-green-700 hover:to-emerald-700 
-         text-white font-medium rounded-lg;
+         text-white font-medium rounded-md;
 }

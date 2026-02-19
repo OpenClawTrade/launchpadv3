@@ -160,135 +160,86 @@ export default function FunLauncherPage() {
   }, []);
 
   return (
-    <div className="gate-theme dark min-h-screen">
-      {/* Header */}
+    <div className="min-h-screen bg-background">
+      {/* Use AppHeader for the header */}
       <header className="gate-header">
         <div className="gate-header-inner">
           <div className="flex items-center gap-3">
             <Link to="/" className="gate-logo" aria-label="Claw Mode">
-              <img
-                src={HEADER_LOGO_SRC}
-                alt="Claw Mode"
-                className="h-8 w-8 rounded-lg object-cover"
-                loading="eager"
-              />
-              <span className="text-lg font-bold">Claw Mode</span>
+              <img src={HEADER_LOGO_SRC} alt="Claw Mode" className="h-7 w-7 object-cover" loading="eager" />
+              <span className="text-[15px] font-bold font-mono text-primary">CLAW</span>
+              <span className="text-[15px] font-bold font-mono text-foreground/80">MODE</span>
             </Link>
-            
-            {/* Chain Switcher */}
             <div className="hidden sm:block">
               <ChainSwitcher />
             </div>
           </div>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-2">
-            <Link to="/trade">
-              <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg h-9 px-3 text-sm font-medium">
-                Trade
-              </Button>
-            </Link>
-            <Link to="/trending">
-              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium">
-                Trending
-              </Button>
-            </Link>
-            <Link to="/api">
-              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium">
-                API
-              </Button>
-            </Link>
-            <Link to="/agents">
-              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
-                <Bot className="h-4 w-4" />
-                Agents
-              </Button>
-            </Link>
-            <Link to="/opentuna">
-              <Button size="sm" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
-                <Fish className="h-4 w-4" weight="duotone" />
-                Claw SDK
-              </Button>
-            </Link>
-            <Link to="/migrate">
-              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-9 px-3 text-sm font-medium gap-1.5">
-                <ArrowsClockwise className="h-4 w-4" weight="bold" />
-                Migrate
-              </Button>
-            </Link>
-            
-            {/* Visitors Online */}
-            <div className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-secondary/50 border border-border">
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{onlineCount ?? '—'}</span> Online
+          <nav className="hidden md:flex items-center">
+            {[
+              { to: "/trade", label: "Trade" },
+              { to: "/trending", label: "Trending" },
+              { to: "/api", label: "API" },
+              { to: "/agents", label: "Agents" },
+              { to: "/opentuna", label: "SDK" },
+              { to: "/migrate", label: "Migrate" },
+            ].map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                className="px-3 py-1 text-[13px] font-medium text-muted-foreground border-b-2 border-transparent hover:text-foreground hover:border-border transition-colors duration-150"
+              >
+                {label}
+              </Link>
+            ))}
+            {/* Online indicator */}
+            <div className="flex items-center gap-1.5 ml-2 px-2 h-7 rounded border border-border/50 bg-secondary/30">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[11px] font-mono text-muted-foreground">
+                <span className="text-foreground font-semibold">{onlineCount ?? '—'}</span> online
               </span>
             </div>
           </nav>
 
           <div className="flex items-center gap-2">
-            <Link 
-              to="/whitepaper"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-cyan-500/10 transition-colors"
-              title="Read Whitepaper"
-            >
-              <FileText className="h-4 w-4 text-cyan-400 hover:text-cyan-300" />
+            <Link to="/whitepaper" className="flex items-center justify-center h-7 w-7 rounded hover:bg-white/5 transition-colors" title="Whitepaper">
+              <FileText className="h-3.5 w-3.5 text-muted-foreground/60" />
             </Link>
-            <a 
-              href="https://x.com/buildtuna" 
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-secondary transition-colors"
-              title="Follow us on X"
-            >
-              <XLogo className="h-4 w-4 text-muted-foreground hover:text-foreground" weight="fill" />
+            <a href="https://x.com/buildtuna" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-7 w-7 rounded hover:bg-white/5 transition-colors">
+              <XLogo className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground" weight="fill" />
             </a>
             <SolPriceDisplay />
-            
-            {/* Mobile Menu */}
+
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="sm" className="gate-btn-ghost h-10 w-10">
-                  <Menu className="h-5 w-5" />
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="bg-card border-border">
-              <nav className="flex flex-col gap-2 mt-8">
-                  {/* Mobile Chain Switcher */}
-                  <div className="px-4 py-2 border-b border-border mb-2">
-                    <p className="text-xs text-muted-foreground mb-2">Select Chain</p>
+              <SheetContent side="right" className="bg-card border-border w-64">
+                <nav className="flex flex-col mt-8">
+                  <div className="px-4 py-2 border-b border-border mb-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Chain</p>
                     <ChainSwitcher variant="default" />
                   </div>
-                  
-                  <Link to="/trade" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-primary-foreground text-sm font-medium">Trade</span>
-                  </Link>
-                  <Link to="/trending" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-foreground text-sm font-medium">Trending</span>
-                  </Link>
-                  <Link to="/api" className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="text-foreground text-sm font-medium">API</span>
-                  </Link>
-                  <Link to="/agents" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <Bot className="h-4 w-4 text-white" />
-                    <span className="text-white text-sm font-medium">Agents</span>
-                  </Link>
-                  <Link to="/opentuna" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <Fish className="h-4 w-4 text-white" weight="duotone" />
-                    <span className="text-white text-sm font-medium">Claw SDK</span>
-                  </Link>
-                  <Link to="/migrate" className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <ArrowsClockwise className="h-4 w-4 text-white" weight="bold" />
-                    <span className="text-white text-sm font-medium">Migrate</span>
-                  </Link>
-                  <Link 
-                    to="/whitepaper"
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <FileText className="h-4 w-4 text-cyan-400" />
-                    <span className="text-foreground text-sm font-medium">Whitepaper</span>
-                  </Link>
+                  {[
+                    { to: "/trade", label: "Trade" },
+                    { to: "/trending", label: "Trending" },
+                    { to: "/api", label: "API" },
+                    { to: "/agents", label: "Agents" },
+                    { to: "/opentuna", label: "SDK" },
+                    { to: "/migrate", label: "Migrate" },
+                    { to: "/whitepaper", label: "Whitepaper" },
+                  ].map(({ to, label }) => (
+                    <Link
+                      key={to}
+                      to={to}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="px-4 py-2.5 text-sm font-medium text-muted-foreground border-l-2 border-transparent hover:text-foreground hover:bg-white/5 transition-colors"
+                    >
+                      {label}
+                    </Link>
+                  ))}
                 </nav>
               </SheetContent>
             </Sheet>
@@ -308,61 +259,38 @@ export default function FunLauncherPage() {
         </div>
       )}
 
-      {/* Ticker Bar - only show for Solana */}
-      {isSolana && (
-        <div className="mt-4">
-          <TokenTickerBar />
-        </div>
-      )}
+      {/* Ticker Bar */}
+      {isSolana && <TokenTickerBar />}
 
-      {/* Token Launch Countdown */}
+      {/* Countdown + KotH + Just Launched */}
       {isSolana && (
-        <div className="max-w-[1400px] mx-auto px-4 pt-4">
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-3 space-y-3">
           <LaunchCountdown compact />
-        </div>
-      )}
-
-      {/* King of the Hill - only show for Solana */}
-      {isSolana && (
-        <div className="max-w-[1400px] mx-auto px-4 pt-6">
           <KingOfTheHill />
-        </div>
-      )}
-
-      {/* Just Launched - only show for Solana */}
-      {isSolana && (
-        <div className="max-w-[1400px] mx-auto px-4 pt-4">
           <JustLaunched />
         </div>
       )}
 
       {/* Main Content */}
-      <main className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-[1400px] mx-auto px-3 sm:px-4 py-3 space-y-3">
         {/* Base Chain Launcher */}
-        {chain === 'base' && (
-          <BaseLauncher />
-        )}
+        {chain === 'base' && <BaseLauncher />}
 
-        {/* Coming Soon State for other non-Solana chains (not Base) */}
+        {/* Coming Soon State for other non-Solana chains */}
         {!isSolana && chain !== 'base' && (
           <div className="text-center py-16 space-y-4">
-            <div className="mx-auto w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
-              <AlertCircle className="h-12 w-12 text-primary" />
+            <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+              <AlertCircle className="h-10 w-10 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold">{chainConfig.name} Coming Soon</h2>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              We're working on bringing token launches to {chainConfig.name}. Switch to Solana to launch tokens now!
+            <h2 className="text-xl font-bold">{chainConfig.name} Coming Soon</h2>
+            <p className="text-muted-foreground max-w-md mx-auto text-sm">
+              Switch to Solana to launch tokens now!
             </p>
-            <Button 
-              onClick={() => setChain('solana')}
-              className="mt-4"
-            >
-              Switch to Solana
-            </Button>
+            <Button onClick={() => setChain('solana')}>Switch to Solana</Button>
           </div>
         )}
 
-        {/* Stats Row - only show for Solana */}
+        {/* Stats ribbon */}
         {isSolana && (
           <StatsCards
             totalTokens={agentStats?.totalTokensLaunched ?? totalCount}
@@ -374,50 +302,45 @@ export default function FunLauncherPage() {
           />
         )}
 
-        {/* Two Column Layout: Launcher + Content - only show for Solana */}
+        {/* Two Column Layout */}
         {isSolana && (
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left: Token Launcher (Sticky on Desktop) */}
-          <div className="lg:w-[360px] lg:flex-shrink-0">
-            <div className="lg:sticky lg:top-20">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Left: Token Launcher */}
+          <div className="lg:w-[340px] lg:flex-shrink-0">
+            <div className="lg:sticky lg:top-[52px]">
               <TokenLauncher onLaunchSuccess={handleLaunchSuccess} onShowResult={handleShowResult} />
-
-              {/* Fee Info Card */}
-              <Card className="gate-card mt-4">
-                <div className="gate-card-body">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Fee Distribution</h3>
-                  <FeeDistributionPie />
-                </div>
-              </Card>
-
-              {/* Admin Panel */}
-              {isAdmin && <div className="mt-4"><SniperStatusPanel /></div>}
+              <div className="mt-3 claw-panel p-3">
+                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Fee Distribution</h3>
+                <FeeDistributionPie />
+              </div>
+              {isAdmin && <div className="mt-3"><SniperStatusPanel /></div>}
             </div>
           </div>
 
           {/* Right: Tabbed Content */}
           <div className="flex-1 min-w-0">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="w-full bg-card border border-border p-1.5 mb-4 grid grid-cols-5 gap-1 sm:gap-2 rounded-xl">
-                <TabsTrigger value="tokens" className="data-[state=active]:bg-red-500/25 data-[state=active]:text-red-300 data-[state=active]:border data-[state=active]:border-red-500/50 data-[state=active]:shadow-[0_0_12px_hsl(0,84%,60%,0.15)] data-[state=active]:shadow-none text-gray-400 hover:text-gray-200 hover:bg-white/5 text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
-                  <BarChart3 className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Tokens</span>
+              {/* Flat underline tabs */}
+              <TabsList className="w-full bg-transparent border-b border-border rounded-none p-0 mb-3 flex h-auto gap-0 justify-start">
+                <TabsTrigger value="tokens" className="rounded-none px-4 py-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground border-b-2 border-transparent data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:bg-transparent bg-transparent shadow-none flex items-center gap-1.5">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  <span>Tokens</span>
                 </TabsTrigger>
-                <TabsTrigger value="promoted" className="data-[state=active]:bg-red-500/25 data-[state=active]:text-red-300 data-[state=active]:border data-[state=active]:border-red-500/50 data-[state=active]:shadow-[0_0_12px_hsl(0,84%,60%,0.15)] data-[state=active]:shadow-none text-gray-400 hover:text-gray-200 hover:bg-white/5 text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
-                  <Crown className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Promoted</span>
+                <TabsTrigger value="promoted" className="rounded-none px-4 py-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground border-b-2 border-transparent data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:bg-transparent bg-transparent shadow-none flex items-center gap-1.5">
+                  <Crown className="h-3.5 w-3.5" />
+                  <span>Promoted</span>
                 </TabsTrigger>
-                <TabsTrigger value="top" className="data-[state=active]:bg-red-500/25 data-[state=active]:text-red-300 data-[state=active]:border data-[state=active]:border-red-500/50 data-[state=active]:shadow-[0_0_12px_hsl(0,84%,60%,0.15)] data-[state=active]:shadow-none text-gray-400 hover:text-gray-200 hover:bg-white/5 text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
-                  <Trophy className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Top</span>
+                <TabsTrigger value="top" className="rounded-none px-4 py-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground border-b-2 border-transparent data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:bg-transparent bg-transparent shadow-none flex items-center gap-1.5">
+                  <Trophy className="h-3.5 w-3.5" />
+                  <span>Top</span>
                 </TabsTrigger>
-                <TabsTrigger value="claims" className="data-[state=active]:bg-red-500/25 data-[state=active]:text-red-300 data-[state=active]:border data-[state=active]:border-red-500/50 data-[state=active]:shadow-[0_0_12px_hsl(0,84%,60%,0.15)] data-[state=active]:shadow-none text-gray-400 hover:text-gray-200 hover:bg-white/5 text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
-                  <Coins className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Claims</span>
+                <TabsTrigger value="claims" className="rounded-none px-4 py-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground border-b-2 border-transparent data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:bg-transparent bg-transparent shadow-none flex items-center gap-1.5">
+                  <Coins className="h-3.5 w-3.5" />
+                  <span>Claims</span>
                 </TabsTrigger>
-                <TabsTrigger value="creators" className="data-[state=active]:bg-red-500/25 data-[state=active]:text-red-300 data-[state=active]:border data-[state=active]:border-red-500/50 data-[state=active]:shadow-[0_0_12px_hsl(0,84%,60%,0.15)] data-[state=active]:shadow-none text-gray-400 hover:text-gray-200 hover:bg-white/5 text-xs sm:text-sm rounded-lg px-1 sm:px-2 py-2">
-                  <Wallet className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Creators</span>
+                <TabsTrigger value="creators" className="rounded-none px-4 py-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground border-b-2 border-transparent data-[state=active]:text-primary data-[state=active]:border-primary data-[state=active]:bg-transparent bg-transparent shadow-none flex items-center gap-1.5">
+                  <Wallet className="h-3.5 w-3.5" />
+                  <span>Creators</span>
                 </TabsTrigger>
               </TabsList>
 

@@ -1,4 +1,3 @@
-import { Card } from "@/components/ui/card";
 import { Coins, BarChart3, Bot, Send, MessageSquare } from "lucide-react";
 
 interface StatsCardsProps {
@@ -31,16 +30,16 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalAgentP
 
   const stats = [
     {
-      label: "Total Tokens",
-      value: totalTokens.toString(),
-      sub: "Launched",
+      label: "Tokens",
+      value: formatNumber(totalTokens),
+      sub: "launched",
       icon: BarChart3,
       color: "text-primary",
     },
     {
-      label: "Total Agents",
-      value: totalAgents.toString(),
-      sub: "Active",
+      label: "Agents",
+      value: formatNumber(totalAgents),
+      sub: "active",
       icon: Bot,
       color: "text-purple-400",
     },
@@ -54,7 +53,7 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalAgentP
     {
       label: "Agent Posts",
       value: formatNumber(totalAgentPosts),
-      sub: "In SubTuna",
+      sub: "in subtuna",
       icon: MessageSquare,
       color: "text-amber-400",
     },
@@ -68,16 +67,27 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalAgentP
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      {stats.map((stat) => (
-        <Card key={stat.label} className="gate-stat-card">
-          <div className="gate-stat-label">
-            <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            <span className="truncate">{stat.label}</span>
+    <div className="w-full flex items-stretch border border-border bg-[hsl(240_10%_6%)] rounded-md overflow-hidden">
+      {stats.map((stat, i) => (
+        <div
+          key={stat.label}
+          className={`flex-1 flex flex-col justify-center px-4 py-2.5 min-w-0 ${i < stats.length - 1 ? "border-r border-border" : ""}`}
+        >
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <stat.icon className={`h-3 w-3 flex-shrink-0 ${stat.color}`} />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">
+              {stat.label}
+            </span>
           </div>
-          <div className="gate-stat-value">{stat.value}</div>
-          {stat.sub && <div className="gate-stat-sub">{stat.sub}</div>}
-        </Card>
+          <div className="text-[15px] font-bold font-mono text-foreground leading-tight truncate">
+            {stat.value}
+          </div>
+          {stat.sub && (
+            <div className="text-[10px] font-mono text-muted-foreground/60 truncate">
+              {stat.sub}
+            </div>
+          )}
+        </div>
       ))}
     </div>
   );
