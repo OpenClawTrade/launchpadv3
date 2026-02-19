@@ -229,7 +229,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         launchpad,
-        domain: subdomain ? `${subdomain}.tuna.fun` : null,
+        domain: subdomain ? `${subdomain}.clawmode.fun` : null,
       }), {
         status: 201,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

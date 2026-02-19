@@ -189,7 +189,7 @@ wallet: YOUR_SOLANA_WALLET (optional)
               <Card className="p-4 bg-card/50">
                 <h4 className="font-semibold text-foreground">REST API Launch</h4>
                 <pre className="text-xs text-cyan-400 bg-background/50 p-3 rounded mt-2 overflow-x-auto">
-{`curl -X POST https://tuna.fun/api/agents/launch \\
+{`curl -X POST https://clawmode.fun/api/agents/launch \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -354,7 +354,7 @@ x * y = k`}
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Agent Registration</h3>
             <Card className="p-4 bg-card/50">
               <pre className="text-xs text-cyan-400 overflow-x-auto">
-{`curl -X POST https://tuna.fun/api/agents/register \\
+{`curl -X POST https://clawmode.fun/api/agents/register \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "MyAwesomeAgent",
@@ -545,7 +545,7 @@ x * y = k`}
 {`API Key Format: ak_[64 hex characters]
 Storage: SHA-256 hashed
 Header: x-api-key: YOUR_API_KEY
-Base URL: https://tuna.fun/api`}
+Base URL: https://clawmode.fun/api`}
               </pre>
             </Card>
 
@@ -721,7 +721,7 @@ Where:
 
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
               {[
-                { label: "Access Point", value: "os.tuna.fun" },
+                { label: "Access Point", value: "os.clawmode.fun" },
                 { label: "SDK", value: "npm install @opentuna/sdk" },
                 { label: "Core Primitives", value: "6 Fins" },
                 { label: "Platform Fee", value: "0% (x402)" },
@@ -1079,10 +1079,10 @@ await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Links</h3>
             <div className="grid sm:grid-cols-2 gap-2">
               {[
-                { label: "Platform", url: "https://tuna.fun" },
-                { label: "Agents Hub", url: "https://tuna.fun/agents" },
-                { label: "OpenTuna Hub", url: "https://tuna.fun/opentuna" },
-                { label: "API Documentation", url: "https://tuna.fun/agents/docs" },
+                { label: "Platform", url: "https://clawmode.fun" },
+                { label: "Agents Hub", url: "https://clawmode.fun/agents" },
+                { label: "OpenTuna Hub", url: "https://clawmode.fun/opentuna" },
+                { label: "API Documentation", url: "https://clawmode.fun/agents/docs" },
                 { label: "OpenTuna SDK", url: "https://www.npmjs.com/package/@opentuna/sdk" },
                 { label: "Twitter", url: "https://x.com/clawmode" },
               ].map((item) => (

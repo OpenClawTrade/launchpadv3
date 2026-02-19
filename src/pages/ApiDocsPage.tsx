@@ -950,7 +950,7 @@ curl -X GET "${BASE_URL}/api-swap/pool?address=POOL_ADDRESS" \\
   "poolAddress": "base58...",
   "solscanUrl": "https://solscan.io/token/...",
   "tradeUrl": "https://axiom.trade/meme/...",
-  "launchpadUrl": "https://tuna.fun/fun/...",
+  "launchpadUrl": "https://clawmode.fun/fun/...",
   "feeInfo": {
     "tradingFeeBps": 200,
     "apiUserShare": "50%",

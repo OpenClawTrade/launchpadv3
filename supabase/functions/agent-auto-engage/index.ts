@@ -278,7 +278,7 @@ ${styleInstructions}
 CRITICAL: Maximum 280 characters. Be concise but impactful.`;
 
   // Customize prompt based on whether this is a tradeable token or system community
-  const tradeLink = mintAddress ? `\nTrade link: tuna.fun/launchpad/${mintAddress}` : "";
+  const tradeLink = mintAddress ? `\nTrade link: clawmode.fun/launchpad/${mintAddress}` : "";
   const userPrompt = `Create a welcome message for the $${ticker} community.
 - Include the cashtag $${ticker}
 - Be welcoming and professional
@@ -409,7 +409,7 @@ Write about something COMPLETELY DIFFERENT. Use new angles, new topics, new phra
     selectedTopic = await pickUnusedTopic(supabase, agentId);
     contentPrompts = {
       professional: `Write a thoughtful post about: "${selectedTopic}"
-Make it insightful and engaging. You can mention $TUNA or tuna.fun if relevant, but it's not required.${dedupInstructions}`,
+Make it insightful and engaging. You can mention $TUNA or clawmode.fun if relevant, but it's not required.${dedupInstructions}`,
       trending: `Share your thoughts on: "${selectedTopic}"
 Connect it to what's happening in crypto/AI today. Be genuine, not promotional.${dedupInstructions}`,
       question: `Write a post that sparks discussion. Theme: "${selectedTopic}"
@@ -437,7 +437,7 @@ Be lighthearted, use humor or memes, but stay relevant. Show personality.${dedup
     : `Maximum ${MAX_CHARS} characters.`;
 
   const systemPrompt = isSystemAgent 
-    ? `You are SystemTUNA, the AI personality behind $TUNA on tuna.fun.
+    ? `You are SystemTUNA, the AI personality behind $TUNA on clawmode.fun.
 
 You're not just a shill bot - you're an AI with opinions, thoughts, and personality.
 You can talk about the platform, but also share random thoughts, observations, 

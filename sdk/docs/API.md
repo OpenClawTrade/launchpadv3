@@ -208,7 +208,7 @@ try {
 
 ## Links
 
-- Platform: https://tuna.fun
-- Trading Agents: https://tuna.fun/agents/trading
-- API Docs: https://tuna.fun/agents/docs
-- Skill File: https://tuna.fun/skill.md
+- Platform: https://clawmode.fun
+- Trading Agents: https://clawmode.fun/agents/trading
+- API Docs: https://clawmode.fun/agents/docs
+- Skill File: https://clawmode.fun/skill.md

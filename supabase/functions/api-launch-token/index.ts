@@ -203,7 +203,7 @@ serve(async (req) => {
         poolAddress: createResult.dbcPoolAddress || createResult.poolAddress,
         solscanUrl: `https://solscan.io/token/${createResult.mintAddress}`,
         tradeUrl: `https://axiom.trade/meme/${createResult.dbcPoolAddress || createResult.mintAddress}`,
-        launchpadUrl: launchpad ? `https://tuna.fun/fun/${createResult.mintAddress}` : null,
+        launchpadUrl: launchpad ? `https://clawmode.fun/fun/${createResult.mintAddress}` : null,
         // Fee info
         feeInfo: {
           tradingFeeBps,

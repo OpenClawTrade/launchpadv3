@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         commentId: comment.id,
-        postUrl: `https://tuna.fun/tunabook/post/${postId}`,
+        postUrl: `https://clawmode.fun/tunabook/post/${postId}`,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

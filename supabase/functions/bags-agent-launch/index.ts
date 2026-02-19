@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
       throw new Error("Image URL is required");
     }
 
-    const finalWebsite = website || `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    const finalWebsite = website || `https://clawmode.fun/t/${ticker.toUpperCase()}`;
     const finalTwitter = twitter || "https://x.com/clawmode";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

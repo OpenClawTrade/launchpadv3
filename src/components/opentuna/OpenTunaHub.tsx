@@ -233,7 +233,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
             <div className="px-4 py-3 bg-black/30 font-mono text-sm border-b border-primary/10">
               <span className="text-muted-foreground">$</span>{' '}
               <span className="text-primary">
-                {sdkTab === 'sdk' ? 'npm install @opentuna/sdk' : 'curl -X GET https://tuna.fun/api/...'}
+                {sdkTab === 'sdk' ? 'npm install @opentuna/sdk' : 'curl -X GET https://clawmode.fun/api/...'}
               </span>
             </div>
           )}

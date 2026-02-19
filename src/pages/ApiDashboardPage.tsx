@@ -645,7 +645,7 @@ export default function ApiDashboardPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <ExternalLink className="w-4 h-4 text-primary" />
-                      Free subdomain (*.tuna.fun) or your own custom domain
+                      Free subdomain (*.clawmode.fun) or your own custom domain
                     </li>
                     <li className="flex items-center gap-2">
                       <Activity className="w-4 h-4 text-primary" />
@@ -952,12 +952,12 @@ export default function ApiDashboardPage() {
                           </div>
                           {lp.subdomain && (
                             <a 
-                              href={`https://${lp.subdomain}.tuna.fun`}
+                            href={`https://${lp.subdomain}.clawmode.fun`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-sm text-primary hover:underline flex items-center gap-1"
                             >
-                              {lp.subdomain}.tuna.fun
+                              {lp.subdomain}.clawmode.fun
                               <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
