@@ -1,79 +1,107 @@
 
-## Redesign: Professional "Create Token" Popup
+## King of the Claws + New Lobster Logo
 
-### The Problem
+### Overview
 
-The current dialog looks unprofessional because of two layered issues:
+Three grouped changes:
+1. Copy the uploaded pixel-art lobster as the new main logo and favicon
+2. Rename "King of the Hill" → "King of the Claws" everywhere it appears
+3. Replace the yellow Crown icon with a small lobster image in the section header
 
-1. **Double-wrapped container**: The `DialogContent` has its own background/border, AND the `TokenLauncher` inside it renders another `gate-card` (with its own border, header, padding). This creates a box-within-a-box that looks broken.
+---
 
-2. **Wrong theme accent**: The previous fix used green `#4ade80` accents, but the app's design system uses **red `#e84040`** (as defined in `gate-theme.css`: `--gate-primary: 0 84% 60%`). The dialog should match the actual app theme.
+### Part 1 — Copy the Image to Project
 
-3. **Radix default styling bleeds through**: The `DialogContent` from Radix has its own `bg-background`, `rounded-lg`, padding and close button which conflict with the custom styling.
+The uploaded image at `user-uploads://16EF63C6-A7F6-411C-BFBE-2BF4D9F64E20-2.png` needs to land in **two places**:
 
-### The Fix — Two Parts
+| Copy destination | Used by |
+|---|---|
+| `public/claw-logo.png` | All existing `src="/claw-logo.png"` references (Sidebar, Footer, TradePage, TokenDetailPage, LaunchpadPage, AgentPlatformToken, MemeLoadingAnimation) — no code changes needed, they already point here |
+| `public/favicon.png` | `index.html` `<link rel="icon" href="/favicon.png">` — already wired, no HTML change needed |
+| `src/assets/claw-logo.png` | `AgentIdeaGenerator.tsx` which imports it as an ES6 module |
 
-#### Part 1 — `TokenLauncher.tsx`: Extract card wrapper into a "bare" variant
+This single file copy (same image to all three paths) updates every logo and favicon site-wide with zero code changes.
 
-Add a `bare?: boolean` prop to `TokenLauncher`. When `bare={true}` (used inside the dialog), skip the `<Card className="gate-card">` wrapper and render just the inner content directly. This eliminates the double-border/double-background issue.
+---
 
-```
-Before (inside dialog):
-  DialogContent (dark bg, border)
-    └── Card.gate-card (another dark bg, another border)
-          └── content
+### Part 2 — Rename "King of the Hill" → "King of the Claws"
 
-After:
-  DialogContent (styled shell)
-    └── content (no wrapping card)
-```
+Two files contain the visible text:
 
-#### Part 2 — `FunLauncherPage.tsx`: Restyle the Dialog shell to match app theme
+**`src/components/launchpad/KingOfTheHill.tsx` (line 118)**
+```tsx
+// Before
+King of the Hill
 
-The redesigned modal shell:
-
-```
-┌──────────────────────────────────────────────┐  ← red (#e84040) top accent line (2px)
-│ [🚀] CREATE TOKEN              [Launch Agent] [X] │  ← header: near-black bg
-│ ────────────────────────────────────────────── │  ← 1px border-bottom
-│                                                │
-│  [Random] [Describe] [Realistic] [Custom]      │  ← mode tabs (from TokenLauncher)
-│  [Phantom] [Holders]                           │
-│                                                │
-│         < form content >                       │  ← scrollable body
-│                                                │
-└──────────────────────────────────────────────┘
+// After
+King of the Claws
 ```
 
-**Specific styling changes:**
-- `background: #0a0a0b` (true terminal black matching `gate-bg-card`)
-- `border: 1px solid #1c1c1f` (matching `gate-border`)
-- `border-radius: 6px` (matching app's flat `--gate-radius-xl: 6px`, NOT 12px)
-- Top accent line: `background: linear-gradient(90deg, #e84040, #c42c2c, transparent)` (red brand color)
-- Left border on header: `border-left: 3px solid #e84040`
-- Box shadow: `0 0 60px rgba(232,64,64,0.06), 0 24px 48px rgba(0,0,0,0.9)`
-- Header: `background: #0d0d0f`, sticky, `border-bottom: 1px solid #1c1c1f`
-- Scrollable body: `overflow-y: auto`, no extra padding beyond what `TokenLauncher` already provides
-- Remove Radix's default close button (`[cmdk-dialog-overlay]`) by hiding via CSS override
-- Max width: `700px`, full mobile width with `calc(100vw - 1rem)` 
-- Max height: `90vh`, body scrolls independently
+**`src/pages/FunLauncherPage.tsx` (line 282)**
+```tsx
+// Before
+<span ...>King of the Hill</span>
 
-**Header contents (left → right):**
-- `🚀` emoji + `CREATE TOKEN` in white (uppercase, bold, 14px)
-- Subtitle: `Launch on Solana` in muted monospace
-- Right side: Red "Launch Agent" button (`/agents` link) + X close button
+// After
+<span ...>King of the Claws</span>
+```
 
-### Technical Notes
+---
 
-- `TokenLauncher` already has 6 mode tabs (Random, Describe, Realistic, Custom, Phantom, Holders) — these don't need to be reimplemented in the dialog, they're already inside the component
-- The `gate-card` wrapping in `TokenLauncher` provides `gate-card-header` (with "Launch Meme Coin" title + "Launch Agent" button) and `gate-card-body` — when `bare={true}`, we skip the outer `<Card>` but can keep the inner structure, or remove the redundant header since the dialog already has one
-- The Radix `DialogContent` has a built-in close button (`DialogClose`) — we'll hide it with `[&>button:first-child]:hidden` and render our own styled X button inside the header
+### Part 3 — Replace Crown Icon with Lobster Image
+
+**`src/components/launchpad/KingOfTheHill.tsx` (lines 116–120)**
+
+Replace the `<Crown className="w-3.5 h-3.5 text-yellow-400" />` icon with a small `<img>` of the lobster:
+
+```tsx
+// Before
+<Crown className="w-3.5 h-3.5 text-yellow-400" />
+<span ...>King of the Hill</span>
+
+// After
+<img src="/claw-logo.png" alt="Claw" className="w-4 h-4 object-contain" />
+<span ...>King of the Claws</span>
+```
+
+**`src/pages/FunLauncherPage.tsx` (line 281)**
+
+Same replacement for the Crown icon in the inline strip:
+
+```tsx
+// Before
+<Crown className="h-3.5 w-3.5 text-yellow-400" />
+<span ...>King of the Hill</span>
+
+// After
+<img src="/claw-logo.png" alt="Claw" className="h-4 w-4 object-contain" />
+<span ...>King of the Claws</span>
+```
+
+Also remove the now-unused `Crown` import from the imports of each file if it's not used elsewhere.
+
+---
+
+### Bonus — Fix index.html Twitter meta (while we're there)
+
+Lines 32–33 still say `@buildtuna`. Updating to `@clawmode` as per the pending social handle rename:
+```html
+<meta name="twitter:site" content="@clawmode" />
+<meta name="twitter:creator" content="@clawmode" />
+```
+Also line 69: `"sameAs": ["https://twitter.com/clawmode"]`
+
+---
 
 ### Files Changed
 
 | File | Change |
 |---|---|
-| `src/components/launchpad/TokenLauncher.tsx` | Add `bare?: boolean` prop; when true, skip `<Card className="gate-card">` outer wrapper and the internal header (since dialog provides it) |
-| `src/pages/FunLauncherPage.tsx` | Restyle `DialogContent` block (lines 462–505) with red terminal theme, remove double-container, pass `bare` prop to `TokenLauncher` |
+| `public/claw-logo.png` | Replaced with new lobster pixel-art image |
+| `public/favicon.png` | Replaced with new lobster pixel-art image |
+| `src/assets/claw-logo.png` | Replaced with new lobster pixel-art image |
+| `src/components/launchpad/KingOfTheHill.tsx` | "King of the Hill" → "King of the Claws"; Crown → lobster img |
+| `src/pages/FunLauncherPage.tsx` | "King of the Hill" → "King of the Claws"; Crown → lobster img |
+| `index.html` | `@buildtuna` → `@clawmode` in Twitter meta tags |
 
-No CSS file changes needed — all styling is inline to avoid specificity conflicts with Radix overrides.
+No database changes. No new dependencies.
