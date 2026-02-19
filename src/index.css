@@ -464,6 +464,32 @@
   box-shadow: 0 0 16px rgba(232, 64, 64, 0.15);
 }
 
+/* pump.fun-style Token Card */
+.pf-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+.pf-card:hover {
+  border-color: #4ade80;
+}
+.pf-card-fallback {
+  background: #2a2a2a;
+  color: #4ade80;
+}
+.pf-img-overlay {
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+}
+.pf-badge-hot { background: #ea580c; color: white; }
+.pf-badge-agent { background: #7c3aed; color: white; }
+.pf-badge-promoted { background: #d97706; color: white; }
+.pf-ticker { color: #4ade80; }
+.pf-age { color: #555; }
+.pf-desc { color: #777; }
+.pf-progress-bg { background: #2a2a2a; }
+
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* OpenClaw SDK card */
 .opentuna-card {
   @apply bg-card/50 border border-primary/20 hover:border-primary/40 

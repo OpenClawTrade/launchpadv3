@@ -229,7 +229,7 @@ export default function LaunchpadPage() {
                 className="animate-fadeIn" 
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <TokenCard token={token} />
+                <TokenCard token={token as any} solPrice={null} />
               </div>
             ))
           )}
