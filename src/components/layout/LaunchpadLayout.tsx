@@ -2,7 +2,6 @@ import { ReactNode, useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
-import { MigrationPopup } from "@/components/migration/MigrationPopup";
 
 interface LaunchpadLayoutProps {
   children: ReactNode;
@@ -22,7 +21,6 @@ export function LaunchpadLayout({ children }: LaunchpadLayoutProps) {
         </main>
         <Footer />
       </div>
-      <MigrationPopup />
     </div>
   );
 }
