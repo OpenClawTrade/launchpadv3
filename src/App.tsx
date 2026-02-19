@@ -95,7 +95,6 @@ const App = () => (
             <Sonner />
             <ErrorBoundary>
               <MatrixBackground />
-              <StickyStatsFooter />
               <BrowserRouter>
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
