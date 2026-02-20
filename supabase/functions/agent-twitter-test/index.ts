@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
       accessTokenSecret
     );
 
-    const response = await fetch(`${apiUrl}?user.fields=username,name,description`, {
+    const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
         Authorization: authHeader,
