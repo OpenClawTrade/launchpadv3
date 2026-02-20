@@ -1,222 +1,56 @@
 
 
-# Complete "Tuna" to "Claw" Rebranding Across All Files
+# Fix: METEORA_API_URL Missing Protocol + Retry Failed Launch
 
-## Overview
-There are approximately **4,500+ references** to "tuna" across **~100 files** in the frontend (`src/`), CLI (`cli/`), and edge functions (`supabase/functions/`). This plan covers every single one, organized by category.
+## Root Cause
 
-**Important constraint**: Database table names (`subtuna`, `subtuna_posts`, `subtuna_comments`, `opentuna_agents`, `opentuna_dna`, etc.) and edge function folder names stay unchanged to maintain infrastructure stability. Only user-facing text, component names, CSS classes, file names, and variable names change.
+The `METEORA_API_URL` secret is set to `clawmode.vercel.app` without the `https://` prefix. This causes an `Invalid URL` error when `agent-process-post` tries to call `clawmode.vercel.app/api/pool/create-fun`.
 
----
+The `@sandracinca` tweet (`!clawmode dog`) was correctly detected but the token launch failed at the API call step. It is now stuck as `status: "failed"` in the database, so every scan skips it.
 
-## Category 1: File/Directory Renames
+## Fix Steps
 
-### Components directory
-- `src/components/tunabook/` --> `src/components/clawbook/`
-  - All 19 files inside keep their names but internal references update
+### 1. Update the `METEORA_API_URL` secret
+Change from `clawmode.vercel.app` to `https://clawmode.vercel.app`
 
-### Hooks
-- `src/hooks/useTunaTokenData.ts` --> `src/hooks/useClawTokenData.ts`
-- `src/hooks/useSubTuna.ts` --> stays (queries DB table `subtuna`)
-- `src/hooks/useSubTunaComments.ts` --> stays
-- `src/hooks/useSubTunaMembership.ts` --> stays
-- `src/hooks/useSubTunaPosts.ts` --> stays
-- `src/hooks/useSubTunaRealtime.ts` --> stays
-- `src/hooks/useSubTunaReports.ts` --> stays
+Also update `VITE_METEORA_API_URL` if it has the same issue.
 
-Note: Hook files that directly reference DB table names (`subtuna`) keep their filenames since the tables remain, but exported function names and internal user-facing strings will be updated.
+### 2. Add URL protocol safety net in `agent-process-post`
+Add a guard at line ~1890 to auto-prepend `https://` if the URL does not start with `http`:
 
-### Pages
-- `src/pages/TunaBookPage.tsx` --> `src/pages/ClawBookPage.tsx`
-- `src/pages/TunaBookAdminPage.tsx` --> `src/pages/ClawBookAdminPage.tsx`
-- `src/pages/TunaPostPage.tsx` --> `src/pages/ClawPostPage.tsx`
-- `src/pages/SubTunaPage.tsx` --> `src/pages/SubClawPage.tsx`
+```typescript
+let meteoraApiUrl =
+  Deno.env.get("METEORA_API_URL") ||
+  Deno.env.get("VITE_METEORA_API_URL") ||
+  "https://tunalaunch.vercel.app";
 
-### Styles
-- `src/styles/tunabook-theme.css` --> `src/styles/clawbook-theme.css`
+// Safety: ensure URL has protocol
+if (!meteoraApiUrl.startsWith("http")) {
+  meteoraApiUrl = `https://${meteoraApiUrl}`;
+}
+```
 
----
+### 3. Reset the failed `@sandracinca` record so it gets retried
+Run a database update to change the status from `failed` back to `pending` (or delete the record) so the next scan cycle will re-process it:
 
-## Category 2: CSS Variable & Class Renames (tunabook-theme.css)
+```sql
+DELETE FROM agent_social_posts
+WHERE post_id = '2024831108160860668'
+AND post_author = 'sandracinca'
+AND status = 'failed';
+```
 
-All CSS variables and class names change prefix:
-- `--tunabook-*` --> `--clawbook-*` (every single variable, ~60+)
-- `.tunabook-theme` --> `.clawbook-theme`
-- `.tunabook-card` --> `.clawbook-card`
-- `.tunabook-stats-banner` --> `.clawbook-stats-banner`
-- `.tunabook-stat-*` --> `.clawbook-stat-*`
-- `.tunabook-search-*` --> `.clawbook-search-*`
-- `.tunabook-vote-*` --> `.clawbook-vote-*`
-- `.tunabook-community-link` --> `.clawbook-community-link`
-- `.tunabook-sidebar` --> `.clawbook-sidebar`
-- `.tunabook-banner` --> `.clawbook-banner`
-- `.tunabook-pinned` --> `.clawbook-pinned`
-- All other `.tunabook-*` classes
+### 4. Add the same URL safety net in other edge functions
+Apply the same `https://` guard to:
+- `claw-trading-create/index.ts` (uses hardcoded `tunalaunch.vercel.app` -- already has `https://`, OK)
+- `api-launch-token/index.ts`
+- `fun-sniper-buy/index.ts`
+- `fun-sniper-sell/index.ts`
 
-Every file referencing these classes (pages, components) updates accordingly.
+## Expected Result
 
----
-
-## Category 3: Component Internal Changes
-
-### All 19 files in `src/components/tunabook/` (moving to `clawbook/`)
-- Update all `tunabook-*` CSS class references to `clawbook-*`
-- Update all `--tunabook-*` CSS variable references to `--clawbook-*`
-- Rename exported components where applicable:
-  - `TunaPostCard` --> `ClawPostCard`
-  - `TunaBookLayout` --> `ClawBookLayout`
-  - `TunaBookFeed` --> `ClawBookFeed`
-  - `TunaBookSidebar` --> `ClawBookSidebar`
-  - `TunaBookRightSidebar` --> `ClawBookRightSidebar`
-  - `TunaCommentTree` --> `ClawCommentTree`
-  - `TunaVoteButtons` --> `ClawVoteButtons`
-  - `SubTunaCard` --> `SubClawCard`
-- Update interface names: `TunaPostCardProps` --> `ClawPostCardProps`, etc.
-- Update all `subtuna` in user-facing text to "SubClaw" (but keep DB query references as `subtuna`)
-
----
-
-## Category 4: Page-Level Changes
-
-### src/pages/SubTunaPage.tsx (renamed to SubClawPage.tsx)
-- Update all imports from `tunabook/` to `clawbook/`
-- Update CSS theme import from `tunabook-theme.css` to `clawbook-theme.css`
-- Update all `tunabook-*` class names to `clawbook-*`
-- Rename `isTunaPage` --> `isClawPage`, `tunaLiveData` --> `clawLiveData`
-- User-facing text: "SubTuna" --> "SubClaw", "TunaBook" --> "ClawBook"
-
-### src/pages/TunaBookPage.tsx (renamed to ClawBookPage.tsx)
-- Same pattern: imports, CSS classes, component references, user-facing text
-
-### src/pages/TunaPostPage.tsx (renamed to ClawPostPage.tsx)
-- Same pattern
-
-### src/pages/TunaBookAdminPage.tsx (renamed to ClawBookAdminPage.tsx)
-- Same pattern
-
-### src/pages/AgentProfilePage.tsx
-- Update imports from `tunabook/` to `clawbook/`
-- Update `tunabook-theme.css` --> `clawbook-theme.css`
-- Update CSS class references
-- "Back to TunaBook" --> "Back to ClawBook"
-
-### src/pages/AgentDocsPage.tsx
-- "Social Features (TunaBook)" --> "Social Features (ClawBook)"
-
-### src/pages/TradingAgentProfilePage.tsx
-- `/tunabook/post/` --> `/clawbook/post/` in link
-
-### src/pages/GovernancePage.tsx
-- "TUNA Governance AI" --> "Claw Governance AI"
-
-### src/pages/LaunchpadTemplatePage.tsx
-- "Powered by TUNA" --> "Powered by Claw Mode"
-
-### src/pages/CareersPage.tsx
-- "OpenTuna SDK" --> "Claw SDK"
-
-### src/pages/TunnelDistributePage.tsx
-- Admin password `"tuna"` --> `"claw"` (or leave as internal)
-
-### src/pages/ApiDocsPage.tsx (the page user is on)
-- All 61 references: "TUNA Launchpad API", "TUNA API", `TunaLaunchpadAPI`, `TunaLaunchpad`, variable names `tuna`, user-facing strings
-- --> "Claw Mode API", `ClawLaunchpadAPI`, `ClawLaunchpad`, variable `claw`
-
----
-
-## Category 5: Hook & Utility Changes
-
-### src/hooks/useTunaTokenData.ts --> useClawTokenData.ts
-- `TUNA_TOKEN_CA` --> `CLAW_TOKEN_CA`
-- `TunaTokenData` --> `ClawTokenData`
-- `useTunaTokenData` --> `useClawTokenData`
-- Query key: `"tuna-token-data"` --> `"claw-token-data"`
-- Error message: "Failed to fetch TUNA token data" --> "Failed to fetch CLAW token data"
-
-### src/hooks/useSubTuna.ts
-- Keep filename (queries `subtuna` table)
-- Internal user-facing text: "TUNA" --> "CLAW" where shown to users
-- `isTunaSubtuna` --> `isClawSubtuna`
-
-### src/contexts/ChainContext.tsx
-- `STORAGE_KEY = 'tuna-selected-chain'` --> `'claw-selected-chain'`
-
-### src/lib/debugLogger.ts
-- `STORAGE_KEY = 'tuna_debug_logs'` --> `'claw_debug_logs'`
-- `SESSION_KEY = 'tuna_debug_session'` --> `'claw_debug_session'`
-
----
-
-## Category 6: Widget Components
-
-### src/components/widgets/TradePanelWidget.tsx
-- "Powered by TUNA Launchpad" --> "Powered by Claw Mode"
-
-### src/components/widgets/TokenListWidget.tsx
-- "Powered by TUNA Launchpad" --> "Powered by Claw Mode"
-
-### src/components/widgets/TokenLauncherWidget.tsx
-- "Powered by TUNA Launchpad" --> "Powered by Claw Mode"
-
----
-
-## Category 7: Launchpad Components
-
-### src/components/launchpad/TokenCard.tsx, KingOfTheHill.tsx, JustLaunched.tsx, TokenTable.tsx
-- Update imports from `@/components/tunabook/` to `@/components/clawbook/`
-
----
-
-## Category 8: App.tsx Router
-
-- Update lazy imports for renamed pages
-- Update any route paths if they contain "tunabook" or "tuna"
-
----
-
-## Category 9: Edge Functions (user-facing text only)
-
-### supabase/functions/ai-chat/index.ts
-- "TUNA Governance AI" --> "Claw Governance AI"
-- "TUNA platform" --> "Claw Mode platform"
-
-### supabase/functions/pump-claim-fees/index.ts
-- Comment: "matches TUNA agents" --> "matches Claw agents"
-
-### supabase/functions/agent-social-comment/index.ts
-- URL: `clawmode.fun/tunabook/post/` --> `clawmode.fun/post/`
-
-### supabase/functions/base-create-token/index.ts
-- Contract name `TunaToken` --> `ClawToken` (Solidity source)
-
-Note: DB table references (`subtuna_posts`, `subtuna_comments`, `opentuna_agents`, etc.) stay unchanged in all edge functions.
-
----
-
-## Category 10: CLI (cli/src/)
-
-All 12 CLI files update user-facing strings:
-- "OpenTuna" --> "Claw" throughout
-- `OpenTunaConfig` interface name --> `ClawConfig`
-- Config directory `~/.opentuna/` --> `~/.claw/`
-- `projectName: 'opentuna'` --> `projectName: 'claw'`
-- `OPENTUNA_API_KEY` env var --> `CLAW_API_KEY`
-- `OPENTUNA_BASE_URL` --> `CLAW_BASE_URL`
-- All CLI help text and error messages
-- "opentuna init", "opentuna fund", etc. --> "claw init", "claw fund", etc.
-
----
-
-## What Will NOT Change
-- Database table names (subtuna, subtuna_posts, subtuna_comments, opentuna_agents, opentuna_dna, etc.)
-- Edge function folder names (opentuna-hatch, opentuna-dna-update, etc.)
-- Supabase queries referencing `.from("subtuna")`, `.from("opentuna_agents")`, etc.
-- Desktop layout, colors, fonts, structure
-- Any mobile responsiveness fixes already applied
-
-## Estimated Scope
-- ~100 files modified
-- ~4,500+ string replacements
-- 4 file renames (pages) + 1 directory rename (components) + 1 hook rename + 1 CSS rename
-- Zero database or infrastructure changes
+After the secret is fixed and the failed record is deleted:
+1. Next scan cycle picks up the `@sandracinca` tweet again
+2. Token launches successfully via `https://clawmode.vercel.app/api/pool/create-fun`
+3. Reply is sent to `@sandracinca` confirming the launch
 
