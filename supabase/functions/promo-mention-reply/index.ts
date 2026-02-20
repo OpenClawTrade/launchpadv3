@@ -17,11 +17,8 @@ const MAX_REPLIES_PER_THREAD = 3;
 
 const BOT_USERNAMES = new Set([
   "clawmode",
-  "tunalaunch",
   "moltbook",
   "openclaw",
-  "tuna_launch",
-  "tunaagents",
 ]);
 
 // twitterapi.io expects base64(JSON(cookieMap)) for static sessions in some endpoints.
@@ -110,7 +107,7 @@ async function fetchWithTimeout(
 async function searchMentions(apiKey: string): Promise<Tweet[]> {
   const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
   // ONLY search for direct platform mentions - NO generic crypto terms
-  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @clawmode OR @tunalaunch) -is:retweet -is:reply");
+  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @clawmode) -is:retweet -is:reply");
   searchUrl.searchParams.set("queryType", "Latest");
 
   try {
@@ -174,7 +171,7 @@ Rules:
 - Natural wit welcome, not forced jokes.
 - Be honest but respectful. Disagree without being dismissive or insulting.
 - NO swearing. NO insults. NO calling people clueless, lazy, or grifters.
-- Do NOT mention tuna, TUNA, any launchpad, platform, agent, or product.
+- Do NOT mention any specific launchpad, platform, agent, or product.
 - No taglines, signatures, hashtags, or calls to action.
 ${isFollowUp ? "- This is a follow-up in a conversation. Do NOT repeat yourself." : ""}
 Be the thoughtful reply you'd want to read.
@@ -280,20 +277,18 @@ async function postReply(
   }
 }
 
-function determineMentionType(text: string): "moltbook" | "openclaw" | "clawmode" | "tunalaunch" | "both" | "multiple" {
+function determineMentionType(text: string): "moltbook" | "openclaw" | "clawmode" | "both" | "multiple" {
   const hasMoltbook = text.toLowerCase().includes("@moltbook");
   const hasOpenclaw = text.toLowerCase().includes("@openclaw");
   const hasClawmode = text.toLowerCase().includes("@clawmode");
-  const hasTunalaunch = text.toLowerCase().includes("@tunalaunch");
   
-  const count = [hasMoltbook, hasOpenclaw, hasClawmode, hasTunalaunch].filter(Boolean).length;
+  const count = [hasMoltbook, hasOpenclaw, hasClawmode].filter(Boolean).length;
   if (count > 2) return "multiple";
   if (hasMoltbook && hasOpenclaw) return "both";
   if (hasMoltbook) return "moltbook";
   if (hasOpenclaw) return "openclaw";
   if (hasClawmode) return "clawmode";
-  if (hasTunalaunch) return "tunalaunch";
-  return "openclaw"; // fallback
+  return "openclaw";
 }
 
 // Get follower count from tweet author

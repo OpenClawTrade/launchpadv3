@@ -41,7 +41,7 @@ function buildLoginCookiesBase64(fullCookie: string): string | null {
 
 // ── Reply persona ─────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You're a knowledgeable crypto native with genuine opinions.
+const DEFAULT_SYSTEM_PROMPT = `You're a knowledgeable crypto native with genuine opinions.
 Generate a reply (max 240 chars).
 
 Rules:
@@ -51,7 +51,7 @@ Rules:
 - Natural wit welcome, not forced jokes.
 - Be honest but respectful. Disagree without being dismissive or insulting.
 - NO swearing. NO insults. NO calling people clueless, lazy, or grifters.
-- Do NOT mention tuna, TUNA, any launchpad, platform, agent, or product.
+- Do NOT mention any specific launchpad, platform, agent, or product.
 - No taglines, signatures, hashtags, or calls to action.
 
 Be the thoughtful reply you'd want to read.
@@ -349,7 +349,7 @@ serve(async (req) => {
         const aiBody = {
           model: "google/gemini-2.5-flash-lite",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: DEFAULT_SYSTEM_PROMPT },
             { role: "user", content: `Tweet by @${tweet.username}: "${tweet.text}"\n\nReply (max 240 chars, no quotes):` },
           ],
           max_tokens: 150,

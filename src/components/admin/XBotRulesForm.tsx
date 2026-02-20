@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, RotateCcw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import type { XBotAccountWithRules, XBotAccountRules } from "@/hooks/useXBotAccounts";
 
 interface XBotRulesFormProps {
@@ -22,9 +23,25 @@ interface XBotRulesFormProps {
   onSave: (rules: Partial<XBotAccountRules>) => Promise<void>;
 }
 
-const DEFAULT_MENTIONS = ["@moltbook", "@openclaw", "@clawmode", "@tunalaunch"];
-const SUGGESTED_CASHTAGS = ["$TUNA", "$SOL", "$BTC", "$ETH"];
-const SUGGESTED_KEYWORDS = ["openclaw", "clawmode", "tunalaunch", "moltbook"];
+const DEFAULT_MENTIONS = ["@moltbook", "@openclaw", "@clawmode"];
+const SUGGESTED_CASHTAGS = ["$CLAW", "$SOL", "$BTC", "$ETH"];
+const SUGGESTED_KEYWORDS = ["openclaw", "clawmode", "moltbook"];
+
+const DEFAULT_PERSONA_PROMPT = `You're a knowledgeable crypto native with genuine opinions.
+Generate a reply (max 240 chars).
+
+Rules:
+- Have opinions. Commit to a take. No hedging.
+- Never open with "Great question" or "Absolutely". Just answer.
+- Brevity mandatory. One sentence if it fits.
+- Natural wit welcome, not forced jokes.
+- Be honest but respectful. Disagree without being dismissive or insulting.
+- NO swearing. NO insults. NO calling people clueless, lazy, or grifters.
+- Do NOT mention any specific launchpad, platform, agent, or product.
+- No taglines, signatures, hashtags, or calls to action.
+
+Be the thoughtful reply you'd want to read.
+Confident, not aggressive. Sharp, not mean.`;
 
 export function XBotRulesForm({
   open,
@@ -47,6 +64,7 @@ export function XBotRulesForm({
     author_cooldown_minutes: (account.rules as any)?.author_cooldown_minutes || 10,
     max_replies_per_thread: account.rules?.max_replies_per_thread || 3,
     enabled: account.rules?.enabled ?? true,
+    persona_prompt: (account.rules as any)?.persona_prompt || "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -371,6 +389,41 @@ export function XBotRulesForm({
                   }))
                 }
               />
+            </div>
+          </div>
+
+          {/* Persona Prompt */}
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <Label>Persona Prompt</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs gap-1"
+                onClick={() =>
+                  setFormData((p) => ({ ...p, persona_prompt: "" }))
+                }
+              >
+                <RotateCcw className="w-3 h-3" />
+                Reset to Default
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Override the AI system prompt for this account. Leave empty to use the default persona.
+            </p>
+            <Textarea
+              value={formData.persona_prompt}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, persona_prompt: e.target.value }))
+              }
+              placeholder={DEFAULT_PERSONA_PROMPT}
+              rows={8}
+              className="font-mono text-xs"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{formData.persona_prompt ? "Custom persona active" : "Using default persona"}</span>
+              <span>{formData.persona_prompt.length} chars</span>
             </div>
           </div>
 

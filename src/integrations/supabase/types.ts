@@ -7917,6 +7917,7 @@ export type Database = {
           max_replies_per_thread: number | null
           min_follower_count: number | null
           monitored_mentions: string[] | null
+          persona_prompt: string | null
           require_blue_verified: boolean | null
           require_gold_verified: boolean | null
           tracked_cashtags: string[] | null
@@ -7932,6 +7933,7 @@ export type Database = {
           max_replies_per_thread?: number | null
           min_follower_count?: number | null
           monitored_mentions?: string[] | null
+          persona_prompt?: string | null
           require_blue_verified?: boolean | null
           require_gold_verified?: boolean | null
           tracked_cashtags?: string[] | null
@@ -7947,6 +7949,7 @@ export type Database = {
           max_replies_per_thread?: number | null
           min_follower_count?: number | null
           monitored_mentions?: string[] | null
+          persona_prompt?: string | null
           require_blue_verified?: boolean | null
           require_gold_verified?: boolean | null
           tracked_cashtags?: string[] | null
