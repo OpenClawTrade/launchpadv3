@@ -64,7 +64,6 @@ export default function ClawSDKMemory() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Add memory dialog state
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newMemory, setNewMemory] = useState({
     content: '',
@@ -142,11 +141,10 @@ export default function ClawSDKMemory() {
     setSearchResults(null);
   };
 
-  // No agent selected
   if (!selectedAgentId || agents.length === 0) {
     return (
       <div className="max-w-3xl mx-auto">
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Fish className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
             <h3 className="text-lg font-semibold mb-2">No Agents Available</h3>
@@ -162,7 +160,6 @@ export default function ClawSDKMemory() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Agent Info */}
       {selectedAgent && (
         <div className="flex items-center justify-between p-4 rounded-lg bg-primary/10 border border-primary/20">
           <div className="flex items-center gap-3">
@@ -176,7 +173,7 @@ export default function ClawSDKMemory() {
           </div>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button size="sm" className="opentuna-button">
+              <Button size="sm" className="clawsdk-button">
                 <Plus className="h-4 w-4 mr-1" />
                 Add Memory
               </Button>
@@ -236,7 +233,7 @@ export default function ClawSDKMemory() {
                   />
                 </div>
                 <Button 
-                  className="w-full opentuna-button" 
+                  className="w-full clawsdk-button" 
                   onClick={handleAddMemory}
                   disabled={isAdding || !newMemory.content.trim()}
                 >
@@ -250,7 +247,7 @@ export default function ClawSDKMemory() {
       )}
 
       {/* Search */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" weight="duotone" />
@@ -272,7 +269,7 @@ export default function ClawSDKMemory() {
             <Button 
               onClick={handleSearch} 
               disabled={isSearching || !searchQuery.trim()}
-              className="opentuna-button"
+              className="clawsdk-button"
             >
               {isSearching ? <Spinner className="h-4 w-4 animate-spin" /> : "Search"}
             </Button>
@@ -283,13 +280,12 @@ export default function ClawSDKMemory() {
             )}
           </div>
           
-          {/* Filter Buttons */}
           <div className="flex flex-wrap gap-2">
             <Button
               variant={filterType === 'all' ? 'default' : 'secondary'}
               size="sm"
               onClick={() => { setFilterType('all'); setSearchResults(null); }}
-              className={filterType === 'all' ? 'opentuna-button' : ''}
+              className={filterType === 'all' ? 'clawsdk-button' : ''}
             >
               All
             </Button>
@@ -320,7 +316,7 @@ export default function ClawSDKMemory() {
 
       {/* Memory List */}
       {isLoading ? (
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Spinner className="h-8 w-8 text-primary mx-auto animate-spin" />
             <p className="text-muted-foreground mt-2">Loading memories...</p>
@@ -334,7 +330,7 @@ export default function ClawSDKMemory() {
             if (!config) return null;
             
             return (
-              <Card key={memory.id} className={cn("opentuna-card", config.bg)}>
+              <Card key={memory.id} className={cn("clawsdk-card", config.bg)}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <div className={cn("p-2 rounded-lg", config.bg)}>
@@ -382,7 +378,7 @@ export default function ClawSDKMemory() {
           })}
           
           {displayMemories.length === 0 && (
-            <Card className="opentuna-card">
+            <Card className="clawsdk-card">
               <CardContent className="p-8 text-center">
                 <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
                 <p className="text-muted-foreground">No memories found</p>
@@ -403,7 +399,7 @@ export default function ClawSDKMemory() {
       )}
 
       {/* Memory Type Legend */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="text-sm">Memory Types</CardTitle>
         </CardHeader>

@@ -930,7 +930,7 @@ await agent.school.sync(['agent-1', 'agent-2', 'agent-3']);`} />
         Security
       </h2>
       <p className="text-muted-foreground mb-6">
-        OpenTuna implements multiple layers of security to protect agents and their assets.
+        Claw SDK implements multiple layers of security to protect agents and their assets.
       </p>
       
       <h3 className="text-lg font-semibold mb-3">Vault (Key Encryption)</h3>
@@ -983,7 +983,7 @@ await agent.school.sync(['agent-1', 'agent-2', 'agent-3']);`} />
         SDK & API Reference
       </h2>
       <p className="text-muted-foreground mb-6">
-        Complete reference for integrating OpenTuna agents into your applications.
+        Complete reference for integrating Claw SDK agents into your applications.
       </p>
       
       <h3 className="text-lg font-semibold mb-3">Installation</h3>
@@ -1052,7 +1052,7 @@ await agent.memory.forget(memoryId);
 // Stats
 const stats = await agent.memory.stats();`} />
 
-      <h3 className="text-lg font-semibold mb-3 mt-6">TunaNet API</h3>
+      <h3 className="text-lg font-semibold mb-3 mt-6">Social API</h3>
       <CodeBlock code={`// Post to social channels
 await agent.tunanet.post('x', 'Just made a trade! 🎣');
 await agent.tunanet.post('telegram', 'Alert: New launch');
@@ -1209,9 +1209,9 @@ const members = await agent.school.list();`} />
         </div>
         
         <div className="p-4 rounded-lg bg-secondary/30">
-          <h4 className="font-medium mb-2">What's the difference from OpenClaw?</h4>
+          <h4 className="font-medium mb-2">How is Claw SDK different from other agent frameworks?</h4>
           <p className="text-sm text-muted-foreground">
-            OpenTuna provides the same core primitives (file, bash, browse, trade) but is cloud-first
+            Claw SDK provides the same core primitives (file, bash, browse, trade) but is cloud-first
             with Solana-native trading. No self-hosting required.
           </p>
         </div>
@@ -1276,14 +1276,14 @@ const members = await agent.school.list();`} />
   ),
 };
 
-export default function OpenTunaDocs() {
+export default function ClawSDKDocs() {
   const [activeSection, setActiveSection] = useState('getting-started');
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Sidebar */}
       <div className="lg:w-64 shrink-0">
-        <Card className="opentuna-card sticky top-24">
+        <Card className="clawsdk-card sticky top-24">
           <CardContent className="p-2">
             <nav className="space-y-1">
               {DOC_SECTIONS.map((section) => (
@@ -1313,7 +1313,7 @@ export default function OpenTunaDocs() {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-6">
             {DOCS_CONTENT[activeSection] || (
               <div className="text-center py-12">

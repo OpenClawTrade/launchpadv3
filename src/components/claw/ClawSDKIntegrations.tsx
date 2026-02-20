@@ -300,7 +300,7 @@ function IntegrationCard({ integration }: { integration: Integration }) {
   };
 
   return (
-    <Card className="opentuna-card hover:border-primary/40 transition-all group">
+    <Card className="clawsdk-card hover:border-primary/40 transition-all group">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div className="p-2.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
@@ -339,7 +339,7 @@ function IntegrationCard({ integration }: { integration: Integration }) {
   );
 }
 
-export default function OpenTunaIntegrations() {
+export default function ClawSDKIntegrations() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -364,7 +364,7 @@ export default function OpenTunaIntegrations() {
             Integrations
           </h2>
           <p className="text-muted-foreground mt-1">
-            Browse all capabilities available to your OpenTuna agents
+            Browse all capabilities available to your Claw SDK agents
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -419,7 +419,7 @@ export default function OpenTunaIntegrations() {
       </div>
 
       {filteredIntegrations.length === 0 && (
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <MagnifyingGlass className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
             <p className="text-muted-foreground">No integrations found matching your search</p>
@@ -428,7 +428,7 @@ export default function OpenTunaIntegrations() {
       )}
 
       {/* SDK Callout */}
-      <Card className="opentuna-card opentuna-glow">
+      <Card className="clawsdk-card clawsdk-glow">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="p-3 rounded-xl bg-primary/10">
@@ -437,7 +437,7 @@ export default function OpenTunaIntegrations() {
             <div className="flex-1">
               <h3 className="font-bold text-lg mb-1">Access All Integrations Programmatically</h3>
               <p className="text-muted-foreground text-sm">
-                Use the <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">@opentuna/sdk</code> to 
+                Use the <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">@openclaw/sdk</code> to 
                 access all integrations from your own code. Build autonomous agents that trade, post, browse, and more.
               </p>
             </div>

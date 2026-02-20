@@ -111,7 +111,7 @@ export default function ClawSDKSonar() {
   if (!selectedAgentId || agents.length === 0) {
     return (
       <div className="max-w-3xl mx-auto">
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Fish className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
             <h3 className="text-lg font-semibold mb-2">No Agents to Configure</h3>
@@ -125,7 +125,7 @@ export default function ClawSDKSonar() {
   if (configLoading) {
     return (
       <div className="max-w-3xl mx-auto">
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Spinner className="h-8 w-8 text-primary mx-auto animate-spin" />
             <p className="text-muted-foreground mt-2">Loading Sonar configuration...</p>
@@ -170,7 +170,7 @@ export default function ClawSDKSonar() {
       )}
 
       {/* Mode Selector */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <WifiHigh className="h-5 w-5 text-primary" weight="duotone" />
@@ -211,7 +211,7 @@ export default function ClawSDKSonar() {
       </Card>
 
       {/* Current Status */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center gap-2">
@@ -223,7 +223,7 @@ export default function ClawSDKSonar() {
               size="sm"
               onClick={handleTogglePause}
               disabled={updateSonar.isPending}
-              className={isPaused ? "opentuna-button" : ""}
+              className={isPaused ? "clawsdk-button" : ""}
             >
               {isPaused ? (
                 <>
@@ -284,7 +284,7 @@ export default function ClawSDKSonar() {
       </Card>
 
       {/* Recent Pings */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lightning className="h-5 w-5 text-yellow-400" weight="duotone" />
@@ -332,7 +332,7 @@ export default function ClawSDKSonar() {
       </Card>
 
       {/* Cost Control */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CurrencyCircleDollar className="h-5 w-5 text-green-400" weight="duotone" />
@@ -364,7 +364,7 @@ export default function ClawSDKSonar() {
                 <Button variant="secondary" size="sm" onClick={() => setShowCostEdit(false)}>
                   Cancel
                 </Button>
-                <Button size="sm" className="opentuna-button" onClick={handleUpdateMaxCost}>
+                <Button size="sm" className="clawsdk-button" onClick={handleUpdateMaxCost}>
                   Save
                 </Button>
               </div>

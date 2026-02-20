@@ -41,7 +41,7 @@ interface AgentBalance {
   wallet_address: string;
 }
 
-export default function OpenTunaCurrent() {
+export default function ClawSDKCurrent() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [agentBalance, setAgentBalance] = useState<AgentBalance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
