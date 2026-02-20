@@ -1,13 +1,18 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
+import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Fingerprint, Loader2, Zap, Users, TrendingUp, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
+const MINT_PRICE_SOL = 1.0;
 
 interface NfaBatch {
   id: string;
@@ -28,9 +33,111 @@ interface NfaMint {
   created_at: string;
 }
 
+function NfaMintWithWallet({ batch, solanaAddress }: { batch: NfaBatch | null | undefined; solanaAddress: string | null }) {
+  const [minting, setMinting] = useState(false);
+  const queryClient = useQueryClient();
+  const { signAndSendTransaction, isWalletReady } = useSolanaWalletWithPrivy();
+
+  const handleMint = useCallback(async () => {
+    if (!solanaAddress || !batch || !isWalletReady) return;
+    setMinting(true);
+
+    try {
+      const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = await import("@solana/web3.js");
+
+      const rpcUrl = (window as any).__RUNTIME_RPC_URL ||
+        import.meta.env.VITE_HELIUS_RPC_URL ||
+        "https://api.mainnet-beta.solana.com";
+
+      const connection = new Connection(rpcUrl, "confirmed");
+      const fromPubkey = new PublicKey(solanaAddress);
+      const toPubkey = new PublicKey(TREASURY_WALLET);
+
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey,
+          toPubkey,
+          lamports: Math.floor(MINT_PRICE_SOL * LAMPORTS_PER_SOL),
+        })
+      );
+
+      toast.info("Approve the transaction in your wallet...");
+
+      const { signature, confirmed } = await signAndSendTransaction(transaction);
+
+      if (!confirmed) {
+        toast.error("Transaction not confirmed");
+        return;
+      }
+
+      toast.info("Payment confirmed! Registering your NFA...");
+
+      // Call the nfa-mint edge function
+      const { data, error } = await supabase.functions.invoke("nfa-mint", {
+        body: { minterWallet: solanaAddress, paymentSignature: signature },
+      });
+
+      if (error) {
+        toast.error("Mint registration failed: " + error.message);
+        return;
+      }
+
+      const responseData = data as any;
+      if (responseData?.error) {
+        toast.error(responseData.error);
+        return;
+      }
+
+      toast.success(`🦞 NFA Slot #${responseData.mint?.slotNumber} minted! Batch ${responseData.mint?.mintedCount}/${responseData.mint?.totalSlots}`);
+      queryClient.invalidateQueries({ queryKey: ["nfa-batch-current"] });
+      queryClient.invalidateQueries({ queryKey: ["nfa-my-mints"] });
+    } catch (err: any) {
+      if (err.message?.includes("User rejected") || err.message?.includes("cancelled")) {
+        toast.info("Transaction cancelled");
+      } else {
+        toast.error(err.message || "Mint failed");
+      }
+    } finally {
+      setMinting(false);
+    }
+  }, [solanaAddress, batch, isWalletReady, signAndSendTransaction, queryClient]);
+
+  return (
+    <Button
+      onClick={handleMint}
+      disabled={minting || !batch || batch.status !== "open" || !solanaAddress || !isWalletReady}
+      className="w-full h-12 text-base font-bold font-mono gap-2"
+      style={{ background: "#4ade80", color: "#000" }}
+    >
+      {minting ? (
+        <Loader2 className="h-5 w-5 animate-spin" />
+      ) : (
+        <>
+          <Fingerprint className="h-5 w-5" />
+          MINT NFA — 1 SOL
+        </>
+      )}
+    </Button>
+  );
+}
+
+// Fallback button when Privy is not available
+function NfaMintFallback({ batch, solanaAddress }: { batch: NfaBatch | null | undefined; solanaAddress: string | null }) {
+  return (
+    <Button
+      disabled
+      className="w-full h-12 text-base font-bold font-mono gap-2"
+      style={{ background: "#4ade80", color: "#000" }}
+    >
+      <Fingerprint className="h-5 w-5" />
+      MINT NFA — 1 SOL
+    </Button>
+  );
+}
+
 export default function PanelNfaTab() {
   const { solanaAddress } = useAuth();
-  const [minting, setMinting] = useState(false);
+  const privyAvailable = usePrivyAvailable();
 
   // Fetch current batch
   const { data: batch } = useQuery({
@@ -64,19 +171,6 @@ export default function PanelNfaTab() {
   });
 
   const progress = batch ? (batch.minted_count / batch.total_slots) * 100 : 0;
-
-  const handleMint = async () => {
-    if (!solanaAddress || !batch) return;
-    setMinting(true);
-    try {
-      // TODO: Send 1 SOL to treasury, then call nfa-mint edge function
-      toast.info("NFA minting will be available soon — smart contracts are being finalized.");
-    } catch (err) {
-      toast.error("Mint failed");
-    } finally {
-      setMinting(false);
-    }
-  };
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-8">
@@ -117,21 +211,11 @@ export default function PanelNfaTab() {
       )}
 
       {/* Mint Button */}
-      <Button
-        onClick={handleMint}
-        disabled={minting || !batch || batch.status !== "open"}
-        className="w-full h-12 text-base font-bold font-mono gap-2"
-        style={{ background: "#4ade80", color: "#000" }}
-      >
-        {minting ? (
-          <Loader2 className="h-5 w-5 animate-spin" />
-        ) : (
-          <>
-            <Fingerprint className="h-5 w-5" />
-            MINT NFA — 1 SOL
-          </>
-        )}
-      </Button>
+      {privyAvailable ? (
+        <NfaMintWithWallet batch={batch} solanaAddress={solanaAddress} />
+      ) : (
+        <NfaMintFallback batch={batch} solanaAddress={solanaAddress} />
+      )}
 
       {/* How It Works */}
       <Card className="p-4 bg-white/5 border-white/10">

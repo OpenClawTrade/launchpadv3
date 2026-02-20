@@ -154,6 +154,8 @@ const App = () => (
                      <Route path="/fun" element={<FunModePage />} />
                      <Route path="/tokenomics" element={<TokenomicsPage />} />
                      <Route path="/panel" element={<PanelPage />} />
+                     <Route path="/portfolio" element={<Navigate to="/panel?tab=portfolio" replace />} />
+                     <Route path="/earnings" element={<Navigate to="/panel?tab=earnings" replace />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

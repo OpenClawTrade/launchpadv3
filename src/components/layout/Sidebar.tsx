@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart, FileText, LayoutDashboard } from "lucide-react";
+import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,7 +16,7 @@ const NAV_LINKS = [
   { to: "/sdk", label: "SDK", icon: Code2 },
   { to: "/tokenomics", label: "Tokenomics", icon: PieChart },
   { to: "/whitepaper", label: "Whitepaper", icon: FileText },
-  { to: "/panel", label: "Panel", icon: LayoutDashboard },
+  { to: "/panel", label: "Panel", icon: null, useClaw: true },
 ];
 
 interface SidebarProps {
@@ -47,7 +47,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
       {/* Nav links */}
       <nav className="flex-1 px-2 space-y-0.5">
-        {NAV_LINKS.map(({ to, label, icon: Icon, exact }) => {
+        {NAV_LINKS.map(({ to, label, icon: Icon, exact, useClaw }) => {
           const active = isActive(to, exact);
           return (
             <Link
@@ -62,7 +62,11 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
               )}
               style={active ? { borderLeftColor: "#4ade80" } : {}}
             >
-              <Icon className="h-4 w-4 flex-shrink-0" />
+              {useClaw ? (
+                <img src={LOGO_SRC} alt="" className="h-4 w-4 rounded-sm object-contain flex-shrink-0" />
+              ) : Icon ? (
+                <Icon className="h-4 w-4 flex-shrink-0" />
+              ) : null}
               <span>{label}</span>
             </Link>
           );
