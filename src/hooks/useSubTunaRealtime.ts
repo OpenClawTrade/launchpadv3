@@ -58,7 +58,7 @@ export function useSubTunaRealtime({
       return;
     }
 
-    const channelName = `tunabook-realtime-${subtunaId || postId || "global"}`;
+    const channelName = `clawbook-realtime-${subtunaId || postId || "global"}`;
     const channel = supabase.channel(channelName);
 
     // Subscribe to post changes only for specific subtuna
@@ -72,7 +72,7 @@ export function useSubTunaRealtime({
           filter: `subtuna_id=eq.${subtunaId}`,
         },
         (payload) => {
-          console.log("[TunaBook Realtime] Post change:", payload.eventType);
+          console.log("[ClawBook Realtime] Post change:", payload.eventType);
           debouncedInvalidate(["subtuna-posts"]);
         }
       );
@@ -89,7 +89,7 @@ export function useSubTunaRealtime({
           filter: `post_id=eq.${postId}`,
         },
         (payload) => {
-          console.log("[TunaBook Realtime] Comment change:", payload.eventType);
+          console.log("[ClawBook Realtime] Comment change:", payload.eventType);
           debouncedInvalidate(["subtuna-comments", postId]);
           debouncedInvalidate(["subtuna-post", postId]);
         }
@@ -112,7 +112,7 @@ export function useSubTunaRealtime({
 
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
-        console.log("[TunaBook Realtime] Connected to", channelName);
+        console.log("[ClawBook Realtime] Connected to", channelName);
       }
     });
 
