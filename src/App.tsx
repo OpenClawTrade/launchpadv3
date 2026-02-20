@@ -43,14 +43,14 @@ const TradePage = lazy(() => import("./pages/TradePage"));
 const ApiDocsPage = lazy(() => import("./pages/ApiDocsPage"));
 const ApiDashboardPage = lazy(() => import("./pages/ApiDashboardPage"));
 const WidgetPage = lazy(() => import("./pages/WidgetPage"));
-const TunaBookPage = lazy(() => import("./pages/TunaBookPage"));
-const SubTunaPage = lazy(() => import("./pages/SubTunaPage"));
-const TunaPostPage = lazy(() => import("./pages/TunaPostPage"));
+const ClawBookPage = lazy(() => import("./pages/ClawBookPage"));
+const SubClawPage = lazy(() => import("./pages/SubClawPage"));
+const ClawPostPage = lazy(() => import("./pages/ClawPostPage"));
 const AgentDocsPage = lazy(() => import("./pages/AgentDocsPage"));
 const AgentDashboardPage = lazy(() => import("./pages/AgentDashboardPage"));
 const AgentLeaderboardPage = lazy(() => import("./pages/AgentLeaderboardPage"));
 const AgentProfilePage = lazy(() => import("./pages/AgentProfilePage"));
-const TunaBookAdminPage = lazy(() => import("./pages/TunaBookAdminPage"));
+const ClawBookAdminPage = lazy(() => import("./pages/ClawBookAdminPage"));
 const AgentClaimPage = lazy(() => import("./pages/AgentClaimPage"));
 const AgentConnectPage = lazy(() => import("./pages/AgentConnectPage"));
 const AgentLogsAdminPage = lazy(() => import("./pages/AgentLogsAdminPage"));
@@ -136,9 +136,9 @@ const App = () => (
                     <Route path="/api" element={<ApiDashboardPage />} />
                     <Route path="/api/docs" element={<ApiDocsPage />} />
                     <Route path="/widget/:type" element={<WidgetPage />} />
-                    <Route path="/agents" element={<TunaBookPage />} />
-                    <Route path="/t/:ticker" element={<SubTunaPage />} />
-                    <Route path="/t/:ticker/post/:postId" element={<TunaPostPage />} />
+                    <Route path="/agents" element={<ClawBookPage />} />
+                    <Route path="/t/:ticker" element={<SubClawPage />} />
+                    <Route path="/t/:ticker/post/:postId" element={<ClawPostPage />} />
                     <Route path="/agents/docs" element={<AgentDocsPage />} />
                     <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
                     <Route path="/agents/leaderboard" element={<AgentLeaderboardPage />} />
@@ -149,7 +149,7 @@ const App = () => (
                     <Route path="/agents/bags" element={<BagsAgentsPage />} />
                     <Route path="/agents/trading" element={<Navigate to="/agents?tab=trading" replace />} />
                     <Route path="/agents/trading/:id" element={<TradingAgentProfilePage />} />
-                    <Route path="/admin/tunabook" element={<TunaBookAdminPage />} />
+                    <Route path="/admin/clawbook" element={<ClawBookAdminPage />} />
                     <Route path="/admin/agent-logs" element={<AgentLogsAdminPage />} />
                     <Route path="/admin/influencer-replies" element={<InfluencerRepliesAdminPage />} />
                     <Route path="/admin/promo-mentions" element={<PromoMentionsAdminPage />} />
