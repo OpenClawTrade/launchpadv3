@@ -32,27 +32,16 @@ Deno.serve(async (req) => {
       .from("fun_tokens")
       .select("id", { count: "exact", head: true });
 
-    // Tokens with agent_id for market cap + fees
+    // All tokens for market cap
     const { data: funTokens } = await supabase
       .from("fun_tokens")
-      .select("id, market_cap_sol, agent_id")
-      .not("agent_id", "is", null)
+      .select("id, market_cap_sol, agent_id, total_fees_earned")
       .limit(1000);
 
-    const funTokenIds = (funTokens || []).map((t: any) => t.id).filter(Boolean);
-
-    // Sum claimed fees for tokens
-    let totalAgentFeesEarned = 0;
-    if (funTokenIds.length > 0) {
-      const { data: feeClaims } = await supabase
-        .from("bags_fee_claims")
-        .select("claimed_sol")
-        .in("fun_token_id", funTokenIds);
-
-      totalAgentFeesEarned = (feeClaims || []).reduce(
-        (sum: number, c: any) => sum + Number(c?.claimed_sol || 0), 0
-      ) * 0.8;
-    }
+    // Sum total_fees_earned directly from fun_tokens
+    const totalAgentFeesEarned = (funTokens || []).reduce(
+      (sum: number, t: any) => sum + Number(t?.total_fees_earned || 0), 0
+    );
 
     // Agent posts count
     const { count: agentPostsCount } = await supabase

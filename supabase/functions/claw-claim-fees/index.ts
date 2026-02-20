@@ -19,24 +19,23 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Query claw_tokens (NOT fun_tokens)
-    const { data: clawTokens, error: fetchError } = await supabase
-      .from("claw_tokens")
+    // Query fun_tokens (the live data table)
+    const { data: tokens, error: fetchError } = await supabase
+      .from("fun_tokens")
       .select("*")
       .eq("status", "active")
       .not("dbc_pool_address", "is", null)
-      .order("bonding_progress", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(100);
 
-    if (fetchError) throw new Error(`Failed to fetch claw tokens: ${fetchError.message}`);
+    if (fetchError) throw new Error(`Failed to fetch tokens: ${fetchError.message}`);
 
-    const validTokens = (clawTokens || []).filter(t => t.dbc_pool_address && t.dbc_pool_address.length >= 32);
+    const validTokens = (tokens || []).filter(t => t.dbc_pool_address && t.dbc_pool_address.length >= 32);
     console.log(`[claw-claim-fees] Found ${validTokens.length} tokens to process`);
 
     if (validTokens.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: "No active claw tokens with pools", duration: Date.now() - startTime }),
+        JSON.stringify({ success: true, message: "No active tokens with pools", duration: Date.now() - startTime }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -81,8 +80,8 @@ serve(async (req) => {
           const signature = claimData.signature || null;
 
           if (claimedSol > 0 && signature) {
-            // Record in claw_fee_claims (NOT fun_fee_claims)
-            await supabase.from("claw_fee_claims").insert({
+            // Record in fun_fee_claims (live data table)
+            await supabase.from("fun_fee_claims").insert({
               fun_token_id: token.id,
               pool_address: token.dbc_pool_address,
               claimed_sol: claimedSol,
@@ -90,7 +89,7 @@ serve(async (req) => {
               claimed_at: new Date().toISOString(),
             });
 
-            await supabase.from("claw_tokens").update({
+            await supabase.from("fun_tokens").update({
               total_fees_earned: (token.total_fees_earned || 0) + claimedSol,
               updated_at: new Date().toISOString(),
             }).eq("id", token.id);
