@@ -569,7 +569,7 @@ export default function AgentLogsAdminPage() {
             <Card className="bg-card/50 border-border">
               <CardHeader>
                 <CardTitle className="text-lg">
-                  Recent !tunalaunch Mentions
+                  Recent !clawmode Mentions
                 </CardTitle>
               </CardHeader>
               <CardContent>

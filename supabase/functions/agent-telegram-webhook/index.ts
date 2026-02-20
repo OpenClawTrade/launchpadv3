@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     const meteoraApiUrl =
       Deno.env.get("METEORA_API_URL") ||
       Deno.env.get("VITE_METEORA_API_URL") ||
-      "https://tunalaunch.vercel.app";
+      "https://clawmode.vercel.app";
 
     if (!botToken) {
       console.log("[agent-telegram-webhook] Bot token not configured");

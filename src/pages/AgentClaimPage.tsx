@@ -561,7 +561,7 @@ function AgentClaimPageInner() {
           )}
         </Button>
         <p className="text-xs text-muted-foreground text-center">
-          Your X handle will be matched against tokens launched via the !tunalaunch command
+          Your X handle will be matched against tokens launched via the !clawmode command
         </p>
         {!ready && (
           <p className="text-xs text-center text-yellow-500">
@@ -641,7 +641,7 @@ function AgentClaimPageInner() {
               <Fish className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h4 className="font-medium mb-2">No Tokens Found</h4>
               <p className="text-sm text-muted-foreground mb-4">
-                Launch a token by tagging @ClawMode with the !tunalaunch command
+                Launch a token by tagging @ClawMode with the !clawmode command
               </p>
               <Button variant="outline" onClick={() => navigate("/agents/docs")}>
                 View Launch Instructions

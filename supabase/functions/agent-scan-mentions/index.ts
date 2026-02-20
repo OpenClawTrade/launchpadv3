@@ -410,7 +410,7 @@ Deno.serve(async (req) => {
         const authorId = mention.author_id;
         
         // Layer 2: Expanded bot username blocklist
-        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent", "clawmode", "buildclaw", "openclaw"];
+        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent", "clawmode", "buildclaw", "openclaw", "clawmode_bot"];
         if (username && botUsernames.includes(username.toLowerCase())) {
           console.log(`[agent-scan-mentions] ⏭️ Skipping ${tweetId} - from bot account @${username}`);
           continue;
@@ -704,7 +704,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: true,
           mentionsFound: mentions.length,
-          tunalaunchMentions: results.length,
+          clawmodeMentions: results.length,
           backupLaunches: launchCount,
           results,
           durationMs: Date.now() - startTime,

@@ -998,15 +998,9 @@ twitter: @cooltoken`} />
               </p>
               <div className="flex flex-wrap justify-center gap-3">
                 <Button asChild>
-                  <a href="https://twitter.com/intent/tweet?text=@ClawMode%20!tunalaunch%0Aname:%20My%20Token%0Asymbol:%20MTK%0Adescription:%20The%20best%20token%20ever" target="_blank" rel="noopener noreferrer">
+                  <a href="https://twitter.com/intent/tweet?text=@ClawMode%20!clawmode%0Aname:%20My%20Token%0Asymbol:%20MTK%0Adescription:%20The%20best%20token%20ever" target="_blank" rel="noopener noreferrer">
                     <XIcon className="h-4 w-4 mr-2" />
                     Launch on X
-                  </a>
-                </Button>
-                <Button variant="outline" asChild>
-                  <a href="/agents/claim">
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Claim Dashboard
                   </a>
                 </Button>
               </div>

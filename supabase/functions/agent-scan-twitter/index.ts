@@ -872,7 +872,7 @@ Deno.serve(async (req) => {
         }
 
         // Layer 2: Expanded bot username blocklist
-        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent", "clawmode", "buildclaw", "openclaw"];
+        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent", "clawmode", "buildclaw", "openclaw", "clawmode_bot"];
         if (username && botUsernames.includes(username.toLowerCase())) {
           console.log(`[agent-scan-twitter] ⏭️ Skipping ${tweetId} - from bot account @${username}`);
           results.push({ tweetId, status: "skipped_bot_account" });

@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const VERCEL_API_URL = "https://tunalaunch.vercel.app";
+const VERCEL_API_URL = "https://clawmode.vercel.app";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
