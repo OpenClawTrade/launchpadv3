@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Wallet, Briefcase, DollarSign, Plus, Bot, Fingerprint } from "lucide-react";
+import { Wallet, Briefcase, DollarSign, Plus, Bot, Fingerprint, Rocket } from "lucide-react";
 import clawLogo from "@/assets/claw-logo.png";
 
 // Lazy tab content
@@ -13,6 +13,7 @@ const PanelPortfolioTab = lazy(() => import("@/components/panel/PanelPortfolioTa
 const PanelEarningsTab = lazy(() => import("@/components/panel/PanelEarningsTab"));
 const PanelNfaTab = lazy(() => import("@/components/panel/PanelNfaTab"));
 const PanelAgentsTab = lazy(() => import("@/components/panel/PanelAgentsTab"));
+const PanelMyLaunchesTab = lazy(() => import("@/components/panel/PanelMyLaunchesTab"));
 
 function TabLoader() {
   return (
@@ -101,6 +102,10 @@ export default function PanelPage() {
                 <Bot className="h-3.5 w-3.5" />
                 Agents
               </TabsTrigger>
+              <TabsTrigger value="launches" className="flex-1 gap-1.5 text-xs">
+                <Rocket className="h-3.5 w-3.5" />
+                Launches
+              </TabsTrigger>
             </TabsList>
 
             <Suspense fallback={<TabLoader />}>
@@ -115,6 +120,9 @@ export default function PanelPage() {
               </TabsContent>
               <TabsContent value="agents">
                 <PanelAgentsTab />
+              </TabsContent>
+              <TabsContent value="launches">
+                <PanelMyLaunchesTab />
               </TabsContent>
             </Suspense>
           </Tabs>
