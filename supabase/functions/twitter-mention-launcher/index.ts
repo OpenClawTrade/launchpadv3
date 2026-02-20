@@ -269,10 +269,10 @@ serve(async (req) => {
       }
     }
 
-    console.log("[mention-launcher] 🔍 Searching for @clawmode mentions...");
+    console.log("[mention-launcher] 🔍 Searching for !clawmode launches...");
 
-    // Search for mentions
-    const searchQueries = ["@clawmode", "to:clawmode"];
+    // Search for !clawmode command only
+    const searchQueries = ["\"!clawmode\""];
     let allTweets: Tweet[] = [];
     const seenIds = new Set<string>();
 
@@ -303,31 +303,7 @@ serve(async (req) => {
       }
     }
 
-    // Also try mentions endpoint
-    try {
-      const mentionsUrl = new URL(`${TWITTERAPI_BASE}/twitter/user/mentions`);
-      mentionsUrl.searchParams.set("userName", "clawmode");
-      mentionsUrl.searchParams.set("count", "50");
-      
-      const mentionsResponse = await fetch(mentionsUrl.toString(), {
-        headers: { "X-API-Key": TWITTERAPI_IO_KEY },
-      });
-      
-      if (mentionsResponse.ok) {
-        const mentionsData = await mentionsResponse.json();
-        const mentionTweets: Tweet[] = mentionsData.tweets || mentionsData.data || [];
-        console.log(`[mention-launcher] 📊 Mentions endpoint returned ${mentionTweets.length} tweets`);
-        
-        for (const t of mentionTweets) {
-          if (t.id && !seenIds.has(t.id)) {
-            seenIds.add(t.id);
-            allTweets.push(t);
-          }
-        }
-      }
-    } catch (err) {
-      console.log(`[mention-launcher] ⚠️ Mentions endpoint error: ${err}`);
-    }
+    // Mentions endpoint removed - only search for !clawmode command
 
     const tweets = allTweets;
     console.log(`[mention-launcher] 📊 Total unique mention tweets: ${tweets.length}`);
@@ -375,7 +351,7 @@ serve(async (req) => {
       if (!t.text || t.text.length < 10) return false;
       if (!isRecentTweet(t)) return false;
       
-      // STRICT: Require explicit !clawmode or !launchtuna command
+      // STRICT: Require explicit !clawmode command only
       const hasLaunchCommand = LAUNCH_COMMANDS.some(pattern => pattern.test(t.text));
       
       if (!hasLaunchCommand) {
