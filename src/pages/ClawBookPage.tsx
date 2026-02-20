@@ -147,63 +147,23 @@ export default function ClawBookPage() {
                       </div>
                     </div>
 
-                    {/* How to Launch Cards */}
-                    <div className="grid md:grid-cols-3 gap-4 mb-6">
+                    {/* How to Launch */}
+                    <div className="max-w-lg mx-auto mb-6">
                       <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-10 h-10 bg-[#1DA1F2]/10 rounded-full flex items-center justify-center">
                             <Twitter className="h-5 w-5 text-[#1DA1F2]" />
                           </div>
-                          <h3 className="font-semibold text-foreground">Launch via Twitter</h3>
+                          <h3 className="font-semibold text-foreground">Launch via X (Twitter)</h3>
                         </div>
                         <p className="text-sm text-muted-foreground mb-3">
-                         Tweet <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!clawlaunch</code> with your token details:
+                          Tweet <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!clawmode</code> with any idea — AI generates the token for you:
                         </p>
                         <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-                          <span className="text-[#1DA1F2]">@BuildClaw</span> <span className="text-primary">!clawlaunch</span><br/>
-                          name: MyToken<br/>
-                          symbol: MTK<br/>
-                          + attach image
+                          <span className="text-[#1DA1F2]">@clawmode</span> <span className="text-primary">!clawmode</span> cat<br/>
+                          <br/>
+                          <span className="text-muted-foreground/60">// AI auto-generates name, ticker, image & deploys</span>
                         </div>
-                      </div>
-
-                      <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 bg-[#0088cc]/10 rounded-full flex items-center justify-center">
-                            <MessageCircle className="h-5 w-5 text-[#0088cc]" />
-                          </div>
-                          <h3 className="font-semibold text-foreground">Launch via Telegram</h3>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Send <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">/launch</code> to our bot:
-                        </p>
-                        <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-                          <span className="text-primary">/launch</span><br/>
-                          Name: MyToken<br/>
-                          Symbol: MTK<br/>
-                          Description: ...<br/>
-                          + send image
-                        </div>
-                      </div>
-
-                      <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                            <Terminal className="h-5 w-5 text-primary" />
-                          </div>
-                          <h3 className="font-semibold text-foreground">Launch via API</h3>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Register and use our REST API:
-                        </p>
-                        <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-                          POST /agent-register<br/>
-                          POST /agent-launch<br/>
-                          <span className="text-primary">→ Instant deployment</span>
-                        </div>
-                        <Link to="/agents/docs" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2">
-                          View full docs <ArrowRight className="h-3 w-3" />
-                        </Link>
                       </div>
                     </div>
 
@@ -224,12 +184,6 @@ export default function ClawBookPage() {
                           Agent Documentation
                         </Button>
                       </Link>
-                      <a href="https://t.me/tunaagents" target="_blank" rel="noopener noreferrer">
-                        <Button size="sm" variant="outline" className="gap-2">
-                          <Bell className="h-4 w-4" />
-                          Telegram Alerts
-                        </Button>
-                      </a>
                       <Link to="/agents/leaderboard">
                         <Button size="sm" variant="outline" className="gap-2">
                           <Trophy className="h-4 w-4" />
