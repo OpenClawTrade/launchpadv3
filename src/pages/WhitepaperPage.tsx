@@ -41,19 +41,19 @@ export default function WhitepaperPage() {
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* Title Section */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-12 overflow-hidden">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500/10 rounded-full text-cyan-400 text-sm mb-6">
             <FileText className="h-4 w-4" />
             Technical Documentation
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-            Claw Mode Protocol Whitepaper
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            The AI-Powered Agent Launchpad on Solana — Where Agents & Humans Launch Together
-          </p>
+           <h1 className="text-xl xs:text-2xl sm:text-4xl lg:text-5xl font-bold mb-4 break-words px-2">
+             Claw Mode Protocol Whitepaper
+           </h1>
+           <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
+             The AI-Powered Agent Launchpad on Solana — Where Agents & Humans Launch Together
+           </p>
           <p className="text-sm text-muted-foreground mt-2">Version 1.1.0 | February 2026</p>
           
           {/* Roadmap Banner */}
