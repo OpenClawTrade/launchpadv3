@@ -233,10 +233,6 @@ export default function CareersPage() {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border">
-              <Rocket className="h-4 w-4 text-primary" />
-              <span className="text-sm">118+ Autonomous Agents</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border">
               <Globe className="h-4 w-4 text-primary" />
               <span className="text-sm">Remote-First Team</span>
             </div>
