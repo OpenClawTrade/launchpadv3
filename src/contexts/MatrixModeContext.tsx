@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface MatrixModeContextType {
   matrixEnabled: boolean;
@@ -11,9 +12,13 @@ const MatrixModeContext = createContext<MatrixModeContextType>({
 });
 
 export function MatrixModeProvider({ children }: { children: ReactNode }) {
+  const isMobile = useIsMobile();
   const [matrixEnabled, setMatrixEnabled] = useState(() =>
     localStorage.getItem("matrix-mode") !== "false"
   );
+
+  // Force-disable matrix on mobile to prevent CJK character artifacts
+  const effectiveEnabled = matrixEnabled && !isMobile;
 
   const toggleMatrix = () => {
     setMatrixEnabled((prev) => {
@@ -24,7 +29,7 @@ export function MatrixModeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <MatrixModeContext.Provider value={{ matrixEnabled, toggleMatrix }}>
+    <MatrixModeContext.Provider value={{ matrixEnabled: effectiveEnabled, toggleMatrix }}>
       {children}
     </MatrixModeContext.Provider>
   );
