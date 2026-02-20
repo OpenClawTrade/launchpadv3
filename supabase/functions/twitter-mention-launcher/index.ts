@@ -760,20 +760,24 @@ async function generateTokenFromTweet(
     // Strip ALL t.co URLs from tweet text before AI processing to prevent pollution
     const cleanedTweetText = tweetText.replace(/https?:\/\/t\.co\/\S+/gi, '').trim();
     
-    const prompt = `Based on this tweet requesting a meme token creation, generate a creative memecoin concept.
+    const prompt = `Based on this tweet requesting a meme token, create a short catchy memecoin.
 
 Tweet: "${cleanedTweetText}"
 ${imageUrl ? `(Tweet includes an image)` : ""}
 
-Create a fun, memeable token inspired by the tweet's content, theme, or vibe.
-
-REQUIREMENTS:
-1. Name: Single word, catchy, max 12 chars (like Pepe, Doge, Wojak, Bonk)
-2. Ticker: 3-5 uppercase letters derived from the name
-3. Description: Fun, trendy description with 1-2 emojis, max 100 chars. DO NOT include any URLs.
+RULES:
+1. Name: 1-2 short words, meme style. Max 10 chars total. Think: Pepe, Doge, Bonk, Moon Cat, Rug Rat
+2. Ticker: 3-6 uppercase letters that MAKE SENSE from the name. Examples:
+   - "Pepe" -> "PEPE"
+   - "Moon Cat" -> "MOON"
+   - "Crab King" -> "CRAB"
+   - "Bonk" -> "BONK"
+   - "Doge Lord" -> "DOGE"
+3. NEVER use random letter combos (PPA, PNQR, PPCA, PCBA are BAD tickers)
+4. Description: Fun one-liner with 1-2 emojis, max 80 chars. No URLs.
 
 Return ONLY valid JSON:
-{"name": "TokenName", "ticker": "TICK", "description": "Fun description here 🚀"}`;
+{"name": "TokenName", "ticker": "TICK", "description": "Fun description 🚀"}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -787,7 +791,7 @@ Return ONLY valid JSON:
           { role: "system", content: "You are a creative meme coin generator. Return only valid JSON, no markdown. NEVER include URLs in descriptions." },
           { role: "user", content: prompt },
         ],
-        temperature: 0.9,
+        temperature: 0.8,
       }),
     });
 
@@ -815,8 +819,8 @@ Return ONLY valid JSON:
       .slice(0, 100);
     
     return {
-      name: parsed.name?.slice(0, 12) || "MemeToken",
-      ticker: (parsed.ticker || parsed.name?.slice(0, 4) || "MEME").toUpperCase().slice(0, 5),
+      name: parsed.name?.slice(0, 10) || "MemeToken",
+      ticker: (parsed.ticker || parsed.name?.split(/\s/)[0]?.replace(/[^A-Za-z]/g, '') || "MEME").toUpperCase().slice(0, 6),
       description: cleanDescription,
     };
   } catch (error) {
