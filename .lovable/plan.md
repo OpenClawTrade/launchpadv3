@@ -1,148 +1,205 @@
 
 
-# Re-enable X Bot System + Remove Tuna Branding + Add Persona Editor
+# Unified Claw Mode Panel + Non-Fungible Agent (NFA) System
 
 ## Overview
 
-Three things need to happen:
-1. Re-enable the bot system (secrets + cron jobs)
-2. Remove all "tuna" references from edge functions and admin UI
-3. Add a **Persona Editor** to the admin page so you can adjust the bot's personality, tone, and voice directly from the UI without code changes
-
-## Current State
-
-- **ClawMode Bot** (`@clawmode`): Active in DB but has **no cookies** set and **no cron jobs** scheduled
-- **67x Bot** (`@ai67x_fun`): Disabled, has cookies but is the old account
-- **Kill switches**: `ENABLE_X_POSTING` and `ENABLE_PROMO_MENTIONS` are both `"false"`
-- **Cron jobs**: All 5 deleted from `cron.job` table
-- **Persona prompt**: Hardcoded in 3 edge functions with no UI to edit it
-- **Tuna references**: Still present in edge functions (`@tunalaunch`, `tuna_launch`, `tunaagents`, `buildtuna`) and admin UI defaults
+This plan consolidates all authenticated features (Portfolio, Earnings, Create Token, NFA minting, Trading Agents) into a single **Panel** page behind Privy login, adds the NFA minting system, and replaces all remaining tuna branding with Claw Mode.
 
 ---
 
-## Part 1: Remove All Tuna References
+## Part 1: Can a New Token Standard Be Created on Solana for NFAs?
 
-### Edge Functions (4 files)
+**Short answer: No custom on-chain standard, but effectively yes via Metaplex Core.**
 
-**`supabase/functions/promo-mention-scan/index.ts`**
-- `BOT_USERNAMES` set: Remove `tunalaunch`, `tuna_launch`, `tunaagents` -- keep only `clawmode`, `moltbook`, `openclaw`
-- Search query: Remove `@tunalaunch` from the search string
-- `determineMentionType()`: Remove `tunalaunch` case
+Solana does not allow arbitrary new token "standards" the way Ethereum does with ERC contracts. However, **Metaplex Core** (the latest NFT standard on Solana) lets you set the **symbol** field to `"NFA"` on each minted asset. This is what Solana explorers (Solscan, SolanaFM, Solana Explorer) display as the asset type. So your NFAs will show up as **NFA** not **NFT** on all explorers.
 
-**`supabase/functions/promo-mention-reply/index.ts`**
-- Same `BOT_USERNAMES` cleanup
-- Same search query cleanup
-- Same `determineMentionType()` cleanup
-- System prompt: Remove "Do NOT mention tuna, TUNA" line, replace with "Do NOT mention any specific launchpad or product"
-
-**`supabase/functions/x-bot-reply/index.ts`**
-- System prompt: Same update -- remove tuna-specific line
-- No other tuna references (uses dynamic account rules from DB)
-
-**`supabase/functions/influencer-list-reply/index.ts`**
-- `SYSTEM_PROMPT`: Same update -- remove tuna-specific line
-
-### Admin UI (2 files)
-
-**`src/components/admin/XBotRulesForm.tsx`**
-- `DEFAULT_MENTIONS`: Remove `@tunalaunch`, keep `@moltbook`, `@openclaw`, `@clawmode`
-- `SUGGESTED_CASHTAGS`: Change `$TUNA` to `$CLAW`
-- `SUGGESTED_KEYWORDS`: Remove `tunalaunch`, add `clawmode` (if not already there)
-
-**`src/components/admin/XBotAccountForm.tsx`**
-- Rename "SubTuna" tab label to "Community"
-- Rename all "SubTuna" text to "Community" in descriptions
-- Keep the `subtuna_ticker` field name as-is (DB column)
-
-### Admin Page
-
-**`src/pages/XBotAdminPage.tsx`**
-- Change `ADMIN_PASSWORD` from `"tuna"` to `"claw"`
-
----
-
-## Part 2: Add Persona Editor
-
-Currently the bot personality is hardcoded in each edge function. To let you edit it from the admin UI:
-
-### Database Changes
-
-Add a `persona_prompt` column to `x_bot_account_rules`:
-```sql
-ALTER TABLE x_bot_account_rules 
-ADD COLUMN persona_prompt TEXT DEFAULT NULL;
+Additionally, the off-chain metadata JSON can include custom fields:
+```text
+{
+  "name": "Agent #347",
+  "symbol": "NFA",
+  "description": "Non-Fungible Agent - Autonomous Trading AI",
+  "image": "https://...",
+  "attributes": [...],
+  "properties": {
+    "asset_type": "Non-Fungible Agent",
+    "standard": "NFA-1",
+    "batch": 1,
+    "slot": 347
+  }
+}
 ```
 
-When `persona_prompt` is set, the edge functions will use it. When NULL, they fall back to the default hardcoded prompt.
-
-### Edge Function Changes (3 files)
-
-**`x-bot-reply/index.ts`**, **`promo-mention-reply/index.ts`**, **`influencer-list-reply/index.ts`**:
-- Read `persona_prompt` from the account's rules in DB
-- If set, use it as the system prompt; if NULL, use the default
-
-### Admin UI: New Persona Tab in XBotRulesForm
-
-Add a **"Persona"** section to the Rules editor dialog with:
-- A large textarea for the full system prompt
-- A "Reset to Default" button that clears it back to the built-in prompt
-- A preview of the default prompt so you know what you're overriding
-- Character count display
-
-This means you can:
-- Set a unique persona per bot account
-- Adjust tone, rules, emoji usage, aggressiveness
-- Add or remove restrictions
-- All without touching code
+This makes it discoverable and distinguishable from regular NFTs programmatically.
 
 ---
 
-## Part 3: Re-enable the System
+## Part 2: Unified Panel Architecture
 
-### Step 1: Set Kill Switch Secrets
-Set `ENABLE_X_POSTING` to `"true"` and `ENABLE_PROMO_MENTIONS` to `"true"` via the secrets tool.
+### Current State (scattered pages)
+- `/portfolio` -- holdings, requires auth
+- `/earnings` -- fee claims, requires auth  
+- `/?create=1` -- token creation modal
+- `/agents/dashboard` -- agent management
+- `/agents/trading` -- trading agents
+- No NFA page exists
 
-### Step 2: You Provide Cookies
-The `@clawmode` account has **no cookies set**. You will need to paste the full cookie string from your browser (DevTools > Application > Cookies > x.com) into the admin panel's "Edit Account > Authentication" tab.
+### New State (unified `/panel` route)
 
-### Step 3: Recreate Cron Jobs
-Recreate the 5 cron jobs via SQL:
-- `x-bot-scan-1min` -- every minute, calls `x-bot-scan`
-- `x-bot-reply-1min` -- every minute, calls `x-bot-reply`
-- `promo-mention-scan-2min` -- every 2 minutes, calls `promo-mention-scan`
-- `promo-mention-reply-1min` -- every minute, calls `promo-mention-reply`
-- `influencer-list-reply-30min` -- every 30 minutes, calls `influencer-list-reply`
+A single `/panel` page with tab navigation:
 
-### Step 4: Enable Account Rules
-Update the `@clawmode` account's rules in DB to `enabled: true` (currently the new one is already enabled).
+```text
++--------------------------------------------------+
+|  CLAW MODE PANEL          [User Avatar] [Logout]  |
++--------------------------------------------------+
+| Portfolio | Earnings | Create | NFAs | Agents     |
++--------------------------------------------------+
+|                                                    |
+|  (Active tab content)                              |
+|                                                    |
++--------------------------------------------------+
+```
 
----
-
-## Files Changed Summary
-
-| File | Change |
-|---|---|
-| `supabase/functions/promo-mention-scan/index.ts` | Remove tuna usernames and @tunalaunch from search |
-| `supabase/functions/promo-mention-reply/index.ts` | Remove tuna usernames, search refs, update persona prompt, read persona from DB |
-| `supabase/functions/x-bot-reply/index.ts` | Update persona prompt, read persona from DB |
-| `supabase/functions/influencer-list-reply/index.ts` | Update persona prompt, read persona from DB |
-| `src/components/admin/XBotRulesForm.tsx` | Remove tuna defaults, add Persona textarea section |
-| `src/components/admin/XBotAccountForm.tsx` | Rename "SubTuna" to "Community" in labels |
-| `src/pages/XBotAdminPage.tsx` | Change admin password from "tuna" to "claw" |
-| **DB Migration** | Add `persona_prompt TEXT` column to `x_bot_account_rules` |
-| **DB Insert** | Recreate 5 cron jobs |
-| **Secrets** | Set `ENABLE_X_POSTING=true`, `ENABLE_PROMO_MENTIONS=true` |
+- If user is not logged in, shows a centered login prompt using Privy
+- All existing page logic moves into tab components
 
 ---
 
-## What You'll Be Able to Do After This
+## Part 3: Tuna Logo Cleanup
 
-From the admin page at `/admin/x-bots`:
-1. **Edit Rules** on any account to change mentions, cashtags, keywords, follower thresholds
-2. **Edit Persona** to change the AI's tone, restrictions, and personality
-3. **Edit Account** to paste fresh cookies and configure proxies
-4. **Run Scan** / **Run Reply** buttons to manually trigger cycles
-5. **View Activity** to see what the bot is doing in real-time
+Replace `tuna-logo.png` references with `claw-logo.png` in:
 
-The bot will auto-run via cron jobs once cookies are provided and everything is enabled.
+| File | Current | Change to |
+|------|---------|-----------|
+| `PrivyProviderWrapper.tsx` | `import tunaLogo from "@/assets/tuna-logo.png"` | `import clawLogo from "@/assets/claw-logo.png"` |
+| `PortfolioPage.tsx` | `"/tuna-logo.png"` | `claw-logo.png` import |
+| `EarningsPage.tsx` | `"/tuna-logo.png"` | `claw-logo.png` import |
+| `ApiDashboardPage.tsx` | `"/tuna-logo.png"` | `claw-logo.png` import |
+| `BagsAgentsPage.tsx` | `tunaLogo` import | `clawLogo` import |
+| `CreateTradingAgentModal.tsx` | `tunaLogo` import | `clawLogo` import |
+| `AgentIdeaGenerator.tsx` | `includeTunaLogo` | `includeClawLogo` |
+
+---
+
+## Part 4: Implementation Steps
+
+### Step 1 -- Database migrations
+Create two new tables:
+
+**`nfa_batches`**
+- `id` UUID PK
+- `batch_number` INT UNIQUE
+- `total_slots` INT DEFAULT 1000
+- `minted_count` INT DEFAULT 0
+- `status` TEXT DEFAULT 'open' (open/generating/active/completed)
+- `mint_price_sol` NUMERIC DEFAULT 1.0
+- `created_at`, `generation_started_at`, `generation_completed_at` timestamps
+
+**`nfa_mints`**
+- `id` UUID PK
+- `batch_id` UUID FK -> nfa_batches
+- `slot_number` INT
+- `minter_wallet` TEXT NOT NULL
+- `payment_signature` TEXT
+- `payment_verified` BOOLEAN DEFAULT false
+- `trading_agent_id` UUID (linked after generation)
+- `nfa_mint_address` TEXT (Metaplex Core asset address)
+- `agent_name` TEXT, `agent_image_url` TEXT, `agent_personality` TEXT
+- `status` TEXT DEFAULT 'paid'
+- `created_at` TIMESTAMP
+
+RLS: Public read on both tables. Insert on `nfa_mints` restricted to service role (edge function handles payment verification).
+
+### Step 2 -- Replace all tuna-logo references
+Update the 7 files listed above to use `claw-logo.png`.
+
+### Step 3 -- Create `/panel` page with tabs
+New file: `src/pages/PanelPage.tsx`
+- Uses `useAuth()` from Privy
+- If not authenticated: shows Claw Mode branded login screen with `login()` button
+- If authenticated: shows tabbed interface with:
+  - **Portfolio** tab (extract from `PortfolioPage.tsx`)
+  - **Earnings** tab (extract from `EarningsPage.tsx`)  
+  - **Create Token** tab (launch form, currently in `FunLauncherPage`)
+  - **NFAs** tab (new -- mint UI + my NFAs gallery)
+  - **Agents** tab (links to agent dashboard/trading)
+
+### Step 4 -- Add sidebar navigation
+Update `Sidebar.tsx`:
+- Add `{ to: "/panel", label: "Panel", icon: LayoutDashboard }` next to Create Token button
+- Keep "Create Token" button but link to `/panel?tab=create`
+
+### Step 5 -- Add route
+Update `App.tsx`:
+- Add `<Route path="/panel" element={<PanelPage />} />`
+- Keep old routes (`/portfolio`, `/earnings`) as redirects to `/panel?tab=portfolio` etc.
+
+### Step 6 -- NFA Mint UI (inside Panel NFAs tab)
+- Shows current batch progress bar (e.g., 347/1000)
+- "Mint NFA - 1 SOL" button
+- On click: sends 1 SOL to treasury wallet, calls `nfa-mint` edge function with signature
+- Shows user's minted NFAs with status badges
+
+### Step 7 -- `nfa-mint` edge function
+New file: `supabase/functions/nfa-mint/index.ts`
+- Accepts `{ minterWallet, paymentSignature }`
+- Verifies 1 SOL transfer to treasury via Helius RPC (`getTransaction`)
+- Creates `nfa_mints` record
+- Increments `nfa_batches.minted_count`
+- If batch reaches 1000, sets status to `generating` (batch generation is a separate future step)
+
+### Step 8 -- NFA batch generation (future phase)
+- `nfa-generate-batch` edge function triggered when batch fills
+- For each of 1000 slots: AI generates personality/image, creates trading agent, launches token, mints Metaplex Core asset with symbol "NFA", transfers to minter
+- This is the most complex step and can be built incrementally
+
+---
+
+## Technical Details
+
+### Metaplex Core NFA Minting (Edge Function)
+The `nfa-generate-batch` function will use `@metaplex-foundation/mpl-core` via Umi:
+```text
+create(umi, {
+  asset: generateSigner(umi),
+  name: "Agent #347 - CryptoShark",
+  symbol: "NFA",                    // <-- This is what shows on explorers
+  uri: metadataJsonUri,
+  owner: minterPublicKey,
+})
+```
+
+### Fee Distribution for NFA Agent Tokens
+The existing `fun-distribute` edge function will be extended to detect NFA-linked tokens and apply the custom split:
+- 30% to NFA minter wallet (stored in `nfa_mints.minter_wallet`)
+- 30% to top 500 holders
+- 30% to agent trading wallet
+- 10% to platform treasury
+
+### Panel Component Structure
+```text
+src/pages/PanelPage.tsx
+src/components/panel/
+  PanelPortfolioTab.tsx    (extracted from PortfolioPage)
+  PanelEarningsTab.tsx     (extracted from EarningsPage)
+  PanelCreateTab.tsx       (token creation form)
+  PanelNfaTab.tsx          (NFA minting + gallery)
+  PanelAgentsTab.tsx       (agent overview)
+  PanelLoginScreen.tsx     (unauthenticated state)
+```
+
+---
+
+## Summary of Changes
+
+| Area | Files Changed/Created |
+|------|----------------------|
+| Branding | 7 files updated (tuna -> claw logo) |
+| Panel page | 7 new component files + 1 page |
+| Sidebar | `Sidebar.tsx` updated |
+| Routes | `App.tsx` updated |
+| Database | 2 new tables via migration |
+| Edge function | `nfa-mint/index.ts` new |
+| Privy config | `PrivyProviderWrapper.tsx` logo fix |
 
