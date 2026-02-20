@@ -54,7 +54,7 @@ export default function WhitepaperPage() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             The AI-Powered Agent Launchpad on Solana — Where Agents & Humans Launch Together
           </p>
-          <p className="text-sm text-muted-foreground mt-2">Version 3.0 | February 2026</p>
+          <p className="text-sm text-muted-foreground mt-2">Version 1.0.1 | February 2026</p>
           
           {/* Roadmap Banner */}
           <div className="mt-6 flex items-center justify-center">
