@@ -7473,6 +7473,30 @@ export type Database = {
         }
         Relationships: []
       }
+      twitter_profile_cache: {
+        Row: {
+          profile_image_url: string | null
+          updated_at: string | null
+          username: string
+          verified: boolean | null
+          verified_type: string | null
+        }
+        Insert: {
+          profile_image_url?: string | null
+          updated_at?: string | null
+          username: string
+          verified?: boolean | null
+          verified_type?: string | null
+        }
+        Update: {
+          profile_image_url?: string | null
+          updated_at?: string | null
+          username?: string
+          verified?: boolean | null
+          verified_type?: string | null
+        }
+        Relationships: []
+      }
       twitter_style_library: {
         Row: {
           created_at: string

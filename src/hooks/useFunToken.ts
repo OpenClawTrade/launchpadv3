@@ -25,11 +25,14 @@ export interface FunToken {
   last_distribution_at: string | null;
   created_at: string;
   updated_at: string;
+  // Social launch attribution
+  launch_author?: string | null;
+  launch_post_url?: string | null;
 }
 
 /**
  * Fetch a single fun token by mint address OR dbc_pool_address OR id
- * This handles all the ways a token might be identified in URLs
+ * Also fetches launch attribution from agent_social_posts
  */
 export function useFunToken(identifier: string) {
   return useQuery({
@@ -67,7 +70,23 @@ export function useFunToken(identifier: string) {
       }
 
       if (error) throw error;
-      return data as FunToken | null;
+      if (!data) return null;
+
+      // Fetch launch attribution from agent_social_posts
+      const { data: socialPost } = await supabase
+        .from('agent_social_posts')
+        .select('post_author, post_url')
+        .eq('fun_token_id', data.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return {
+        ...data,
+        launch_author: socialPost?.post_author || null,
+        launch_post_url: socialPost?.post_url || null,
+      } as FunToken;
     },
     enabled: !!identifier && identifier.length > 0,
   });

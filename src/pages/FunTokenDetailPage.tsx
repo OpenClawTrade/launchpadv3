@@ -29,6 +29,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTwitterProfile } from "@/hooks/useTwitterProfile";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { PhantomBadge } from "@/components/clawbook/PhantomBadge";
@@ -104,6 +105,8 @@ export default function FunTokenDetailPage() {
   const isBonding = token?.status === 'active';
   const priceChange = (token as any)?.price_change_24h || 0;
   const isPriceUp = priceChange >= 0;
+
+  const { data: twitterProfile } = useTwitterProfile(token?.launch_author);
 
   if (isLoading) {
     return (
@@ -292,7 +295,45 @@ export default function FunTokenDetailPage() {
 
         {/* ── SOCIAL LINKS + META ── */}
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-border/40">
-          {token.creator_wallet ? (
+          {token.launch_author ? (
+            <div className="flex items-center gap-1.5">
+              {twitterProfile?.profileImageUrl && (
+                <img
+                  src={twitterProfile.profileImageUrl}
+                  alt={token.launch_author}
+                  className="h-4 w-4 rounded-full object-cover"
+                />
+              )}
+              <span className="text-[10px] font-mono text-muted-foreground">by</span>
+              <a
+                href={`https://x.com/${token.launch_author}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] font-mono text-foreground/80 hover:text-primary transition-colors flex items-center gap-0.5"
+              >
+                @{token.launch_author}
+                {twitterProfile?.verified && (
+                  <svg className="h-3 w-3 text-blue-400 inline-block" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z" />
+                  </svg>
+                )}
+              </a>
+              {token.launch_post_url && (
+                <>
+                  <span className="text-border/60 text-xs">·</span>
+                  <a
+                    href={token.launch_post_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors flex items-center gap-0.5"
+                  >
+                    <ExternalLink className="h-2.5 w-2.5" />
+                    View Post
+                  </a>
+                </>
+              )}
+            </div>
+          ) : token.creator_wallet ? (
             <span className="text-[10px] font-mono text-muted-foreground">
               by <span className="text-foreground/70">{token.creator_wallet.slice(0, 6)}...{token.creator_wallet.slice(-4)}</span>
             </span>
