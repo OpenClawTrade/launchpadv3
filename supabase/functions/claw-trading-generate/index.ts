@@ -115,16 +115,17 @@ Return ONLY valid JSON: {"name": "...", "ticker": "...", "personality": "...", "
     ];
     const randomColor = colorSchemes[Math.floor(Math.random() * colorSchemes.length)];
 
-    const imagePrompt = `Create a professional trading AI agent mascot inspired by LOBSTER/CLAW themes.
+    const imagePrompt = `Create a fun, cute meme-style mascot for an AI trading agent called "${agentIdentity.name}".
 
 Style:
-- Professional trading aesthetic with chart elements in background
-- ${randomColor} as PRIMARY color palette
-- ${strategy.toUpperCase()} personality: ${details.style}
-- Lobster/crustacean inspired, anthropomorphized and professional
-- Single character, centered, solid dark background
-- No text, cartoon mascot style with professional polish
-- Expert crypto trader lobster mascot
+- Cute, funny, expressive cartoon lobster/crustacean character
+- ${randomColor} as the main color palette
+- ${strategy.toUpperCase()} personality vibe: ${details.style}
+- Meme energy — playful, colorful, NOT robotic or overly serious
+- Can have subtle trading props (tiny chart, sunglasses, hat) but keep it fun and memey
+- Single character, centered, simple/solid dark background
+- No text, cute cartoon mascot style
+- Think Doge-meme meets lobster character
 
 Ultra high resolution, digital art style.`;
 

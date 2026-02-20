@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Bot, Crown, Flame } from "lucide-react";
+import { Bot, Crown, Flame, Copy, CheckCircle } from "lucide-react";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
 import { PhantomBadge } from "@/components/clawbook/PhantomBadge";
+import { toast } from "sonner";
 
 interface TokenCardProps {
   token: FunToken;
@@ -30,6 +32,7 @@ function formatAge(createdAt: string): string {
 }
 
 export function TokenCard({ token, solPrice, isPromoted }: TokenCardProps) {
+  const [copiedCA, setCopiedCA] = useState(false);
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
   const isPhantom = token.launchpad_type === 'phantom';
@@ -41,6 +44,18 @@ export function TokenCard({ token, solPrice, isPromoted }: TokenCardProps) {
     : `/launchpad/${token.mint_address}`;
 
   const mcapFormatted = formatUsd(token.market_cap_sol, solPrice);
+
+  const handleCopyCA = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (token.mint_address) {
+      navigator.clipboard.writeText(token.mint_address);
+      setCopiedCA(true);
+      toast.success("CA copied!");
+      setTimeout(() => setCopiedCA(false), 2000);
+    }
+  };
+
 
   return (
     <Link
@@ -115,6 +130,23 @@ export function TokenCard({ token, solPrice, isPromoted }: TokenCardProps) {
           <p className="text-[10px] leading-tight line-clamp-2 pf-desc">
             {token.description}
           </p>
+        )}
+
+        {/* CA copy row */}
+        {token.mint_address && (
+          <button
+            onClick={handleCopyCA}
+            className="mt-1.5 flex items-center gap-1 w-full text-left group/ca"
+          >
+            <code className="text-[8px] font-mono text-muted-foreground truncate flex-1">
+              {token.mint_address.slice(0, 6)}...{token.mint_address.slice(-4)}
+            </code>
+            {copiedCA ? (
+              <CheckCircle className="h-2.5 w-2.5 text-green-400 flex-shrink-0" />
+            ) : (
+              <Copy className="h-2.5 w-2.5 text-muted-foreground group-hover/ca:text-foreground flex-shrink-0 transition-colors" />
+            )}
+          </button>
         )}
 
         {/* Bonding progress bar */}

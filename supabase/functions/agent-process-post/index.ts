@@ -147,7 +147,17 @@ async function generateTokenImageWithAI(
 ): Promise<string | null> {
   console.log(`[generateTokenImageWithAI] Starting for ${tokenName} (${tokenSymbol})`);
   
-  const prompt = `Create a colorful, professional cryptocurrency token logo for a memecoin called "${tokenName}" ($${tokenSymbol}). ${description ? `Theme: ${description.slice(0, 100)}` : ""}. Style: vibrant, modern, crypto aesthetic with bold colors. Cartoon mascot style with expressive face. No text, just the character/icon.`;
+  const prompt = `Create a fun, cute meme-style illustration for a memecoin called "${tokenName}" ($${tokenSymbol}). ${description ? `The user described it as: "${description.slice(0, 150)}" — use this as the MAIN subject/theme.` : "Make it playful and funny."} 
+
+IMPORTANT RULES:
+- The main subject should match what the user described (if they said "cat" make a cat, if "dog" make a dog, etc.)
+- Add subtle lobster/claw accessories or features to the main character (like tiny claw hands, a lobster tail, antennae, or a small lobster buddy)
+- Style: cute, funny, colorful meme art — NOT robotic, NOT corporate, NOT dark/serious
+- Think Doge-style meme energy but with lobster flair
+- Expressive, cartoonish, bright colors, playful mood
+- Single character centered on a simple/solid background
+- No text whatsoever
+- High quality digital illustration`;
 
   let imageUrl: string | null = null;
   
