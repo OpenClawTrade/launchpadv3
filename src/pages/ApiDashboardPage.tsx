@@ -412,7 +412,7 @@ export default function ApiDashboardPage() {
   // Not authenticated - show public API info with connect option
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen" style={{ background: "#141414" }}>
+      <div className="min-h-screen bg-background">
         <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
         <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
@@ -604,7 +604,7 @@ export default function ApiDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen" style={{ background: "#141414" }}>
+      <div className="min-h-screen bg-background">
         <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
         <div className="md:ml-[160px] flex flex-col min-h-screen">
           <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
@@ -619,7 +619,7 @@ export default function ApiDashboardPage() {
   // No account yet - show signup
   if (!account) {
     return (
-      <div className="min-h-screen" style={{ background: "#141414" }}>
+      <div className="min-h-screen bg-background">
         <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
         <div className="md:ml-[160px] flex flex-col min-h-screen">
           <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
@@ -730,7 +730,7 @@ export default function ApiDashboardPage() {
 
   // Has account - show dashboard
   return (
-    <div className="min-h-screen" style={{ background: "#141414" }}>
+    <div className="min-h-screen bg-background">
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="md:ml-[160px] flex flex-col min-h-screen">
       <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />

@@ -52,7 +52,7 @@ function OpenTunaContent() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "#141414" }}>
+    <div className="min-h-screen bg-background">
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />

@@ -34,7 +34,7 @@ export default function PanelPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen" style={{ background: "#141414" }}>
+      <div className="min-h-screen bg-background">
         <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
         <div className="md:ml-[160px] flex flex-col min-h-screen">
           <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
@@ -61,7 +61,7 @@ export default function PanelPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "#141414" }}>
+    <div className="min-h-screen bg-background">
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
