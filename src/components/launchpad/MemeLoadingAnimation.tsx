@@ -41,11 +41,9 @@ export function MemeLoadingAnimation() {
 
       {/* Main TUNA logo */}
       <div className="relative z-10">
-        <img 
-          src={TUNA_LOGO_SRC} 
-          alt="Claw Mode" 
-          className="w-10 h-10 rounded-lg object-cover animate-bounce"
-          style={{ animationDuration: '0.6s', background: '#000', padding: '1px' }}
+        <div 
+          className="w-10 h-10 animate-bounce"
+          style={{ animationDuration: '0.6s', WebkitMaskImage: `url(${TUNA_LOGO_SRC})`, maskImage: `url(${TUNA_LOGO_SRC})`, WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskPosition: 'center', backgroundColor: '#4ade80' }}
         />
         
         {/* Sparkle effects around the logo */}
