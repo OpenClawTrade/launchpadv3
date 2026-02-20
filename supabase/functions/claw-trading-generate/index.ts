@@ -6,27 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const strategyDetails = {
-  conservative: {
-    stopLoss: "10%", takeProfit: "25%", maxPositions: 2,
-    style: "calm, analytical, wise expression with reading glasses aesthetic",
-    description: "focuses on steady gains with minimal drawdown risk",
-    personalities: ["Methodical lobster analyst", "Patient claw strategist", "Risk-averse shell guardian", "Steady accumulator", "Data-driven observer"],
-  },
-  balanced: {
-    stopLoss: "20%", takeProfit: "50%", maxPositions: 3,
-    style: "confident, focused, professional trader demeanor",
-    description: "moderate risk-reward approach for consistent growth",
-    personalities: ["Calculated claw opportunist", "Adaptive shell trader", "Balanced reef tactician", "Momentum rider", "Strategic executor"],
-  },
-  aggressive: {
-    stopLoss: "30%", takeProfit: "100%", maxPositions: 5,
-    style: "fierce, determined, bold with intense expression",
-    description: "high-conviction plays targeting exponential returns",
-    personalities: ["Alpha lobster hunter", "Fearless claw degen", "High-conviction maximalist", "Volatile momentum chaser", "Bold risk-taker"],
-  },
-};
-
 async function callAIWithRetry(apiKey: string, body: object, maxRetries = 2): Promise<Response> {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -60,26 +39,29 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const { strategy, personalityPrompt } = await req.json();
-    if (!strategy || !strategyDetails[strategy as keyof typeof strategyDetails]) {
+    const userIdea = (personalityPrompt || "").trim();
+
+    if (!userIdea) {
       return new Response(
-        JSON.stringify({ error: "Valid strategy required (conservative, balanced, aggressive)" }),
+        JSON.stringify({ error: "A description/idea is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const details = strategyDetails[strategy as keyof typeof strategyDetails];
+    // Generate meme token identity purely from user's idea
+    const textPrompt = `You are a meme coin name generator. The user wants to launch a meme coin based on this idea: "${userIdea}"
 
-    const textPrompt = `Generate a professional trading agent identity for a ${strategy} strategy autonomous trading bot with LOBSTER/CLAW theme.
+Generate a UNIQUE meme token identity. Rules:
+- Name: 1-2 short catchy meme-style words (max 10 chars total). Must directly relate to the user's idea. Examples: "cool cat" -> "CoolCat", "angry frog" -> "AngryFrog", "moon dog" -> "MoonDog", "fast snail" -> "Turbo"
+- Ticker: 3-6 UPPERCASE letters that make sense from the name. NO random letter combos. Examples: "CoolCat" -> "COOL", "MoonDog" -> "MOON", "AngryFrog" -> "FROG"
+- Description: Fun catchy meme coin description under 200 chars with emoji. Reference the user's idea.
+- Personality: 2-4 word fun personality matching the character vibe
 
-Requirements:
-- Name: A lobster/claw-themed professional trading name (examples: "ClawQuant", "LobsterAlpha", "ReefSentinel", "ShellStrike", "PincerPro")
-- Ticker: 3-5 uppercase characters derived from the name
-- Personality: A 2-4 word personality trait with lobster/claw flavor
-- Description: Under 300 chars, include ${details.stopLoss} SL, ${details.takeProfit} TP, ${details.maxPositions} max positions. Professional tone.
+IMPORTANT: Do NOT use lobster/claw/pincer themes unless the user specifically asked for them. Match the user's idea exactly.
 
 Return ONLY valid JSON: {"name": "...", "ticker": "...", "personality": "...", "description": "..."}`;
 
-    let agentIdentity: { name: string; ticker: string; personality: string; description: string };
+    let identity: { name: string; ticker: string; personality: string; description: string };
 
     try {
       const textResponse = await callAIWithRetry(LOVABLE_API_KEY, {
@@ -90,44 +72,32 @@ Return ONLY valid JSON: {"name": "...", "ticker": "...", "personality": "...", "
       const textContent = textData.choices?.[0]?.message?.content || "";
       const jsonMatch = textContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        agentIdentity = JSON.parse(jsonMatch[0]);
-        if (!agentIdentity.personality) {
-          agentIdentity.personality = details.personalities[Math.floor(Math.random() * details.personalities.length)];
-        }
+        identity = JSON.parse(jsonMatch[0]);
+        if (!identity.name || !identity.ticker) throw new Error("Missing name or ticker");
       } else throw new Error("No JSON found");
     } catch {
-      const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
-      agentIdentity = {
-        name: `ClawBot${randomSuffix}`,
-        ticker: `CLAW${randomSuffix.charAt(0)}`,
-        personality: details.personalities[Math.floor(Math.random() * details.personalities.length)],
-        description: `Lobster-themed ${strategy} trading agent with ${details.stopLoss} stop-loss and ${details.takeProfit} take-profit. Up to ${details.maxPositions} concurrent positions. 🦞`,
+      // Fallback: derive from user prompt
+      const words = userIdea.split(/\s+/).filter(Boolean);
+      const name = words.slice(0, 2).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("").slice(0, 10);
+      const ticker = name.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 5) || "MEME";
+      identity = {
+        name: name || "MemeCoin",
+        ticker,
+        personality: "Degen meme lord",
+        description: `${name} - born from the idea: "${userIdea}" 🚀`,
       };
     }
 
-    // Generate avatar
-    const colorSchemes = [
-      "deep red and crimson with fiery lobster tones",
-      "dark red and orange with volcanic claw vibes",
-      "scarlet and gold with royal lobster aesthetic",
-      "crimson and teal with ocean depth contrast",
-      "burgundy and amber with luxurious shell shine",
-    ];
-    const randomColor = colorSchemes[Math.floor(Math.random() * colorSchemes.length)];
-
-    const imagePrompt = `Create a fun, cute meme-style mascot for an AI trading agent called "${agentIdentity.name}".
+    // Generate avatar based on user's idea
+    const imagePrompt = `Create a fun, cute meme-style illustration for a memecoin called "${identity.name}" based on this idea: "${userIdea}"
 
 Style:
-- Cute, funny, expressive cartoon lobster/crustacean character
-- ${randomColor} as the main color palette
-- ${strategy.toUpperCase()} personality vibe: ${details.style}
-- Meme energy — playful, colorful, NOT robotic or overly serious
-- Can have subtle trading props (tiny chart, sunglasses, hat) but keep it fun and memey
-- Single character, centered, simple/solid dark background
-- No text, cute cartoon mascot style
-- Think Doge-meme meets lobster character
-
-Ultra high resolution, digital art style.`;
+- The MAIN subject must match what the user described (if they said cat, draw a cat; if dog, draw a dog; etc.)
+- Add subtle lobster/claw accessories as a brand touch (tiny claw gloves, small antennae, a lobster buddy in the corner)
+- Cute, funny, expressive, colorful meme art style (think Doge-meme energy)
+- Single character, centered, solid dark background
+- No text, cartoon mascot style
+- Ultra high resolution, digital art`;
 
     let avatarUrl: string | null = null;
     try {
@@ -142,7 +112,7 @@ Ultra high resolution, digital art style.`;
         const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
         const base64Data = imageBase64.split(",")[1];
         const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-        const fileName = `${agentIdentity.ticker.toLowerCase()}-${Date.now()}.png`;
+        const fileName = `${identity.ticker.toLowerCase()}-${Date.now()}.png`;
         const { error: uploadError } = await supabase.storage.from("trading-agents").upload(fileName, binaryData, { contentType: "image/png", upsert: false });
         if (!uploadError) {
           const { data: urlData } = supabase.storage.from("trading-agents").getPublicUrl(fileName);
@@ -156,10 +126,10 @@ Ultra high resolution, digital art style.`;
     return new Response(
       JSON.stringify({
         success: true,
-        name: agentIdentity.name,
-        ticker: agentIdentity.ticker.toUpperCase(),
-        personality: agentIdentity.personality,
-        description: agentIdentity.description,
+        name: identity.name,
+        ticker: identity.ticker.toUpperCase(),
+        personality: identity.personality,
+        description: identity.description,
         avatarUrl,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
