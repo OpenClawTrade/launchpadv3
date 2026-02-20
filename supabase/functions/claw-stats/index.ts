@@ -27,48 +27,47 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Total claw tokens count
+    // Total tokens count (from fun_tokens - the live data table)
     const { count: totalTokensCount } = await supabase
-      .from("claw_tokens")
+      .from("fun_tokens")
       .select("id", { count: "exact", head: true });
 
-    // Claw tokens with agent_id for market cap + fees
-    const { data: clawTokens } = await supabase
-      .from("claw_tokens")
+    // Tokens with agent_id for market cap + fees
+    const { data: funTokens } = await supabase
+      .from("fun_tokens")
       .select("id, market_cap_sol, agent_id")
       .not("agent_id", "is", null)
       .limit(1000);
 
-    const clawTokenIds = (clawTokens || []).map((t: any) => t.id).filter(Boolean);
+    const funTokenIds = (funTokens || []).map((t: any) => t.id).filter(Boolean);
 
-    // Sum claimed fees for claw tokens
+    // Sum claimed fees for tokens
     let totalAgentFeesEarned = 0;
-    if (clawTokenIds.length > 0) {
+    if (funTokenIds.length > 0) {
       const { data: feeClaims } = await supabase
-        .from("claw_fee_claims")
+        .from("bags_fee_claims")
         .select("claimed_sol")
-        .in("fun_token_id", clawTokenIds);
+        .in("fun_token_id", funTokenIds);
 
       totalAgentFeesEarned = (feeClaims || []).reduce(
         (sum: number, c: any) => sum + Number(c?.claimed_sol || 0), 0
       ) * 0.8;
     }
 
-    // Claw agent posts count
+    // Agent posts count
     const { count: agentPostsCount } = await supabase
-      .from("claw_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("is_agent_post", true);
+      .from("agent_post_history")
+      .select("id", { count: "exact", head: true });
 
-    // Claw agents count
+    // Active agents count
     const { count: totalAgents } = await supabase
-      .from("claw_agents")
+      .from("agents")
       .select("id", { count: "exact", head: true })
       .eq("status", "active");
 
-    // Claw agent payouts
+    // Agent payouts
     const { data: payoutRows } = await supabase
-      .from("claw_agent_fee_distributions")
+      .from("agent_fee_distributions")
       .select("amount_sol");
 
     const totalAgentPayouts = (payoutRows || []).reduce(
@@ -76,7 +75,7 @@ Deno.serve(async (req) => {
     );
 
     const totalTokensLaunched = totalTokensCount || 0;
-    const totalMarketCap = (clawTokens || []).reduce(
+    const totalMarketCap = (funTokens || []).reduce(
       (sum: number, t: any) => sum + Number(t?.market_cap_sol || 0), 0
     );
 
