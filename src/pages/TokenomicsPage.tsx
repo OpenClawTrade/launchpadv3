@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { Lock, Gift, Handshake, Building2, Users, Zap, Shield, TrendingUp, Clock, ExternalLink } from "lucide-react";
+import { Gift, Handshake, Building2, Users, Zap, Shield, TrendingUp, Clock, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -39,11 +39,10 @@ interface AllocCardProps {
   title: string;
   percent: number;
   tokens: string;
-  locked?: boolean;
   children: React.ReactNode;
 }
 
-function AllocCard({ color, icon, title, percent, tokens, locked, children }: AllocCardProps) {
+function AllocCard({ color, icon, title, percent, tokens, children }: AllocCardProps) {
   return (
     <Card className="bg-[#111] p-6 md:p-8" style={{ borderColor: `${color}20` }}>
       <div className="flex flex-wrap items-start gap-4 mb-5">
@@ -56,11 +55,6 @@ function AllocCard({ color, icon, title, percent, tokens, locked, children }: Al
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-3 mb-1">
             <h2 className="text-lg font-bold text-white">{title}</h2>
-            {locked && (
-              <div className="flex items-center gap-1 text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded px-2 py-0.5">
-                <Lock className="h-3 w-3" /> Locked
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-4">
             <span className="font-mono text-2xl font-bold" style={{ color }}>{percent}%</span>
@@ -192,7 +186,6 @@ export default function TokenomicsPage() {
               title="Marketing & Strategic Collaborations"
               percent={20}
               tokens="200,000,000"
-              locked
             >
               <p className="text-white/60 text-sm leading-relaxed">
                 200M tokens are reserved exclusively for strategic marketing initiatives and
@@ -225,7 +218,6 @@ export default function TokenomicsPage() {
               title="CEX Listings & Market Making"
               percent={25}
               tokens="250,000,000"
-              locked
             >
               <p className="text-white/60 text-sm leading-relaxed">
                 250M tokens are allocated for centralized exchange listings and professional market
@@ -273,7 +265,6 @@ export default function TokenomicsPage() {
               title="Core Team Allocation"
               percent={5}
               tokens="50,000,000"
-              locked
             >
               <p className="text-white/60 text-sm leading-relaxed">
                 5% of total supply is allocated to the founding team and core contributors.
@@ -297,7 +288,6 @@ export default function TokenomicsPage() {
               title="Future Airdrops"
               percent={5}
               tokens="50,000,000"
-              locked
             >
               <p className="text-white/60 text-sm leading-relaxed">
                 50M tokens are reserved for future community distribution events, to be announced
@@ -321,7 +311,7 @@ export default function TokenomicsPage() {
           <Card className="bg-[#111] border-green-500/20 p-6 md:p-8">
             <div className="flex items-start gap-4 mb-6">
               <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center border border-green-500/20 flex-shrink-0">
-                <Lock className="h-6 w-6 text-green-400" />
+                <Shield className="h-6 w-6 text-green-400" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white mb-1">On-Chain Token Lockers</h2>
