@@ -59,12 +59,20 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
   return (
     <div className="flex flex-col h-full bg-sidebar">
       {/* Logo */}
-      <div className="px-5 pt-6 pb-5">
-        <Link to="/" onClick={onLinkClick} className="flex items-center gap-2.5 group">
-          <img src={LOGO_SRC} alt="Claw Mode" className="h-7 w-7 object-contain rounded-lg" />
+      <div className="px-3 pt-5 pb-4 md:px-4 md:pt-6 md:pb-5 border-b border-border/30">
+        <Link to="/" onClick={onLinkClick} className="flex items-center gap-2.5 md:gap-3 group transition-all duration-300">
+          <img
+            src={LOGO_SRC}
+            alt="Claw Mode"
+            className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain rounded-lg flex-shrink-0 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]"
+          />
           <div className="flex flex-col">
-            <span className="text-[13px] font-bold font-mono leading-tight text-success tracking-tight-heading">CLAW</span>
-            <span className="text-[11px] font-mono text-muted-foreground leading-tight">MODE</span>
+            <span className="text-base md:text-lg lg:text-xl font-extrabold font-mono leading-tight text-success tracking-[-0.02em] transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]">
+              CLAW
+            </span>
+            <span className="text-[10px] md:text-xs font-mono text-muted-foreground leading-tight tracking-widest">
+              MODE
+            </span>
           </div>
         </Link>
       </div>
