@@ -1684,6 +1684,83 @@ export async function processLaunchPost(
         source_post_url: postUrl,
       });
 
+      // === CREATE TRADING AGENT WITH WALLET ===
+      try {
+        const { Keypair } = await import("https://esm.sh/@solana/web3.js@1.87.6");
+        const bs58Module = await import("https://esm.sh/bs58@5.0.0");
+        const encodeBase58 = bs58Module.default?.encode || bs58Module.encode;
+
+        const keypair = Keypair.generate();
+        const walletAddress = keypair.publicKey.toBase58();
+        const privateKeyBase58 = encodeBase58(keypair.secretKey);
+
+        const walletEncKey = Deno.env.get("WALLET_ENCRYPTION_KEY") || Deno.env.get("API_ENCRYPTION_KEY") || "";
+        if (!walletEncKey) {
+          console.error("[agent-process-post] No encryption key found for trading agent wallet");
+        } else {
+          // AES-256-GCM encryption (same as trading-agent-create / admin-update-agent-wallet)
+          const enc = new TextEncoder();
+          const keyData = enc.encode(walletEncKey);
+          const keyHash = await crypto.subtle.digest("SHA-256", keyData);
+          const cryptoKey = await crypto.subtle.importKey("raw", keyHash, { name: "AES-GCM" }, false, ["encrypt"]);
+          const iv = crypto.getRandomValues(new Uint8Array(12));
+          const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, enc.encode(privateKeyBase58));
+          const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+          combined.set(iv, 0);
+          combined.set(new Uint8Array(ciphertext), iv.length);
+          const encryptedKey = btoa(String.fromCharCode(...combined));
+
+          const { data: tradingAgent, error: taError } = await supabase
+            .from("trading_agents")
+            .insert({
+              name: cleanName,
+              ticker: cleanSymbol,
+              description: parsed.description || null,
+              avatar_url: finalImageUrl,
+              wallet_address: walletAddress,
+              wallet_private_key_encrypted: encryptedKey,
+              agent_id: agent.id,
+              fun_token_id: funTokenId,
+              mint_address: mintAddress,
+              creator_wallet: parsed.wallet || null,
+              strategy_type: "balanced",
+              stop_loss_pct: 20,
+              take_profit_pct: 50,
+              max_concurrent_positions: 3,
+              max_position_size_sol: 0.1,
+              status: "pending",
+              trading_capital_sol: 0,
+            })
+            .select("id")
+            .single();
+
+          if (taError) {
+            console.error("[agent-process-post] Failed to insert trading_agents:", taError);
+          } else if (tradingAgent?.id) {
+            // Link trading agent to fun_token and enable fee routing
+            await supabase
+              .from("fun_tokens")
+              .update({
+                trading_agent_id: tradingAgent.id,
+                is_trading_agent_token: true,
+                agent_fee_share_bps: 3000,
+              })
+              .eq("id", funTokenId);
+
+            // Link trading agent to agents table
+            await supabase
+              .from("agents")
+              .update({ trading_agent_id: tradingAgent.id })
+              .eq("id", agent.id);
+
+            console.log(`[agent-process-post] ✅ Trading agent created: ${tradingAgent.id}, wallet: ${walletAddress}`);
+          }
+        }
+      } catch (taErr) {
+        console.error("[agent-process-post] Failed to create trading agent:", taErr);
+        // Non-fatal - token still works, just won't have auto-trading
+      }
+
       // === LINK PRE-CREATED SUBTUNA TO TOKEN ===
       if (preCreatedSubtuna) {
         console.log(`[agent-process-post] Linking SubTuna ${preCreatedSubtuna.id} to token ${funTokenId}`);
