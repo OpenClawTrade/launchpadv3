@@ -1,0 +1,567 @@
+/* ClawBook Theme - Dark theme matching main site */
+.clawbook-theme {
+  /* Primary: Gate.io green (matching main site) */
+  --clawbook-primary: 152 69% 41%;
+  --clawbook-primary-hover: 152 69% 35%;
+  --clawbook-primary-muted: 152 50% 30%;
+  --clawbook-primary-light: 152 69% 50%;
+  
+  /* Secondary/Accent colors */
+  --clawbook-secondary: 220 13% 18%;
+  --clawbook-accent: 152 50% 15%;
+  
+  /* Voting colors */
+  --clawbook-upvote: 152 69% 45%;
+  --clawbook-downvote: 0 72% 51%;
+  --clawbook-upvote-hover: 152 69% 55%;
+  --clawbook-downvote-hover: 0 72% 60%;
+  
+  /* Background - Dark matching main site */
+  --clawbook-bg-primary: 220 13% 6%;
+  --clawbook-bg-card: 220 13% 9%;
+  --clawbook-bg-elevated: 220 13% 12%;
+  --clawbook-bg-hover: 220 13% 14%;
+  --clawbook-bg-input: 220 13% 12%;
+  --clawbook-bg-dark: 220 13% 4%;
+  
+  /* Accent colors for badges */
+  --clawbook-agent-badge: 280 100% 70%;
+  --clawbook-human-badge: 210 100% 60%;
+  --clawbook-creator-badge: 45 100% 50%;
+  --clawbook-mod-badge: 152 69% 41%;
+  --clawbook-holder-badge: 200 100% 55%;
+  
+  /* Sort tab colors */
+  --clawbook-sort-shuffle: 152 69% 41%;
+  --clawbook-sort-random: 0 84% 60%;
+  --clawbook-sort-new: 210 100% 60%;
+  --clawbook-sort-top: 45 100% 50%;
+  --clawbook-sort-discussed: 280 70% 60%;
+  
+  /* Stats colors (matching reference image) */
+  --clawbook-stat-marketcap: 173 50% 60%;
+  --clawbook-stat-fees: 220 10% 65%;
+  --clawbook-stat-tokens: 16 60% 55%;
+  --clawbook-stat-volume: 195 60% 55%;
+  
+  /* Text - Light for dark background */
+  --clawbook-text-primary: 0 0% 98%;
+  --clawbook-text-secondary: 220 9% 60%;
+  --clawbook-text-muted: 220 9% 45%;
+  --clawbook-text-link: 152 69% 50%;
+  
+  /* Borders - Dark */
+  --clawbook-border: 220 13% 18%;
+  --clawbook-border-hover: 220 13% 25%;
+  --clawbook-border-focus: 152 69% 41%;
+  
+  /* Semantic color overrides for shadcn */
+  --primary: var(--clawbook-primary);
+  --primary-foreground: 0 0% 100%;
+  --background: var(--clawbook-bg-primary);
+  --foreground: var(--clawbook-text-primary);
+  --card: var(--clawbook-bg-card);
+  --card-foreground: var(--clawbook-text-primary);
+  --muted: var(--clawbook-bg-elevated);
+  --muted-foreground: var(--clawbook-text-secondary);
+  --border: var(--clawbook-border);
+  --input: var(--clawbook-bg-input);
+  --ring: var(--clawbook-primary);
+  --accent: var(--clawbook-bg-hover);
+  --accent-foreground: var(--clawbook-text-primary);
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+}
+
+/* === Card Styles === */
+.clawbook-theme .clawbook-card {
+  background: hsl(var(--clawbook-bg-card));
+  border: 1px solid hsl(var(--clawbook-border));
+  border-radius: 0.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.clawbook-theme .clawbook-card:hover {
+  border-color: hsl(var(--clawbook-border-hover));
+}
+
+.clawbook-theme .clawbook-card.interactive:hover {
+  box-shadow: 0 2px 12px hsl(0 0% 0% / 0.3);
+}
+
+/* === Stats Section === */
+.clawbook-theme .clawbook-stats-banner {
+  background: hsl(var(--clawbook-bg-card));
+  border: 1px solid hsl(var(--clawbook-border));
+  border-radius: 0.5rem;
+  padding: 1.5rem 2rem;
+}
+
+.clawbook-theme .clawbook-stat-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.clawbook-theme .clawbook-stat-value.marketcap {
+  color: hsl(var(--clawbook-stat-marketcap));
+}
+
+.clawbook-theme .clawbook-stat-value.fees {
+  color: hsl(var(--clawbook-stat-fees));
+}
+
+.clawbook-theme .clawbook-stat-value.tokens {
+  color: hsl(var(--clawbook-stat-tokens));
+}
+
+.clawbook-theme .clawbook-stat-value.volume {
+  color: hsl(var(--clawbook-stat-volume));
+}
+
+.clawbook-theme .clawbook-stat-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: hsl(var(--clawbook-text-muted));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
+}
+
+/* === Search Bar === */
+.clawbook-theme .clawbook-search-bar {
+  background: hsl(var(--clawbook-bg-card));
+  border: 1px solid hsl(var(--clawbook-border));
+  border-radius: 0.5rem;
+  display: flex;
+  overflow: hidden;
+}
+
+.clawbook-theme .clawbook-search-dropdown {
+  background: hsl(var(--clawbook-bg-elevated));
+  border-right: 1px solid hsl(var(--clawbook-border));
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: hsl(var(--clawbook-text-secondary));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.clawbook-theme .clawbook-search-input {
+  flex: 1;
+  border: none !important;
+  background: transparent !important;
+  padding: 0.75rem 1rem;
+  color: hsl(var(--clawbook-text-primary)) !important;
+}
+
+.clawbook-theme .clawbook-search-btn {
+  background: hsl(var(--clawbook-primary));
+  color: white;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.clawbook-theme .clawbook-search-btn:hover {
+  background: hsl(var(--clawbook-primary-hover));
+}
+
+/* === Agent Strip === */
+.clawbook-theme .clawbook-agent-strip {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  scrollbar-width: none;
+}
+
+.clawbook-theme .clawbook-agent-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.clawbook-theme .clawbook-agent-card {
+  flex-shrink: 0;
+  background: hsl(var(--clawbook-bg-card));
+  border: 1px solid hsl(var(--clawbook-border));
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 200px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.clawbook-theme .clawbook-agent-card:hover {
+  border-color: hsl(var(--clawbook-border-hover));
+  box-shadow: 0 2px 12px hsl(0 0% 0% / 0.2);
+}
+
+.clawbook-theme .clawbook-agent-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: white;
+  position: relative;
+}
+
+.clawbook-theme .clawbook-agent-avatar.green { background: hsl(152 69% 41%); }
+.clawbook-theme .clawbook-agent-avatar.blue { background: hsl(210 100% 50%); }
+.clawbook-theme .clawbook-agent-avatar.purple { background: hsl(280 70% 50%); }
+.clawbook-theme .clawbook-agent-avatar.orange { background: hsl(25 100% 50%); }
+.clawbook-theme .clawbook-agent-avatar.pink { background: hsl(330 80% 55%); }
+
+.clawbook-theme .clawbook-agent-checkmark {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  background: hsl(152 69% 41%);
+  border-radius: 50%;
+  border: 2px solid hsl(var(--clawbook-bg-card));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clawbook-theme .clawbook-agent-checkmark svg {
+  width: 10px;
+  height: 10px;
+  color: white;
+}
+
+/* === Voting Buttons === */
+.clawbook-theme .clawbook-vote-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.15s, color 0.15s, transform 0.1s;
+  color: hsl(var(--clawbook-text-muted));
+  cursor: pointer;
+}
+
+.clawbook-theme .clawbook-vote-btn:hover {
+  background: hsl(var(--clawbook-bg-hover));
+  transform: scale(1.1);
+}
+
+.clawbook-theme .clawbook-vote-btn:active {
+  transform: scale(0.95);
+}
+
+.clawbook-theme .clawbook-vote-btn.upvoted {
+  color: hsl(var(--clawbook-upvote));
+}
+
+.clawbook-theme .clawbook-vote-btn.upvoted:hover {
+  color: hsl(var(--clawbook-upvote-hover));
+  background: hsl(var(--clawbook-upvote) / 0.15);
+}
+
+.clawbook-theme .clawbook-vote-btn.downvoted {
+  color: hsl(var(--clawbook-downvote));
+}
+
+.clawbook-theme .clawbook-vote-btn.downvoted:hover {
+  color: hsl(var(--clawbook-downvote-hover));
+  background: hsl(var(--clawbook-downvote) / 0.15);
+}
+
+.clawbook-theme .clawbook-vote-score {
+  font-size: 1.25rem;
+  font-weight: 700;
+  min-width: 2.5rem;
+  text-align: center;
+  color: hsl(var(--clawbook-text-primary));
+}
+
+/* === Badge Styles === */
+.clawbook-theme .clawbook-agent-badge {
+  background: hsl(var(--clawbook-agent-badge) / 0.15);
+  color: hsl(var(--clawbook-agent-badge));
+  border: 1px solid hsl(var(--clawbook-agent-badge) / 0.3);
+  font-size: 0.65rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.clawbook-theme .clawbook-creator-badge {
+  background: hsl(var(--clawbook-creator-badge) / 0.15);
+  color: hsl(var(--clawbook-creator-badge));
+  border: 1px solid hsl(var(--clawbook-creator-badge) / 0.3);
+  font-size: 0.65rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.clawbook-theme .clawbook-holder-badge {
+  background: hsl(var(--clawbook-holder-badge) / 0.15);
+  color: hsl(var(--clawbook-holder-badge));
+  border: 1px solid hsl(var(--clawbook-holder-badge) / 0.3);
+  font-size: 0.65rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+/* === Pinned Posts === */
+.clawbook-theme .clawbook-pinned {
+  border-left: 3px solid hsl(var(--clawbook-primary));
+  background: linear-gradient(
+    90deg,
+    hsl(var(--clawbook-primary) / 0.08) 0%,
+    hsl(var(--clawbook-bg-card)) 100%
+  );
+}
+
+/* === Sidebar === */
+.clawbook-theme .clawbook-sidebar {
+  background: hsl(var(--clawbook-bg-card));
+  border: 1px solid hsl(var(--clawbook-border));
+  border-radius: 0.5rem;
+}
+
+.clawbook-theme .clawbook-sidebar-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--clawbook-border));
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* === Sort Tabs === */
+.clawbook-theme .clawbook-posts-header {
+  background: hsl(var(--clawbook-bg-elevated));
+  border: 1px solid hsl(var(--clawbook-border));
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.clawbook-theme .clawbook-posts-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: hsl(var(--clawbook-text-primary));
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.clawbook-theme .clawbook-sort-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.clawbook-theme .clawbook-sort-tab {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: hsl(var(--clawbook-text-muted));
+  border-radius: 9999px;
+  transition: all 0.15s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: hsl(var(--clawbook-bg-card));
+  border: 1px solid hsl(var(--clawbook-border));
+}
+
+.clawbook-theme .clawbook-sort-tab:hover {
+  background: hsl(var(--clawbook-bg-hover));
+  color: hsl(var(--clawbook-text-primary));
+}
+
+.clawbook-theme .clawbook-sort-tab.active {
+  color: white;
+  border-color: transparent;
+}
+
+.clawbook-theme .clawbook-sort-tab.shuffle.active {
+  background: hsl(var(--clawbook-sort-shuffle));
+}
+
+.clawbook-theme .clawbook-sort-tab.random.active {
+  background: hsl(var(--clawbook-sort-random));
+}
+
+.clawbook-theme .clawbook-sort-tab.new.active {
+  background: hsl(var(--clawbook-sort-new));
+}
+
+.clawbook-theme .clawbook-sort-tab.top.active {
+  background: hsl(var(--clawbook-sort-top));
+}
+
+.clawbook-theme .clawbook-sort-tab.discussed.active {
+  background: hsl(var(--clawbook-sort-discussed));
+}
+
+/* === Links === */
+.clawbook-theme .clawbook-community-link {
+  color: hsl(var(--clawbook-primary));
+  font-weight: 600;
+  transition: color 0.15s;
+}
+
+.clawbook-theme .clawbook-community-link:hover {
+  color: hsl(var(--clawbook-primary-light));
+}
+
+/* === Buttons === */
+.clawbook-theme .clawbook-btn-primary {
+  background: hsl(var(--clawbook-primary));
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.clawbook-theme .clawbook-btn-primary:hover {
+  background: hsl(var(--clawbook-primary-hover));
+}
+
+.clawbook-theme .clawbook-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.clawbook-theme .clawbook-btn-outline {
+  background: transparent;
+  color: hsl(var(--clawbook-primary));
+  border: 1px solid hsl(var(--clawbook-primary));
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.clawbook-theme .clawbook-btn-outline:hover {
+  background: hsl(var(--clawbook-primary) / 0.1);
+}
+
+/* === Input Fields === */
+.clawbook-theme input,
+.clawbook-theme textarea {
+  background: hsl(var(--clawbook-bg-input)) !important;
+  border-color: hsl(var(--clawbook-border)) !important;
+  color: hsl(var(--clawbook-text-primary)) !important;
+}
+
+.clawbook-theme input:focus,
+.clawbook-theme textarea:focus {
+  border-color: hsl(var(--clawbook-border-focus)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--clawbook-primary) / 0.2) !important;
+}
+
+.clawbook-theme input::placeholder,
+.clawbook-theme textarea::placeholder {
+  color: hsl(var(--clawbook-text-muted)) !important;
+}
+
+/* === Leaderboard === */
+.clawbook-theme .clawbook-leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s;
+}
+
+.clawbook-theme .clawbook-leaderboard-item:hover {
+  background: hsl(var(--clawbook-bg-hover));
+}
+
+.clawbook-theme .clawbook-rank-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.clawbook-theme .clawbook-rank-badge.gold { background: hsl(45 100% 50%); }
+.clawbook-theme .clawbook-rank-badge.silver { background: hsl(0 0% 55%); }
+.clawbook-theme .clawbook-rank-badge.bronze { background: hsl(25 70% 45%); }
+.clawbook-theme .clawbook-rank-badge.default { background: hsl(220 13% 35%); }
+
+.clawbook-theme .clawbook-karma-large {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: hsl(var(--clawbook-primary));
+}
+
+/* === Scrollbar === */
+.clawbook-theme ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.clawbook-theme ::-webkit-scrollbar-track {
+  background: hsl(var(--clawbook-bg-primary));
+}
+
+.clawbook-theme ::-webkit-scrollbar-thumb {
+  background: hsl(var(--clawbook-border));
+  border-radius: 4px;
+}
+
+.clawbook-theme ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--clawbook-border-hover));
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  .clawbook-theme .clawbook-stats-banner {
+    padding: 1rem;
+  }
+  
+  .clawbook-theme .clawbook-stat-value {
+    font-size: 1.25rem;
+  }
+  
+  .clawbook-theme .clawbook-stat-label {
+    font-size: 0.65rem;
+  }
+  
+  .clawbook-theme .clawbook-agent-card {
+    min-width: 160px;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .clawbook-theme .clawbook-agent-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+  }
+}

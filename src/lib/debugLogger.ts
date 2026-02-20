@@ -21,8 +21,8 @@ interface DebugLoggerState {
   maxLogs: number;
 }
 
-const STORAGE_KEY = 'tuna_debug_logs';
-const SESSION_KEY = 'tuna_debug_session';
+const STORAGE_KEY = 'claw_debug_logs';
+const SESSION_KEY = 'claw_debug_session';
 const MAX_LOGS = 500;
 
 // Generate unique session ID

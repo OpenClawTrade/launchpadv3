@@ -67,7 +67,7 @@ interface ChainContextValue {
 
 const ChainContext = createContext<ChainContextValue | undefined>(undefined);
 
-const STORAGE_KEY = 'tuna-selected-chain';
+const STORAGE_KEY = 'claw-selected-chain';
 
 interface ChainProviderProps {
   children: ReactNode;
