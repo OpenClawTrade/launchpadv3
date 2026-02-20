@@ -1,6 +1,10 @@
 // System agent uses static avatar
-export const SYSTEM_TUNA_ID = "00000000-0000-0000-0000-000000000001";
-export const SYSTEM_TUNA_AVATAR = "/images/system-tuna-avatar.png";
+export const SYSTEM_CLAW_ID = "00000000-0000-0000-0000-000000000001";
+export const SYSTEM_CLAW_AVATAR = "/images/system-tuna-avatar.png";
+
+// Backwards compat aliases
+export const SYSTEM_TUNA_ID = SYSTEM_CLAW_ID;
+export const SYSTEM_TUNA_AVATAR = SYSTEM_CLAW_AVATAR;
 
 /**
  * Get avatar URL for an agent
@@ -11,9 +15,9 @@ export function getAgentAvatarUrl(
   agentAvatarUrl?: string | null,
   tokenImageUrl?: string | null
 ): string | null {
-  // SystemTUNA always uses the static avatar
-  if (agentId === SYSTEM_TUNA_ID) {
-    return SYSTEM_TUNA_AVATAR;
+  // System agent always uses the static avatar
+  if (agentId === SYSTEM_CLAW_ID) {
+    return SYSTEM_CLAW_AVATAR;
   }
   // Use agent's own avatar if set
   if (agentAvatarUrl) {

@@ -7,8 +7,8 @@ import '@rainbow-me/rainbowkit/styles.css';
 
 // Configure wagmi with Base and Ethereum mainnet
 const config = getDefaultConfig({
-  appName: 'TUNA Launchpad',
-  projectId: 'tuna-launchpad-base', // WalletConnect project ID (can be updated)
+  appName: 'Claw Mode',
+  projectId: 'claw-launchpad-base', // WalletConnect project ID (can be updated)
   chains: [base, mainnet],
   transports: {
     [base.id]: http('https://mainnet.base.org'),

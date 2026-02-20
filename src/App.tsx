@@ -51,7 +51,7 @@ const AgentDashboardPage = lazy(() => import("./pages/AgentDashboardPage"));
 const AgentLeaderboardPage = lazy(() => import("./pages/AgentLeaderboardPage"));
 const AgentProfilePage = lazy(() => import("./pages/AgentProfilePage"));
 const ClawBookAdminPage = lazy(() => import("./pages/ClawBookAdminPage"));
-const AgentClaimPage = lazy(() => import("./pages/AgentClaimPage"));
+
 const AgentConnectPage = lazy(() => import("./pages/AgentConnectPage"));
 const AgentLogsAdminPage = lazy(() => import("./pages/AgentLogsAdminPage"));
 
@@ -143,7 +143,7 @@ const App = () => (
                     <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
                     <Route path="/agents/leaderboard" element={<AgentLeaderboardPage />} />
                     <Route path="/agent/:agentId" element={<AgentProfilePage />} />
-                    <Route path="/agents/claim" element={<AgentClaimPage />} />
+                    <Route path="/agents/claim" element={<Navigate to="/panel?tab=earnings" replace />} />
                     <Route path="/agents/connect" element={<AgentConnectPage />} />
                     
                     <Route path="/agents/bags" element={<BagsAgentsPage />} />

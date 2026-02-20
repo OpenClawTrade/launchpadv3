@@ -1,8 +1,8 @@
 // Contract ABIs for Base chain Flaunch replica - Uniswap V4 based architecture
 // Full Flaunch.gg replica with V4 hooks, flETH yield wrapper, and Progressive BidWall
 
-// ============ TunaPositionManager (V4 Hook) ============
-export const TUNA_POSITION_MANAGER_ABI = [
+// ============ ClawPositionManager (V4 Hook) ============
+export const CLAW_POSITION_MANAGER_ABI = [
   // Read functions
   {
     name: 'nativeToken',
@@ -135,8 +135,8 @@ export const TUNA_POSITION_MANAGER_ABI = [
   },
 ] as const;
 
-// ============ TunaFlaunch (ERC721 NFT) ============
-export const TUNA_FLAUNCH_ABI = [
+// ============ ClawFlaunch (ERC721 NFT) ============
+export const CLAW_FLAUNCH_ABI = [
   // ERC721 standard
   {
     name: 'name',
@@ -221,8 +221,8 @@ export const TUNA_FLAUNCH_ABI = [
   },
 ] as const;
 
-// ============ TunaBidWall ============
-export const TUNA_BID_WALL_ABI = [
+// ============ ClawBidWall ============
+export const CLAW_BID_WALL_ABI = [
   // Read functions
   {
     name: 'isBidWallEnabled',
@@ -293,8 +293,8 @@ export const TUNA_BID_WALL_ABI = [
   },
 ] as const;
 
-// ============ TunaFairLaunch ============
-export const TUNA_FAIR_LAUNCH_ABI = [
+// ============ ClawFairLaunch ============
+export const CLAW_FAIR_LAUNCH_ABI = [
   {
     name: 'inFairLaunchWindow',
     type: 'function',
@@ -344,8 +344,8 @@ export const TUNA_FAIR_LAUNCH_ABI = [
   },
 ] as const;
 
-// ============ TunaFlETH (Yield Wrapper) ============
-export const TUNA_FLETH_ABI = [
+// ============ ClawFlETH (Yield Wrapper) ============
+export const CLAW_FLETH_ABI = [
   // ERC20 standard
   {
     name: 'name',
@@ -486,8 +486,8 @@ export const TUNA_FLETH_ABI = [
 // Update these after deployment - call base-deploy-contracts edge function
 export const BASE_FLAUNCH_CONTRACTS = {
   // Core contracts (deployed via edge function)
-  TUNA_FACTORY: '0x0000000000000000000000000000000000000000', // TunaFactory - creates tokens
-  TUNA_TOKEN_IMPL: '0x0000000000000000000000000000000000000000', // Template token
+  CLAW_FACTORY: '0x0000000000000000000000000000000000000000', // ClawFactory - creates tokens
+  CLAW_TOKEN_IMPL: '0x0000000000000000000000000000000000000000', // Template token
   
   // Legacy V4 contracts (to be deployed separately if needed)
   POSITION_MANAGER: '0x0000000000000000000000000000000000000000',
@@ -528,8 +528,8 @@ export const BASE_ADDRESSES = {
   AAVE_V3_POOL: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5',
 } as const;
 
-// ============ TunaFactory ABI (simplified launchpad) ============
-export const TUNA_FACTORY_ABI = [
+// ============ ClawFactory ABI (simplified launchpad) ============
+export const CLAW_FACTORY_ABI = [
   { type: "constructor", inputs: [
     { name: "uniswapFactory", type: "address" },
     { name: "weth", type: "address" },
@@ -552,8 +552,8 @@ export const TUNA_FACTORY_ABI = [
   { type: "event", name: "PoolCreated", inputs: [{ name: "token", type: "address", indexed: true }, { name: "pool", type: "address", indexed: true }] },
 ] as const;
 
-// ============ TunaToken ABI (ERC20) ============
-export const TUNA_TOKEN_ABI = [
+// ============ ClawToken ABI (ERC20) ============
+export const CLAW_TOKEN_ABI = [
   { type: "function", name: "name", inputs: [], outputs: [{ type: "string" }], stateMutability: "view" },
   { type: "function", name: "symbol", inputs: [], outputs: [{ type: "string" }], stateMutability: "view" },
   { type: "function", name: "decimals", inputs: [], outputs: [{ type: "uint8" }], stateMutability: "view" },
@@ -574,5 +574,15 @@ export const BASE_UNISWAP_V4 = {
   UNIVERSAL_ROUTER: BASE_UNISWAP.V4_UNIVERSAL_ROUTER,
 } as const;
 
-export const TUNA_LAUNCHPAD_ABI = TUNA_POSITION_MANAGER_ABI;
+export const CLAW_LAUNCHPAD_ABI = CLAW_POSITION_MANAGER_ABI;
 export const BASE_CONTRACTS = BASE_FLAUNCH_CONTRACTS;
+
+// Backwards compatibility aliases
+export const TUNA_POSITION_MANAGER_ABI = CLAW_POSITION_MANAGER_ABI;
+export const TUNA_FLAUNCH_ABI = CLAW_FLAUNCH_ABI;
+export const TUNA_BID_WALL_ABI = CLAW_BID_WALL_ABI;
+export const TUNA_FAIR_LAUNCH_ABI = CLAW_FAIR_LAUNCH_ABI;
+export const TUNA_FLETH_ABI = CLAW_FLETH_ABI;
+export const TUNA_FACTORY_ABI = CLAW_FACTORY_ABI;
+export const TUNA_TOKEN_ABI = CLAW_TOKEN_ABI;
+export const TUNA_LAUNCHPAD_ABI = CLAW_LAUNCHPAD_ABI;

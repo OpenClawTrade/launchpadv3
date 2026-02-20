@@ -41,7 +41,7 @@ export default function SubClawPage() {
   const { createPost, isCreating } = useCreatePost();
   
   // Fetch live CLAW token data for the /t/TUNA community
-  const isClawPage = ticker?.toUpperCase() === "TUNA";
+  const isClawPage = ticker?.toUpperCase() === "CLAW";
   const { data: clawLiveData } = useClawTokenData({ enabled: isClawPage });
   
   const { data: poolState } = usePoolState({
