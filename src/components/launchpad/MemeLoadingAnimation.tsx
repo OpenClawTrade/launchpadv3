@@ -44,8 +44,8 @@ export function MemeLoadingAnimation() {
         <img 
           src={TUNA_LOGO_SRC} 
           alt="Claw Mode" 
-          className="w-10 h-10 rounded-lg object-cover animate-bounce" 
-          style={{ animationDuration: '0.6s' }}
+          className="w-10 h-10 rounded-lg object-cover animate-bounce"
+          style={{ animationDuration: '0.6s', mixBlendMode: 'screen' }}
         />
         
         {/* Sparkle effects around the logo */}
