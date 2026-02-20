@@ -1012,7 +1012,7 @@ export default function ClaudeLauncherPage() {
                         <span className="font-medium">Governance</span>
                       </Link>
                       <div className="pt-4 border-t border-border space-y-2">
-                        <a href="https://dune.com/tunalaunch/stats" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
+                        <a href="https://dune.com/clawmode/stats" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors">
                           <BarChart3 className="h-5 w-5 text-orange-500" />
                           <span className="text-muted-foreground">Analytics</span>
                           <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
@@ -1037,7 +1037,7 @@ export default function ClaudeLauncherPage() {
                 <Rocket className="h-5 w-5 text-white" />
               </div>
               <div>
-                <span className="text-xl font-bold">TUNA</span>
+                <span className="text-xl font-bold">CLAW</span>
                 <span className="text-xs text-muted-foreground ml-2">Meme Launchpad</span>
               </div>
             </Link>
@@ -1046,7 +1046,7 @@ export default function ClaudeLauncherPage() {
               <Link to="/trending" className="gate-nav-link">Narratives</Link>
               <Link to="/api" className="gate-nav-link">API</Link>
               <Link to="/governance" className="gate-nav-link">Governance</Link>
-              <a href="https://dune.com/tunalaunch/stats" target="_blank" rel="noopener noreferrer" className="gate-nav-link">Analytics</a>
+              <a href="https://dune.com/clawmode/stats" target="_blank" rel="noopener noreferrer" className="gate-nav-link">Analytics</a>
             </nav>
 
             <div className="flex items-center gap-4">

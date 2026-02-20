@@ -430,10 +430,10 @@ export default function ApiDocsPage() {
                   <CodeBlock 
                     id="ts-sdk"
                     language="typescript"
-                    code={`// TUNA Launchpad API Client
+                    code={`// Claw Mode Launchpad API Client
 // Copy this class to integrate with your application
 
-class TunaLaunchpadAPI {
+class ClawLaunchpadAPI {
   private apiKey: string;
   private baseUrl = "${BASE_URL}";
   
@@ -623,11 +623,11 @@ export function TokenLauncher() {
                   <CodeBlock 
                     id="python-sdk"
                     language="python"
-                    code={`# TUNA Launchpad Python SDK
+                    code={`# Claw Mode Launchpad Python SDK
 import requests
 from typing import Optional, Dict, Any
 
-class TunaLaunchpad:
+class ClawLaunchpad:
     BASE_URL = "${BASE_URL}"
     
     def __init__(self, api_key: str):

@@ -562,7 +562,7 @@ function assignParsedField(data: Partial<ParsedLaunchData>, key: string, value: 
   }
 }
 
-// Parse single-line format: "!tunalaunch name: X symbol: Y wallet: Z description: ..."
+// Parse single-line format: "!clawmode name: X symbol: Y wallet: Z description: ..."
 // Also auto-detects bare Solana wallet addresses without the wallet: prefix
 function parseSingleLine(content: string, data: Partial<ParsedLaunchData>): void {
   // Define field patterns - order matters, longer keys first
@@ -1190,7 +1190,7 @@ export async function processLaunchPost(
     }
   }
 
-  // === STANDARD MODE (!tunalaunch) ===
+  // === STANDARD MODE (!clawmode) ===
   // Validate the post content with detailed feedback
   const validation = validateLaunchPost(rawContent);
   
@@ -1307,7 +1307,7 @@ export async function processLaunchPost(
       error: errorMsg,
       socialPostId: failedPost?.id,
       shouldReply: true,
-      replyText: "🐟 To launch a token, please attach an image to your tweet!\n\nRequired format:\n!tunalaunch\nName: TokenName\nSymbol: TKN\n[Attach your token image]",
+      replyText: "🦞 To launch a token, please attach an image to your tweet!\n\nRequired format:\n!clawmode\nName: TokenName\nSymbol: TKN\n[Attach your token image]",
     };
   }
   
@@ -1362,7 +1362,7 @@ export async function processLaunchPost(
       socialPostId: failedPost?.id,
       shouldReply: true,
       replyText:
-        "🐟 I couldn't fetch the attached image reliably. Please re-upload the image (not a link) and try again.\n\nRequired format:\n!tunalaunch\nName: TokenName\nSymbol: TKN\n[Attach your token image]",
+        "🦞 I couldn't fetch the attached image reliably. Please re-upload the image (not a link) and try again.\n\nRequired format:\n!clawmode\nName: TokenName\nSymbol: TKN\n[Attach your token image]",
     };
   }
 
@@ -1522,7 +1522,7 @@ export async function processLaunchPost(
     console.log(`[agent-process-post]   - Twitter: ${twitterForOnChain || '(none)'}`);
 
     // Call Vercel API to create token (now with confirmation before success)
-    // - website: community URL (tuna.fun/t/TICKER) as fallback if no custom website
+    // - website: community URL (clawmode.fun/t/TICKER) as fallback if no custom website
     // - twitter: original X post URL where user requested the launch (goes on-chain)
     console.log(`[agent-process-post] Calling create-fun API for ${parsed.name}...`);
     
@@ -1977,7 +1977,7 @@ Deno.serve(async (req) => {
     let meteoraApiUrl =
       Deno.env.get("METEORA_API_URL") ||
       Deno.env.get("VITE_METEORA_API_URL") ||
-      "https://tunalaunch.vercel.app";
+      "https://clawmode.vercel.app";
 
     // Safety: ensure URL has protocol
     if (!meteoraApiUrl.startsWith("http")) {
