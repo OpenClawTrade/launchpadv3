@@ -12,6 +12,12 @@ import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
 import { DomainRouter } from "@/components/DomainRouter";
 import { MatrixBackground } from "@/components/claw/MatrixBackground";
 import { StickyStatsFooter } from "@/components/layout/StickyStatsFooter";
+import { MatrixModeProvider, useMatrixMode } from "@/contexts/MatrixModeContext";
+
+function ConditionalMatrixBackground() {
+  const { matrixEnabled } = useMatrixMode();
+  return matrixEnabled ? <MatrixBackground /> : null;
+}
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
@@ -91,11 +97,12 @@ const App = () => (
     <PrivyProviderWrapper>
       <ChainProvider>
         <EvmWalletProvider>
+          <MatrixModeProvider>
           <TooltipProvider delayDuration={300}>
             <Toaster />
             <Sonner />
             <ErrorBoundary>
-              <MatrixBackground />
+              <ConditionalMatrixBackground />
               <StickyStatsFooter />
               <BrowserRouter>
                 <DomainRouter />
@@ -162,6 +169,7 @@ const App = () => (
               </BrowserRouter>
             </ErrorBoundary>
           </TooltipProvider>
+          </MatrixModeProvider>
         </EvmWalletProvider>
       </ChainProvider>
     </PrivyProviderWrapper>
