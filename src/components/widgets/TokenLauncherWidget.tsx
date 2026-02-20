@@ -255,7 +255,7 @@ export default function TokenLauncherWidget({ config }: TokenLauncherWidgetProps
           </Button>
 
           <p className="text-xs text-muted-foreground text-center">
-            Powered by TUNA Launchpad
+            Powered by Claw Mode
           </p>
         </form>
       </CardContent>

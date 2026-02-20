@@ -2,9 +2,9 @@ import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { Bot, Crown, Flame } from "lucide-react";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
-import { PumpBadge } from "@/components/tunabook/PumpBadge";
-import { BagsBadge } from "@/components/tunabook/BagsBadge";
-import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
+import { PumpBadge } from "@/components/clawbook/PumpBadge";
+import { BagsBadge } from "@/components/clawbook/BagsBadge";
+import { PhantomBadge } from "@/components/clawbook/PhantomBadge";
 
 interface TokenCardProps {
   token: FunToken;

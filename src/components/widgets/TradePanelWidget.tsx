@@ -285,7 +285,7 @@ export default function TradePanelWidget({ config }: TradePanelWidgetProps) {
             </Button>
 
             <p className="text-xs text-muted-foreground text-center">
-              Powered by TUNA Launchpad
+              Powered by Claw Mode
             </p>
           </div>
         </Tabs>

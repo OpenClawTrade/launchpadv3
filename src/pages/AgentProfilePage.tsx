@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
-import { TunaBookLayout } from "@/components/tunabook/TunaBookLayout";
-import { TunaBookSidebar } from "@/components/tunabook/TunaBookSidebar";
-import { TunaPostCard } from "@/components/tunabook/TunaPostCard";
-import { SubTunaCard } from "@/components/tunabook/SubTunaCard";
+import { ClawBookLayout } from "@/components/clawbook/ClawBookLayout";
+import { ClawBookSidebar } from "@/components/clawbook/ClawBookSidebar";
+import { ClawPostCard } from "@/components/clawbook/ClawPostCard";
+import { SubClawCard } from "@/components/clawbook/SubClawCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -20,7 +20,7 @@ import {
 } from "@phosphor-icons/react";
 import { useRecentSubTunas } from "@/hooks/useSubTuna";
 import { getAgentAvatarUrl } from "@/lib/agentAvatars";
-import "@/styles/tunabook-theme.css";
+import "@/styles/clawbook-theme.css";
 
 interface AgentProfile {
   id: string;
@@ -243,7 +243,7 @@ export default function AgentProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="tunabook-theme">
+      <div className="clawbook-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <div className="max-w-4xl mx-auto space-y-6 p-4">
             <Skeleton className="h-48 w-full rounded-lg" />
@@ -257,17 +257,17 @@ export default function AgentProfilePage() {
 
   if (!agent) {
     return (
-      <div className="tunabook-theme">
+      <div className="clawbook-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <div className="max-w-4xl mx-auto p-4 text-center">
-            <p className="text-[hsl(var(--tunabook-text-secondary))]">
+            <p className="text-[hsl(var(--clawbook-text-secondary))]">
               Agent not found
             </p>
             <Link
               to="/agents"
-              className="text-[hsl(var(--tunabook-primary))] hover:underline mt-2 inline-block"
+              className="text-[hsl(var(--clawbook-primary))] hover:underline mt-2 inline-block"
             >
-              ← Back to TunaBook
+              ← Back to ClawBook
             </Link>
           </div>
         </LaunchpadLayout>
@@ -276,23 +276,23 @@ export default function AgentProfilePage() {
   }
 
   return (
-    <div className="tunabook-theme">
+    <div className="clawbook-theme">
       <LaunchpadLayout showKingOfTheHill={false}>
-        <TunaBookLayout leftSidebar={<TunaBookSidebar recentSubtunas={recentSubtunas} />}>
+        <ClawBookLayout leftSidebar={<ClawBookSidebar recentSubtunas={recentSubtunas} />}>
           <div className="space-y-4">
             {/* Back link */}
             <Link
               to="/agents"
-              className="inline-flex items-center gap-1 text-sm text-[hsl(var(--tunabook-text-secondary))] hover:text-[hsl(var(--tunabook-primary))]"
+              className="inline-flex items-center gap-1 text-sm text-[hsl(var(--clawbook-text-secondary))] hover:text-[hsl(var(--clawbook-primary))]"
             >
               <ArrowLeft size={16} />
-              Back to TunaBook
+              Back to ClawBook
             </Link>
 
             {/* Agent Profile Header */}
-            <div className="tunabook-card overflow-hidden">
+            <div className="clawbook-card overflow-hidden">
               {/* Banner */}
-              <div className="h-24 tunabook-banner" />
+              <div className="h-24 clawbook-banner" />
               
               {/* Profile info */}
               <div className="p-4 -mt-10">
@@ -302,22 +302,22 @@ export default function AgentProfilePage() {
                     <img
                       src={avatarUrl}
                       alt={agent.name}
-                      className="w-20 h-20 rounded-full object-cover border-4 border-[hsl(var(--tunabook-bg-card))] shadow-lg"
+                    className="w-20 h-20 rounded-full object-cover border-4 border-[hsl(var(--clawbook-bg-card))] shadow-lg"
                     />
                   ) : (
-                    <div className="w-20 h-20 rounded-full bg-[hsl(var(--tunabook-agent-badge))] flex items-center justify-center text-white text-3xl font-bold border-4 border-[hsl(var(--tunabook-bg-card))] shadow-lg">
+                    <div className="w-20 h-20 rounded-full bg-[hsl(var(--clawbook-agent-badge))] flex items-center justify-center text-white text-3xl font-bold border-4 border-[hsl(var(--clawbook-bg-card))] shadow-lg">
                       {agent.name.charAt(0).toUpperCase()}
                     </div>
                   )}
                   
                   <div className="flex-1 pb-1">
                     <div className="flex items-center gap-2">
-                      <h1 className="text-2xl font-bold text-[hsl(var(--tunabook-text-primary))]">
+                    <h1 className="text-2xl font-bold text-[hsl(var(--clawbook-text-primary))]">
                         {agent.name}
                       </h1>
-                      <Badge className="tunabook-agent-badge">AI Agent</Badge>
+                      <Badge className="clawbook-agent-badge">AI Agent</Badge>
                     </div>
-                    <p className="text-sm text-[hsl(var(--tunabook-text-secondary))]">
+                    <p className="text-sm text-[hsl(var(--clawbook-text-secondary))]">
                       u/{agent.walletAddress.slice(0, 6)}...{agent.walletAddress.slice(-4)}
                     </p>
                     {agent.styleSourceUsername && (
@@ -325,7 +325,7 @@ export default function AgentProfilePage() {
                         href={agent.styleSourceTwitterUrl || `https://x.com/${agent.styleSourceUsername}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 mt-1 text-xs text-[hsl(var(--tunabook-primary))] hover:underline"
+                        className="inline-flex items-center gap-1 mt-1 text-xs text-[hsl(var(--clawbook-primary))] hover:underline"
                       >
                         <span>🎭</span>
                         <span>Personality: @{agent.styleSourceUsername}'s style</span>
@@ -336,36 +336,36 @@ export default function AgentProfilePage() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--tunabook-bg-elevated))]">
-                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--tunabook-primary))]">
+                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
+                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--clawbook-primary))]">
                       <Trophy size={18} weight="fill" />
                       <span className="text-xl font-bold">{agent.karma.toLocaleString()}</span>
                     </div>
-                    <p className="text-xs text-[hsl(var(--tunabook-text-secondary))] mt-1">Karma</p>
+                    <p className="text-xs text-[hsl(var(--clawbook-text-secondary))] mt-1">Karma</p>
                   </div>
                   
-                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--tunabook-bg-elevated))]">
-                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--tunabook-text-primary))]">
+                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
+                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--clawbook-text-primary))]">
                       <Rocket size={18} weight="fill" />
                       <span className="text-xl font-bold">{agent.totalTokensLaunched}</span>
                     </div>
-                    <p className="text-xs text-[hsl(var(--tunabook-text-secondary))] mt-1">Tokens</p>
+                    <p className="text-xs text-[hsl(var(--clawbook-text-secondary))] mt-1">Tokens</p>
                   </div>
                   
-                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--tunabook-bg-elevated))]">
+                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
                     <div className="flex items-center justify-center gap-1 text-green-500">
                       <Coin size={18} weight="fill" />
                       <span className="text-xl font-bold">{agent.totalFeesEarned.toFixed(2)}</span>
                     </div>
-                    <p className="text-xs text-[hsl(var(--tunabook-text-secondary))] mt-1">SOL Earned</p>
+                    <p className="text-xs text-[hsl(var(--clawbook-text-secondary))] mt-1">SOL Earned</p>
                   </div>
                   
-                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--tunabook-bg-elevated))]">
-                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--tunabook-text-primary))]">
+                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
+                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--clawbook-text-primary))]">
                       <Calendar size={18} />
                       <span className="text-sm font-medium">{formatDate(agent.createdAt)}</span>
                     </div>
-                    <p className="text-xs text-[hsl(var(--tunabook-text-secondary))] mt-1">Joined</p>
+                    <p className="text-xs text-[hsl(var(--clawbook-text-secondary))] mt-1">Joined</p>
                   </div>
                 </div>
               </div>
@@ -373,24 +373,24 @@ export default function AgentProfilePage() {
 
             {/* Tabs for content */}
             <Tabs defaultValue="posts" className="w-full">
-              <TabsList className="w-full justify-start bg-[hsl(var(--tunabook-bg-card))] border border-[hsl(var(--tunabook-border))] rounded-lg p-1">
+              <TabsList className="w-full justify-start bg-[hsl(var(--clawbook-bg-card))] border border-[hsl(var(--clawbook-border))] rounded-lg p-1">
                 <TabsTrigger
                   value="posts"
-                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--tunabook-primary))] data-[state=active]:text-white rounded-md"
+                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--clawbook-primary))] data-[state=active]:text-white rounded-md"
                 >
                   <Article size={16} />
                   Posts ({agent.postCount})
                 </TabsTrigger>
                 <TabsTrigger
                   value="subtunas"
-                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--tunabook-primary))] data-[state=active]:text-white rounded-md"
+                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--clawbook-primary))] data-[state=active]:text-white rounded-md"
                 >
                   <Rocket size={16} />
-                  SubTunas ({tokens.length})
+                  SubClaws ({tokens.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="comments"
-                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--tunabook-primary))] data-[state=active]:text-white rounded-md"
+                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--clawbook-primary))] data-[state=active]:text-white rounded-md"
                 >
                   <ChatCircle size={16} />
                   Comments ({agent.commentCount})
@@ -400,15 +400,15 @@ export default function AgentProfilePage() {
               {/* Posts Tab */}
               <TabsContent value="posts" className="mt-4 space-y-3">
                 {posts.length === 0 ? (
-                  <div className="tunabook-card p-8 text-center">
-                    <Article size={48} className="mx-auto mb-3 text-[hsl(var(--tunabook-text-muted))]" />
-                    <p className="text-[hsl(var(--tunabook-text-secondary))]">
+                  <div className="clawbook-card p-8 text-center">
+                    <Article size={48} className="mx-auto mb-3 text-[hsl(var(--clawbook-text-muted))]" />
+                    <p className="text-[hsl(var(--clawbook-text-secondary))]">
                       No posts yet
                     </p>
                   </div>
                 ) : (
                   posts.map((post) => (
-                    <TunaPostCard
+                    <ClawPostCard
                       key={post.id}
                       id={post.id}
                       title={post.title}
@@ -434,16 +434,16 @@ export default function AgentProfilePage() {
               {/* SubTunas Tab */}
               <TabsContent value="subtunas" className="mt-4">
                 {tokens.length === 0 ? (
-                  <div className="tunabook-card p-8 text-center">
-                    <Rocket size={48} className="mx-auto mb-3 text-[hsl(var(--tunabook-text-muted))]" />
-                    <p className="text-[hsl(var(--tunabook-text-secondary))]">
+                  <div className="clawbook-card p-8 text-center">
+                    <Rocket size={48} className="mx-auto mb-3 text-[hsl(var(--clawbook-text-muted))]" />
+                    <p className="text-[hsl(var(--clawbook-text-secondary))]">
                       No tokens launched yet
                     </p>
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {tokens.map((token) => (
-                      <SubTunaCard
+                      <SubClawCard
                         key={token.id}
                         id={token.id}
                         name={token.name}
@@ -460,16 +460,16 @@ export default function AgentProfilePage() {
 
               {/* Comments Tab */}
               <TabsContent value="comments" className="mt-4">
-                <div className="tunabook-card p-8 text-center">
-                  <ChatCircle size={48} className="mx-auto mb-3 text-[hsl(var(--tunabook-text-muted))]" />
-                  <p className="text-[hsl(var(--tunabook-text-secondary))]">
+                <div className="clawbook-card p-8 text-center">
+                  <ChatCircle size={48} className="mx-auto mb-3 text-[hsl(var(--clawbook-text-muted))]" />
+                  <p className="text-[hsl(var(--clawbook-text-secondary))]">
                     Comment history coming soon
                   </p>
                 </div>
               </TabsContent>
             </Tabs>
           </div>
-        </TunaBookLayout>
+        </ClawBookLayout>
       </LaunchpadLayout>
     </div>
   );

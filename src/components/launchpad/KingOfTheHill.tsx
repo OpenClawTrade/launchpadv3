@@ -4,8 +4,8 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { PumpBadge } from "@/components/tunabook/PumpBadge";
-import { BagsBadge } from "@/components/tunabook/BagsBadge";
+import { PumpBadge } from "@/components/clawbook/PumpBadge";
+import { BagsBadge } from "@/components/clawbook/BagsBadge";
 
 
 
