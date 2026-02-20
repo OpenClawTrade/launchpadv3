@@ -1,25 +1,31 @@
 
-# Replace Claw Logo with New Transparent PNG
+# Add Matrix Mode Toggle to Sidebar (Desktop Only)
 
 ## Overview
-Save the uploaded transparent pixel-art lobster PNG as the new `claw-logo.png`, replacing the existing file. This single replacement will automatically update every place in the app that references it (sidebar logo, sidebar NFA/Panel icons, header Panel button, Privy branding, and all other components).
+Add a "Matrix Mode" toggle switch to the bottom of the desktop sidebar that lets users turn the Matrix rain background on/off. Currently the MatrixBackground renders unconditionally at the app root. We'll add a global state to control its visibility and a toggle in the sidebar.
 
-## Steps
+## Changes
 
-1. **Copy uploaded image to `src/assets/claw-logo.png`** (overwrite existing)
-   - The uploaded file is a proper transparent PNG
-   - Every component already imports from `@/assets/claw-logo.png`, so no code changes needed for those
+### 1. Create a Matrix Mode context (`src/contexts/MatrixModeContext.tsx`)
+- A small React context + provider with a boolean `matrixEnabled` state (default: `true`)
+- A `toggleMatrix` function
+- Persists preference to `localStorage` so it survives reloads
 
-2. **Copy uploaded image to `public/claw-logo.png`** (overwrite existing)
-   - Several components reference `/claw-logo.png` directly (Footer, KingOfTheHill, MemeLoadingAnimation, FunLauncherPage, TokenDetailPage, LaunchpadPage, AgentPlatformToken, useSubTuna)
-   - This ensures those direct URL references also get the new image
+### 2. Wrap App with MatrixModeProvider (`src/App.tsx`)
+- Import and wrap the app content with `MatrixModeProvider`
+- Conditionally render `<MatrixBackground />` only when `matrixEnabled` is `true`
 
-3. **No code changes required**
-   - All imports and references already point to `claw-logo.png`
-   - The transparency issue is likely because the current file itself isn't truly transparent -- replacing the file fixes it
+### 3. Add toggle to Sidebar (`src/components/layout/Sidebar.tsx`)
+- Desktop only: add a small toggle row above the "Create Token" CTA
+- Shows a monitor/terminal icon + "Matrix" label + a Switch component
+- Uses `useMatrixMode()` hook to read/toggle the state
+- Not shown on mobile (the sidebar already differentiates mobile vs desktop rendering)
 
 ## Technical Details
 
-**Files to overwrite (2):**
-- `src/assets/claw-logo.png` -- used by ES module imports (Sidebar, AppHeader, PanelPage, PrivyProviderWrapper, etc.)
-- `public/claw-logo.png` -- used by direct URL references in ~8 components
+**New file:**
+- `src/contexts/MatrixModeContext.tsx` -- context provider with localStorage persistence
+
+**Modified files:**
+- `src/App.tsx` -- wrap with provider, conditionally render `<MatrixBackground />`
+- `src/components/layout/Sidebar.tsx` -- add Matrix toggle row in the desktop sidebar footer area (between nav links and "Create Token" button), using a `Switch` from the UI library
