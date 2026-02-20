@@ -10,25 +10,25 @@ import { Fish, Spinner } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
-interface OpenTunaAgent {
+interface ClawAgent {
   id: string;
   name: string;
   status: string;
   agent_type: string;
 }
 
-interface OpenTunaAgentSelectorProps {
+interface ClawSDKAgentSelectorProps {
   selectedAgentId: string | null;
   onSelect: (agentId: string) => void;
   className?: string;
 }
 
-export default function OpenTunaAgentSelector({
+export default function ClawSDKAgentSelector({
   selectedAgentId,
   onSelect,
   className,
-}: OpenTunaAgentSelectorProps) {
-  const [agents, setAgents] = useState<OpenTunaAgent[]>([]);
+}: ClawSDKAgentSelectorProps) {
+  const [agents, setAgents] = useState<ClawAgent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

@@ -19,8 +19,8 @@ import {
   CircleNotch
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { useCreateOpenTunaAgent } from "@/hooks/useOpenTuna";
-import { useOpenTunaContext } from "./OpenTunaContext";
+import { useCreateClawAgent } from "@/hooks/useClawSDK";
+import { useClawSDKContext } from "./ClawSDKContext";
 import { usePrivy } from "@privy-io/react-auth";
 
 type AgentType = 'general' | 'trading' | 'social' | 'research' | 'creative';
@@ -76,14 +76,14 @@ const AGENT_TYPE_OPTIONS = [
   },
 ];
 
-interface OpenTunaHatchProps {
+interface ClawSDKHatchProps {
   onSuccess?: () => void;
 }
 
-export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
+export default function ClawSDKHatch({ onSuccess }: ClawSDKHatchProps) {
   const { login, authenticated } = usePrivy();
-  const { walletAddress, refetchAgents } = useOpenTunaContext();
-  const createAgent = useCreateOpenTunaAgent();
+  const { walletAddress, refetchAgents } = useClawSDKContext();
+  const createAgent = useCreateClawAgent();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [agentType, setAgentType] = useState<AgentType | null>(null);
@@ -147,14 +147,14 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
   if (!authenticated || !walletAddress) {
     return (
       <div className="max-w-2xl mx-auto">
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Wallet className="h-12 w-12 text-primary mx-auto mb-4" weight="duotone" />
             <h3 className="text-lg font-semibold mb-2">Connect Wallet to Hatch</h3>
             <p className="text-muted-foreground mb-6">
-              Connect your Solana wallet to create an OpenTuna agent
+              Connect your Solana wallet to create an Claw SDK agent
             </p>
-            <Button onClick={login} className="opentuna-button">
+            <Button onClick={login} className="clawsdk-button">
               <Wallet className="h-4 w-4 mr-2" weight="duotone" />
               Connect Wallet
             </Button>
@@ -198,7 +198,7 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
       </div>
 
       {/* Step Content */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Egg className="h-5 w-5 text-primary" weight="duotone" />
@@ -332,7 +332,7 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
               <Button
                 onClick={handleNext}
                 disabled={!canProceed()}
-                className="opentuna-button"
+                className="clawsdk-button"
               >
                 Next
                 <ArrowRight className="h-4 w-4 ml-2" />
@@ -341,7 +341,7 @@ export default function OpenTunaHatch({ onSuccess }: OpenTunaHatchProps) {
               <Button
                 onClick={handleHatch}
                 disabled={isHatching}
-                className="opentuna-button"
+                className="clawsdk-button"
               >
                 {isHatching ? (
                   <>

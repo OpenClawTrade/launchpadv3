@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import OpenTunaAgentSelector from "./OpenTunaAgentSelector";
+import ClawSDKAgentSelector from "./ClawSDKAgentSelector";
 
 interface Fin {
   id: string;
@@ -62,7 +62,7 @@ const FIN_ICONS: Record<string, React.ElementType> = {
 
 const CATEGORIES = ['all', 'core', 'trading', 'social', 'research', 'creative', 'development'];
 
-export default function OpenTunaFins() {
+export default function ClawSDKFins() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [category, setCategory] = useState('all');
   const [installedFins, setInstalledFins] = useState<InstalledFin[]>([]);
@@ -198,20 +198,20 @@ export default function OpenTunaFins() {
   return (
     <div className="space-y-6">
       {/* Agent Selector */}
-      <OpenTunaAgentSelector 
+      <ClawSDKAgentSelector 
         selectedAgentId={selectedAgentId}
         onSelect={setSelectedAgentId}
       />
 
       {!selectedAgentId ? (
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <PuzzlePiece className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
             <p className="text-muted-foreground">Select an agent to manage their Fin Rack</p>
           </CardContent>
         </Card>
       ) : loading ? (
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Spinner className="h-8 w-8 text-primary mx-auto mb-3 animate-spin" />
             <p className="text-muted-foreground">Loading fins...</p>
@@ -220,7 +220,7 @@ export default function OpenTunaFins() {
       ) : (
         <>
           {/* My Fin Rack */}
-          <Card className="opentuna-card">
+          <Card className="clawsdk-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <PuzzlePiece className="h-5 w-5 text-primary" weight="duotone" />
@@ -268,7 +268,7 @@ export default function OpenTunaFins() {
           </Card>
 
           {/* Browse Market */}
-          <Card className="opentuna-card">
+          <Card className="clawsdk-card">
             <CardHeader>
               <CardTitle>Browse Market</CardTitle>
             </CardHeader>
@@ -283,7 +283,7 @@ export default function OpenTunaFins() {
                     onClick={() => setCategory(cat)}
                     className={cn(
                       "capitalize",
-                      category === cat && "opentuna-button"
+                      category === cat && "clawsdk-button"
                     )}
                   >
                     {cat}
@@ -335,7 +335,7 @@ export default function OpenTunaFins() {
                           </p>
                             <Button 
                               size="sm" 
-                              className="mt-2 opentuna-button"
+                              className="mt-2 clawsdk-button"
                               onClick={() => handleInstall(fin.id)}
                               disabled={installing === fin.id}
                             >
@@ -357,7 +357,7 @@ export default function OpenTunaFins() {
           </Card>
 
           {/* Fin Forge */}
-          <Card className="opentuna-card border-dashed">
+          <Card className="clawsdk-card border-dashed">
             <CardContent className="p-6 text-center">
               <Sparkle className="h-10 w-10 text-primary mx-auto mb-3" weight="duotone" />
               <h3 className="font-semibold mb-2">Fin Forge</h3>
@@ -366,7 +366,7 @@ export default function OpenTunaFins() {
               </p>
               <Dialog open={forgeDialogOpen} onOpenChange={setForgeDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="opentuna-button">
+                  <Button className="clawsdk-button">
                     <Sparkle className="h-4 w-4 mr-2" />
                     Run Fin Forge
                   </Button>
@@ -395,7 +395,7 @@ export default function OpenTunaFins() {
                       </div>
                     </div>
                     <Button 
-                      className="w-full opentuna-button"
+                      className="w-full clawsdk-button"
                       onClick={handleForge}
                       disabled={forging}
                     >

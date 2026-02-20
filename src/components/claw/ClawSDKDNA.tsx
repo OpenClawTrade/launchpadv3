@@ -15,8 +15,8 @@ import {
   Fish,
   Spinner
 } from "@phosphor-icons/react";
-import { useOpenTunaContext } from "./OpenTunaContext";
-import { useOpenTunaDNA } from "@/hooks/useOpenTuna";
+import { useClawSDKContext } from "./ClawSDKContext";
+import { useClawDNA } from "@/hooks/useClawSDK";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,9 +38,9 @@ const SAMPLE_TRAITS = [
   "Methodical", "Aggressive", "Conservative", "Social", "Independent"
 ];
 
-export default function OpenTunaDNA() {
-  const { selectedAgentId, agents } = useOpenTunaContext();
-  const { data: dna, isLoading } = useOpenTunaDNA(selectedAgentId);
+export default function ClawSDKDNA() {
+  const { selectedAgentId, agents } = useClawSDKContext();
+  const { data: dna, isLoading } = useClawDNA(selectedAgentId);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -143,7 +143,7 @@ export default function OpenTunaDNA() {
         description: "Agent personality and goals updated successfully.",
       });
 
-      queryClient.invalidateQueries({ queryKey: ['opentuna-dna', selectedAgentId] });
+      queryClient.invalidateQueries({ queryKey: ['clawsdk-dna', selectedAgentId] });
     } catch (error: any) {
       toast({
         title: "Save Failed",
@@ -159,7 +159,7 @@ export default function OpenTunaDNA() {
   if (!selectedAgentId || agents.length === 0) {
     return (
       <div className="max-w-3xl mx-auto">
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Fish className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
             <h3 className="text-lg font-semibold mb-2">No Agents to Configure</h3>
@@ -175,7 +175,7 @@ export default function OpenTunaDNA() {
   if (isLoading) {
     return (
       <div className="max-w-3xl mx-auto">
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Spinner className="h-8 w-8 text-primary mx-auto mb-3 animate-spin" />
             <p className="text-muted-foreground">Loading DNA configuration...</p>
@@ -203,7 +203,7 @@ export default function OpenTunaDNA() {
       )}
 
       {/* DNA Core */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Dna className="h-5 w-5 text-primary" weight="duotone" />
@@ -224,7 +224,7 @@ export default function OpenTunaDNA() {
       </Card>
 
       {/* Species Traits */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="text-lg">Species Traits</CardTitle>
         </CardHeader>
@@ -265,7 +265,7 @@ export default function OpenTunaDNA() {
       </Card>
 
       {/* Migration Goals */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Target className="h-5 w-5 text-green-400" weight="duotone" />
@@ -302,7 +302,7 @@ export default function OpenTunaDNA() {
       </Card>
 
       {/* Reef Limits */}
-      <Card className="opentuna-card border-red-500/20">
+      <Card className="clawsdk-card border-red-500/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Warning className="h-5 w-5 text-red-400" weight="duotone" />
@@ -337,7 +337,7 @@ export default function OpenTunaDNA() {
 
       {/* Save Button */}
       <Button 
-        className="w-full opentuna-button" 
+        className="w-full clawsdk-button" 
         onClick={handleSave}
         disabled={isSaving}
       >
