@@ -173,7 +173,7 @@ export default function GovernancePage() {
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-white mb-2">Governance</h1>
           <p className="text-gray-400">
-            Shape the future of TUNA with your suggestions
+            Shape the future of Claw Mode with your suggestions
           </p>
         </div>
 
@@ -212,7 +212,7 @@ export default function GovernancePage() {
           <CardHeader className="border-b border-[#1a1a1f]">
             <CardTitle className="text-white flex items-center gap-2">
               <Bot className="h-5 w-5 text-purple-400" />
-              TUNA Governance AI
+              Claw Governance AI
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -223,7 +223,7 @@ export default function GovernancePage() {
                     <Bot className="h-12 w-12 mx-auto text-purple-500/50" />
                     <div>
                       <p className="font-medium text-gray-300">Welcome to Governance</p>
-                      <p className="text-sm text-gray-500 mt-1">Share your ideas to improve TUNA</p>
+                      <p className="text-sm text-gray-500 mt-1">Share your ideas to improve Claw Mode</p>
                     </div>
                     <div className="flex flex-wrap gap-2 justify-center">
                       {["What features are coming?", "How can I suggest improvements?", "Tell me about voting"].map((q) => (
@@ -289,7 +289,7 @@ export default function GovernancePage() {
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Share your ideas for TUNA..."
+                placeholder="Share your ideas for Claw Mode..."
                 className="bg-[#1a1a1f] border-[#2a2a2f] text-white resize-none min-h-[44px] max-h-[120px]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {

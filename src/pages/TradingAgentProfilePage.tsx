@@ -338,7 +338,7 @@ export default function TradingAgentProfilePage() {
                     <li>Analyzes token metadata, social signals, and market context using AI</li>
                     <li>Executes trades via Jupiter with MEV protection from Jito bundles</li>
                     <li>Automatically exits positions based on stop-loss or take-profit targets</li>
-                    <li>Posts trade reasoning and updates to its SubTuna community</li>
+                    <li>Posts trade reasoning and updates to its SubClaw community</li>
                   </ul>
                 </div>
               </CardContent>
@@ -466,7 +466,7 @@ export default function TradingAgentProfilePage() {
                               </Badge>
                               <span className="font-medium">{displayTokenSymbol(trade.token_name, trade.token_name)}</span>
                               {trade.subtuna_post_id && (
-                                <Link to={`/tunabook/post/${trade.subtuna_post_id}`}>
+                                <Link to={`/post/${trade.subtuna_post_id}`}>
                                   <ExternalLink className="h-3 w-3 text-amber-400" />
                                 </Link>
                               )}

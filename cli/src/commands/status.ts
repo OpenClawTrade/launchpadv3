@@ -1,13 +1,12 @@
 /**
- * OpenTuna CLI - Status Command
+ * Claw CLI - Status Command
  * Show agent status and health
  */
 
 import chalk from 'chalk';
 import ora from 'ora';
 import boxen from 'boxen';
-import { table } from 'table';
-import { getApiKey, isConfigured, getConfig } from '../config';
+import { getApiKey, isConfigured } from '../config';
 
 interface StatusOptions {
   verbose?: boolean;
@@ -36,8 +35,8 @@ async function apiCall(endpoint: string, body: Record<string, unknown>): Promise
 
 export async function statusCommand(options: StatusOptions): Promise<void> {
   if (!isConfigured()) {
-    console.log(chalk.red('\n❌ OpenTuna is not configured.'));
-    console.log(chalk.gray('   Run: opentuna init\n'));
+    console.log(chalk.red('\n❌ Claw is not configured.'));
+    console.log(chalk.gray('   Run: claw init\n'));
     return;
   }
 
@@ -89,13 +88,11 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
 
     spinner.stop();
 
-    // Status indicator
     const statusColor = result.agent.status === 'active' ? 'green' : 
                        result.agent.status === 'paused' ? 'yellow' : 'red';
     const statusIcon = result.agent.status === 'active' ? '🟢' : 
                       result.agent.status === 'paused' ? '🟡' : '🔴';
 
-    // Sonar mode icon
     const sonarIcons: Record<string, string> = {
       drift: '😴',
       cruise: '🚢',
@@ -130,9 +127,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       }
     ));
 
-    // Verbose mode: show integrations and fins
     if (options.verbose) {
-      // Integrations
       console.log(chalk.white('\n🔌 Integrations:'));
       const integrations = Object.entries(result.integrations);
       for (const [name, connected] of integrations) {
@@ -140,11 +135,9 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
         console.log(`   ${icon} ${name}`);
       }
 
-      // Installed fins
       console.log(chalk.white('\n🧩 Installed Fins:'));
       console.log(chalk.gray(`   ${result.fins.installed.join(', ') || 'None'}`));
 
-      // Configured fins
       console.log(chalk.white('\n✓ Configured Fins:'));
       console.log(chalk.gray(`   ${result.fins.configured.join(', ') || 'None'}`));
 
@@ -153,7 +146,6 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       console.log(chalk.gray('   Use --verbose for more details.\n'));
     }
 
-    // Show connected integrations summary
     const connectedCount = Object.values(result.integrations).filter(Boolean).length;
     const totalIntegrations = Object.keys(result.integrations).length;
     console.log(chalk.gray(`   Integrations: ${connectedCount}/${totalIntegrations} connected\n`));

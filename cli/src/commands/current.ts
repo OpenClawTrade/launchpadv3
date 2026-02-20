@@ -1,5 +1,5 @@
 /**
- * OpenTuna CLI - Current (Wallet) Command
+ * Claw CLI - Current (Wallet) Command
  * Manage agent wallet and funds
  */
 
@@ -39,8 +39,8 @@ async function apiCall(endpoint: string, body: Record<string, unknown>): Promise
 
 export async function currentCommand(action: CurrentAction, options: CurrentOptions): Promise<void> {
   if (!isConfigured()) {
-    console.log(chalk.red('\n❌ OpenTuna is not configured.'));
-    console.log(chalk.gray('   Run: opentuna init\n'));
+    console.log(chalk.red('\n❌ Claw is not configured.'));
+    console.log(chalk.gray('   Run: claw init\n'));
     return;
   }
 
@@ -103,7 +103,7 @@ async function showBalance(): Promise<void> {
     if (!result.isActivated) {
       const needed = result.activationThreshold - result.balanceSol;
       console.log(chalk.yellow(`\n   ⚠️  Agent needs ${needed.toFixed(4)} more SOL to activate.`));
-      console.log(chalk.gray(`   Fund with: opentuna fund ${needed.toFixed(2)}\n`));
+      console.log(chalk.gray(`   Fund with: claw fund ${needed.toFixed(2)}\n`));
     }
   } catch (error) {
     spinner.fail('Failed to fetch balance');
@@ -116,7 +116,7 @@ async function fundWallet(amount: string): Promise<void> {
   
   if (isNaN(amountSol) || amountSol <= 0) {
     console.log(chalk.red('\n❌ Invalid amount'));
-    console.log(chalk.gray('   Usage: opentuna fund <amount>\n'));
+    console.log(chalk.gray('   Usage: claw fund <amount>\n'));
     return;
   }
 
@@ -141,7 +141,7 @@ async function fundWallet(amount: string): Promise<void> {
       chalk.white(`Send SOL to this address:\n`) +
       chalk.yellow(`${result.walletAddress}\n\n`) +
       chalk.gray('After sending, the balance will update automatically.\n') +
-      chalk.gray('Check with: opentuna balance'),
+      chalk.gray('Check with: claw balance'),
       {
         padding: 1,
         margin: 1,
@@ -150,7 +150,6 @@ async function fundWallet(amount: string): Promise<void> {
       }
     ));
 
-    // Copy to clipboard hint
     console.log(chalk.gray('\n   Tip: Copy the address and send SOL from your wallet.\n'));
   } catch (error) {
     spinner.fail('Failed to get deposit address');
@@ -163,11 +162,10 @@ async function withdrawFunds(amount: string, toAddress?: string): Promise<void> 
   
   if (isNaN(amountSol) || amountSol <= 0) {
     console.log(chalk.red('\n❌ Invalid amount'));
-    console.log(chalk.gray('   Usage: opentuna withdraw <amount> --to <address>\n'));
+    console.log(chalk.gray('   Usage: claw withdraw <amount> --to <address>\n'));
     return;
   }
 
-  // Get destination address if not provided
   let destination = toAddress;
   if (!destination) {
     const { address } = await inquirer.prompt([{
@@ -182,7 +180,6 @@ async function withdrawFunds(amount: string, toAddress?: string): Promise<void> 
     destination = address;
   }
 
-  // Confirm withdrawal
   console.log(chalk.yellow(`\n⚠️  Withdrawal Details:`));
   console.log(chalk.gray(`   Amount: ${amountSol} SOL`));
   console.log(chalk.gray(`   To: ${destination}\n`));

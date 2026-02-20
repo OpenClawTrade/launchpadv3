@@ -1,5 +1,5 @@
 /**
- * OpenTuna CLI
+ * Claw CLI
  * Main entry point and exports
  */
 
@@ -22,4 +22,4 @@ export {
   resetConfig,
 } from './config';
 
-export type { OpenTunaConfig } from './config';
+export type { ClawConfig, OpenTunaConfig } from './config';

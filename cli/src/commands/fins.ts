@@ -1,5 +1,5 @@
 /**
- * OpenTuna CLI - Fins Command
+ * Claw CLI - Fins Command
  * Manage agent capabilities
  */
 
@@ -16,7 +16,6 @@ interface FinsOptions {
   installed?: boolean;
 }
 
-// Core fins that are always available
 const CORE_FINS = [
   {
     id: 'fin_read',
@@ -74,7 +73,6 @@ const CORE_FINS = [
   },
 ];
 
-// Additional fins that can be installed
 const INSTALLABLE_FINS = [
   {
     id: 'fin_email',
@@ -150,7 +148,7 @@ const INSTALLABLE_FINS = [
     id: 'fin_post',
     name: 'Social Post',
     icon: '📢',
-    description: 'Post to SubTuna and social platforms',
+    description: 'Post to SubClaw and social platforms',
     category: 'Social',
     installed: false,
     core: false,
@@ -181,8 +179,8 @@ async function apiCall(endpoint: string, body: Record<string, unknown>): Promise
 
 export async function finsCommand(action: FinsAction, options: FinsOptions): Promise<void> {
   if (!isConfigured()) {
-    console.log(chalk.red('\n❌ OpenTuna is not configured.'));
-    console.log(chalk.gray('   Run: opentuna init\n'));
+    console.log(chalk.red('\n❌ Claw is not configured.'));
+    console.log(chalk.gray('   Run: claw init\n'));
     return;
   }
 
@@ -209,7 +207,6 @@ async function listFins(installedOnly?: boolean): Promise<void> {
   const spinner = ora('Loading fins...').start();
 
   try {
-    // Get installed fins from API
     const result = await apiCall('opentuna-fins-list', {}) as {
       installed: string[];
     };
@@ -225,7 +222,6 @@ async function listFins(installedOnly?: boolean): Promise<void> {
       ? allFins.filter(f => f.installed)
       : allFins;
 
-    // Group by category
     const categories = [...new Set(finsToShow.map(f => f.category))];
 
     console.log(chalk.cyan('\n🧩 Available Fins\n'));
@@ -245,8 +241,8 @@ async function listFins(installedOnly?: boolean): Promise<void> {
       console.log();
     }
 
-    console.log(chalk.gray('  Install a fin: opentuna fins install <fin_id>'));
-    console.log(chalk.gray('  Show rack view: opentuna fins rack\n'));
+    console.log(chalk.gray('  Install a fin: claw fins install <fin_id>'));
+    console.log(chalk.gray('  Show rack view: claw fins rack\n'));
   } catch (error) {
     spinner.fail('Failed to load fins');
     console.error(chalk.red(`\n   Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`));
@@ -258,7 +254,7 @@ async function installFin(finId: string): Promise<void> {
   
   if (!fin) {
     console.log(chalk.red(`\n❌ Unknown fin: ${finId}`));
-    console.log(chalk.gray('   Run: opentuna fins list\n'));
+    console.log(chalk.gray('   Run: claw fins list\n'));
     return;
   }
 
@@ -270,7 +266,7 @@ async function installFin(finId: string): Promise<void> {
 
     if (fin.requiresAuth) {
       console.log(chalk.yellow(`\n⚠️  This fin requires authentication: ${fin.requiresAuth}`));
-      console.log(chalk.gray(`   Run: opentuna fins configure ${finId}\n`));
+      console.log(chalk.gray(`   Run: claw fins configure ${finId}\n`));
     }
   } catch (error) {
     spinner.fail('Failed to install fin');
@@ -347,7 +343,6 @@ async function configureFin(finId: string): Promise<void> {
   console.log(chalk.cyan(`\n🔧 Configure ${fin.icon} ${fin.name}\n`));
   console.log(chalk.gray(`   Authentication: ${fin.requiresAuth}\n`));
 
-  // OAuth-based fins
   if (fin.requiresAuth === 'OAuth') {
     const spinner = ora('Getting authorization URL...').start();
     
@@ -368,7 +363,6 @@ async function configureFin(finId: string): Promise<void> {
     return;
   }
 
-  // Token-based fins
   console.log(chalk.yellow('   Configuration for this fin type is not yet implemented.\n'));
-  console.log(chalk.gray('   Please configure via the web interface at https://tuna.fun/opentuna\n'));
+  console.log(chalk.gray('   Please configure via the web interface at https://clawmode.fun\n'));
 }
