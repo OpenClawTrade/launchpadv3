@@ -1013,43 +1013,39 @@ Deno.serve(async (req) => {
             mintAddress: processResult.mintAddress,
           });
 
-          // Post success reply - CHECK DEDUP FIRST
+          // Post success reply - PRE-CLAIM DEDUP (insert pending row first, unique constraint prevents race)
           if (canPostReplies) {
-            // CRITICAL: Check if we already replied to this tweet
-            const { data: existingReply } = await supabase
-              .from("twitter_bot_replies")
-              .select("id")
-              .eq("tweet_id", tweetId)
-              .maybeSingle();
-
-            if (existingReply) {
-              console.log(`[agent-scan-twitter] ⏭️ Skipping reply to ${tweetId} - already replied`);
-            } else {
-              // New format: full CA, no links, token name/symbol, with image
               const replyText = isAutoLaunch
                 ? `🦞 Trading Agent launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nTrading-Fees goes to your Panel, claim them any time.`
                 : `🦞 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nTrading-Fees goes to your Panel, claim them any time.`;
 
-              const replyResult = await replyToTweet(
-                tweetId,
-                replyText,
-                oauthCreds!,
-                username
-              );
+              // PRE-CLAIM: Insert pending record BEFORE sending reply. Unique constraint on tweet_id prevents duplicates.
+              const { error: claimError } = await supabase.from("twitter_bot_replies").insert({
+                tweet_id: tweetId,
+                tweet_author: username,
+                tweet_text: normalizedText.slice(0, 500),
+                reply_text: replyText.slice(0, 500),
+                reply_id: `pending-${Date.now()}`,
+              });
 
-              if (!replyResult.success) {
-                console.error(`[agent-scan-twitter] ❌ FAILED to send launch success reply to @${username}:`, replyResult.error);
-              } else if (replyResult.replyId) {
-                // Record reply to prevent duplicates
-                await supabase.from("twitter_bot_replies").insert({
-                  tweet_id: tweetId,
-                  tweet_author: username,
-                  tweet_text: normalizedText.slice(0, 500),
-                  reply_text: replyText.slice(0, 500),
-                  reply_id: replyResult.replyId,
-                });
+              if (claimError) {
+                // Unique constraint violation = another function already claimed this tweet
+                console.log(`[agent-scan-twitter] ⏭️ Skipping reply to ${tweetId} - already claimed (${claimError.code})`);
+              } else {
+                const replyResult = await replyToTweet(
+                  tweetId,
+                  replyText,
+                  oauthCreds!,
+                  username
+                );
+
+                if (!replyResult.success) {
+                  console.error(`[agent-scan-twitter] ❌ FAILED to send launch success reply to @${username}:`, replyResult.error);
+                } else if (replyResult.replyId) {
+                  // Update with actual reply ID
+                  await supabase.from("twitter_bot_replies").update({ reply_id: replyResult.replyId }).eq("tweet_id", tweetId);
+                }
               }
-            }
           }
         } else {
           results.push({
@@ -1059,64 +1055,35 @@ Deno.serve(async (req) => {
           });
 
           // Reply to user when launch is blocked (missing image, parse error, etc.)
-          // CRITICAL: Check if we already replied to this tweet first
           if (canPostReplies) {
-            const { data: existingReply } = await supabase
-              .from("twitter_bot_replies")
-              .select("id")
-              .eq("tweet_id", tweetId)
-              .maybeSingle();
-
-            if (existingReply) {
-              console.log(`[agent-scan-twitter] ⏭️ Skipping error reply to ${tweetId} - already replied`);
-            } else if (processResult.shouldReply && processResult.replyText) {
-              // Use the specific reply text from agent-process-post (e.g., missing image)
-              const replyResult = await replyToTweet(
-                tweetId,
-                processResult.replyText,
-                oauthCreds!,
-                username
-              );
-
-              if (!replyResult.success) {
-                console.error(`[agent-scan-twitter] ❌ FAILED to send blocked launch reply to @${username}:`, replyResult.error);
-              } else {
-                console.log(`[agent-scan-twitter] ✅ Sent blocked launch reply to @${username}`);
-                // Record reply to prevent duplicates
-                if (replyResult.replyId) {
-                  await supabase.from("twitter_bot_replies").insert({
-                    tweet_id: tweetId,
-                    tweet_author: username,
-                    tweet_text: normalizedText.slice(0, 500),
-                    reply_text: processResult.replyText.slice(0, 500),
-                    reply_id: replyResult.replyId,
-                  });
-                }
-              }
+            let errorReplyText: string | null = null;
+            if (processResult.shouldReply && processResult.replyText) {
+              errorReplyText = processResult.replyText;
             } else if (processResult.error?.includes("parse")) {
-              // Fallback: format help for parsing errors
-              const formatHelpText = `🦞 Hey @${username}! To launch your token, please use this format:\n\n!clawmode\nName: YourTokenName\nSymbol: $TICKER\n\nDon't forget to attach an image!`;
+              errorReplyText = `🦞 Hey @${username}! To launch your token, please use this format:\n\n!clawmode\nName: YourTokenName\nSymbol: $TICKER\n\nDon't forget to attach an image!`;
+            }
 
-              const helpReplyResult = await replyToTweet(
-                tweetId,
-                formatHelpText,
-                oauthCreds!,
-                username
-              );
+            if (errorReplyText) {
+              // PRE-CLAIM: Insert pending record first
+              const { error: claimError } = await supabase.from("twitter_bot_replies").insert({
+                tweet_id: tweetId,
+                tweet_author: username,
+                tweet_text: normalizedText.slice(0, 500),
+                reply_text: errorReplyText.slice(0, 500),
+                reply_id: `pending-${Date.now()}`,
+              });
 
-              if (!helpReplyResult.success) {
-                console.error(`[agent-scan-twitter] ❌ FAILED to send format help reply to @${username}:`, helpReplyResult.error);
+              if (claimError) {
+                console.log(`[agent-scan-twitter] ⏭️ Skipping error reply to ${tweetId} - already claimed`);
               } else {
-                console.log(`[agent-scan-twitter] ✅ Sent format help reply to @${username}`);
-                // Record reply to prevent duplicates
-                if (helpReplyResult.replyId) {
-                  await supabase.from("twitter_bot_replies").insert({
-                    tweet_id: tweetId,
-                    tweet_author: username,
-                    tweet_text: normalizedText.slice(0, 500),
-                    reply_text: formatHelpText.slice(0, 500),
-                    reply_id: helpReplyResult.replyId,
-                  });
+                const replyResult = await replyToTweet(tweetId, errorReplyText, oauthCreds!, username);
+                if (!replyResult.success) {
+                  console.error(`[agent-scan-twitter] ❌ FAILED to send error reply to @${username}:`, replyResult.error);
+                } else {
+                  console.log(`[agent-scan-twitter] ✅ Sent error reply to @${username}`);
+                  if (replyResult.replyId) {
+                    await supabase.from("twitter_bot_replies").update({ reply_id: replyResult.replyId }).eq("tweet_id", tweetId);
+                  }
                 }
               }
             }
@@ -1141,15 +1108,6 @@ Deno.serve(async (req) => {
 
           if (unrepliedLaunches && unrepliedLaunches.length > 0) {
             for (const launch of unrepliedLaunches) {
-              // Check if reply already exists
-              const { data: existingReply } = await supabase
-                .from("twitter_bot_replies")
-                .select("id")
-                .eq("tweet_id", launch.post_id)
-                .maybeSingle();
-
-              if (existingReply) continue; // Already replied
-
               // Get mint address from fun_tokens
               const { data: tokenData } = await supabase
                 .from("fun_tokens")
@@ -1161,6 +1119,17 @@ Deno.serve(async (req) => {
 
               const replyText = `🦞 Token launched on $SOL!\n\n$${tokenData.ticker || launch.parsed_symbol || "TOKEN"} - ${tokenData.name || launch.parsed_name || "Token"}\nCA: ${tokenData.mint_address}\n\nTrading-Fees goes to your Panel, claim them any time.`;
 
+              // PRE-CLAIM: Insert pending record first
+              const { error: claimError } = await supabase.from("twitter_bot_replies").insert({
+                tweet_id: launch.post_id,
+                tweet_author: launch.post_author || "",
+                tweet_text: `!clawmode (catch-up)`,
+                reply_text: replyText.slice(0, 500),
+                reply_id: `pending-catchup-${Date.now()}`,
+              });
+
+              if (claimError) continue; // Already claimed
+
               console.log(`[agent-scan-twitter] 🔄 Catch-up reply for @${launch.post_author} tweet ${launch.post_id}`);
 
               const replyResult = await replyToTweet(
@@ -1171,13 +1140,7 @@ Deno.serve(async (req) => {
               );
 
               if (replyResult.success && replyResult.replyId) {
-                await supabase.from("twitter_bot_replies").insert({
-                  tweet_id: launch.post_id,
-                  tweet_author: launch.post_author || "",
-                  tweet_text: `!clawmode (catch-up)`,
-                  reply_text: replyText.slice(0, 500),
-                  reply_id: replyResult.replyId,
-                });
+                await supabase.from("twitter_bot_replies").update({ reply_id: replyResult.replyId }).eq("tweet_id", launch.post_id);
                 catchUpReplied++;
                 console.log(`[agent-scan-twitter] ✅ Catch-up reply sent for ${launch.post_id}`);
               } else {
