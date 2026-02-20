@@ -48,35 +48,20 @@ const parseCookieString = (raw: string): Record<string, string> => {
   return out;
 };
 
-// Build login cookies base64 from various formats
-const buildLoginCookiesBase64 = (args: {
-  fullCookie?: string | null;
-  authToken?: string | null;
-  ct0Token?: string | null;
-}): string | null => {
-  const { fullCookie, authToken, ct0Token } = args;
-
-  // Priority 1: Full cookie header from browser
-  if (fullCookie && fullCookie.trim()) {
-    const cookies = parseCookieString(fullCookie.trim());
-    if (cookies.auth_token && cookies.ct0) {
-      console.log(`[buildLoginCookiesBase64] Using full_cookie - found auth_token and ct0`);
-      return btoa(JSON.stringify(cookies));
-    }
-    console.log(`[buildLoginCookiesBase64] full_cookie parsed but missing auth_token or ct0`);
+// Build login cookies base64 from full cookie string only
+const buildLoginCookiesBase64 = (fullCookie: string | null): string | null => {
+  if (!fullCookie || !fullCookie.trim()) {
+    console.log(`[buildLoginCookiesBase64] No full_cookie provided`);
+    return null;
   }
 
-  // Priority 2: Individual tokens
-  if (authToken && ct0Token) {
-    const authVal = stripQuotes(authToken.trim());
-    const ct0Val = stripQuotes(ct0Token.trim());
-    if (authVal && ct0Val) {
-      console.log(`[buildLoginCookiesBase64] Using individual tokens (auth_token length: ${authVal.length}, ct0 length: ${ct0Val.length})`);
-      return btoa(JSON.stringify({ auth_token: authVal, ct0: ct0Val }));
-    }
+  const cookies = parseCookieString(fullCookie.trim());
+  if (cookies.auth_token && cookies.ct0) {
+    console.log(`[buildLoginCookiesBase64] Using full_cookie - found auth_token and ct0`);
+    return btoa(JSON.stringify(cookies));
   }
 
-  console.log(`[buildLoginCookiesBase64] No valid cookies found`);
+  console.log(`[buildLoginCookiesBase64] full_cookie parsed but missing auth_token or ct0`);
   return null;
 };
 
@@ -84,8 +69,6 @@ interface AccountWithCredentials {
   id: string;
   username: string;
   full_cookie_encrypted: string | null;
-  auth_token_encrypted: string | null;
-  ct0_token_encrypted: string | null;
   proxy_url: string | null;
   rules: {
     author_cooldown_hours: number;
@@ -336,8 +319,6 @@ serve(async (req) => {
         id,
         username,
         full_cookie_encrypted,
-        auth_token_encrypted,
-        ct0_token_encrypted,
         proxy_url,
         socks5_urls,
         current_socks5_index,
@@ -359,19 +340,13 @@ serve(async (req) => {
       const rules = (account as any).x_bot_account_rules?.[0];
       if (!rules?.enabled) continue;
 
-      // Build login cookies using the proper base64 format
-      const loginCookies = buildLoginCookiesBase64({
-        fullCookie: account.full_cookie_encrypted,
-        authToken: account.auth_token_encrypted,
-        ct0Token: account.ct0_token_encrypted,
-      });
+      // Build login cookies from full cookie string
+      const loginCookies = buildLoginCookiesBase64(account.full_cookie_encrypted);
 
       if (!loginCookies) {
         debug.errors.push(`Account ${account.username}: No valid cookies`);
-        await insertLog(supabase, account.id, "error", "error", `No valid cookies configured for @${account.username}. Check that full_cookie or auth_token+ct0 are properly set.`, {
+        await insertLog(supabase, account.id, "error", "error", `No valid full_cookie configured for @${account.username}. Paste your full cookie string from x.com.`, {
           hasFullCookie: !!account.full_cookie_encrypted,
-          hasAuthToken: !!account.auth_token_encrypted,
-          hasCt0Token: !!account.ct0_token_encrypted,
         });
         continue;
       }
