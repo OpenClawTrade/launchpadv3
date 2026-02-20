@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Copy, Check, Code, Rocket, RefreshCw, Webhook, CreditCard, Terminal, Zap, Shield, Globe, FileCode, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ export default function ApiDocsPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <MatrixContentCard>
         {/* AI Implementation Notice */}
         <Card className="mb-8 border-primary/30 bg-primary/5">
           <CardHeader className="pb-2">
@@ -1396,6 +1398,7 @@ export default function Launchpad() {
             </Card>
           </TabsContent>
         </Tabs>
+        </MatrixContentCard>
       </div>
     </div>
   );

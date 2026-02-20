@@ -10,6 +10,65 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Decrypt secret key from XOR-encrypted storage
+function decryptSecretKey(encryptedHex: string, encryptionKey: string): Uint8Array {
+  const keyBytes = new TextEncoder().encode(encryptionKey);
+  const encryptedBytes = hexToBytes(encryptedHex);
+  
+  const decrypted = new Uint8Array(encryptedBytes.length);
+  for (let i = 0; i < encryptedBytes.length; i++) {
+    decrypted[i] = encryptedBytes[i] ^ keyBytes[i % keyBytes.length];
+  }
+  
+  return decrypted;
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// Try to get a pre-mined vanity keypair with CLAW suffix
+async function getVanityKeypair(supabase: any, encryptionKey: string): Promise<{ publicKey: string; privateKeyBase64: string; id: string } | null> {
+  try {
+    const { data, error } = await supabase.rpc('backend_reserve_vanity_address', {
+      p_suffix: 'claw'
+    });
+    
+    if (error || !data || data.length === 0) {
+      console.log("[fun-create] No vanity address available:", error?.message || "empty result");
+      return null;
+    }
+    
+    const reserved = data[0];
+    console.log("[fun-create] Reserved vanity address:", reserved.public_key);
+    
+    // Decrypt the secret key
+    const secretKeyBytes = decryptSecretKey(reserved.secret_key_encrypted, encryptionKey);
+    const privateKeyBase64 = bytesToBase64(secretKeyBytes);
+    
+    return {
+      publicKey: reserved.public_key,
+      privateKeyBase64,
+      id: reserved.id
+    };
+  } catch (e) {
+    console.error("[fun-create] Error getting vanity keypair:", e);
+    return null;
+  }
+}
+
 function isHeliusMaxUsageError(message: string): boolean {
   const m = message.toLowerCase();
   return m.includes("max usage reached") || m.includes("429 too many requests");
@@ -236,6 +295,22 @@ Deno.serve(async (req) => {
       throw new Error("METEORA_API_URL not configured");
     }
 
+    // === VANITY ADDRESS: Reserve a CLAW-suffix keypair ===
+    const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+    const encryptionKey = treasuryPrivateKey?.slice(0, 32) || 'default-encryption-key-12345678';
+    
+    let vanityData: { publicKey: string; privateKeyBase64: string; id: string } | null = null;
+    try {
+      vanityData = await getVanityKeypair(supabase, encryptionKey);
+      if (vanityData) {
+        console.log(`[fun-create][${VERSION}] ✅ Using vanity mint with CLAW suffix:`, vanityData.publicKey);
+      } else {
+        console.log(`[fun-create][${VERSION}] No vanity address available, will use random mint`);
+      }
+    } catch (vanityErr) {
+      console.warn(`[fun-create][${VERSION}] Vanity reservation failed, falling back to random`, vanityErr);
+    }
+
     console.log(`[fun-create][${VERSION}] Calling Vercel API...`, { url: `${meteoraApiUrl}/api/pool/create-fun`, elapsed: Date.now() - startTime });
 
     // === FIX: Only auto-populate community URL for agent launches ===
@@ -244,21 +319,32 @@ Deno.serve(async (req) => {
     const finalWebsiteUrl = websiteUrl || undefined; // Don't auto-populate community URL
     const finalTwitterUrl = twitterUrl || 'https://x.com/clawmode';
 
+    // Build Vercel payload with vanity keypair if available
+    const vercelPayload: Record<string, unknown> = {
+      name: name.slice(0, 32),
+      ticker: ticker.toUpperCase().slice(0, 10),
+      description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
+      imageUrl: storedImageUrl,
+      websiteUrl: finalWebsiteUrl,
+      twitterUrl: finalTwitterUrl,
+      serverSideSign: true,
+      feeRecipientWallet: creatorWallet,
+    };
+
+    if (vanityData) {
+      // Pass the actual keypair to Vercel so it uses our vanity address
+      vercelPayload.vanityPublicKey = vanityData.publicKey;
+      vercelPayload.vanityPrivateKey = vanityData.privateKeyBase64;
+      vercelPayload.useVanityAddress = true;
+    } else {
+      vercelPayload.useVanityAddress = false;
+    }
+
     // Call Vercel API synchronously - this does all the work
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: name.slice(0, 32),
-        ticker: ticker.toUpperCase().slice(0, 10),
-        description: description?.slice(0, 500) || `${name} - A fun meme coin!`,
-        imageUrl: storedImageUrl,
-        websiteUrl: finalWebsiteUrl,
-        twitterUrl: finalTwitterUrl,
-        serverSideSign: true,
-        feeRecipientWallet: creatorWallet,
-        useVanityAddress: true, // Use pre-generated TNA vanity addresses from pool
-      }),
+      body: JSON.stringify(vercelPayload),
     });
 
     const vercelElapsed = Date.now() - startTime;
@@ -367,6 +453,24 @@ Deno.serve(async (req) => {
           });
         }
       }
+    }
+
+    // === MARK VANITY AS USED ===
+    if (vanityData && funTokenId) {
+      try {
+        await supabase.rpc('backend_mark_vanity_used', {
+          p_keypair_id: vanityData.id,
+          p_token_id: funTokenId,
+        });
+        console.log(`[fun-create][${VERSION}] ✅ Vanity address marked as used:`, vanityData.id);
+      } catch (vanityMarkErr) {
+        console.warn(`[fun-create][${VERSION}] Failed to mark vanity as used`, vanityMarkErr);
+      }
+    } else if (vanityData && !funTokenId) {
+      // Release the vanity address back if we couldn't save the token
+      await supabase.rpc('backend_release_vanity_address', {
+        p_keypair_id: vanityData.id,
+      }).catch(() => {});
     }
 
     // === COMPLETE LOCK: Mark as successful ===

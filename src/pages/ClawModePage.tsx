@@ -9,6 +9,7 @@ import { ClawTradingSection } from "@/components/claw/ClawTradingSection";
 import { ClawBribeSection } from "@/components/claw/ClawBribeSection";
 import { ClawForumSection } from "@/components/claw/ClawForumSection";
 import "@/styles/claw-theme.css";
+import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 
 export default function ClawModePage() {
   // Dynamic lobster favicon
@@ -120,6 +121,7 @@ function ClawModeContent() {
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4">
+          <MatrixContentCard>
           <ClawHero />
           <ClawStatsBar />
 
@@ -143,6 +145,7 @@ function ClawModeContent() {
           <div id="forum">
             <ClawForumSection />
           </div>
+          </MatrixContentCard>
         </main>
 
         {/* Footer */}

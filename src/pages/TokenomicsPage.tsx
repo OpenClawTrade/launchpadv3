@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 
 const PIE_DATA = [
   { name: "Early Airdrop", value: 5, color: "#f59e0b" },
@@ -77,6 +78,7 @@ export default function TokenomicsPage() {
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
 
         <main className="max-w-5xl mx-auto px-4 py-10 space-y-12 w-full">
+          <MatrixContentCard>
 
           {/* Hero */}
           <div className="text-center space-y-3">
@@ -350,6 +352,7 @@ export default function TokenomicsPage() {
 
           </Card>
 
+          </MatrixContentCard>
         </main>
         <Footer />
       </div>
