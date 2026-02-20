@@ -8,7 +8,7 @@ import {
   lazy,
   Suspense,
 } from "react";
-import tunaLogo from "@/assets/tuna-logo.png";
+import clawLogo from "@/assets/claw-logo.png";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 
@@ -166,7 +166,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             appearance: {
               theme: "dark",
               accentColor: "#22c55e", // RIFT green
-              logo: tunaLogo,
+              logo: clawLogo,
               showWalletLoginFirst: true,
               walletChainType: "solana-only",
               walletList: ["phantom", "solflare", "backpack", "detected_wallets"],

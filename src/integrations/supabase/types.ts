@@ -4141,6 +4141,98 @@ export type Database = {
         }
         Relationships: []
       }
+      nfa_batches: {
+        Row: {
+          batch_number: number
+          created_at: string
+          generation_completed_at: string | null
+          generation_started_at: string | null
+          id: string
+          mint_price_sol: number
+          minted_count: number
+          status: string
+          total_slots: number
+        }
+        Insert: {
+          batch_number: number
+          created_at?: string
+          generation_completed_at?: string | null
+          generation_started_at?: string | null
+          id?: string
+          mint_price_sol?: number
+          minted_count?: number
+          status?: string
+          total_slots?: number
+        }
+        Update: {
+          batch_number?: number
+          created_at?: string
+          generation_completed_at?: string | null
+          generation_started_at?: string | null
+          id?: string
+          mint_price_sol?: number
+          minted_count?: number
+          status?: string
+          total_slots?: number
+        }
+        Relationships: []
+      }
+      nfa_mints: {
+        Row: {
+          agent_image_url: string | null
+          agent_name: string | null
+          agent_personality: string | null
+          batch_id: string
+          created_at: string
+          id: string
+          minter_wallet: string
+          nfa_mint_address: string | null
+          payment_signature: string | null
+          payment_verified: boolean
+          slot_number: number
+          status: string
+          trading_agent_id: string | null
+        }
+        Insert: {
+          agent_image_url?: string | null
+          agent_name?: string | null
+          agent_personality?: string | null
+          batch_id: string
+          created_at?: string
+          id?: string
+          minter_wallet: string
+          nfa_mint_address?: string | null
+          payment_signature?: string | null
+          payment_verified?: boolean
+          slot_number: number
+          status?: string
+          trading_agent_id?: string | null
+        }
+        Update: {
+          agent_image_url?: string | null
+          agent_name?: string | null
+          agent_personality?: string | null
+          batch_id?: string
+          created_at?: string
+          id?: string
+          minter_wallet?: string
+          nfa_mint_address?: string | null
+          payment_signature?: string | null
+          payment_verified?: boolean
+          slot_number?: number
+          status?: string
+          trading_agent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfa_mints_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "nfa_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           actor_id: string

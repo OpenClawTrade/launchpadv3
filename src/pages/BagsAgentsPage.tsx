@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles, Download, RefreshCw, Copy, Check, ExternalLink, Lightbulb, Briefcase } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import tunaLogo from "@/assets/tuna-logo.png";
+import clawLogo from "@/assets/claw-logo.png";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 
 interface GeneratedMeme {
@@ -40,7 +40,7 @@ export default function BagsAgentsPage() {
       const { data, error } = await supabase.functions.invoke("agent-idea-generate", {
         body: { 
           prompt: customPrompt || undefined,
-          includeTunaLogo: true 
+          includeClawLogo: true 
         },
       });
 
@@ -135,7 +135,7 @@ export default function BagsAgentsPage() {
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-3 mb-4">
               <div className="relative">
-                <img src={tunaLogo} alt="TUNA" className="w-12 h-12 rounded-full" />
+                <img src={clawLogo} alt="Claw Mode" className="w-12 h-12 rounded-full" />
                 <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1 border border-border">
                   <Briefcase className="w-4 h-4 text-blue-400" />
                 </div>
@@ -399,7 +399,7 @@ export default function BagsAgentsPage() {
                     }}
                     className={`aspect-square rounded-xl bg-gradient-to-br ${example.bg} border border-border hover:border-blue-500/50 transition-all flex flex-col items-center justify-center gap-2 p-4`}
                   >
-                    <img src={tunaLogo} alt="" className="w-12 h-12 rounded-full" />
+                    <img src={clawLogo} alt="" className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-foreground">{example.prompt}</span>
                   </button>
                 ))}

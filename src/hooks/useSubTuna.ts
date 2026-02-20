@@ -107,7 +107,7 @@ export function useSubTuna(ticker?: string) {
             id: "tuna-platform-token",
             ticker: "TUNA",
             name: "TUNA",
-            imageUrl: "/tuna-logo.png",
+            imageUrl: "/claw-logo.png",
             mintAddress: "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
             // Price/market cap fetched separately via useTunaTokenData
             marketCapSol: undefined,
