@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { XLogo, TelegramLogo } from "@phosphor-icons/react";
+import { XLogo } from "@phosphor-icons/react";
 
 export function Footer() {
   return (
@@ -69,12 +69,6 @@ export function Footer() {
                 <a href="https://x.com/clawmode" target="_blank" rel="noopener noreferrer" className="hover:text-success transition-colors duration-200 flex items-center gap-1.5">
                   <XLogo className="h-3.5 w-3.5" weight="fill" />
                   Twitter/X
-                </a>
-              </li>
-              <li>
-                <a href="https://t.me/clawmode" target="_blank" rel="noopener noreferrer" className="hover:text-success transition-colors duration-200 flex items-center gap-1.5">
-                  <TelegramLogo className="h-3.5 w-3.5" weight="fill" />
-                  Telegram
                 </a>
               </li>
             </ul>

@@ -348,63 +348,6 @@ export default function TokenomicsPage() {
               ))}
             </div>
 
-            <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-4 flex items-center justify-between">
-              <div>
-                <div className="text-xs text-white/40 mb-1">Current Lock Status</div>
-                <div className="text-sm font-semibold text-green-400 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  All non-operational supply locked via smart contract
-                </div>
-              </div>
-              <a
-                href="https://app.streamflow.finance"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs text-green-400/70 hover:text-green-400 transition-colors"
-              >
-                Verify on-chain <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          </Card>
-
-          {/* Owner Breakdown Bar Chart */}
-          <Card className="bg-[#111] border-white/10 p-6 md:p-8">
-            <h2 className="text-lg font-bold text-white mb-1">Owner Allocation Breakdown</h2>
-            <p className="text-white/40 text-sm mb-6">
-              The 70% owner-controlled supply is subdivided below. All portions are locked
-              until their respective deployment windows open.
-            </p>
-            <div className="space-y-4">
-              {[
-                { label: "Early Airdrop (Feb 28)", pct: 5, of70: 5, color: "#f59e0b", status: "ACTIVE" },
-                { label: "Marketing & Collabs", pct: 20, of70: 20, color: "#8b5cf6", status: "LOCKED" },
-                { label: "CEX Listings & Market Making", pct: 25, of70: 25, color: "#06b6d4", status: "LOCKED" },
-                { label: "Core Team (Vested)", pct: 5, of70: 5, color: "#f97316", status: "LOCKED" },
-                { label: "Future Airdrops", pct: 5, of70: 5, color: "#ec4899", status: "LOCKED" },
-                { label: "Platform Reserve", pct: 10, of70: 10, color: "#4ade80", status: "LOCKED" },
-              ].map(({ label, pct, of70, color, status }) => (
-                <div key={label} className="grid grid-cols-[4rem_1fr_9rem_4rem] items-center gap-3">
-                  <span className="font-mono text-sm font-bold text-right" style={{ color }}>{pct}%</span>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${(of70 / 70) * 100}%`, background: color, opacity: 0.75 }}
-                    />
-                  </div>
-                  <span className="text-sm text-white/60 truncate">{label}</span>
-                  <Badge
-                    className="text-[10px] font-mono justify-center"
-                    style={
-                      status === "ACTIVE"
-                        ? { background: "rgba(234,179,8,0.1)", color: "#eab308", borderColor: "rgba(234,179,8,0.2)" }
-                        : { background: "rgba(74,222,128,0.05)", color: "#4ade80", borderColor: "rgba(74,222,128,0.15)" }
-                    }
-                  >
-                    {status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
           </Card>
 
         </main>
