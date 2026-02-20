@@ -1,52 +1,72 @@
 
 
-## Fix: Better Token Names & Tickers for !clawmode Launches
+## Simplify Token Launch Replies to Official X API Only
 
-### Problem
-The AI prompt in `twitter-mention-launcher` generates overly long or nonsensical names and random-looking tickers like "PPA", "PNQR", "PPCA". The prompt says "Single word, catchy, max 12 chars" but still produces poor results because it lacks strong enough constraints and examples.
+### What's Changing
+The current reply system tries the Official X API first, then falls back through 3 different twitterapi.io methods (create_tweet_v2, create_tweet, post_tweet). This adds complexity and all the fallbacks are failing anyway. We'll strip out all twitterapi.io reply logic and use **only** the Official X API (OAuth 1.0a) for token launch replies.
 
-### Solution
-Rewrite the AI prompt in `generateTokenFromTweet()` inside `supabase/functions/twitter-mention-launcher/index.ts` (lines 763-776) with much tighter instructions:
+### Step 1: Update OAuth Secrets
+You'll be prompted to enter fresh values for these 4 secrets from your new X Developer Portal console:
+1. TWITTER_CONSUMER_KEY (API Key)
+2. TWITTER_CONSUMER_SECRET (API Key Secret)  
+3. TWITTER_ACCESS_TOKEN
+4. TWITTER_ACCESS_TOKEN_SECRET
 
-**Changes to the prompt:**
-- Name: Force 1-2 short words, meme-style (e.g., "Pepe", "Doge", "Moon Cat", "Rug Bird")
-- Ticker: Must come from the name logically (first word or abbreviation that makes sense), 3-6 chars
-- Add explicit BAD examples to avoid: "NEVER generate random letter combos like PPA, PNQR, PPCA"
-- Add more GOOD examples showing name-to-ticker mapping: "Pepe -> PEPE", "Moon Cat -> MOON", "Rug Bird -> RUG"
-- Lower temperature from 0.9 to 0.8 for slightly more coherent output
+Make sure your app has **"Read and Write"** permissions enabled in the developer portal.
 
-**Also update the ticker fallback logic** (line 819): currently falls back to `parsed.name?.slice(0, 4)` which can produce gibberish. Instead, extract only uppercase alpha chars from the name.
+### Step 2: Simplify `replyToTweet()` in `agent-scan-twitter`
+**File:** `supabase/functions/agent-scan-twitter/index.ts`
 
-### File Changed
-- `supabase/functions/twitter-mention-launcher/index.ts` -- Update `generateTokenFromTweet()` function (lines 763-821)
+Replace the entire `replyToTweet()` function (lines 487-800) with a clean version that:
+- Uses ONLY the Official X API via `replyViaOfficialApi()` (already exists at line 119)
+- Keeps retry logic for transient errors (429/5xx/timeouts)
+- Removes all twitterapi.io fallback code (~250 lines deleted)
+- Removes the `loginCookies`, `authSession`, and `apiKey` parameters since they're no longer needed for replies
+- Keeps `mediaUrl` parameter signature for compatibility but logs a warning (Official X API v2 text-only for now)
+
+### Step 3: Update all `replyToTweet()` call sites
+Update every place that calls `replyToTweet()` to pass only the required OAuth credentials, removing the twitterapi.io-specific parameters.
+
+### What Stays the Same
+- The `agent-scan-twitter` function still uses twitterapi.io for **reading/scanning** tweets (search endpoint) -- that's separate from replies
+- The `replyViaOfficialApi()` helper function (lines 119-180) stays as-is
+- Deduplication logic, rate limiting, and catch-up loop are untouched
+- The `agent-hourly-post` function continues using twitterapi.io for posting (separate concern)
 
 ### Technical Details
 
-Updated prompt (lines 763-776):
-```
-Based on this tweet requesting a meme token, create a short catchy memecoin.
-
-Tweet: "{cleanedTweetText}"
-
-RULES:
-1. Name: 1-2 short words, meme style. Max 10 chars total. Think: Pepe, Doge, Bonk, Moon Cat, Rug Rat
-2. Ticker: 3-6 uppercase letters that MAKE SENSE from the name. Examples:
-   - "Pepe" -> "PEPE"
-   - "Moon Cat" -> "MOON" 
-   - "Crab King" -> "CRAB"
-   - "Bonk" -> "BONK"
-   - "Doge Lord" -> "DOGE"
-3. NEVER use random letter combos (PPA, PNQR, PPCA are BAD)
-4. Description: Fun one-liner with 1-2 emojis, max 80 chars. No URLs.
-
-Return ONLY valid JSON:
-{"name": "TokenName", "ticker": "TICK", "description": "Fun description 🚀"}
-```
-
-Updated ticker fallback (line 819):
+Simplified `replyToTweet()`:
 ```typescript
-// Extract first word of name as ticker fallback instead of random slice
-ticker: (parsed.ticker || parsed.name?.split(/\s/)[0]?.replace(/[^A-Z]/gi, '') || "MEME").toUpperCase().slice(0, 6),
+async function replyToTweet(
+  tweetId: string,
+  text: string,
+  oauthCreds: { consumerKey: string; consumerSecret: string; accessToken: string; accessTokenSecret: string },
+  username?: string,
+): Promise<{ success: boolean; replyId?: string; error?: string }> {
+  try {
+    console.log(`[agent-scan-twitter] Attempting reply via Official X API to @${username || "unknown"} (tweet ${tweetId})`);
+    
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const res = await replyViaOfficialApi(
+        tweetId, text,
+        oauthCreds.consumerKey, oauthCreds.consumerSecret,
+        oauthCreds.accessToken, oauthCreds.accessTokenSecret
+      );
+      if (res.success && res.replyId) {
+        console.log(`[agent-scan-twitter] Reply sent via Official X API: ${res.replyId}`);
+        return res;
+      }
+      // Retry only on transient errors
+      const isTransient = res.error && (/429|5\d{2}/.test(res.error) || /timeout|gateway/i.test(res.error));
+      if (!isTransient || attempt === 2) return res;
+      await sleep(600 * Math.pow(2, attempt - 1) + Math.random() * 200);
+    }
+    return { success: false, error: "Unknown retry error" };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
 ```
 
-Temperature change (line 790): `0.9` to `0.8`
+Call sites will be updated to pass only `oauthCreds` instead of the full parameter list with loginCookies, apiKey, authSession, etc.
+
