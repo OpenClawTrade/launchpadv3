@@ -82,7 +82,7 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
           className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-bold transition-colors hover:bg-white/10 flex-shrink-0 border cursor-pointer"
           style={{ borderColor: "#4ade80", color: "#4ade80" }}
         >
-          <div className="h-4 w-4" style={{ WebkitMaskImage: `url(${clawLogo})`, maskImage: `url(${clawLogo})`, WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskPosition: 'center', backgroundColor: '#4ade80' }} />
+          <img src={clawLogo} alt="" className="h-4 w-4 rounded-sm" style={{ background: '#000', padding: '1px' }} />
           Panel
         </button>
 
