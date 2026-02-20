@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     const text = message.text;
 
     // Check for !clawmode command
-    if (!text.toLowerCase().includes("!clawmode") && !text.toLowerCase().includes("!tunalaunch")) {
+    if (!text.toLowerCase().includes("!clawmode")) {
       return new Response(JSON.stringify({ success: true, skipped: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
