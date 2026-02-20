@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { ExternalLink, FileText } from "lucide-react";
 import { Footer } from "@/components/layout/Footer";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -42,6 +43,7 @@ export default function WhitepaperPage() {
 
       {/* Content */}
       <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <MatrixContentCard>
         {/* Title Section */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500/10 rounded-full text-cyan-400 text-sm mb-6">
@@ -1225,6 +1227,7 @@ await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
             <p className="mt-2">© 2026 Claw Mode. All rights reserved.</p>
           </div>
         </div>
+        </MatrixContentCard>
       </main>
 
       {/* Site Footer */}

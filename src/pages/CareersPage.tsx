@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
 import { Footer } from "@/components/layout/Footer";
+import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 
 interface Position {
   title: string;
@@ -217,6 +218,7 @@ export default function CareersPage() {
       </header>
 
       {/* Hero Section */}
+      <MatrixContentCard>
       <section className="py-16 md:py-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <Badge className="mb-6 bg-primary/20 text-primary border-primary/30 text-sm px-4 py-1">
@@ -432,6 +434,7 @@ export default function CareersPage() {
           </Card>
         </div>
       </section>
+      </MatrixContentCard>
 
       {/* Footer */}
       {/* Footer */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
+import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -196,6 +197,7 @@ export default function AgentDocsPage() {
         <DocsNav activeSection={activeSection} />
         
         <div className="flex-1 space-y-8 min-w-0">
+          <MatrixContentCard>
           {/* Hero Section */}
           <section id="overview">
             <Card className="gate-card overflow-hidden">
@@ -1010,6 +1012,7 @@ twitter: @cooltoken`} />
               </div>
             </div>
           </Card>
+          </MatrixContentCard>
         </div>
       </div>
     </LaunchpadLayout>

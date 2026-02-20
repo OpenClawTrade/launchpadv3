@@ -25,6 +25,7 @@ import ClawSDKDocs from "@/components/claw/ClawSDKDocs";
 import { Footer } from "@/components/layout/Footer";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 
 const VALID_TABS = ['hub', 'hatch', 'dna', 'sonar', 'memory', 'fins', 'integrations', 'current', 'docs'];
 
@@ -59,6 +60,7 @@ function ClawSDKContent() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+        <MatrixContentCard>
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-6 bg-card/50 border border-primary/20 rounded-xl p-1.5 gap-1 scrollbar-hide">
           <TabsTrigger 
             value="hub" 
@@ -152,6 +154,7 @@ function ClawSDKContent() {
         <TabsContent value="docs" className="mt-0">
           <ClawSDKDocs />
         </TabsContent>
+        </MatrixContentCard>
         </Tabs>
 
         <Footer />
