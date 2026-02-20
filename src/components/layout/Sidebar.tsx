@@ -61,7 +61,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
       {/* Logo */}
       <div className="px-5 pt-6 pb-5">
         <Link to="/" onClick={onLinkClick} className="flex items-center gap-2.5 group">
-          <img src={LOGO_SRC} alt="Claw Mode" className="h-7 w-7 object-contain rounded-lg" style={{ background: '#000', padding: '1px' }} />
+          <img src={LOGO_SRC} alt="Claw Mode" className="h-7 w-7 object-contain rounded-lg" />
           <div className="flex flex-col">
             <span className="text-[13px] font-bold font-mono leading-tight text-success tracking-tight-heading">CLAW</span>
             <span className="text-[11px] font-mono text-muted-foreground leading-tight">MODE</span>
@@ -80,7 +80,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
               : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50 border-transparent"
           );
           const iconEl = useClaw ? (
-            <img src={LOGO_SRC} alt="" className="h-4 w-4 rounded-sm object-contain flex-shrink-0" style={{ background: '#000', padding: '1px' }} />
+            <img src={LOGO_SRC} alt="" className="h-4 w-4 rounded-sm object-contain flex-shrink-0" />
           ) : Icon ? (
             <Icon className={cn("h-4 w-4 flex-shrink-0 transition-colors", active && "text-success")} />
           ) : null;

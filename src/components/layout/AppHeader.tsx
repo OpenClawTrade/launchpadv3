@@ -68,7 +68,7 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
           onClick={goToPanel}
           className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-bold transition-all duration-200 hover:bg-surface-hover hover-lift flex-shrink-0 border border-success/40 text-success cursor-pointer"
         >
-          <img src={clawLogo} alt="" className="h-4 w-4 rounded-sm" style={{ background: '#000', padding: '1px' }} />
+          <img src={clawLogo} alt="" className="h-4 w-4 rounded-sm" />
           Panel
         </button>
 
