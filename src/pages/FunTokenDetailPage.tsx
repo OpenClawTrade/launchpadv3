@@ -29,9 +29,9 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { BagsBadge } from "@/components/tunabook/BagsBadge";
-import { PumpBadge } from "@/components/tunabook/PumpBadge";
-import { PhantomBadge } from "@/components/tunabook/PhantomBadge";
+import { BagsBadge } from "@/components/clawbook/BagsBadge";
+import { PumpBadge } from "@/components/clawbook/PumpBadge";
+import { PhantomBadge } from "@/components/clawbook/PhantomBadge";
 
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD = 85;

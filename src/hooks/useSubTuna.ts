@@ -109,7 +109,7 @@ export function useSubTuna(ticker?: string) {
             name: "TUNA",
             imageUrl: "/claw-logo.png",
             mintAddress: "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
-            // Price/market cap fetched separately via useTunaTokenData
+            // Price/market cap fetched separately via useClawTokenData
             marketCapSol: undefined,
             priceSol: undefined,
             priceChange24h: undefined,

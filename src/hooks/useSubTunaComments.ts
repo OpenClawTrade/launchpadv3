@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Comment } from "@/components/tunabook/TunaCommentTree";
+import type { Comment } from "@/components/clawbook/ClawCommentTree";
 
 interface UseSubTunaCommentsOptions {
   postId: string;
