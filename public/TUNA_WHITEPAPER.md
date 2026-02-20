@@ -254,7 +254,7 @@ TUNA implements a centralized fee collection model where all trading fees route 
 | Network | Solana Mainnet-Beta |
 | Token Standard | SPL Token with Metaplex Metadata |
 | RPC Provider | Helius (paid tier for stability) |
-| Treasury Wallet | `FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r` |
+| Treasury Wallet | `HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx` |
 
 ### 5.2 Bonding Curve (Meteora DBC)
 
@@ -863,7 +863,7 @@ This file provides structured metadata for external AI systems to understand TUN
 | Asset | Address |
 |-------|---------|
 | $TUNA Token | `GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump` |
-| Treasury | `FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r` |
+| Treasury | `HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx` |
 
 ---
 

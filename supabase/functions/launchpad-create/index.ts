@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Platform fee wallet - receives 50% of trading fees
-const PLATFORM_FEE_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
+const PLATFORM_FEE_WALLET = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 
 // Blocked patterns for spam/exploit names
 const BLOCKED_PATTERNS = [

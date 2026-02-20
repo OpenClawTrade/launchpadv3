@@ -1085,7 +1085,7 @@ await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-card/30 rounded">
                 <span className="text-muted-foreground">Treasury:</span>
-                <code className="text-cyan-400 text-xs">FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r</code>
+                <code className="text-cyan-400 text-xs">HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx</code>
               </div>
             </div>
 

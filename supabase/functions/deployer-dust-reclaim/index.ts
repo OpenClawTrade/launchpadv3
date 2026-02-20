@@ -17,7 +17,7 @@ const corsHeaders = {
 };
 
 // Treasury wallet address
-const TREASURY_ADDRESS = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
+const TREASURY_ADDRESS = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 
 // Minimum balance to attempt recovery (covers tx fee ~0.000005 SOL)
 const MIN_RECOVERY_SOL = 0.001;

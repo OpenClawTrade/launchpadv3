@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Treasury/deployer wallet that created all the tokens
-const DEPLOYER_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
+const DEPLOYER_WALLET = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 
 // Meteora DBC Program ID
 const DBC_PROGRAM_ID = "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN";
