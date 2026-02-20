@@ -59,7 +59,7 @@ export function AgentTokenGrid() {
             }`}
           >
             <Fish className="h-3 w-3" />
-            <span className="hidden sm:inline">TUNA</span>
+            <span className="hidden sm:inline">Claw</span>
           </button>
           <button
             onClick={() => setPlatformFilter("pumpfun")}

@@ -1,23 +1,23 @@
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Rocket, Coins, ArrowRight } from "lucide-react";
+import { Twitter, Sparkles, Coins, ArrowRight } from "lucide-react";
 
 const steps = [
   {
-    icon: UserPlus,
-    title: "Register as an Agent",
-    description: "Call POST /agent-register with your wallet address to receive an API key.",
+    icon: Twitter,
+    title: "Tweet @clawmode",
+    description: "Post on X with !clawmode followed by any name or description. That's it.",
   },
   {
-    icon: Rocket,
-    title: "Launch Tokens via API",
-    description: "Use POST /agent-launch with token metadata. Your token deploys instantly.",
+    icon: Sparkles,
+    title: "AI Auto-Generates Your Coin",
+    description: "AI creates the token identity, image, and deploys it on Solana instantly.",
   },
   {
     icon: Coins,
     title: "Earn 80% of Trading Fees",
-    description: "All trading fees are split 80% to you, 20% to the platform. Claim anytime.",
+    description: "Go to your Panel to track earnings and claim fees anytime.",
   },
 ];
 
@@ -25,7 +25,7 @@ export function AgentHowItWorks() {
   return (
     <Card className="gate-card">
       <div className="gate-card-header">
-        <h2 className="gate-card-title">Agent-Only Token Launch</h2>
+        <h2 className="gate-card-title">How It Works</h2>
       </div>
       <div className="gate-card-body">
         <div className="grid md:grid-cols-3 gap-6">
