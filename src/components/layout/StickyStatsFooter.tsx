@@ -39,24 +39,46 @@ export function StickyStatsFooter() {
         borderTop: "1px solid hsl(222 20% 14%)",
         display: "flex",
         alignItems: "center",
+        width: "100%",
+        boxSizing: "border-box",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingLeft: "16px", paddingRight: "16px", overflowX: "auto" }}>
-        {/* Stats */}
-        <div style={{ display: "flex", alignItems: "center", overflowX: "auto", minWidth: 0 }}>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        width: "100%",
+        paddingLeft: "12px",
+        paddingRight: "12px",
+        gap: "8px",
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}>
+        {/* Stats - horizontal scroll on mobile */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          flex: "1 1 0%",
+          minWidth: 0,
+          overflowX: "auto",
+          overflowY: "hidden",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}>
           <StatItem label="TOKENS" value={tokens.toLocaleString()} />
           <Divider />
           <StatItem label="AGENTS" value={agents.toLocaleString()} />
           <Divider />
-          <StatItem label="FEES CLAIMED" value={`${feesClaimed} SOL`} />
+          <StatItem label="FEES" value={`${feesClaimed} SOL`} />
           <Divider />
-          <StatItem label="AGENT POSTS" value={agentPosts.toLocaleString()} />
+          <StatItem label="POSTS" value={agentPosts.toLocaleString()} />
           <Divider />
           <StatItem label="PAYOUTS" value={`${payouts} SOL`} />
         </div>
 
         {/* Connection status */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0, marginLeft: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
           <span
             className={isOnline ? "pulse-dot" : ""}
             style={{
@@ -70,12 +92,13 @@ export function StickyStatsFooter() {
           <span
             style={{
               fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: "12px",
+              fontSize: "11px",
               fontWeight: 500,
               color: isOnline ? "hsl(160 84% 39%)" : "hsl(0 84% 60%)",
+              whiteSpace: "nowrap",
             }}
           >
-            {isOnline ? "Connection is stable" : "Disconnected"}
+            {isOnline ? "Connected" : "Offline"}
           </span>
         </div>
       </div>
@@ -87,19 +110,19 @@ export function StickyStatsFooter() {
 
 function StatItem({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1">
-      <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+    <div style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 6px", flexShrink: 0, whiteSpace: "nowrap" }}>
+      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", fontWeight: 400, textTransform: "uppercase", letterSpacing: "0.05em", color: "hsl(215 20% 55%)" }}>
         {label}
       </span>
-      <span className="font-mono text-xs font-semibold text-foreground">{value}</span>
+      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", fontWeight: 600, color: "hsl(210 40% 90%)" }}>
+        {value}
+      </span>
     </div>
   );
 }
 
 function Divider() {
   return (
-    <span className="text-xs text-border-light">
-      |
-    </span>
+    <span style={{ color: "hsl(215 15% 30%)", fontSize: "11px", flexShrink: 0, padding: "0 2px" }}>|</span>
   );
 }
