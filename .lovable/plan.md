@@ -1,67 +1,222 @@
 
-## Fix Mobile Layout Across All Site Pages
 
-### What's Being Fixed
-The sticky stats footer is still clipped on the right on many pages because the CSS class `.sticky-stats-footer` with `padding-left: 160px` (for desktop sidebar offset) is being applied, but the `@media (max-width: 767px)` override in `App.css` may not be winning against inline styles or isn't reaching all cases reliably. Additionally, several pages with inline Sidebar+AppHeader layouts are missing `overflow-x-hidden` on their outer wrapper, which can cause horizontal scroll on mobile.
+# Complete "Tuna" to "Claw" Rebranding Across All Files
 
-### Changes
+## Overview
+There are approximately **4,500+ references** to "tuna" across **~100 files** in the frontend (`src/`), CLI (`cli/`), and edge functions (`supabase/functions/`). This plan covers every single one, organized by category.
 
-**1. `src/App.css` -- Strengthen mobile footer reset**
-- Add `!important` overrides for the footer on mobile to guarantee no sidebar offset leaks through
-- Ensure all pages get `overflow-x-hidden` via the global `html, body, #root` rule (already present, confirmed working)
+**Important constraint**: Database table names (`subtuna`, `subtuna_posts`, `subtuna_comments`, `opentuna_agents`, `opentuna_dna`, etc.) and edge function folder names stay unchanged to maintain infrastructure stability. Only user-facing text, component names, CSS classes, file names, and variable names change.
 
-**2. `src/components/layout/StickyStatsFooter.tsx` -- Remove the CSS class dependency entirely**
-- The root cause: the component uses `className="sticky-stats-footer"` which applies `padding-left: 160px` from CSS, but the inner wrapper also has `overflow: "hidden"` which clips content before it can scroll
-- Fix: Change the inner wrapper from `overflow: "hidden"` to `overflow: "visible"` so the scrollable stats div actually works
-- Alternatively: move the `padding-left` logic entirely into inline styles using `useIsMobile` (already imported) so there's zero CSS specificity battle
+---
 
-**3. Pages with inline Sidebar+AppHeader -- Add `overflow-x-hidden` to outer div**
-Each of these pages wraps content in `<div className="min-h-screen bg-background">` but is missing `overflow-x-hidden`. Add it to:
-- `src/pages/TrendingPage.tsx` (line ~131)
-- `src/pages/AgentsPage.tsx` (line ~21)
-- `src/pages/ClawSDKPage.tsx` (line ~55)
-- `src/pages/TokenomicsPage.tsx` (line ~74)
-- `src/pages/PanelPage.tsx` (lines ~38 and ~65)
-- `src/pages/FunLauncherPage.tsx` (line ~163)
-- `src/pages/ApiDashboardPage.tsx` (lines ~415, ~607, ~622)
-- `src/pages/LaunchTokenPage.tsx` (line ~11)
+## Category 1: File/Directory Renames
 
-Also add `pb-16` (bottom padding for footer clearance) to the main content area of each page where missing.
+### Components directory
+- `src/components/tunabook/` --> `src/components/clawbook/`
+  - All 19 files inside keep their names but internal references update
 
-### Technical Details
+### Hooks
+- `src/hooks/useTunaTokenData.ts` --> `src/hooks/useClawTokenData.ts`
+- `src/hooks/useSubTuna.ts` --> stays (queries DB table `subtuna`)
+- `src/hooks/useSubTunaComments.ts` --> stays
+- `src/hooks/useSubTunaMembership.ts` --> stays
+- `src/hooks/useSubTunaPosts.ts` --> stays
+- `src/hooks/useSubTunaRealtime.ts` --> stays
+- `src/hooks/useSubTunaReports.ts` --> stays
 
-```text
-StickyStatsFooter.tsx changes:
-  - Line 55: overflow: "hidden" --> overflow: "visible"
-    This is the key fix -- "hidden" was clipping the scrollable stats row
-  - The className "sticky-stats-footer" stays, CSS handles padding-left
+Note: Hook files that directly reference DB table names (`subtuna`) keep their filenames since the tables remain, but exported function names and internal user-facing strings will be updated.
 
-App.css changes:
-  - Strengthen the mobile media query to also force max-width: 100vw
-    on the footer
+### Pages
+- `src/pages/TunaBookPage.tsx` --> `src/pages/ClawBookPage.tsx`
+- `src/pages/TunaBookAdminPage.tsx` --> `src/pages/ClawBookAdminPage.tsx`
+- `src/pages/TunaPostPage.tsx` --> `src/pages/ClawPostPage.tsx`
+- `src/pages/SubTunaPage.tsx` --> `src/pages/SubClawPage.tsx`
 
-Page-level changes (all identical pattern):
-  className="min-h-screen bg-background"
-  -->
-  className="min-h-screen bg-background overflow-x-hidden"
-```
+### Styles
+- `src/styles/tunabook-theme.css` --> `src/styles/clawbook-theme.css`
 
-### Pages That Will Be Updated (full list)
+---
 
-1. `src/components/layout/StickyStatsFooter.tsx` -- fix overflow clipping
-2. `src/App.css` -- strengthen mobile footer rules
-3. `src/pages/TrendingPage.tsx` -- add overflow-x-hidden
-4. `src/pages/AgentsPage.tsx` -- add overflow-x-hidden
-5. `src/pages/ClawSDKPage.tsx` -- add overflow-x-hidden
-6. `src/pages/TokenomicsPage.tsx` -- add overflow-x-hidden, responsive title
-7. `src/pages/PanelPage.tsx` -- add overflow-x-hidden (both auth states), pb-16 on tab content
-8. `src/pages/FunLauncherPage.tsx` -- add overflow-x-hidden
-9. `src/pages/ApiDashboardPage.tsx` -- add overflow-x-hidden (all 3 return blocks)
-10. `src/pages/LaunchTokenPage.tsx` -- add overflow-x-hidden
-11. `src/components/layout/LaunchpadLayout.tsx` -- already fixed (no changes needed)
-12. `src/pages/WhitepaperPage.tsx` -- already fixed (no changes needed)
+## Category 2: CSS Variable & Class Renames (tunabook-theme.css)
 
-### What Won't Change
-- Desktop layout, colors, fonts, content -- completely untouched
-- LaunchpadLayout-wrapped pages (already have overflow-x-hidden)
-- Standalone pages without sidebar (CareersPage, ApiDocsPage, etc.) -- no sidebar offset issue
+All CSS variables and class names change prefix:
+- `--tunabook-*` --> `--clawbook-*` (every single variable, ~60+)
+- `.tunabook-theme` --> `.clawbook-theme`
+- `.tunabook-card` --> `.clawbook-card`
+- `.tunabook-stats-banner` --> `.clawbook-stats-banner`
+- `.tunabook-stat-*` --> `.clawbook-stat-*`
+- `.tunabook-search-*` --> `.clawbook-search-*`
+- `.tunabook-vote-*` --> `.clawbook-vote-*`
+- `.tunabook-community-link` --> `.clawbook-community-link`
+- `.tunabook-sidebar` --> `.clawbook-sidebar`
+- `.tunabook-banner` --> `.clawbook-banner`
+- `.tunabook-pinned` --> `.clawbook-pinned`
+- All other `.tunabook-*` classes
+
+Every file referencing these classes (pages, components) updates accordingly.
+
+---
+
+## Category 3: Component Internal Changes
+
+### All 19 files in `src/components/tunabook/` (moving to `clawbook/`)
+- Update all `tunabook-*` CSS class references to `clawbook-*`
+- Update all `--tunabook-*` CSS variable references to `--clawbook-*`
+- Rename exported components where applicable:
+  - `TunaPostCard` --> `ClawPostCard`
+  - `TunaBookLayout` --> `ClawBookLayout`
+  - `TunaBookFeed` --> `ClawBookFeed`
+  - `TunaBookSidebar` --> `ClawBookSidebar`
+  - `TunaBookRightSidebar` --> `ClawBookRightSidebar`
+  - `TunaCommentTree` --> `ClawCommentTree`
+  - `TunaVoteButtons` --> `ClawVoteButtons`
+  - `SubTunaCard` --> `SubClawCard`
+- Update interface names: `TunaPostCardProps` --> `ClawPostCardProps`, etc.
+- Update all `subtuna` in user-facing text to "SubClaw" (but keep DB query references as `subtuna`)
+
+---
+
+## Category 4: Page-Level Changes
+
+### src/pages/SubTunaPage.tsx (renamed to SubClawPage.tsx)
+- Update all imports from `tunabook/` to `clawbook/`
+- Update CSS theme import from `tunabook-theme.css` to `clawbook-theme.css`
+- Update all `tunabook-*` class names to `clawbook-*`
+- Rename `isTunaPage` --> `isClawPage`, `tunaLiveData` --> `clawLiveData`
+- User-facing text: "SubTuna" --> "SubClaw", "TunaBook" --> "ClawBook"
+
+### src/pages/TunaBookPage.tsx (renamed to ClawBookPage.tsx)
+- Same pattern: imports, CSS classes, component references, user-facing text
+
+### src/pages/TunaPostPage.tsx (renamed to ClawPostPage.tsx)
+- Same pattern
+
+### src/pages/TunaBookAdminPage.tsx (renamed to ClawBookAdminPage.tsx)
+- Same pattern
+
+### src/pages/AgentProfilePage.tsx
+- Update imports from `tunabook/` to `clawbook/`
+- Update `tunabook-theme.css` --> `clawbook-theme.css`
+- Update CSS class references
+- "Back to TunaBook" --> "Back to ClawBook"
+
+### src/pages/AgentDocsPage.tsx
+- "Social Features (TunaBook)" --> "Social Features (ClawBook)"
+
+### src/pages/TradingAgentProfilePage.tsx
+- `/tunabook/post/` --> `/clawbook/post/` in link
+
+### src/pages/GovernancePage.tsx
+- "TUNA Governance AI" --> "Claw Governance AI"
+
+### src/pages/LaunchpadTemplatePage.tsx
+- "Powered by TUNA" --> "Powered by Claw Mode"
+
+### src/pages/CareersPage.tsx
+- "OpenTuna SDK" --> "Claw SDK"
+
+### src/pages/TunnelDistributePage.tsx
+- Admin password `"tuna"` --> `"claw"` (or leave as internal)
+
+### src/pages/ApiDocsPage.tsx (the page user is on)
+- All 61 references: "TUNA Launchpad API", "TUNA API", `TunaLaunchpadAPI`, `TunaLaunchpad`, variable names `tuna`, user-facing strings
+- --> "Claw Mode API", `ClawLaunchpadAPI`, `ClawLaunchpad`, variable `claw`
+
+---
+
+## Category 5: Hook & Utility Changes
+
+### src/hooks/useTunaTokenData.ts --> useClawTokenData.ts
+- `TUNA_TOKEN_CA` --> `CLAW_TOKEN_CA`
+- `TunaTokenData` --> `ClawTokenData`
+- `useTunaTokenData` --> `useClawTokenData`
+- Query key: `"tuna-token-data"` --> `"claw-token-data"`
+- Error message: "Failed to fetch TUNA token data" --> "Failed to fetch CLAW token data"
+
+### src/hooks/useSubTuna.ts
+- Keep filename (queries `subtuna` table)
+- Internal user-facing text: "TUNA" --> "CLAW" where shown to users
+- `isTunaSubtuna` --> `isClawSubtuna`
+
+### src/contexts/ChainContext.tsx
+- `STORAGE_KEY = 'tuna-selected-chain'` --> `'claw-selected-chain'`
+
+### src/lib/debugLogger.ts
+- `STORAGE_KEY = 'tuna_debug_logs'` --> `'claw_debug_logs'`
+- `SESSION_KEY = 'tuna_debug_session'` --> `'claw_debug_session'`
+
+---
+
+## Category 6: Widget Components
+
+### src/components/widgets/TradePanelWidget.tsx
+- "Powered by TUNA Launchpad" --> "Powered by Claw Mode"
+
+### src/components/widgets/TokenListWidget.tsx
+- "Powered by TUNA Launchpad" --> "Powered by Claw Mode"
+
+### src/components/widgets/TokenLauncherWidget.tsx
+- "Powered by TUNA Launchpad" --> "Powered by Claw Mode"
+
+---
+
+## Category 7: Launchpad Components
+
+### src/components/launchpad/TokenCard.tsx, KingOfTheHill.tsx, JustLaunched.tsx, TokenTable.tsx
+- Update imports from `@/components/tunabook/` to `@/components/clawbook/`
+
+---
+
+## Category 8: App.tsx Router
+
+- Update lazy imports for renamed pages
+- Update any route paths if they contain "tunabook" or "tuna"
+
+---
+
+## Category 9: Edge Functions (user-facing text only)
+
+### supabase/functions/ai-chat/index.ts
+- "TUNA Governance AI" --> "Claw Governance AI"
+- "TUNA platform" --> "Claw Mode platform"
+
+### supabase/functions/pump-claim-fees/index.ts
+- Comment: "matches TUNA agents" --> "matches Claw agents"
+
+### supabase/functions/agent-social-comment/index.ts
+- URL: `clawmode.fun/tunabook/post/` --> `clawmode.fun/post/`
+
+### supabase/functions/base-create-token/index.ts
+- Contract name `TunaToken` --> `ClawToken` (Solidity source)
+
+Note: DB table references (`subtuna_posts`, `subtuna_comments`, `opentuna_agents`, etc.) stay unchanged in all edge functions.
+
+---
+
+## Category 10: CLI (cli/src/)
+
+All 12 CLI files update user-facing strings:
+- "OpenTuna" --> "Claw" throughout
+- `OpenTunaConfig` interface name --> `ClawConfig`
+- Config directory `~/.opentuna/` --> `~/.claw/`
+- `projectName: 'opentuna'` --> `projectName: 'claw'`
+- `OPENTUNA_API_KEY` env var --> `CLAW_API_KEY`
+- `OPENTUNA_BASE_URL` --> `CLAW_BASE_URL`
+- All CLI help text and error messages
+- "opentuna init", "opentuna fund", etc. --> "claw init", "claw fund", etc.
+
+---
+
+## What Will NOT Change
+- Database table names (subtuna, subtuna_posts, subtuna_comments, opentuna_agents, opentuna_dna, etc.)
+- Edge function folder names (opentuna-hatch, opentuna-dna-update, etc.)
+- Supabase queries referencing `.from("subtuna")`, `.from("opentuna_agents")`, etc.
+- Desktop layout, colors, fonts, structure
+- Any mobile responsiveness fixes already applied
+
+## Estimated Scope
+- ~100 files modified
+- ~4,500+ string replacements
+- 4 file renames (pages) + 1 directory rename (components) + 1 hook rename + 1 CSS rename
+- Zero database or infrastructure changes
+
