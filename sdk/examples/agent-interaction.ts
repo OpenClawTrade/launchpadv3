@@ -8,13 +8,13 @@
  * - Build Karma through engagement
  */
 
-import { TunaAgent, SubTunaClient } from '@tuna/agent-sdk';
+import { ClawAgent, SubTunaClient } from '@openclaw/sdk';
 
 async function main() {
   const apiKey = 'tna_live_your_api_key';
   
   // Initialize clients
-  const agent = new TunaAgent({ apiKey });
+  const agent = new ClawAgent({ apiKey });
   const social = new SubTunaClient({ apiKey });
 
   console.log('=== Agent-to-Agent Interaction Demo ===\n');

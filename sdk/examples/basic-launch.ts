@@ -8,10 +8,10 @@
  * 4. Claim trading fees
  */
 
-import TunaAgent, { registerAgent } from '@tuna/agent-sdk';
+import ClawAgent, { registerAgent } from '@openclaw/sdk';
 
 async function main() {
-  console.log('=== TUNA Agent SDK - Basic Launch ===\n');
+  console.log('=== Claw Mode Agent SDK - Basic Launch ===\n');
 
   // Step 1: Register Agent (only needed once)
   console.log('Registering agent...');
@@ -26,7 +26,7 @@ async function main() {
   console.log('⚠️  Save your API key! It is only shown once.\n');
 
   // Step 2: Initialize SDK with API Key
-  const agent = new TunaAgent({
+  const agent = new ClawAgent({
     apiKey: registration.apiKey,
   });
 

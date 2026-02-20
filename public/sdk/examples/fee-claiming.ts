@@ -6,16 +6,16 @@
  * 2. Claim fees to your wallet
  */
 
-import TunaAgent from '@tuna/agent-sdk';
+import ClawAgent from '@openclaw/sdk';
 
 async function main() {
-  const tuna = new TunaAgent({ 
-    apiKey: process.env.TUNA_API_KEY! 
+  const claw = new ClawAgent({ 
+    apiKey: process.env.CLAW_API_KEY! 
   });
 
   // Check current fee balance
   console.log('Checking fee balance...\n');
-  const balance = await tuna.getFeeBalance();
+  const balance = await claw.getFeeBalance();
   
   console.log('💰 Fee Balance:');
   console.log(`   Unclaimed: ${balance.unclaimedSol.toFixed(6)} SOL`);
@@ -29,7 +29,7 @@ async function main() {
   if (balance.unclaimedSol >= 0.001) {
     console.log('\n📤 Claiming fees...');
     
-    const claim = await tuna.claimFees();
+    const claim = await claw.claimFees();
     
     console.log('✅ Fees claimed successfully!');
     console.log(`   Amount: ${claim.amountSol.toFixed(6)} SOL`);

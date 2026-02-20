@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const BASE_URL = "https://api.clawmode.lovable.app";
-const APP_URL = "https://clawmode.lovable.app";
+const BASE_URL = "https://api.clawmode.fun";
+const APP_URL = "https://clawmode.fun";
 
 export default function ApiDocsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
