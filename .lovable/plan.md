@@ -1,105 +1,138 @@
 
 
-# Purge All Legacy TUNA Branding
+# Complete TUNA-to-CLAW Purge + Remove Claims Page
 
 ## Summary
-A comprehensive find-and-replace across all pages, components, hooks, and public documentation to eliminate every user-visible reference to "TUNA", "SubTuna", "OpenTuna", "BuildTuna", "tunalaunch", and "tuna.fun" -- replacing them with Claw Mode equivalents.
-
-**Important**: Database table names (opentuna_*, subtuna_*) and edge function folder names are intentionally preserved for infrastructure stability. Only user-facing text, labels, URLs, and documentation are updated.
+Final comprehensive pass to eliminate every remaining user-visible "TUNA" reference across ~60 frontend files and ~65 edge function files, plus fully remove the `/agents/claim` page and all links to it. Database column names (`subtuna_id`, `subtuna_ticker`) and table names (`subtuna`, `subtuna_posts`, `opentuna_*`) are intentionally preserved.
 
 ---
 
-## Files to Change
+## Part 1: Remove the Agent Claim Page
 
-### Pages (src/pages/)
+### Delete
+- **`src/pages/AgentClaimPage.tsx`** -- remove the entire file
 
-| File | What's Wrong | Fix |
-|------|-------------|-----|
-| `AgentConnectPage.tsx` | "SubTuna" mentioned ~10 times, example uses `"TUNA"` ticker, `tuna.fun` in prompt URLs | Replace "SubTuna" with "Claw Communities", fix example ticker, update URLs to `clawmode.fun` |
-| `AgentDocsPage.tsx` | `!tunalaunch` command, tweet intent URL uses `@ClawMode !tunalaunch` | Change to `!clawmode` command |
-| `AgentClaimPage.tsx` | `!tunalaunch` command references, `@ClawMode` with wrong command | Update to `!clawmode` |
-| `AgentLogsAdminPage.tsx` | Card title says "Recent !tunalaunch Mentions" | Change to "Recent !clawmode Mentions" |
-| `ApiDocsPage.tsx` | Class names `TunaLaunchpadAPI` and `TunaLaunchpad` in code examples | Rename to `ClawLaunchpadAPI` / `ClawLaunchpad` |
-| `ApiDashboardPage.tsx` | Link to `x.com/buildtuna` | Change to `x.com/clawmode` |
-| `ClaudeLauncherPage.tsx` | Two Dune links to `dune.com/tunalaunch/stats` | Update to `dune.com/clawmode/stats` or remove |
-| `TreasuryAdminPage.tsx` | `tunalaunch.vercel.app` URL, passwords `tuna-treasury-2024` and `tuna2024treasury` | Update URL to `clawmode.vercel.app`, passwords to `claw2024treasury` |
-| `DeployerDustAdminPage.tsx` | Password `tuna2024treasury` | Change to `claw2024treasury` |
-| `TradingAgentsPage.tsx` | "SubTuna community" and "SubTuna" in step descriptions | Change to "Claw community" |
-| `WhitepaperPage.tsx` | Section ID `opentuna` in nav and anchor | Change to `claw-sdk` |
-| `ClawBookPage.tsx` | Tab value `"tuna"` used internally | Change to `"claw"` |
-| `SubClawPage.tsx` | Checks `ticker === "TUNA"` for system community | Change to `"CLAW"` |
-| `CompressedDistributePage.tsx` | Admin password `"tuna"` | Change to `"claw"` |
-| `FollowerScanPage.tsx` | Admin password `"tuna"` | Change to `"claw"` |
-| `ClawAdminLaunchPage.tsx` | Admin password `"tuna"` | Change to `"claw"` |
-| `PartnerFeesPage.tsx` | Default launchpad type `"tuna"` | Change to `"claw"` |
-| `ClawPostPage.tsx` | No user-visible text issues (DB queries use subtuna_ tables -- kept) | No change needed for DB refs |
+### Update Route
+- **`src/App.tsx`** -- remove the `AgentClaimPage` lazy import and the `/agents/claim` route
 
-### Components (src/components/)
+### Remove All Links to `/agents/claim`
+| File | What to Remove/Change |
+|------|----------------------|
+| `src/pages/AgentDocsPage.tsx` | Remove all `/agents/claim` links and the "Go to Claim Dashboard" button (~5 references). Replace claim instructions with "Go to your Panel to manage earnings" pointing to `/panel` |
+| `src/pages/WhitepaperPage.tsx` | Change `/agents/claim` reference to `/panel` |
+| `src/pages/ClawBookPage.tsx` | Remove "Claim your agent" link or change to `/panel` |
+| `src/components/agents/AgentHero.tsx` | Update claim link to `/panel` (already partially done but references remain) |
 
-| File | What's Wrong | Fix |
-|------|-------------|-----|
-| `claw/ClawSDKDocs.tsx` | "SubTuna" label ~8 times, `tunanet` API references in code examples, `pump.fun` mention | Replace "SubTuna" with "Claw Communities", `tunanet` with `clawnet`, remove pump.fun |
-| `claw/ClawSDKIntegrations.tsx` | Integration named "SubTuna" | Rename to "Claw Social" |
-| `layout/Footer.tsx` | Link points to `/opentuna` | Change to `/sdk` |
-| `DomainRouter.tsx` | Comment says "os.clawmode.fun -> /opentuna" | Update comment to `/sdk` |
+---
 
-### Hooks (src/hooks/)
+## Part 2: User-Visible Text Replacements (Frontend)
 
-| File | What's Wrong | Fix |
-|------|-------------|-----|
-| `useSubTuna.ts` | Checks `ticker === "TUNA"`, labels show "TUNA" | Change to "CLAW" |
-| `useXBotAccounts.ts` | Field name `subtuna_ticker` -- DB column, keep as-is | No change (DB field) |
+### Pages
+
+| File | Changes |
+|------|---------|
+| `AgentClaimPage.tsx` | DELETED (Part 1) |
+| `AgentDocsPage.tsx` | "What Are TUNA Agents?" heading, "TUNA treasury" and "TUNA covers all on-chain costs" in FAQ answers |
+| `AgentProfilePage.tsx` | Comment "SubTunas directly linked to agent (for system agent like t/TUNA)" -- update comment |
+| `SubClawPage.tsx` | `ticker === "TUNA"` check for system community -- change to `"CLAW"` |
+| `TokenDetailPage.tsx` | Share text "Check out ... on TUNA!" -- change to "on Claw Mode!" |
+| `FunTokenDetailPage.tsx` | Same share text fix |
+| `AgentDashboardPage.tsx` | localStorage key `tuna_agent_api_key` -- change to `claw_agent_api_key` |
+| `TreasuryAdminPage.tsx` | Passwords `tuna-treasury-2024` / `tuna2024treasury` -- change to `claw-treasury-2024` / `claw2024treasury` |
+| `DeployerDustAdminPage.tsx` | Password `tuna2024treasury` -- change to `claw2024treasury` |
+| `CompressedDistributePage.tsx` | Admin password `"tuna"` -- change to `"claw"` |
+| `FollowerScanPage.tsx` | Admin password `"tuna"` -- change to `"claw"` |
+| `ClawAdminLaunchPage.tsx` | Admin password `"tuna"` -- change to `"claw"` |
+| `PartnerFeesPage.tsx` | Default launchpad type `"tuna"` -- change to `"claw"` |
+| `TradingAgentsPage.tsx` | "SubTuna community" references |
+| `AgentConnectPage.tsx` | Any remaining "SubTuna" text |
+
+### Components
+
+| File | Changes |
+|------|---------|
+| `admin/BaseDeployPanel.tsx` | "TunaFactory" / "TunaToken" labels in deploy UI -- change to "ClawFactory" / "ClawToken" |
+| `launchpad/MemeLoadingAnimation.tsx` | `TUNA_LOGO_SRC` constant name -- rename to `CLAW_LOGO_SRC` |
+| `launchpad/StatsCards.tsx` | "in subtuna" label -- change to "in communities" |
+| `claw/ClawSDKDocs.tsx` | Any remaining "SubTuna" labels |
+| `claw/ClawSDKIntegrations.tsx` | Any remaining "SubTuna" |
+| `clawbook/ClawPostCard.tsx` | Prop names `subtuna` are internal/mapped to DB -- keep as-is (not user-visible) |
+| `clawbook/TokenStatsHeader.tsx` | Interface `Subtuna`, prop `subtuna`, type `TunaPostCardProps` -- rename to `Community`, `community`, `ClawPostCardProps` |
+| `DomainRouter.tsx` | Comment update only |
+
+### Hooks
+
+| File | Changes |
+|------|---------|
+| `useSubTuna.ts` | `ticker === "TUNA"` checks -- change to `"CLAW"` |
+| `useBaseContractDeploy.ts` | Interface property names `TunaFactory` / `TunaToken` -- rename to `ClawFactory` / `ClawToken` |
+
+### Providers
+
+| File | Changes |
+|------|---------|
+| `EvmWalletProvider.tsx` | `appName: 'TUNA Launchpad'` and `projectId: 'tuna-launchpad-base'` -- change to `'Claw Mode'` and `'claw-launchpad-base'` |
+
+### Lib
+
+| File | Changes |
+|------|---------|
+| `lib/baseContracts.ts` | Rename all exported constants: `TUNA_POSITION_MANAGER_ABI` to `CLAW_POSITION_MANAGER_ABI`, `TUNA_FLAUNCH_ABI` to `CLAW_FLAUNCH_ABI`, `TUNA_BID_WALL_ABI` to `CLAW_BID_WALL_ABI`, `TUNA_FAIR_LAUNCH_ABI` to `CLAW_FAIR_LAUNCH_ABI`, `TUNA_FLETH_ABI` to `CLAW_FLETH_ABI`, `TUNA_FACTORY` to `CLAW_FACTORY`, `TUNA_TOKEN_IMPL` to `CLAW_TOKEN_IMPL`, `TUNA_FACTORY_ABI` to `CLAW_FACTORY_ABI`, `TUNA_TOKEN_ABI` to `CLAW_TOKEN_ABI`, `TUNA_LAUNCHPAD_ABI` to `CLAW_LAUNCHPAD_ABI`. Update all imports across the codebase. |
+| `lib/agentAvatars.ts` | `SYSTEM_TUNA_ID` -- rename to `SYSTEM_CLAW_ID` and update all imports |
 
 ### Tests
 
-| File | What's Wrong | Fix |
-|------|-------------|-----|
-| `src/test/opentuna.test.tsx` | "OpenTuna" in test names and mock labels | Change to "Claw SDK" |
-
-### Public Documentation
-
-| File | What's Wrong | Fix |
-|------|-------------|-----|
-| `public/rules.md` | "TUNA Agent Community Rules", "SubTuna" throughout | Full rebrand to "Claw" |
-| `public/heartbeat.md` | "TUNA Agent Heartbeat Protocol", "SubTuna" | Full rebrand to "Claw" |
-| `public/skill.md` | Entire file: "tuna-subtuna", "TUNA", `@BuildTuna`, `!tunalaunch`, `tuna.fun` URLs ~20 times | Full rebrand: `@clawmode`, `!clawmode`, `clawmode.fun` |
-| `public/skill.json` | `"tuna-subtuna"` name, "SubTuna" descriptions | Rebrand to "claw" |
-| `public/sdk/package.json` | GitHub URLs `buildtuna/tuna-agent-sdk` | Change to `openclaw/claw-agent-sdk` |
-| `public/sdk/README.md` | "SubTuna Communities" label | Change to "Claw Communities" |
-| `public/sdk/src/index.ts` | `TunaAgent` class, `TunaConfig` interface, `tna_live_` prefix | Rename to `ClawAgent`, `ClawConfig`, `oca_live_` |
-| `public/sdk/LICENSE` | Copyright says "TUNA" | Change to "Claw Mode" |
-| `public/TUNA_WHITEPAPER.md` | Entire filename and content is TUNA branded | Full rebrand to Claw |
-
-### App Router
-
-| File | What's Wrong | Fix |
-|------|-------------|-----|
-| `src/App.tsx` | Route `/opentuna` redirect (already redirects to `/sdk` -- functional but legacy path name visible in code) | Keep redirect for backwards compat, just update comment |
+| File | Changes |
+|------|---------|
+| `src/test/opentuna.test.tsx` | "OpenTuna" in test names -- change to "Claw SDK" |
 
 ---
 
-## What Will NOT Change (by design)
+## Part 3: Public Documentation
 
-- Database table names: `opentuna_agents`, `opentuna_dna`, `opentuna_fins`, `subtuna_posts`, `subtuna_reports`, etc.
-- Edge function folder names: `opentuna-dna-update`, `opentuna-api-key-create`, etc.
-- Supabase query `.from("opentuna_*")` and `.from("subtuna_*")` calls
-- CLI source files under `cli/` (separate package)
-- Internal variable names that map to DB columns (e.g., `subtuna_id`)
+| File | Changes |
+|------|---------|
+| `public/skill.md` | `"subtuna"` API param references -- change labels to "community" in descriptions |
+| `public/TUNA_WHITEPAPER.md` | Full rebrand: rename file content, replace all "TUNA" / "OpenTuna" / "SubTuna" / `!tunalaunch` / "SystemTUNA" / `@BuildTuna` references. Keep filename as-is (URL may be bookmarked) but update all content |
+| `public/sdk/src/index.ts` | `subtunaId` param name (maps to API) -- keep but update JSDoc descriptions |
+| `public/sdk/examples/social-engagement.ts` | Update any "SubTuna" text |
 
 ---
 
-## Branding Reference
+## Part 4: Edge Functions (User-Visible Text Only)
 
-| Old | New |
-|-----|-----|
-| TUNA | CLAW |
-| SubTuna | Claw Communities |
-| OpenTuna | Claw SDK |
-| BuildTuna / @BuildTuna | @clawmode |
-| !tunalaunch | !clawmode |
-| tuna.fun | clawmode.fun |
-| TunaAgent / TunaConfig | ClawAgent / ClawConfig |
-| tna_live_ | oca_live_ |
-| tunanet | clawnet |
-| tuna2024treasury | claw2024treasury |
+| File | Changes |
+|------|---------|
+| `agent-scan-twitter/index.ts` | Remove "buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent" from bot blocklist (keep only claw variants). Change "is now live on TUNA!" bot reply filter string to "is now live on Claw!" |
+| `agent-process-post/index.ts` | `"TUNA_NO_WALLET_"` prefix -- change to `"CLAW_NO_WALLET_"`. Log messages referencing "SubTuna" -- update |
+| `promote-post/index.ts` | Tweet text `#TUNA` hashtag -- change to `#ClawMode` |
+| `admin-check-agent-balance/index.ts` | Log messages referencing "postToSubTuna" -- update function name in logs only (keep DB queries as-is) |
+| `opentuna-fin-trade/index.ts` | Default encryption key string `"opentuna-default-key..."` -- update to `"openclaw-default-key..."` |
+| `tuna-snapshot/index.ts` | This is migration-specific legacy code -- keep as-is |
+| `verify-tuna-migration/index.ts` | Migration-specific legacy code -- keep as-is |
+
+Note: All `.from("subtuna")`, `.from("subtuna_posts")`, `.from("opentuna_*")` database queries are preserved. Only user-visible strings, log labels, and comments are updated.
+
+---
+
+## What Will NOT Change
+
+- Database table names and column names (`subtuna`, `subtuna_posts`, `subtuna_id`, `opentuna_*`)
+- Supabase query `.from()` calls
+- Edge function folder names (`opentuna-*`, `tuna-snapshot`, `verify-tuna-migration`)
+- Internal variable names that directly map to DB columns (e.g., `subtuna_ticker` in `useXBotAccounts.ts`)
+- Migration-specific code (`tuna-snapshot`, `verify-tuna-migration`)
+- CLI source files under `cli/`
+
+---
+
+## Execution Order
+
+1. Remove AgentClaimPage and its route/imports
+2. Update all links from `/agents/claim` to `/panel`
+3. Rename constants in `lib/baseContracts.ts` and `lib/agentAvatars.ts`, then update all imports
+4. Bulk text replacements across pages, components, hooks, and providers
+5. Update public documentation files
+6. Update edge function user-visible strings
+7. Redeploy affected edge functions
 
