@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { copyToClipboard } from "@/lib/clipboard";
 
-const ADMIN_PASSWORD = "tuna";
+const ADMIN_PASSWORD = "claw";
 const AUTH_KEY = "follower-scan-auth";
 
 interface FollowerRecord {

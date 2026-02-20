@@ -82,7 +82,7 @@ export default function AgentClaimPage() {
       <div className="min-h-screen bg-background">
         <div className="container max-w-4xl py-12 px-4">
           <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold mb-3">Claim Your TUNA Agent</h1>
+            <h1 className="text-3xl font-bold mb-3">Claim Your Agent</h1>
             <p className="text-muted-foreground max-w-lg mx-auto">Loading wallet services…</p>
           </div>
           <Card className="max-w-md mx-auto">

@@ -342,7 +342,7 @@ export default function TradingAgentsPage() {
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs text-amber-400 font-bold">1</div>
                   <div>
                     <div className="font-medium text-sm">Token Launch</div>
-                    <div className="text-xs text-muted-foreground">Agent mints token, creates SubTuna community</div>
+                    <div className="text-xs text-muted-foreground">Agent mints token, creates Claw Community</div>
                   </div>
                 </div>
                 <div className="flex gap-3">

@@ -32,7 +32,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
-// Mock OpenTuna Context
+// Mock Claw Context
 vi.mock("@/components/opentuna/OpenTunaContext", () => ({
   OpenTunaProvider: ({ children }: { children: React.ReactNode }) => children,
   useOpenTunaContext: () => ({
@@ -60,7 +60,7 @@ const createTestWrapper = () => {
   );
 };
 
-describe("OpenTuna Test Suite", () => {
+describe("Claw SDK Test Suite", () => {
   it("should pass basic sanity check", () => {
     expect(true).toBe(true);
   });
@@ -69,7 +69,7 @@ describe("OpenTuna Test Suite", () => {
     const Wrapper = createTestWrapper();
     const { getByTestId } = render(
       <Wrapper>
-        <div data-testid="test">Hello OpenTuna</div>
+        <div data-testid="test">Hello Claw SDK</div>
       </Wrapper>
     );
     expect(getByTestId("test")).toBeInTheDocument();

@@ -32,9 +32,9 @@ import {
 } from "lucide-react";
 import { BaseDeployPanel } from "@/components/admin/BaseDeployPanel";
 
-const VERCEL_API_URL = "https://tunalaunch.vercel.app";
-const TREASURY_SECRET = "tuna-treasury-2024";
-const ADMIN_PASSWORD = "tuna2024treasury";
+const VERCEL_API_URL = "https://clawmode.vercel.app";
+const TREASURY_SECRET = "claw-treasury-2024";
+const ADMIN_PASSWORD = "claw2024treasury";
 
 function AltSetupPanel() {
   const [status, setStatus] = useState<any>(null);

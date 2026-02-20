@@ -28,7 +28,7 @@ export function Footer() {
                 <Link to="/agents" className="hover:text-success transition-colors duration-200">Claw Agents</Link>
               </li>
               <li>
-                <Link to="/opentuna" className="hover:text-success transition-colors duration-200">Claw SDK</Link>
+                <Link to="/sdk" className="hover:text-success transition-colors duration-200">Claw SDK</Link>
               </li>
               <li>
                 <Link to="/trade" className="hover:text-success transition-colors duration-200">Trade</Link>
