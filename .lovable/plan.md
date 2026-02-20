@@ -1,138 +1,111 @@
 
 
-# Complete TUNA-to-CLAW Purge + Remove Claims Page
+# Professional NFA Page Redesign + Persistent Wallet Bar
 
-## Summary
-Final comprehensive pass to eliminate every remaining user-visible "TUNA" reference across ~60 frontend files and ~65 edge function files, plus fully remove the `/agents/claim` page and all links to it. Database column names (`subtuna_id`, `subtuna_ticker`) and table names (`subtuna`, `subtuna_posts`, `opentuna_*`) are intentionally preserved.
-
----
-
-## Part 1: Remove the Agent Claim Page
-
-### Delete
-- **`src/pages/AgentClaimPage.tsx`** -- remove the entire file
-
-### Update Route
-- **`src/App.tsx`** -- remove the `AgentClaimPage` lazy import and the `/agents/claim` route
-
-### Remove All Links to `/agents/claim`
-| File | What to Remove/Change |
-|------|----------------------|
-| `src/pages/AgentDocsPage.tsx` | Remove all `/agents/claim` links and the "Go to Claim Dashboard" button (~5 references). Replace claim instructions with "Go to your Panel to manage earnings" pointing to `/panel` |
-| `src/pages/WhitepaperPage.tsx` | Change `/agents/claim` reference to `/panel` |
-| `src/pages/ClawBookPage.tsx` | Remove "Claim your agent" link or change to `/panel` |
-| `src/components/agents/AgentHero.tsx` | Update claim link to `/panel` (already partially done but references remain) |
+## Overview
+Two major improvements: (1) Redesign the NFA tab to match OpenSea's premium NFT collection page aesthetic, and (2) Add a persistent wallet info bar across all Panel tabs showing balance, address copy, deposit, and export key features.
 
 ---
 
-## Part 2: User-Visible Text Replacements (Frontend)
+## Part 1: Persistent Wallet Bar in Panel Header
 
-### Pages
+### What
+Add a wallet info strip below the "PANEL" heading in `PanelPage.tsx` that appears on **every tab**. It shows:
+- SOL balance (live-updating every 15s)
+- Truncated address with copy button
+- Deposit button (opens QR modal)
+- Export Key button (opens Privy export flow)
+- Solscan link
 
-| File | Changes |
-|------|---------|
-| `AgentClaimPage.tsx` | DELETED (Part 1) |
-| `AgentDocsPage.tsx` | "What Are TUNA Agents?" heading, "TUNA treasury" and "TUNA covers all on-chain costs" in FAQ answers |
-| `AgentProfilePage.tsx` | Comment "SubTunas directly linked to agent (for system agent like t/TUNA)" -- update comment |
-| `SubClawPage.tsx` | `ticker === "TUNA"` check for system community -- change to `"CLAW"` |
-| `TokenDetailPage.tsx` | Share text "Check out ... on TUNA!" -- change to "on Claw Mode!" |
-| `FunTokenDetailPage.tsx` | Same share text fix |
-| `AgentDashboardPage.tsx` | localStorage key `tuna_agent_api_key` -- change to `claw_agent_api_key` |
-| `TreasuryAdminPage.tsx` | Passwords `tuna-treasury-2024` / `tuna2024treasury` -- change to `claw-treasury-2024` / `claw2024treasury` |
-| `DeployerDustAdminPage.tsx` | Password `tuna2024treasury` -- change to `claw2024treasury` |
-| `CompressedDistributePage.tsx` | Admin password `"tuna"` -- change to `"claw"` |
-| `FollowerScanPage.tsx` | Admin password `"tuna"` -- change to `"claw"` |
-| `ClawAdminLaunchPage.tsx` | Admin password `"tuna"` -- change to `"claw"` |
-| `PartnerFeesPage.tsx` | Default launchpad type `"tuna"` -- change to `"claw"` |
-| `TradingAgentsPage.tsx` | "SubTuna community" references |
-| `AgentConnectPage.tsx` | Any remaining "SubTuna" text |
+### Technical Approach
+- Create a new component `src/components/panel/PanelWalletBar.tsx`
+- Uses `useSolanaWalletWithPrivy` for balance fetching and `usePrivy().exportWallet` for key export
+- Reuses deposit QR dialog and export dialog patterns from `EmbeddedWalletCard.tsx`
+- Compact horizontal strip design: `[SOL icon] 0.4521 SOL | Hx8k...9aVr [copy] [deposit] [export] [solscan]`
+- Glassmorphism card style matching the premium Web3 aesthetic
+- Render it in `PanelPage.tsx` between the header and the tabs, so it persists across all tab switches
 
-### Components
-
-| File | Changes |
-|------|---------|
-| `admin/BaseDeployPanel.tsx` | "TunaFactory" / "TunaToken" labels in deploy UI -- change to "ClawFactory" / "ClawToken" |
-| `launchpad/MemeLoadingAnimation.tsx` | `TUNA_LOGO_SRC` constant name -- rename to `CLAW_LOGO_SRC` |
-| `launchpad/StatsCards.tsx` | "in subtuna" label -- change to "in communities" |
-| `claw/ClawSDKDocs.tsx` | Any remaining "SubTuna" labels |
-| `claw/ClawSDKIntegrations.tsx` | Any remaining "SubTuna" |
-| `clawbook/ClawPostCard.tsx` | Prop names `subtuna` are internal/mapped to DB -- keep as-is (not user-visible) |
-| `clawbook/TokenStatsHeader.tsx` | Interface `Subtuna`, prop `subtuna`, type `TunaPostCardProps` -- rename to `Community`, `community`, `ClawPostCardProps` |
-| `DomainRouter.tsx` | Comment update only |
-
-### Hooks
-
-| File | Changes |
-|------|---------|
-| `useSubTuna.ts` | `ticker === "TUNA"` checks -- change to `"CLAW"` |
-| `useBaseContractDeploy.ts` | Interface property names `TunaFactory` / `TunaToken` -- rename to `ClawFactory` / `ClawToken` |
-
-### Providers
-
-| File | Changes |
-|------|---------|
-| `EvmWalletProvider.tsx` | `appName: 'TUNA Launchpad'` and `projectId: 'tuna-launchpad-base'` -- change to `'Claw Mode'` and `'claw-launchpad-base'` |
-
-### Lib
-
-| File | Changes |
-|------|---------|
-| `lib/baseContracts.ts` | Rename all exported constants: `TUNA_POSITION_MANAGER_ABI` to `CLAW_POSITION_MANAGER_ABI`, `TUNA_FLAUNCH_ABI` to `CLAW_FLAUNCH_ABI`, `TUNA_BID_WALL_ABI` to `CLAW_BID_WALL_ABI`, `TUNA_FAIR_LAUNCH_ABI` to `CLAW_FAIR_LAUNCH_ABI`, `TUNA_FLETH_ABI` to `CLAW_FLETH_ABI`, `TUNA_FACTORY` to `CLAW_FACTORY`, `TUNA_TOKEN_IMPL` to `CLAW_TOKEN_IMPL`, `TUNA_FACTORY_ABI` to `CLAW_FACTORY_ABI`, `TUNA_TOKEN_ABI` to `CLAW_TOKEN_ABI`, `TUNA_LAUNCHPAD_ABI` to `CLAW_LAUNCHPAD_ABI`. Update all imports across the codebase. |
-| `lib/agentAvatars.ts` | `SYSTEM_TUNA_ID` -- rename to `SYSTEM_CLAW_ID` and update all imports |
-
-### Tests
-
-| File | Changes |
-|------|---------|
-| `src/test/opentuna.test.tsx` | "OpenTuna" in test names -- change to "Claw SDK" |
+### Design
+- Dark glass card: `bg-white/[0.04] backdrop-blur-md border border-white/10 rounded-xl`
+- Balance in large mono font with SOL suffix
+- Buttons: ghost/outline style, small icons
+- Mobile responsive: stacks vertically on small screens
 
 ---
 
-## Part 3: Public Documentation
+## Part 2: NFA Tab OpenSea-Inspired Redesign
 
-| File | Changes |
-|------|---------|
-| `public/skill.md` | `"subtuna"` API param references -- change labels to "community" in descriptions |
-| `public/TUNA_WHITEPAPER.md` | Full rebrand: rename file content, replace all "TUNA" / "OpenTuna" / "SubTuna" / `!tunalaunch` / "SystemTUNA" / `@BuildTuna` references. Keep filename as-is (URL may be bookmarked) but update all content |
-| `public/sdk/src/index.ts` | `subtunaId` param name (maps to API) -- keep but update JSDoc descriptions |
-| `public/sdk/examples/social-engagement.ts` | Update any "SubTuna" text |
+### Current State
+Basic list view with a hero section, progress bar, How It Works section, fee structure cards, and a simple mint list.
+
+### New Design (OpenSea Collection Page Style)
+
+#### A. Hero Banner Section
+- Full-width gradient banner at top (dark navy to emerald gradient with subtle grid pattern)
+- Large centered NFA collection icon (64x64 with glow effect)
+- Collection title "Non-Fungible Agents" in bold
+- Subtitle with verified badge icon
+- Stats row below: `Items: 1,000 | Minted: X | Owners: Y | Floor: 1 SOL`
+- Each stat in its own mini column with label above and value below, separated by thin dividers
+
+#### B. Live Mint Section (replaces basic progress card)
+- Premium card with inner glow border
+- "LIVE MINT" badge with pulsing green dot
+- Batch number prominently displayed
+- Custom animated progress bar (emerald gradient with shimmer animation)
+- Large "X / 1,000" counter
+- Slots remaining callout
+- Prominent mint button with hover animation (scale + glow)
+- Price tag: "1 SOL" with SOL icon
+
+#### C. About Section (replaces How It Works)
+- Two-column layout on desktop, single column mobile
+- Left: "About" text description of the NFA collection
+- Right: "Details" card with key-value pairs (Contract, Chain, Token Standard, Mint Price) styled like OpenSea's details panel
+
+#### D. Activity/Properties Section
+- Tabs within the NFA tab: "My NFAs" | "How It Works" | "Fee Structure"
+- **My NFAs**: Grid layout (2 cols mobile, 3 cols desktop) showing NFA cards with:
+  - Agent image (or placeholder with gradient)
+  - Agent name
+  - Slot number badge
+  - Status badge (minted/pending/active)
+  - Hover lift effect
+- **How It Works**: Timeline/stepper layout (vertical line connecting steps) instead of plain list
+- **Fee Structure**: Horizontal bar chart visualization instead of 4 grid boxes
 
 ---
 
-## Part 4: Edge Functions (User-Visible Text Only)
+## Files to Create/Modify
 
-| File | Changes |
-|------|---------|
-| `agent-scan-twitter/index.ts` | Remove "buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent" from bot blocklist (keep only claw variants). Change "is now live on TUNA!" bot reply filter string to "is now live on Claw!" |
-| `agent-process-post/index.ts` | `"TUNA_NO_WALLET_"` prefix -- change to `"CLAW_NO_WALLET_"`. Log messages referencing "SubTuna" -- update |
-| `promote-post/index.ts` | Tweet text `#TUNA` hashtag -- change to `#ClawMode` |
-| `admin-check-agent-balance/index.ts` | Log messages referencing "postToSubTuna" -- update function name in logs only (keep DB queries as-is) |
-| `opentuna-fin-trade/index.ts` | Default encryption key string `"opentuna-default-key..."` -- update to `"openclaw-default-key..."` |
-| `tuna-snapshot/index.ts` | This is migration-specific legacy code -- keep as-is |
-| `verify-tuna-migration/index.ts` | Migration-specific legacy code -- keep as-is |
+### New Files
+1. **`src/components/panel/PanelWalletBar.tsx`** -- Persistent wallet strip component with balance, copy, deposit QR, export key, and Solscan link
 
-Note: All `.from("subtuna")`, `.from("subtuna_posts")`, `.from("opentuna_*")` database queries are preserved. Only user-visible strings, log labels, and comments are updated.
+### Modified Files
+1. **`src/pages/PanelPage.tsx`** -- Import and render `PanelWalletBar` between header and tabs
+2. **`src/components/panel/PanelNfaTab.tsx`** -- Complete redesign with OpenSea-inspired layout
 
----
+### Technical Details
 
-## What Will NOT Change
+**PanelWalletBar.tsx:**
+- Imports: `useSolanaWalletWithPrivy`, `usePrivy`, `useAuth`, QRCode, Dialog components
+- State: balance, copied, showQR, showExport, confirmText, depositSuccess, balanceAtOpen
+- Balance polling: fetch on mount + every 15s interval
+- Deposit: QR dialog with address copy and live deposit detection (poll every 3s when open)
+- Export: Dialog with "EXPORT" confirmation text, calls `exportWallet()`
+- Layout: flex row with items-center, responsive (flex-col on mobile)
 
-- Database table names and column names (`subtuna`, `subtuna_posts`, `subtuna_id`, `opentuna_*`)
-- Supabase query `.from()` calls
-- Edge function folder names (`opentuna-*`, `tuna-snapshot`, `verify-tuna-migration`)
-- Internal variable names that directly map to DB columns (e.g., `subtuna_ticker` in `useXBotAccounts.ts`)
-- Migration-specific code (`tuna-snapshot`, `verify-tuna-migration`)
-- CLI source files under `cli/`
+**PanelNfaTab.tsx redesign:**
+- Remove the existing monolithic layout
+- Add internal tab state for "My NFAs" / "How It Works" / "Fees" sub-sections
+- Hero: `div` with gradient background, stats row using flex with gap-8
+- Mint section: Card with relative positioning for glow effects, custom Progress with emerald gradient
+- NFA grid: CSS grid `grid-cols-2 md:grid-cols-3` with cards that have `hover:scale-[1.02]` and `hover:shadow-lg` transitions
+- Timeline: Vertical line with connected dots for each step
+- Fee bars: Horizontal bars with percentage widths and labels
 
----
-
-## Execution Order
-
-1. Remove AgentClaimPage and its route/imports
-2. Update all links from `/agents/claim` to `/panel`
-3. Rename constants in `lib/baseContracts.ts` and `lib/agentAvatars.ts`, then update all imports
-4. Bulk text replacements across pages, components, hooks, and providers
-5. Update public documentation files
-6. Update edge function user-visible strings
-7. Redeploy affected edge functions
+**PanelPage.tsx changes:**
+- Import `PanelWalletBar`
+- Place `<PanelWalletBar />` right after the Panel Header div (line 88) and before the Tabs div
+- Only render when `isAuthenticated` (already gated by the outer conditional)
 
