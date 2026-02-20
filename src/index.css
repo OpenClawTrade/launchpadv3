@@ -540,6 +540,11 @@
   -webkit-backdrop-filter: blur(12px);
 }
 
+/* Hide matrix canvas on specific pages (e.g. /panel) */
+body.matrix-hidden canvas {
+  display: none !important;
+}
+
 /* Claw Mode Terminal Utilities */
 .claw-panel {
   background: hsl(var(--surface));
