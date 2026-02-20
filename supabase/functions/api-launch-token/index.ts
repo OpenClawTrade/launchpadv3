@@ -114,7 +114,10 @@ serve(async (req) => {
     const finalTwitterUrl = body.twitterUrl || 'https://x.com/clawmode';
 
     // Call Vercel API to create the token
-    const vercelApiUrl = Deno.env.get("VERCEL_API_URL") || "https://clawmode.vercel.app";
+    let vercelApiUrl = Deno.env.get("VERCEL_API_URL") || "https://clawmode.vercel.app";
+    if (!vercelApiUrl.startsWith("http")) {
+      vercelApiUrl = `https://${vercelApiUrl}`;
+    }
     
     console.log(`[api-launch-token] Creating token ${body.name} ($${body.ticker}) for API account ${apiAccountId}`);
     
