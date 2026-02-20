@@ -1,111 +1,60 @@
 
 
-# Rename All OpenTuna References to Claw SDK
+# Update /agents Page: X-Only Launch with !clawmode Command
 
-## Scope
-Every file in the project that references "OpenTuna", "opentuna", "@opentuna", or "ota_live_" will be renamed to use "Claw SDK" / "ClawSDK" / "@openclaw" / "oca_live_" branding. This covers **60+ files** across frontend, hooks, edge functions, SDK, CLI, CSS, and documentation.
+## Overview
+Simplify the Agents page to show that launching coins is **only available via X (Twitter)** using the `!clawmode` command. Remove Telegram and API launch options. Update the hero to clearly explain how the command works -- any name or description auto-generates a coin, and earnings are viewable in the Panel.
 
-## Naming Convention
+## Changes
 
-| Old | New |
-|-----|-----|
-| `OpenTuna` (class/type) | `ClawSDK` |
-| `opentuna` (css/query keys) | `clawsdk` |
-| `OpenTunaPage` | `ClawSDKPage` |
-| `OpenTunaProvider` | `ClawSDKProvider` |
-| `useOpenTuna*` | `useClawSDK*` / `useClawAgent*` |
-| `@opentuna/sdk` | `@openclaw/sdk` |
-| `@opentuna/cli` | `@openclaw/cli` |
-| `ota_live_` | `oca_live_` |
-| `.opentuna-card` | `.clawsdk-card` |
-| `opentuna_agents` (DB table refs) | kept as-is (DB tables unchanged) |
-| Display text "OpenTuna" | "Claw SDK" |
+### 1. AgentHero.tsx -- Major Rewrite
+**Remove:**
+- Telegram launch card (lines 70-88)
+- API launch card (lines 90-109)
+- Telegram Alerts CTA button (lines 129-138)
 
-**Important**: Database table names (`opentuna_agents`, `opentuna_fins`, etc.) will NOT be renamed since that requires migrations and could break existing data. Only the **frontend display text** and **code identifiers** change.
+**Update the Twitter launch card to be the single, prominent launch method:**
+- Change command from `!clawlaunch` to `!clawmode`
+- Tag `@clawmode` instead of `@BuildClaw`
+- Expand the card to full width with clear explanation
+- Show example: `@clawmode create me a lobster king token` -- emphasizing that the "name" can be any name or description and AI auto-generates the coin
+- Add note: "Once launched, go to Panel to see your earnings from fees"
+- Update the grid from 3 columns to a single hero-style card
 
-## Files to Modify (Grouped)
+**Update CTA row:**
+- Remove "Telegram Alerts" button
+- Keep "Help me with Agent Idea", "Agent Documentation", and "Leaderboard" buttons
 
-### Group 1: Frontend Components (13 files - rename files + content)
-Rename component files from `OpenTuna*` to `ClawSDK*`:
-- `src/components/opentuna/OpenTunaContext.tsx` -> content rename all types/exports
-- `src/components/opentuna/OpenTunaHub.tsx` -> rename exports
-- `src/components/opentuna/OpenTunaHatch.tsx`
-- `src/components/opentuna/OpenTunaDNA.tsx`
-- `src/components/opentuna/OpenTunaSonar.tsx`
-- `src/components/opentuna/OpenTunaMemory.tsx`
-- `src/components/opentuna/OpenTunaFins.tsx`
-- `src/components/opentuna/OpenTunaIntegrations.tsx`
-- `src/components/opentuna/OpenTunaCurrent.tsx`
-- `src/components/opentuna/OpenTunaDocs.tsx`
-- `src/components/opentuna/OpenTunaApiKeyModal.tsx`
-- `src/components/opentuna/OpenTunaAgentSelector.tsx`
-- `src/components/opentuna/__tests__/` (any test files)
+**Update the launch instructions at the bottom (Technical Specifications):**
+- Remove references to API/Telegram methods
+- Keep bonding curve, fee structure, agent autonomy, and ownership verification sections
 
-### Group 2: Hooks (1 file)
-- `src/hooks/useOpenTuna.ts` -- rename all interface names (`OpenTunaAgent` -> `ClawAgent`, `OpenTunaDNA` -> `ClawDNA`, etc.), function names (`useOpenTunaAgents` -> `useClawAgents`), and query keys (`opentuna-agents` -> `clawsdk-agents`)
+### 2. AgentHowItWorks.tsx -- Simplify Steps
+Update the 3 steps:
+1. "Tweet @clawmode" -- Post on X with `!clawmode` followed by any name or description
+2. "AI Auto-Generates Your Coin" -- AI creates the token identity, image, and deploys it on Solana
+3. "Earn 80% of Trading Fees" -- Go to your Panel to track earnings and claim fees
 
-### Group 3: Pages (2 files)
-- `src/pages/OpenTunaPage.tsx` -- rename imports, component names, display text
-- `src/pages/WhitepaperPage.tsx` -- rename all "OpenTuna" display text to "Claw SDK", update code examples (`@opentuna/sdk` -> `@openclaw/sdk`, `ota_live_` -> `oca_live_`, `new OpenTuna()` -> `new ClawSDK()`)
+Remove references to API registration and POST endpoints.
 
-### Group 4: App Router (1 file)
-- `src/App.tsx` -- rename lazy import `OpenTunaPage` -> `ClawSDKPage`, keep `/sdk` route path, keep `/opentuna` redirect
+### 3. AgentIdeaGenerator.tsx -- Update Launch Command
+- Line 368: Change `@ClawMode !tunalaunch` to `@clawmode !clawmode`
+- Line 87: Change `includeTunaLogo` to `includeClawLogo` (display text only)
+- Line 191: Change "Generating TUNA Meme..." to "Generating Claw Meme..."
+- Lines 387-390: Change example prompts from "TUNA astronaut" etc. to "Claw astronaut", "Cyber Claw", "King Claw", "Ninja Claw"
+- Line 120: Change download filename from `tuna-meme` to `claw-meme`
+- Line 171-172: Update placeholder text from "TUNA" references to "Claw"
 
-### Group 5: CSS (1 file)
-- `src/index.css` -- rename `.opentuna-card`, `.opentuna-gradient-text`, `.opentuna-glow`, `.opentuna-button` to `.clawsdk-card`, `.clawsdk-gradient-text`, `.clawsdk-glow`, `.clawsdk-button`
+### 4. AgentTokenGrid.tsx -- Minor Branding
+- Line 62: Change platform filter label from "TUNA" to "Claw" (the `<span>` inside the meteora filter button)
 
-### Group 6: Edge Functions (16 files - content only, folder names stay)
-These edge functions reference `opentuna_*` DB tables (kept) but display text / comments change:
-- `supabase/functions/opentuna-agent-hatch/index.ts`
-- `supabase/functions/opentuna-api-key-create/index.ts` -- change `ota_live_` prefix to `oca_live_`
-- `supabase/functions/opentuna-api-key-validate/index.ts` -- change `ota_live_` validation to `oca_live_`
-- `supabase/functions/opentuna-api-key-revoke/index.ts`
-- `supabase/functions/opentuna-current-verify/index.ts`
-- `supabase/functions/opentuna-dna-update/index.ts`
-- `supabase/functions/opentuna-echo-locate/index.ts`
-- `supabase/functions/opentuna-fin-bash/index.ts`
-- `supabase/functions/opentuna-fin-browse/index.ts`
-- `supabase/functions/opentuna-fin-edit/index.ts`
-- `supabase/functions/opentuna-fin-forge/index.ts`
-- `supabase/functions/opentuna-fin-read/index.ts`
-- `supabase/functions/opentuna-fin-trade/index.ts`
-- `supabase/functions/opentuna-fin-write/index.ts`
-- `supabase/functions/opentuna-memory-store/index.ts`
-- `supabase/functions/opentuna-school-delegate/index.ts`
-- `supabase/functions/opentuna-school-pay/index.ts`
-- `supabase/functions/opentuna-school-sync/index.ts`
-- `supabase/functions/opentuna-sonar-ping/index.ts`
+## Technical Details
 
-Note: Edge function **folder names** cannot be renamed without also renaming the function endpoints, which would break existing API calls. Comments and display strings inside them will be updated.
+### Files Modified (4 files):
+1. `src/components/agents/AgentHero.tsx` -- Remove Telegram/API cards, update to X-only with `!clawmode`, add Panel earnings note
+2. `src/components/agents/AgentHowItWorks.tsx` -- Simplify 3 steps to X-only flow
+3. `src/components/agents/AgentIdeaGenerator.tsx` -- Update command references and TUNA branding
+4. `src/components/agents/AgentTokenGrid.tsx` -- Minor label fix
 
-### Group 7: SDK Package (4+ files)
-- `sdk/package.json` -- `@opentuna/sdk` -> `@openclaw/sdk`, update description
-- `sdk/src/opentuna.ts` -- rename class `OpenTuna` -> `ClawSDK`, update all references
-- `sdk/src/index.ts` -- update exports
-- `sdk/README.md` -- update all text
-
-### Group 8: CLI Package (8+ files)
-- `cli/package.json` -- `@opentuna/cli` -> `@openclaw/cli`, update all refs
-- `cli/src/index.ts` -- update comments
-- `cli/src/config.ts` -- rename `OpenTunaConfig` -> `ClawSDKConfig`, update config dir from `.opentuna` to `.openclaw`
-- `cli/src/commands/*.ts` (6 files) -- update all display text from "OpenTuna" to "Claw SDK", command references from `opentuna` to `openclaw`
-
-### Group 9: Whitepaper MD
-- `public/TUNA_WHITEPAPER.md` -- rename all OpenTuna references to Claw SDK
-
-## Execution Order
-1. Hooks file first (most imported)
-2. Context/Provider
-3. All component files in parallel
-4. Page files + App.tsx
-5. CSS
-6. Edge functions (comments + API key prefix)
-7. SDK + CLI packages
-8. Whitepaper/docs
-
-## What Does NOT Change
-- Database table names (`opentuna_agents`, `opentuna_fins`, etc.) -- these are referenced in queries but renaming requires migrations
-- Edge function folder names -- these are deployed endpoints
-- Route paths (`/sdk` stays, `/opentuna` redirect stays)
-- Any functional logic -- purely cosmetic/naming changes
-
+### No backend changes needed
+All changes are frontend display/text only.
