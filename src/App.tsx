@@ -19,6 +19,15 @@ function ConditionalMatrixBackground() {
   return matrixEnabled ? <MatrixBackground /> : null;
 }
 
+function MatrixRouteWrapper({ children }: { children: React.ReactNode }) {
+  const { matrixEnabled } = useMatrixMode();
+  return (
+    <div className={`relative z-[1] ${matrixEnabled ? 'matrix-active' : ''}`}>
+      {children}
+    </div>
+  );
+}
+
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
 
@@ -107,7 +116,7 @@ const App = () => (
               <BrowserRouter>
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
-                  <div className="relative z-[1]">
+                  <MatrixRouteWrapper>
                   <Routes>
                     <Route path="/" element={<FunLauncherPage />} />
                     {/* Chain-specific launch routes */}
@@ -166,7 +175,7 @@ const App = () => (
                      <Route path="/earnings" element={<Navigate to="/panel?tab=earnings" replace />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>
-                  </div>
+                  </MatrixRouteWrapper>
                 </Suspense>
               </BrowserRouter>
             </ErrorBoundary>

@@ -519,6 +519,23 @@
   cursor: pointer !important;
 }
 
+/* Matrix Mode — force all page backgrounds transparent so canvas shows through */
+.matrix-active .min-h-screen {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+/* Keep cards/surfaces semi-transparent for readability */
+.matrix-active .bg-card,
+.matrix-active [class*="bg-card"] {
+  background-color: hsl(var(--card) / 0.7) !important;
+}
+.matrix-active header,
+.matrix-active aside {
+  background-color: hsl(var(--background) / 0.8) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
 /* Claw Mode Terminal Utilities */
 .claw-panel {
   background: hsl(var(--surface));
