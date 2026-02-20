@@ -1,80 +1,111 @@
 
-# Apply Professional Redesign to All Pages
 
-## Problem
-The recent visual polish (transparent backgrounds for matrix mode support, semi-transparent sidebar/header) was only applied to `FunLauncherPage.tsx`. All other pages still use opaque backgrounds (`style={{ background: "#141414" }}` or `bg-background`) that block the matrix canvas and don't match the refined aesthetic.
+# Rename All OpenTuna References to Claw SDK
 
-## Strategy: Two-Level Fix
+## Scope
+Every file in the project that references "OpenTuna", "opentuna", "@opentuna", or "ota_live_" will be renamed to use "Claw SDK" / "ClawSDK" / "@openclaw" / "oca_live_" branding. This covers **60+ files** across frontend, hooks, edge functions, SDK, CLI, CSS, and documentation.
 
-Rather than editing 40+ page files individually, this will use a combination of:
-1. **Global CSS override** -- catch ALL pages at once via `.matrix-active` selector
-2. **LaunchpadLayout fix** -- fixes 15 pages that use this shared layout
-3. **Inline-layout pages** -- update the 8 pages with `style={{ background: "#141414" }}` to remove the inline style (CSS cannot override inline styles)
+## Naming Convention
 
-## Changes
+| Old | New |
+|-----|-----|
+| `OpenTuna` (class/type) | `ClawSDK` |
+| `opentuna` (css/query keys) | `clawsdk` |
+| `OpenTunaPage` | `ClawSDKPage` |
+| `OpenTunaProvider` | `ClawSDKProvider` |
+| `useOpenTuna*` | `useClawSDK*` / `useClawAgent*` |
+| `@opentuna/sdk` | `@openclaw/sdk` |
+| `@opentuna/cli` | `@openclaw/cli` |
+| `ota_live_` | `oca_live_` |
+| `.opentuna-card` | `.clawsdk-card` |
+| `opentuna_agents` (DB table refs) | kept as-is (DB tables unchanged) |
+| Display text "OpenTuna" | "Claw SDK" |
 
-### 1. `src/index.css` -- Strengthen matrix-active overrides
-Add a rule that forces ALL `min-h-screen` containers (the universal page wrapper pattern) to have transparent backgrounds when matrix is active. Also override inline styles with a more aggressive selector:
+**Important**: Database table names (`opentuna_agents`, `opentuna_fins`, etc.) will NOT be renamed since that requires migrations and could break existing data. Only the **frontend display text** and **code identifiers** change.
 
-```css
-.matrix-active [style*="background"] {
-  background: transparent !important;
-}
-```
+## Files to Modify (Grouped)
 
-This single CSS rule will handle pages using inline `style={{ background: "#141414" }}` without needing to edit each file.
+### Group 1: Frontend Components (13 files - rename files + content)
+Rename component files from `OpenTuna*` to `ClawSDK*`:
+- `src/components/opentuna/OpenTunaContext.tsx` -> content rename all types/exports
+- `src/components/opentuna/OpenTunaHub.tsx` -> rename exports
+- `src/components/opentuna/OpenTunaHatch.tsx`
+- `src/components/opentuna/OpenTunaDNA.tsx`
+- `src/components/opentuna/OpenTunaSonar.tsx`
+- `src/components/opentuna/OpenTunaMemory.tsx`
+- `src/components/opentuna/OpenTunaFins.tsx`
+- `src/components/opentuna/OpenTunaIntegrations.tsx`
+- `src/components/opentuna/OpenTunaCurrent.tsx`
+- `src/components/opentuna/OpenTunaDocs.tsx`
+- `src/components/opentuna/OpenTunaApiKeyModal.tsx`
+- `src/components/opentuna/OpenTunaAgentSelector.tsx`
+- `src/components/opentuna/__tests__/` (any test files)
 
-### 2. `src/components/layout/LaunchpadLayout.tsx`
-- Remove `style={{ background: "#141414" }}` from the root div
-- Replace with `className="min-h-screen"` only (the dark background comes from the CSS variables / html element already)
+### Group 2: Hooks (1 file)
+- `src/hooks/useOpenTuna.ts` -- rename all interface names (`OpenTunaAgent` -> `ClawAgent`, `OpenTunaDNA` -> `ClawDNA`, etc.), function names (`useOpenTunaAgents` -> `useClawAgents`), and query keys (`opentuna-agents` -> `clawsdk-agents`)
 
-This fixes **15 pages** at once: TradePage, AgentLeaderboardPage, AgentDashboardPage, BagsAgentsPage, SubTunaPage, TunaPostPage, TunaBookAdminPage, AgentConnectPage, AgentDocsPage, ClaudeLauncherPage, FunModePage, TradingAgentsPage, etc.
+### Group 3: Pages (2 files)
+- `src/pages/OpenTunaPage.tsx` -- rename imports, component names, display text
+- `src/pages/WhitepaperPage.tsx` -- rename all "OpenTuna" display text to "Claw SDK", update code examples (`@opentuna/sdk` -> `@openclaw/sdk`, `ota_live_` -> `oca_live_`, `new OpenTuna()` -> `new ClawSDK()`)
 
-### 3. Inline-layout pages -- Remove `style={{ background: "#141414" }}`
-These pages duplicate the sidebar+header layout inline instead of using LaunchpadLayout. Remove the inline background style from each:
+### Group 4: App Router (1 file)
+- `src/App.tsx` -- rename lazy import `OpenTunaPage` -> `ClawSDKPage`, keep `/sdk` route path, keep `/opentuna` redirect
 
-- `src/pages/TrendingPage.tsx` (line 131)
-- `src/pages/WhitepaperPage.tsx` (line 13)
-- `src/pages/TokenomicsPage.tsx` (line 80)
-- `src/pages/OpenTunaPage.tsx` (line 55)
-- `src/pages/AgentsPage.tsx` (line 21)
-- `src/pages/PanelPage.tsx` (lines 37, 64)
-- `src/pages/ApiDashboardPage.tsx` (lines 415, 607, 622, 733)
-- `src/pages/LaunchTokenPage.tsx` (line 11 -- uses `bg-background`)
+### Group 5: CSS (1 file)
+- `src/index.css` -- rename `.opentuna-card`, `.opentuna-gradient-text`, `.opentuna-glow`, `.opentuna-button` to `.clawsdk-card`, `.clawsdk-gradient-text`, `.clawsdk-glow`, `.clawsdk-button`
 
-### 4. Additional standalone pages -- Remove opaque backgrounds
-Pages that don't use Sidebar but still have opaque wrappers:
+### Group 6: Edge Functions (16 files - content only, folder names stay)
+These edge functions reference `opentuna_*` DB tables (kept) but display text / comments change:
+- `supabase/functions/opentuna-agent-hatch/index.ts`
+- `supabase/functions/opentuna-api-key-create/index.ts` -- change `ota_live_` prefix to `oca_live_`
+- `supabase/functions/opentuna-api-key-validate/index.ts` -- change `ota_live_` validation to `oca_live_`
+- `supabase/functions/opentuna-api-key-revoke/index.ts`
+- `supabase/functions/opentuna-current-verify/index.ts`
+- `supabase/functions/opentuna-dna-update/index.ts`
+- `supabase/functions/opentuna-echo-locate/index.ts`
+- `supabase/functions/opentuna-fin-bash/index.ts`
+- `supabase/functions/opentuna-fin-browse/index.ts`
+- `supabase/functions/opentuna-fin-edit/index.ts`
+- `supabase/functions/opentuna-fin-forge/index.ts`
+- `supabase/functions/opentuna-fin-read/index.ts`
+- `supabase/functions/opentuna-fin-trade/index.ts`
+- `supabase/functions/opentuna-fin-write/index.ts`
+- `supabase/functions/opentuna-memory-store/index.ts`
+- `supabase/functions/opentuna-school-delegate/index.ts`
+- `supabase/functions/opentuna-school-pay/index.ts`
+- `supabase/functions/opentuna-school-sync/index.ts`
+- `supabase/functions/opentuna-sonar-ping/index.ts`
 
-- `src/pages/AgentClaimPage.tsx` -- `bg-background` wrappers
-- `src/pages/EarningsPage.tsx` -- `bg-background`
-- `src/pages/PortfolioPage.tsx` -- `bg-background`
-- `src/pages/PartnerFeesPage.tsx` -- `bg-background`
-- `src/pages/InvestigateTokenPage.tsx` -- `bg-background`
-- `src/pages/TokenDetailPage.tsx` -- `bg-background`
-- `src/pages/VanityAdminPage.tsx` -- `bg-background`
-- `src/pages/ApiDocsPage.tsx` -- `bg-background`
-- `src/pages/DecompressPage.tsx` -- `bg-background`
-- `src/pages/TreasuryAdminPage.tsx` -- `bg-background`
-- `src/pages/DeployerDustAdminPage.tsx` -- `bg-background`
-- `src/pages/PromoMentionsAdminPage.tsx` -- `bg-background`
-- `src/pages/FollowerScanPage.tsx` -- `bg-background`
-- `src/pages/ApiBuilderPage.tsx` -- `bg-[#0a0a0c]`
-- `src/pages/VanityGeneratorPage.tsx` -- `bg-[#0d0d0f]`
-- `src/pages/TwitterBotAdminPage.tsx` -- `bg-[#0d0d0f]`
-- `src/pages/GovernancePage.tsx` -- `bg-[#0a0a0b]`
+Note: Edge function **folder names** cannot be renamed without also renaming the function endpoints, which would break existing API calls. Comments and display strings inside them will be updated.
 
-For ALL of these, the `bg-background` / custom bg classes on the root `min-h-screen` div will be handled by the existing CSS `.matrix-active .min-h-screen { background: transparent !important; }` rule. No individual file edits needed for these -- the CSS override handles it.
+### Group 7: SDK Package (4+ files)
+- `sdk/package.json` -- `@opentuna/sdk` -> `@openclaw/sdk`, update description
+- `sdk/src/opentuna.ts` -- rename class `OpenTuna` -> `ClawSDK`, update all references
+- `sdk/src/index.ts` -- update exports
+- `sdk/README.md` -- update all text
 
-**However**, the inline `style={{ background: "..." }}` pages (the 8 listed in step 3) MUST be edited because CSS `!important` cannot override inline styles in standard CSS. The aggressive `.matrix-active [style*="background"]` rule in step 1 will handle this.
+### Group 8: CLI Package (8+ files)
+- `cli/package.json` -- `@opentuna/cli` -> `@openclaw/cli`, update all refs
+- `cli/src/index.ts` -- update comments
+- `cli/src/config.ts` -- rename `OpenTunaConfig` -> `ClawSDKConfig`, update config dir from `.opentuna` to `.openclaw`
+- `cli/src/commands/*.ts` (6 files) -- update all display text from "OpenTuna" to "Claw SDK", command references from `opentuna` to `openclaw`
 
-## Summary
+### Group 9: Whitepaper MD
+- `public/TUNA_WHITEPAPER.md` -- rename all OpenTuna references to Claw SDK
 
-| Change | Pages Fixed |
-|--------|------------|
-| CSS `.matrix-active [style*="background"]` override | ALL remaining pages with inline styles |
-| `LaunchpadLayout.tsx` remove inline bg | ~15 pages using shared layout |
-| CSS `.matrix-active .min-h-screen` (already exists) | ~21 pages using `bg-background` class |
+## Execution Order
+1. Hooks file first (most imported)
+2. Context/Provider
+3. All component files in parallel
+4. Page files + App.tsx
+5. CSS
+6. Edge functions (comments + API key prefix)
+7. SDK + CLI packages
+8. Whitepaper/docs
 
-**Total: 3 file edits (index.css + LaunchpadLayout.tsx + strengthen existing CSS) to fix every single page.**
+## What Does NOT Change
+- Database table names (`opentuna_agents`, `opentuna_fins`, etc.) -- these are referenced in queries but renaming requires migrations
+- Edge function folder names -- these are deployed endpoints
+- Route paths (`/sdk` stays, `/opentuna` redirect stays)
+- Any functional logic -- purely cosmetic/naming changes
 
-The key insight: instead of editing 40+ files, we use CSS specificity to force transparency when matrix mode is active, and the non-matrix appearance stays identical because `html { background: ... }` provides the dark base color.
