@@ -1887,10 +1887,15 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const meteoraApiUrl =
+    let meteoraApiUrl =
       Deno.env.get("METEORA_API_URL") ||
       Deno.env.get("VITE_METEORA_API_URL") ||
       "https://tunalaunch.vercel.app";
+
+    // Safety: ensure URL has protocol
+    if (!meteoraApiUrl.startsWith("http")) {
+      meteoraApiUrl = `https://${meteoraApiUrl}`;
+    }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
