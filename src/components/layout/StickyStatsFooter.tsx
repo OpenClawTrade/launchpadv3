@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useClawStats } from "@/hooks/useClawStats";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function StickyStatsFooter() {
   const { data: stats } = useClawStats();
+  const isMobile = useIsMobile();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function StickyStatsFooter() {
         borderTop: "1px solid hsl(222 20% 14%)",
         display: "flex",
         alignItems: "center",
-        paddingLeft: "160px",
+        paddingLeft: isMobile ? "0px" : "160px",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingLeft: "16px", paddingRight: "16px", overflowX: "auto" }}>
