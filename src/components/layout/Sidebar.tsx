@@ -40,7 +40,7 @@ function MatrixToggle() {
         <Switch
           checked={matrixEnabled}
           onCheckedChange={toggleMatrix}
-          className="h-4 w-8 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-white/20"
+          className="h-4 w-8 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-white/20 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4 [&>span]:data-[state=unchecked]:translate-x-0"
         />
       </div>
     </div>
