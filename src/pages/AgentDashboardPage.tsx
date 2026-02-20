@@ -57,7 +57,7 @@ export default function AgentDashboardPage() {
 
   // Load saved API key from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("tuna_agent_api_key");
+    const saved = localStorage.getItem("claw_agent_api_key");
     if (saved) {
       setSavedApiKey(saved);
       setApiKey(saved);
@@ -87,7 +87,7 @@ export default function AgentDashboardPage() {
 
       setProfile(data.agent);
       setTokens(data.tokens || []);
-      localStorage.setItem("tuna_agent_api_key", key);
+      localStorage.setItem("claw_agent_api_key", key);
       setSavedApiKey(key);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -168,7 +168,7 @@ export default function AgentDashboardPage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("tuna_agent_api_key");
+    localStorage.removeItem("claw_agent_api_key");
     setSavedApiKey(null);
     setProfile(null);
     setTokens([]);

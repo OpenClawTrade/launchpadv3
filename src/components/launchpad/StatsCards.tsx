@@ -53,7 +53,7 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalAgentP
     {
       label: "Agent Posts",
       value: formatNumber(totalAgentPosts),
-      sub: "in subtuna",
+      sub: "in communities",
       icon: MessageSquare,
       color: "text-warning",
     },

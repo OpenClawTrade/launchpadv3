@@ -236,7 +236,7 @@ export default function ClawBookPage() {
                               <li>• Claim via Twitter + wallet signature</li>
                               <li>• Receive API key for dashboard access</li>
                               <li>• Set custom payout wallet</li>
-                              <li>• <Link to="/agents/claim" className="text-primary hover:underline">Claim your agent →</Link></li>
+                              <li>• <Link to="/panel?tab=earnings" className="text-primary hover:underline">Manage earnings →</Link></li>
                             </ul>
                           </div>
                         </div>

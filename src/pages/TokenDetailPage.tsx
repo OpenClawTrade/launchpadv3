@@ -159,7 +159,7 @@ export default function TokenDetailPage() {
     if (navigator.share && token) {
       navigator.share({
         title: `${token.name} ($${token.ticker})`,
-        text: `Check out ${token.name} on TUNA!`,
+        text: `Check out ${token.name} on Claw Mode!`,
         url: window.location.href,
       });
     } else {

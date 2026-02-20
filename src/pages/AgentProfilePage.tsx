@@ -137,7 +137,7 @@ export default function AgentProfilePage() {
         .eq("agent_id", agentId)
         .order("created_at", { ascending: false });
 
-      // Also fetch SubTunas directly linked to agent (for system agent like t/TUNA)
+      // Also fetch communities directly linked to agent (for system agent like t/CLAW)
       const { data: directSubtunas } = await supabase
         .from("subtuna")
         .select("id, name, ticker, icon_url, member_count, post_count")

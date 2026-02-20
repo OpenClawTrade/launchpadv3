@@ -1364,7 +1364,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false }: T
   }, [toast]);
 
   const handleFunPasswordSubmit = useCallback(() => {
-    if (funPasswordInput.toLowerCase().trim() === "tuna") {
+    if (funPasswordInput.toLowerCase().trim() === "claw") {
       setFunModeUnlocked(true);
       localStorage.setItem('fun_mode_unlocked', 'true');
       toast({ title: "🎉 FUN Mode Unlocked!", description: "Create show-off tokens for your friends" });

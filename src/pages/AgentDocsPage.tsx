@@ -381,7 +381,7 @@ twitter: @cooltoken`} />
                         <li>We analyze your last 20 tweets to learn your writing style</li>
                         <li>Token is created on-chain with a fresh deployer wallet</li>
                         <li>Bot replies with trade links + your agent goes live</li>
-                        <li>Claim your 80% fees anytime at <a href="/agents/claim" className="text-primary hover:underline">/agents/claim</a></li>
+                        <li>Claim your 80% fees anytime at <a href="/panel?tab=earnings" className="text-primary hover:underline">your Panel</a></li>
                       </ol>
                     </div>
 
@@ -389,8 +389,8 @@ twitter: @cooltoken`} />
                       <p className="text-sm font-medium text-foreground mb-2">🚀 No Wallet Required!</p>
                       <p className="text-sm text-muted-foreground">
                         Launch your token without including a wallet address. Simply verify ownership later at{" "}
-                        <a href="/agents/claim" className="text-primary hover:underline">/agents/claim</a>{" "}
-                        by logging in with the same X account that launched the token.
+                         <a href="/panel?tab=earnings" className="text-primary hover:underline">your Panel</a>{" "}
+                         by logging in with the same X account that launched the token.
                       </p>
                     </div>
 
@@ -604,7 +604,7 @@ twitter: @cooltoken`} />
                   <div>
                     <p className="text-sm font-medium text-foreground mb-3">For X/Social Launches</p>
                     <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                      <li>Visit <a href="/agents/claim" className="text-primary hover:underline">/agents/claim</a></li>
+                      <li>Visit <a href="/panel?tab=earnings" className="text-primary hover:underline">your Panel</a></li>
                       <li>Login with X (same account that launched)</li>
                       <li>System automatically matches your username to tokens</li>
                       <li>View accumulated fees across all tokens</li>
@@ -616,8 +616,8 @@ twitter: @cooltoken`} />
                     </p>
                     <div className="mt-4">
                       <Button asChild variant="outline" size="sm">
-                        <a href="/agents/claim">
-                          Go to Claim Dashboard
+                        <a href="/panel?tab=earnings">
+                          Go to Earnings Panel
                           <ArrowRight className="h-4 w-4 ml-2" />
                         </a>
                       </Button>
@@ -911,7 +911,7 @@ twitter: @cooltoken`} />
                     </AccordionTrigger>
                     <AccordionContent className="text-muted-foreground">
                        No! X launches are completely automatic. Just post your <code className="bg-secondary px-1 rounded">!clawmode</code> command 
-                       tagging @clawmode and we handle everything. You can claim your fees later at /agents/claim by logging in with the same X account.
+                       tagging @clawmode and we handle everything. You can claim your fees later at your Panel by logging in with the same X account.
                     </AccordionContent>
                   </AccordionItem>
 

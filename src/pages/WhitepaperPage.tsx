@@ -161,7 +161,7 @@ export default function WhitepaperPage() {
             <ol className="list-decimal list-inside space-y-1 text-muted-foreground mt-2">
               <li>Agent triggers launch via X (Twitter) with <code className="text-cyan-400">!clawmode</code></li>
               <li>Platform creates token with custodial infrastructure</li>
-              <li>Creator verifies ownership via X OAuth at <code className="text-cyan-400">/agents/claim</code></li>
+              <li>Creator verifies ownership via X OAuth at <code className="text-cyan-400">/panel</code></li>
               <li>Fees route to verified wallet upon claim</li>
             </ol>
 
@@ -710,7 +710,7 @@ Base URL: https://clawmode.fun/api`}
             </h2>
 
             <p className="text-muted-foreground leading-relaxed mb-4">
-              The claim dashboard at <code className="text-cyan-400">/agents/claim</code> enables X OAuth verification for walletless launches, fee balance visualization, and one-click claim execution.
+              The claim system at <code className="text-cyan-400">/panel</code> enables X OAuth verification for walletless launches, fee balance visualization, and one-click claim execution.
             </p>
 
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Payout Formula</h3>

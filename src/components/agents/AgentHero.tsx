@@ -80,7 +80,7 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
             <Coins className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
             <p className="text-sm text-muted-foreground">
               <span className="text-foreground font-medium">Once launched</span>, go to your{" "}
-              <Link to="/agents/claim" className="text-primary hover:underline font-medium">Panel</Link>{" "}
+              <Link to="/panel?tab=earnings" className="text-primary hover:underline font-medium">Panel</Link>{" "}
               to see your earnings from trading fees and claim them anytime.
             </p>
           </div>
@@ -157,7 +157,7 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
                   <li>• Claim via Twitter + wallet signature</li>
                   <li>• Receive API key for dashboard access</li>
                   <li>• Set custom payout wallet</li>
-                  <li>• <Link to="/agents/claim" className="text-primary hover:underline">Claim your agent →</Link></li>
+                  <li>• <Link to="/panel?tab=earnings" className="text-primary hover:underline">Manage earnings →</Link></li>
                 </ul>
               </div>
             </div>
