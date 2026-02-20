@@ -1,10 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart, FileText, Fingerprint } from "lucide-react";
+import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart, FileText, Fingerprint, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
 import { usePanelNav } from "@/hooks/usePanelNav";
+import { useMatrixMode } from "@/contexts/MatrixModeContext";
 import clawLogo from "@/assets/claw-logo.png";
 
 const LOGO_SRC = clawLogo;
@@ -24,6 +26,25 @@ const NAV_LINKS = [
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+}
+
+function MatrixToggle() {
+  const { matrixEnabled, toggleMatrix } = useMatrixMode();
+  return (
+    <div className="px-3 pb-2">
+      <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-white/5">
+        <div className="flex items-center gap-2">
+          <Monitor className="h-3.5 w-3.5 text-white/50" />
+          <span className="text-[12px] font-medium text-white/60">Matrix</span>
+        </div>
+        <Switch
+          checked={matrixEnabled}
+          onCheckedChange={toggleMatrix}
+          className="h-4 w-8 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-white/20"
+        />
+      </div>
+    </div>
+  );
 }
 
 function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
@@ -93,6 +114,9 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
           );
         })}
       </nav>
+
+      {/* Matrix Mode Toggle (desktop only, injected via prop) */}
+      {onLinkClick === undefined && <MatrixToggle />}
 
       {/* Create Token CTA */}
       <div className="px-3 pb-14 space-y-3">
