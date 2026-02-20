@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { usePanelNav } from "@/hooks/usePanelNav";
 import clawLogo from "@/assets/claw-logo.png";
 
 const LOGO_SRC = clawLogo;
@@ -26,6 +27,7 @@ interface SidebarProps {
 
 function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
   const location = useLocation();
+  const { goToPanel } = usePanelNav();
 
   const isActive = (to: string, exact?: boolean) => {
     if (exact) return location.pathname === to || location.pathname === "/launch/solana";
@@ -49,24 +51,42 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
       <nav className="flex-1 px-2 space-y-0.5">
         {NAV_LINKS.map(({ to, label, icon: Icon, exact, useClaw }) => {
           const active = isActive(to, exact);
+          const classes = cn(
+            "flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors duration-100 w-full",
+            active
+              ? "text-white bg-white/10 border-l-2"
+              : "text-white/50 hover:text-white/80 hover:bg-white/5 border-l-2 border-transparent"
+          );
+          const style = active ? { borderLeftColor: "#4ade80" } : {};
+          const iconEl = useClaw ? (
+            <img src={LOGO_SRC} alt="" className="h-4 w-4 rounded-sm object-contain flex-shrink-0" />
+          ) : Icon ? (
+            <Icon className="h-4 w-4 flex-shrink-0" />
+          ) : null;
+
+          if (useClaw) {
+            return (
+              <button
+                key={to}
+                onClick={() => { onLinkClick?.(); goToPanel(); }}
+                className={classes}
+                style={style}
+              >
+                {iconEl}
+                <span>{label}</span>
+              </button>
+            );
+          }
+
           return (
             <Link
               key={to}
               to={to}
               onClick={onLinkClick}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors duration-100",
-                active
-                  ? "text-white bg-white/10 border-l-2"
-                  : "text-white/50 hover:text-white/80 hover:bg-white/5 border-l-2 border-transparent"
-              )}
-              style={active ? { borderLeftColor: "#4ade80" } : {}}
+              className={classes}
+              style={style}
             >
-              {useClaw ? (
-                <img src={LOGO_SRC} alt="" className="h-4 w-4 rounded-sm object-contain flex-shrink-0" />
-              ) : Icon ? (
-                <Icon className="h-4 w-4 flex-shrink-0" />
-              ) : null}
+              {iconEl}
               <span>{label}</span>
             </Link>
           );
