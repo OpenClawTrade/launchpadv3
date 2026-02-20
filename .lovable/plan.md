@@ -1,56 +1,51 @@
 
 
-# Fix: METEORA_API_URL Missing Protocol + Retry Failed Launch
+# Fix: Purge All `lovable.app` and Legacy `tuna` URLs from Codebase
 
-## Root Cause
+## Problem
 
-The `METEORA_API_URL` secret is set to `clawmode.vercel.app` without the `https://` prefix. This causes an `Invalid URL` error when `agent-process-post` tries to call `clawmode.vercel.app/api/pool/create-fun`.
+Multiple files expose `clawmode.lovable.app` (the Lovable staging subdomain) instead of the production domain `clawmode.fun`. This is visible to users in the SDK docs, API docs, sitemap, and HTML meta tags. Additionally, legacy `@tuna/agent-sdk` and `tuna.fun` references persist in SDK docs and examples.
 
-The `@sandracinca` tweet (`!clawmode dog`) was correctly detected but the token launch failed at the API call step. It is now stuck as `status: "failed"` in the database, so every scan skips it.
+## Affected Files and Changes
 
-## Fix Steps
+### 1. `index.html` -- Replace all `clawmode.lovable.app` with `clawmode.fun`
+- Line 12: canonical URL
+- Line 23: og:url
+- Line 56: JSON-LD url
+- Line 68: JSON-LD organization url
 
-### 1. Update the `METEORA_API_URL` secret
-Change from `clawmode.vercel.app` to `https://clawmode.vercel.app`
+### 2. `public/sitemap.xml` -- Replace all `clawmode.lovable.app` with `clawmode.fun`
+- Lines 4, 9, 14: all `<loc>` entries
 
-Also update `VITE_METEORA_API_URL` if it has the same issue.
+### 3. `src/components/claw/ClawSDKHub.tsx` -- Fix API curl examples
+- Lines 107, 111, 117: Replace `clawmode.lovable.app` with `clawmode.fun`
 
-### 2. Add URL protocol safety net in `agent-process-post`
-Add a guard at line ~1890 to auto-prepend `https://` if the URL does not start with `http`:
+### 4. `src/pages/ApiDocsPage.tsx` -- Fix BASE_URL and APP_URL constants
+- Line 12: `https://api.clawmode.lovable.app` -> `https://api.clawmode.fun`
+- Line 13: `https://clawmode.lovable.app` -> `https://clawmode.fun`
 
-```typescript
-let meteoraApiUrl =
-  Deno.env.get("METEORA_API_URL") ||
-  Deno.env.get("VITE_METEORA_API_URL") ||
-  "https://tunalaunch.vercel.app";
+### 5. `sdk/README.md` -- Fix legacy branding
+- Line 1: "TUNA Agent SDK" -> "Claw Mode Agent SDK"
+- Lines 23, 29, 74: `@tuna/agent-sdk` -> `@openclaw/sdk`
+- Line 251: `!tunalaunch` -> `!clawmode`
 
-// Safety: ensure URL has protocol
-if (!meteoraApiUrl.startsWith("http")) {
-  meteoraApiUrl = `https://${meteoraApiUrl}`;
-}
-```
+### 6. `sdk/docs/API.md` -- Fix legacy branding
+- Line 1: title
+- Line 14: `@tuna/agent-sdk` -> `@openclaw/sdk`
+- Lines 22, 34, 79: import references
 
-### 3. Reset the failed `@sandracinca` record so it gets retried
-Run a database update to change the status from `failed` back to `pending` (or delete the record) so the next scan cycle will re-process it:
+### 7. `sdk/package.json` -- Fix author email
+- Line 93: `team@tuna.fun` -> `team@clawmode.fun`
 
-```sql
-DELETE FROM agent_social_posts
-WHERE post_id = '2024831108160860668'
-AND post_author = 'sandracinca'
-AND status = 'failed';
-```
+### 8. `sdk/examples/*.ts` (6 files) -- Fix imports
+- All `@tuna/agent-sdk` -> `@openclaw/sdk`
 
-### 4. Add the same URL safety net in other edge functions
-Apply the same `https://` guard to:
-- `claw-trading-create/index.ts` (uses hardcoded `tunalaunch.vercel.app` -- already has `https://`, OK)
-- `api-launch-token/index.ts`
-- `fun-sniper-buy/index.ts`
-- `fun-sniper-sell/index.ts`
+### 9. `public/sdk/` (legacy SDK copy) -- Same fixes
+- `package.json`: name `@tuna/agent-sdk` -> `@openclaw/sdk`
+- `README.md`: `!tunalaunch` -> `!clawmode`, remove Telegram bot reference
+- `examples/*.ts`: fix imports
 
-## Expected Result
+## Summary
 
-After the secret is fixed and the failed record is deleted:
-1. Next scan cycle picks up the `@sandracinca` tweet again
-2. Token launches successfully via `https://clawmode.vercel.app/api/pool/create-fun`
-3. Reply is sent to `@sandracinca` confirming the launch
+Total: ~15 files, all string replacements. Every `clawmode.lovable.app` becomes `clawmode.fun`, every `@tuna/agent-sdk` becomes `@openclaw/sdk`, every `!tunalaunch` becomes `!clawmode`.
 
