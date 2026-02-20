@@ -1,51 +1,77 @@
 
 
-# Fix: Purge All `lovable.app` and Legacy `tuna` URLs from Codebase
+## Plan: Vanity Address Fix + Matrix Mode Content Readability
 
-## Problem
+### Part 1: Vanity Address Investigation
 
-Multiple files expose `clawmode.lovable.app` (the Lovable staging subdomain) instead of the production domain `clawmode.fun`. This is visible to users in the SDK docs, API docs, sitemap, and HTML meta tags. Additionally, legacy `@tuna/agent-sdk` and `tuna.fun` references persist in SDK docs and examples.
+**Finding:** The two recently launched tokens (PPA and PNQR) did NOT receive vanity addresses. Here's why:
 
-## Affected Files and Changes
+- The `fun-create` edge function sends `useVanityAddress: true` to the external Vercel API (`/api/pool/create-fun`), but it does NOT call `backend_reserve_vanity_address` itself -- it relies entirely on the Vercel backend to handle vanity assignment.
+- Meanwhile, `pump-agent-launch` and `bags-agent-launch` handle vanity locally by calling `backend_reserve_vanity_address` RPC and passing the keypair to the on-chain transaction.
+- There are 7 vanity keypairs available in the database (all with suffix "claw"), but the Vercel API likely cannot access them or has its own depleted pool.
 
-### 1. `index.html` -- Replace all `clawmode.lovable.app` with `clawmode.fun`
-- Line 12: canonical URL
-- Line 23: og:url
-- Line 56: JSON-LD url
-- Line 68: JSON-LD organization url
+**Fix:** Move vanity keypair reservation INTO `fun-create` (same pattern as `pump-agent-launch`), so the edge function reserves and decrypts the keypair, then passes the private key bytes to the Vercel API instead of just a boolean flag.
 
-### 2. `public/sitemap.xml` -- Replace all `clawmode.lovable.app` with `clawmode.fun`
-- Lines 4, 9, 14: all `<loc>` entries
+Changes:
+- `supabase/functions/fun-create/index.ts` -- Add `getVanityKeypair()` function (copy from `pump-agent-launch`), call it before the Vercel API request, and pass the vanity keypair data (`vanityPrivateKey`, `vanityPublicKey`) to the Vercel payload instead of just `useVanityAddress: true`.
 
-### 3. `src/components/claw/ClawSDKHub.tsx` -- Fix API curl examples
-- Lines 107, 111, 117: Replace `clawmode.lovable.app` with `clawmode.fun`
+---
 
-### 4. `src/pages/ApiDocsPage.tsx` -- Fix BASE_URL and APP_URL constants
-- Line 12: `https://api.clawmode.lovable.app` -> `https://api.clawmode.fun`
-- Line 13: `https://clawmode.lovable.app` -> `https://clawmode.fun`
+### Part 2: Matrix Mode Content Readability
 
-### 5. `sdk/README.md` -- Fix legacy branding
-- Line 1: "TUNA Agent SDK" -> "Claw Mode Agent SDK"
-- Lines 23, 29, 74: `@tuna/agent-sdk` -> `@openclaw/sdk`
-- Line 251: `!tunalaunch` -> `!clawmode`
+**Problem:** When Matrix Mode is active, the animated green rain canvas sits at z-0 while page content is at z-1, but the content containers use `bg-background` (opaque or near-opaque), which the `.matrix-active` CSS class strips away for transparency. This makes long-form text pages (Whitepaper, Tokenomics, docs) hard to read as the rain shows through the text.
 
-### 6. `sdk/docs/API.md` -- Fix legacy branding
-- Line 1: title
-- Line 14: `@tuna/agent-sdk` -> `@openclaw/sdk`
-- Lines 22, 34, 79: import references
+**Solution:** Create a reusable `MatrixContentCard` wrapper component that, when Matrix Mode is active, adds a semi-transparent glassmorphic backdrop behind the main content area. When Matrix Mode is off, it renders children with no extra styling.
 
-### 7. `sdk/package.json` -- Fix author email
-- Line 93: `team@tuna.fun` -> `team@clawmode.fun`
+Changes:
 
-### 8. `sdk/examples/*.ts` (6 files) -- Fix imports
-- All `@tuna/agent-sdk` -> `@openclaw/sdk`
+1. **New file: `src/components/layout/MatrixContentCard.tsx`**
+   - A wrapper component that reads `useMatrixMode()` 
+   - When active: renders a `div` with `bg-background/85 backdrop-blur-md rounded-2xl border border-border/30 p-6 sm:p-8`
+   - When inactive: renders children as-is (no wrapper div)
 
-### 9. `public/sdk/` (legacy SDK copy) -- Same fixes
-- `package.json`: name `@tuna/agent-sdk` -> `@openclaw/sdk`
-- `README.md`: `!tunalaunch` -> `!clawmode`, remove Telegram bot reference
-- `examples/*.ts`: fix imports
+2. **`src/pages/WhitepaperPage.tsx`** -- Wrap the `<main>` content (lines 44-1228) inside `<MatrixContentCard>`
 
-## Summary
+3. **`src/pages/TokenomicsPage.tsx`** -- Same treatment for its main content area
 
-Total: ~15 files, all string replacements. Every `clawmode.lovable.app` becomes `clawmode.fun`, every `@tuna/agent-sdk` becomes `@openclaw/sdk`, every `!tunalaunch` becomes `!clawmode`.
+4. **`src/pages/ClawModePage.tsx`** -- Wrap `<main>` content inside `<MatrixContentCard>`
+
+5. **Other text-heavy pages** (ApiDocsPage, AgentDocsPage, ClawSDKPage, CareersPage) -- Same pattern applied
+
+This keeps the matrix rain visible around the edges (header, sidebar gaps, footer) while making the primary reading area clear and professional.
+
+---
+
+### Technical Details
+
+**Vanity keypair flow (Part 1):**
+```text
+fun-create receives request
+  |
+  v
+Call backend_reserve_vanity_address('claw')
+  |
+  +-- Success: decrypt keypair, pass to Vercel as vanityPrivateKey + vanityPublicKey
+  +-- Failure: fall back to useVanityAddress: false (random mint)
+  |
+  v
+Vercel API creates token with provided keypair (or generates random one)
+```
+
+**MatrixContentCard component (Part 2):**
+```tsx
+// Conditional glassmorphic wrapper
+const MatrixContentCard = ({ children }) => {
+  const { matrixEnabled } = useMatrixMode();
+  if (!matrixEnabled) return <>{children}</>;
+  return (
+    <div className="bg-background/85 backdrop-blur-md rounded-2xl 
+                    border border-border/30 p-6 sm:p-8 my-4">
+      {children}
+    </div>
+  );
+};
+```
+
+**Pages to update:** WhitepaperPage, TokenomicsPage, ClawModePage, ApiDocsPage, AgentDocsPage, ClawSDKPage, CareersPage (wrap their `<main>` content blocks).
 
