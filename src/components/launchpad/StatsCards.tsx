@@ -41,7 +41,7 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalAgentP
       value: formatNumber(totalAgents),
       sub: "active",
       icon: Bot,
-      color: "text-purple-400",
+      color: "text-accent-purple",
     },
     {
       label: "Fees Claimed",
@@ -55,30 +55,30 @@ export function StatsCards({ totalTokens, totalAgents, totalClaimed, totalAgentP
       value: formatNumber(totalAgentPosts),
       sub: "in subtuna",
       icon: MessageSquare,
-      color: "text-amber-400",
+      color: "text-warning",
     },
     {
       label: "Agent Payouts",
       value: `${formatSOL(totalAgentPayouts)} SOL`,
       sub: formatUSD(totalAgentPayouts),
       icon: Send,
-      color: "text-cyan-400",
+      color: "text-accent-cyan",
     },
   ];
 
   return (
-    <div className="w-full flex items-center border-y border-border bg-card overflow-x-auto">
+    <div className="w-full flex items-center border-y border-border bg-surface/50 backdrop-blur-sm overflow-x-auto">
       {stats.map((stat, i) => (
         <div
           key={stat.label}
-          className={`flex items-center gap-2 px-4 py-2 flex-shrink-0 ${i < stats.length - 1 ? "border-r border-border" : ""}`}
+          className={`flex items-center gap-2.5 px-5 py-2.5 flex-shrink-0 ${i < stats.length - 1 ? "border-r border-border" : ""}`}
         >
-          <stat.icon className={`h-3 w-3 flex-shrink-0 ${stat.color}`} />
+          <stat.icon className={`h-3.5 w-3.5 flex-shrink-0 ${stat.color}`} />
           <div className="flex flex-col min-w-0">
             <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground leading-none mb-0.5">
               {stat.label}
             </span>
-            <span className="text-[13px] font-bold font-mono text-foreground leading-none">
+            <span className="text-[13px] font-semibold font-mono text-foreground leading-none">
               {stat.value}
             </span>
             {stat.sub && (

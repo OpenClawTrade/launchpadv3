@@ -45,9 +45,9 @@ export function TokenCard({ token, solPrice, isPromoted }: TokenCardProps) {
   return (
     <Link
       to={tradeUrl}
-      className="pf-card group block rounded-lg overflow-hidden transition-all duration-150 hover:scale-[1.01]"
+      className="pf-card group block overflow-hidden"
     >
-      {/* Token Image — takes up ~55% of card height */}
+      {/* Token Image */}
       <div className="relative w-full" style={{ paddingBottom: "62%" }}>
         <div className="absolute inset-0">
           {token.image_url ? (
@@ -68,20 +68,20 @@ export function TokenCard({ token, solPrice, isPromoted }: TokenCardProps) {
 
           {/* MC + badges overlay */}
           <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
-            <span className="text-[11px] font-bold font-mono text-white">{mcapFormatted}</span>
+            <span className="text-[11px] font-bold font-mono text-foreground">{mcapFormatted}</span>
             <div className="flex items-center gap-1">
               {isNearGrad && (
-                <span className="text-[9px] px-1 py-0.5 rounded font-bold pf-badge-hot">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-pill font-bold pf-badge-hot">
                   🔥 HOT
                 </span>
               )}
               {isAgent && (
-                <span className="text-[9px] px-1 py-0.5 rounded font-bold pf-badge-agent">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-pill font-bold pf-badge-agent">
                   <Bot className="h-2.5 w-2.5 inline" /> AI
                 </span>
               )}
               {isPromoted && (
-                <span className="text-[9px] px-1 py-0.5 rounded font-bold pf-badge-promoted">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-pill font-bold pf-badge-promoted">
                   <Crown className="h-2.5 w-2.5 inline" />
                 </span>
               )}
@@ -91,10 +91,10 @@ export function TokenCard({ token, solPrice, isPromoted }: TokenCardProps) {
       </div>
 
       {/* Card body */}
-      <div className="p-2.5">
+      <div className="p-3">
         {/* Name + ticker row */}
         <div className="flex items-center justify-between gap-1 mb-0.5">
-          <span className="text-[12px] font-bold text-white truncate leading-tight">
+          <span className="text-[12px] font-bold text-foreground truncate leading-tight">
             {token.name}
           </span>
           <span className="text-[10px] font-mono flex-shrink-0 pf-ticker">
@@ -118,12 +118,14 @@ export function TokenCard({ token, solPrice, isPromoted }: TokenCardProps) {
         )}
 
         {/* Bonding progress bar */}
-        <div className="mt-2 h-0.5 w-full rounded-full overflow-hidden pf-progress-bg">
+        <div className="mt-2 h-1 w-full rounded-pill overflow-hidden pf-progress-bg">
           <div
-            className="h-full rounded-full transition-all"
+            className="h-full rounded-pill transition-all duration-300"
             style={{
               width: `${Math.min(token.bonding_progress ?? 0, 100)}%`,
-              background: isNearGrad ? "#ea580c" : "#4ade80",
+              background: isNearGrad
+                ? "linear-gradient(90deg, hsl(24 95% 53%), hsl(16 85% 48%))"
+                : "linear-gradient(90deg, hsl(160 84% 39%), hsl(162 95% 24%))",
             }}
           />
         </div>

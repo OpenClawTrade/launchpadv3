@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -14,7 +14,7 @@
   animation: float 2s ease-in-out infinite;
 }
 
-/* Claw Mode Design System — Dark Terminal */
+/* Claw Mode Design System — Premium Dark */
 
 @layer base {
   :root {
@@ -24,7 +24,7 @@
     --gate-green-light: 0 84% 95%;
     
     /* Semantic Colors */
-    --success: 142 71% 45%;
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 0%;
@@ -62,7 +62,11 @@
     --input: 220 13% 91%;
     --ring: 0 84% 60%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
+
+    /* Surface tokens */
+    --surface: 220 20% 97%;
+    --surface-hover: 220 20% 94%;
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
@@ -80,6 +84,8 @@
     --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.12);
     --shadow-xl: 0 20px 40px -8px rgb(0 0 0 / 0.15);
     --shadow-glow: 0 0 20px hsl(0 84% 60% / 0.25);
+    --shadow-soft: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -1px rgb(0 0 0 / 0.2);
+    --shadow-glow-green: 0 0 20px hsl(160 84% 39% / 0.2), 0 0 40px hsl(160 84% 39% / 0.1);
     
     /* Badge colors */
     --badge-blue: 210 100% 50%;
@@ -91,6 +97,10 @@
     --repost-green: 152 69% 41%;
     --bookmark-yellow: 38 92% 50%;
     
+    /* Accent colors */
+    --accent-purple: 258 90% 66%;
+    --accent-cyan: 192 91% 42%;
+    
     /* Binance colors (kept for compatibility) */
     --binance-yellow: 43 96% 56%;
     --binance-yellow-hover: 43 96% 48%;
@@ -99,27 +109,27 @@
   }
 
   .dark {
-    /* Claw Mode Dark Terminal — Pure Black */
-    --background: 0 0% 2%;
-    --background-secondary: 240 8% 5%;
-    --background-tertiary: 240 6% 7%;
-    --foreground: 214 28% 88%;
-    --foreground-secondary: 215 14% 50%;
+    /* Claw Mode Dark — Premium Deep */
+    --background: 225 40% 5%;
+    --background-secondary: 222 30% 7%;
+    --background-tertiary: 222 25% 9%;
+    --foreground: 214 32% 91%;
+    --foreground-secondary: 215 16% 57%;
 
-    --card: 240 8% 4%;
-    --card-foreground: 214 28% 88%;
+    --card: 222 30% 7%;
+    --card-foreground: 214 32% 91%;
 
-    --popover: 240 8% 5%;
-    --popover-foreground: 214 28% 88%;
+    --popover: 222 30% 8%;
+    --popover-foreground: 214 32% 91%;
 
     --primary: 0 84% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 8% 7%;
-    --secondary-foreground: 214 28% 88%;
+    --secondary: 222 25% 10%;
+    --secondary-foreground: 214 32% 91%;
 
-    --muted: 240 8% 8%;
-    --muted-foreground: 215 10% 36%;
+    --muted: 222 20% 12%;
+    --muted-foreground: 215 12% 44%;
 
     --accent: 187 80% 15%;
     --accent-foreground: 187 80% 60%;
@@ -127,27 +137,37 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 8% 11%;
-    --border-light: 240 8% 14%;
-    --input: 240 8% 9%;
+    --border: 222 20% 14%;
+    --border-light: 222 16% 18%;
+    --input: 222 25% 11%;
     --ring: 0 84% 60%;
 
-    --sidebar-background: 0 0% 2%;
-    --sidebar-foreground: 214 28% 88%;
+    /* Surface tokens */
+    --surface: 222 30% 9%;
+    --surface-hover: 222 25% 12%;
+
+    --sidebar-background: 225 35% 6%;
+    --sidebar-foreground: 214 32% 91%;
     --sidebar-primary: 0 84% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 84% 8%;
     --sidebar-accent-foreground: 0 84% 60%;
-    --sidebar-border: 240 8% 11%;
+    --sidebar-border: 222 20% 14%;
     --sidebar-ring: 0 84% 60%;
 
     --shadow-glow: 0 0 30px hsl(0 84% 60% / 0.12);
+    --shadow-soft: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -1px rgb(0 0 0 / 0.3);
+    --shadow-glow-green: 0 0 20px hsl(160 84% 39% / 0.15), 0 0 40px hsl(160 84% 39% / 0.08);
 
     /* Success color for green values */
-    --success: 142 60% 40%;
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 0%;
+    
+    /* Accent colors */
+    --accent-purple: 258 90% 66%;
+    --accent-cyan: 192 91% 42%;
   }
 }
 
@@ -163,7 +183,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
@@ -286,7 +306,7 @@
     animation: pulseRing 1.5s ease-out infinite;
   }
 
-  /* Skeleton shimmer */
+  /* Skeleton shimmer — premium */
   @keyframes shimmer {
     0% { background-position: -200% 0; }
     100% { background-position: 200% 0; }
@@ -294,11 +314,11 @@
   .skeleton-shimmer {
     background: linear-gradient(90deg, 
       hsl(var(--muted)) 0%, 
-      hsl(var(--muted-foreground) / 0.1) 50%, 
+      hsl(var(--muted-foreground) / 0.08) 50%, 
       hsl(var(--muted)) 100%
     );
     background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+    animation: shimmer 1.8s ease-in-out infinite;
   }
 
   /* Verification badge glow */
@@ -363,6 +383,69 @@
   .gold-pulse-btn:hover {
     filter: brightness(1.1);
   }
+
+  /* ── Premium Utility Classes ── */
+
+  /* Glass surface */
+  .glass-surface {
+    background: hsl(var(--surface) / 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* Gradient green button */
+  .btn-gradient-green {
+    background: linear-gradient(135deg, hsl(160 84% 39%) 0%, hsl(162 95% 24%) 100%);
+    color: #fff;
+    font-weight: 600;
+    transition: all 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .btn-gradient-green:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 20px hsl(160 84% 39% / 0.35);
+    filter: brightness(1.08);
+  }
+  .btn-gradient-green:active {
+    transform: scale(0.98);
+  }
+
+  /* Hover lift */
+  .hover-lift {
+    transition: all 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .hover-lift:hover {
+    transform: scale(1.02);
+    filter: brightness(1.05);
+  }
+  .hover-lift:active {
+    transform: scale(0.98);
+    transition-duration: 80ms;
+  }
+
+  /* Focus ring */
+  .focus-ring-purple:focus-visible {
+    outline: 2px solid hsl(var(--accent-purple) / 0.4);
+    outline-offset: 2px;
+  }
+
+  /* Pulsing online dot */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 hsl(160 84% 39% / 0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 4px hsl(160 84% 39% / 0); }
+  }
+  .pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  /* Empty state fade */
+  @keyframes empty-fade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .empty-state-fade {
+    animation: empty-fade 0.4s ease-out forwards;
+  }
 }
 
 @layer utilities {
@@ -403,6 +486,11 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  /* Letter spacing for headings */
+  .tracking-tight-heading {
+    letter-spacing: -0.01em;
+  }
 }
 
 /* Loading spinner keyframes for PrivyProviderWrapper */
@@ -433,15 +521,15 @@
 
 /* Claw Mode Terminal Utilities */
 .claw-panel {
-  background: hsl(240 10% 5%);
-  border: 1px solid hsl(240 10% 12%);
-  border-radius: 6px;
+  background: hsl(var(--surface));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
 }
 
 .claw-panel-dark {
-  background: hsl(0 0% 4%);
-  border: 1px solid hsl(240 10% 12%);
-  border-radius: 6px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
 }
 
 .claw-section-label {
@@ -449,43 +537,47 @@
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: hsl(215 12% 40%);
+  letter-spacing: 0.08em;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 8px;
 }
 
 .claw-row-hover:hover {
-  background: rgba(255,255,255,0.025);
+  background: hsl(var(--surface-hover));
 }
 
 .claw-glow-red {
   box-shadow: 0 0 16px rgba(232, 64, 64, 0.15);
 }
 
-/* pump.fun-style Token Card */
+/* pump.fun-style Token Card — Premium */
 .pf-card {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: hsl(var(--surface));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  transition: all 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .pf-card:hover {
-  border-color: #4ade80;
+  border-color: hsl(160 84% 39%);
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.4), 0 0 0 1px hsl(160 84% 39% / 0.15);
 }
 .pf-card-fallback {
-  background: #2a2a2a;
-  color: #4ade80;
+  background: hsl(var(--muted));
+  color: hsl(var(--success));
 }
 .pf-img-overlay {
-  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+  background: linear-gradient(to top, hsl(var(--background)) 0%, transparent 100%);
 }
-.pf-badge-hot { background: #ea580c; color: white; }
-.pf-badge-agent { background: #7c3aed; color: white; }
-.pf-badge-promoted { background: #d97706; color: white; }
-.pf-ticker { color: #4ade80; }
-.pf-age { color: #555; }
-.pf-desc { color: #777; }
-.pf-progress-bg { background: #2a2a2a; }
+.pf-badge-hot { background: hsl(24 95% 53%); color: white; border-radius: 9999px; }
+.pf-badge-agent { background: hsl(var(--accent-purple)); color: white; border-radius: 9999px; }
+.pf-badge-promoted { background: hsl(38 92% 50%); color: white; border-radius: 9999px; }
+.pf-ticker { color: hsl(var(--success)); }
+.pf-age { color: hsl(var(--muted-foreground)); }
+.pf-desc { color: hsl(var(--foreground-secondary)); }
+.pf-progress-bg { background: hsl(var(--muted)); border-radius: 9999px; }
 
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -493,7 +585,7 @@
 /* OpenClaw SDK card */
 .opentuna-card {
   @apply bg-card/50 border border-primary/20 hover:border-primary/40 
-         transition-all duration-200 rounded-lg;
+         transition-all duration-200 rounded-xl;
 }
 
 .opentuna-gradient-text {
@@ -507,5 +599,5 @@
 .opentuna-button {
   @apply bg-gradient-to-r from-green-600 to-emerald-600 
          hover:from-green-700 hover:to-emerald-700 
-         text-white font-medium rounded-md;
+         text-white font-medium rounded-lg;
 }

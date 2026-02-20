@@ -32,15 +32,15 @@ function MatrixToggle() {
   const { matrixEnabled, toggleMatrix } = useMatrixMode();
   return (
     <div className="px-3 pb-2">
-      <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-white/5">
+      <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-surface-hover/50">
         <div className="flex items-center gap-2">
-          <Monitor className="h-3.5 w-3.5 text-white/50" />
-          <span className="text-[12px] font-medium text-white/60">Matrix</span>
+          <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-[12px] font-medium text-muted-foreground">Matrix</span>
         </div>
         <Switch
           checked={matrixEnabled}
           onCheckedChange={toggleMatrix}
-          className="h-4 w-8 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-white/20 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4 [&>span]:data-[state=unchecked]:translate-x-0"
+          className="h-4 w-8 data-[state=checked]:bg-success data-[state=unchecked]:bg-muted [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4 [&>span]:data-[state=unchecked]:translate-x-0"
         />
       </div>
     </div>
@@ -57,33 +57,32 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "#1a1a1a" }}>
+    <div className="flex flex-col h-full bg-sidebar">
       {/* Logo */}
-      <div className="px-4 pt-5 pb-4">
-        <Link to="/" onClick={onLinkClick} className="flex items-center gap-2">
-          <img src={LOGO_SRC} alt="Claw Mode" className="h-7 w-7 object-contain rounded" style={{ background: '#000', padding: '1px' }} />
+      <div className="px-5 pt-6 pb-5">
+        <Link to="/" onClick={onLinkClick} className="flex items-center gap-2.5 group">
+          <img src={LOGO_SRC} alt="Claw Mode" className="h-7 w-7 object-contain rounded-lg" style={{ background: '#000', padding: '1px' }} />
           <div className="flex flex-col">
-            <span className="text-[13px] font-bold font-mono leading-tight" style={{ color: "#4ade80" }}>CLAW</span>
-            <span className="text-[11px] font-mono text-white/50 leading-tight">MODE</span>
+            <span className="text-[13px] font-bold font-mono leading-tight text-success tracking-tight-heading">CLAW</span>
+            <span className="text-[11px] font-mono text-muted-foreground leading-tight">MODE</span>
           </div>
         </Link>
       </div>
 
       {/* Nav links */}
-      <nav className="flex-1 px-2 space-y-0.5">
+      <nav className="flex-1 px-2.5 space-y-0.5">
         {NAV_LINKS.map(({ to, label, icon: Icon, exact, useClaw }) => {
           const active = isActive(to, exact);
           const classes = cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors duration-100 w-full",
+            "flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 w-full border-l-2",
             active
-              ? "text-white bg-white/10 border-l-2"
-              : "text-white/50 hover:text-white/80 hover:bg-white/5 border-l-2 border-transparent"
+              ? "text-foreground bg-surface-hover border-success"
+              : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50 border-transparent"
           );
-          const style = active ? { borderLeftColor: "#4ade80" } : {};
           const iconEl = useClaw ? (
             <img src={LOGO_SRC} alt="" className="h-4 w-4 rounded-sm object-contain flex-shrink-0" style={{ background: '#000', padding: '1px' }} />
           ) : Icon ? (
-            <Icon className="h-4 w-4 flex-shrink-0" />
+            <Icon className={cn("h-4 w-4 flex-shrink-0 transition-colors", active && "text-success")} />
           ) : null;
 
           if (useClaw) {
@@ -92,7 +91,6 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
                 key={to}
                 onClick={() => { onLinkClick?.(); goToPanel(to); }}
                 className={classes}
-                style={style}
               >
                 {iconEl}
                 <span>{label}</span>
@@ -106,7 +104,6 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
               to={to}
               onClick={onLinkClick}
               className={classes}
-              style={style}
             >
               {iconEl}
               <span>{label}</span>
@@ -115,7 +112,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
         })}
       </nav>
 
-      {/* Matrix Mode Toggle (desktop only, injected via prop) */}
+      {/* Matrix Mode Toggle (desktop only) */}
       {onLinkClick === undefined && <MatrixToggle />}
 
       {/* Create Token CTA */}
@@ -123,13 +120,12 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
         <Link
           to="/?create=1"
           onClick={onLinkClick}
-          className="flex items-center justify-center gap-2 w-full py-2 rounded-md text-[13px] font-bold text-black transition-opacity hover:opacity-90"
-          style={{ background: "#4ade80" }}
+          className="btn-gradient-green flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[13px] font-bold"
         >
           <Plus className="h-4 w-4" />
           Create Token
         </Link>
-        <div className="text-center text-[10px] text-white/20 font-mono">
+        <div className="text-center text-[10px] text-muted-foreground/40 font-mono">
           clawmode.io
         </div>
       </div>
@@ -143,7 +139,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   if (isMobile) {
     return (
       <Sheet open={mobileOpen} onOpenChange={(open) => !open && onMobileClose?.()}>
-        <SheetContent side="left" className="p-0 w-[200px] border-r-0" style={{ background: "#1a1a1a", borderRight: "1px solid #2a2a2a" }}>
+        <SheetContent side="left" className="p-0 w-[200px] border-r-0 bg-sidebar" style={{ borderRight: "1px solid hsl(var(--border))" }}>
           <SidebarContent onLinkClick={onMobileClose} />
         </SheetContent>
       </Sheet>
@@ -152,12 +148,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   return (
     <aside
-      className="fixed top-0 left-0 h-screen z-40 flex-shrink-0"
-      style={{
-        width: "160px",
-        background: "#1a1a1a",
-        borderRight: "1px solid #2a2a2a",
-      }}
+      className="fixed top-0 left-0 h-screen z-40 flex-shrink-0 bg-sidebar border-r border-border"
+      style={{ width: "160px" }}
     >
       <SidebarContent />
     </aside>

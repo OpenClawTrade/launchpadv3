@@ -32,8 +32,8 @@ export function StickyStatsFooter() {
         right: 0,
         height: "40px",
         zIndex: 99999,
-        background: "#111114",
-        borderTop: "1px solid #2a2a2a",
+        background: "hsl(225 40% 5%)",
+        borderTop: "1px solid hsl(222 20% 14%)",
         display: "flex",
         alignItems: "center",
         paddingLeft: "160px",
@@ -56,20 +56,21 @@ export function StickyStatsFooter() {
         {/* Connection status */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0, marginLeft: "24px" }}>
           <span
+            className={isOnline ? "pulse-dot" : ""}
             style={{
               display: "inline-block",
               width: "8px",
               height: "8px",
               borderRadius: "50%",
-              backgroundColor: isOnline ? "#22c55e" : "#ef4444",
+              backgroundColor: isOnline ? "hsl(160 84% 39%)" : "hsl(0 84% 60%)",
             }}
           />
           <span
             style={{
-              fontFamily: "monospace",
+              fontFamily: "'IBM Plex Mono', monospace",
               fontSize: "12px",
               fontWeight: 500,
-              color: isOnline ? "#22c55e" : "#ef4444",
+              color: isOnline ? "hsl(160 84% 39%)" : "hsl(0 84% 60%)",
             }}
           >
             {isOnline ? "Connection is stable" : "Disconnected"}
@@ -85,17 +86,17 @@ export function StickyStatsFooter() {
 function StatItem({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-center gap-1.5 px-3 py-1">
-      <span className="font-mono text-xs uppercase tracking-wide" style={{ color: "#888" }}>
+      <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <span className="font-mono text-xs font-bold text-white">{value}</span>
+      <span className="font-mono text-xs font-semibold text-foreground">{value}</span>
     </div>
   );
 }
 
 function Divider() {
   return (
-    <span className="font-mono text-xs" style={{ color: "#333" }}>
+    <span className="text-xs text-border-light">
       |
     </span>
   );
