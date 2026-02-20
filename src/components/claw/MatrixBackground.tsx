@@ -39,7 +39,7 @@ export function MatrixBackground() {
         return;
       }
       lastTime = timestamp;
-      ctx!.fillStyle = "rgba(10, 10, 15, 0.04)";
+      ctx!.fillStyle = "rgba(10, 10, 15, 0.06)";
       ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
 
       for (let i = 0; i < columns; i++) {
@@ -84,7 +84,7 @@ export function MatrixBackground() {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: -1 }}
+      style={{ zIndex: 0 }}
     />
   );
 }

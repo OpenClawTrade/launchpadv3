@@ -23,7 +23,7 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center gap-3 px-4 bg-background border-b border-border"
+      className="sticky top-0 z-30 flex items-center gap-3 px-4 bg-background/80 backdrop-blur-md border-b border-border"
       style={{ height: "52px" }}
     >
       {/* Mobile hamburger */}
