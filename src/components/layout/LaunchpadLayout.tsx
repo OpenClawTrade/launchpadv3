@@ -16,7 +16,7 @@ export function LaunchpadLayout({ children }: LaunchpadLayoutProps) {
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-        <main className="flex-1 p-4 pb-14">
+        <main className="flex-1 p-4 pb-16 overflow-x-hidden">
           {children}
         </main>
         <Footer />
