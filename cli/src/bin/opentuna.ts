@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * OpenTuna CLI
+ * Claw CLI
  * Hatch, configure, and manage autonomous AI agents from your terminal
  * 
  * Usage:
- *   opentuna init                          Initialize configuration
- *   opentuna hatch --type trading --name   Create a new agent
- *   opentuna cron add|list|remove          Manage scheduled tasks
- *   opentuna fins list|install             Manage capabilities
- *   opentuna sonar set|status              Control activity mode
- *   opentuna fund|balance                  Wallet management
- *   opentuna run <script.ts>               Run agent script
+ *   claw init                          Initialize configuration
+ *   claw hatch --type trading --name   Create a new agent
+ *   claw cron add|list|remove          Manage scheduled tasks
+ *   claw fins list|install             Manage capabilities
+ *   claw sonar set|status              Control activity mode
+ *   claw fund|balance                  Wallet management
+ *   claw run <script.ts>               Run agent script
  */
 
 import { Command } from 'commander';
@@ -27,38 +27,34 @@ import { runCommand } from '../commands/run';
 import { statusCommand } from '../commands/status';
 import { getConfig } from '../config';
 
-// Display banner
 function showBanner() {
   console.log(
     chalk.cyan(
-      figlet.textSync('OpenTuna', { 
+      figlet.textSync('Claw', { 
         font: 'Small',
         horizontalLayout: 'default' 
       })
     )
   );
   console.log(chalk.gray(`  Autonomous Agent Operating System v${version}`));
-  console.log(chalk.gray('  https://tuna.fun/opentuna\n'));
+  console.log(chalk.gray('  https://clawmode.fun\n'));
 }
 
-// Main program
 const program = new Command();
 
 program
-  .name('opentuna')
+  .name('claw')
   .description('Hatch, configure, and manage autonomous AI agents')
   .version(version)
   .hook('preAction', (thisCommand) => {
-    // Show banner for main commands (not subcommands)
     if (thisCommand.parent === program || !thisCommand.parent) {
       showBanner();
     }
   });
 
-// Initialize configuration
 program
   .command('init')
-  .description('Initialize OpenTuna configuration')
+  .description('Initialize Claw configuration')
   .option('-f, --force', 'Overwrite existing configuration')
   .action(initCommand);
 
@@ -212,10 +208,8 @@ program
   .option('-v, --verbose', 'Show detailed status')
   .action(statusCommand);
 
-// Parse arguments
 program.parse();
 
-// Show help if no command
 if (!process.argv.slice(2).length) {
   showBanner();
   program.outputHelp();

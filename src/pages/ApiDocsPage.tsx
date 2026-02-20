@@ -96,7 +96,7 @@ export default function ApiDocsPage() {
           <CardContent>
             <p className="text-sm text-muted-foreground">
               This documentation is designed for AI assistants to implement a complete token launchpad in a single prompt.
-              Simply tell your AI: <code className="bg-black/50 px-2 py-1 rounded text-primary">"Create a launchpad using the TUNA API documentation"</code>
+              Simply tell your AI: <code className="bg-black/50 px-2 py-1 rounded text-primary">"Create a launchpad using the Claw Mode API documentation"</code>
             </p>
           </CardContent>
         </Card>
@@ -155,15 +155,15 @@ export default function ApiDocsPage() {
                   id="full-spec"
                   language="json"
                   code={`// ============================================================
-// TUNA LAUNCHPAD API - COMPLETE SPECIFICATION v1.0
+// CLAW MODE LAUNCHPAD API - COMPLETE SPECIFICATION v1.0
 // ============================================================
 // Use this specification to build a custom token launchpad
-// that integrates with the TUNA ecosystem on Solana.
+// that integrates with the Claw Mode ecosystem on Solana.
 // ============================================================
 
 {
   "platform": {
-    "name": "TUNA Launchpad",
+    "name": "Claw Mode Launchpad",
     "blockchain": "Solana",
     "poolProtocol": "Meteora Dynamic Bonding Curve (DBC)",
     "website": "${APP_URL}",
@@ -219,7 +219,7 @@ export default function ApiDocsPage() {
         "poolAddress": { "type": "string", "description": "Meteora DBC pool address" },
         "solscanUrl": { "type": "string", "description": "Link to Solscan explorer" },
         "tradeUrl": { "type": "string", "description": "Link to Axiom trading page" },
-        "launchpadUrl": { "type": "string", "description": "Link to TUNA trading page" },
+        "launchpadUrl": { "type": "string", "description": "Link to Claw Mode trading page" },
         "feeInfo": { "type": "object", "description": "Fee distribution details" }
       },
       "errors": {
@@ -509,10 +509,10 @@ class TunaLaunchpadAPI {
 }
 
 // Usage Example:
-const tuna = new TunaLaunchpadAPI("your_api_key_here");
+const claw = new ClawLaunchpadAPI("your_api_key_here");
 
 // Launch a token
-const result = await tuna.launchToken({
+const result = await claw.launchToken({
   name: "My Awesome Token",
   ticker: "MAT",
   description: "The best meme token on Solana",
@@ -651,7 +651,7 @@ class TunaLaunchpad:
         twitter_url: Optional[str] = None,
         trading_fee_bps: int = 200
     ) -> Dict[Any, Any]:
-        """Launch a new token on the TUNA launchpad."""
+        """Launch a new token on the Claw Mode launchpad."""
         return self._request("POST", "/api-launch-token", {
             "name": name[:32],
             "ticker": ticker.upper()[:10],
@@ -688,10 +688,10 @@ class TunaLaunchpad:
         return self._request("GET", f"/api-swap/pool?address={pool_address}")
 
 # Usage
-tuna = TunaLaunchpad("your_api_key_here")
+claw = ClawLaunchpad("your_api_key_here")
 
 # Launch token
-result = tuna.launch_token(
+result = claw.launch_token(
     name="Python Token",
     ticker="PYTH",
     description="Launched from Python!",
@@ -1278,7 +1278,7 @@ export default function Launchpad() {
 
   return (
     <div className="min-h-screen bg-black text-white p-8">
-      <h1 className="text-4xl font-bold text-center mb-8">🐟 My Launchpad</h1>
+      <h1 className="text-4xl font-bold text-center mb-8">🦞 My Launchpad</h1>
       
       {/* Launch Form */}
       <div className="max-w-md mx-auto bg-gray-900 p-6 rounded-xl mb-8">

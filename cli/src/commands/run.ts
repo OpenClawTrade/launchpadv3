@@ -1,5 +1,5 @@
 /**
- * OpenTuna CLI - Run Command
+ * Claw CLI - Run Command
  * Execute agent scripts
  */
 
@@ -16,12 +16,11 @@ interface RunOptions {
 
 export async function runCommand(script: string, options: RunOptions): Promise<void> {
   if (!isConfigured()) {
-    console.log(chalk.red('\n❌ OpenTuna is not configured.'));
-    console.log(chalk.gray('   Run: opentuna init\n'));
+    console.log(chalk.red('\n❌ Claw is not configured.'));
+    console.log(chalk.gray('   Run: claw init\n'));
     return;
   }
 
-  // Check if script exists
   const scriptPath = path.resolve(process.cwd(), script);
   
   if (!fs.existsSync(scriptPath)) {
@@ -30,7 +29,6 @@ export async function runCommand(script: string, options: RunOptions): Promise<v
     return;
   }
 
-  // Load environment if specified
   if (options.env) {
     const envPath = path.resolve(process.cwd(), options.env);
     if (fs.existsSync(envPath)) {
@@ -41,22 +39,20 @@ export async function runCommand(script: string, options: RunOptions): Promise<v
 
   console.log(chalk.cyan(`\n🏃 Running: ${script}\n`));
 
-  // Set up environment
   const apiKey = getApiKey();
   if (apiKey) {
-    process.env.OPENTUNA_API_KEY = apiKey;
+    process.env.OPENTUNA_API_KEY = apiKey; // Keep for backward compat
+    process.env.CLAW_API_KEY = apiKey;
   }
   process.env.OPENTUNA_BASE_URL = 'https://ptwytypavumcrbofspno.supabase.co/functions/v1';
+  process.env.CLAW_BASE_URL = 'https://ptwytypavumcrbofspno.supabase.co/functions/v1';
 
-  // Run the script
   const spinner = ora('Executing script...').start();
 
   try {
-    // For TypeScript files, we need ts-node or similar
     const ext = path.extname(script);
     
     if (ext === '.ts') {
-      // Use dynamic import for ESM compatibility
       const { spawn } = await import('child_process');
       
       const child = spawn('npx', ['ts-node', scriptPath], {
@@ -80,7 +76,6 @@ export async function runCommand(script: string, options: RunOptions): Promise<v
         child.on('error', reject);
       });
     } else if (ext === '.js' || ext === '.mjs') {
-      // For JavaScript, we can use dynamic import or spawn node
       const { spawn } = await import('child_process');
       
       const child = spawn('node', [scriptPath], {
@@ -108,7 +103,6 @@ export async function runCommand(script: string, options: RunOptions): Promise<v
       return;
     }
 
-    // Watch mode
     if (options.watch) {
       console.log(chalk.gray('Watching for changes... (Ctrl+C to stop)\n'));
       
@@ -124,7 +118,6 @@ export async function runCommand(script: string, options: RunOptions): Promise<v
         }
       });
 
-      // Keep process alive
       await new Promise(() => {});
     }
   } catch (error) {
@@ -144,7 +137,6 @@ function loadEnvFile(filePath: string): void {
     const [key, ...valueParts] = trimmed.split('=');
     if (key && valueParts.length > 0) {
       let value = valueParts.join('=');
-      // Remove quotes if present
       if ((value.startsWith('"') && value.endsWith('"')) ||
           (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);

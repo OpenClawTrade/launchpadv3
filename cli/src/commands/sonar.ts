@@ -1,5 +1,5 @@
 /**
- * OpenTuna CLI - Sonar Command
+ * Claw CLI - Sonar Command
  * Control agent activity mode
  */
 
@@ -68,8 +68,8 @@ async function apiCall(endpoint: string, body: Record<string, unknown>): Promise
 
 export async function sonarCommand(action: SonarAction, options: SonarOptions): Promise<void> {
   if (!isConfigured()) {
-    console.log(chalk.red('\n❌ OpenTuna is not configured.'));
-    console.log(chalk.gray('   Run: opentuna init\n'));
+    console.log(chalk.red('\n❌ Claw is not configured.'));
+    console.log(chalk.gray('   Run: claw init\n'));
     return;
   }
 
@@ -136,7 +136,6 @@ async function showStatus(): Promise<void> {
     const healthColor = result.health === 'healthy' ? 'green' : result.health === 'degraded' ? 'yellow' : 'red';
     const healthIcon = result.health === 'healthy' ? '✓' : result.health === 'degraded' ? '⚠' : '✗';
 
-    // Activity level bar
     const activityBar = '█'.repeat(modeInfo.activityLevel) + '░'.repeat(4 - modeInfo.activityLevel);
 
     console.log(boxen(
@@ -157,7 +156,6 @@ async function showStatus(): Promise<void> {
       }
     ));
 
-    // Show available modes
     console.log(chalk.gray('  Available modes:'));
     for (const [key, info] of Object.entries(SONAR_MODES)) {
       const isCurrent = key === result.mode;
@@ -178,7 +176,7 @@ async function pauseSonar(): Promise<void> {
     await apiCall('opentuna-sonar-pause', {});
     spinner.succeed('Sonar paused');
     console.log(chalk.gray('\n   Agent will not take autonomous actions until resumed.\n'));
-    console.log(chalk.gray('   Resume with: opentuna sonar resume\n'));
+    console.log(chalk.gray('   Resume with: claw sonar resume\n'));
   } catch (error) {
     spinner.fail('Failed to pause sonar');
     console.error(chalk.red(`\n   Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`));

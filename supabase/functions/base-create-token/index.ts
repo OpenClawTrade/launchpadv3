@@ -23,7 +23,7 @@ const corsHeaders = {
 const ERC20_SOLIDITY_SOURCE = `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-contract TunaToken {
+contract ClawToken {
     string public name;
     string public symbol;
     uint8 public constant decimals = 18;
@@ -141,7 +141,7 @@ async function compileERC20(): Promise<{
   const input = JSON.stringify({
     language: "Solidity",
     sources: {
-      "TunaToken.sol": { content: ERC20_SOLIDITY_SOURCE },
+      "ClawToken.sol": { content: ERC20_SOLIDITY_SOURCE },
     },
     settings: {
       optimizer: { enabled: true, runs: 200 },
@@ -167,10 +167,10 @@ async function compileERC20(): Promise<{
     }
   }
 
-  const contract = output.contracts?.["TunaToken.sol"]?.["TunaToken"];
+  const contract = output.contracts?.["ClawToken.sol"]?.["ClawToken"];
   if (!contract) {
     throw new Error(
-      "Contract 'TunaToken' not found in compilation output"
+      "Contract 'ClawToken' not found in compilation output"
     );
   }
 

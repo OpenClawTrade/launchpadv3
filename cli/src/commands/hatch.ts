@@ -1,5 +1,5 @@
 /**
- * OpenTuna CLI - Hatch Command
+ * Claw CLI - Hatch Command
  * Create a new autonomous agent
  */
 
@@ -28,7 +28,7 @@ const AGENT_TYPES = {
   social: {
     name: 'Social Agent',
     icon: '💬',
-    description: 'Community manager for X, Telegram, Discord, and SubTuna',
+    description: 'Community manager for X, Telegram, Discord, and SubClaw',
     defaultPersonality: 'Friendly, engaging, responsive, brand-aware',
     defaultGoal: 'Build and nurture an active community around tokens',
   },
@@ -56,17 +56,16 @@ const AGENT_TYPES = {
 };
 
 export async function hatchCommand(options: HatchOptions): Promise<void> {
-  // Check configuration
   if (!isConfigured()) {
-    console.log(chalk.red('\n❌ OpenTuna is not configured.'));
-    console.log(chalk.gray('   Run: opentuna init\n'));
+    console.log(chalk.red('\n❌ Claw is not configured.'));
+    console.log(chalk.gray('   Run: claw init\n'));
     return;
   }
 
   const apiKey = getApiKey();
   if (!apiKey) {
     console.log(chalk.red('\n❌ API key not found.'));
-    console.log(chalk.gray('   Run: opentuna init\n'));
+    console.log(chalk.gray('   Run: claw init\n'));
     return;
   }
 
@@ -77,9 +76,7 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
   let personality = options.personality;
   let goal = options.goal;
 
-  // Interactive mode
   if (options.interactive !== false && (!agentType || !agentName)) {
-    // Step 1: Select type
     if (!agentType) {
       const { type } = await inquirer.prompt([{
         type: 'list',
@@ -97,7 +94,6 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
     const typeInfo = AGENT_TYPES[agentType!];
     console.log(chalk.gray(`\n   ${typeInfo.icon} ${typeInfo.name}: ${typeInfo.description}\n`));
 
-    // Step 2: Name
     if (!agentName) {
       const { name } = await inquirer.prompt([{
         type: 'input',
@@ -112,7 +108,6 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
       agentName = name;
     }
 
-    // Step 3: Personality (optional)
     if (!personality) {
       const { customPersonality } = await inquirer.prompt([{
         type: 'confirm',
@@ -134,7 +129,6 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
       }
     }
 
-    // Step 4: Goal (optional)
     if (!goal) {
       const { customGoal } = await inquirer.prompt([{
         type: 'confirm',
@@ -156,7 +150,6 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
       }
     }
 
-    // Confirmation
     console.log(chalk.gray('\n─────────────────────────────────────\n'));
     console.log(chalk.white('  Agent Configuration:'));
     console.log(chalk.gray(`  Type:        ${typeInfo.icon} ${typeInfo.name}`));
@@ -178,13 +171,11 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
     }
   }
 
-  // Use defaults if not provided
   agentType = agentType || 'general';
   agentName = agentName || `Agent-${Date.now().toString(36)}`;
   personality = personality || AGENT_TYPES[agentType].defaultPersonality;
   goal = goal || AGENT_TYPES[agentType].defaultGoal;
 
-  // Create agent
   const spinner = ora('Hatching agent...').start();
 
   try {
@@ -210,7 +201,6 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
     const result = await response.json();
     spinner.succeed('Agent hatched successfully!');
 
-    // Save last hatch info
     setConfigValue('lastHatch', {
       agentId: result.agentId,
       name: agentName,
@@ -218,7 +208,6 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
       createdAt: new Date().toISOString(),
     });
 
-    // Display result
     const typeInfo = AGENT_TYPES[agentType];
     console.log(boxen(
       chalk.green(`${typeInfo.icon} ${agentName} is alive!\n\n`) +
@@ -228,9 +217,9 @@ export async function hatchCommand(options: HatchOptions): Promise<void> {
       chalk.gray(`  Wallet:   ${result.walletAddress}\n`) +
       (result.tokenMint ? chalk.gray(`  Token:    ${result.tokenMint}\n`) : '') +
       chalk.white('\nNext steps:\n') +
-      chalk.gray('  • ') + chalk.cyan('opentuna fund 0.5') + chalk.gray(' - Fund the agent wallet\n') +
-      chalk.gray('  • ') + chalk.cyan('opentuna sonar set cruise') + chalk.gray(' - Start autonomous activity\n') +
-      chalk.gray('  • ') + chalk.cyan('opentuna fins rack') + chalk.gray(' - View installed capabilities'),
+      chalk.gray('  • ') + chalk.cyan('claw fund 0.5') + chalk.gray(' - Fund the agent wallet\n') +
+      chalk.gray('  • ') + chalk.cyan('claw sonar set cruise') + chalk.gray(' - Start autonomous activity\n') +
+      chalk.gray('  • ') + chalk.cyan('claw fins rack') + chalk.gray(' - View installed capabilities'),
       { 
         padding: 1, 
         margin: 1, 

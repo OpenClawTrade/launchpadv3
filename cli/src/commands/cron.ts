@@ -1,5 +1,5 @@
 /**
- * OpenTuna CLI - Cron Command
+ * Claw CLI - Cron Command
  * Manage scheduled tasks
  */
 
@@ -40,7 +40,7 @@ const AVAILABLE_FINS = [
   { name: 'fin_slack - Post to Slack', value: 'fin_slack' },
   { name: 'fin_discord - Post to Discord', value: 'fin_discord' },
   { name: 'fin_browse - Browse web pages', value: 'fin_browse' },
-  { name: 'fin_post - Post to SubTuna', value: 'fin_post' },
+  { name: 'fin_post - Post to SubClaw', value: 'fin_post' },
 ];
 
 async function apiCall(endpoint: string, body: Record<string, unknown>): Promise<unknown> {
@@ -66,8 +66,8 @@ async function apiCall(endpoint: string, body: Record<string, unknown>): Promise
 
 export async function cronCommand(action: CronAction, options: CronOptions): Promise<void> {
   if (!isConfigured()) {
-    console.log(chalk.red('\n❌ OpenTuna is not configured.'));
-    console.log(chalk.gray('   Run: opentuna init\n'));
+    console.log(chalk.red('\n❌ Claw is not configured.'));
+    console.log(chalk.gray('   Run: claw init\n'));
     return;
   }
 
@@ -101,7 +101,6 @@ async function addCronJob(options: CronOptions): Promise<void> {
   let schedule = options.schedule;
   let args = options.args ? JSON.parse(options.args) : undefined;
 
-  // Interactive selection if not provided
   if (!finId) {
     const { fin } = await inquirer.prompt([{
       type: 'list',
@@ -137,7 +136,6 @@ async function addCronJob(options: CronOptions): Promise<void> {
     }
   }
 
-  // Get args if not provided
   if (!args && finId) {
     const { needsArgs } = await inquirer.prompt([{
       type: 'confirm',
@@ -203,7 +201,7 @@ async function listCronJobs(options: CronOptions): Promise<void> {
 
     if (jobs.length === 0) {
       console.log(chalk.yellow('\n   No cron jobs found.\n'));
-      console.log(chalk.gray('   Create one with: opentuna cron add\n'));
+      console.log(chalk.gray('   Create one with: claw cron add\n'));
       return;
     }
 

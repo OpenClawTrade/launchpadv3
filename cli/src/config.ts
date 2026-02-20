@@ -1,6 +1,6 @@
 /**
- * OpenTuna CLI Configuration
- * Manages ~/.opentuna/config.json
+ * Claw CLI Configuration
+ * Manages ~/.claw/config.json
  */
 
 import Conf from 'conf';
@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 
-export interface OpenTunaConfig {
+export interface ClawConfig {
   apiKey?: string;
   agentId?: string;
   baseUrl: string;
@@ -16,7 +16,6 @@ export interface OpenTunaConfig {
   sonarMode: 'drift' | 'cruise' | 'hunt' | 'frenzy';
   timezone: string;
   autoConfirm: boolean;
-  // Connected services
   connectedServices: {
     email?: { provider: string; email: string };
     slack?: { teamName: string };
@@ -25,7 +24,6 @@ export interface OpenTunaConfig {
     google?: { email: string };
     notion?: { workspaceName: string };
   };
-  // Last hatch info
   lastHatch?: {
     agentId: string;
     name: string;
@@ -34,11 +32,13 @@ export interface OpenTunaConfig {
   };
 }
 
-const CONFIG_DIR = path.join(os.homedir(), '.opentuna');
+// Keep legacy name for backwards compat with existing configs
+export type OpenTunaConfig = ClawConfig;
+
+const CONFIG_DIR = path.join(os.homedir(), '.claw');
 const CONFIG_FILE = 'config.json';
 
-// Default configuration
-const defaults: OpenTunaConfig = {
+const defaults: ClawConfig = {
   baseUrl: 'https://ptwytypavumcrbofspno.supabase.co/functions/v1',
   defaultAgentType: 'general',
   sonarMode: 'cruise',
@@ -47,9 +47,8 @@ const defaults: OpenTunaConfig = {
   connectedServices: {},
 };
 
-// Create config store
-const config = new Conf<OpenTunaConfig>({
-  projectName: 'opentuna',
+const config = new Conf<ClawConfig>({
+  projectName: 'claw',
   projectSuffix: '',
   cwd: CONFIG_DIR,
   configName: 'config',
@@ -64,20 +63,20 @@ export function ensureConfigDir(): void {
 }
 
 // Get full config
-export function getConfig(): OpenTunaConfig {
+export function getConfig(): ClawConfig {
   ensureConfigDir();
   return config.store;
 }
 
 // Get specific config value
-export function getConfigValue<K extends keyof OpenTunaConfig>(key: K): OpenTunaConfig[K] {
+export function getConfigValue<K extends keyof ClawConfig>(key: K): ClawConfig[K] {
   return config.get(key);
 }
 
 // Set config value
-export function setConfigValue<K extends keyof OpenTunaConfig>(
+export function setConfigValue<K extends keyof ClawConfig>(
   key: K, 
-  value: OpenTunaConfig[K]
+  value: ClawConfig[K]
 ): void {
   ensureConfigDir();
   config.set(key, value);
@@ -113,14 +112,14 @@ export function isConfigured(): boolean {
 export function resetConfig(): void {
   config.clear();
   Object.entries(defaults).forEach(([key, value]) => {
-    config.set(key as keyof OpenTunaConfig, value);
+    config.set(key as keyof ClawConfig, value);
   });
 }
 
 // Update connected service
 export function updateConnectedService(
-  service: keyof OpenTunaConfig['connectedServices'],
-  data: OpenTunaConfig['connectedServices'][typeof service]
+  service: keyof ClawConfig['connectedServices'],
+  data: ClawConfig['connectedServices'][typeof service]
 ): void {
   const services = getConfigValue('connectedServices') || {};
   services[service] = data;
@@ -129,7 +128,7 @@ export function updateConnectedService(
 
 // Remove connected service
 export function removeConnectedService(
-  service: keyof OpenTunaConfig['connectedServices']
+  service: keyof ClawConfig['connectedServices']
 ): void {
   const services = getConfigValue('connectedServices') || {};
   delete services[service];

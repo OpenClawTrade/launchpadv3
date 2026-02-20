@@ -80,7 +80,7 @@ export function useSubTuna(ticker?: string) {
         if (directError || !directSubtuna) return null;
 
         // Check if this is the TUNA system SubTuna - inject token info
-        const isTunaSubtuna = ticker?.toUpperCase() === "TUNA";
+        const isClawSubtuna = ticker?.toUpperCase() === "TUNA";
 
         // Return system SubTuna with TUNA token info if applicable
         return {
@@ -103,7 +103,7 @@ export function useSubTuna(ticker?: string) {
             styleSourceTwitterUrl: directSubtuna.agent.style_source_twitter_url,
           } : undefined,
           // Inject TUNA token info for the platform token SubTuna
-          funToken: isTunaSubtuna ? {
+          funToken: isClawSubtuna ? {
             id: "tuna-platform-token",
             ticker: "TUNA",
             name: "TUNA",

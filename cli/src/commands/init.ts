@@ -1,6 +1,6 @@
 /**
- * OpenTuna CLI - Init Command
- * Initialize OpenTuna configuration
+ * Claw CLI - Init Command
+ * Initialize Claw configuration
  */
 
 import chalk from 'chalk';
@@ -21,9 +21,8 @@ interface InitOptions {
 }
 
 export async function initCommand(options: InitOptions): Promise<void> {
-  // Check if already configured
   if (isConfigured() && !options.force) {
-    console.log(chalk.yellow('\n⚠️  OpenTuna is already configured.'));
+    console.log(chalk.yellow('\n⚠️  Claw is already configured.'));
     console.log(chalk.gray(`   Config file: ${getConfigPath()}`));
     
     const { overwrite } = await inquirer.prompt([{
@@ -39,13 +38,12 @@ export async function initCommand(options: InitOptions): Promise<void> {
     }
   }
 
-  console.log(chalk.cyan('\n🐟 Welcome to OpenTuna Setup\n'));
+  console.log(chalk.cyan('\n🦞 Welcome to Claw Setup\n'));
 
-  // Get API key
   const { hasApiKey } = await inquirer.prompt([{
     type: 'confirm',
     name: 'hasApiKey',
-    message: 'Do you already have an OpenTuna API key?',
+    message: 'Do you already have a Claw API key?',
     default: false,
   }]);
 
@@ -59,7 +57,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
       mask: '*',
       validate: (input) => {
         if (!input) return 'API key is required';
-        if (!input.startsWith('ota_')) return 'Invalid API key format (should start with ota_)';
+        if (!input.startsWith('oca_')) return 'Invalid API key format (should start with oca_)';
         return true;
       },
     }]);
@@ -89,7 +87,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     const spinner = ora('Registering agent...').start();
 
     try {
-      const response = await fetch('https://tuna.fun/api/agents/register', {
+      const response = await fetch('https://clawmode.fun/api/agents/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, walletAddress }),
@@ -125,10 +123,8 @@ export async function initCommand(options: InitOptions): Promise<void> {
     }
   }
 
-  // Save API key
   setApiKey(apiKey);
 
-  // Verify API key
   const spinner = ora('Verifying API key...').start();
 
   try {
@@ -159,7 +155,6 @@ export async function initCommand(options: InitOptions): Promise<void> {
     spinner.warn('Could not verify API key (will be checked on first use)');
   }
 
-  // Additional configuration
   const { agentType, timezone } = await inquirer.prompt([
     {
       type: 'list',
@@ -182,18 +177,16 @@ export async function initCommand(options: InitOptions): Promise<void> {
     },
   ]);
 
-  // Update config
   const config = getConfig();
   config.defaultAgentType = agentType;
   config.timezone = timezone;
 
-  // Success message
   console.log(boxen(
-    chalk.green('✓ OpenTuna initialized successfully!\n\n') +
+    chalk.green('✓ Claw initialized successfully!\n\n') +
     chalk.white('Next steps:\n') +
-    chalk.gray('  1. ') + chalk.cyan('opentuna hatch') + chalk.gray(' - Create a new agent\n') +
-    chalk.gray('  2. ') + chalk.cyan('opentuna fins list') + chalk.gray(' - See available capabilities\n') +
-    chalk.gray('  3. ') + chalk.cyan('opentuna run <script>') + chalk.gray(' - Run an agent script\n\n') +
+    chalk.gray('  1. ') + chalk.cyan('claw hatch') + chalk.gray(' - Create a new agent\n') +
+    chalk.gray('  2. ') + chalk.cyan('claw fins list') + chalk.gray(' - See available capabilities\n') +
+    chalk.gray('  3. ') + chalk.cyan('claw run <script>') + chalk.gray(' - Run an agent script\n\n') +
     chalk.gray(`Config saved to: ${getConfigPath()}`),
     { 
       padding: 1, 
