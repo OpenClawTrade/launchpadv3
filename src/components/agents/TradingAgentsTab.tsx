@@ -245,37 +245,6 @@ export function TradingAgentsTab() {
           {/* Fear & Greed Index */}
           <FearGreedGauge />
 
-          {/* Create Agent Card */}
-          <Card className="bg-gradient-to-br from-amber-500/10 to-yellow-500/5 border-amber-500/30 relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-green-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-lg">
-              LIVE
-            </div>
-            <CardHeader className="py-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Wallet className="h-4 w-4 text-amber-400" />
-                Create Trading Agent
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="mb-3 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                <p className="text-xs text-green-400 font-medium flex items-center gap-1">
-                  🚀 Now open to everyone! Launch your own AI trading agent for free.
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                Deploy your own autonomous trading agent with encrypted wallet management and AI-driven strategy execution.
-              </p>
-              
-              <Button 
-                onClick={() => setCreateModalOpen(true)}
-                size="sm"
-                className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-600 hover:to-yellow-600"
-              >
-                <Bot className="h-3 w-3 mr-2" />
-                Create Agent
-              </Button>
-            </CardContent>
-          </Card>
 
           {/* Technical Architecture */}
           <Card className="bg-card/50 border-border/50">
