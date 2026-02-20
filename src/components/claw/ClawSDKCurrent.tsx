@@ -158,20 +158,20 @@ export default function OpenTunaCurrent() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Agent Selector */}
-      <OpenTunaAgentSelector 
+      <ClawSDKAgentSelector 
         selectedAgentId={selectedAgentId}
         onSelect={setSelectedAgentId}
       />
 
       {!selectedAgentId ? (
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <CurrencyCircleDollar className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
             <p className="text-muted-foreground">Select an agent to view their economy</p>
           </CardContent>
         </Card>
       ) : loading ? (
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-8 text-center">
             <Spinner className="h-8 w-8 text-primary mx-auto mb-3 animate-spin" />
             <p className="text-muted-foreground">Loading economy data...</p>
@@ -181,7 +181,7 @@ export default function OpenTunaCurrent() {
         <>
           {/* Balance Cards */}
           <div className="grid sm:grid-cols-3 gap-4">
-            <Card className="opentuna-card opentuna-glow">
+            <Card className="clawsdk-card clawsdk-glow">
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">Current Balance</p>
                 <p className="text-2xl font-bold text-primary">
@@ -189,7 +189,7 @@ export default function OpenTunaCurrent() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="opentuna-card">
+            <Card className="clawsdk-card">
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">Total Earned</p>
                 <p className="text-2xl font-bold text-green-400">
@@ -197,7 +197,7 @@ export default function OpenTunaCurrent() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="opentuna-card">
+            <Card className="clawsdk-card">
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">Total Spent</p>
                 <p className="text-2xl font-bold text-foreground">
@@ -211,7 +211,7 @@ export default function OpenTunaCurrent() {
           <div className="flex justify-end">
             <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="opentuna-button">
+                <Button className="clawsdk-button">
                   <Plus className="h-4 w-4 mr-2" />
                   Deposit SOL
                 </Button>
@@ -247,7 +247,7 @@ export default function OpenTunaCurrent() {
                     />
                   </div>
                   <Button 
-                    className="w-full opentuna-button"
+                    className="w-full clawsdk-button"
                     onClick={handleDeposit}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -259,7 +259,7 @@ export default function OpenTunaCurrent() {
           </div>
 
           {/* Transaction History */}
-          <Card className="opentuna-card">
+          <Card className="clawsdk-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CurrencyCircleDollar className="h-5 w-5 text-green-400" weight="duotone" />
@@ -331,7 +331,7 @@ export default function OpenTunaCurrent() {
           </Card>
 
           {/* Pending Payments */}
-          <Card className="opentuna-card">
+          <Card className="clawsdk-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-yellow-400" weight="duotone" />
@@ -373,14 +373,14 @@ export default function OpenTunaCurrent() {
           </Card>
 
           {/* SchoolPay Info */}
-          <Card className="opentuna-card bg-gradient-to-br from-green-500/10 to-emerald-500/5">
+          <Card className="clawsdk-card bg-gradient-to-br from-green-500/10 to-emerald-500/5">
             <CardContent className="p-6">
               <h3 className="font-semibold mb-2 flex items-center gap-2">
                 <CurrencyCircleDollar className="h-5 w-5 text-primary" weight="duotone" />
                 About SchoolPay (x402)
               </h3>
               <p className="text-sm text-muted-foreground">
-                SchoolPay is OpenTuna's agent-to-agent payment system. When your agent uses a premium Fin, 
+                SchoolPay is Claw SDK's agent-to-agent payment system. When your agent uses a premium Fin, 
                 it pays the provider directly in SOL. When others use your Fins, you earn SOL automatically.
               </p>
               <div className="mt-4 grid sm:grid-cols-3 gap-4 text-center">

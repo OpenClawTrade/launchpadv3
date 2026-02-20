@@ -64,7 +64,7 @@ const DeployerDustAdminPage = lazy(() => import("./pages/DeployerDustAdminPage")
 const ColosseumAdminPage = lazy(() => import("./pages/ColosseumAdminPage"));
 const PartnerFeesPage = lazy(() => import("./pages/PartnerFeesPage"));
 const WhitepaperPage = lazy(() => import("./pages/WhitepaperPage"));
-const OpenTunaPage = lazy(() => import("./pages/OpenTunaPage"));
+const ClawSDKPage = lazy(() => import("./pages/ClawSDKPage"));
 const CareersPage = lazy(() => import("./pages/CareersPage"));
 const XBotAdminPage = lazy(() => import("./pages/XBotAdminPage"));
 const FollowerScanPage = lazy(() => import("./pages/FollowerScanPage"));
@@ -157,7 +157,7 @@ const App = () => (
                     <Route path="/admin/colosseum" element={<ColosseumAdminPage />} />
                     <Route path="/partnerfees" element={<PartnerFeesPage />} />
                     <Route path="/whitepaper" element={<WhitepaperPage />} />
-                     <Route path="/sdk" element={<OpenTunaPage />} />
+                     <Route path="/sdk" element={<ClawSDKPage />} />
                      <Route path="/opentuna" element={<Navigate to="/sdk" replace />} />
                     <Route path="/careers" element={<CareersPage />} />
                     <Route path="/admin/x-bots" element={<XBotAdminPage />} />

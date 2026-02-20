@@ -21,14 +21,14 @@ import {
   Check,
   ArrowSquareOut
 } from "@phosphor-icons/react";
-import { useOpenTunaContext } from "./OpenTunaContext";
-import { useOpenTunaStats, useRecentActivity } from "@/hooks/useOpenTuna";
+import { useClawSDKContext } from "./ClawSDKContext";
+import { useClawStats, useRecentActivity } from "@/hooks/useClawSDK";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import OpenTunaApiKeyModal from "./OpenTunaApiKeyModal";
+import ClawSDKApiKeyModal from "./ClawSDKApiKeyModal";
 import { formatDistanceToNow } from "date-fns";
 
-interface OpenTunaHubProps {
+interface ClawSDKHubProps {
   onNavigate: (tab: string) => void;
 }
 
@@ -118,9 +118,9 @@ curl -X POST 'https://clawmode.lovable.app/api/memory/store' \\
   -H 'Authorization: Bearer oca_live_...' \\
   -d '{"content": "...", "type": "anchor"}'`;
 
-export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
-  const { agents, isLoadingAgents, setSelectedAgentId, selectedAgentId, selectedAgent } = useOpenTunaContext();
-  const { data: stats, isLoading: isLoadingStats } = useOpenTunaStats();
+export default function ClawSDKHub({ onNavigate }: ClawSDKHubProps) {
+  const { agents, isLoadingAgents, setSelectedAgentId, selectedAgentId, selectedAgent } = useClawSDKContext();
+  const { data: stats, isLoading: isLoadingStats } = useClawStats();
   const [sdkTab, setSdkTab] = useState<'sdk' | 'api' | 'keys'>('sdk');
   const [copied, setCopied] = useState(false);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
@@ -152,7 +152,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
   return (
     <div className="space-y-6">
       {/* API Key Modal */}
-      <OpenTunaApiKeyModal
+      <ClawSDKApiKeyModal
         open={apiKeyModalOpen}
         onOpenChange={setApiKeyModalOpen}
         agentId={selectedAgentId}
@@ -162,7 +162,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {STATS.map((stat) => (
-          <Card key={stat.label} className="opentuna-card">
+          <Card key={stat.label} className="clawsdk-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
@@ -179,7 +179,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
       </div>
 
       {/* Developer Quick Start */}
-      <Card className="opentuna-card opentuna-glow overflow-hidden">
+      <Card className="clawsdk-card clawsdk-glow overflow-hidden">
         <CardHeader className="pb-3 border-b border-primary/20">
           <CardTitle className="text-lg flex items-center gap-2">
             <Terminal className="h-5 w-5 text-primary" weight="duotone" />
@@ -310,7 +310,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
       </Card>
 
       {/* Quick Start Steps */}
-      <Card className="opentuna-card">
+      <Card className="clawsdk-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Lightning className="h-5 w-5 text-yellow-400" weight="fill" />
@@ -351,7 +351,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
           {AGENT_TYPES.map((agent) => (
             <Card 
               key={agent.type}
-              className={`opentuna-card cursor-pointer hover:scale-[1.02] transition-all bg-gradient-to-br ${agent.color}`}
+              className={`clawsdk-card cursor-pointer hover:scale-[1.02] transition-all bg-gradient-to-br ${agent.color}`}
               onClick={() => onNavigate('hatch')}
             >
               <CardContent className="p-4">
@@ -371,7 +371,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
         
         {/* General Purpose Card */}
         <Card 
-          className="opentuna-card mt-4 cursor-pointer hover:scale-[1.01] transition-all bg-gradient-to-br from-green-500/20 to-emerald-600/10 border-primary/30"
+          className="clawsdk-card mt-4 cursor-pointer hover:scale-[1.01] transition-all bg-gradient-to-br from-green-500/20 to-emerald-600/10 border-primary/30"
           onClick={() => onNavigate('hatch')}
         >
           <CardContent className="p-4">
@@ -409,7 +409,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
               <Card 
                 key={agent.id}
                 className={cn(
-                  "opentuna-card cursor-pointer hover:scale-[1.02] transition-all",
+                  "clawsdk-card cursor-pointer hover:scale-[1.02] transition-all",
                   selectedAgentId === agent.id && "ring-2 ring-primary"
                 )}
                 onClick={() => {
@@ -449,13 +449,13 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
             ))}
           </div>
         ) : (
-          <Card className="opentuna-card">
+          <Card className="clawsdk-card">
             <CardContent className="p-8 text-center">
               <Egg className="h-12 w-12 text-muted-foreground mx-auto mb-3" weight="duotone" />
               <p className="text-muted-foreground mb-4">No agents yet. Hatch your first one!</p>
               <Button 
                 onClick={() => onNavigate('hatch')}
-                className="opentuna-button"
+                className="clawsdk-button"
               >
                 <Egg className="h-4 w-4 mr-2" weight="duotone" />
                 Hatch Agent
@@ -471,7 +471,7 @@ export default function OpenTunaHub({ onNavigate }: OpenTunaHubProps) {
           <Lightning className="h-5 w-5 text-yellow-400" weight="duotone" />
           Recent Activity
         </h2>
-        <Card className="opentuna-card">
+        <Card className="clawsdk-card">
           <CardContent className="p-4">
             {isLoadingActivity ? (
               <div className="space-y-3">

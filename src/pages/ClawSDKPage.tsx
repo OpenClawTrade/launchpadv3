@@ -12,23 +12,23 @@ import {
   House,
   Plug
 } from "@phosphor-icons/react";
-import { OpenTunaProvider } from "@/components/opentuna/OpenTunaContext";
-import OpenTunaHub from "@/components/opentuna/OpenTunaHub";
-import OpenTunaHatch from "@/components/opentuna/OpenTunaHatch";
-import OpenTunaDNA from "@/components/opentuna/OpenTunaDNA";
-import OpenTunaSonar from "@/components/opentuna/OpenTunaSonar";
-import OpenTunaMemory from "@/components/opentuna/OpenTunaMemory";
-import OpenTunaFins from "@/components/opentuna/OpenTunaFins";
-import OpenTunaIntegrations from "@/components/opentuna/OpenTunaIntegrations";
-import OpenTunaCurrent from "@/components/opentuna/OpenTunaCurrent";
-import OpenTunaDocs from "@/components/opentuna/OpenTunaDocs";
+import { ClawSDKProvider } from "@/components/claw/ClawSDKContext";
+import ClawSDKHub from "@/components/claw/ClawSDKHub";
+import ClawSDKHatch from "@/components/claw/ClawSDKHatch";
+import ClawSDKDNA from "@/components/claw/ClawSDKDNA";
+import ClawSDKSonar from "@/components/claw/ClawSDKSonar";
+import ClawSDKMemory from "@/components/claw/ClawSDKMemory";
+import ClawSDKFins from "@/components/claw/ClawSDKFins";
+import ClawSDKIntegrations from "@/components/claw/ClawSDKIntegrations";
+import ClawSDKCurrent from "@/components/claw/ClawSDKCurrent";
+import ClawSDKDocs from "@/components/claw/ClawSDKDocs";
 import { Footer } from "@/components/layout/Footer";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 
 const VALID_TABS = ['hub', 'hatch', 'dna', 'sonar', 'memory', 'fins', 'integrations', 'current', 'docs'];
 
-function OpenTunaContent() {
+function ClawSDKContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.slice(1);
@@ -126,31 +126,31 @@ function OpenTunaContent() {
         </TabsList>
 
         <TabsContent value="hub" className="mt-0">
-          <OpenTunaHub onNavigate={handleTabChange} />
+          <ClawSDKHub onNavigate={handleTabChange} />
         </TabsContent>
         <TabsContent value="hatch" className="mt-0">
-          <OpenTunaHatch />
+          <ClawSDKHatch />
         </TabsContent>
         <TabsContent value="dna" className="mt-0">
-          <OpenTunaDNA />
+          <ClawSDKDNA />
         </TabsContent>
         <TabsContent value="sonar" className="mt-0">
-          <OpenTunaSonar />
+          <ClawSDKSonar />
         </TabsContent>
         <TabsContent value="memory" className="mt-0">
-          <OpenTunaMemory />
+          <ClawSDKMemory />
         </TabsContent>
         <TabsContent value="fins" className="mt-0">
-          <OpenTunaFins />
+          <ClawSDKFins />
         </TabsContent>
         <TabsContent value="integrations" className="mt-0">
-          <OpenTunaIntegrations />
+          <ClawSDKIntegrations />
         </TabsContent>
         <TabsContent value="current" className="mt-0">
-          <OpenTunaCurrent />
+          <ClawSDKCurrent />
         </TabsContent>
         <TabsContent value="docs" className="mt-0">
-          <OpenTunaDocs />
+          <ClawSDKDocs />
         </TabsContent>
         </Tabs>
 
@@ -161,10 +161,10 @@ function OpenTunaContent() {
 }
 
 // Export wrapped with provider
-export default function OpenTunaPage() {
+export default function ClawSDKPage() {
   return (
-    <OpenTunaProvider>
-      <OpenTunaContent />
-    </OpenTunaProvider>
+    <ClawSDKProvider>
+      <ClawSDKContent />
+    </ClawSDKProvider>
   );
 }

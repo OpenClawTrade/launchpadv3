@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 // Types based on database schema
-export interface OpenTunaAgent {
+export interface ClawAgent {
   id: string;
   name: string;
   agent_type: string;
@@ -25,7 +25,7 @@ export interface OpenTunaAgent {
   updated_at: string;
 }
 
-export interface OpenTunaDNA {
+export interface ClawDNA {
   id: string;
   agent_id: string;
   personality: string;
@@ -41,7 +41,7 @@ export interface OpenTunaDNA {
   updated_at: string;
 }
 
-export interface OpenTunaSonarConfig {
+export interface ClawSonarConfig {
   id: string;
   agent_id: string;
   mode: string;
@@ -56,7 +56,7 @@ export interface OpenTunaSonarConfig {
   paused_reason: string | null;
 }
 
-export interface OpenTunaSonarPing {
+export interface ClawSonarPing {
   id: string;
   agent_id: string;
   action: string;
@@ -71,7 +71,7 @@ export interface OpenTunaSonarPing {
   context_snapshot: any;
 }
 
-export interface OpenTunaFin {
+export interface ClawFin {
   id: string;
   name: string;
   display_name: string;
@@ -93,7 +93,7 @@ export interface OpenTunaFin {
   created_at: string;
 }
 
-export interface OpenTunaCurrentFlow {
+export interface ClawCurrentFlow {
   id: string;
   requester_agent_id: string;
   provider_agent_id: string | null;
@@ -111,7 +111,7 @@ export interface OpenTunaCurrentFlow {
   completed_at: string | null;
 }
 
-export interface OpenTunaDeepMemory {
+export interface ClawDeepMemory {
   id: string;
   agent_id: string;
   content: string;
@@ -126,9 +126,9 @@ export interface OpenTunaDeepMemory {
 }
 
 // Fetch all agents for the connected wallet
-export function useOpenTunaAgents(walletAddress: string | null) {
+export function useClawAgents(walletAddress: string | null) {
   return useQuery({
-    queryKey: ['opentuna-agents', walletAddress],
+    queryKey: ['clawsdk-agents', walletAddress],
     queryFn: async () => {
       if (!walletAddress) return [];
       
@@ -139,16 +139,16 @@ export function useOpenTunaAgents(walletAddress: string | null) {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as OpenTunaAgent[];
+      return data as ClawAgent[];
     },
     enabled: !!walletAddress,
   });
 }
 
 // Fetch single agent by ID
-export function useOpenTunaAgent(agentId: string | null) {
+export function useClawAgent(agentId: string | null) {
   return useQuery({
-    queryKey: ['opentuna-agent', agentId],
+    queryKey: ['clawsdk-agent', agentId],
     queryFn: async () => {
       if (!agentId) return null;
       
@@ -159,16 +159,16 @@ export function useOpenTunaAgent(agentId: string | null) {
         .single();
       
       if (error) throw error;
-      return data as OpenTunaAgent;
+      return data as ClawAgent;
     },
     enabled: !!agentId,
   });
 }
 
 // Fetch DNA for an agent
-export function useOpenTunaDNA(agentId: string | null) {
+export function useClawDNA(agentId: string | null) {
   return useQuery({
-    queryKey: ['opentuna-dna', agentId],
+    queryKey: ['clawsdk-dna', agentId],
     queryFn: async () => {
       if (!agentId) return null;
       
@@ -179,16 +179,16 @@ export function useOpenTunaDNA(agentId: string | null) {
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
-      return data as OpenTunaDNA | null;
+      return data as ClawDNA | null;
     },
     enabled: !!agentId,
   });
 }
 
 // Fetch Sonar config for an agent
-export function useOpenTunaSonarConfig(agentId: string | null) {
+export function useClawSonarConfig(agentId: string | null) {
   return useQuery({
-    queryKey: ['opentuna-sonar-config', agentId],
+    queryKey: ['clawsdk-sonar-config', agentId],
     queryFn: async () => {
       if (!agentId) return null;
       
@@ -199,16 +199,16 @@ export function useOpenTunaSonarConfig(agentId: string | null) {
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
-      return data as OpenTunaSonarConfig | null;
+      return data as ClawSonarConfig | null;
     },
     enabled: !!agentId,
   });
 }
 
 // Fetch recent pings for an agent
-export function useOpenTunaSonarPings(agentId: string | null, limit = 20) {
+export function useClawSonarPings(agentId: string | null, limit = 20) {
   return useQuery({
-    queryKey: ['opentuna-sonar-pings', agentId, limit],
+    queryKey: ['clawsdk-sonar-pings', agentId, limit],
     queryFn: async () => {
       if (!agentId) return [];
       
@@ -220,16 +220,16 @@ export function useOpenTunaSonarPings(agentId: string | null, limit = 20) {
         .limit(limit);
       
       if (error) throw error;
-      return data as OpenTunaSonarPing[];
+      return data as ClawSonarPing[];
     },
     enabled: !!agentId,
   });
 }
 
 // Fetch all available fins
-export function useOpenTunaFins() {
+export function useClawFins() {
   return useQuery({
-    queryKey: ['opentuna-fins'],
+    queryKey: ['clawsdk-fins'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('opentuna_fins')
@@ -238,15 +238,15 @@ export function useOpenTunaFins() {
         .order('total_uses', { ascending: false });
       
       if (error) throw error;
-      return data as OpenTunaFin[];
+      return data as ClawFin[];
     },
   });
 }
 
 // Fetch installed fins for an agent
-export function useOpenTunaFinRack(agentId: string | null) {
+export function useClawFinRack(agentId: string | null) {
   return useQuery({
-    queryKey: ['opentuna-fin-rack', agentId],
+    queryKey: ['clawsdk-fin-rack', agentId],
     queryFn: async () => {
       if (!agentId) return [];
       
@@ -266,9 +266,9 @@ export function useOpenTunaFinRack(agentId: string | null) {
 }
 
 // Fetch transactions for an agent
-export function useOpenTunaCurrentFlows(agentId: string | null, limit = 20) {
+export function useClawCurrentFlows(agentId: string | null, limit = 20) {
   return useQuery({
-    queryKey: ['opentuna-current-flows', agentId, limit],
+    queryKey: ['clawsdk-current-flows', agentId, limit],
     queryFn: async () => {
       if (!agentId) return [];
       
@@ -280,16 +280,16 @@ export function useOpenTunaCurrentFlows(agentId: string | null, limit = 20) {
         .limit(limit);
       
       if (error) throw error;
-      return data as OpenTunaCurrentFlow[];
+      return data as ClawCurrentFlow[];
     },
     enabled: !!agentId,
   });
 }
 
 // Fetch memories for an agent
-export function useOpenTunaMemories(agentId: string | null, memoryType?: string, limit = 20) {
+export function useClawMemories(agentId: string | null, memoryType?: string, limit = 20) {
   return useQuery({
-    queryKey: ['opentuna-memories', agentId, memoryType, limit],
+    queryKey: ['clawsdk-memories', agentId, memoryType, limit],
     queryFn: async () => {
       if (!agentId) return [];
       
@@ -307,16 +307,16 @@ export function useOpenTunaMemories(agentId: string | null, memoryType?: string,
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as OpenTunaDeepMemory[];
+      return data as ClawDeepMemory[];
     },
     enabled: !!agentId,
   });
 }
 
 // Fetch platform stats (all agents, total pings, etc.)
-export function useOpenTunaStats() {
+export function useClawStats() {
   return useQuery({
-    queryKey: ['opentuna-stats'],
+    queryKey: ['clawsdk-stats'],
     queryFn: async () => {
       // Get total agents
       const { count: agentCount } = await supabase
@@ -351,7 +351,7 @@ export function useOpenTunaStats() {
 }
 
 // Mutation: Create a new agent
-export function useCreateOpenTunaAgent() {
+export function useCreateClawAgent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -373,10 +373,10 @@ export function useCreateOpenTunaAgent() {
       return data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['opentuna-agents', variables.ownerWallet] });
-      queryClient.invalidateQueries({ queryKey: ['opentuna-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['clawsdk-agents', variables.ownerWallet] });
+      queryClient.invalidateQueries({ queryKey: ['clawsdk-stats'] });
       toast({
-        title: "Agent Hatched! 🐟",
+        title: "Agent Hatched! 🦀",
         description: `${variables.name} is now alive. Fund it to activate.`,
       });
     },
@@ -391,7 +391,7 @@ export function useCreateOpenTunaAgent() {
 }
 
 // Mutation: Update DNA
-export function useUpdateOpenTunaDNA() {
+export function useUpdateClawDNA() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -422,7 +422,7 @@ export function useUpdateOpenTunaDNA() {
       return data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['opentuna-dna', variables.agentId] });
+      queryClient.invalidateQueries({ queryKey: ['clawsdk-dna', variables.agentId] });
       toast({
         title: "DNA Updated",
         description: "Agent personality and goals saved.",
@@ -439,7 +439,7 @@ export function useUpdateOpenTunaDNA() {
 }
 
 // Mutation: Update Sonar config
-export function useUpdateOpenTunaSonar() {
+export function useUpdateClawSonar() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -481,7 +481,7 @@ export function useUpdateOpenTunaSonar() {
       return data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['opentuna-sonar-config', variables.agentId] });
+      queryClient.invalidateQueries({ queryKey: ['clawsdk-sonar-config', variables.agentId] });
       toast({
         title: "Sonar Updated",
         description: variables.isPaused !== undefined 
@@ -500,7 +500,7 @@ export function useUpdateOpenTunaSonar() {
 }
 
 // Mutation: Install a fin
-export function useInstallFin() {
+export function useInstallClawFin() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -519,7 +519,7 @@ export function useInstallFin() {
       return data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['opentuna-fin-rack', variables.agentId] });
+      queryClient.invalidateQueries({ queryKey: ['clawsdk-fin-rack', variables.agentId] });
       toast({
         title: "Fin Installed",
         description: "New capability added to your agent.",
@@ -539,7 +539,7 @@ export function useInstallFin() {
 // API KEY MANAGEMENT
 // ============================================================================
 
-export interface OpenTunaApiKey {
+export interface ClawApiKey {
   id: string;
   agent_id: string;
   key_prefix: string;
@@ -551,9 +551,9 @@ export interface OpenTunaApiKey {
 }
 
 // Fetch API keys for an agent
-export function useOpenTunaApiKeys(agentId: string | null) {
+export function useClawApiKeys(agentId: string | null) {
   return useQuery({
-    queryKey: ['opentuna-api-keys', agentId],
+    queryKey: ['clawsdk-api-keys', agentId],
     queryFn: async () => {
       if (!agentId) return [];
       
@@ -565,14 +565,14 @@ export function useOpenTunaApiKeys(agentId: string | null) {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as OpenTunaApiKey[];
+      return data as ClawApiKey[];
     },
     enabled: !!agentId,
   });
 }
 
 // Mutation: Generate API key
-export function useCreateApiKey() {
+export function useCreateClawApiKey() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -585,7 +585,7 @@ export function useCreateApiKey() {
       return data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['opentuna-api-keys', variables.agentId] });
+      queryClient.invalidateQueries({ queryKey: ['clawsdk-api-keys', variables.agentId] });
       toast({
         title: "API Key Generated!",
         description: "Copy it now - it won't be shown again.",
@@ -602,7 +602,7 @@ export function useCreateApiKey() {
 }
 
 // Mutation: Revoke API key
-export function useRevokeApiKey() {
+export function useRevokeClawApiKey() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -615,7 +615,7 @@ export function useRevokeApiKey() {
       return data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['opentuna-api-keys', variables.agentId] });
+      queryClient.invalidateQueries({ queryKey: ['clawsdk-api-keys', variables.agentId] });
       toast({
         title: "Key Revoked",
         description: "This API key can no longer be used.",
@@ -649,7 +649,7 @@ export interface RecentActivity {
 // Fetch recent activity across all user's agents
 export function useRecentActivity(agentIds: string[], limit = 10) {
   return useQuery({
-    queryKey: ['opentuna-recent-activity', agentIds, limit],
+    queryKey: ['clawsdk-recent-activity', agentIds, limit],
     queryFn: async () => {
       if (agentIds.length === 0) return [];
       

@@ -604,20 +604,20 @@
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* OpenClaw SDK card */
-.opentuna-card {
+.clawsdk-card {
   @apply bg-card/50 border border-primary/20 hover:border-primary/40 
          transition-all duration-200 rounded-xl;
 }
 
-.opentuna-gradient-text {
+.clawsdk-gradient-text {
   @apply bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent;
 }
 
-.opentuna-glow {
+.clawsdk-glow {
   box-shadow: 0 0 20px hsl(152 69% 41% / 0.12);
 }
 
-.opentuna-button {
+.clawsdk-button {
   @apply bg-gradient-to-r from-green-600 to-emerald-600 
          hover:from-green-700 hover:to-emerald-700 
          text-white font-medium rounded-lg;

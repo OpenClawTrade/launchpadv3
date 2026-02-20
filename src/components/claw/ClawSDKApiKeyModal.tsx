@@ -24,35 +24,35 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  useOpenTunaApiKeys,
-  useCreateApiKey,
-  useRevokeApiKey,
-  OpenTunaApiKey,
-} from "@/hooks/useOpenTuna";
+  useClawApiKeys,
+  useCreateClawApiKey,
+  useRevokeClawApiKey,
+  ClawApiKey,
+} from "@/hooks/useClawSDK";
 import { formatDistanceToNow } from "date-fns";
 
-interface OpenTunaApiKeyModalProps {
+interface ClawSDKApiKeyModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agentId: string | null;
   agentName?: string;
 }
 
-export default function OpenTunaApiKeyModal({
+export default function ClawSDKApiKeyModal({
   open,
   onOpenChange,
   agentId,
   agentName,
-}: OpenTunaApiKeyModalProps) {
+}: ClawSDKApiKeyModalProps) {
   const [keyName, setKeyName] = useState("");
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showNewKey, setShowNewKey] = useState(true);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
 
-  const { data: apiKeys = [], isLoading } = useOpenTunaApiKeys(agentId);
-  const createKeyMutation = useCreateApiKey();
-  const revokeKeyMutation = useRevokeApiKey();
+  const { data: apiKeys = [], isLoading } = useClawApiKeys(agentId);
+  const createKeyMutation = useCreateClawApiKey();
+  const revokeKeyMutation = useRevokeClawApiKey();
 
   const handleGenerateKey = async () => {
     if (!agentId) {
@@ -106,7 +106,7 @@ export default function OpenTunaApiKeyModal({
             API Keys {agentName && <span className="text-muted-foreground">— {agentName}</span>}
           </DialogTitle>
           <DialogDescription>
-            Generate API keys to access OpenTuna programmatically via the SDK.
+            Generate API keys to access Claw SDK programmatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -223,10 +223,10 @@ export default function OpenTunaApiKeyModal({
 
           {/* SDK Usage Hint */}
           <div className="text-xs text-muted-foreground bg-secondary/30 rounded-lg p-3">
-            <code className="text-primary">npm install @opentuna/sdk</code>
+            <code className="text-primary">npm install @openclaw/sdk</code>
             <br />
             <span className="opacity-75">
-              Then: <code>new OpenTuna({"{ apiKey: 'ota_live_...' }"})</code>
+              Then: <code>new OpenClaw({"{ apiKey: 'oca_live_...' }"})</code>
             </span>
           </div>
         </div>
@@ -242,7 +242,7 @@ function KeyRow({
   onRevoke,
   isRevoking,
 }: {
-  apiKey: OpenTunaApiKey;
+  apiKey: ClawApiKey;
   confirmRevokeId: string | null;
   setConfirmRevokeId: (id: string | null) => void;
   onRevoke: (id: string) => void;

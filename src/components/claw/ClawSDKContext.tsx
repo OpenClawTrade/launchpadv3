@@ -1,20 +1,20 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { useOpenTunaAgents, OpenTunaAgent } from "@/hooks/useOpenTuna";
+import { useClawAgents, ClawAgent } from "@/hooks/useClawSDK";
 import { usePrivy } from "@privy-io/react-auth";
 
-interface OpenTunaContextType {
+interface ClawSDKContextType {
   walletAddress: string | null;
-  agents: OpenTunaAgent[];
+  agents: ClawAgent[];
   isLoadingAgents: boolean;
   selectedAgentId: string | null;
-  selectedAgent: OpenTunaAgent | null;
+  selectedAgent: ClawAgent | null;
   setSelectedAgentId: (id: string | null) => void;
   refetchAgents: () => void;
 }
 
-const OpenTunaContext = createContext<OpenTunaContextType | null>(null);
+const ClawSDKContext = createContext<ClawSDKContextType | null>(null);
 
-export function OpenTunaProvider({ children }: { children: ReactNode }) {
+export function ClawSDKProvider({ children }: { children: ReactNode }) {
   const { authenticated, user } = usePrivy();
   
   // Get wallet address from Privy user object
@@ -26,7 +26,7 @@ export function OpenTunaProvider({ children }: { children: ReactNode }) {
     data: agents = [], 
     isLoading: isLoadingAgents,
     refetch: refetchAgents,
-  } = useOpenTunaAgents(walletAddress);
+  } = useClawAgents(walletAddress);
   
   // Auto-select first agent when agents load
   useEffect(() => {
@@ -38,7 +38,7 @@ export function OpenTunaProvider({ children }: { children: ReactNode }) {
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || null;
   
   return (
-    <OpenTunaContext.Provider
+    <ClawSDKContext.Provider
       value={{
         walletAddress,
         agents,
@@ -50,14 +50,14 @@ export function OpenTunaProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </OpenTunaContext.Provider>
+    </ClawSDKContext.Provider>
   );
 }
 
-export function useOpenTunaContext() {
-  const context = useContext(OpenTunaContext);
+export function useClawSDKContext() {
+  const context = useContext(ClawSDKContext);
   if (!context) {
-    throw new Error("useOpenTunaContext must be used within OpenTunaProvider");
+    throw new Error("useClawSDKContext must be used within ClawSDKProvider");
   }
   return context;
 }
