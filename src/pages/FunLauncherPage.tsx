@@ -160,7 +160,7 @@ export default function FunLauncherPage() {
   }, [tokens, activeFilter, promotedTokenIds]);
 
   return (
-    <div className="min-h-screen relative z-[1]">
+    <div className="min-h-screen relative z-[1] overflow-x-hidden">
       {/* Sidebar */}
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 

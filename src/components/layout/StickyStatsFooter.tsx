@@ -52,7 +52,7 @@ export function StickyStatsFooter() {
         paddingRight: "12px",
         gap: "8px",
         boxSizing: "border-box",
-        overflow: "hidden",
+        overflow: "visible",
       }}>
         {/* Stats - horizontal scroll on mobile */}
         <div style={{
