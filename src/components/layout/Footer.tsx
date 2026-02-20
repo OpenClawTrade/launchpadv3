@@ -3,7 +3,7 @@ import { XLogo } from "@phosphor-icons/react";
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-card/30 backdrop-blur-md py-10 px-4 mt-12">
+    <footer className="border-t border-border bg-card/30 backdrop-blur-md py-10 px-4 mt-12 overflow-hidden">
       <div className="max-w-[1400px] mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-10">
           {/* Brand */}
