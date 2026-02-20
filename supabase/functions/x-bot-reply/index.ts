@@ -10,9 +10,6 @@ const corsHeaders = {
 
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
 
-
-const stripQuotes = (v: string) => v.replace(/^['"]+|['"]+$/g, "").trim();
-
 // Helper: Detect error payloads that come with HTTP 200
 const isTwitterApiErrorPayload = (postData: any): boolean => {
   if (!postData || typeof postData !== "object") return true;
@@ -36,53 +33,60 @@ const extractReplyId = (postData: any): string | null => {
   );
 };
 
-const parseCookieString = (raw: string): Record<string, string> => {
-  const out: Record<string, string> = {};
-  const parts = raw.split(";");
-  for (const part of parts) {
-    const [k, ...rest] = part.trim().split("=");
-    if (!k) continue;
-    const val = rest.join("=");
-    if (val) out[k.trim()] = stripQuotes(val);
+// Minimal Base32 + TOTP generator
+const base32ToBytes = (input: string): Uint8Array => {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = input.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = 0;
+  let value = 0;
+  const out: number[] = [];
+  for (const ch of clean) {
+    const idx = alphabet.indexOf(ch);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
   }
-  return out;
+  return new Uint8Array(out);
 };
 
-// Build login cookies base64 from full cookie string - only extract essential cookies
-const buildLoginCookiesBase64 = (fullCookie: string | null): string | null => {
-  if (!fullCookie || !fullCookie.trim()) {
-    console.log(`[buildLoginCookiesBase64] No full_cookie provided`);
-    return null;
-  }
-
-  const allCookies = parseCookieString(fullCookie.trim());
-  if (!allCookies.auth_token || !allCookies.ct0) {
-    console.log(`[buildLoginCookiesBase64] full_cookie parsed but missing auth_token or ct0`);
-    return null;
-  }
-
-  // Only send the essential cookies - extra ones like __cf_bm expire quickly and cause failures
-  const essentialCookies: Record<string, string> = {
-    auth_token: allCookies.auth_token,
-    ct0: allCookies.ct0,
-  };
-  // Include twid if present (helps with session validation)
-  if (allCookies.twid) essentialCookies.twid = allCookies.twid;
-
-  console.log(`[buildLoginCookiesBase64] Using essential cookies only (auth_token + ct0${allCookies.twid ? " + twid" : ""})`);
-  return btoa(JSON.stringify(essentialCookies));
+const generateTotpCode = async (secretBase32: string, digits = 6, stepSec = 30): Promise<string> => {
+  const keyBytes = base32ToBytes(secretBase32);
+  const keyBuf = keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer;
+  const counter = Math.floor(Date.now() / 1000 / stepSec);
+  const msg = new ArrayBuffer(8);
+  const view = new DataView(msg);
+  view.setUint32(0, Math.floor(counter / 2 ** 32));
+  view.setUint32(4, counter >>> 0);
+  const cryptoKey = await crypto.subtle.importKey("raw", keyBuf, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new Uint8Array(msg)));
+  const offset = sig[sig.length - 1] & 0x0f;
+  const binCode =
+    ((sig[offset] & 0x7f) << 24) |
+    ((sig[offset + 1] & 0xff) << 16) |
+    ((sig[offset + 2] & 0xff) << 8) |
+    (sig[offset + 3] & 0xff);
+  return String(binCode % 10 ** digits).padStart(digits, "0");
 };
 
-interface AccountWithCredentials {
-  id: string;
-  username: string;
-  full_cookie_encrypted: string | null;
-  proxy_url: string | null;
-  rules: {
-    author_cooldown_hours: number;
-    max_replies_per_thread: number;
-  } | null;
-}
+const normalizeTotpSecret = (raw?: string | null): string | undefined => {
+  if (!raw) return undefined;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return undefined;
+  if (trimmed.toLowerCase().startsWith("otpauth://")) {
+    try {
+      const url = new URL(trimmed);
+      const secretParam = url.searchParams.get("secret");
+      if (secretParam) return secretParam.replace(/\s|-/g, "").toUpperCase();
+    } catch { /* fall through */ }
+  }
+  const secretMatch = trimmed.match(/secret\s*=\s*([A-Za-z2-7\s-]+)/i);
+  const candidate = (secretMatch?.[1] ?? trimmed).replace(/\s|-/g, "").toUpperCase();
+  return candidate || undefined;
+};
 
 // Logging helper
 async function insertLog(
@@ -120,9 +124,64 @@ async function fetchWithTimeout(
   }
 }
 
+// Login via twitterapi.io user_login_v2 to get a login_cookie
+async function loginViaApi(
+  apiKey: string,
+  email: string,
+  password: string,
+  proxy: string,
+  totpSecret?: string
+): Promise<{ loginCookie: string | null; error?: string }> {
+  try {
+    const body: Record<string, string> = { email, password, proxy };
+    
+    if (totpSecret) {
+      const totpCode = await generateTotpCode(totpSecret);
+      body.totp_code = totpCode;
+    }
+
+    console.log(`[loginViaApi] Attempting login via user_login_v2...`);
+    const response = await fetchWithTimeout(
+      `${TWITTERAPI_BASE}/twitter/user_login_v2`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify(body),
+      },
+      30000
+    );
+
+    const text = await response.text();
+    console.log(`[loginViaApi] Response status: ${response.status}, body (first 300): ${text.substring(0, 300)}`);
+    
+    const data = (() => { try { return JSON.parse(text); } catch { return null; } })();
+    
+    if (data?.login_cookie) {
+      console.log(`[loginViaApi] Got login_cookie (length: ${data.login_cookie.length})`);
+      return { loginCookie: data.login_cookie };
+    }
+    
+    // Some responses return session instead
+    if (data?.session) {
+      console.log(`[loginViaApi] Got session (length: ${data.session.length})`);
+      return { loginCookie: data.session };
+    }
+
+    return { loginCookie: null, error: data?.message || data?.error || text.substring(0, 200) };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    console.error(`[loginViaApi] Exception: ${msg}`);
+    return { loginCookie: null, error: msg };
+  }
+}
+
 async function generateReply(
   tweetText: string,
-  username: string
+  username: string,
+  personaPrompt?: string | null
 ): Promise<string | null> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) {
@@ -130,7 +189,7 @@ async function generateReply(
     return null;
   }
 
-  const systemPrompt = `You're a knowledgeable crypto native with genuine opinions. Generate a reply (max 240 chars) to this tweet.
+  const defaultSystemPrompt = `You're a knowledgeable crypto native with genuine opinions. Generate a reply (max 240 chars) to this tweet.
 
 Rules:
 - Have opinions. Commit to a take. No "it depends" hedging.
@@ -146,6 +205,8 @@ Rules:
 - Do NOT add taglines, signatures, hashtags, or calls to action.
 
 Be the thoughtful reply you'd actually want to read. Confident, not aggressive. Sharp, not mean.`;
+
+  const systemPrompt = personaPrompt || defaultSystemPrompt;
 
   const userPrompt = `Tweet by @${username}: "${tweetText.substring(0, 500)}"
 
@@ -181,7 +242,6 @@ Reply:`;
     const data = await response.json();
     let reply = data.choices?.[0]?.message?.content?.trim() || null;
 
-    // Trim if too long
     if (reply && reply.length > 280) {
       reply = reply.substring(0, 277) + "...";
     }
@@ -197,13 +257,13 @@ async function postReply(
   tweetId: string,
   replyText: string,
   apiKey: string,
-  loginCookiesBase64: string,
+  loginCookies: string,
   proxy: string
 ): Promise<{ success: boolean; replyId?: string; error?: string; rawResponse?: string }> {
   try {
     console.log(`[postReply] Posting reply to tweet ${tweetId}`);
     console.log(`[postReply] Using proxy: ${proxy ? "yes" : "no"}`);
-    console.log(`[postReply] loginCookiesBase64 length: ${loginCookiesBase64.length}`);
+    console.log(`[postReply] loginCookies length: ${loginCookies.length}`);
 
     const response = await fetchWithTimeout(
       `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
@@ -216,8 +276,8 @@ async function postReply(
         body: JSON.stringify({
           tweet_text: replyText,
           reply_to_tweet_id: tweetId,
-          login_cookies: loginCookiesBase64,
-          ...(proxy && { proxy }),
+          login_cookies: loginCookies,
+          proxy,
         }),
       },
       20000
@@ -227,50 +287,27 @@ async function postReply(
     console.log(`[postReply] HTTP Status: ${response.status}`);
     console.log(`[postReply] Raw response (first 500 chars): ${rawText.substring(0, 500)}`);
     
-    const data = (() => {
-      try {
-        return JSON.parse(rawText);
-      } catch {
-        console.log(`[postReply] Failed to parse response as JSON`);
-        return null;
-      }
-    })();
+    const data = (() => { try { return JSON.parse(rawText); } catch { return null; } })();
 
-    // Check HTTP status first
     if (!response.ok) {
-      const apiMsg =
-        (data && (data.message || data.error || data.msg)) ||
-        (rawText ? rawText.slice(0, 300) : null);
-      console.log(`[postReply] HTTP error: ${apiMsg || response.status}`);
+      const apiMsg = (data && (data.message || data.error || data.msg)) || rawText?.slice(0, 300) || null;
       return { success: false, error: apiMsg || `HTTP ${response.status}`, rawResponse: rawText.substring(0, 500) };
     }
 
-    // Check for error payloads that come with HTTP 200
     if (isTwitterApiErrorPayload(data)) {
       const errorMsg = data?.message || data?.error || data?.msg || "API returned error payload with HTTP 200";
-      console.log(`[postReply] Error payload detected: ${errorMsg}`);
       return { success: false, error: errorMsg, rawResponse: rawText.substring(0, 500) };
     }
 
-    // Extract reply ID using comprehensive helper
     const replyId = extractReplyId(data);
-    console.log(`[postReply] Extracted replyId: ${replyId || "NULL"}`);
-    
-    // Only return success if we have a valid reply ID
     if (!replyId) {
-      console.log(`[postReply] No reply ID found in response - treating as failure`);
-      return { 
-        success: false, 
-        error: "No reply ID returned - tweet may not have been created", 
-        rawResponse: rawText.substring(0, 500) 
-      };
+      return { success: false, error: "No reply ID returned", rawResponse: rawText.substring(0, 500) };
     }
 
     console.log(`[postReply] SUCCESS - Reply posted with ID: ${replyId}`);
     return { success: true, replyId, rawResponse: rawText.substring(0, 500) };
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : "Unknown error";
-    console.log(`[postReply] Exception: ${errorMsg}`);
     return { success: false, error: errorMsg };
   }
 }
@@ -310,6 +347,12 @@ serve(async (req) => {
       });
     }
 
+    // Get login credentials from env
+    const xEmail = Deno.env.get("X_ACCOUNT_EMAIL");
+    const xPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
+    const xTotpSecret = normalizeTotpSecret(Deno.env.get("X_TOTP_SECRET"));
+    const envProxy = Deno.env.get("TWITTER_PROXY");
+
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Acquire lock
@@ -320,20 +363,20 @@ serve(async (req) => {
       expires_at: new Date(Date.now() + 55000).toISOString(),
     }, { onConflict: "lock_name" });
 
-    // Get all active accounts with credentials
+    // Get all active accounts
     const { data: accounts, error: accountsError } = await supabase
       .from("x_bot_accounts")
       .select(`
         id,
         username,
-        full_cookie_encrypted,
         proxy_url,
         socks5_urls,
         current_socks5_index,
         x_bot_account_rules (
           author_cooldown_hours,
           max_replies_per_thread,
-          enabled
+          enabled,
+          persona_prompt
         )
       `)
       .eq("is_active", true);
@@ -343,27 +386,50 @@ serve(async (req) => {
       throw accountsError;
     }
 
-    // Process one tweet per account per run (to avoid rate limits)
     for (const account of accounts || []) {
       const rules = (account as any).x_bot_account_rules?.[0];
       if (!rules?.enabled) continue;
 
-      // Build login cookies from full cookie string
-      const loginCookies = buildLoginCookiesBase64(account.full_cookie_encrypted);
+      debug.accountsProcessed++;
 
-      if (!loginCookies) {
-        debug.errors.push(`Account ${account.username}: No valid cookies`);
-        await insertLog(supabase, account.id, "error", "error", `No valid full_cookie configured for @${account.username}. Paste your full cookie string from x.com.`, {
-          hasFullCookie: !!account.full_cookie_encrypted,
+      // Get proxy - prefer socks5_urls with rotation, then proxy_url, then env
+      let proxyUrl = account.proxy_url || envProxy || "";
+      const socks5Urls = (account as any).socks5_urls || [];
+      if (socks5Urls.length > 0) {
+        const currentIndex = (account as any).current_socks5_index || 0;
+        proxyUrl = socks5Urls[currentIndex % socks5Urls.length];
+        await supabase
+          .from("x_bot_accounts")
+          .update({ current_socks5_index: (currentIndex + 1) % socks5Urls.length })
+          .eq("id", account.id);
+      }
+
+      if (!proxyUrl) {
+        debug.errors.push(`Account ${account.username}: No proxy configured`);
+        await insertLog(supabase, account.id, "error", "error", `No proxy configured for @${account.username}`);
+        continue;
+      }
+
+      if (!xEmail || !xPassword) {
+        debug.errors.push(`Account ${account.username}: No X login credentials in env`);
+        await insertLog(supabase, account.id, "error", "error", `Missing X_ACCOUNT_EMAIL or X_ACCOUNT_PASSWORD env vars`);
+        continue;
+      }
+
+      // Login via twitterapi.io to get a fresh login_cookie
+      const loginResult = await loginViaApi(TWITTERAPI_IO_KEY, xEmail, xPassword, proxyUrl, xTotpSecret);
+      
+      if (!loginResult.loginCookie) {
+        debug.errors.push(`Account ${account.username}: Login failed: ${loginResult.error}`);
+        await insertLog(supabase, account.id, "error", "error", `Login failed: ${loginResult.error}`, {
+          proxy: proxyUrl.replace(/:[^:@]+@/, ':***@'),
         });
         continue;
       }
 
-      console.log(`[x-bot-reply] Account ${account.username}: loginCookies built successfully`);
+      console.log(`[x-bot-reply] Account ${account.username}: Login successful, got login_cookie`);
 
-      debug.accountsProcessed++;
-
-      // Get oldest pending tweet from queue for this account
+      // Get oldest pending tweet from queue
       const { data: queuedTweets, error: queueError } = await supabase
         .from("x_bot_account_queue")
         .select("*")
@@ -374,7 +440,6 @@ serve(async (req) => {
 
       if (queueError) {
         debug.errors.push(`Queue error for ${account.username}: ${queueError.message}`);
-        await insertLog(supabase, account.id, "error", "error", `Queue fetch error: ${queueError.message}`);
         continue;
       }
 
@@ -397,7 +462,7 @@ serve(async (req) => {
         .update({ status: "processing", processed_at: new Date().toISOString() })
         .eq("id", queuedTweet.id);
 
-      // Author cooldown check (in minutes)
+      // Author cooldown check
       const cooldownMinutes = rules.author_cooldown_minutes ?? 10;
       const cooldownTime = new Date(Date.now() - cooldownMinutes * 60 * 1000).toISOString();
       
@@ -415,57 +480,35 @@ serve(async (req) => {
             .update({ status: "skipped" })
             .eq("id", queuedTweet.id);
           debug.skipped++;
-          await insertLog(supabase, account.id, "skip", "warn", `Skipped @${author}: author cooldown active (${cooldownMinutes}m)`, {
-            tweetId: queuedTweet.tweet_id,
-            cooldownMinutes,
-          });
+          await insertLog(supabase, account.id, "skip", "warn", `Skipped @${author}: author cooldown active (${cooldownMinutes}m)`);
           continue;
         }
       }
 
-      // Generate reply
+      // Generate reply with persona prompt
       await insertLog(supabase, account.id, "reply", "info", `Generating AI reply for @${author}...`);
       
-      const username = queuedTweet.tweet_author || "user";
-      const replyText = await generateReply(queuedTweet.tweet_text || "", username);
+      const replyText = await generateReply(
+        queuedTweet.tweet_text || "",
+        queuedTweet.tweet_author || "user",
+        rules.persona_prompt
+      );
 
       if (!replyText) {
         debug.errors.push(`Failed to generate reply for ${account.username}`);
-        await supabase
-          .from("x_bot_account_queue")
-          .update({ status: "skipped" })
-          .eq("id", queuedTweet.id);
-        await insertLog(supabase, account.id, "error", "error", `Failed to generate reply for @${author}`, {
-          tweetId: queuedTweet.tweet_id,
-        });
+        await supabase.from("x_bot_account_queue").update({ status: "skipped" }).eq("id", queuedTweet.id);
+        await insertLog(supabase, account.id, "error", "error", `Failed to generate reply for @${author}`);
         continue;
       }
 
-      await insertLog(supabase, account.id, "reply", "info", `Generated reply (${replyText.length} chars)`, {
-        tweetId: queuedTweet.tweet_id,
-        replyLength: replyText.length,
-      });
+      await insertLog(supabase, account.id, "reply", "info", `Generated reply (${replyText.length} chars)`);
 
-      // Get proxy - prefer socks5_urls with rotation, then proxy_url
-      let proxyUrl = account.proxy_url || "";
-      const socks5Urls = (account as any).socks5_urls || [];
-      if (socks5Urls.length > 0) {
-        const currentIndex = (account as any).current_socks5_index || 0;
-        proxyUrl = socks5Urls[currentIndex % socks5Urls.length];
-        
-        // Rotate to next proxy for next run
-        await supabase
-          .from("x_bot_accounts")
-          .update({ current_socks5_index: (currentIndex + 1) % socks5Urls.length })
-          .eq("id", account.id);
-      }
-
-      // Post reply
+      // Post reply using the login_cookie from API login
       const result = await postReply(
         queuedTweet.tweet_id,
         replyText,
         TWITTERAPI_IO_KEY,
-        loginCookies,
+        loginResult.loginCookie,
         proxyUrl
       );
 
@@ -473,7 +516,7 @@ serve(async (req) => {
       await supabase.from("x_bot_account_replies").insert({
         account_id: account.id,
         tweet_id: queuedTweet.tweet_id,
-        tweet_author: username,
+        tweet_author: author,
         tweet_author_id: queuedTweet.tweet_author_id || null,
         tweet_text: queuedTweet.tweet_text,
         conversation_id: queuedTweet.conversation_id || queuedTweet.tweet_id,
@@ -502,6 +545,7 @@ serve(async (req) => {
         await insertLog(supabase, account.id, "error", "error", `Reply failed: ${result.error}`, {
           tweetId: queuedTweet.tweet_id,
           error: result.error,
+          rawResponse: result.rawResponse,
         });
       }
     }
