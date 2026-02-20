@@ -9,7 +9,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
-              <img src="/claw-logo.png" alt="Claw Mode" className="h-6 w-6 rounded" />
+              <img src="/claw-logo.png" alt="Claw Mode" className="h-6 w-6 rounded" style={{ mixBlendMode: 'screen' }} />
               <span className="font-bold">Claw Mode</span>
             </div>
             <p className="text-sm text-muted-foreground">
