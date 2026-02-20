@@ -238,11 +238,11 @@ Deno.serve(async (req) => {
 
     console.log(`[fun-create][${VERSION}] Calling Vercel API...`, { url: `${meteoraApiUrl}/api/pool/create-fun`, elapsed: Date.now() - startTime });
 
-    // === FIX: Only auto-populate SubTuna URL for agent launches ===
+    // === FIX: Only auto-populate community URL for agent launches ===
     // Standard UI launches should NOT get the /t/:ticker URL since they don't have communities
     // The agentId would be passed from agent-launched tokens (currently not passed from fun-create)
-    const finalWebsiteUrl = websiteUrl || undefined; // Don't auto-populate SubTuna URL
-    const finalTwitterUrl = twitterUrl || 'https://x.com/BuildTuna';
+    const finalWebsiteUrl = websiteUrl || undefined; // Don't auto-populate community URL
+    const finalTwitterUrl = twitterUrl || 'https://x.com/clawmode';
 
     // Call Vercel API synchronously - this does all the work
     const vercelResponse = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {

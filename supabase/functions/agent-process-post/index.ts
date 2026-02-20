@@ -1057,8 +1057,8 @@ export async function processLaunchPost(
       const mintAddress = result.mintAddress as string;
       const dbcPoolAddress = result.dbcPoolAddress as string | null;
 
-      // 80% fee split for !clawmode tokens (same as !tunalaunch)
-      const AUTO_LAUNCH_FEE_BPS = 8000;
+      // 30/30/40 fee split for !clawmode tokens: 30% creator, 30% agent, 40% system
+      const AUTO_LAUNCH_FEE_BPS = 3000;
 
       let funTokenId: string | null = null;
       const { data: existingToken } = await supabase
@@ -1618,7 +1618,7 @@ export async function processLaunchPost(
         .update({
           // Always update agent attribution
           agent_id: agent.id,
-          agent_fee_share_bps: 8000,
+          agent_fee_share_bps: 3000,
           // ALWAYS update image if we have one
           ...(finalImageUrl && { image_url: finalImageUrl }),
           // ALWAYS set website_url - use SubTuna community URL as fallback if no custom website
@@ -1655,7 +1655,7 @@ export async function processLaunchPost(
           telegram_url: parsed.telegram || null,
           discord_url: parsed.discord || null,
           agent_id: agent.id,
-          agent_fee_share_bps: 8000,
+          agent_fee_share_bps: 3000,
           chain: "solana",
         })
         .select("id")

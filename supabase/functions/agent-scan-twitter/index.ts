@@ -1198,7 +1198,7 @@ Deno.serve(async (req) => {
         }
 
         // Layer 2: Expanded bot username blocklist
-        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent"];
+        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent", "clawmode", "buildclaw", "openclaw"];
         if (username && botUsernames.includes(username.toLowerCase())) {
           console.log(`[agent-scan-twitter] ⏭️ Skipping ${tweetId} - from bot account @${username}`);
           results.push({ tweetId, status: "skipped_bot_account" });
@@ -1358,8 +1358,8 @@ Deno.serve(async (req) => {
             } else {
               // New format: full CA, no links, token name/symbol, with image
               const replyText = isAutoLaunch
-                ? `🦞 Trading Agent launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by Claw Mode - 80% of fees fund your agent!`
-                : `🦞 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by Claw Mode - 80% of fees go to you!`;
+                ? `🦞 Trading Agent launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nTrading-Fees goes to your Panel, claim them any time.`
+                : `🦞 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nTrading-Fees goes to your Panel, claim them any time.`;
 
               const replyResult = await replyToTweet(
                 tweetId,
