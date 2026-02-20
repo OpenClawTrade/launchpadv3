@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Wallet, Briefcase, DollarSign, Plus, Bot, Fingerprint, Rocket } from "lucide-react";
 import clawLogo from "@/assets/claw-logo.png";
 
+const PanelWalletBar = lazy(() => import("@/components/panel/PanelWalletBar"));
+
 // Lazy tab content
 const PanelPortfolioTab = lazy(() => import("@/components/panel/PanelPortfolioTab"));
 const PanelEarningsTab = lazy(() => import("@/components/panel/PanelEarningsTab"));
@@ -87,6 +89,11 @@ export default function PanelPage() {
             </div>
           </div>
         </div>
+
+        {/* Wallet Bar */}
+        <Suspense fallback={null}>
+          <PanelWalletBar />
+        </Suspense>
 
         {/* Tabs */}
         <div className="px-4 flex-1">
