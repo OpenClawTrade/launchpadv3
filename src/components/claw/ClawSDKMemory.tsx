@@ -18,8 +18,8 @@ import {
   Spinner
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { useOpenTunaContext } from "./OpenTunaContext";
-import { useOpenTunaMemories } from "@/hooks/useOpenTuna";
+import { useClawSDKContext } from "./ClawSDKContext";
+import { useClawMemories } from "@/hooks/useClawSDK";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -48,14 +48,14 @@ const MEMORY_TYPE_CONFIG = {
   pattern: { icon: Target, color: 'text-green-400', bg: 'bg-green-500/10', label: 'Pattern', desc: 'Permanent' },
 };
 
-export default function OpenTunaMemory() {
-  const { selectedAgentId, agents } = useOpenTunaContext();
+export default function ClawSDKMemory() {
+  const { selectedAgentId, agents } = useClawSDKContext();
   const [filterType, setFilterType] = useState<MemoryType>('all');
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   
-  const { data: memories, isLoading } = useOpenTunaMemories(
+  const { data: memories, isLoading } = useClawMemories(
     selectedAgentId, 
     filterType === 'all' ? undefined : filterType,
     50

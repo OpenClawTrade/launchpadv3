@@ -15,8 +15,8 @@ import {
   Spinner
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { useOpenTunaContext } from "./OpenTunaContext";
-import { useOpenTunaSonarConfig, useOpenTunaSonarPings, useUpdateOpenTunaSonar } from "@/hooks/useOpenTuna";
+import { useClawSDKContext } from "./ClawSDKContext";
+import { useClawSonarConfig, useClawSonarPings, useUpdateClawSonar } from "@/hooks/useClawSDK";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -38,11 +38,11 @@ const SONAR_MODES: ModeOption[] = [
   { mode: 'frenzy', label: 'Frenzy', interval: '1 min', cost: '~$40.00/day', description: 'Maximum activity' },
 ];
 
-export default function OpenTunaSonar() {
-  const { selectedAgentId, agents } = useOpenTunaContext();
-  const { data: sonarConfig, isLoading: configLoading } = useOpenTunaSonarConfig(selectedAgentId);
-  const { data: pings, isLoading: pingsLoading } = useOpenTunaSonarPings(selectedAgentId, 10);
-  const updateSonar = useUpdateOpenTunaSonar();
+export default function ClawSDKSonar() {
+  const { selectedAgentId, agents } = useClawSDKContext();
+  const { data: sonarConfig, isLoading: configLoading } = useClawSonarConfig(selectedAgentId);
+  const { data: pings, isLoading: pingsLoading } = useClawSonarPings(selectedAgentId, 10);
+  const updateSonar = useUpdateClawSonar();
   const { toast } = useToast();
   
   const [isTestingPing, setIsTestingPing] = useState(false);

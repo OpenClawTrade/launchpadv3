@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import OpenTunaAgentSelector from "./OpenTunaAgentSelector";
+import ClawSDKAgentSelector from "./ClawSDKAgentSelector";
 
 interface Transaction {
   id: string;
