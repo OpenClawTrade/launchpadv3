@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -28,6 +28,12 @@ export default function PanelPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "nfas";
+
+  // Hide matrix background on /panel — it ruins readability
+  useEffect(() => {
+    document.body.classList.add("matrix-hidden");
+    return () => document.body.classList.remove("matrix-hidden");
+  }, []);
 
   const setTab = (tab: string) => {
     setSearchParams({ tab });
