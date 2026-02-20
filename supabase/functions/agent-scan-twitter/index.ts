@@ -650,23 +650,33 @@ async function replyToTweet(
       return { ok: true, replyId };
     };
 
-      const tryPostTweetLoginCookies = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
-      if (!loginCookies) return { ok: false, error: "Missing login_cookies" };
+      const tryCreateTweet = async (): Promise<{ ok: boolean; replyId?: string; error?: string }> => {
+      // /twitter/create_tweet uses auth_session (not login_cookies)
+      if (!authSession?.authToken || !authSession?.ct0) {
+        // Try with login_cookies as fallback via create_tweet endpoint
+        if (!loginCookies) return { ok: false, error: "Missing auth_session and login_cookies" };
+      }
 
       // Build request body with optional media attachment
       const requestBody: Record<string, unknown> = {
-        login_cookies: loginCookies,
         tweet_text: text,
         in_reply_to_tweet_id: tweetId,
         proxy: proxyUrl,
       };
+      
+      // Prefer auth_session, fallback to login_cookies
+      if (authSession?.authToken && authSession?.ct0) {
+        requestBody.auth_session = `auth_token=${authSession.authToken};ct0=${authSession.ct0}`;
+      } else if (loginCookies) {
+        requestBody.login_cookies = loginCookies;
+      }
       
       // Attach image if provided
       if (attachMediaUrl) {
         requestBody.media_url = attachMediaUrl;
       }
 
-      const response = await fetch(`${TWITTERAPI_BASE}/twitter/post_tweet`, {
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -676,7 +686,7 @@ async function replyToTweet(
       });
 
       const responseText = await response.text();
-      console.log(`[agent-scan-twitter] 📥 Reply API response (post_tweet login_cookies): ${response.status} - ${responseText.slice(0, 300)}`);
+      console.log(`[agent-scan-twitter] 📥 Reply API response (create_tweet): ${response.status} - ${responseText.slice(0, 300)}`);
 
       if (!response.ok) return { ok: false, error: `HTTP ${response.status}: ${responseText}` };
       const data = safeJsonParse(responseText) || {};
@@ -694,7 +704,7 @@ async function replyToTweet(
         return { ok: false, error: "Missing auth_session (X_AUTH_TOKEN / X_CT0_TOKEN)" };
       }
 
-      const response = await fetch(`${TWITTERAPI_BASE}/twitter/post_tweet`, {
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -703,16 +713,13 @@ async function replyToTweet(
         body: JSON.stringify({
           tweet_text: text,
           in_reply_to_tweet_id: tweetId,
-          auth_session: {
-            auth_token: authSession.authToken,
-            ct0: authSession.ct0,
-          },
+          auth_session: `auth_token=${authSession.authToken};ct0=${authSession.ct0}`,
           proxy: proxyUrl,
         }),
       });
 
       const responseText = await response.text();
-      console.log(`[agent-scan-twitter] 📥 Reply API response (post_tweet auth_session): ${response.status} - ${responseText.slice(0, 300)}`);
+      console.log(`[agent-scan-twitter] 📥 Reply API response (create_tweet auth_session): ${response.status} - ${responseText.slice(0, 300)}`);
 
       if (!response.ok) return { ok: false, error: `HTTP ${response.status}: ${responseText}` };
       const data = safeJsonParse(responseText) || {};
@@ -737,17 +744,17 @@ async function replyToTweet(
     }
     console.warn(`[agent-scan-twitter] ⚠️ create_tweet_v2 failed: ${v2Attempt.error}`);
 
-    // Attempt 2: post_tweet with login_cookies
-      const postAttempt = await runWithRetries(
-        `post_tweet(login_cookies)${attachMediaUrl ? ":media" : ""}`,
-        tryPostTweetLoginCookies,
+    // Attempt 2: create_tweet (v1 endpoint with auth_session or login_cookies)
+      const createAttempt = await runWithRetries(
+        `create_tweet${attachMediaUrl ? ":media" : ""}`,
+        tryCreateTweet,
         2
       );
-    if (postAttempt.ok && postAttempt.replyId) {
-      console.log(`[agent-scan-twitter] ✅ Reply sent to @${username || "unknown"}: ${postAttempt.replyId}`);
-      return { success: true, replyId: postAttempt.replyId };
+    if (createAttempt.ok && createAttempt.replyId) {
+      console.log(`[agent-scan-twitter] ✅ Reply sent to @${username || "unknown"}: ${createAttempt.replyId}`);
+      return { success: true, replyId: createAttempt.replyId };
     }
-    console.warn(`[agent-scan-twitter] ⚠️ post_tweet failed: ${postAttempt.error}`);
+    console.warn(`[agent-scan-twitter] ⚠️ create_tweet failed: ${createAttempt.error}`);
 
     // Attempt 3 (fallback): post_tweet with auth_session
     if (authSession) {
@@ -764,7 +771,7 @@ async function replyToTweet(
         return { success: false, error: `All attempts failed. Last error: ${fallback.error}` };
     }
 
-      return { success: false, error: `All attempts failed. Last error: ${postAttempt.error}` };
+      return { success: false, error: `All attempts failed. Last error: ${createAttempt.error}` };
     };
 
     // twitterapi.io attempt: try with media first, then fall back to text-only if media breaks.
@@ -1126,7 +1133,7 @@ Deno.serve(async (req) => {
       }> = [];
 
       // Prepare login cookies for twitterapi.io replies if needed.
-      // Prefer static cookies derived from X_FULL_COOKIE (no re-login) over dynamic login.
+      // Try static cookies first, fall back to dynamic login if they fail.
       if ((canPostRepliesWithStaticCookies || canPostRepliesWithDynamicLogin) && tweets.length > 0) {
         if (canPostRepliesWithStaticCookies) {
           loginCookies = buildLoginCookiesBase64FromEnv({
@@ -1135,9 +1142,12 @@ Deno.serve(async (req) => {
             xCt0Token,
           });
           if (!loginCookies) {
-            console.error("[agent-scan-twitter] ❌ Failed to build login cookies from env - will process but may skip cookie-based replies");
+            console.error("[agent-scan-twitter] ❌ Failed to build login cookies from env");
           }
-        } else if (canPostRepliesWithDynamicLogin) {
+        }
+        
+        // If static cookies failed or weren't available, try dynamic login
+        if (!loginCookies && canPostRepliesWithDynamicLogin) {
           console.log("[agent-scan-twitter] 🔐 Getting login cookies via dynamic login (fallback)...");
           loginCookies = await getLoginCookies({
             apiKey: twitterApiIoKey!,
@@ -1150,16 +1160,14 @@ Deno.serve(async (req) => {
 
           if (!loginCookies) {
             console.error("[agent-scan-twitter] ❌ Failed to get login cookies - will process but skip replies");
+          } else {
+            console.log("[agent-scan-twitter] ✅ Got login cookies via dynamic login");
           }
         }
       }
 
-      // ===== STANDALONE CATCH-UP: DISABLED to prevent spam =====
-      // Previously this would retry replies for completed launches that had no
-      // twitter_bot_replies record. However, replies were succeeding on X but
-      // not being recorded, causing infinite duplicate replies and potential bans.
-      // DO NOT re-enable without a proper dedup mechanism (e.g. marking posts
-      // as "reply_attempted" in agent_social_posts regardless of outcome).
+      // Catch-up retry logic is at the end of the function (after main processing).
+      // It uses pre-claim dedup: inserts pending reply record BEFORE attempting, preventing duplicates.
 
       // Sort tweets by ID descending (newest first) to process in order
       const sortedTweets = [...tweets].sort((a, b) => {
@@ -1467,7 +1475,78 @@ Deno.serve(async (req) => {
         }
       }
 
-      console.log(`[agent-scan-twitter] Completed in ${Date.now() - startTime}ms`);
+      // ========== CATCH-UP: Retry replies for completed launches that never got a reply ==========
+      let catchUpReplied = 0;
+      if (canPostReplies) {
+        try {
+          // Find completed launches from last 6 hours that have no twitter_bot_replies record
+          const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+          const { data: unrepliedLaunches } = await supabase
+            .from("agent_social_posts")
+            .select("post_id, post_author, parsed_name, parsed_symbol, fun_token_id")
+            .eq("status", "completed")
+            .not("fun_token_id", "is", null)
+            .gte("created_at", sixHoursAgo)
+            .order("created_at", { ascending: true })
+            .limit(5);
+
+          if (unrepliedLaunches && unrepliedLaunches.length > 0) {
+            for (const launch of unrepliedLaunches) {
+              // Check if reply already exists
+              const { data: existingReply } = await supabase
+                .from("twitter_bot_replies")
+                .select("id")
+                .eq("tweet_id", launch.post_id)
+                .maybeSingle();
+
+              if (existingReply) continue; // Already replied
+
+              // Get mint address from fun_tokens
+              const { data: tokenData } = await supabase
+                .from("fun_tokens")
+                .select("mint_address, name, ticker, image_url")
+                .eq("id", launch.fun_token_id)
+                .maybeSingle();
+
+              if (!tokenData?.mint_address) continue;
+
+              const replyText = `🦞 Token launched on $SOL!\n\n$${tokenData.ticker || launch.parsed_symbol || "TOKEN"} - ${tokenData.name || launch.parsed_name || "Token"}\nCA: ${tokenData.mint_address}\n\nTrading-Fees goes to your Panel, claim them any time.`;
+
+              console.log(`[agent-scan-twitter] 🔄 Catch-up reply for @${launch.post_author} tweet ${launch.post_id}`);
+
+              const replyResult = await replyToTweet(
+                launch.post_id,
+                replyText,
+                twitterApiIoKey || "",
+                loginCookies || "",
+                proxyUrl || "",
+                launch.post_author || "",
+                replyAuthSession,
+                oauthCreds,
+                tokenData.image_url || undefined
+              );
+
+              if (replyResult.success && replyResult.replyId) {
+                await supabase.from("twitter_bot_replies").insert({
+                  tweet_id: launch.post_id,
+                  tweet_author: launch.post_author || "",
+                  tweet_text: `!clawmode (catch-up)`,
+                  reply_text: replyText.slice(0, 500),
+                  reply_id: replyResult.replyId,
+                });
+                catchUpReplied++;
+                console.log(`[agent-scan-twitter] ✅ Catch-up reply sent for ${launch.post_id}`);
+              } else {
+                console.error(`[agent-scan-twitter] ❌ Catch-up reply failed for ${launch.post_id}:`, replyResult.error);
+              }
+            }
+          }
+        } catch (catchUpErr) {
+          console.error("[agent-scan-twitter] Catch-up error:", catchUpErr);
+        }
+      }
+
+      console.log(`[agent-scan-twitter] Completed in ${Date.now() - startTime}ms (catch-up replies: ${catchUpReplied})`);
 
       return new Response(
         JSON.stringify({
@@ -1476,6 +1555,7 @@ Deno.serve(async (req) => {
           results,
           rateLimited,
           searchMethod,
+          catchUpReplied,
           durationMs: Date.now() - startTime,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
