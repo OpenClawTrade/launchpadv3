@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Search, Zap, TrendingUp, Flame, Layers } from "lucide-react";
+import { Search, Zap, TrendingUp, Flame, Layers, Copy, CheckCircle } from "lucide-react";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useFunTokensPaginated, FunToken } from "@/hooks/useFunTokensPaginated";
 import { Input } from "@/components/ui/input";
@@ -24,10 +24,21 @@ function formatUsd(mcapSol: number | null | undefined, solPrice = 150): string {
 // ─── Token row card ───────────────────────────────────────────────────────────
 
 function TradeTokenCard({ token }: { token: FunToken }) {
+  const [copiedCA, setCopiedCA] = useState(false);
   const isGraduated = token.status === "graduated";
   const isNearGrad = (token.bonding_progress ?? 0) >= 80;
   const tradeUrl = token.mint_address ? `/launchpad/${token.mint_address}` : `/t/${token.ticker}`;
   const priceChange = token.price_change_24h ?? 0;
+
+  const handleCopyCA = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (token.mint_address) {
+      navigator.clipboard.writeText(token.mint_address);
+      setCopiedCA(true);
+      setTimeout(() => setCopiedCA(false), 2000);
+    }
+  };
 
   return (
     <Link
@@ -55,6 +66,21 @@ function TradeTokenCard({ token }: { token: FunToken }) {
         <div className="text-[12px] font-semibold text-foreground truncate leading-tight">{token.name}</div>
         <div className="text-[10px] font-mono text-muted-foreground">${token.ticker}</div>
       </div>
+
+      {/* CA */}
+      {token.mint_address && (
+        <div className="hidden sm:flex min-w-0 w-28 flex-shrink-0 items-center gap-1">
+          <code className="text-[10px] font-mono text-muted-foreground truncate">
+            {token.mint_address.slice(0, 4)}...{token.mint_address.slice(-4)}
+          </code>
+          <button
+            onClick={handleCopyCA}
+            className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          >
+            {copiedCA ? <CheckCircle className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          </button>
+        </div>
+      )}
 
       {/* Mcap */}
       <div className="hidden sm:block min-w-0 w-24 flex-shrink-0">

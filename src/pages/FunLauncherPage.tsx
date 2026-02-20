@@ -344,7 +344,7 @@ export default function FunLauncherPage() {
             </div>
 
             {/* Token Grid — 4 columns */}
-            <div className="px-4 pt-4 pb-8">
+            <div className="px-4 pt-4 pb-16">
               {tokensLoading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {Array.from({ length: 20 }).map((_, i) => (
