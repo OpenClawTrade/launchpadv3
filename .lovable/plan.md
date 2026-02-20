@@ -1,113 +1,105 @@
 
-## Fix: Enable Trading Agent Creation for !clawmode Token Launches
 
-### Root Cause
-When tokens are launched via `!clawmode` on X, the `agent-process-post` function creates an `agents` row and a `fun_tokens` row, but **never creates a `trading_agents` row**. This means:
-- No trading wallet keypair is generated or stored
-- `is_trading_agent_token` stays `false` on the fun_token
-- `trading_agent_id` is never set
-- `fun-distribute` skips these tokens for trading fee routing
-- Funding progress shows 0 because there's nothing to fund
+# Purge All Legacy TUNA Branding
 
-The `trading-agent-create` function handles all this correctly, but `agent-process-post` doesn't use any of that logic.
+## Summary
+A comprehensive find-and-replace across all pages, components, hooks, and public documentation to eliminate every user-visible reference to "TUNA", "SubTuna", "OpenTuna", "BuildTuna", "tunalaunch", and "tuna.fun" -- replacing them with Claw Mode equivalents.
 
-### The Fix
-After `agent-process-post` creates the `agents` row and launches the token, add a new block that:
+**Important**: Database table names (opentuna_*, subtuna_*) and edge function folder names are intentionally preserved for infrastructure stability. Only user-facing text, labels, URLs, and documentation are updated.
 
-1. **Generates a Solana keypair** for the trading agent (using the same pattern as `trading-agent-create`)
-2. **Encrypts the private key** with AES-256-GCM (same encryption as existing system)
-3. **Creates a `trading_agents` row** with the wallet, encrypted key, strategy defaults, and links to the agent
-4. **Updates the `fun_tokens` row** to set `is_trading_agent_token = true` and `trading_agent_id`
+---
 
-This ensures every `!clawmode` launch automatically gets a trading agent with a saved private key, enabling fee routing and eventual auto-trading.
+## Files to Change
 
-### Also: Fix the 3 Existing Tokens
-Create a one-time data fix for the 3 already-launched tokens that are missing trading agents. For each:
-- Generate a new keypair
-- Create the `trading_agents` row
-- Update the `fun_tokens` row with the link
+### Pages (src/pages/)
 
-### Files Changed
+| File | What's Wrong | Fix |
+|------|-------------|-----|
+| `AgentConnectPage.tsx` | "SubTuna" mentioned ~10 times, example uses `"TUNA"` ticker, `tuna.fun` in prompt URLs | Replace "SubTuna" with "Claw Communities", fix example ticker, update URLs to `clawmode.fun` |
+| `AgentDocsPage.tsx` | `!tunalaunch` command, tweet intent URL uses `@ClawMode !tunalaunch` | Change to `!clawmode` command |
+| `AgentClaimPage.tsx` | `!tunalaunch` command references, `@ClawMode` with wrong command | Update to `!clawmode` |
+| `AgentLogsAdminPage.tsx` | Card title says "Recent !tunalaunch Mentions" | Change to "Recent !clawmode Mentions" |
+| `ApiDocsPage.tsx` | Class names `TunaLaunchpadAPI` and `TunaLaunchpad` in code examples | Rename to `ClawLaunchpadAPI` / `ClawLaunchpad` |
+| `ApiDashboardPage.tsx` | Link to `x.com/buildtuna` | Change to `x.com/clawmode` |
+| `ClaudeLauncherPage.tsx` | Two Dune links to `dune.com/tunalaunch/stats` | Update to `dune.com/clawmode/stats` or remove |
+| `TreasuryAdminPage.tsx` | `tunalaunch.vercel.app` URL, passwords `tuna-treasury-2024` and `tuna2024treasury` | Update URL to `clawmode.vercel.app`, passwords to `claw2024treasury` |
+| `DeployerDustAdminPage.tsx` | Password `tuna2024treasury` | Change to `claw2024treasury` |
+| `TradingAgentsPage.tsx` | "SubTuna community" and "SubTuna" in step descriptions | Change to "Claw community" |
+| `WhitepaperPage.tsx` | Section ID `opentuna` in nav and anchor | Change to `claw-sdk` |
+| `ClawBookPage.tsx` | Tab value `"tuna"` used internally | Change to `"claw"` |
+| `SubClawPage.tsx` | Checks `ticker === "TUNA"` for system community | Change to `"CLAW"` |
+| `CompressedDistributePage.tsx` | Admin password `"tuna"` | Change to `"claw"` |
+| `FollowerScanPage.tsx` | Admin password `"tuna"` | Change to `"claw"` |
+| `ClawAdminLaunchPage.tsx` | Admin password `"tuna"` | Change to `"claw"` |
+| `PartnerFeesPage.tsx` | Default launchpad type `"tuna"` | Change to `"claw"` |
+| `ClawPostPage.tsx` | No user-visible text issues (DB queries use subtuna_ tables -- kept) | No change needed for DB refs |
 
-**`supabase/functions/agent-process-post/index.ts`**
-- Add keypair generation imports (same as `trading-agent-create`)
-- Add `encryptPrivateKey()` helper function
-- After the fun_token insert/update block (around line 1675), add ~50 lines that:
-  - Generate a Solana Keypair
-  - Encrypt the private key using `WALLET_ENCRYPTION_KEY` secret
-  - Insert into `trading_agents` table with strategy defaults (balanced: 20% SL, 50% TP, 3 max positions)
-  - Update `fun_tokens` to set `trading_agent_id`, `is_trading_agent_token = true`
-  - Log success/failure
+### Components (src/components/)
 
-**One-time fix for existing tokens** -- manual SQL or edge function call to:
-- Create `trading_agents` rows for the 3 existing agent tokens
-- Update their `fun_tokens` rows with `is_trading_agent_token = true`
+| File | What's Wrong | Fix |
+|------|-------------|-----|
+| `claw/ClawSDKDocs.tsx` | "SubTuna" label ~8 times, `tunanet` API references in code examples, `pump.fun` mention | Replace "SubTuna" with "Claw Communities", `tunanet` with `clawnet`, remove pump.fun |
+| `claw/ClawSDKIntegrations.tsx` | Integration named "SubTuna" | Rename to "Claw Social" |
+| `layout/Footer.tsx` | Link points to `/opentuna` | Change to `/sdk` |
+| `DomainRouter.tsx` | Comment says "os.clawmode.fun -> /opentuna" | Update comment to `/sdk` |
 
-### Technical Details
+### Hooks (src/hooks/)
 
-New code block in `agent-process-post` (after fun_token creation, ~line 1675):
+| File | What's Wrong | Fix |
+|------|-------------|-----|
+| `useSubTuna.ts` | Checks `ticker === "TUNA"`, labels show "TUNA" | Change to "CLAW" |
+| `useXBotAccounts.ts` | Field name `subtuna_ticker` -- DB column, keep as-is | No change (DB field) |
 
-```typescript
-// === CREATE TRADING AGENT WITH WALLET ===
-if (funTokenId && agent?.id) {
-  try {
-    const Keypair = (await import("https://esm.sh/@solana/web3.js@1.87.6")).Keypair;
-    const { encode: encodeBase58 } = await import("https://esm.sh/bs58@5.0.0");
-    
-    const keypair = Keypair.generate();
-    const walletAddress = keypair.publicKey.toBase58();
-    const privateKeyBase58 = encodeBase58(keypair.secretKey);
-    
-    const encryptionKey = Deno.env.get("WALLET_ENCRYPTION_KEY") || "opentuna-default-key-change-in-production";
-    const encryptedKey = await encryptPrivateKey(privateKeyBase58, encryptionKey);
-    
-    const { data: tradingAgent, error: taError } = await supabase
-      .from("trading_agents")
-      .insert({
-        name: cleanName,
-        ticker: cleanSymbol,
-        description: parsed.description || null,
-        avatar_url: finalImageUrl,
-        wallet_address: walletAddress,
-        wallet_private_key_encrypted: encryptedKey,
-        agent_id: agent.id,
-        fun_token_id: funTokenId,
-        mint_address: mintAddress,
-        creator_wallet: parsed.wallet || null,
-        strategy_type: "balanced",
-        stop_loss_pct: 20,
-        take_profit_pct: 50,
-        max_concurrent_positions: 3,
-        max_position_size_sol: 0.1,
-        status: "pending",
-        trading_capital_sol: 0,
-      })
-      .select("id")
-      .single();
-    
-    if (tradingAgent?.id) {
-      await supabase
-        .from("fun_tokens")
-        .update({
-          trading_agent_id: tradingAgent.id,
-          is_trading_agent_token: true,
-          agent_fee_share_bps: 3000, // 30% to agent per 30/30/40 split
-        })
-        .eq("id", funTokenId);
-      
-      console.log(`[agent-process-post] Trading agent created: ${tradingAgent.id}, wallet: ${walletAddress}`);
-    }
-  } catch (taErr) {
-    console.error("[agent-process-post] Failed to create trading agent:", taErr);
-    // Non-fatal - token still works, just won't have auto-trading
-  }
-}
-```
+### Tests
 
-The `encryptPrivateKey()` helper is copied from the existing `trading-agent-create` function (AES-256-GCM with SHA-256 key derivation).
+| File | What's Wrong | Fix |
+|------|-------------|-----|
+| `src/test/opentuna.test.tsx` | "OpenTuna" in test names and mock labels | Change to "Claw SDK" |
 
-### Security
-- Private keys are encrypted at rest using AES-256-GCM
-- The encryption key comes from the `WALLET_ENCRYPTION_KEY` secret (already configured)
-- Keys are stored in `trading_agents.wallet_private_key_encrypted` (existing column)
-- Only admin functions (`admin-export-wallet`) can decrypt them
+### Public Documentation
+
+| File | What's Wrong | Fix |
+|------|-------------|-----|
+| `public/rules.md` | "TUNA Agent Community Rules", "SubTuna" throughout | Full rebrand to "Claw" |
+| `public/heartbeat.md` | "TUNA Agent Heartbeat Protocol", "SubTuna" | Full rebrand to "Claw" |
+| `public/skill.md` | Entire file: "tuna-subtuna", "TUNA", `@BuildTuna`, `!tunalaunch`, `tuna.fun` URLs ~20 times | Full rebrand: `@clawmode`, `!clawmode`, `clawmode.fun` |
+| `public/skill.json` | `"tuna-subtuna"` name, "SubTuna" descriptions | Rebrand to "claw" |
+| `public/sdk/package.json` | GitHub URLs `buildtuna/tuna-agent-sdk` | Change to `openclaw/claw-agent-sdk` |
+| `public/sdk/README.md` | "SubTuna Communities" label | Change to "Claw Communities" |
+| `public/sdk/src/index.ts` | `TunaAgent` class, `TunaConfig` interface, `tna_live_` prefix | Rename to `ClawAgent`, `ClawConfig`, `oca_live_` |
+| `public/sdk/LICENSE` | Copyright says "TUNA" | Change to "Claw Mode" |
+| `public/TUNA_WHITEPAPER.md` | Entire filename and content is TUNA branded | Full rebrand to Claw |
+
+### App Router
+
+| File | What's Wrong | Fix |
+|------|-------------|-----|
+| `src/App.tsx` | Route `/opentuna` redirect (already redirects to `/sdk` -- functional but legacy path name visible in code) | Keep redirect for backwards compat, just update comment |
+
+---
+
+## What Will NOT Change (by design)
+
+- Database table names: `opentuna_agents`, `opentuna_dna`, `opentuna_fins`, `subtuna_posts`, `subtuna_reports`, etc.
+- Edge function folder names: `opentuna-dna-update`, `opentuna-api-key-create`, etc.
+- Supabase query `.from("opentuna_*")` and `.from("subtuna_*")` calls
+- CLI source files under `cli/` (separate package)
+- Internal variable names that map to DB columns (e.g., `subtuna_id`)
+
+---
+
+## Branding Reference
+
+| Old | New |
+|-----|-----|
+| TUNA | CLAW |
+| SubTuna | Claw Communities |
+| OpenTuna | Claw SDK |
+| BuildTuna / @BuildTuna | @clawmode |
+| !tunalaunch | !clawmode |
+| tuna.fun | clawmode.fun |
+| TunaAgent / TunaConfig | ClawAgent / ClawConfig |
+| tna_live_ | oca_live_ |
+| tunanet | clawnet |
+| tuna2024treasury | claw2024treasury |
+
