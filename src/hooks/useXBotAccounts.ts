@@ -248,18 +248,28 @@ export function useXBotAccounts() {
       if (accountError) throw accountError;
 
       if (rules) {
+        const updatePayload: Record<string, any> = {
+          monitored_mentions: rules.monitored_mentions,
+          tracked_cashtags: rules.tracked_cashtags,
+          min_follower_count: rules.min_follower_count,
+          require_blue_verified: rules.require_blue_verified,
+          require_gold_verified: rules.require_gold_verified,
+          author_cooldown_hours: rules.author_cooldown_hours,
+          max_replies_per_thread: rules.max_replies_per_thread,
+          enabled: rules.enabled,
+        };
+        if ('persona_prompt' in rules) {
+          updatePayload.persona_prompt = (rules as any).persona_prompt || null;
+        }
+        if ('tracked_keywords' in rules) {
+          updatePayload.tracked_keywords = (rules as any).tracked_keywords;
+        }
+        if ('author_cooldown_minutes' in rules) {
+          updatePayload.author_cooldown_minutes = (rules as any).author_cooldown_minutes;
+        }
         const { error: rulesError } = await supabase
           .from("x_bot_account_rules")
-          .update({
-            monitored_mentions: rules.monitored_mentions,
-            tracked_cashtags: rules.tracked_cashtags,
-            min_follower_count: rules.min_follower_count,
-            require_blue_verified: rules.require_blue_verified,
-            require_gold_verified: rules.require_gold_verified,
-            author_cooldown_hours: rules.author_cooldown_hours,
-            max_replies_per_thread: rules.max_replies_per_thread,
-            enabled: rules.enabled,
-          })
+          .update(updatePayload)
           .eq("account_id", id);
 
         if (rulesError) throw rulesError;

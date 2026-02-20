@@ -10,7 +10,7 @@ import { XBotRulesForm } from "@/components/admin/XBotRulesForm";
 import { XBotActivityPanel } from "@/components/admin/XBotActivityPanel";
 import { Play, RefreshCw, Shield } from "lucide-react";
 
-const ADMIN_PASSWORD = "tuna";
+const ADMIN_PASSWORD = "claw";
 const AUTH_STORAGE_KEY = "xbot-admin-auth";
 
 export default function XBotAdminPage() {

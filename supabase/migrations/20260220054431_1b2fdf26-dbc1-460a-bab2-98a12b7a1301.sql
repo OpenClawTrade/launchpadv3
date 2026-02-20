@@ -1,0 +1,1 @@
+ALTER TABLE x_bot_account_rules ADD COLUMN persona_prompt TEXT DEFAULT NULL;

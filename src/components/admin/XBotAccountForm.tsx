@@ -127,7 +127,7 @@ export function XBotAccountForm({
               <TabsTrigger value="basic">Basic</TabsTrigger>
               <TabsTrigger value="auth">Authentication</TabsTrigger>
               <TabsTrigger value="proxy">SOCKS5</TabsTrigger>
-              <TabsTrigger value="subtuna">SubTuna</TabsTrigger>
+              <TabsTrigger value="subtuna">Community</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4">
@@ -313,11 +313,11 @@ export function XBotAccountForm({
             <TabsContent value="subtuna" className="space-y-4">
               <div className="flex items-center gap-2 text-muted-foreground mb-2">
                 <Link2 className="h-4 w-4" />
-                <span className="text-sm">Link to SubTuna community for synchronized posting</span>
+                <span className="text-sm">Link to community for synchronized posting</span>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="subtuna_ticker">SubTuna Ticker</Label>
+                <Label htmlFor="subtuna_ticker">Community Ticker</Label>
                 <Input
                   id="subtuna_ticker"
                   value={formData.subtuna_ticker}
@@ -328,8 +328,8 @@ export function XBotAccountForm({
                   className="font-mono"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Enter the ticker (without t/) to link this X account to a SubTuna community. 
-                  When enabled, SubTuna posts will be cross-posted to X.
+                  Enter the ticker (without t/) to link this X account to a community. 
+                  When enabled, community posts will be cross-posted to X.
                 </p>
               </div>
 
@@ -339,7 +339,7 @@ export function XBotAccountForm({
                     Linked Community: <span className="text-primary">t/{formData.subtuna_ticker}</span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    SubTuna posts will be automatically posted to @{formData.username || "username"}'s X wall.
+                    Community posts will be automatically posted to @{formData.username || "username"}'s X wall.
                   </p>
                 </div>
               )}
