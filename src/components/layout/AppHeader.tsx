@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { Search, Plus, Menu, LayoutDashboard } from "lucide-react";
+import { Search, Plus, Menu } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
 import { useState } from "react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { EthPriceDisplay } from "./EthPriceDisplay";
 import { useChain } from "@/contexts/ChainContext";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
+import { usePanelNav } from "@/hooks/usePanelNav";
 import clawLogo from "@/assets/claw-logo.png";
 
 interface TopBarProps {
@@ -19,6 +20,7 @@ interface TopBarProps {
 export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
   const { chain } = useChain();
   const [search, setSearch] = useState("");
+  const { goToPanel } = usePanelNav();
 
   return (
     <header
@@ -75,14 +77,14 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
           <XLogo className="h-3.5 w-3.5" weight="fill" />
         </a>
 
-        <Link
-          to="/panel"
-          className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-bold transition-colors hover:bg-white/10 flex-shrink-0 border"
+        <button
+          onClick={goToPanel}
+          className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-bold transition-colors hover:bg-white/10 flex-shrink-0 border cursor-pointer"
           style={{ borderColor: "#4ade80", color: "#4ade80" }}
         >
           <img src={clawLogo} alt="" className="h-4 w-4 rounded-sm" />
           Panel
-        </Link>
+        </button>
 
         <Link
           to="/?create=1"
