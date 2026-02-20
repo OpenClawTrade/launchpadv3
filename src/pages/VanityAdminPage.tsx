@@ -105,17 +105,25 @@ const VanityAdminPage = () => {
   useEffect(() => {
     const normalize = (url: string) => url.replace(/\/+$/, '');
 
+    const ensureHttps = (url: string) => {
+      if (url.startsWith('https://') || url.startsWith('http://')) return url;
+      return `https://${url}`;
+    };
+
+    const isValid = (url: string | undefined | null): url is string =>
+      !!url && url.length > 3 && !url.includes('${');
+
     const resolve = () => {
       const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.meteoraApiUrl as string | undefined;
-      if (fromWindow && fromWindow.startsWith('https://') && !fromWindow.includes('${')) {
-        return { url: normalize(fromWindow), source: 'window' as const };
+      if (isValid(fromWindow)) {
+        return { url: normalize(ensureHttps(fromWindow)), source: 'window' as const };
       }
 
       // Only trust localStorage after runtime config has finished attempting to load.
       if ((window as any)?.__PUBLIC_CONFIG_LOADED__) {
         const fromStorage = localStorage.getItem('meteoraApiUrl');
-        if (fromStorage && fromStorage.startsWith('https://') && !fromStorage.includes('${')) {
-          return { url: normalize(fromStorage), source: 'storage' as const };
+        if (isValid(fromStorage)) {
+          return { url: normalize(ensureHttps(fromStorage)), source: 'storage' as const };
         }
       }
 
