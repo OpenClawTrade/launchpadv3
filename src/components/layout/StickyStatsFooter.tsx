@@ -27,6 +27,7 @@ export function StickyStatsFooter() {
 
   const footer = (
     <div
+      className="sticky-stats-footer"
       style={{
         position: "fixed",
         bottom: 0,
@@ -38,7 +39,6 @@ export function StickyStatsFooter() {
         borderTop: "1px solid hsl(222 20% 14%)",
         display: "flex",
         alignItems: "center",
-        paddingLeft: isMobile ? "0px" : "160px",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingLeft: "16px", paddingRight: "16px", overflowX: "auto" }}>

@@ -9,3 +9,19 @@
     background-color: revert !important;
   }
 }
+
+/* Global mobile overflow prevention */
+html, body, #root {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Footer: desktop sidebar offset, removed on mobile */
+.sticky-stats-footer {
+  padding-left: 160px;
+}
+@media (max-width: 767px) {
+  .sticky-stats-footer {
+    padding-left: 0 !important;
+  }
+}
