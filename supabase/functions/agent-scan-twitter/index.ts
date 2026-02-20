@@ -994,8 +994,8 @@ Deno.serve(async (req) => {
       }
 
       // Try Official X API first (Bearer Token), fallback to twitterapi.io
-      const officialSearchQuery = "(tunalaunch OR launchtuna OR \"!clawmode\") -is:retweet";
-      const twitterApiIoMentionQuery = "(@tunalaunch OR @clawmode) -is:retweet";
+      const officialSearchQuery = "(clawmode OR \"!clawmode\") -is:retweet";
+      const twitterApiIoMentionQuery = "(@clawmode) -is:retweet";
       const twitterApiIoLaunchQuery = "\"!clawmode\" -is:retweet -is:reply";
       let tweets: TweetResult[] = [];
       let rateLimited = false;
@@ -1170,7 +1170,7 @@ Deno.serve(async (req) => {
       for (const tweet of sortedTweets) {
         const tweetId = tweet.id;
         const tweetText = tweet.text;
-        const normalizedText = tweetText.replace(/!launchtuna/gi, "!tunalaunch");
+        const normalizedText = tweetText.replace(/!launchtuna/gi, "!clawmode");
         
         // Detect !clawmode <text> command (replaces !launch)
         const clawmodeMatch = tweetText.match(/!clawmode\s+(.+?)(?:\n|$)/i);
@@ -1214,11 +1214,10 @@ Deno.serve(async (req) => {
           "🦞 Hey @",
           "🦞 Token launched!",
           "🦞 Trading Agent launched",
-          "Powered by TUNA Agents",
           "Powered by Claw Mode",
+          "Trading-Fees goes to your Panel",
           "is now live on TUNA!",
-          "80% of fees go to you",
-          "80% of fees fund your agent",
+          "claim them any time",
         ];
         if (botReplySignatures.some(sig => tweetText.includes(sig))) {
           console.log(`[agent-scan-twitter] ⏭️ Skipping ${tweetId} - looks like a bot reply`);
@@ -1226,8 +1225,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Validate command presence - accept !tunalaunch, !launchtuna, or !launch <text>
-        if (!normalizedText.toLowerCase().includes("!tunalaunch") && !isAutoLaunch) {
+        // Validate command presence - accept !clawmode or auto-launch
+        if (!normalizedText.toLowerCase().includes("!clawmode") && !isAutoLaunch) {
           console.log(`[agent-scan-twitter] Skipping ${tweetId} - no launch command`);
           results.push({ tweetId, status: "skipped_no_command" });
           continue;

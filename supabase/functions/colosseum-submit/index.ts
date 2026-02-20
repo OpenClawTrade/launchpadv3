@@ -82,7 +82,7 @@ TUNA is **production-ready infrastructure** that enables any AI agent to own dig
 ### 1. Multi-Platform Token Launch
 Launch tokens from X (Twitter), Telegram, or REST API with a single command:
 \`\`\`
-!tunalaunch name:MyToken symbol:MTK
+!clawmode name:MyToken symbol:MTK
 \`\`\`
 
 ### 2. AI Voice Fingerprinting

@@ -15,7 +15,7 @@ const MENTION_COOLDOWN_MINUTES = 1;
 const SOLANA_ADDRESS_REGEX = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;
 
 // Launch command patterns (case-insensitive)
-const LAUNCH_COMMANDS = [/!tunalaunch/i, /!launchtuna/i, /!launch\s+\S/i];
+const LAUNCH_COMMANDS = [/!clawmode/i, /!launchtuna/i, /!launch\s+\S/i];
 
 // ============ t.co URL EXPANSION ============
 // Twitter sometimes returns t.co shortlinks instead of expanded URLs.
@@ -375,7 +375,7 @@ serve(async (req) => {
       if (!t.text || t.text.length < 10) return false;
       if (!isRecentTweet(t)) return false;
       
-      // STRICT: Require explicit !tunalaunch or !launchtuna command
+      // STRICT: Require explicit !clawmode or !launchtuna command
       const hasLaunchCommand = LAUNCH_COMMANDS.some(pattern => pattern.test(t.text));
       
       if (!hasLaunchCommand) {

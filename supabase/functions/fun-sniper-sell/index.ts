@@ -116,7 +116,7 @@ serve(async (req) => {
         }
 
         // Call Meteora API to execute sell (server-side sign)
-        const meteoraApiUrl = Deno.env.get('METEORA_API_URL') || 'https://tunalaunch.vercel.app';
+        const meteoraApiUrl = Deno.env.get('METEORA_API_URL') || 'https://clawmode.vercel.app';
 
         const sellResponse = await fetch(`${meteoraApiUrl}/api/swap/execute`, {
           method: 'POST',
