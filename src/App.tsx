@@ -73,7 +73,7 @@ const PanelPage = lazy(() => import("./pages/PanelPage"));
 // Minimal loading spinner for route transitions
 function RouteLoader() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center relative z-[1]">
       <div className="w-6 h-6 border-2 border-transparent border-t-primary rounded-full animate-spin" />
     </div>
   );
@@ -107,6 +107,7 @@ const App = () => (
               <BrowserRouter>
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
+                  <div className="relative z-[1]">
                   <Routes>
                     <Route path="/" element={<FunLauncherPage />} />
                     {/* Chain-specific launch routes */}
@@ -165,6 +166,7 @@ const App = () => (
                      <Route path="/earnings" element={<Navigate to="/panel?tab=earnings" replace />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </div>
                 </Suspense>
               </BrowserRouter>
             </ErrorBoundary>

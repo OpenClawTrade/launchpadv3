@@ -160,7 +160,7 @@ export default function FunLauncherPage() {
   }, [tokens, activeFilter, promotedTokenIds]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen relative z-[1]">
       {/* Sidebar */}
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 

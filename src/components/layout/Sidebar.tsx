@@ -148,7 +148,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   return (
     <aside
-      className="fixed top-0 left-0 h-screen z-40 flex-shrink-0 bg-sidebar border-r border-border"
+      className="fixed top-0 left-0 h-screen z-40 flex-shrink-0 bg-sidebar/80 backdrop-blur-md border-r border-border"
       style={{ width: "160px" }}
     >
       <SidebarContent />
