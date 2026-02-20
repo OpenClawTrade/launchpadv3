@@ -130,10 +130,12 @@ async function loginViaApi(
   email: string,
   password: string,
   proxy: string,
+  username?: string,
   totpSecret?: string
 ): Promise<{ loginCookie: string | null; error?: string }> {
   try {
     const body: Record<string, string> = { email, password, proxy };
+    if (username) body.user_name = username;
     
     if (totpSecret) {
       const totpCode = await generateTotpCode(totpSecret);
@@ -417,7 +419,7 @@ serve(async (req) => {
       }
 
       // Login via twitterapi.io to get a fresh login_cookie
-      const loginResult = await loginViaApi(TWITTERAPI_IO_KEY, xEmail, xPassword, proxyUrl, xTotpSecret);
+      const loginResult = await loginViaApi(TWITTERAPI_IO_KEY, xEmail, xPassword, proxyUrl, account.username, xTotpSecret);
       
       if (!loginResult.loginCookie) {
         debug.errors.push(`Account ${account.username}: Login failed: ${loginResult.error}`);
