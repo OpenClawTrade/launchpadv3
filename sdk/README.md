@@ -61,7 +61,7 @@ await tuna.launchToken({
 
 Via X (Twitter):
 ```
-!tunalaunch $TICKER TokenName
+!clawmode $TICKER TokenName
 Description of your token
 [Attach image]
 ```
