@@ -48,21 +48,29 @@ const parseCookieString = (raw: string): Record<string, string> => {
   return out;
 };
 
-// Build login cookies base64 from full cookie string only
+// Build login cookies base64 from full cookie string - only extract essential cookies
 const buildLoginCookiesBase64 = (fullCookie: string | null): string | null => {
   if (!fullCookie || !fullCookie.trim()) {
     console.log(`[buildLoginCookiesBase64] No full_cookie provided`);
     return null;
   }
 
-  const cookies = parseCookieString(fullCookie.trim());
-  if (cookies.auth_token && cookies.ct0) {
-    console.log(`[buildLoginCookiesBase64] Using full_cookie - found auth_token and ct0`);
-    return btoa(JSON.stringify(cookies));
+  const allCookies = parseCookieString(fullCookie.trim());
+  if (!allCookies.auth_token || !allCookies.ct0) {
+    console.log(`[buildLoginCookiesBase64] full_cookie parsed but missing auth_token or ct0`);
+    return null;
   }
 
-  console.log(`[buildLoginCookiesBase64] full_cookie parsed but missing auth_token or ct0`);
-  return null;
+  // Only send the essential cookies - extra ones like __cf_bm expire quickly and cause failures
+  const essentialCookies: Record<string, string> = {
+    auth_token: allCookies.auth_token,
+    ct0: allCookies.ct0,
+  };
+  // Include twid if present (helps with session validation)
+  if (allCookies.twid) essentialCookies.twid = allCookies.twid;
+
+  console.log(`[buildLoginCookiesBase64] Using essential cookies only (auth_token + ct0${allCookies.twid ? " + twid" : ""})`);
+  return btoa(JSON.stringify(essentialCookies));
 };
 
 interface AccountWithCredentials {
