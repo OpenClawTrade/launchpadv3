@@ -148,6 +148,7 @@ const App = () => (
                     
                     <Route path="/agents/bags" element={<BagsAgentsPage />} />
                     <Route path="/agents/trading" element={<Navigate to="/agents?tab=trading" replace />} />
+                    <Route path="/trading-agents" element={<Navigate to="/agents?tab=trading" replace />} />
                     <Route path="/agents/trading/:id" element={<TradingAgentProfilePage />} />
                     <Route path="/admin/clawbook" element={<ClawBookAdminPage />} />
                     <Route path="/admin/agent-logs" element={<AgentLogsAdminPage />} />
