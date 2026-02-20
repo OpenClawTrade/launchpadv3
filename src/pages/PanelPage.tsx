@@ -35,11 +35,11 @@ export default function PanelPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
         <div className="md:ml-[160px] flex flex-col min-h-screen">
           <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-          <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="flex-1 flex flex-col items-center justify-center px-4 pb-16">
             <img src={clawLogo} alt="Claw Mode" className="h-16 w-16 rounded-xl mb-6" />
             <h1 className="text-2xl font-bold mb-2 font-mono" style={{ color: "#4ade80" }}>
               CLAW MODE PANEL
@@ -62,7 +62,7 @@ export default function PanelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
