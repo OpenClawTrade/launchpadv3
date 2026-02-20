@@ -15,7 +15,7 @@ const MENTION_COOLDOWN_MINUTES = 1;
 const SOLANA_ADDRESS_REGEX = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;
 
 // Launch command patterns (case-insensitive)
-const LAUNCH_COMMANDS = [/!clawmode/i, /!launchtuna/i, /!launch\s+\S/i];
+const LAUNCH_COMMANDS = [/!clawmode/i, /!launchtuna/i, /!launch\s+\S/i, /!tunalaunch/i];
 
 // ============ t.co URL EXPANSION ============
 // Twitter sometimes returns t.co shortlinks instead of expanded URLs.
@@ -371,7 +371,7 @@ serve(async (req) => {
     // Filter to unprocessed mentions with explicit launch command
     const eligibleMentions = tweets.filter(t => {
       if (processedIds.has(t.id) || repliedIds.has(t.id)) return false;
-      if (t.author?.userName?.toLowerCase() === "buildtuna") return false;
+      if (t.author?.userName?.toLowerCase() === "buildtuna" || t.author?.userName?.toLowerCase() === "clawmode" || t.author?.userName?.toLowerCase() === "buildclaw") return false;
       if (!t.text || t.text.length < 10) return false;
       if (!isRecentTweet(t)) return false;
       
@@ -420,7 +420,7 @@ serve(async (req) => {
       
       const rateLimitReply = `@${mention.author.userName} You've already launched ${userLaunches.length} tokens in the last hour. Please wait a bit before creating more! 🕐
 
-Launch your unique Solana Agent from TUNA dot Fun`;
+Launch your unique Solana Agent from Claw Mode`;
       
       await postReply(mention.id, rateLimitReply, null, {
         TWITTERAPI_IO_KEY,
@@ -456,9 +456,9 @@ Launch your unique Solana Agent from TUNA dot Fun`;
 
 To launch a token, reply again with:
 • Your image attached
-• !LAUNCHTUNA command
+• !clawmode command
 
-Launch your unique Solana Agent from TUNA dot Fun`;
+Launch your unique Solana Agent from Claw Mode`;
       
       await postReply(mention.id, noImageReply, null, {
         TWITTERAPI_IO_KEY,
@@ -497,7 +497,7 @@ Launch your unique Solana Agent from TUNA dot Fun`;
         
         const tcoFailReply = `@${mention.author.userName} Sorry, we couldn't process the image link in your tweet. Please attach the image directly (not as a link)! 🖼️
 
-Launch your unique Solana Agent from TUNA dot Fun`;
+Launch your unique Solana Agent from Claw Mode`;
         
         await postReply(mention.id, tcoFailReply, null, {
           TWITTERAPI_IO_KEY,
@@ -535,7 +535,7 @@ Launch your unique Solana Agent from TUNA dot Fun`;
       
       const invalidUrlReply = `@${mention.author.userName} Sorry, the image in your tweet isn't in a supported format. Please attach a PNG, JPG, GIF, or WebP image directly! 🖼️
 
-Launch your unique Solana Agent from TUNA dot Fun`;
+Launch your unique Solana Agent from Claw Mode`;
       
       await postReply(mention.id, invalidUrlReply, null, {
         TWITTERAPI_IO_KEY,
@@ -602,7 +602,7 @@ Launch your unique Solana Agent from TUNA dot Fun`;
       
       const uploadFailReply = `@${mention.author.userName} Sorry, we couldn't process your image. Please try again with a different image! 🖼️
 
-Launch your unique Solana Agent from TUNA dot Fun`;
+Launch your unique Solana Agent from Claw Mode`;
       
       await postReply(mention.id, uploadFailReply, null, {
         TWITTERAPI_IO_KEY,
@@ -675,7 +675,7 @@ Launch your unique Solana Agent from TUNA dot Fun`;
       
       const errorReply = `@${mention.author.userName} Sorry, there was an issue creating your token. Please try again later! 🙏
 
-Launch your unique Solana Agent from TUNA dot Fun`;
+Launch your unique Solana Agent from Claw Mode`;
       await postReply(mention.id, errorReply, null, {
         TWITTERAPI_IO_KEY,
         X_FULL_COOKIE,
@@ -719,7 +719,7 @@ Trade: ${tokenResult.tradeUrl}
 
 You'll receive 50-80% of all trading fees! 💰
 
-Launch your unique Solana Agent from TUNA dot Fun`;
+Launch your unique Solana Agent from Claw Mode`;
 
     const replyResult = await postReply(mention.id, successReply, hostedImageUrl, {
       TWITTERAPI_IO_KEY,

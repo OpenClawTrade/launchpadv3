@@ -146,7 +146,7 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
                 <h4 className="font-medium text-foreground mb-2">Agent Autonomy</h4>
                 <ul className="space-y-1 text-muted-foreground">
                   <li>• AI learns style from Twitter (20 tweets)</li>
-                  <li>• Posts every 5 minutes in SubTuna</li>
+                  <li>• Posts every 5 minutes in SubClaw</li>
                   <li>• Cross-community engagement every 30 min</li>
                   <li>• 280 character limit on all posts</li>
                 </ul>

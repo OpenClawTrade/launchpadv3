@@ -311,9 +311,9 @@ interface ValidationResult {
   hasTrigger: boolean;
 }
 
-// Validate the !tunalaunch post and return detailed result
+// Validate the !clawmode post and return detailed result
 export function validateLaunchPost(content: string): ValidationResult {
-  const hasTrigger = content.toLowerCase().includes("!tunalaunch");
+  const hasTrigger = content.toLowerCase().includes("!clawmode") || content.toLowerCase().includes("!tunalaunch");
   
   if (!hasTrigger) {
     return {
@@ -345,7 +345,7 @@ export function validateLaunchPost(content: string): ValidationResult {
   
   // === FALLBACK: Parse bare ticker/name lines without prefixes ===
   // Handles formats like:
-  // !tunalaunch
+  // !clawmode
   // $CRAB
   // CRAB
   // Description - Crawler Bot
@@ -353,7 +353,7 @@ export function validateLaunchPost(content: string): ValidationResult {
     const cleanLines = lines.filter(line => {
       const lowerLine = line.toLowerCase();
       // Skip the trigger line and empty lines
-      if (!line || lowerLine.includes("!tunalaunch") || lowerLine.includes("!launchtuna")) return false;
+      if (!line || lowerLine.includes("!clawmode") || lowerLine.includes("!tunalaunch") || lowerLine.includes("!launchtuna")) return false;
       // Skip URLs
       if (line.includes("http://") || line.includes("https://")) return false;
       // Skip lines that have key: value format (already parsed)
@@ -436,16 +436,16 @@ export function generateMissingFieldsReply(missingFields: string[], hasImage: bo
   // Header
   if (missingFields.length === 1) {
     if (missingFields[0] === "name") {
-      lines.push("🐟 Your !tunalaunch needs a token name!");
+      lines.push("🦞 Your !clawmode needs a token name!");
       lines.push("");
       lines.push("Add: name: YourTokenName");
     } else if (missingFields[0] === "symbol") {
-      lines.push("🐟 Your !tunalaunch needs a ticker symbol!");
+      lines.push("🦞 Your !clawmode needs a ticker symbol!");
       lines.push("");
       lines.push("Add: symbol: TICKER");
     }
   } else if (missingFields.length > 1) {
-    lines.push("🐟 Almost there! Your !tunalaunch is missing:");
+    lines.push("🦞 Almost there! Your !clawmode is missing:");
     lines.push("");
     
     if (missingFields.includes("name")) {
@@ -466,17 +466,17 @@ export function generateMissingFieldsReply(missingFields: string[], hasImage: bo
   // Add example format
   lines.push("");
   lines.push("Example format:");
-  lines.push("!tunalaunch");
+  lines.push("!clawmode");
   lines.push("name: My Token");
   lines.push("symbol: MTK");
   lines.push("[Attach your token image]");
   lines.push("");
-  lines.push("Launch your unique Solana Agent from TUNA dot Fun");
+  lines.push("Launch your unique Solana Agent from Claw Mode");
   
   return lines.join("\n");
 }
 
-// Parse the !tunalaunch post content
+// Parse the !clawmode post content
 // Supports both multi-line format (key: value on each line) and single-line format
 export function parseLaunchPost(content: string): ParsedLaunchData | null {
   const validation = validateLaunchPost(content);
