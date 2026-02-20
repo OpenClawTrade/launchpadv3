@@ -15,7 +15,7 @@ const MENTION_COOLDOWN_MINUTES = 1;
 const SOLANA_ADDRESS_REGEX = /[1-9A-HJ-NP-Za-km-z]{32,44}/g;
 
 // Launch command patterns (case-insensitive)
-const LAUNCH_COMMANDS = [/!clawmode/i, /!launchtuna/i, /!launch\s+\S/i, /!tunalaunch/i];
+const LAUNCH_COMMANDS = [/!clawmode/i];
 
 // ============ t.co URL EXPANSION ============
 // Twitter sometimes returns t.co shortlinks instead of expanded URLs.
@@ -269,10 +269,10 @@ serve(async (req) => {
       }
     }
 
-    console.log("[mention-launcher] 🔍 Searching for @buildtuna mentions...");
+    console.log("[mention-launcher] 🔍 Searching for @clawmode mentions...");
 
     // Search for mentions
-    const searchQueries = ["@buildtuna", "to:buildtuna"];
+    const searchQueries = ["@clawmode", "to:clawmode"];
     let allTweets: Tweet[] = [];
     const seenIds = new Set<string>();
 
@@ -306,7 +306,7 @@ serve(async (req) => {
     // Also try mentions endpoint
     try {
       const mentionsUrl = new URL(`${TWITTERAPI_BASE}/twitter/user/mentions`);
-      mentionsUrl.searchParams.set("userName", "buildtuna");
+      mentionsUrl.searchParams.set("userName", "clawmode");
       mentionsUrl.searchParams.set("count", "50");
       
       const mentionsResponse = await fetch(mentionsUrl.toString(), {
@@ -371,7 +371,7 @@ serve(async (req) => {
     // Filter to unprocessed mentions with explicit launch command
     const eligibleMentions = tweets.filter(t => {
       if (processedIds.has(t.id) || repliedIds.has(t.id)) return false;
-      if (t.author?.userName?.toLowerCase() === "buildtuna" || t.author?.userName?.toLowerCase() === "clawmode" || t.author?.userName?.toLowerCase() === "buildclaw") return false;
+      if (["clawmode", "buildclaw", "openclaw", "buildtuna"].includes(t.author?.userName?.toLowerCase() || "")) return false;
       if (!t.text || t.text.length < 10) return false;
       if (!isRecentTweet(t)) return false;
       

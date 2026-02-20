@@ -433,13 +433,13 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Check if contains launch command (!clawmode, !tunalaunch, or !launch <text>)
-        const hasStandardCommand = tweetText.toLowerCase().includes("!clawmode") || tweetText.toLowerCase().includes("!tunalaunch");
-        const launchMatch = tweetText.match(/!launch\s+(.+?)(?:\n|$)/i);
-        const isAutoLaunch = launchMatch && !tweetText.toLowerCase().includes("!tunalaunch") && !tweetText.toLowerCase().includes("!launchtuna") && !tweetText.toLowerCase().includes("!clawmode");
-        const autoLaunchPrompt = isAutoLaunch ? launchMatch[1].trim() : null;
+        // Check if contains launch command (!clawmode only)
+        const hasLaunchCommand = tweetText.toLowerCase().includes("!clawmode");
+        const clawmodeMatch = tweetText.match(/!clawmode\s+(.+?)(?:\n|$)/i);
+        const isAutoLaunch = !!clawmodeMatch;
+        const autoLaunchPrompt = isAutoLaunch ? clawmodeMatch[1].trim() : null;
         
-        if (!hasStandardCommand && !isAutoLaunch) {
+        if (!hasLaunchCommand) {
           continue;
         }
 
@@ -480,7 +480,7 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (!existingRateLimitReply) {
-            const rateLimitText = `🐟 Hey @${username}! There is a daily limit of 3 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
+            const rateLimitText = `🦞 Hey @${username}! There is a daily limit of 3 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
             const rateLimitReply = await replyToTweet(
               tweetId,
               rateLimitText,

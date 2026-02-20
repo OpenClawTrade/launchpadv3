@@ -313,7 +313,7 @@ interface ValidationResult {
 
 // Validate the !clawmode post and return detailed result
 export function validateLaunchPost(content: string): ValidationResult {
-  const hasTrigger = content.toLowerCase().includes("!clawmode") || content.toLowerCase().includes("!tunalaunch");
+  const hasTrigger = content.toLowerCase().includes("!clawmode");
   
   if (!hasTrigger) {
     return {
@@ -353,7 +353,7 @@ export function validateLaunchPost(content: string): ValidationResult {
     const cleanLines = lines.filter(line => {
       const lowerLine = line.toLowerCase();
       // Skip the trigger line and empty lines
-      if (!line || lowerLine.includes("!clawmode") || lowerLine.includes("!tunalaunch") || lowerLine.includes("!launchtuna")) return false;
+      if (!line || lowerLine.includes("!clawmode")) return false;
       // Skip URLs
       if (line.includes("http://") || line.includes("https://")) return false;
       // Skip lines that have key: value format (already parsed)

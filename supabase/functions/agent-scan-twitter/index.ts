@@ -1170,7 +1170,7 @@ Deno.serve(async (req) => {
       for (const tweet of sortedTweets) {
         const tweetId = tweet.id;
         const tweetText = tweet.text;
-        const normalizedText = tweetText.replace(/!launchtuna/gi, "!clawmode");
+        const normalizedText = tweetText;
         
         // Detect !clawmode <text> command (replaces !launch)
         const clawmodeMatch = tweetText.match(/!clawmode\s+(.+?)(?:\n|$)/i);
@@ -1283,7 +1283,7 @@ Deno.serve(async (req) => {
 
             // Reply with rate limit message
             if (canPostReplies) {
-              const rateLimitText = `🐟 Hey @${username}! There is a daily limit of 3 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
+              const rateLimitText = `🦞 Hey @${username}! There is a daily limit of 3 Agent launches per X account.\n\nPlease try again tomorrow! 🌅`;
               
               const rateLimitReply = await replyToTweet(
                 tweetId,
