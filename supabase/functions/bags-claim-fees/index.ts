@@ -10,7 +10,7 @@ const corsHeaders = {
 };
 
 const BAGS_API_URL = "https://public-api-v2.bags.fm/api/v1";
-const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
+const TREASURY_WALLET = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 
 // Minimum claimable amount (avoid tiny claims that waste gas)
 const MIN_CLAIM_SOL = 0.01;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { Gift, Handshake, Building2, Users, Zap, Shield, TrendingUp, Clock, ExternalLink } from "lucide-react";
+import { Gift, Handshake, Building2, Users, Zap, Shield, TrendingUp, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AppHeader } from "@/components/layout/AppHeader";

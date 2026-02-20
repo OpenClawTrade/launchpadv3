@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 // Treasury wallet
-const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
+const TREASURY_WALLET = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 
 // Buyback allocation from claimed fees
 const BUYBACK_FEE_SHARE = 0.3; // 30%

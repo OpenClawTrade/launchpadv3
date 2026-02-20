@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 // Treasury wallet
-const TREASURY_WALLET = "FDkGeRVwRo7dyWf9CaYw9Y8ZdoDnETiPDCyu5K1ghr5r";
+const TREASURY_WALLET = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 
 // Partner fee split configuration (3 weeks from Feb 6, 2026)
 // IMPORTANT: Only applies to tokens LAUNCHED after this date (not retroactive)
@@ -42,9 +42,10 @@ const API_USER_FEE_SHARE = 0.5;   // 50% to API account owner (1% of 2%)
 const API_PLATFORM_FEE_SHARE = 0.5; // 50% to platform (1% of 2%)
 
 // Fee distribution splits for AGENT-LAUNCHED tokens
-// Agents earn 80%, platform keeps 20%
-const AGENT_FEE_SHARE = 0.8;      // 80% to agent
-const AGENT_PLATFORM_FEE_SHARE = 0.2; // 20% to platform
+// New 3-way split: 30% creator, 30% agent trading pool, 40% system
+const AGENT_CREATOR_FEE_SHARE = 0.3;   // 30% to X launcher/creator
+const AGENT_TRADING_FEE_SHARE = 0.3;   // 30% to agent trading wallet
+const AGENT_PLATFORM_FEE_SHARE = 0.4;  // 40% to platform
 
 // Minimum SOL to distribute (avoid micro-transactions that eat gas)
 const MIN_DISTRIBUTION_SOL = 0.05;
@@ -465,12 +466,12 @@ serve(async (req) => {
       let partnerAmount = 0;
 
       if (isAgentToken) {
-        // Agent tokens: 80/20 split between agent and platform
-        // For trading agents: 50/50 split
+        // Agent tokens: 30% creator / 30% agent trading / 40% system
         const isTradingAgent = !!group.tradingAgentId;
-        const agentShare = isTradingAgent ? 0.5 : ((token.agent_fee_share_bps || 8000) / 10000); // Trading agents get 50%, regular agents get 80%
-        recipientAmount = claimedSol * agentShare;
-        platformAmount = claimedSol * (1 - agentShare);
+        recipientAmount = claimedSol * AGENT_TRADING_FEE_SHARE; // 30% to agent/trading wallet
+        platformAmount = claimedSol * AGENT_PLATFORM_FEE_SHARE; // 40% to platform
+        // Creator 30% is handled separately below (held if no wallet linked yet)
+        const creatorAmount = claimedSol * AGENT_CREATOR_FEE_SHARE; // 30% to X creator
         
         // Partner split from platform share
         if (isTokenEligibleForPartnerSplit(token.created_at)) {
@@ -478,8 +479,11 @@ serve(async (req) => {
           platformAmount = platformAmount * 0.5;
         }
         
+        // Store creator amount for later distribution
+        (group as any)._creatorAmount = creatorAmount;
+        
         console.log(
-          `[fun-distribute] ${isTradingAgent ? 'Trading' : 'Standard'} Agent Token ${token.ticker}: ${claimedSol} SOL → Agent ${recipientAmount.toFixed(6)} (${agentShare * 100}%), Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}`
+          `[fun-distribute] ${isTradingAgent ? 'Trading' : 'Standard'} Agent Token ${token.ticker}: ${claimedSol} SOL → Agent 30% (${recipientAmount.toFixed(6)}), Creator 30% (${creatorAmount.toFixed(6)}), Platform 40% (${platformAmount.toFixed(6)})${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}`
         );
       } else if (isApiToken) {
         // API tokens: 50/50 split between API user and platform

@@ -8,8 +8,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const AGENT_FEE_SHARE = 0.8;
-const TRADING_AGENT_FEE_SHARE = 0.5;
+const CREATOR_FEE_SHARE = 0.3;        // 30% to creator (X launcher)
+const AGENT_FEE_SHARE = 0.3;          // 30% to agent trading wallet  
+const TRADING_AGENT_FEE_SHARE = 0.3;  // 30% to trading agent wallet
+const SYSTEM_FEE_SHARE = 0.4;         // 40% to system treasury
 const MIN_DISTRIBUTION_SOL = 0.05;
 
 serve(async (req) => {
