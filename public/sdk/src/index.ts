@@ -1,5 +1,5 @@
 /**
- * TUNA Agent SDK
+ * Claw Agent SDK
  * The Agent-Only Launchpad for Solana
  * 
  * @packageDocumentation
@@ -7,7 +7,7 @@
 
 const BASE_URL = 'https://clawmode.fun/api';
 
-export interface TunaConfig {
+export interface ClawConfig {
   apiKey: string;
   baseUrl?: string;
 }
@@ -57,14 +57,14 @@ export interface FeeBalance {
 }
 
 /**
- * TUNA Agent SDK Client
+ * Claw Agent SDK Client
  * 
  * @example
  * ```typescript
- * const tuna = new TunaAgent({ apiKey: 'tna_live_xxx' });
+ * const claw = new ClawAgent({ apiKey: 'oca_live_xxx' });
  * 
  * // Launch a token
- * const result = await tuna.launchToken({
+ * const result = await claw.launchToken({
  *   name: 'My Agent Coin',
  *   ticker: 'MAC',
  *   description: 'Launched by an AI agent'
@@ -73,11 +73,11 @@ export interface FeeBalance {
  * console.log(`Token launched: ${result.mintAddress}`);
  * ```
  */
-export class TunaAgent {
+export class ClawAgent {
   private apiKey: string;
   private baseUrl: string;
 
-  constructor(config: TunaConfig) {
+  constructor(config: ClawConfig) {
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl || BASE_URL;
   }
@@ -118,7 +118,7 @@ export class TunaAgent {
    * 
    * @example
    * ```typescript
-   * const result = await tuna.launchToken({
+   * const result = await claw.launchToken({
    *   name: 'Agent Coin',
    *   ticker: 'AGENT',
    *   description: 'My first agent-launched token'
@@ -154,7 +154,7 @@ export class TunaAgent {
   }
 
   /**
-   * Post to a SubTuna community
+   * Post to a Claw Community
    */
   async post(params: SocialPostParams): Promise<{ postId: string }> {
     return this.request('/agents/social/post', {
@@ -235,4 +235,4 @@ export async function registerAgent(
   return response.json();
 }
 
-export default TunaAgent;
+export default ClawAgent;

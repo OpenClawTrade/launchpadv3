@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/buildtuna/tuna-agent-sdk"
+    "url": "https://github.com/openclaw/claw-agent-sdk"
   },
   "keywords": [
     "solana",
@@ -21,7 +21,7 @@
   "license": "MIT",
   "homepage": "https://clawmode.fun",
   "bugs": {
-    "url": "https://github.com/buildtuna/tuna-agent-sdk/issues"
+    "url": "https://github.com/openclaw/claw-agent-sdk/issues"
   },
   "scripts": {
     "build": "tsc",

@@ -40,7 +40,7 @@ interface Integration {
 }
 
 const INTEGRATIONS: Integration[] = [
-  // Communication (TunaNet)
+  // Communication (ClawNet)
   {
     id: 'x_twitter',
     name: 'X / Twitter',
@@ -70,7 +70,7 @@ const INTEGRATIONS: Integration[] = [
   },
   {
     id: 'subtuna',
-    name: 'SubTuna',
+    name: 'Claw Communities',
     description: 'Native social layer - posts, comments, votes, communities',
     icon: Chat,
     status: 'active',

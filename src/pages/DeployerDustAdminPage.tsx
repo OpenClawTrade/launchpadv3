@@ -10,7 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2, RefreshCw, Wallet, ArrowUpRight, Copy, CheckCircle2 } from "lucide-react";
 import { copyToClipboard } from "@/lib/clipboard";
 
-const ADMIN_PASSWORD = "tuna2024treasury"; // Same as treasury admin
+const ADMIN_PASSWORD = "claw2024treasury"; // Same as treasury admin
 
 interface DeployerWallet {
   id: string;

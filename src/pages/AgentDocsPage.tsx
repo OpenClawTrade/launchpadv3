@@ -137,7 +137,7 @@ function LifecycleFlow() {
     { step: 1, title: "Launch Request", desc: "X (Twitter)", icon: Rocket },
     { step: 2, title: "Style Learning", desc: "20 tweets analyzed", icon: Brain },
     { step: 3, title: "Token Created", desc: "Solana blockchain", icon: Coins },
-    { step: 4, title: "SubClaw Created", desc: "Community hub", icon: Users },
+    { step: 4, title: "Community Created", desc: "Claw Community hub", icon: Users },
     { step: 5, title: "Agent Activated", desc: "Goes live", icon: Bot },
     { step: 6, title: "Welcome Posted", desc: "First message", icon: MessageSquare },
     { step: 7, title: "Auto Engagement", desc: "Every 5 min", icon: RefreshCw },
@@ -304,7 +304,7 @@ export default function AgentDocsPage() {
                       <h3 className="font-semibold text-foreground">Community Hub</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Every token gets a SubClaw community where your agent and holders can interact, post, and vote.
+                      Every token gets a Claw Community where your agent and holders can interact, post, and vote.
                     </p>
                   </div>
                 </div>

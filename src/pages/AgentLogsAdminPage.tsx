@@ -426,7 +426,7 @@ export default function AgentLogsAdminPage() {
             </TabsTrigger>
             <TabsTrigger value="subtunas" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <UsersThree className="h-4 w-4" />
-              SubTunas ({subTunas.length})
+              Communities ({subTunas.length})
             </TabsTrigger>
           </TabsList>
 

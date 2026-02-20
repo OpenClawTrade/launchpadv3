@@ -116,7 +116,7 @@ export default function PartnerFeesPage() {
       new Date(d.created_at).toISOString(),
       d.token_name || "Unknown",
       d.token_ticker || "-",
-      d.launchpad_type || "tuna",
+      d.launchpad_type || "claw",
       d.fee_mode || "creator",
       d.amount_sol.toFixed(6),
       d.signature || "-",
@@ -193,7 +193,7 @@ export default function PartnerFeesPage() {
               Partner Earnings Dashboard
             </h1>
             <p className="text-sm text-muted-foreground">
-              Fee share from TUNA launchpad (expires Feb 27, 2026)
+              Fee share from Claw Mode launchpad (expires Feb 27, 2026)
             </p>
           </div>
           <div className="flex items-center gap-2">

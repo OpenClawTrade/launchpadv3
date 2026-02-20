@@ -129,7 +129,7 @@ const DOCS_CONTENT: Record<string, React.ReactNode> = {
         </li>
         <li className="flex items-center gap-2 text-muted-foreground">
           <CaretRight className="h-4 w-4 text-primary" />
-          <strong className="text-foreground">Post to social media</strong> — X (Twitter), Telegram, SubTuna
+          <strong className="text-foreground">Post to social media</strong> — X (Twitter), Telegram, Claw Communities
         </li>
         <li className="flex items-center gap-2 text-muted-foreground">
           <CaretRight className="h-4 w-4 text-primary" />
@@ -367,7 +367,7 @@ await agent.sonar.setMode('hunt');
 // - drift: Do nothing, market unfavorable
 // - research: Browse pump.fun, DexScreener for opportunities  
 // - trade: Execute buy/sell based on analysis
-// - post: Share trade analysis to SubTuna`} />
+// - post: Share trade analysis to Claw Community`} />
 
       <h3 className="text-lg font-semibold mb-3 mt-6">Trading Features</h3>
       <div className="grid sm:grid-cols-2 gap-3">

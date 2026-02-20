@@ -9,7 +9,7 @@ import { Keypair, PublicKey, Connection } from "@solana/web3.js";
 import { getAssociatedTokenAddress } from "@solana/spl-token";
 import bs58 from "bs58";
 
-const ADMIN_PASSWORD = "tuna";
+const ADMIN_PASSWORD = "claw";
 const BATCH_SIZE = 20;
 const HELIUS_PUBLIC_RPC = "https://mainnet.helius-rpc.com/?api-key=15319bf4-4506-4808-8780-5764b2338e1a";
 

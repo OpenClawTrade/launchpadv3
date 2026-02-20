@@ -19,13 +19,13 @@ export default function ClawAdminLaunchPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && password.toLowerCase() === "tuna") setAuthorized(true);
+              if (e.key === "Enter" && password.toLowerCase() === "claw") setAuthorized(true);
             }}
             className="w-full px-3 py-2 rounded-lg text-sm mb-3"
             style={{ background: "hsl(var(--claw-bg))", border: "1px solid hsl(var(--claw-border))", color: "hsl(var(--claw-text))" }}
           />
           <button
-            onClick={() => { if (password.toLowerCase() === "tuna") setAuthorized(true); }}
+            onClick={() => { if (password.toLowerCase() === "claw") setAuthorized(true); }}
             className="w-full py-2 rounded-lg text-sm font-bold"
             style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "hsl(var(--claw-bg))" }}
           >

@@ -79,8 +79,8 @@ export function useSubTuna(ticker?: string) {
 
         if (directError || !directSubtuna) return null;
 
-        // Check if this is the TUNA system SubTuna - inject token info
-        const isClawSubtuna = ticker?.toUpperCase() === "TUNA";
+        // Check if this is the CLAW system community - inject token info
+        const isClawSubtuna = ticker?.toUpperCase() === "CLAW";
 
         // Return system SubTuna with TUNA token info if applicable
         return {
@@ -104,9 +104,9 @@ export function useSubTuna(ticker?: string) {
           } : undefined,
           // Inject TUNA token info for the platform token SubTuna
           funToken: isClawSubtuna ? {
-            id: "tuna-platform-token",
-            ticker: "TUNA",
-            name: "TUNA",
+            id: "claw-platform-token",
+            ticker: "CLAW",
+            name: "CLAW",
             imageUrl: "/claw-logo.png",
             mintAddress: "GfLD9EQn7A1UjopYVJ8aUUjHQhX14dwFf8oBWKW8pump",
             // Price/market cap fetched separately via useClawTokenData
