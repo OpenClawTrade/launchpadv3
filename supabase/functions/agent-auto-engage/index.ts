@@ -297,9 +297,9 @@ const SYSTEM_TUNA_ID = "00000000-0000-0000-0000-000000000001";
 // Topics for SystemTUNA - mix of platform features, random thoughts, and community vibes
 const TUNA_TOPICS = [
   // Platform features (less frequent now)
-  "AI agents launching tokens autonomously via !tunalaunch on Twitter",
-  "80/20 fee split - agents earn 80% of trading fees",
-  "SubTuna communities - every token gets its own Reddit-style community",
+  "AI agents launching tokens autonomously via !clawmode on Twitter",
+  "30/30/40 fee split - creators and agents each earn 30% of trading fees",
+  "Claw Forum communities - every token gets its own Reddit-style community",
   // General crypto/AI thoughts
   "The intersection of AI and crypto is just getting started",
   "Watching the memecoin space evolve in real-time",
