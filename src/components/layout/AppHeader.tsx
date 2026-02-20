@@ -11,7 +11,6 @@ import clawLogo from "@/assets/claw-logo.png";
 
 interface TopBarProps {
   onMobileMenuOpen?: () => void;
-  // Legacy props accepted but ignored (kept for other pages that pass them)
   showBack?: boolean;
   backTo?: string;
   backLabel?: string;
@@ -24,16 +23,12 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center gap-3 px-4"
-      style={{
-        height: "52px",
-        background: "#141414",
-        borderBottom: "1px solid #2a2a2a",
-      }}
+      className="sticky top-0 z-30 flex items-center gap-3 px-4 bg-background border-b border-border"
+      style={{ height: "52px" }}
     >
       {/* Mobile hamburger */}
       <button
-        className="md:hidden flex items-center justify-center h-8 w-8 rounded text-white/50 hover:text-white hover:bg-white/5 transition-colors"
+        className="md:hidden flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-all duration-200"
         onClick={onMobileMenuOpen}
       >
         <Menu className="h-4 w-4" />
@@ -46,20 +41,13 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
 
       {/* Search input */}
       <div className="flex-1 max-w-md relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: "#666" }} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none text-muted-foreground" />
         <input
           type="text"
           placeholder="Search for token..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-8 pl-8 pr-3 text-[13px] rounded-md outline-none text-white placeholder-[#555] transition-colors"
-          style={{
-            background: "#2a2a2a",
-            border: "1px solid #333",
-            color: "#fff",
-          }}
-          onFocus={e => (e.target.style.borderColor = "#4ade80")}
-          onBlur={e => (e.target.style.borderColor = "#333")}
+          className="w-full h-8 pl-9 pr-3 text-[13px] rounded-xl outline-none text-foreground placeholder-muted-foreground bg-surface border border-border transition-all duration-200 focus:border-accent-purple/40 focus:ring-2 focus:ring-accent-purple/20 focus-ring-purple"
         />
       </div>
 
@@ -71,16 +59,14 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
           href="https://x.com/clawmode"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center h-7 w-7 rounded transition-colors hover:bg-white/5"
-          style={{ color: "#666" }}
+          className="flex items-center justify-center h-7 w-7 rounded-lg transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-surface-hover hover:rotate-[8deg]"
         >
           <XLogo className="h-3.5 w-3.5" weight="fill" />
         </a>
 
         <button
           onClick={goToPanel}
-          className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-bold transition-colors hover:bg-white/10 flex-shrink-0 border cursor-pointer"
-          style={{ borderColor: "#4ade80", color: "#4ade80" }}
+          className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-bold transition-all duration-200 hover:bg-surface-hover hover-lift flex-shrink-0 border border-success/40 text-success cursor-pointer"
         >
           <img src={clawLogo} alt="" className="h-4 w-4 rounded-sm" style={{ background: '#000', padding: '1px' }} />
           Panel
@@ -88,8 +74,7 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
 
         <Link
           to="/?create=1"
-          className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-bold text-black transition-opacity hover:opacity-90 flex-shrink-0"
-          style={{ background: "#4ade80" }}
+          className="hidden sm:flex items-center gap-1.5 h-8 px-4 rounded-xl text-[12px] font-bold text-white btn-gradient-green flex-shrink-0"
         >
           <Plus className="h-3.5 w-3.5" />
           Create Token

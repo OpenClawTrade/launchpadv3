@@ -160,7 +160,7 @@ export default function FunLauncherPage() {
   }, [tokens, activeFilter, promotedTokenIds]);
 
   return (
-    <div className="min-h-screen" style={{ background: "#141414" }}>
+    <div className="min-h-screen bg-background">
       {/* Sidebar */}
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 
@@ -207,25 +207,25 @@ export default function FunLauncherPage() {
             {/* Trending / Just Launched horizontal scroll */}
             <div className="px-4 pt-4">
               <div className="flex items-center gap-2 mb-2.5">
-                <Flame className="h-3.5 w-3.5" style={{ color: "#4ade80" }} />
-                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#888" }}>
+                <Flame className="h-3.5 w-3.5 text-success" />
+                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                   Just Launched
                 </span>
-                <span style={{ color: "#444", fontSize: "10px" }}>— Last 24h</span>
+                <span className="text-[10px] text-muted-foreground/50">— Last 24h</span>
               </div>
 
               {/* Horizontal scroll of Just Launched cards */}
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                 {justLaunchedLoading
                   ? Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="flex-shrink-0 w-[150px] h-[195px] rounded-lg" style={{ background: "#1a1a1a" }}>
-                      <Skeleton className="w-full h-full rounded-lg" style={{ background: "#2a2a2a" }} />
+                    <div key={i} className="flex-shrink-0 w-[150px] h-[195px] rounded-xl bg-surface">
+                      <Skeleton className="w-full h-full rounded-xl skeleton-shimmer" />
                     </div>
                   ))
                   : justLaunchedTokens.length === 0
                   ? (
-                    <div className="flex items-center gap-2 py-4 px-3 rounded-lg" style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}>
-                      <span className="text-[11px]" style={{ color: "#666" }}>No new tokens in the last 48h — check back soon!</span>
+                    <div className="flex items-center gap-2 py-4 px-3 rounded-xl bg-surface border border-border empty-state-fade">
+                      <span className="text-[11px] text-muted-foreground">No new tokens in the last 48h — check back soon!</span>
                     </div>
                   )
                   : justLaunchedTokens.slice(0, 12).map(token => (
@@ -234,10 +234,7 @@ export default function FunLauncherPage() {
                       to={token.agent_id || token.launchpad_type === 'pumpfun' || token.launchpad_type === 'bags'
                         ? `/t/${token.ticker}`
                         : `/launchpad/${token.mint_address || token.id}`}
-                      className="flex-shrink-0 w-[150px] rounded-lg overflow-hidden group transition-all duration-150"
-                      style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = "#4ade80")}
-                      onMouseLeave={e => (e.currentTarget.style.borderColor = "#2a2a2a")}
+                      className="flex-shrink-0 w-[150px] rounded-xl overflow-hidden group hover-lift bg-surface border border-border hover:border-success"
                     >
                       {/* Image */}
                       <div className="relative w-full" style={{ paddingBottom: "65%" }}>
@@ -245,11 +242,11 @@ export default function FunLauncherPage() {
                           {token.image_url ? (
                             <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xl font-bold" style={{ background: "#2a2a2a", color: "#4ade80" }}>
+                            <div className="w-full h-full flex items-center justify-center text-xl font-bold bg-muted text-success">
                               {token.ticker?.slice(0, 2)}
                             </div>
                           )}
-                          <div className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)" }} />
+                          <div className="absolute inset-x-0 bottom-0 h-1/2 pf-img-overlay" />
                           <div className="absolute bottom-1 left-1.5">
                             <span className="text-[10px] font-bold font-mono text-white">
                               {formatUsd(token.market_cap_sol)}
@@ -259,13 +256,13 @@ export default function FunLauncherPage() {
                       </div>
                       {/* Info */}
                       <div className="p-1.5">
-                        <div className="text-[11px] font-semibold text-white truncate">{token.name}</div>
+                        <div className="text-[11px] font-semibold text-foreground truncate">{token.name}</div>
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-mono" style={{ color: "#4ade80" }}>${token.ticker}</span>
-                          <span className="text-[9px] font-mono" style={{ color: "#666" }}>{formatAge(token.created_at)}</span>
+                          <span className="text-[9px] font-mono text-success">${token.ticker}</span>
+                          <span className="text-[9px] font-mono text-muted-foreground">{formatAge(token.created_at)}</span>
                         </div>
                         {(token as any).description && (
-                          <p className="text-[9px] leading-tight mt-0.5 line-clamp-1" style={{ color: "#666" }}>{(token as any).description}</p>
+                          <p className="text-[9px] leading-tight mt-0.5 line-clamp-1 text-muted-foreground">{(token as any).description}</p>
                         )}
                       </div>
                     </Link>
@@ -279,8 +276,8 @@ export default function FunLauncherPage() {
               <div className="px-4 pt-4">
                 <div className="flex items-center gap-2 mb-2.5">
                   <img src="/claw-logo.png" alt="Claw" className="h-4 w-4 object-contain" />
-                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#888" }}>King of the Claws</span>
-                  <span style={{ color: "#444", fontSize: "10px" }}>— Soon to Graduate</span>
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">King of the Claws</span>
+                  <span className="text-[10px] text-muted-foreground/50">— Soon to Graduate</span>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                   {kothTokens.map((token, i) => {
@@ -292,26 +289,24 @@ export default function FunLauncherPage() {
                       <Link
                         key={token.id}
                         to={tradeUrl}
-                        className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
-                        style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", minWidth: "200px" }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = "#4ade80")}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = "#2a2a2a")}
+                        className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-xl hover-lift bg-surface border border-border hover:border-success"
+                        style={{ minWidth: "200px" }}
                       >
-                        <span className="text-[10px] font-bold font-mono w-4 text-center flex-shrink-0" style={{ color: i === 0 ? "#facc15" : i === 1 ? "#cbd5e1" : "#f97316" }}>#{i + 1}</span>
-                        <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0" style={{ background: "#2a2a2a" }}>
-                          {token.image_url ? <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[9px] font-bold" style={{ color: "#4ade80" }}>{token.ticker?.slice(0, 2)}</div>}
+                        <span className={`text-[10px] font-bold font-mono w-4 text-center flex-shrink-0 ${i === 0 ? "text-yellow-400" : i === 1 ? "text-slate-300" : "text-orange-500"}`}>#{i + 1}</span>
+                        <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                          {token.image_url ? <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-success">{token.ticker?.slice(0, 2)}</div>}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[11px] font-semibold text-white truncate">{token.name}</div>
-                          <div className="text-[9px] font-mono" style={{ color: "#4ade80" }}>
+                          <div className="text-[11px] font-semibold text-foreground truncate">{token.name}</div>
+                          <div className="text-[9px] font-mono text-success">
                             ${marketCapUsd >= 1000 ? `${(marketCapUsd / 1000).toFixed(1)}K` : marketCapUsd.toFixed(0)}
                           </div>
                         </div>
                         <div className="flex-shrink-0 w-16">
-                          <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: "#2a2a2a" }}>
-                            <div className="h-full rounded-full" style={{ width: `${Math.min(token.bonding_progress ?? 0, 100)}%`, background: (token.bonding_progress ?? 0) >= 80 ? "#f97316" : "#4ade80" }} />
+                          <div className="h-1 w-full rounded-pill overflow-hidden bg-muted">
+                            <div className="h-full rounded-pill" style={{ width: `${Math.min(token.bonding_progress ?? 0, 100)}%`, background: (token.bonding_progress ?? 0) >= 80 ? "hsl(24 95% 53%)" : "hsl(160 84% 39%)" }} />
                           </div>
-                          <span className="text-[8px] font-mono" style={{ color: "#666" }}>{(token.bonding_progress ?? 0).toFixed(0)}%</span>
+                          <span className="text-[8px] font-mono text-muted-foreground">{(token.bonding_progress ?? 0).toFixed(0)}%</span>
                         </div>
                       </Link>
                     );
@@ -323,28 +318,26 @@ export default function FunLauncherPage() {
             {/* Filter tabs */}
             <div className="px-4 pt-5">
               <div
-                className="flex items-center gap-0 overflow-x-auto no-scrollbar"
-                style={{ borderBottom: "1px solid #2a2a2a" }}
+                className="flex items-center gap-0 overflow-x-auto no-scrollbar border-b border-border"
               >
                 {FILTER_TABS.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveFilter(tab.id)}
-                    className="px-4 py-2.5 text-[12px] font-semibold whitespace-nowrap transition-colors border-b-2 -mb-px"
-                    style={{
-                      color: activeFilter === tab.id ? "#fff" : "#666",
-                      borderBottomColor: activeFilter === tab.id ? "#4ade80" : "transparent",
-                      background: "transparent",
-                    }}
+                    className={`px-4 py-2.5 text-[12px] font-semibold whitespace-nowrap transition-all duration-200 border-b-2 -mb-px ${
+                      activeFilter === tab.id
+                        ? "text-foreground border-success"
+                        : "text-muted-foreground border-transparent hover:text-foreground/70"
+                    }`}
                   >
                     {tab.label}
                   </button>
                 ))}
                 {/* Online indicator */}
                 <div className="ml-auto flex items-center gap-1.5 px-3 flex-shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[11px] font-mono" style={{ color: "#666" }}>
-                    <span className="text-white font-semibold">{onlineCount ?? '—'}</span> online
+                  <div className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
+                  <span className="text-[11px] font-mono text-muted-foreground">
+                    <span className="text-foreground font-semibold">{onlineCount ?? '—'}</span> online
                   </span>
                 </div>
               </div>
@@ -355,19 +348,21 @@ export default function FunLauncherPage() {
               {tokensLoading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {Array.from({ length: 20 }).map((_, i) => (
-                    <div key={i} className="rounded-lg overflow-hidden" style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}>
-                      <Skeleton className="w-full" style={{ paddingBottom: "62%", display: "block", background: "#2a2a2a" }} />
-                      <div className="p-2.5 space-y-1">
-                        <Skeleton className="h-3 w-3/4" style={{ background: "#2a2a2a" }} />
-                        <Skeleton className="h-2.5 w-1/2" style={{ background: "#2a2a2a" }} />
+                    <div key={i} className="rounded-xl overflow-hidden bg-surface border border-border">
+                      <Skeleton className="w-full skeleton-shimmer" style={{ paddingBottom: "62%", display: "block" }} />
+                      <div className="p-3 space-y-1.5">
+                        <Skeleton className="h-3 w-3/4 skeleton-shimmer" />
+                        <Skeleton className="h-2.5 w-1/2 skeleton-shimmer" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : filteredTokens.length === 0 ? (
-                <div className="text-center py-20" style={{ color: "#666" }}>
-                  <p className="text-lg font-semibold">No tokens found</p>
-                  <p className="text-sm mt-1">Try a different filter</p>
+                <div className="text-center py-20 empty-state-fade">
+                  <div className="inline-block bg-surface/60 border border-border rounded-2xl px-10 py-8">
+                    <p className="text-lg font-semibold text-foreground-secondary">No tokens found</p>
+                    <p className="text-sm mt-1 text-muted-foreground">Try a different filter</p>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
