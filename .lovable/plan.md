@@ -1,59 +1,67 @@
 
+## Fix Mobile Layout Across All Site Pages
 
-## Fix Mobile Responsiveness for Whitepaper and Footer
-
-### Problem
-From the screenshot, two main issues are visible on mobile:
-1. The **sticky stats bar** at the bottom (TOKENS | AGENTS | FEES CLAIMED) is cut off on the right side
-2. The **whitepaper page** content overflows horizontally -- the title gets clipped
-
-### Root Causes
-
-**Stats Footer (`StickyStatsFooter.tsx`)**
-- Has a hardcoded `paddingLeft: "160px"` to offset for the desktop sidebar, but on mobile there is no sidebar -- this wastes 160px and pushes stats off-screen
-- Fix: Use `paddingLeft: 0` on mobile (below 768px breakpoint)
-
-**Whitepaper Page (`WhitepaperPage.tsx`)**
-- The outer wrapper has no `overflow-x-hidden`, so wide content (long headings, code blocks, grids) can cause horizontal scroll on mobile
-- Code/pre blocks inside sections have no `overflow-x-auto` or `max-width` constraints
-- The title text at the top gets clipped
-
-**Footer (`Footer.tsx`)**
-- Generally OK but needs `overflow-hidden` on the parent to prevent any edge-case overflow
+### What's Being Fixed
+The sticky stats footer is still clipped on the right on many pages because the CSS class `.sticky-stats-footer` with `padding-left: 160px` (for desktop sidebar offset) is being applied, but the `@media (max-width: 767px)` override in `App.css` may not be winning against inline styles or isn't reaching all cases reliably. Additionally, several pages with inline Sidebar+AppHeader layouts are missing `overflow-x-hidden` on their outer wrapper, which can cause horizontal scroll on mobile.
 
 ### Changes
 
-**1. `src/components/layout/StickyStatsFooter.tsx`**
-- Make `paddingLeft` responsive: `0` on mobile, `160px` on desktop
-- Use a CSS media query or the `useIsMobile` hook to toggle
-- On mobile, reduce stat items to show fewer or wrap them with horizontal scroll
+**1. `src/App.css` -- Strengthen mobile footer reset**
+- Add `!important` overrides for the footer on mobile to guarantee no sidebar offset leaks through
+- Ensure all pages get `overflow-x-hidden` via the global `html, body, #root` rule (already present, confirmed working)
 
-**2. `src/pages/WhitepaperPage.tsx`**
-- Add `overflow-x-hidden` to the outer container div
-- Ensure all `pre`/code blocks have `overflow-x-auto` and `max-w-full`
-- Add `break-words` / `overflow-wrap` to long text sections
+**2. `src/components/layout/StickyStatsFooter.tsx` -- Remove the CSS class dependency entirely**
+- The root cause: the component uses `className="sticky-stats-footer"` which applies `padding-left: 160px` from CSS, but the inner wrapper also has `overflow: "hidden"` which clips content before it can scroll
+- Fix: Change the inner wrapper from `overflow: "hidden"` to `overflow: "visible"` so the scrollable stats div actually works
+- Alternatively: move the `padding-left` logic entirely into inline styles using `useIsMobile` (already imported) so there's zero CSS specificity battle
 
-**3. `src/components/layout/Footer.tsx`**
-- Add `overflow-hidden` to the footer wrapper to prevent any horizontal bleed
+**3. Pages with inline Sidebar+AppHeader -- Add `overflow-x-hidden` to outer div**
+Each of these pages wraps content in `<div className="min-h-screen bg-background">` but is missing `overflow-x-hidden`. Add it to:
+- `src/pages/TrendingPage.tsx` (line ~131)
+- `src/pages/AgentsPage.tsx` (line ~21)
+- `src/pages/ClawSDKPage.tsx` (line ~55)
+- `src/pages/TokenomicsPage.tsx` (line ~74)
+- `src/pages/PanelPage.tsx` (lines ~38 and ~65)
+- `src/pages/FunLauncherPage.tsx` (line ~163)
+- `src/pages/ApiDashboardPage.tsx` (lines ~415, ~607, ~622)
+- `src/pages/LaunchTokenPage.tsx` (line ~11)
 
-**4. `src/components/layout/LaunchpadLayout.tsx`**
-- Add `overflow-x-hidden` to the outer wrapper to prevent global horizontal scroll on mobile across all pages
+Also add `pb-16` (bottom padding for footer clearance) to the main content area of each page where missing.
 
 ### Technical Details
 
 ```text
-StickyStatsFooter.tsx:
-  Line 39: paddingLeft: "160px"
-  Change to: paddingLeft: isMobile ? "0px" : "160px"
-  (import useIsMobile hook)
+StickyStatsFooter.tsx changes:
+  - Line 55: overflow: "hidden" --> overflow: "visible"
+    This is the key fix -- "hidden" was clipping the scrollable stats row
+  - The className "sticky-stats-footer" stays, CSS handles padding-left
 
-WhitepaperPage.tsx:
-  Line 38: <div className="min-h-screen bg-background">
-  Change to: <div className="min-h-screen bg-background overflow-x-hidden">
+App.css changes:
+  - Strengthen the mobile media query to also force max-width: 100vw
+    on the footer
 
-LaunchpadLayout.tsx:
-  Line 17: <div className="min-h-screen bg-background">
-  Change to: <div className="min-h-screen bg-background overflow-x-hidden">
+Page-level changes (all identical pattern):
+  className="min-h-screen bg-background"
+  -->
+  className="min-h-screen bg-background overflow-x-hidden"
 ```
 
-This will fix the horizontal overflow across all pages on mobile and ensure the stats footer is fully visible and centered.
+### Pages That Will Be Updated (full list)
+
+1. `src/components/layout/StickyStatsFooter.tsx` -- fix overflow clipping
+2. `src/App.css` -- strengthen mobile footer rules
+3. `src/pages/TrendingPage.tsx` -- add overflow-x-hidden
+4. `src/pages/AgentsPage.tsx` -- add overflow-x-hidden
+5. `src/pages/ClawSDKPage.tsx` -- add overflow-x-hidden
+6. `src/pages/TokenomicsPage.tsx` -- add overflow-x-hidden, responsive title
+7. `src/pages/PanelPage.tsx` -- add overflow-x-hidden (both auth states), pb-16 on tab content
+8. `src/pages/FunLauncherPage.tsx` -- add overflow-x-hidden
+9. `src/pages/ApiDashboardPage.tsx` -- add overflow-x-hidden (all 3 return blocks)
+10. `src/pages/LaunchTokenPage.tsx` -- add overflow-x-hidden
+11. `src/components/layout/LaunchpadLayout.tsx` -- already fixed (no changes needed)
+12. `src/pages/WhitepaperPage.tsx` -- already fixed (no changes needed)
+
+### What Won't Change
+- Desktop layout, colors, fonts, content -- completely untouched
+- LaunchpadLayout-wrapped pages (already have overflow-x-hidden)
+- Standalone pages without sidebar (CareersPage, ApiDocsPage, etc.) -- no sidebar offset issue
