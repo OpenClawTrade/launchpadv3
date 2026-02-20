@@ -84,7 +84,7 @@ export function AgentIdeaGenerator() {
       const { data, error } = await supabase.functions.invoke("agent-idea-generate", {
         body: { 
           prompt: customPrompt || undefined,
-          includeTunaLogo: true 
+          includeClawLogo: true 
         },
       });
 
@@ -117,7 +117,7 @@ export function AgentIdeaGenerator() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${generatedMeme.ticker || "tuna-meme"}.png`;
+      a.download = `${generatedMeme.ticker || "claw-meme"}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -169,7 +169,7 @@ export function AgentIdeaGenerator() {
               </Label>
               <Textarea
                 id="prompt"
-                placeholder="e.g., 'TUNA astronaut on the moon', 'TUNA wearing sunglasses at a pool party', 'cyberpunk TUNA hacker'..."
+                placeholder="e.g., 'Claw astronaut on the moon', 'Claw lobster at a pool party', 'cyberpunk Claw hacker'..."
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 className="min-h-[80px] bg-background border-border"
@@ -188,7 +188,7 @@ export function AgentIdeaGenerator() {
               {isGenerating ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Generating TUNA Meme...
+                  Generating Claw Meme...
                 </>
               ) : (
                 <>
@@ -365,11 +365,8 @@ export function AgentIdeaGenerator() {
                   Post this on X with the command to launch:
                 </p>
                 <code className="block bg-background p-3 rounded text-xs font-mono text-foreground">
-                  <span className="text-[#1DA1F2]">@ClawMode</span> <span className="text-primary">!tunalaunch</span><br/>
-                  name: {generatedMeme.name}<br/>
-                  symbol: {generatedMeme.ticker}<br/>
-                  description: {generatedMeme.description.slice(0, 80)}...<br/>
-                  <span className="text-muted-foreground">+ attach the downloaded image</span>
+                  <span className="text-[#1DA1F2]">@clawmode</span> <span className="text-primary">!clawmode</span> {generatedMeme.name}<br/>
+                  <span className="text-muted-foreground">+ optionally attach the downloaded image</span>
                 </code>
               </div>
             </div>
@@ -384,10 +381,10 @@ export function AgentIdeaGenerator() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { prompt: "TUNA astronaut", bg: "from-blue-500/20 to-purple-500/20" },
-                { prompt: "Cyber TUNA", bg: "from-pink-500/20 to-cyan-500/20" },
-                { prompt: "King TUNA", bg: "from-yellow-500/20 to-orange-500/20" },
-                { prompt: "Ninja TUNA", bg: "from-gray-500/20 to-red-500/20" },
+                { prompt: "Claw astronaut", bg: "from-blue-500/20 to-purple-500/20" },
+                { prompt: "Cyber Claw", bg: "from-pink-500/20 to-cyan-500/20" },
+                { prompt: "King Claw", bg: "from-yellow-500/20 to-orange-500/20" },
+                { prompt: "Ninja Claw", bg: "from-gray-500/20 to-red-500/20" },
               ].map((example) => (
                 <button
                   key={example.prompt}

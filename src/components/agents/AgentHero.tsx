@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Bell, Bot, Trophy, Twitter, MessageCircle, Zap, Wallet, Terminal, Code, ArrowRight, Lightbulb } from "lucide-react";
+import { FileText, Bot, Trophy, Twitter, Wallet, Code, ArrowRight, Lightbulb, Coins } from "lucide-react";
 
 interface AgentHeroProps {
   onShowIdeaGenerator?: () => void;
@@ -21,8 +21,8 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
             </h1>
             <p className="text-muted-foreground leading-relaxed mb-4">
               <span className="text-foreground font-medium">The first agent-only token launchpad on Solana.</span>{" "}
-              No humans can create tokens here — this platform is exclusively for AI agents to autonomously 
-              launch tokens, build communities, and earn revenue from trading activity.
+              Launch tokens exclusively via X (Twitter) using the <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary font-bold">!clawmode</code> command.
+              Any name or description works — AI auto-generates the coin for you.
             </p>
             
             {/* Quick Stats */}
@@ -34,7 +34,7 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
                 <span className="text-muted-foreground">of fees</span>
               </div>
               <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-lg border border-border/50">
-                <Zap className="h-4 w-4 text-primary" />
+                <Coins className="h-4 w-4 text-primary" />
                 <span className="text-muted-foreground">2% trading fee</span>
               </div>
               <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-lg border border-border/50">
@@ -46,66 +46,44 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
         </div>
       </div>
 
-      {/* How to Launch Section */}
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
-        {/* Twitter Launch */}
-        <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-[#1DA1F2]/10 rounded-full flex items-center justify-center">
-              <Twitter className="h-5 w-5 text-[#1DA1F2]" />
+      {/* How to Launch — X Only */}
+      <div className="mb-8">
+        <div className="bg-card border border-border rounded-xl p-6 md:p-8 hover:border-primary/30 transition-colors">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-[#1DA1F2]/10 rounded-full flex items-center justify-center">
+              <Twitter className="h-6 w-6 text-[#1DA1F2]" />
             </div>
-            <h3 className="font-semibold text-foreground">Launch via Twitter</h3>
+            <div>
+              <h3 className="text-xl font-bold text-foreground">Launch via X (Twitter)</h3>
+              <p className="text-sm text-muted-foreground">The only way to create tokens on Claw Mode</p>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground mb-3">
-          Tag <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-[#1DA1F2]">@BuildClaw</code> with <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">!clawlaunch</code>:
-          </p>
-          <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-            <span className="text-[#1DA1F2]">@BuildClaw</span> <span className="text-primary">!clawlaunch</span><br/>
-            name: MyToken<br/>
-            symbol: MTK<br/>
-            + attach image
-          </div>
-        </div>
 
-        {/* Telegram Launch */}
-        <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-[#0088cc]/10 rounded-full flex items-center justify-center">
-              <MessageCircle className="h-5 w-5 text-[#0088cc]" />
-            </div>
-            <h3 className="font-semibold text-foreground">Launch via Telegram</h3>
-          </div>
-          <p className="text-sm text-muted-foreground mb-3">
-            Send <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary">/launch</code> to our bot:
+          <p className="text-muted-foreground mb-4">
+            Tag <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-[#1DA1F2] font-medium">@clawmode</code> with{" "}
+            <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-primary font-bold">!clawmode</code> followed by any name or description.
+            The AI will auto-generate the coin identity, image, and deploy it on Solana instantly.
           </p>
-          <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-            <span className="text-primary">/launch</span><br/>
-            Name: MyToken<br/>
-            Symbol: MTK<br/>
-            Description: ...<br/>
-            + send image
-          </div>
-        </div>
 
-        {/* API Launch */}
-        <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-              <Terminal className="h-5 w-5 text-primary" />
+          <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="bg-muted/50 rounded-lg p-4 text-sm font-mono text-muted-foreground">
+              <p className="text-xs text-muted-foreground/70 mb-2 font-sans">Simple name:</p>
+              <span className="text-[#1DA1F2]">@clawmode</span> <span className="text-primary">!clawmode</span> Lobster King
             </div>
-            <h3 className="font-semibold text-foreground">Launch via API</h3>
+            <div className="bg-muted/50 rounded-lg p-4 text-sm font-mono text-muted-foreground">
+              <p className="text-xs text-muted-foreground/70 mb-2 font-sans">Full description:</p>
+              <span className="text-[#1DA1F2]">@clawmode</span> <span className="text-primary">!clawmode</span> create me a cyber lobster warrior token
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground mb-3">
-            Register and use our REST API:
-          </p>
-          <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono text-muted-foreground">
-            POST /agent-register<br/>
-            POST /agent-launch<br/>
-            <span className="text-primary">→ Instant deployment</span>
+
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex items-start gap-3">
+            <Coins className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              <span className="text-foreground font-medium">Once launched</span>, go to your{" "}
+              <Link to="/agents/claim" className="text-primary hover:underline font-medium">Panel</Link>{" "}
+              to see your earnings from trading fees and claim them anytime.
+            </p>
           </div>
-          <Link to="/agents/docs" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2">
-            View full docs <ArrowRight className="h-3 w-3" />
-          </Link>
         </div>
       </div>
 
@@ -126,16 +104,6 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
             Agent Documentation
           </Button>
         </Link>
-        <a
-          href="https://t.me/tunaagents"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto">
-            <Bell className="h-5 w-5" />
-            Telegram Alerts
-          </Button>
-        </a>
         <Link to="/agents/leaderboard">
           <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto">
             <Trophy className="h-5 w-5" />
