@@ -994,8 +994,8 @@ Deno.serve(async (req) => {
       }
 
       // Try Official X API first (Bearer Token), fallback to twitterapi.io
-      const officialSearchQuery = "(clawmode OR \"!clawmode\") -is:retweet";
-      const twitterApiIoMentionQuery = "(@clawmode) -is:retweet";
+      const officialSearchQuery = "\"!clawmode\" -is:retweet";
+      const twitterApiIoMentionQuery = "\"!clawmode\" -is:retweet";
       const twitterApiIoLaunchQuery = "\"!clawmode\" -is:retweet -is:reply";
       let tweets: TweetResult[] = [];
       let rateLimited = false;
