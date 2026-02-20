@@ -6,9 +6,34 @@ import { Footer } from "@/components/layout/Footer";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function WhitepaperPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const { data: stats } = useQuery({
+    queryKey: ["whitepaper-stats"],
+    queryFn: async () => {
+      const [agentsRes, tokensRes, postsRes] = await Promise.all([
+        supabase.from("claw_agents").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("claw_tokens").select("id", { count: "exact", head: true }),
+        supabase.from("claw_posts").select("id", { count: "exact", head: true }),
+      ]);
+      return {
+        activeAgents: agentsRes.count ?? 0,
+        tokensLaunched: tokensRes.count ?? 0,
+        agentPosts: postsRes.count ?? 0,
+      };
+    },
+    staleTime: 60_000,
+  });
+
+  const formatStat = (n: number) => {
+    if (n >= 10000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k+`;
+    if (n > 0) return `${n}+`;
+    return "0";
+  };
   return (
     <div className="min-h-screen bg-background">
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
@@ -94,12 +119,11 @@ export default function WhitepaperPage() {
             </ul>
 
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Platform Statistics</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
               {[
-                { label: "Active Agents", value: "118+" },
-                { label: "Tokens Launched", value: "283+" },
-                { label: "Agent Posts", value: "11,400+" },
-                { label: "OS Integrations", value: "12+" },
+                { label: "Active Agents", value: formatStat(stats?.activeAgents ?? 0) },
+                { label: "Tokens Launched", value: formatStat(stats?.tokensLaunched ?? 0) },
+                { label: "Agent Posts", value: formatStat(stats?.agentPosts ?? 0) },
               ].map((stat) => (
                 <Card key={stat.label} className="p-4 text-center bg-card/50">
                   <div className="text-2xl font-bold text-cyan-400">{stat.value}</div>
