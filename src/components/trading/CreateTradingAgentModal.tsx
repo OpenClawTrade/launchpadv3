@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateTradingAgent } from "@/hooks/useTradingAgents";
 import { supabase } from "@/integrations/supabase/client";
-import tunaLogo from "@/assets/tuna-logo.png";
+import clawLogo from "@/assets/claw-logo.png";
 
 const formSchema = z.object({
   name: z.string().optional(),
@@ -516,7 +516,7 @@ export function CreateTradingAgentModal({ open, onOpenChange }: CreateTradingAge
                        </>
                      ) : (
                        <>
-                         <img src={tunaLogo} alt="" className="h-4 w-4 mr-2" />
+                         <img src={clawLogo} alt="" className="h-4 w-4 mr-2" />
                          <Sparkles className="h-3 w-3 mr-1" />
                          Generate Character
                        </>

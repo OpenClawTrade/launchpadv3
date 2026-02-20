@@ -51,7 +51,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ApiLeaderboard } from "@/components/api/ApiLeaderboard";
 
-const HEADER_LOGO_SRC = "/tuna-logo.png";
+import clawLogo from "@/assets/claw-logo.png";
+const HEADER_LOGO_SRC = clawLogo;
 
 interface ApiAccount {
   id: string;
@@ -341,14 +342,14 @@ export default function ApiDashboardPage() {
   const ApiHeader = () => (
     <header className="gate-header">
       <div className="gate-header-inner">
-        <Link to="/" className="gate-logo" aria-label="TUNA">
+        <Link to="/" className="gate-logo" aria-label="Claw Mode">
           <img
             src={HEADER_LOGO_SRC}
-            alt="TUNA"
+            alt="Claw Mode"
             className="h-8 w-8 rounded-lg object-cover"
             loading="eager"
           />
-          <span className="text-lg font-bold">TUNA</span>
+          <span className="text-lg font-bold">CLAW</span>
         </Link>
 
         {/* Desktop Nav */}
@@ -419,7 +420,7 @@ export default function ApiDashboardPage() {
         <div className="max-w-6xl mx-auto p-4 pt-8 space-y-8">
           {/* Hero Section */}
           <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold text-foreground">🐟 TUNA API Platform</h1>
+            <h1 className="text-4xl font-bold text-foreground">🦞 Claw Mode API Platform</h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Build your own token launchpad and earn 1% of every trade
             </p>

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart, FileText } from "lucide-react";
+import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart, FileText, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { to: "/sdk", label: "SDK", icon: Code2 },
   { to: "/tokenomics", label: "Tokenomics", icon: PieChart },
   { to: "/whitepaper", label: "Whitepaper", icon: FileText },
+  { to: "/panel", label: "Panel", icon: LayoutDashboard },
 ];
 
 interface SidebarProps {

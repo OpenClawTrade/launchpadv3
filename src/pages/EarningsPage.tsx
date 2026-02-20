@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const HEADER_LOGO_SRC = "/tuna-logo.png";
+import clawLogo from "@/assets/claw-logo.png";
+const HEADER_LOGO_SRC = clawLogo;
 
 export default function EarningsPage() {
   const { user, isAuthenticated, login, solanaAddress, profileId } = useAuth();
@@ -79,8 +80,8 @@ export default function EarningsPage() {
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <Link to="/" className="flex items-center gap-2">
-            <img src={HEADER_LOGO_SRC} alt="TUNA" className="h-8 w-8 rounded-lg object-cover" />
-            <span className="text-lg font-bold">TUNA</span>
+            <img src={HEADER_LOGO_SRC} alt="Claw Mode" className="h-8 w-8 rounded-lg object-cover" />
+            <span className="text-lg font-bold">CLAW</span>
           </Link>
           <h1 className="font-bold text-lg">Creator Earnings</h1>
         </div>

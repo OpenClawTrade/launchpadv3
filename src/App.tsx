@@ -62,6 +62,7 @@ const DecompressPage = lazy(() => import("./pages/DecompressPage"));
 const FunModePage = lazy(() => import("./pages/FunModePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const TokenomicsPage = lazy(() => import("./pages/TokenomicsPage"));
+const PanelPage = lazy(() => import("./pages/PanelPage"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
@@ -152,6 +153,7 @@ const App = () => (
                     <Route path="/decompress" element={<DecompressPage />} />
                      <Route path="/fun" element={<FunModePage />} />
                      <Route path="/tokenomics" element={<TokenomicsPage />} />
+                     <Route path="/panel" element={<PanelPage />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
