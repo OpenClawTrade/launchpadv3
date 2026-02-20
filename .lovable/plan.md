@@ -1,33 +1,28 @@
 
 
-# Fix Logo Transparency
+# Fix Matrix Mode Toggle Button
 
 ## Problem
-The claw logo PNG renders with a visible background square instead of being transparent. This appears in:
-- Sidebar top-left logo (next to "CLAW MODE")
-- NFA nav icon
-- Panel nav icon
-- Header "Panel" button icon
+The Matrix toggle switch in the sidebar doesn't respond to clicks. The root cause is a size mismatch between the custom switch dimensions and the default thumb:
+- Switch container: `h-4 w-8` (16px x 32px)
+- Default thumb: `h-5 w-5` (20px x 20px) with `translate-x-5` (20px travel)
 
-## Root Cause
-The current `claw-logo.png` files still have a non-transparent background despite the re-upload. The image file itself contains a solid background behind the lobster pixel art.
+The thumb overflows the container, which can interfere with pointer events.
 
 ## Solution
-Re-save the uploaded transparent PNG to both asset locations, ensuring the alpha channel is preserved:
+Override the thumb size to fit the smaller switch in the `MatrixToggle` component in `Sidebar.tsx`. Instead of using the default Switch (which has hardcoded thumb dimensions), pass proper sizing via className or use inline overrides.
 
-1. **Overwrite `src/assets/claw-logo.png`** with the user-uploaded transparent PNG
-2. **Overwrite `public/claw-logo.png`** with the same file
+## Changes
 
-If the PNG still renders with a background after re-copy (indicating the source file itself has a white background), apply a CSS fallback:
-- Add `mix-blend-mode: screen` to all logo `<img>` elements on dark backgrounds -- this will make white pixels transparent against dark surfaces
+### `src/components/ui/switch.tsx`
+No changes needed to the shared component.
 
-### Files to modify (CSS fallback if needed):
-- `src/components/layout/Sidebar.tsx` -- add `mix-blend-mode: screen` style to all logo `<img>` tags
-- `src/components/layout/AppHeader.tsx` -- same for header Panel button icon
-- `src/components/layout/Footer.tsx` -- same for footer logo
+### `src/components/layout/Sidebar.tsx`
+Replace the current Switch usage in `MatrixToggle` with properly sized thumb overrides:
+- Switch container stays `h-4 w-8`
+- Add custom CSS classes to override the thumb: `[&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4 [&>span]:data-[state=unchecked]:translate-x-0`
 
-### Approach
-1. First, re-copy the uploaded image to both paths
-2. Take a screenshot to verify
-3. If still not transparent, apply the CSS `mix-blend-mode: screen` fix to all logo images as a guaranteed workaround on dark backgrounds
+This ensures the thumb (12px) fits inside the container (16px) and travels the correct distance (16px = 32px width - 12px thumb - 4px padding).
 
+### Technical Detail
+The fix targets the `SwitchPrimitives.Thumb` child element via Tailwind's child selector `[&>span]` to override its `h-5 w-5` and `translate-x-5` defaults to values that match the `h-4 w-8` container.
