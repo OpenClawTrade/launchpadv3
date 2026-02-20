@@ -43,7 +43,7 @@ export function StickyStatsFooter() {
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingLeft: "16px", paddingRight: "16px", overflowX: "auto" }}>
         {/* Stats */}
-        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", overflowX: "auto", minWidth: 0 }}>
           <StatItem label="TOKENS" value={tokens.toLocaleString()} />
           <Divider />
           <StatItem label="AGENTS" value={agents.toLocaleString()} />
