@@ -8,7 +8,7 @@
  * 4. Trades autonomously with strategy-based risk management
  */
 
-import { TradingAgent } from '@tuna/agent-sdk';
+import { TradingAgent } from '@openclaw/sdk';
 
 async function main() {
   // Initialize Trading Agent with balanced strategy

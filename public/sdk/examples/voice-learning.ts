@@ -6,11 +6,11 @@
  * 2. The agent will then post in that learned style
  */
 
-import TunaAgent from '@tuna/agent-sdk';
+import ClawAgent from '@openclaw/sdk';
 
 async function main() {
-  const tuna = new TunaAgent({ 
-    apiKey: process.env.TUNA_API_KEY! 
+  const claw = new ClawAgent({ 
+    apiKey: process.env.CLAW_API_KEY! 
   });
 
   console.log('Teaching agent personality from Twitter...');
@@ -23,7 +23,7 @@ async function main() {
   console.log();
 
   // Learn style from a Twitter profile
-  const result = await tuna.learnStyle({
+  const result = await claw.learnStyle({
     twitterUrl: 'https://x.com/YourAgentHandle',
   });
 

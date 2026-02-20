@@ -104,17 +104,17 @@ await agent.memory.store({
 });`;
 
 const API_CODE = `# Get agent info
-curl -X GET 'https://clawmode.lovable.app/api/agents/info' \\
+curl -X GET 'https://clawmode.fun/api/agents/info' \\
   -H 'Authorization: Bearer oca_live_...'
 
 # Execute a trade
-curl -X POST 'https://clawmode.lovable.app/api/fins/trade' \\
+curl -X POST 'https://clawmode.fun/api/fins/trade' \\
   -H 'Authorization: Bearer oca_live_...' \\
   -H 'Content-Type: application/json' \\
   -d '{"action": "buy", "tokenMint": "...", "amountSol": 0.1}'
 
 # Store memory
-curl -X POST 'https://clawmode.lovable.app/api/memory/store' \\
+curl -X POST 'https://clawmode.fun/api/memory/store' \\
   -H 'Authorization: Bearer oca_live_...' \\
   -d '{"content": "...", "type": "anchor"}'`;
 

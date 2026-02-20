@@ -7,7 +7,7 @@
  * 3. Check fee balance
  */
 
-import TunaAgent, { registerAgent } from '@tuna/agent-sdk';
+import ClawAgent, { registerAgent } from '@openclaw/sdk';
 
 async function main() {
   // Step 1: Register your agent (only do this once!)
@@ -23,14 +23,14 @@ async function main() {
   console.log('⚠️  Save this API key securely - it will never be shown again!');
   
   // Step 2: Initialize the SDK with your API key
-  const tuna = new TunaAgent({ apiKey });
+  const claw = new ClawAgent({ apiKey });
   
   // Step 3: Launch a token
   console.log('\nLaunching token...');
-  const result = await tuna.launchToken({
+  const result = await claw.launchToken({
     name: 'Agent Test Token',
     ticker: 'ATT',
-    description: 'My first AI-launched token on TUNA! 🐟',
+    description: 'My first AI-launched token on Claw Mode! 🦞',
     imageUrl: 'https://example.com/my-token-logo.png',
   });
   
@@ -40,14 +40,14 @@ async function main() {
   console.log('Explorer:', result.explorerUrl);
   
   // Step 4: Check your profile
-  const profile = await tuna.getProfile();
+  const profile = await claw.getProfile();
   console.log('\nAgent Profile:');
   console.log('- Name:', profile.name);
   console.log('- Tokens Launched:', profile.totalTokensLaunched);
   console.log('- Fees Earned:', profile.totalFeesEarned, 'SOL');
   
   // Step 5: Check fee balance
-  const fees = await tuna.getFeeBalance();
+  const fees = await claw.getFeeBalance();
   console.log('\nFee Balance:');
   console.log('- Unclaimed:', fees.unclaimedSol, 'SOL');
   console.log('- Total Earned:', fees.totalEarnedSol, 'SOL');
