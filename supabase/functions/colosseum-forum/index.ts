@@ -120,7 +120,7 @@ This creates friction for casual users and AI agents that don't have wallet infr
 ## Our Solution
 
 \`\`\`
-!tunalaunch name:MyToken symbol:MTK
+!clawmode name:MyToken symbol:MTK
 (no wallet parameter needed!)
 \`\`\`
 

@@ -105,7 +105,7 @@ async function getAuthenticatedUserId(
   return data.data?.id || null;
 }
 
-// Fetch mentions of @TunaLaunch using official X.com API
+// Fetch mentions of @clawmode using official X.com API
 async function fetchMentions(
   userId: string,
   consumerKey: string,
@@ -356,7 +356,7 @@ Deno.serve(async (req) => {
 
             const tokenName = tokenData.name || post.parsed_name || "Token";
             const tokenTicker = tokenData.ticker || post.parsed_symbol || "TOKEN";
-            const catchUpReplyText = `🐟 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${tokenData.mint_address}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
+            const catchUpReplyText = `🦞 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${tokenData.mint_address}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawmode.fun`;
 
             const catchUpResult = await replyToTweet(
               post.post_id,
@@ -410,7 +410,7 @@ Deno.serve(async (req) => {
         const authorId = mention.author_id;
         
         // Layer 2: Expanded bot username blocklist
-        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent"];
+        const botUsernames = ["buildtuna", "tunalaunch", "tunabot", "tuna_launch", "build_tuna", "tunaagent", "clawmode", "buildclaw", "openclaw"];
         if (username && botUsernames.includes(username.toLowerCase())) {
           console.log(`[agent-scan-mentions] ⏭️ Skipping ${tweetId} - from bot account @${username}`);
           continue;
@@ -422,7 +422,9 @@ Deno.serve(async (req) => {
           "🐟 Token launched!",
           "🐟 To launch a token",
           "🐟 To launch your token",
+          "Powered by Claw Agents",
           "Powered by TUNA Agents",
+          "is now live on Claw Mode!",
           "is now live on TUNA!",
           "80% of fees go to you",
         ];
@@ -431,10 +433,10 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Check if contains launch command (!tunalaunch or !launch <text>)
-        const hasStandardCommand = tweetText.toLowerCase().includes("!tunalaunch");
+        // Check if contains launch command (!clawmode, !tunalaunch, or !launch <text>)
+        const hasStandardCommand = tweetText.toLowerCase().includes("!clawmode") || tweetText.toLowerCase().includes("!tunalaunch");
         const launchMatch = tweetText.match(/!launch\s+(.+?)(?:\n|$)/i);
-        const isAutoLaunch = launchMatch && !tweetText.toLowerCase().includes("!tunalaunch") && !tweetText.toLowerCase().includes("!launchtuna");
+        const isAutoLaunch = launchMatch && !tweetText.toLowerCase().includes("!tunalaunch") && !tweetText.toLowerCase().includes("!launchtuna") && !tweetText.toLowerCase().includes("!clawmode");
         const autoLaunchPrompt = isAutoLaunch ? launchMatch[1].trim() : null;
         
         if (!hasStandardCommand && !isAutoLaunch) {
@@ -538,7 +540,7 @@ Deno.serve(async (req) => {
                 if (mintAddress) {
                   const tokenName = tokenData?.name || postData?.parsed_name || "Token";
                   const tokenTicker = tokenData?.ticker || postData?.parsed_symbol || "TOKEN";
-                  const catchUpReplyText = `🐟 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${mintAddress}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
+                  const catchUpReplyText = `🦞 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${mintAddress}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawmode.fun`;
 
                   const catchUpReply = await replyToTweet(
                     tweetId,
@@ -618,7 +620,7 @@ Deno.serve(async (req) => {
             console.log(`[agent-scan-mentions] ⏭️ Skipping reply to ${tweetId} - already replied`);
           } else {
             // New format: full CA, no links, token name/symbol
-            const replyText = `🐟 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by TUNA Agents - 80% of fees go to you! Launch your token on TUNA dot FUN`;
+            const replyText = `🦞 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawmode.fun`;
 
             const replyResult = await replyToTweet(
               tweetId,
