@@ -407,11 +407,11 @@
 
 /* ===== PRICE CHANGE ===== */
 .gate-price-up {
-  color: hsl(var(--gate-success));
+  color: hsl(142 71% 45%) !important;
 }
 
 .gate-price-down {
-  color: hsl(var(--gate-danger));
+  color: hsl(0 72% 51%) !important;
 }
 
 /* ===== PROGRESS BAR ===== */
