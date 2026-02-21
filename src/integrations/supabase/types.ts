@@ -3238,7 +3238,10 @@ export type Database = {
           total_fees_earned: number | null
           trading_agent_id: string | null
           trading_fee_bps: number | null
+          twitter_avatar_url: string | null
           twitter_url: string | null
+          twitter_verified: boolean | null
+          twitter_verified_type: string | null
           updated_at: string | null
           volume_24h_sol: number | null
           website_url: string | null
@@ -3289,7 +3292,10 @@ export type Database = {
           total_fees_earned?: number | null
           trading_agent_id?: string | null
           trading_fee_bps?: number | null
+          twitter_avatar_url?: string | null
           twitter_url?: string | null
+          twitter_verified?: boolean | null
+          twitter_verified_type?: string | null
           updated_at?: string | null
           volume_24h_sol?: number | null
           website_url?: string | null
@@ -3340,7 +3346,10 @@ export type Database = {
           total_fees_earned?: number | null
           trading_agent_id?: string | null
           trading_fee_bps?: number | null
+          twitter_avatar_url?: string | null
           twitter_url?: string | null
+          twitter_verified?: boolean | null
+          twitter_verified_type?: string | null
           updated_at?: string | null
           volume_24h_sol?: number | null
           website_url?: string | null

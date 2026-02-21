@@ -70,15 +70,33 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
 
   const xUsername = creatorUsername || extractXUsername(token.twitter_url);
 
+  // Use cached DB data from fun_tokens first, then fall back to API
   useEffect(() => {
     if (!xUsername) return;
+
+    // If props provide avatar, use those
     if (creatorAvatarUrl) {
       setXProfile({ profileImageUrl: creatorAvatarUrl, verified: creatorVerified ?? false, verifiedType: null });
       return;
     }
+
+    // If fun_tokens already has cached twitter profile data, use it (no API call needed)
+    if (token.twitter_avatar_url) {
+      const info: XProfileInfo = {
+        profileImageUrl: token.twitter_avatar_url,
+        verified: token.twitter_verified ?? false,
+        verifiedType: token.twitter_verified_type || null,
+      };
+      xProfileCache.set(xUsername.toLowerCase(), info);
+      setXProfile(info);
+      return;
+    }
+
+    // Check in-memory cache
     const cached = xProfileCache.get(xUsername.toLowerCase());
     if (cached) { setXProfile(cached); return; }
 
+    // Only call API if no cached data exists — this will also populate the DB for next time
     let cancelled = false;
     supabase.functions.invoke('twitter-user-info', {
       body: { username: xUsername },
@@ -93,7 +111,7 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
       setXProfile(info);
     });
     return () => { cancelled = true; };
-  }, [xUsername, creatorAvatarUrl, creatorVerified]);
+  }, [xUsername, creatorAvatarUrl, creatorVerified, token.twitter_avatar_url, token.twitter_verified, token.twitter_verified_type]);
 
   const tradeUrl = (isPumpFun || isBags || isAgent)
     ? `/t/${token.ticker}`
