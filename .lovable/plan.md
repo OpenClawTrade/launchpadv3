@@ -1,62 +1,46 @@
 
 
-# Fix "Link X Account" Button + Add 0.05 SOL Minimum Withdrawal
+## Optimize Token Image Loading in Terminal Grid
 
-## Problem 1: Link X Account Button Not Working
+The token avatars in the terminal grid are 40x40px squares but currently load full-size images (often 500px+ or larger). This causes slow loading and wasted bandwidth.
 
-The "Link X Account" button on the Launches tab appears disabled/greyed out. This happens because `privyAvailable` returns `false` when the Privy provider hasn't fully loaded, rendering the `LinkXFallback` component (a permanently disabled button) instead of the functional `LinkXButton`.
+### Changes
 
-**Fix:** Remove the `privyAvailable` check since the user is already authenticated (they're on the Panel page which requires login). If they're logged in, Privy is definitely available. The `LinkXButton` component already imports `usePrivy` directly, so it will work.
+**1. Use `OptimizedTokenImage` in `AxiomTokenRow.tsx`**
+- Replace the raw `<img>` tag with the existing `OptimizedTokenImage` component
+- Set `size={48}` (slightly above 40px for retina) to request a tiny, optimized version
+- This will use Supabase image transforms (quality=60, width=48) and IPFS CDN width params
+- The component already handles error fallback, lazy loading, and async decoding
 
-## Problem 2: Minimum 0.05 SOL Withdrawal
-
-Currently there's no minimum withdrawal enforced in the Panel's Earnings tab claim flow. The AgentDashboardPage already has this check (`profile.pendingFees < 0.05`), but the main Panel Earnings tab does not.
-
-**Fix:** Add a 0.05 SOL minimum to the claim button in `PanelEarningsTab.tsx`, disabling it when unclaimed is below 0.05 and showing a note about the minimum.
-
-## Changes
-
-### 1. `src/components/panel/PanelMyLaunchesTab.tsx`
-- Remove the `usePrivyAvailable` import and check
-- Always render `LinkXButton` when user has no Twitter linked (they're already authenticated to reach this page)
-
-### 2. `src/components/panel/PanelEarningsTab.tsx`
-- Add 0.05 SOL minimum constant
-- Disable the "Claim" button when `unclaimed_sol < 0.05`
-- Show "Min 0.05 SOL" label next to the claim button when below threshold
-- Show the minimum withdrawal note in the summary section
+**2. Add `fetchpriority="high"` for eagerness**
+- Since these are above-the-fold items, override the default `loading="lazy"` behavior
+- Pass `loading="eager"` to ensure instant loading for visible rows
 
 ### Technical Details
 
-**PanelMyLaunchesTab.tsx** - Line 121 change:
+In `src/components/launchpad/AxiomTokenRow.tsx`, the avatar section (~lines 93-105) will change from:
+
 ```tsx
-// Before:
-{privyAvailable ? <LinkXButton /> : <LinkXFallback />}
-
-// After:
-<LinkXButton />
+<img
+  src={token.image_url}
+  alt={token.name}
+  className="w-full h-full object-cover rounded-lg"
+  onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
+/>
 ```
-Also remove `LinkXFallback` component and `usePrivyAvailable` import.
 
-**PanelEarningsTab.tsx** - Claim button change:
+To:
+
 ```tsx
-const MIN_CLAIM_SOL = 0.05;
-
-<Button
-  size="sm"
-  className="h-8 text-xs"
-  disabled={
-    !earning.unclaimed_sol || 
-    earning.unclaimed_sol < MIN_CLAIM_SOL || 
-    claimingTokenId === earning.token_id
-  }
-  onClick={() => handleClaim(earning.token_id)}
->
-  {claimingTokenId === earning.token_id 
-    ? <Loader2 className="h-4 w-4 animate-spin" /> 
-    : earning.unclaimed_sol < MIN_CLAIM_SOL 
-      ? "Min 0.05" 
-      : "Claim"}
-</Button>
+<OptimizedTokenImage
+  src={token.image_url}
+  fallbackText={token.ticker}
+  size={48}
+  loading="eager"
+  alt={token.name}
+  className="w-full h-full object-cover rounded-lg"
+/>
 ```
+
+This reuses the existing optimization infrastructure (Supabase render API, IPFS CDN params) to request ~48px images instead of full-size ones, resulting in significantly faster loads.
 
