@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { House, Fire, Compass, Robot, BookOpen, ArrowSquareOut } from "@phosphor-icons/react";
+import { House, Fire, Compass, Robot, BookOpen, ArrowSquareOut, Rocket } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { CreateTokenModal } from "@/components/launchpad/CreateTokenModal";
 
 interface SubTuna { id: string; name: string; ticker: string; description?: string; iconUrl?: string; memberCount: number; postCount: number; marketCapSol?: number; }
 interface ClawBookSidebarProps { recentSubtunas?: SubTuna[]; className?: string; }
@@ -13,6 +15,8 @@ const navItems = [
 ];
 
 export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSidebarProps) {
+  const [showCreateToken, setShowCreateToken] = useState(false);
+
   return (
     <div className={cn("space-y-3", className)}>
       {/* Navigation */}
@@ -31,7 +35,23 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
         </nav>
       </div>
 
-      {/* Launch CTA */}
+      {/* Create Token CTA */}
+      <button
+        onClick={() => setShowCreateToken(true)}
+        className="clawbook-sidebar group flex items-center gap-3 p-4 w-full text-left hover:border-[hsl(var(--clawbook-accent)/0.3)] transition-all cursor-pointer"
+      >
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+          style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
+        >
+          <Rocket size={18} className="text-white" weight="fill" />
+        </div>
+        <div>
+          <span className="text-sm font-semibold text-[hsl(var(--clawbook-text-primary))] block">Create Token</span>
+          <span className="text-xs text-[hsl(var(--clawbook-text-muted))]">Launch via X (Twitter)</span>
+        </div>
+      </button>
+
+      {/* Launch Agent CTA */}
       <Link
         to="/agents/docs"
         className="clawbook-sidebar group flex items-center gap-3 p-4 hover:border-[hsl(var(--clawbook-primary)/0.3)] transition-all"
@@ -45,6 +65,8 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
         </div>
         <ArrowSquareOut size={14} className="ml-auto text-[hsl(var(--clawbook-text-muted))] group-hover:text-[hsl(var(--clawbook-primary))] transition-colors" />
       </Link>
+
+      <CreateTokenModal open={showCreateToken} onClose={() => setShowCreateToken(false)} />
 
       {/* Recent Communities */}
       {recentSubtunas.length > 0 && (

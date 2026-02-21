@@ -197,7 +197,7 @@ export function useSubTuna(ticker?: string) {
 
 export function useRecentSubTunas(limit = 10) {
   return useQuery({
-    queryKey: ["recent-subtunas-v3", limit],
+    queryKey: ["recent-subtunas-v4", limit],
     queryFn: async () => {
       // Step 1: Fetch subtunas without join
       const { data: subtunas, error } = await supabase
@@ -221,6 +221,18 @@ export function useRecentSubTunas(limit = 10) {
         tokenMap = new Map((tokens || []).map(t => [t.id, t]));
       }
 
+      // Step 3: Get real post counts from subtuna_posts
+      const subtunaIds = subtunas.map(s => s.id);
+      const { data: postCounts } = await supabase
+        .from("subtuna_posts")
+        .select("subtuna_id")
+        .in("subtuna_id", subtunaIds);
+      
+      const postCountMap = new Map<string, number>();
+      (postCounts || []).forEach((p: any) => {
+        postCountMap.set(p.subtuna_id, (postCountMap.get(p.subtuna_id) || 0) + 1);
+      });
+
       // Transform with token data
       return subtunas.map((s: any) => {
         const token = s.fun_token_id ? tokenMap.get(s.fun_token_id) : null;
@@ -235,12 +247,12 @@ export function useRecentSubTunas(limit = 10) {
           description: s.description,
           iconUrl: s.icon_url || token?.image_url,
           memberCount: s.member_count || 0,
-          postCount: s.post_count || 0,
+          postCount: postCountMap.get(s.id) || s.post_count || 0,
           marketCapSol: token?.market_cap_sol,
         };
       });
     },
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 60,
     retry: 1,
   });
 }
