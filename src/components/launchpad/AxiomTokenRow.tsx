@@ -67,9 +67,9 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
   const holders = token.holder_count ?? 0;
   const age = formatAge(token.created_at);
 
-  const tradeUrl = (token.launchpad_type === 'pumpfun' || token.launchpad_type === 'bags' || isAgent)
-    ? `/t/${token.ticker}`
-    : `/launchpad/${token.mint_address || token.id}`;
+  const tradeUrl = token.mint_address
+    ? `/launchpad/${token.mint_address}`
+    : `/launchpad/${token.id}`;
 
   const handleCopyCA = (e: React.MouseEvent) => {
     e.preventDefault();
