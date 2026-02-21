@@ -245,6 +245,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    // TEMPORARY HALT: Stop all launches and replies until this timestamp
+    const HALT_UNTIL = new Date("2026-02-22T11:40:00Z"); // 15 hours from Feb 21 ~20:40 UTC
+    if (Date.now() < HALT_UNTIL.getTime()) {
+      const remainingMins = Math.ceil((HALT_UNTIL.getTime() - Date.now()) / 60000);
+      console.log(`[agent-scan-mentions] ⏸️ TEMPORARY HALT active. Resumes in ${remainingMins} minutes`);
+      return new Response(
+        JSON.stringify({ success: true, halted: true, resumesAt: HALT_UNTIL.toISOString(), remainingMinutes: remainingMins }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Emergency kill-switch: disable ALL X posting/replying unless explicitly enabled.
     const postingEnabled = Deno.env.get("ENABLE_X_POSTING") === "true";
     if (!postingEnabled) {
