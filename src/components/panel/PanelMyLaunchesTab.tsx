@@ -4,7 +4,7 @@ import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Twitter, Loader2, DollarSign, ExternalLink } from "lucide-react";
+import { Twitter, Loader2, DollarSign, ExternalLink, Rocket } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { usePrivy } from "@privy-io/react-auth";
@@ -163,11 +163,33 @@ export default function PanelMyLaunchesTab() {
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
       ) : allTokens.length === 0 ? (
-        <Card className="p-6 bg-white/5 border-white/10 text-center">
-          <p className="text-sm text-muted-foreground">
-            No tokens found for @{twitterUsername}. Launch a token using <code className="text-xs" style={{ color: "#4ade80" }}>!clawmode</code> on X.
+        <div
+          className="rounded-2xl p-8 text-center"
+          style={{
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(51,65,85,0.35)",
+          }}
+        >
+          <div
+            className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+            style={{ background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.12)" }}
+          >
+            <Rocket className="h-6 w-6 text-[#F97316]/60" />
+          </div>
+          <p className="text-sm font-medium text-[#CBD5E1] mb-1">No tokens launched yet</p>
+          <p className="text-xs text-[#64748B] mb-4 max-w-xs mx-auto leading-relaxed">
+            Reply to any post on X with <code className="text-[#F97316] font-mono text-[11px]">@clawmode !clawmode</code> followed by your token idea
           </p>
-        </Card>
+          <a
+            href="https://x.com/clawmode"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+            style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
+          >
+            Launch via @clawmode →
+          </a>
+        </div>
       ) : (
         <div className="space-y-2">
           {allTokens.map((token) => (
