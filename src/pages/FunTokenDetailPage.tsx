@@ -355,14 +355,13 @@ export default function FunTokenDetailPage() {
             </div>
           </div>
 
-          {/* ──── MAIN CONTENT: 2-column (chart+trade | sidebar) ──── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-1.5 flex-1">
+          {/* ──── MAIN CONTENT: Chart left | Trade+Info right (Axiom/Binance layout) ──── */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-1.5 flex-1 min-h-0">
 
-            {/* LEFT: Chart + Trade (stacked) */}
-            <div className={`lg:col-span-9 flex flex-col gap-1.5 ${mobileTab === 'comments' ? 'hidden lg:flex' : ''}`}>
-
+            {/* LEFT: Chart (full height) */}
+            <div className={`lg:col-span-8 flex flex-col gap-1.5 ${mobileTab === 'comments' || mobileTab === 'trade' ? 'hidden lg:flex' : ''}`}>
               {/* Chart */}
-              <div className={`terminal-panel-flush rounded-lg overflow-hidden flex-1 ${mobileTab === 'trade' ? 'hidden lg:block' : ''}`}>
+              <div className="terminal-panel-flush rounded-lg overflow-hidden flex-1">
                 <div className="px-3 py-1.5 border-b border-border/15 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-3 w-3 text-muted-foreground" />
@@ -379,13 +378,27 @@ export default function FunTokenDetailPage() {
                 <LightweightChart
                   data={[]}
                   chartType="area"
-                  height={320}
+                  height={480}
                   isPositive={isPriceUp}
                 />
               </div>
 
-              {/* Trade Panel */}
-              <div className={`${mobileTab === 'chart' ? 'hidden lg:block' : ''}`}>
+              {/* Desktop: Comments below chart */}
+              <div className="hidden lg:block terminal-panel-flush rounded-lg p-2.5 max-h-[200px] overflow-hidden flex flex-col">
+                <h3 className="text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1 mb-2">
+                  <MessageCircle className="h-2.5 w-2.5" /> Discussion
+                </h3>
+                <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
+                  <TokenComments tokenId={token.id} />
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT: Trade Panel (top) + Token Info + Wallet (Axiom-style sticky sidebar) */}
+            <div className={`lg:col-span-4 flex flex-col gap-1.5 ${mobileTab === 'chart' ? 'hidden lg:flex' : ''}`}>
+
+              {/* ★ TRADE PANEL — Top-right, always visible */}
+              <div className={`${mobileTab === 'comments' ? 'hidden lg:block' : ''}`}>
                 {isBonding && (
                   <TradePanelWithSwap token={tokenForTradePanel} userBalance={0} />
                 )}
@@ -402,14 +415,8 @@ export default function FunTokenDetailPage() {
                 )}
               </div>
 
-              {/* Mobile: wallet card below trade */}
-              <div className="lg:hidden">
-                {mobileTab === 'trade' && <EmbeddedWalletCard />}
-              </div>
-            </div>
-
-            {/* RIGHT SIDEBAR: Token Info + Description + Comments + Wallet */}
-            <div className={`lg:col-span-3 flex flex-col gap-1.5 ${mobileTab !== 'comments' ? 'hidden lg:flex' : ''}`}>
+              {/* Wallet */}
+              <EmbeddedWalletCard />
 
               {/* Token Details */}
               <div className="terminal-panel-flush rounded-lg p-2.5 space-y-1.5">
@@ -487,20 +494,17 @@ export default function FunTokenDetailPage() {
                 </div>
               )}
 
-              {/* Discussion */}
-              <div className="terminal-panel-flush rounded-lg p-2.5 flex-1 min-h-0 overflow-hidden flex flex-col">
-                <h3 className="text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1 mb-2">
-                  <MessageCircle className="h-2.5 w-2.5" /> Discussion
-                </h3>
-                <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
-                  <TokenComments tokenId={token.id} />
+              {/* Mobile: Discussion */}
+              {mobileTab === 'comments' && (
+                <div className="lg:hidden terminal-panel-flush rounded-lg p-2.5 flex-1 min-h-0 overflow-hidden flex flex-col">
+                  <h3 className="text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1 mb-2">
+                    <MessageCircle className="h-2.5 w-2.5" /> Discussion
+                  </h3>
+                  <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
+                    <TokenComments tokenId={token.id} />
+                  </div>
                 </div>
-              </div>
-
-              {/* Wallet (desktop) */}
-              <div className="hidden lg:block">
-                <EmbeddedWalletCard />
-              </div>
+              )}
             </div>
           </div>
 
