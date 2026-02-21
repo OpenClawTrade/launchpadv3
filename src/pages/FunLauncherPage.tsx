@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { BaseLauncher } from "@/components/launchpad/BaseLauncher";
 import { LaunchCountdown } from "@/components/LaunchCountdown";
 import { PromoteModal } from "@/components/launchpad/PromoteModal";
+import { CreateTokenModal } from "@/components/launchpad/CreateTokenModal";
 import { SniperStatusPanel } from "@/components/admin/SniperStatusPanel";
 import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { Link, useSearchParams } from "react-router-dom";
@@ -435,85 +436,8 @@ export default function FunLauncherPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Token Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={(open) => !open && closeCreateDialog()}>
-        <DialogContent
-          className="!max-w-[480px] !w-[calc(100vw-1rem)] p-0 [&>button:first-child]:hidden"
-          style={{
-            background: "#0a0a0b",
-            border: "1px solid #1c1c1f",
-            borderRadius: "6px",
-            boxShadow: "0 0 60px rgba(232,64,64,0.06), 0 24px 48px rgba(0,0,0,0.9)",
-          }}
-        >
-          {/* Red top accent line */}
-          <div style={{ height: "2px", background: "linear-gradient(90deg, #e84040, #c42c2c, transparent)", flexShrink: 0 }} />
-
-          {/* Header */}
-          <div
-            className="flex items-center justify-between px-5 py-3.5"
-            style={{ background: "#0d0d0f", borderBottom: "1px solid #1c1c1f", borderLeft: "3px solid #e84040" }}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-base">🚀</span>
-              <h2 className="text-[13px] font-bold uppercase tracking-widest text-white">Launch Token</h2>
-            </div>
-            <button
-              onClick={closeCreateDialog}
-              className="flex items-center justify-center h-7 w-7 rounded transition-colors"
-              style={{ color: "#666" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Body */}
-          <div className="px-6 py-6 space-y-5">
-            <p className="text-sm text-white/80 leading-relaxed">
-              Launch your token right from <span className="font-bold text-white">X (Twitter)</span> with a simple reply to any post.
-            </p>
-
-            <div className="rounded-lg p-4 space-y-3" style={{ background: "#111113", border: "1px solid #1c1c1f" }}>
-              <div className="font-mono text-xs text-white/40 uppercase tracking-widest mb-2">How it works</div>
-              <div className="flex items-start gap-3">
-                <span className="font-mono text-[11px] text-[#e84040] w-5 flex-shrink-0">01</span>
-                <p className="text-[13px] text-white/70">Reply to any post on X with:</p>
-              </div>
-              <div className="rounded-md px-4 py-3 font-mono text-sm text-white" style={{ background: "#0a0a0b", border: "1px solid #e84040/30" }}>
-                <span className="text-[#e84040]">@clawmode</span>{" "}
-                <span className="text-white/50">!clawmode</span>{" "}
-                <span className="text-white/70 italic">describe what you want to launch</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="font-mono text-[11px] text-[#e84040] w-5 flex-shrink-0">02</span>
-                <p className="text-[13px] text-white/70">Our AI generates the name, ticker, description & avatar automatically</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="font-mono text-[11px] text-[#e84040] w-5 flex-shrink-0">03</span>
-                <p className="text-[13px] text-white/70">Token deploys instantly on Solana — you'll get a reply with the link</p>
-              </div>
-            </div>
-
-            <div className="rounded-lg p-3 text-center" style={{ background: "rgba(232,64,64,0.06)", border: "1px solid rgba(232,64,64,0.15)" }}>
-              <p className="text-[11px] text-white/50 font-mono">
-                Example: <span className="text-[#e84040]">@clawmode !clawmode</span> <span className="text-white/70">a meme coin about a dancing lobster</span>
-              </p>
-            </div>
-
-            <a
-              href="https://x.com/clawmode"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-lg text-[13px] font-bold text-white transition-all hover:opacity-90"
-              style={{ background: "#e84040" }}
-            >
-              Go to @clawmode on X →
-            </a>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Create Token Modal */}
+      <CreateTokenModal open={showCreateDialog} onClose={closeCreateDialog} />
 
       {/* Promote Modal */}
       {showPromoteModal && promoteTokenId && (
