@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,14 +34,6 @@ function LinkXButton() {
   );
 }
 
-function LinkXFallback() {
-  return (
-    <Button disabled className="gap-2 font-mono" style={{ background: "#4ade80", color: "#000" }}>
-      <Twitter className="h-4 w-4" />
-      Link X Account
-    </Button>
-  );
-}
 
 interface LaunchedToken {
   id: string;
@@ -58,7 +49,6 @@ interface LaunchedToken {
 
 export default function PanelMyLaunchesTab() {
   const { user } = useAuth();
-  const privyAvailable = usePrivyAvailable();
   const twitterUsername = user?.twitter?.username;
 
   // Fetch tokens launched by this X username
@@ -118,7 +108,7 @@ export default function PanelMyLaunchesTab() {
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
             Connect your X (Twitter) account to see tokens you've launched via !clawmode and claim your trading fees.
           </p>
-          {privyAvailable ? <LinkXButton /> : <LinkXFallback />}
+          <LinkXButton />
         </div>
       </div>
     );
