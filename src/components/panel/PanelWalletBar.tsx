@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { usePrivy } from "@privy-io/react-auth";
+import { useExportWallet } from "@privy-io/react-auth/solana";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,7 @@ export default function PanelWalletBar() {
 
 function WalletBarInner() {
   const { walletAddress, isWalletReady, getBalance, getBalanceStrict } = useSolanaWalletWithPrivy();
-  const { exportWallet } = usePrivy();
+  const { exportWallet } = useExportWallet();
   const { toast } = useToast();
 
   const [balance, setBalance] = useState<number | null>(null);
@@ -109,7 +110,7 @@ function WalletBarInner() {
     if (confirmText !== "EXPORT") return;
     setIsExporting(true);
     try {
-      await exportWallet();
+      await exportWallet(walletAddress ? { address: walletAddress } : undefined);
       toast({ title: "Export initiated", description: "Follow the secure export flow" });
       setShowExport(false); setConfirmText("");
     } catch (error) {

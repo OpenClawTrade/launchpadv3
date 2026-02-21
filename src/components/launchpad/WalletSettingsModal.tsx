@@ -7,13 +7,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Settings, Eye, EyeOff, Copy, Check, AlertTriangle, Key, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePrivy } from "@privy-io/react-auth";
+import { useExportWallet } from "@privy-io/react-auth/solana";
 
 interface WalletSettingsModalProps {
   walletAddress?: string;
 }
 
 export function WalletSettingsModal({ walletAddress }: WalletSettingsModalProps) {
-  const { exportWallet } = usePrivy();
+  const { exportWallet } = useExportWallet();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
