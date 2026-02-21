@@ -1,121 +1,80 @@
 
 
-# Terminal Page Redesign: Axiom-Style Three-Column Token List
+# Fix Agents Page Stats — Accurate Data
 
-## Overview
+## The Problem
 
-Replace the current image-card grid layout on the home/terminal page (`/`) with a high-density, Axiom.trade-inspired three-column list view showing tokens organized by lifecycle stage: **New Pairs**, **Final Stretch** (near graduation), and **Migrated** (graduated tokens).
+The stats bar on the Agents page (`/agents?tab=tuna`) shows inaccurate/misleading data:
 
-## Current State
-- Home page (`FunLauncherPage.tsx`) uses a 2-5 column grid of `TokenCard` components with large images, descriptions, and bonding progress bars
-- Each card is image-heavy (~54% height dedicated to token image)
-- Filter tabs: New, Hot, Top, Agents
-- Horizontal scroll "Just Launched" row at top
-- KingOfTheHill featured section
+1. **"Fees Claimed" shows $3.36M** — This is actually fake "volume" data calculated as `market_cap * 10` in the database function, not real fees claimed at all
+2. **"Agent Fees Earned" shows $393** — This is only counting 80% of the 5.7 SOL actually claimed from fee pools, which is technically correct but misleadingly low
+3. **"Tokens Launched" shows 129 instead of 132** — Stale 5-minute cache on the edge function
+4. **Market Cap seems roughly correct** at ~$336K (3,987 SOL at ~$86)
 
-## Target State (Axiom-style)
-- Three vertical columns side-by-side: **New Pairs** | **Final Stretch** | **Migrated**
-- Each token is a compact horizontal row (~80-100px tall) with:
-  - Small avatar (40px), token name + ticker, age, creator @handle
-  - Right-aligned: MC (market cap), Volume, Fee stats, TX count
-  - Tiny bonding progress bar inline
-  - SOL buy button (teal/green)
-  - Social icon row (globe, twitter, telegram, chat, users)
-  - Percentage stats row at bottom (DS%, buy/sell ratios)
-- No large images, no descriptions -- pure data density
-- Dark terminal aesthetic with monospace metrics
-- Mobile: stacks to single column with horizontal tab switching between the three categories
+## Root Cause
 
-## Technical Plan
+The `get_agent_token_stats` RPC function has a fake volume calculation:
+```sql
+'totalVolume', SUM(market_cap_sol) * 10  -- completely fabricated
+```
 
-### 1. Create `AxiomTokenRow` Component
-**New file: `src/components/launchpad/AxiomTokenRow.tsx`**
+And the UI labels the volume stat as "Fees Claimed", making it doubly wrong.
 
-A compact horizontal row component for each token:
-- 40px rounded avatar on the left
-- Name + ticker + age inline
-- Creator @username with avatar (if available)
-- Right side: MC and Volume in USD, fees, TX count
-- Inline thin progress bar
-- Quick-buy SOL button (green pill)
-- Bottom stats: bonding %, DS%, buy/sell ratios
-- Platform badge (pump, bags, claw) as small icons
+## Plan
 
-### 2. Create `AxiomTerminalGrid` Component
-**New file: `src/components/launchpad/AxiomTerminalGrid.tsx`**
+### Step 1: Update the `get_agent_token_stats` RPC function
 
-Three-column layout component:
-- Column headers: "New Pairs", "Final Stretch", "Migrated" with counts
-- Each column has filter controls (P1, P2, P3 pagination, sort icon)
-- Scrollable columns with virtual list feel
-- Data splitting logic:
-  - **New Pairs**: tokens sorted by `created_at` desc, `bonding_progress < 80`
-  - **Final Stretch**: tokens with `bonding_progress >= 80` and status not graduated
-  - **Migrated**: tokens with `status === 'graduated'` or `bonding_progress >= 100`
-- Mobile responsive: single column with tab switcher
+Replace the fake volume metric with real fee data from `fun_fee_claims`:
 
-### 3. Update `FunLauncherPage.tsx`
-- Replace the current `TokenCard` grid section with `AxiomTerminalGrid`
-- Keep the top "Just Launched" horizontal scroll (or merge into New Pairs column)
-- Keep `KingOfTheHill` or optionally remove for cleaner terminal feel
-- Remove image-heavy filter tabs, replace with column-based organization
-- Keep ticker bar, sidebar, and header untouched
+- **totalMarketCap**: Keep as-is (SUM of market_cap_sol from fun_tokens)
+- **totalAgentFeesEarned**: Change to total `total_fees_earned` from fun_tokens (full amount, not 80%) — this represents all fees generated
+- **totalTokensLaunched**: Keep as-is (COUNT of fun_tokens)
+- **totalVolume**: Replace fake `*10` calculation with actual `SUM(claimed_sol)` from `fun_fee_claims` — real on-chain claimed fees
+- **totalAgents**: Keep as-is
+- **totalAgentPosts**: Keep as-is
+- **totalAgentPayouts**: Keep as-is
 
-### 4. Add Axiom-specific CSS to `src/index.css`
-- `.axiom-row` -- compact row styling with hover highlight
-- `.axiom-col-header` -- column header with count badge
-- `.axiom-progress-inline` -- thin inline progress bar
-- `.axiom-buy-pill` -- green SOL buy button
+### Step 2: Fix the UI label in ClawBookPage.tsx
 
-### 5. Mobile Responsiveness
-- Desktop (>1024px): three columns side-by-side
-- Tablet (768-1024px): two columns (New + Final Stretch visible, Migrated in tab)
-- Mobile (<768px): single column with horizontal tab switcher ("New Pairs" | "Final Stretch" | "Migrated")
+Change the 4th stat from showing `totalVolume` labeled "Fees Claimed" to showing actual claimed fees properly. The 4 stats will be:
+
+1. **Total Market Cap** — totalMarketCap (correct)
+2. **Agent Fees Earned** — totalAgentFeesEarned (all fees, not just 80%)
+3. **Tokens Launched** — totalTokensLaunched (correct)
+4. **Total Volume** — totalVolume (real claimed SOL, not fake multiplier)
+
+### Step 3: Update AgentStatsBar.tsx consistency
+
+Ensure the 5-stat bar on the main Agents page also uses the corrected data.
+
+### Step 4: Redeploy the edge function
+
+Deploy the updated `agent-stats` function so the cache refreshes with accurate data.
 
 ## Technical Details
 
-### Token Row Data Layout (per Axiom screenshot)
-```text
-+-------------------------------------------------------+
-| [Avatar] NAME Ticker [badges]     MC $2.39K           |
-|          13s [icons] @user 58.6K  V  $504             |
-|          [progress bar thin]      F 0.023 TX 3        |
-|  0% DS 0% 0% 0% 0%                    [0 SOL btn]    |
-+-------------------------------------------------------+
+**Database migration** — Update `get_agent_token_stats` RPC:
+```sql
+CREATE OR REPLACE FUNCTION get_agent_token_stats()
+RETURNS json
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT json_build_object(
+    'totalMarketCap', COALESCE((SELECT SUM(market_cap_sol) FROM public.fun_tokens), 0),
+    'totalVolume', COALESCE((SELECT SUM(claimed_sol) FROM public.fun_fee_claims), 0),
+    'totalTokensLaunched', COALESCE((SELECT COUNT(*) FROM public.fun_tokens), 0),
+    'totalAgents', COALESCE((SELECT COUNT(*) FROM public.agents WHERE status = 'active'), 0),
+    'totalAgentPosts', COALESCE((SELECT COUNT(*) FROM public.subtuna_posts WHERE is_agent_post = true), 0),
+    'totalAgentFeesEarned', COALESCE((SELECT SUM(total_fees_earned) FROM public.fun_tokens), 0),
+    'totalAgentPayouts', COALESCE((SELECT SUM(amount_sol) FROM public.agent_fee_distributions), 0)
+  );
+$$;
 ```
 
-### Column Classification Logic
-```typescript
-// New Pairs: recent, early bonding
-const newPairs = tokens.filter(t => 
-  (t.bonding_progress ?? 0) < 80 && t.status !== 'graduated'
-).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+**Files to modify:**
+- `src/pages/ClawBookPage.tsx` — Fix "Fees Claimed" label to "Total Volume" or use the correct data field
+- `supabase/functions/agent-stats/index.ts` — No code change needed (it already calls the RPC)
 
-// Final Stretch: near graduation (80%+)  
-const finalStretch = tokens.filter(t => 
-  (t.bonding_progress ?? 0) >= 80 && t.status !== 'graduated'
-).sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0));
-
-// Migrated: graduated tokens
-const migrated = tokens.filter(t => 
-  t.status === 'graduated'
-).sort((a, b) => (b.market_cap_sol ?? 0) - (a.market_cap_sol ?? 0));
-```
-
-### Key Styling
-- Row background: `hsl(222 30% 7%)` with `hover:hsl(222 25% 10%)`
-- Column dividers: 1px `hsl(222 20% 14%)` vertical borders
-- MC/Volume: `hsl(160 84% 45%)` for green values
-- SOL buy button: teal border pill with SOL amount
-- Font: IBM Plex Mono for all numeric data at 11-12px
-- Avatar: 40px rounded with 1px border
-- Row height: ~90-100px compact
-
-### Files to Create
-1. `src/components/launchpad/AxiomTokenRow.tsx` -- individual token row
-2. `src/components/launchpad/AxiomTerminalGrid.tsx` -- three-column grid
-
-### Files to Modify
-1. `src/pages/FunLauncherPage.tsx` -- swap grid for Axiom layout
-2. `src/index.css` -- add Axiom row/column CSS classes
-
+After this fix, the stats will show real on-chain data instead of fabricated multipliers.
