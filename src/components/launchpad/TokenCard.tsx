@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { Bot, Crown, Copy, CheckCircle, TrendingUp, TrendingDown, BadgeCheck, Sparkles } from "lucide-react";
+import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
@@ -158,18 +159,13 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
       {/* ── Token Image ── */}
       <div className="relative w-full" style={{ paddingBottom: "54%" }}>
         <div className="absolute inset-0">
-          {token.image_url ? (
-            <img
-              src={token.image_url}
-              alt={token.name}
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-2xl font-bold" style={{ background: "hsl(var(--muted))", color: "hsl(var(--success))" }}>
-              {token.ticker?.slice(0, 2)}
-            </div>
-          )}
+          <OptimizedTokenImage
+            src={token.image_url}
+            alt={token.name}
+            fallbackText={token.ticker}
+            size={400}
+            className="w-full h-full object-cover"
+          />
 
           {/* Gradient overlay for text readability */}
           <div className="absolute inset-0" style={{ background: "linear-gradient(to top, hsl(220 25% 8%) 0%, hsl(220 25% 8% / 0.6) 30%, transparent 60%)" }} />
