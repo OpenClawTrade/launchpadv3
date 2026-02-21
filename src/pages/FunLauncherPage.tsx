@@ -10,7 +10,7 @@ import { Footer } from "@/components/layout/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useJustLaunched } from "@/hooks/useJustLaunched";
-import { useKingOfTheHill } from "@/hooks/useKingOfTheHill";
+import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions } from "@/hooks/useFunFeeData";
 import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
@@ -70,7 +70,7 @@ export default function FunLauncherPage() {
   const { solanaAddress } = useAuth();
   const { tokens, totalCount, isLoading: tokensLoading, refetch } = useFunTokensPaginated(1, 100);
   const { tokens: justLaunchedTokens, isLoading: justLaunchedLoading } = useJustLaunched();
-  const { tokens: kothTokens, isLoading: kothLoading } = useKingOfTheHill();
+  
   const { chain, chainConfig, isSolana, isChainEnabled } = useChainRoute();
   const { setChain } = useChain();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -272,49 +272,10 @@ export default function FunLauncherPage() {
               </div>
             </div>
 
-            {/* King of the Hill strip */}
-            {kothTokens && kothTokens.length > 0 && (
-              <div className="px-4 pt-4">
-                <div className="flex items-center gap-2 mb-2.5">
-                  <img src="/claw-logo.png" alt="Claw" className="h-4 w-4 object-contain" />
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">King of the Claws</span>
-                  <span className="text-[10px] text-muted-foreground/50">— Soon to Graduate</span>
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                  {kothTokens.map((token, i) => {
-                    const tradeUrl = (token.launchpad_type === 'pumpfun' || token.launchpad_type === 'bags' || token.agent_id || token.trading_agent_id)
-                      ? `/t/${token.ticker}`
-                      : `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`;
-                    const marketCapUsd = (token.market_cap_sol ?? 0) * (solPrice || 0);
-                    return (
-                      <Link
-                        key={token.id}
-                        to={tradeUrl}
-                        className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-xl hover-lift bg-surface border border-border hover:border-success"
-                        style={{ minWidth: "200px" }}
-                      >
-                        <span className={`text-[10px] font-bold font-mono w-4 text-center flex-shrink-0 ${i === 0 ? "text-yellow-400" : i === 1 ? "text-slate-300" : "text-orange-500"}`}>#{i + 1}</span>
-                        <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
-                          {token.image_url ? <img src={token.image_url} alt={token.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-success">{token.ticker?.slice(0, 2)}</div>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[11px] font-semibold text-foreground truncate">{token.name}</div>
-                          <div className="text-[9px] font-mono text-success">
-                            ${marketCapUsd >= 1000 ? `${(marketCapUsd / 1000).toFixed(1)}K` : marketCapUsd.toFixed(0)}
-                          </div>
-                        </div>
-                        <div className="flex-shrink-0 w-16">
-                          <div className="h-1 w-full rounded-pill overflow-hidden bg-muted">
-                            <div className="h-full rounded-pill" style={{ width: `${Math.min(token.bonding_progress ?? 0, 100)}%`, background: (token.bonding_progress ?? 0) >= 80 ? "hsl(24 95% 53%)" : "hsl(160 84% 39%)" }} />
-                          </div>
-                          <span className="text-[8px] font-mono text-muted-foreground">{(token.bonding_progress ?? 0).toFixed(0)}%</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* King of the Hill — premium glassmorphic cards */}
+            <div className="px-4 pt-4">
+              <KingOfTheHill />
+            </div>
 
             {/* Filter tabs */}
             <div className="px-4 pt-5">
