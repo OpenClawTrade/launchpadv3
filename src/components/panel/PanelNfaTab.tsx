@@ -9,7 +9,9 @@ import {
   Fingerprint, Loader2, Zap, Users, TrendingUp, Bot,
   CheckCircle2, ExternalLink, Globe, Coins,
   Sparkles, Upload, X, ArrowLeft, AlertTriangle, Tag, ShoppingCart,
+  Shield,
 } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -585,10 +587,63 @@ function MyNfasGrid({ mints, solanaAddress }: { mints: NfaMint[]; solanaAddress:
   );
 }
 
+/* ───────── Admin: Create Collection ───────── */
+function AdminCreateCollection() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const handleCreate = async () => {
+    const secret = prompt("Enter admin secret:");
+    if (!secret) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("nfa-create-collection", {
+        body: { adminSecret: secret },
+      });
+      if (error) throw new Error(error.message);
+      const resp = data as any;
+      if (resp?.error) throw new Error(resp.error);
+      setResult(resp.collectionAddress);
+      toast.success(`Collection created: ${resp.collectionAddress}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create collection");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 mt-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Shield className="h-4 w-4 text-yellow-500" />
+        <h4 className="text-sm font-bold text-yellow-500">Admin: Create NFA Collection</h4>
+      </div>
+      {result ? (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">Collection address (save as <code className="text-yellow-400">NFA_COLLECTION_ADDRESS</code> secret):</p>
+          <code className="text-xs break-all block bg-black/30 rounded p-2 text-green-400">{result}</code>
+        </div>
+      ) : (
+        <Button
+          onClick={handleCreate}
+          disabled={loading}
+          variant="outline"
+          size="sm"
+          className="border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10"
+        >
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Zap className="h-3.5 w-3.5 mr-2" />}
+          Create On-Chain Collection
+        </Button>
+      )}
+    </div>
+  );
+}
+
 /* ═══════════ Main Component ═══════════ */
 export default function PanelNfaTab() {
   const { solanaAddress } = useAuth();
   const privyAvailable = usePrivyAvailable();
+  const { isAdmin } = useIsAdmin(solanaAddress);
   const [subTab, setSubTab] = useState<"mynfas" | "howitworks" | "fees">("mynfas");
 
   const { data: batch } = useQuery({
@@ -750,6 +805,9 @@ export default function PanelNfaTab() {
           {subTab === "fees" && <FeeStructureBars />}
         </div>
       </div>
+
+      {/* Admin Section */}
+      {isAdmin && <AdminCreateCollection />}
     </div>
   );
 }
