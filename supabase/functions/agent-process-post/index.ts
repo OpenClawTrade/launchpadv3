@@ -855,8 +855,16 @@ export async function processLaunchPost(
       };
     }
     
-    // Re-host the AI-generated image (handle base64 data URLs from fun-generate)
-    let finalImageUrl = genResult.imageUrl;
+    // If user attached an image, use it instead of AI-generated image
+    let finalImageUrl: string;
+    if (attachedMediaUrl && !attachedMediaUrl.startsWith("https://t.co/") && !attachedMediaUrl.startsWith("http://t.co/")) {
+      console.log(`[agent-process-post] 📷 User attached image - using instead of AI-generated: ${attachedMediaUrl.slice(0, 80)}...`);
+      finalImageUrl = attachedMediaUrl;
+    } else {
+      finalImageUrl = genResult.imageUrl;
+    }
+
+    // Re-host the image (handle base64 data URLs from fun-generate)
     try {
       if (finalImageUrl.startsWith("data:image")) {
         // Base64 image from AI generation - upload to storage
