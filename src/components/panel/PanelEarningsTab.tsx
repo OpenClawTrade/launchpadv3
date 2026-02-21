@@ -15,6 +15,7 @@ export default function PanelEarningsTab() {
   const { useUserEarnings, claimFees } = useLaunchpad();
   const { toast } = useToast();
   const [claimingTokenId, setClaimingTokenId] = useState<string | null>(null);
+  const MIN_CLAIM_SOL = 0.05;
 
   const { data: earningsData, isLoading, refetch } = useUserEarnings(solanaAddress, profileId);
 
@@ -85,10 +86,14 @@ export default function PanelEarningsTab() {
                 </div>
                 <Button
                   size="sm" className="h-8 text-xs"
-                  disabled={!earning.unclaimed_sol || earning.unclaimed_sol <= 0 || claimingTokenId === earning.token_id}
+                  disabled={!earning.unclaimed_sol || earning.unclaimed_sol < MIN_CLAIM_SOL || claimingTokenId === earning.token_id}
                   onClick={() => handleClaim(earning.token_id)}
                 >
-                  {claimingTokenId === earning.token_id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Claim"}
+                  {claimingTokenId === earning.token_id
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : earning.unclaimed_sol < MIN_CLAIM_SOL
+                      ? "Min 0.05"
+                      : "Claim"}
                 </Button>
               </div>
             </Card>
