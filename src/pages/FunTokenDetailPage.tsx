@@ -9,6 +9,7 @@ import { UniversalTradePanel } from "@/components/launchpad/UniversalTradePanel"
 import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
 import { TokenComments } from "@/components/launchpad/TokenComments";
 import { LightweightChart, type ChartMarker } from "@/components/launchpad/LightweightChart";
+import { DexscreenerChart } from "@/components/launchpad/DexscreenerChart";
 import { useBitqueryOHLC } from "@/hooks/useBitqueryOHLC";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -399,54 +400,9 @@ export default function FunTokenDetailPage() {
 
               {/* Chart */}
               <div className={`terminal-panel-flush rounded-lg overflow-hidden flex-1 ${mobileTab === 'trade' ? 'hidden lg:block' : ''}`} style={{ backgroundColor: 'hsl(222 47% 7%)' }}>
-                <div className="px-4 py-2.5 md:px-3 md:py-1.5 border-b border-border/15 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground" />
-                    <span className="text-xs md:text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Price Chart</span>
-                    {bitqueryData?.migration && (
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/20">
-                        MIGRATED
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {/* Chart type toggle */}
-                    <div className="flex items-center gap-0.5 mr-2 border-r border-border/20 pr-2">
-                      {(['candlestick', 'area'] as const).map(ct => (
-                        <button
-                          key={ct}
-                          onClick={() => setChartType(ct)}
-                          className={`text-xs md:text-[9px] font-mono px-2 py-1 md:px-1.5 md:py-0.5 rounded transition-all min-h-[36px] md:min-h-0 ${
-                            chartType === ct ? 'bg-accent/20 text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                          }`}
-                        >
-                          {ct === 'candlestick' ? '🕯' : '📈'}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Interval selector — scrollable on mobile */}
-                    <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
-                      {(['1m', '5m', '15m', '1h', '4h', '1d'] as const).map(tf => (
-                        <button
-                          key={tf}
-                          onClick={() => setChartInterval(tf)}
-                          className={`text-xs md:text-[9px] font-mono px-2 py-1 md:px-1.5 md:py-0.5 rounded transition-all whitespace-nowrap min-h-[36px] md:min-h-0 min-w-[36px] md:min-w-0 ${
-                            chartInterval === tf ? 'bg-accent/20 text-accent-foreground font-bold' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                          }`}
-                        >
-                          {tf.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <LightweightChart
-                  data={chartData}
-                  chartType={chartType}
-                  height={320}
-                  showVolume={chartType === "candlestick"}
-                  isPositive={isPriceUp}
-                  markers={chartMarkers}
+                <DexscreenerChart
+                  mintAddress={token.mint_address || mintAddress || ''}
+                  height={380}
                 />
               </div>
 
