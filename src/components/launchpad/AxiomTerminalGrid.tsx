@@ -126,9 +126,9 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminal
       </div>
 
       {/* ── Desktop: Three Columns ── */}
-      <div className="hidden lg:grid grid-cols-3 gap-0 axiom-grid-container">
-        {columns.map((col, i) => (
-          <div key={col.id} className={`axiom-column ${i < 2 ? 'axiom-column-border' : ''}`}>
+      <div className="hidden lg:grid grid-cols-3 gap-3 axiom-grid-container">
+        {columns.map((col) => (
+          <div key={col.id} className="axiom-column border border-border/40 rounded-lg overflow-hidden bg-card/60 backdrop-blur-sm">
             <ColumnHeader label={col.label} count={col.tokens.length} icon={col.icon} />
             <div className="axiom-column-scroll">
               {isLoading ? (
