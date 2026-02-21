@@ -13,8 +13,8 @@ const LOGO_SRC = clawLogo;
 
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home, exact: true },
-  { to: "/agents", label: "Agents", icon: Bot },
   { to: "/trade", label: "Terminal", icon: BarChart2 },
+  { to: "/agents", label: "Agents", icon: Bot },
   
   { to: "/panel?tab=nfas", label: "NFA", icon: Fingerprint, useClaw: true },
   { to: "/sdk", label: "SDK", icon: Code2 },
