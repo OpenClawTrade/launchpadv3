@@ -1,12 +1,14 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Fingerprint, Loader2, Zap, Users, TrendingUp, Bot,
   CheckCircle2, ExternalLink, Globe, Coins,
+  Sparkles, Upload, X, ArrowLeft, AlertTriangle, Tag, ShoppingCart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,22 +29,119 @@ interface NfaMint {
   id: string;
   slot_number: number;
   minter_wallet: string;
+  owner_wallet: string | null;
   status: string;
   agent_name: string | null;
   agent_image_url: string | null;
+  token_name: string | null;
+  token_ticker: string | null;
+  token_image_url: string | null;
   nfa_mint_address: string | null;
+  listed_for_sale: boolean;
+  listing_price_sol: number | null;
   created_at: string;
 }
 
-/* ───────── Mint Button (with wallet) ───────── */
-function NfaMintWithWallet({ batch, solanaAddress }: { batch: NfaBatch | null | undefined; solanaAddress: string | null }) {
+type MintStep = "customize" | "confirm" | "minting" | "done";
+
+/* ───────── NFA Preview Card ───────── */
+function NfaPreviewCard({ name, ticker, imageUrl, slot }: { name: string; ticker: string; imageUrl: string | null; slot?: number }) {
+  return (
+    <div className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] max-w-[200px] mx-auto">
+      <div className="aspect-square relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.1), rgba(34,197,94,0.05))" }}>
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Fingerprint className="h-10 w-10 opacity-30" style={{ color: "#4ade80" }} />
+          </div>
+        )}
+        {slot && (
+          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-black/60 backdrop-blur-sm text-white">
+            #{slot}
+          </div>
+        )}
+      </div>
+      <div className="p-3">
+        <p className="font-medium text-sm truncate">{name || "Unnamed Agent"}</p>
+        <p className="text-xs text-muted-foreground font-mono">${ticker || "TICKER"}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ───────── Customize-Then-Mint Flow ───────── */
+function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress: string }) {
+  const [step, setStep] = useState<MintStep>("customize");
+  const [tokenName, setTokenName] = useState("");
+  const [tokenTicker, setTokenTicker] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageSource, setImageSource] = useState<"ai" | "upload" | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [minting, setMinting] = useState(false);
+  const [mintResult, setMintResult] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { signAndSendTransaction, isWalletReady } = useSolanaWalletWithPrivy();
 
-  const handleMint = useCallback(async () => {
-    if (!solanaAddress || !batch || !isWalletReady) return;
+  const nameValid = tokenName.trim().length > 0 && tokenName.trim().length <= 32;
+  const tickerValid = /^[A-Z0-9.]+$/.test(tokenTicker.toUpperCase()) && tokenTicker.trim().length > 0 && tokenTicker.trim().length <= 10;
+  const canContinue = nameValid && tickerValid && !!imageUrl;
+
+  const handleGenerateAI = async () => {
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("nfa-generate-image", {
+        body: { tokenName: tokenName.trim(), tokenTicker: tokenTicker.trim().toUpperCase() },
+      });
+      if (error) throw new Error(error.message);
+      const resp = data as any;
+      if (resp?.error) throw new Error(resp.error);
+      if (resp?.imageUrl) {
+        setImageUrl(resp.imageUrl);
+        setImageSource("ai");
+        toast.success("Image generated!");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Image generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      toast.error("Only PNG, JPG, or WebP allowed");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Max file size is 2MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const fileName = `nfa/upload-${crypto.randomUUID()}.${file.name.split(".").pop()}`;
+      const { error } = await supabase.storage.from("post-images").upload(fileName, file, { contentType: file.type });
+      if (error) throw error;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/post-images/${fileName}`;
+      setImageUrl(url);
+      setImageSource("upload");
+      toast.success("Image uploaded!");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleMint = async () => {
+    if (!solanaAddress || !isWalletReady) return;
     setMinting(true);
+    setStep("minting");
     try {
       const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = await import("@solana/web3.js");
       const rpcUrl = (window as any).__RUNTIME_RPC_URL || import.meta.env.VITE_HELIUS_RPC_URL || "https://api.mainnet-beta.solana.com";
@@ -54,47 +153,217 @@ function NfaMintWithWallet({ batch, solanaAddress }: { batch: NfaBatch | null | 
       );
       toast.info("Approve the transaction in your wallet...");
       const { signature, confirmed } = await signAndSendTransaction(transaction);
-      if (!confirmed) { toast.error("Transaction not confirmed"); return; }
-      toast.info("Payment confirmed! Registering your NFA...");
+      if (!confirmed) { toast.error("Transaction not confirmed"); setStep("confirm"); setMinting(false); return; }
+      toast.info("Payment confirmed! Minting your NFA on-chain...");
+
       const { data, error } = await supabase.functions.invoke("nfa-mint", {
-        body: { minterWallet: solanaAddress, paymentSignature: signature },
+        body: {
+          minterWallet: solanaAddress,
+          paymentSignature: signature,
+          tokenName: tokenName.trim(),
+          tokenTicker: tokenTicker.trim().toUpperCase(),
+          tokenImageUrl: imageUrl,
+        },
       });
-      if (error) { toast.error("Mint registration failed: " + error.message); return; }
-      const responseData = data as any;
-      if (responseData?.error) { toast.error(responseData.error); return; }
-      toast.success(`🦞 NFA Slot #${responseData.mint?.slotNumber} minted!`);
+      if (error) { toast.error("Mint failed: " + error.message); setStep("confirm"); setMinting(false); return; }
+      const resp = data as any;
+      if (resp?.error) { toast.error(resp.error); setStep("confirm"); setMinting(false); return; }
+      setMintResult(resp.mint);
+      toast.success(`🦞 NFA #${resp.mint?.slotNumber} minted!`);
       queryClient.invalidateQueries({ queryKey: ["nfa-batch-current"] });
       queryClient.invalidateQueries({ queryKey: ["nfa-my-mints"] });
+      setStep("done");
     } catch (err: any) {
-      if (err.message?.includes("User rejected") || err.message?.includes("cancelled")) toast.info("Transaction cancelled");
-      else toast.error(err.message || "Mint failed");
-    } finally { setMinting(false); }
-  }, [solanaAddress, batch, isWalletReady, signAndSendTransaction, queryClient]);
+      if (err.message?.includes("User rejected") || err.message?.includes("cancelled")) {
+        toast.info("Transaction cancelled");
+      } else {
+        toast.error(err.message || "Mint failed");
+      }
+      setStep("confirm");
+    } finally {
+      setMinting(false);
+    }
+  };
 
-  return (
-    <button
-      onClick={handleMint}
-      disabled={minting || !batch || batch.status !== "open" || !solanaAddress || !isWalletReady}
-      className="w-full h-14 rounded-xl font-bold font-mono text-base gap-2 flex items-center justify-center transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(74,222,128,0.3)] disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none"
-      style={{ background: "linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)", color: "#000" }}
-    >
-      {minting ? <Loader2 className="h-5 w-5 animate-spin" /> : (
-        <>
+  if (step === "customize") {
+    return (
+      <div className="space-y-5">
+        <div className="text-center">
+          <h3 className="font-bold text-sm mb-1">Customize Your NFA</h3>
+          <p className="text-xs text-muted-foreground">Define your agent's identity before minting</p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-5">
+          {/* Form */}
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Token Name</label>
+              <Input
+                value={tokenName}
+                onChange={e => setTokenName(e.target.value)}
+                placeholder="e.g. Neptune Agent"
+                maxLength={32}
+                className="bg-white/[0.04] border-white/10 text-sm"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">{tokenName.length}/32</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Ticker</label>
+              <Input
+                value={tokenTicker}
+                onChange={e => setTokenTicker(e.target.value.replace(/[^A-Za-z0-9.]/g, "").toUpperCase())}
+                placeholder="e.g. NEPTUNE"
+                maxLength={10}
+                className="bg-white/[0.04] border-white/10 text-sm font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">{tokenTicker.length}/10</p>
+            </div>
+
+            {/* Image */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Agent Image</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleGenerateAI}
+                  disabled={generating || uploading}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-medium border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+                >
+                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" style={{ color: "#4ade80" }} />}
+                  Generate AI
+                </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={generating || uploading}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-medium border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+                >
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  Upload
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleUpload} />
+              </div>
+              {imageUrl && (
+                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                  <CheckCircle2 className="h-3.5 w-3.5" style={{ color: "#4ade80" }} />
+                  {imageSource === "ai" ? "AI-generated" : "Uploaded"} image
+                  <button onClick={() => { setImageUrl(null); setImageSource(null); }} className="ml-auto hover:text-white"><X className="h-3 w-3" /></button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="flex flex-col items-center justify-center">
+            <p className="text-[10px] text-muted-foreground mb-3 uppercase tracking-wider">Preview</p>
+            <NfaPreviewCard name={tokenName} ticker={tokenTicker} imageUrl={imageUrl} />
+          </div>
+        </div>
+
+        <button
+          onClick={() => setStep("confirm")}
+          disabled={!canContinue}
+          className="w-full h-11 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+          style={{ background: canContinue ? "linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)" : "rgba(74,222,128,0.2)", color: canContinue ? "#000" : "#aaa" }}
+        >
+          Continue to Payment
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "confirm") {
+    return (
+      <div className="space-y-5">
+        <button onClick={() => setStep("customize")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-white transition-colors">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to customize
+        </button>
+
+        <div className="text-center">
+          <h3 className="font-bold text-sm mb-1">Confirm & Mint</h3>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-medium mt-2" style={{ background: "rgba(251,191,36,0.1)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.2)" }}>
+            <AlertTriangle className="h-3 w-3" />
+            Cannot be changed after minting
+          </div>
+        </div>
+
+        <div className="flex justify-center">
+          <NfaPreviewCard name={tokenName} ticker={tokenTicker} imageUrl={imageUrl} />
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+          {[
+            { k: "Token Name", v: tokenName.trim() },
+            { k: "Ticker", v: `$${tokenTicker.toUpperCase()}` },
+            { k: "Image", v: imageSource === "ai" ? "AI Generated" : "Uploaded" },
+            { k: "Mint Price", v: "1 SOL" },
+          ].map(({ k, v }) => (
+            <div key={k} className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{k}</span>
+              <span className="font-mono font-medium">{v}</span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={handleMint}
+          disabled={minting || !isWalletReady}
+          className="w-full h-14 rounded-xl font-bold font-mono text-base gap-2 flex items-center justify-center transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(74,222,128,0.3)] disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)", color: "#000" }}
+        >
           <Fingerprint className="h-5 w-5" />
-          MINT NFA
-          <span className="ml-2 px-2 py-0.5 rounded-md text-xs font-semibold" style={{ background: "rgba(0,0,0,0.2)" }}>1 SOL</span>
-        </>
+          MINT FOR 1 SOL
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "minting") {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <Loader2 className="h-10 w-10 animate-spin" style={{ color: "#4ade80" }} />
+        <p className="font-medium text-sm">Minting your NFA on Solana...</p>
+        <p className="text-xs text-muted-foreground">This may take a moment</p>
+      </div>
+    );
+  }
+
+  // done
+  return (
+    <div className="flex flex-col items-center py-8 space-y-5">
+      <div className="h-14 w-14 rounded-full flex items-center justify-center" style={{ background: "rgba(74,222,128,0.15)" }}>
+        <CheckCircle2 className="h-8 w-8" style={{ color: "#4ade80" }} />
+      </div>
+      <div className="text-center">
+        <h3 className="font-bold text-lg mb-1">NFA Minted!</h3>
+        <p className="text-xs text-muted-foreground">Slot #{mintResult?.slotNumber} • Batch #{mintResult?.batchNumber}</p>
+      </div>
+      <NfaPreviewCard name={tokenName} ticker={tokenTicker} imageUrl={imageUrl} slot={mintResult?.slotNumber} />
+      {mintResult?.nfaMintAddress && (
+        <a
+          href={`https://solscan.io/token/${mintResult.nfaMintAddress}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs hover:underline"
+          style={{ color: "#4ade80" }}
+        >
+          View on Solscan <ExternalLink className="h-3 w-3" />
+        </a>
       )}
-    </button>
+      <button
+        onClick={() => { setStep("customize"); setTokenName(""); setTokenTicker(""); setImageUrl(null); setImageSource(null); setMintResult(null); }}
+        className="text-xs text-muted-foreground hover:text-white transition-colors"
+      >
+        Mint another NFA
+      </button>
+    </div>
   );
 }
 
+/* ───────── Mint Fallback (no wallet) ───────── */
 function NfaMintFallback() {
   return (
     <button disabled className="w-full h-14 rounded-xl font-bold font-mono text-base gap-2 flex items-center justify-center opacity-50" style={{ background: "linear-gradient(135deg, #4ade80 0%, #22c55e 100%)", color: "#000" }}>
       <Fingerprint className="h-5 w-5" />
-      MINT NFA
-      <span className="ml-2 px-2 py-0.5 rounded-md text-xs font-semibold" style={{ background: "rgba(0,0,0,0.2)" }}>1 SOL</span>
+      Connect Wallet to Mint
     </button>
   );
 }
@@ -102,19 +371,17 @@ function NfaMintFallback() {
 /* ───────── Sub-tab: How It Works (Timeline) ───────── */
 function HowItWorksTimeline() {
   const steps = [
-    { icon: Fingerprint, label: "Mint", desc: "Pay 1 SOL to reserve your NFA slot in the current batch" },
+    { icon: Fingerprint, label: "Customize", desc: "Choose your agent's name, ticker & image (AI or upload)" },
+    { icon: Coins, label: "Mint", desc: "Pay 1 SOL to lock your metadata and mint the NFT on-chain" },
     { icon: Users, label: "Fill Batch", desc: "1,000 mints trigger the batch generation process" },
-    { icon: Bot, label: "AI Generation", desc: "Each agent gets a unique personality, avatar & trading strategy" },
-    { icon: Zap, label: "Token Launch", desc: "Agent's token launches on Meteora DBC with built-in fees" },
-    { icon: TrendingUp, label: "Auto-Trading", desc: "Agent trades autonomously, earns & shares fees with holders" },
+    { icon: Bot, label: "Token Launch", desc: "Agent's token launches on Meteora DBC with built-in fees" },
+    { icon: TrendingUp, label: "Earn", desc: "Agent trades autonomously, shares fees with holders & minter" },
   ];
   return (
     <div className="relative pl-8 space-y-6 py-2">
-      {/* Vertical line */}
       <div className="absolute left-[13px] top-4 bottom-4 w-px" style={{ background: "linear-gradient(to bottom, #4ade80, rgba(74,222,128,0.1))" }} />
       {steps.map(({ icon: Icon, label, desc }, i) => (
         <div key={i} className="relative flex items-start gap-4">
-          {/* Dot */}
           <div className="absolute -left-8 top-1 h-[26px] w-[26px] rounded-full border-2 flex items-center justify-center" style={{ borderColor: "#4ade80", background: "rgba(74,222,128,0.1)" }}>
             <Icon className="h-3 w-3" style={{ color: "#4ade80" }} />
           </div>
@@ -157,8 +424,65 @@ function FeeStructureBars() {
   );
 }
 
-/* ───────── My NFAs Grid ───────── */
-function MyNfasGrid({ mints }: { mints: NfaMint[] }) {
+/* ───────── My NFAs Grid (with List/Delist) ───────── */
+function MyNfasGrid({ mints, solanaAddress }: { mints: NfaMint[]; solanaAddress: string | null }) {
+  const queryClient = useQueryClient();
+  const [listingId, setListingId] = useState<string | null>(null);
+  const [listPrice, setListPrice] = useState("");
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  const handleList = async (mintId: string) => {
+    const price = parseFloat(listPrice);
+    if (!price || price <= 0 || !solanaAddress) return;
+    setProcessing(mintId);
+    try {
+      const { data, error } = await supabase.functions.invoke("nfa-list", {
+        body: { nfaMintId: mintId, sellerWallet: solanaAddress, askingPriceSol: price },
+      });
+      if (error) throw new Error(error.message);
+      const resp = data as any;
+      if (resp?.error) throw new Error(resp.error);
+      toast.success("Listed for sale!");
+      setListingId(null);
+      setListPrice("");
+      queryClient.invalidateQueries({ queryKey: ["nfa-my-mints"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to list");
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleDelist = async (mint: NfaMint) => {
+    if (!solanaAddress) return;
+    setProcessing(mint.id);
+    try {
+      // Find active listing
+      const { data: listings } = await supabase
+        .from("nfa_listings")
+        .select("id")
+        .eq("nfa_mint_id", mint.id)
+        .eq("status", "active")
+        .limit(1);
+      
+      const activeListingId = (listings as any)?.[0]?.id;
+      if (!activeListingId) { toast.error("No active listing found"); return; }
+
+      const { data, error } = await supabase.functions.invoke("nfa-delist", {
+        body: { listingId: activeListingId, sellerWallet: solanaAddress },
+      });
+      if (error) throw new Error(error.message);
+      const resp = data as any;
+      if (resp?.error) throw new Error(resp.error);
+      toast.success("Listing cancelled");
+      queryClient.invalidateQueries({ queryKey: ["nfa-my-mints"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delist");
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   if (mints.length === 0) {
     return (
       <div className="text-center py-12">
@@ -168,37 +492,95 @@ function MyNfasGrid({ mints }: { mints: NfaMint[] }) {
       </div>
     );
   }
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-      {mints.map((mint) => (
-        <div
-          key={mint.id}
-          className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:scale-[1.02] hover:shadow-lg transition-all duration-200 cursor-pointer group"
-        >
-          {/* Image */}
-          <div className="aspect-square relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.1), rgba(34,197,94,0.05))" }}>
-            {mint.agent_image_url ? (
-              <img src={mint.agent_image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Fingerprint className="h-10 w-10 opacity-30" style={{ color: "#4ade80" }} />
+      {mints.map((mint) => {
+        const isOwner = mint.owner_wallet === solanaAddress;
+        const displayImage = mint.token_image_url || mint.agent_image_url;
+        const displayName = mint.token_name || mint.agent_name || `NFA Slot #${mint.slot_number}`;
+        
+        return (
+          <div
+            key={mint.id}
+            className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:scale-[1.02] hover:shadow-lg transition-all duration-200 group"
+          >
+            <div className="aspect-square relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.1), rgba(34,197,94,0.05))" }}>
+              {displayImage ? (
+                <img src={displayImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Fingerprint className="h-10 w-10 opacity-30" style={{ color: "#4ade80" }} />
+                </div>
+              )}
+              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-black/60 backdrop-blur-sm text-white">
+                #{mint.slot_number}
               </div>
-            )}
-            {/* Slot badge */}
-            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-black/60 backdrop-blur-sm text-white">
-              #{mint.slot_number}
+              {mint.listed_for_sale && (
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold backdrop-blur-sm" style={{ background: "rgba(74,222,128,0.8)", color: "#000" }}>
+                  {mint.listing_price_sol} SOL
+                </div>
+              )}
+            </div>
+            <div className="p-3">
+              <p className="font-medium text-sm truncate">{displayName}</p>
+              {mint.token_ticker && (
+                <p className="text-[10px] text-muted-foreground font-mono">${mint.token_ticker}</p>
+              )}
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="text-[10px] text-muted-foreground">{new Date(mint.created_at).toLocaleDateString()}</span>
+                <Badge variant="outline" className="text-[10px] capitalize h-5 px-1.5">{mint.status}</Badge>
+              </div>
+
+              {/* List/Delist Controls */}
+              {isOwner && (
+                <div className="mt-2 pt-2 border-t border-white/5">
+                  {mint.listed_for_sale ? (
+                    <button
+                      onClick={() => handleDelist(mint)}
+                      disabled={processing === mint.id}
+                      className="w-full text-[10px] font-medium py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.06] transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                    >
+                      {processing === mint.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                      Cancel Listing
+                    </button>
+                  ) : listingId === mint.id ? (
+                    <div className="flex gap-1.5">
+                      <Input
+                        type="number"
+                        value={listPrice}
+                        onChange={e => setListPrice(e.target.value)}
+                        placeholder="SOL"
+                        className="h-7 text-[10px] bg-white/[0.04] border-white/10 flex-1"
+                        step="0.1"
+                        min="0.01"
+                      />
+                      <button
+                        onClick={() => handleList(mint.id)}
+                        disabled={processing === mint.id || !listPrice}
+                        className="h-7 px-2 rounded-lg text-[10px] font-bold disabled:opacity-50"
+                        style={{ background: "#4ade80", color: "#000" }}
+                      >
+                        {processing === mint.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "List"}
+                      </button>
+                      <button onClick={() => { setListingId(null); setListPrice(""); }} className="h-7 px-1.5 rounded-lg text-[10px] border border-white/10">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setListingId(mint.id)}
+                      className="w-full text-[10px] font-medium py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.06] transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Tag className="h-3 w-3" /> List for Sale
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-          {/* Info */}
-          <div className="p-3">
-            <p className="font-medium text-sm truncate">{mint.agent_name || `NFA Slot #${mint.slot_number}`}</p>
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[10px] text-muted-foreground">{new Date(mint.created_at).toLocaleDateString()}</span>
-              <Badge variant="outline" className="text-[10px] capitalize h-5 px-1.5">{mint.status}</Badge>
-            </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -235,14 +617,11 @@ export default function PanelNfaTab() {
     <div className="max-w-3xl mx-auto pb-8 space-y-0">
       {/* ── Hero Banner ── */}
       <div className="relative rounded-2xl overflow-hidden mb-6" style={{ background: "linear-gradient(135deg, #0a1628 0%, #0d2818 50%, #0a1628 100%)" }}>
-        {/* Grid overlay */}
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "linear-gradient(rgba(74,222,128,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.3) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
         <div className="relative px-6 py-8 flex flex-col items-center text-center">
-          {/* Icon */}
           <div className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(74,222,128,0.3)]" style={{ background: "linear-gradient(135deg, #4ade80, #16a34a)" }}>
             <Fingerprint className="h-8 w-8 text-black" />
           </div>
-          {/* Title */}
           <div className="flex items-center gap-2 mb-1">
             <h2 className="text-xl font-bold font-mono tracking-tight">Non-Fungible Agents</h2>
             <CheckCircle2 className="h-4 w-4" style={{ color: "#4ade80" }} />
@@ -250,8 +629,6 @@ export default function PanelNfaTab() {
           <p className="text-xs text-muted-foreground max-w-sm">
             The first NFA standard on Solana — autonomous trading agents that earn, trade & evolve
           </p>
-
-          {/* Stats Row */}
           <div className="flex items-center gap-0 mt-6 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 divide-x divide-white/10">
             {[
               { label: "Items", value: batch?.total_slots?.toLocaleString() ?? "1,000" },
@@ -270,14 +647,10 @@ export default function PanelNfaTab() {
       {/* ── Live Mint Section ── */}
       {batch && (
         <div className="relative rounded-2xl border border-white/10 p-5 mb-6" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.04), rgba(0,0,0,0))" }}>
-          {/* Inner glow border */}
           <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ boxShadow: "inset 0 0 30px rgba(74,222,128,0.05)" }} />
-          
           <div className="relative">
-            {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                {/* Pulsing dot */}
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#4ade80" }} />
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "#4ade80" }} />
@@ -290,26 +663,24 @@ export default function PanelNfaTab() {
             </div>
 
             {/* Progress */}
-            <div className="mb-3">
+            <div className="mb-5">
               <div className="flex items-baseline justify-between mb-2">
                 <span className="text-2xl font-bold font-mono">{batch.minted_count}<span className="text-sm text-muted-foreground font-normal"> / {batch.total_slots.toLocaleString()}</span></span>
                 <span className="text-xs text-muted-foreground">{slotsRemaining} remaining</span>
               </div>
-              {/* Custom progress bar with shimmer */}
               <div className="h-3 rounded-full bg-white/[0.06] overflow-hidden relative">
                 <div
                   className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
                   style={{ width: `${Math.max(progress, 1)}%`, background: "linear-gradient(90deg, #4ade80, #22c55e, #16a34a)" }}
                 >
-                  {/* Shimmer */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" style={{ animation: "shimmer 2s infinite" }} />
                 </div>
               </div>
             </div>
 
-            {/* Mint Button */}
-            {privyAvailable ? (
-              <NfaMintWithWallet batch={batch} solanaAddress={solanaAddress} />
+            {/* Mint Flow or Fallback */}
+            {privyAvailable && solanaAddress && batch.status === "open" ? (
+              <NfaMintFlow batch={batch} solanaAddress={solanaAddress} />
             ) : (
               <NfaMintFallback />
             )}
@@ -319,19 +690,16 @@ export default function PanelNfaTab() {
 
       {/* ── About + Details ── */}
       <div className="grid md:grid-cols-2 gap-4 mb-6">
-        {/* About */}
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
             <Globe className="h-4 w-4" style={{ color: "#4ade80" }} />
             About
           </h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Non-Fungible Agents (NFAs) are autonomous AI trading agents minted as unique digital assets on Solana.
-            Each NFA has its own personality, avatar, and trading strategy. When a batch of 1,000 is filled,
-            agents are generated and their tokens launch on Meteora DBC with built-in fee sharing.
+            Non-Fungible Agents (NFAs) are autonomous AI trading agents minted as unique Metaplex Core NFTs on Solana.
+            Each NFA has its own name, ticker, avatar, and trading strategy. Customize your agent before minting — once paid, the metadata is permanently locked on-chain.
           </p>
         </div>
-        {/* Details */}
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
             <Coins className="h-4 w-4" style={{ color: "#4ade80" }} />
@@ -356,7 +724,6 @@ export default function PanelNfaTab() {
 
       {/* ── Sub-Tabs ── */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden">
-        {/* Tab header */}
         <div className="flex border-b border-white/10">
           {([
             { id: "mynfas" as const, label: `My NFAs${myMints.length > 0 ? ` (${myMints.length})` : ""}` },
@@ -377,10 +744,8 @@ export default function PanelNfaTab() {
             </button>
           ))}
         </div>
-
-        {/* Tab content */}
         <div className="p-4">
-          {subTab === "mynfas" && <MyNfasGrid mints={myMints} />}
+          {subTab === "mynfas" && <MyNfasGrid mints={myMints} solanaAddress={solanaAddress} />}
           {subTab === "howitworks" && <HowItWorksTimeline />}
           {subTab === "fees" && <FeeStructureBars />}
         </div>

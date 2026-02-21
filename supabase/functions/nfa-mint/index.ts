@@ -6,9 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const TREASURY_WALLET = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
+const TREASURY_WALLET = "HSVmkUnmjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 const MINT_PRICE_SOL = 1.0;
 const LAMPORTS_PER_SOL = 1_000_000_000;
+
+function validateTokenName(name: string): string | null {
+  if (!name || name.trim().length === 0) return "Token name is required";
+  if (name.trim().length > 32) return "Token name must be 32 characters or less";
+  if (/https?:\/\//i.test(name)) return "Token name cannot contain URLs";
+  return null;
+}
+
+function validateTokenTicker(ticker: string): string | null {
+  if (!ticker || ticker.trim().length === 0) return "Ticker is required";
+  const cleaned = ticker.trim().toUpperCase();
+  if (cleaned.length > 10) return "Ticker must be 10 characters or less";
+  if (!/^[A-Z0-9.]+$/.test(cleaned)) return "Ticker must be alphanumeric (A-Z, 0-9, .)";
+  return null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -16,11 +31,39 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { minterWallet, paymentSignature } = await req.json();
+    const { minterWallet, paymentSignature, tokenName, tokenTicker, tokenImageUrl } = await req.json();
 
     if (!minterWallet || !paymentSignature) {
       return new Response(
         JSON.stringify({ error: "minterWallet and paymentSignature required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate metadata fields
+    if (tokenName) {
+      const nameError = validateTokenName(tokenName);
+      if (nameError) {
+        return new Response(
+          JSON.stringify({ error: nameError }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (tokenTicker) {
+      const tickerError = validateTokenTicker(tokenTicker);
+      if (tickerError) {
+        return new Response(
+          JSON.stringify({ error: tickerError }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (tokenImageUrl && !/^https?:\/\/.+/i.test(tokenImageUrl)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid image URL" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -68,7 +111,7 @@ Deno.serve(async (req) => {
         if (
           info.destination === TREASURY_WALLET &&
           info.source === minterWallet &&
-          Number(info.lamports) >= MINT_PRICE_SOL * LAMPORTS_PER_SOL * 0.99 // 1% tolerance for fees
+          Number(info.lamports) >= MINT_PRICE_SOL * LAMPORTS_PER_SOL * 0.99
         ) {
           transferVerified = true;
           break;
@@ -120,6 +163,71 @@ Deno.serve(async (req) => {
 
     const newSlotNumber = batch.minted_count + 1;
 
+    // Mint NFT on-chain using Metaplex Core
+    let nfaMintAddress: string | null = null;
+    const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+    const nfaCollectionAddress = Deno.env.get("NFA_COLLECTION_ADDRESS");
+
+    if (treasuryPrivateKey && nfaCollectionAddress) {
+      try {
+        const { createUmi } = await import("https://esm.sh/@metaplex-foundation/umi-bundle-defaults@0.9.2");
+        const { mplCore, create } = await import("https://esm.sh/@metaplex-foundation/mpl-core@1.1.1");
+        const { generateSigner, createSignerFromKeypair, keypairIdentity, publicKey } = await import("https://esm.sh/@metaplex-foundation/umi@0.9.2");
+        const bs58Module = await import("https://esm.sh/bs58@6.0.0");
+        const bs58 = bs58Module.default || bs58Module;
+
+        const umi = createUmi(rpcUrl).use(mplCore());
+        const secretKeyBytes = bs58.decode(treasuryPrivateKey);
+        const umiKeypair = umi.eddsa.createKeypairFromSecretKey(secretKeyBytes);
+        const signer = createSignerFromKeypair(umi, umiKeypair);
+        umi.use(keypairIdentity(signer));
+
+        // Upload NFT metadata JSON
+        const nftMetadata = {
+          name: `NFA #${newSlotNumber}`,
+          description: `Non-Fungible Agent #${newSlotNumber} on Solana`,
+          image: tokenImageUrl || "",
+          external_url: `https://clawmode.lovable.app/nfa`,
+          attributes: [
+            { trait_type: "Token Name", value: tokenName || "Unnamed" },
+            { trait_type: "Ticker", value: tokenTicker?.toUpperCase() || "N/A" },
+            { trait_type: "Slot", value: newSlotNumber },
+            { trait_type: "Batch", value: batch.batch_number },
+          ],
+        };
+
+        const metadataBlob = new Blob([JSON.stringify(nftMetadata)], { type: "application/json" });
+        const metadataPath = `nfa/metadata-${newSlotNumber}-${crypto.randomUUID()}.json`;
+        
+        await supabase.storage
+          .from("post-images")
+          .upload(metadataPath, metadataBlob, { upsert: false, contentType: "application/json" });
+
+        const metadataUrl = `${supabaseUrl}/storage/v1/object/public/post-images/${metadataPath}`;
+
+        // Create NFT asset
+        const assetSigner = generateSigner(umi);
+
+        await create(umi, {
+          asset: assetSigner,
+          name: `NFA #${newSlotNumber}`,
+          uri: metadataUrl,
+          owner: publicKey(minterWallet),
+          collection: publicKey(nfaCollectionAddress),
+          plugins: [
+            {
+              type: "TransferDelegate",
+              authority: { type: "Address", address: signer.publicKey },
+            },
+          ],
+        }).sendAndConfirm(umi);
+
+        nfaMintAddress = assetSigner.publicKey.toString();
+      } catch (e) {
+        console.error("On-chain NFT mint failed (continuing with DB record):", e);
+      }
+    }
+
     // Insert mint record
     const { data: mint, error: mintError } = await supabase
       .from("nfa_mints")
@@ -130,6 +238,12 @@ Deno.serve(async (req) => {
         payment_signature: paymentSignature,
         payment_verified: true,
         status: "paid",
+        nfa_mint_address: nfaMintAddress,
+        token_name: tokenName?.trim() || null,
+        token_ticker: tokenTicker?.trim().toUpperCase() || null,
+        token_image_url: tokenImageUrl || null,
+        metadata_locked: true,
+        owner_wallet: minterWallet,
       })
       .select()
       .single();
@@ -146,7 +260,6 @@ Deno.serve(async (req) => {
     const newCount = newSlotNumber;
     const batchUpdate: Record<string, unknown> = { minted_count: newCount };
 
-    // If batch is full, mark for generation
     if (newCount >= batch.total_slots) {
       batchUpdate.status = "generating";
       batchUpdate.generation_started_at = new Date().toISOString();
@@ -166,6 +279,10 @@ Deno.serve(async (req) => {
           batchNumber: batch.batch_number,
           totalSlots: batch.total_slots,
           mintedCount: newCount,
+          nfaMintAddress,
+          tokenName: tokenName?.trim() || null,
+          tokenTicker: tokenTicker?.trim().toUpperCase() || null,
+          tokenImageUrl: tokenImageUrl || null,
           status: newCount >= batch.total_slots ? "batch_full" : "minted",
         },
       }),
