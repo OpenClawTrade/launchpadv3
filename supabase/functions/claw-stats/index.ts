@@ -27,21 +27,12 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Total tokens count (from fun_tokens - the live data table)
-    const { count: totalTokensCount } = await supabase
-      .from("fun_tokens")
-      .select("id", { count: "exact", head: true });
+    // Use RPC for accurate aggregation (bypasses 1000-row limit)
+    const { data: platformStats, error: statsError } = await supabase.rpc("get_platform_stats");
+    
+    if (statsError) throw statsError;
 
-    // All tokens for market cap and fees
-    const { data: funTokens } = await supabase
-      .from("fun_tokens")
-      .select("id, market_cap_sol, agent_id, total_fees_earned")
-      .limit(1000);
-
-    // Sum total_fees_earned directly from fun_tokens
-    const totalAgentFeesEarned = (funTokens || []).reduce(
-      (sum: number, t: any) => sum + Number(t?.total_fees_earned || 0), 0
-    );
+    const ps = platformStats?.[0] || { total_mcap_sol: 0, total_fees_earned: 0, token_count: 0, total_fee_claims: 0, total_agent_payouts: 0 };
 
     // Agent posts count
     const { count: agentPostsCount } = await supabase
@@ -54,37 +45,14 @@ Deno.serve(async (req) => {
       .select("id", { count: "exact", head: true })
       .eq("status", "active");
 
-    // Agent payouts
-    const { data: payoutRows } = await supabase
-      .from("agent_fee_distributions")
-      .select("amount_sol");
-
-    const totalAgentPayouts = (payoutRows || []).reduce(
-      (sum: number, r: any) => sum + Number(r.amount_sol || 0), 0
-    );
-
-    // Fee claims total (real volume proxy)
-    const { data: feeClaimRows } = await supabase
-      .from("fun_fee_claims")
-      .select("claimed_sol");
-
-    const totalFeeClaims = (feeClaimRows || []).reduce(
-      (sum: number, r: any) => sum + Number(r.claimed_sol || 0), 0
-    );
-
-    const totalTokensLaunched = totalTokensCount || 0;
-    const totalMarketCap = (funTokens || []).reduce(
-      (sum: number, t: any) => sum + Number(t?.market_cap_sol || 0), 0
-    );
-
     const stats = {
-      totalMarketCap,
-      totalAgentFeesEarned,
-      totalTokensLaunched,
-      totalVolume: totalFeeClaims,
+      totalMarketCap: Number(ps.total_mcap_sol) || 0,
+      totalAgentFeesEarned: Number(ps.total_fees_earned) || 0,
+      totalTokensLaunched: Number(ps.token_count) || 0,
+      totalVolume: Number(ps.total_fee_claims) || 0,
       totalAgents: totalAgents || 0,
       totalAgentPosts: agentPostsCount || 0,
-      totalAgentPayouts,
+      totalAgentPayouts: Number(ps.total_agent_payouts) || 0,
     };
 
     cachedStats = { data: stats, timestamp: Date.now() };
