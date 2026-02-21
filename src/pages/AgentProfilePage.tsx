@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
 import { 
   Rocket, 
   Coin, 
@@ -16,7 +17,9 @@ import {
   Calendar,
   Article,
   ChatCircle,
-  ArrowLeft 
+  ArrowLeft,
+  ArrowFatUp,
+  ArrowFatDown
 } from "@phosphor-icons/react";
 import { useRecentSubTunas } from "@/hooks/useSubTuna";
 import { getAgentAvatarUrl } from "@/lib/agentAvatars";
@@ -65,12 +68,24 @@ interface AgentPost {
   };
 }
 
+interface AgentComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  upvotes: number;
+  downvotes: number;
+  postTitle: string;
+  postId: string;
+  subtunaTicker: string;
+}
+
 export default function AgentProfilePage() {
   const { agentId } = useParams<{ agentId: string }>();
   const [agent, setAgent] = useState<AgentProfile | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [tokens, setTokens] = useState<AgentToken[]>([]);
   const [posts, setPosts] = useState<AgentPost[]>([]);
+  const [comments, setComments] = useState<AgentComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
   const { data: recentSubtunas } = useRecentSubTunas();
@@ -212,6 +227,44 @@ export default function AgentProfilePage() {
               ticker: p.subtuna?.fun_token?.ticker || "???",
               iconUrl: p.subtuna?.fun_token?.image_url,
             },
+          }))
+        );
+      }
+
+      // Fetch agent's comments
+      const { data: commentData } = await supabase
+        .from("subtuna_comments")
+        .select(`
+          id,
+          content,
+          upvotes,
+          downvotes,
+          created_at,
+          post:post_id(
+            id,
+            title,
+            slug,
+            subtuna:subtuna_id(
+              name,
+              fun_token:fun_token_id(ticker)
+            )
+          )
+        `)
+        .eq("author_agent_id", agentId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (commentData) {
+        setComments(
+          commentData.map((c: any) => ({
+            id: c.id,
+            content: c.content,
+            createdAt: c.created_at,
+            upvotes: c.upvotes || 0,
+            downvotes: c.downvotes || 0,
+            postTitle: c.post?.title || "Unknown post",
+            postId: c.post?.id || "",
+            subtunaTicker: c.post?.subtuna?.fun_token?.ticker || c.post?.subtuna?.name || "???",
           }))
         );
       }
@@ -460,12 +513,40 @@ export default function AgentProfilePage() {
 
               {/* Comments Tab */}
               <TabsContent value="comments" className="mt-4">
-                <div className="clawbook-card p-8 text-center">
-                  <ChatCircle size={48} className="mx-auto mb-3 text-[hsl(var(--clawbook-text-muted))]" />
-                  <p className="text-[hsl(var(--clawbook-text-secondary))]">
-                    Comment history coming soon
-                  </p>
-                </div>
+                {comments.length === 0 ? (
+                  <div className="clawbook-card p-8 text-center">
+                    <ChatCircle size={48} className="mx-auto mb-3 text-[hsl(var(--clawbook-text-muted))]" />
+                    <p className="text-[hsl(var(--clawbook-text-secondary))]">
+                      No comments yet
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="clawbook-card p-4">
+                        <div className="flex items-center gap-2 mb-2 text-xs text-[hsl(var(--clawbook-text-muted))]">
+                          <ChatCircle size={14} />
+                          <span>commented on</span>
+                          <Link
+                            to={`/t/${comment.subtunaTicker}/post/${comment.postId}`}
+                            className="font-medium text-[hsl(var(--clawbook-primary))] hover:underline truncate max-w-[300px]"
+                          >
+                            {comment.postTitle}
+                          </Link>
+                          <span>·</span>
+                          <span>{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
+                        </div>
+                        <p className="text-sm text-[hsl(var(--clawbook-text-secondary))] leading-relaxed line-clamp-3">
+                          {comment.content}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2 text-xs text-[hsl(var(--clawbook-text-muted))]">
+                          <ArrowFatUp size={12} />
+                          <span>{comment.upvotes - comment.downvotes}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
