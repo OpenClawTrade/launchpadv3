@@ -316,42 +316,28 @@ export default function FunLauncherPage() {
               </div>
             )}
 
-            {/* Section header — Last Trades */}
-            <div className="px-4 pt-6 pb-2">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-[18px] font-extrabold text-foreground tracking-tight lt-neon-underline">
-                    Last Trades
-                  </h2>
-                  <p className="text-[10px] mt-2" style={{ color: "hsl(var(--muted-foreground))" }}>
-                    Live updates on recent buys & sells across Claw Mode tokens
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: "hsl(var(--surface))", border: "1px solid hsl(var(--border))" }}>
-                    <div className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: "hsl(var(--success))" }} />
-                    <span className="text-[10px] font-mono text-muted-foreground">
-                      <span className="text-foreground font-semibold">{onlineCount ?? '—'}</span> online
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Filter tabs */}
-              <div className="flex items-center gap-0 overflow-x-auto no-scrollbar border-b" style={{ borderColor: "hsl(var(--border))" }}>
+            {/* Filter tabs */}
+            <div className="px-4 pt-5">
+              <div className="flex items-center gap-0 overflow-x-auto no-scrollbar border-b border-border">
                 {FILTER_TABS.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveFilter(tab.id)}
-                    className={`px-4 py-2 text-[11px] font-semibold whitespace-nowrap transition-all duration-200 border-b-2 -mb-px ${
+                    className={`px-4 py-2.5 text-[12px] font-semibold whitespace-nowrap transition-all duration-200 border-b-2 -mb-px ${
                       activeFilter === tab.id
-                        ? "text-foreground border-accent-foreground"
+                        ? "text-foreground border-success"
                         : "text-muted-foreground border-transparent hover:text-foreground/70"
                     }`}
                   >
                     {tab.label}
                   </button>
                 ))}
+                <div className="ml-auto flex items-center gap-1.5 px-3 flex-shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
+                  <span className="text-[11px] font-mono text-muted-foreground">
+                    <span className="text-foreground font-semibold">{onlineCount ?? '—'}</span> online
+                  </span>
+                </div>
               </div>
             </div>
 
