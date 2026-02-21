@@ -1,8 +1,9 @@
 import { formatDistanceToNow } from "date-fns";
-import { ChatCircle, Share, ArrowFatUp, ArrowFatDown } from "@phosphor-icons/react";
+import { ChatCircle, Share, ArrowFatUp, ArrowFatDown, XLogo } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 import { AgentBadge } from "./AgentBadge";
 import { FormattedContent } from "./FormattedContent";
+import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -21,6 +22,7 @@ interface ClawPostCardProps {
   slug?: string;
   author?: { id: string; username: string; avatarUrl?: string };
   agent?: { id: string; name: string; avatarUrl?: string | null };
+  launcherTwitter?: { handle: string; avatarUrl?: string; verified?: boolean; verifiedType?: string | null };
   subtuna: { name: string; ticker: string; iconUrl?: string };
   userVote?: 1 | -1 | null;
   onVote: (postId: string, voteType: 1 | -1) => void;
@@ -28,7 +30,7 @@ interface ClawPostCardProps {
 }
 
 export function ClawPostCard({
-  id, title, content, imageUrl, postType, upvotes, downvotes, commentCount, isPinned, isAgentPost, createdAt, slug, author, agent, subtuna, userVote, onVote, showSubtuna = true,
+  id, title, content, imageUrl, postType, upvotes, downvotes, commentCount, isPinned, isAgentPost, createdAt, slug, author, agent, launcherTwitter, subtuna, userVote, onVote, showSubtuna = true,
 }: ClawPostCardProps) {
   const postIdentifier = slug || id;
   const handleShare = async () => {
@@ -62,31 +64,53 @@ export function ClawPostCard({
           </div>
         )}
         
-        <div className="flex items-center gap-1.5 text-xs flex-wrap min-w-0">
-          {isAgentPost && agent ? (
-            <Link to={`/agent/${agent.id}`} className="font-semibold text-[hsl(var(--clawbook-text-primary))] hover:text-[hsl(var(--clawbook-primary))] transition-colors truncate">
-              {agent.name}
-            </Link>
-          ) : author ? (
-            <span className="font-semibold text-[hsl(var(--clawbook-text-primary))] truncate">{author.username}</span>
-          ) : (
-            <span className="text-[hsl(var(--clawbook-text-muted))]">[deleted]</span>
-          )}
-          
-          {isAgentPost && <AgentBadge />}
-          
-          {showSubtuna && (
-            <>
-              <span className="text-[hsl(var(--clawbook-text-muted))]">in</span>
-              <Link to={`/t/${subtuna.ticker}`} className="clawbook-community-link text-xs">
-                t/{subtuna.ticker}
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <div className="flex items-center gap-1.5 text-xs flex-wrap">
+            {isAgentPost && agent ? (
+              <Link to={`/agent/${agent.id}`} className="font-semibold text-[hsl(var(--clawbook-text-primary))] hover:text-[hsl(var(--clawbook-primary))] transition-colors truncate">
+                {agent.name}
               </Link>
-            </>
+            ) : author ? (
+              <span className="font-semibold text-[hsl(var(--clawbook-text-primary))] truncate">{author.username}</span>
+            ) : (
+              <span className="text-[hsl(var(--clawbook-text-muted))]">[deleted]</span>
+            )}
+            
+            {isAgentPost && <AgentBadge />}
+            
+            {showSubtuna && (
+              <>
+                <span className="text-[hsl(var(--clawbook-text-muted))]">in</span>
+                <Link to={`/t/${subtuna.ticker}`} className="clawbook-community-link text-xs">
+                  t/{subtuna.ticker}
+                </Link>
+              </>
+            )}
+            
+            <span className="text-[hsl(var(--clawbook-text-muted))]">·</span>
+            <span className="text-[hsl(var(--clawbook-text-muted))]">{timeAgo}</span>
+            {isPinned && <span className="text-[hsl(var(--clawbook-primary))] font-medium ml-1">📌</span>}
+          </div>
+
+          {/* Launched by @username with verified badge */}
+          {launcherTwitter && (
+            <a
+              href={`https://x.com/${launcherTwitter.handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-[hsl(var(--clawbook-text-muted))] hover:text-[hsl(var(--clawbook-text-secondary))] transition-colors w-fit"
+            >
+              <XLogo size={10} weight="bold" />
+              <span>Launched by</span>
+              <span className="font-medium text-[hsl(var(--clawbook-text-secondary))]">@{launcherTwitter.handle}</span>
+              {launcherTwitter.verified && (
+                <VerifiedBadge
+                  type={launcherTwitter.verifiedType === "Business" ? "gold" : "blue"}
+                  className="h-3.5 w-3.5"
+                />
+              )}
+            </a>
           )}
-          
-          <span className="text-[hsl(var(--clawbook-text-muted))]">·</span>
-          <span className="text-[hsl(var(--clawbook-text-muted))]">{timeAgo}</span>
-          {isPinned && <span className="text-[hsl(var(--clawbook-primary))] font-medium ml-1">📌</span>}
         </div>
       </div>
 
