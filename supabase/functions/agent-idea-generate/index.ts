@@ -7,23 +7,23 @@ const corsHeaders = {
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-// TUNA-themed meme concepts for random generation
-const TUNA_CONCEPTS = [
-  { theme: "astronaut", description: "TUNA in a spacesuit floating among stars" },
-  { theme: "cyberpunk", description: "Neon-lit TUNA with glowing eyes and tech accessories" },
-  { theme: "samurai", description: "TUNA wielding a katana in feudal Japan style" },
-  { theme: "wizard", description: "TUNA with a magical staff and wizard hat" },
-  { theme: "DJ", description: "TUNA at a DJ booth with headphones" },
-  { theme: "pirate", description: "TUNA captain with eye patch and treasure" },
-  { theme: "detective", description: "TUNA with magnifying glass and detective hat" },
-  { theme: "superhero", description: "Caped TUNA flying through the city" },
-  { theme: "chef", description: "TUNA in a chef hat with cooking utensils" },
-  { theme: "gamer", description: "TUNA with VR headset and gaming setup" },
-  { theme: "rockstar", description: "TUNA with electric guitar on stage" },
-  { theme: "pharaoh", description: "Ancient Egyptian TUNA with golden accessories" },
-  { theme: "ninja", description: "Stealthy TUNA with throwing stars" },
-  { theme: "viking", description: "TUNA warrior with horned helmet" },
-  { theme: "scientist", description: "TUNA in lab coat with bubbling potions" },
+// CLAW-themed meme concepts for random generation
+const CLAW_CONCEPTS = [
+  { theme: "astronaut", description: "Lobster in a spacesuit floating among stars" },
+  { theme: "cyberpunk", description: "Neon-lit lobster with glowing eyes and tech accessories" },
+  { theme: "samurai", description: "Lobster wielding a katana in feudal Japan style" },
+  { theme: "wizard", description: "Lobster with a magical staff and wizard hat" },
+  { theme: "DJ", description: "Lobster at a DJ booth with headphones" },
+  { theme: "pirate", description: "Lobster captain with eye patch and treasure" },
+  { theme: "detective", description: "Lobster with magnifying glass and detective hat" },
+  { theme: "superhero", description: "Caped lobster flying through the city" },
+  { theme: "chef", description: "Lobster in a chef hat with cooking utensils" },
+  { theme: "gamer", description: "Lobster with VR headset and gaming setup" },
+  { theme: "rockstar", description: "Lobster with electric guitar on stage" },
+  { theme: "pharaoh", description: "Ancient Egyptian lobster with golden accessories" },
+  { theme: "ninja", description: "Stealthy lobster with throwing stars" },
+  { theme: "viking", description: "Lobster warrior with horned helmet" },
+  { theme: "scientist", description: "Lobster in lab coat with bubbling potions" },
 ];
 
 // Background color palettes for variation
@@ -51,7 +51,7 @@ serve(async (req) => {
     const { prompt, includeTunaLogo } = await req.json().catch(() => ({}));
     
     // Select random concept or use user prompt
-    const randomConcept = TUNA_CONCEPTS[Math.floor(Math.random() * TUNA_CONCEPTS.length)];
+    const randomConcept = CLAW_CONCEPTS[Math.floor(Math.random() * CLAW_CONCEPTS.length)];
     const randomPalette = COLOR_PALETTES[Math.floor(Math.random() * COLOR_PALETTES.length)];
     
     const themeToUse = prompt?.trim() || randomConcept.theme;
@@ -62,14 +62,14 @@ serve(async (req) => {
     console.log("[agent-idea-generate] Generating concept:", themeToUse);
 
     // Step 1: Generate token concept with AI
-    const conceptPrompt = `Create a meme token concept based on TUNA sushi mascot.
+    const conceptPrompt = `Create a meme token concept based on a LOBSTER/CLAW mascot (NOT tuna, NOT sushi).
 
 ${descriptionContext}
 
-The TUNA mascot is a cute kawaii tuna sushi character with:
-- A pink/salmon colored tuna fish slice on top
-- White rice body with a cute smiling face
-- Rosy cheeks and friendly expression
+The mascot is a cute, bold lobster character with:
+- Bright red shell with big expressive claws
+- Playful cartoon style, meme energy
+- Fun personality, not corporate
 
 Create a UNIQUE variation of this character for the given theme/idea.
 
@@ -78,7 +78,7 @@ Return ONLY a JSON object (no markdown):
   "name": "Creative single-word token name (max 10 chars)",
   "ticker": "3-4 letter ticker in CAPS",
   "description": "Catchy description with emoji (max 80 chars)",
-  "imagePrompt": "Detailed image generation prompt describing the TUNA mascot in the themed style",
+  "imagePrompt": "Detailed image generation prompt describing the LOBSTER mascot in the themed style",
   "tweetText": "Viral tweet announcing this token (include @clawmode mention, emojis, max 280 chars)"
 }`;
 
@@ -112,32 +112,31 @@ Return ONLY a JSON object (no markdown):
     } catch {
       // Fallback concept
       concept = {
-        name: "TunaMax",
-        ticker: "TMAX",
-        description: "The ultimate TUNA experience! 🍣🚀",
-        imagePrompt: `Cute kawaii tuna sushi character as a ${themeToUse}`,
-        tweetText: `Introducing $TMAX - The ultimate TUNA experience! 🍣🚀\n\nPowered by @clawmode\n\n#Solana #Memecoins`,
+        name: "ClawMax",
+        ticker: "CMAX",
+        description: "The ultimate CLAW experience! 🦞🚀",
+        imagePrompt: `Cute cartoon lobster character as a ${themeToUse}`,
+        tweetText: `Introducing $CMAX - The ultimate CLAW experience! 🦞🚀\n\nPowered by @clawmode\n\n#Solana #Memecoins`,
       };
     }
 
     console.log("[agent-idea-generate] Concept generated:", concept.name);
 
-    // Step 2: Generate image with the TUNA mascot
-    const imagePrompt = `Create a meme token logo featuring a cute kawaii TUNA sushi mascot character.
+    // Step 2: Generate image with the LOBSTER mascot
+    const imagePrompt = `Create a meme token logo featuring a cute cartoon LOBSTER mascot character.
 
-The character MUST be based on this exact design:
-- A cute tuna nigiri sushi with pink/salmon fish on top
-- White rice body with an adorable smiling kawaii face
-- Big cute eyes, small happy smile, rosy pink cheeks
-- Friendly and approachable expression
+The character MUST be based on this design:
+- A bold, bright red cartoon lobster with big expressive claws
+- Cute face with big eyes, playful expression
+- Fun meme energy, not corporate
 
 Theme/Variation: ${concept.imagePrompt || themeToUse}
 Background: Solid color gradient using ${randomPalette.primary} and ${randomPalette.secondary}
 
 Style requirements:
-- Cartoon/anime kawaii style
-- Clean vector-like illustration
-- The TUNA sushi character should be the main focus
+- Cartoon/meme style illustration
+- Clean vector-like look
+- The LOBSTER character should be the main focus
 - Square format, centered composition
 - No text, no letters, no words in the image
 - Vibrant and eye-catching colors

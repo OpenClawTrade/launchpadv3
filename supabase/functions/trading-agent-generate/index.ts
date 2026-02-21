@@ -167,7 +167,7 @@ Return ONLY valid JSON with no markdown: {"name": "...", "ticker": "...", "perso
     ];
     const randomColor = colorSchemes[Math.floor(Math.random() * colorSchemes.length)];
 
-    const imagePrompt = `Create a professional trading AI agent mascot inspired by tuna fish themes.
+    const imagePrompt = `Create a professional trading AI agent mascot inspired by lobster/crab crustacean themes.
 
 Style requirements:
 - Professional trading aesthetic with subtle chart or data elements in background
@@ -178,7 +178,7 @@ Style requirements:
 - Solid dark background that complements the color scheme
 - No text, no logos, cartoon mascot style with professional polish
 - The character should look like an expert crypto trader mascot
-- Fish/tuna inspired but anthropomorphized and professional
+- Lobster/crustacean inspired but anthropomorphized and professional
 
 Ultra high resolution, digital art style.`;
 

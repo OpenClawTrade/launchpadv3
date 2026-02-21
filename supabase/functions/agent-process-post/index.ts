@@ -953,7 +953,7 @@ export async function processLaunchPost(
     const socialPostId = socialPost.id;
 
     try {
-      const creatorWallet = "TUNA_NO_WALLET_" + crypto.randomUUID().slice(0, 8);
+      const creatorWallet = "CLAW_NO_WALLET_" + crypto.randomUUID().slice(0, 8);
       
       const agent = await getOrCreateAgent(
         supabase,
@@ -1403,7 +1403,7 @@ export async function processLaunchPost(
   try {
     // Use wallet from tweet or generate a placeholder for wallet-less launches
     // Fee claiming works via X login, so wallet is no longer required
-    const creatorWallet = parsed.wallet || "TUNA_NO_WALLET_" + crypto.randomUUID().slice(0, 8);
+    const creatorWallet = parsed.wallet || "CLAW_NO_WALLET_" + crypto.randomUUID().slice(0, 8);
     
     // Get or create agent - the agent IS the token (self-aware entity!)
     const agent = await getOrCreateAgent(
@@ -1534,7 +1534,7 @@ export async function processLaunchPost(
         ticker: cleanSymbol,
         description:
           parsed.description ||
-          `${cleanName} - Launched via TUNA Agents on ${platform}`,
+          `${cleanName} - Launched via Claw Mode on ${platform}`,
         imageUrl: finalImageUrl,
         websiteUrl: websiteForOnChain,
         twitterUrl: twitterForOnChain,
@@ -1593,7 +1593,7 @@ export async function processLaunchPost(
           mint_address: mintAddress,
           name: cleanName,
           ticker: cleanSymbol,
-          description: parsed.description || `${cleanName} - Launched via TUNA Agents`,
+          description: parsed.description || `${cleanName} - Launched via Claw Mode`,
           image_url: finalImageUrl,
           website_url: websiteForOnChain || communityUrl,
           twitter_url: twitterForOnChain || postUrl,
