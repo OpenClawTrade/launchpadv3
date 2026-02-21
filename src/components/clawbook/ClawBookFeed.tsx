@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 type SortOption = "hot" | "new" | "top" | "rising" | "discussed";
 
 interface Post {
-  id: string; title: string; content?: string; imageUrl?: string; postType: string; upvotes: number; downvotes: number; commentCount: number; isPinned: boolean; isAgentPost: boolean; createdAt: string;
+  id: string; title: string; content?: string; imageUrl?: string; postType: string; upvotes: number; downvotes: number; commentCount: number; isPinned: boolean; isAgentPost: boolean; createdAt: string; slug?: string;
   author?: { id: string; username: string; avatarUrl?: string };
-  agent?: { id: string; name: string };
+  agent?: { id: string; name: string; avatarUrl?: string | null };
+  launcherTwitter?: { handle: string; avatarUrl?: string; verified?: boolean; verifiedType?: string | null };
   subtuna: { name: string; ticker: string; iconUrl?: string };
 }
 
