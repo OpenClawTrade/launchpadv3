@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Bot, Crown, Copy, CheckCircle, TrendingUp, TrendingDown, BadgeCheck } from "lucide-react";
+import { Bot, Crown, Copy, CheckCircle, TrendingUp, TrendingDown, BadgeCheck, Sparkles } from "lucide-react";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
@@ -21,10 +21,9 @@ interface TokenCardProps {
 interface XProfileInfo {
   profileImageUrl: string | null;
   verified: boolean;
-  verifiedType: string | null; // 'blue' | 'business' | 'government' | null
+  verifiedType: string | null;
 }
 
-// Simple in-memory cache to avoid re-fetching
 const xProfileCache = new Map<string, XProfileInfo>();
 
 function formatUsd(mcapSol: number | null | undefined, solPrice: number | null): string {
@@ -44,7 +43,6 @@ function formatAge(createdAt: string): string {
     .replace(" months", "mo").replace(" month", "mo");
 }
 
-/** Extract X username from twitter_url like https://x.com/username/status/... */
 function extractXUsername(twitterUrl?: string | null): string | null {
   if (!twitterUrl) return null;
   try {
@@ -70,23 +68,16 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
   const isPositive = priceChange >= 0;
   const bondingProgress = token.bonding_progress ?? 0;
 
-  // Derive X username from twitter_url or use passed-in prop
   const xUsername = creatorUsername || extractXUsername(token.twitter_url);
 
-  // Fetch X profile info (avatar + verified) via edge function
   useEffect(() => {
     if (!xUsername) return;
-    // If props already provide avatar, skip
     if (creatorAvatarUrl) {
       setXProfile({ profileImageUrl: creatorAvatarUrl, verified: creatorVerified ?? false, verifiedType: null });
       return;
     }
-
     const cached = xProfileCache.get(xUsername.toLowerCase());
-    if (cached) {
-      setXProfile(cached);
-      return;
-    }
+    if (cached) { setXProfile(cached); return; }
 
     let cancelled = false;
     supabase.functions.invoke('twitter-user-info', {
@@ -101,7 +92,6 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
       xProfileCache.set(xUsername.toLowerCase(), info);
       setXProfile(info);
     });
-
     return () => { cancelled = true; };
   }, [xUsername, creatorAvatarUrl, creatorVerified]);
 
@@ -111,18 +101,15 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
 
   const mcapFormatted = formatUsd(token.market_cap_sol, solPrice);
 
-  // Random subtle shake animation on ~15% of cards every 6-12s
   useEffect(() => {
     const shouldShake = Math.random() < 0.15;
     if (!shouldShake) return;
-    
     const interval = setInterval(() => {
       if (Math.random() < 0.3) {
         setIsPulsing(true);
         setTimeout(() => setIsPulsing(false), 600);
       }
     }, 6000 + Math.random() * 6000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -137,15 +124,12 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
     }
   };
 
-  // Determine avatar and verified from fetched profile or props
   const avatarUrl = xProfile?.profileImageUrl || creatorAvatarUrl || null;
   const isVerified = xProfile?.verified || creatorVerified || false;
-  const verifiedType = xProfile?.verifiedType; // 'blue' | 'business' | 'government'
-
-  // Checkmark color: gold for business/government, blue for blue/default
+  const verifiedType = xProfile?.verifiedType;
   const checkColor = (verifiedType === 'business' || verifiedType === 'government')
-    ? "hsl(38 92% 50%)" // gold
-    : "hsl(210 100% 50%)"; // blue
+    ? "hsl(38 92% 50%)"
+    : "hsl(210 100% 52%)";
 
   return (
     <Link
@@ -153,8 +137,8 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
       to={tradeUrl}
       className={`lt-card group block overflow-hidden ${isPulsing ? 'lt-shake' : ''} ${isNearGrad ? 'lt-card-hot' : ''}`}
     >
-      {/* Token Image */}
-      <div className="relative w-full" style={{ paddingBottom: "58%" }}>
+      {/* ── Token Image ── */}
+      <div className="relative w-full" style={{ paddingBottom: "54%" }}>
         <div className="absolute inset-0">
           {token.image_url ? (
             <img
@@ -169,134 +153,155 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
             </div>
           )}
 
-          {/* Dark gradient overlay */}
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, transparent 50%)" }} />
+          {/* Gradient overlay for text readability */}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, hsl(220 25% 8%) 0%, hsl(220 25% 8% / 0.6) 30%, transparent 60%)" }} />
 
-          {/* MC + badges overlay */}
-          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
-            <span className="text-[11px] font-bold font-mono text-foreground">{mcapFormatted}</span>
-            <div className="flex items-center gap-1">
-              {isNearGrad && (
-                <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "hsl(24 95% 53%)", color: "white" }}>
-                  🔥
-                </span>
-              )}
-              {isAgent && (
-                <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "hsl(var(--accent-purple))", color: "white" }}>
-                  <Bot className="h-2.5 w-2.5 inline" /> AI
-                </span>
-              )}
-              {isPromoted && (
-                <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "hsl(38 92% 50%)", color: "white" }}>
-                  <Crown className="h-2.5 w-2.5 inline" />
-                </span>
-              )}
-            </div>
+          {/* Top-right: age + badges */}
+          <div className="absolute top-2 right-2 flex items-center gap-1">
+            {isNearGrad && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold" style={{ background: "hsl(24 95% 53% / 0.85)", color: "white" }}>
+                🔥
+              </span>
+            )}
+            {isAgent && (
+              <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "hsl(var(--accent-purple) / 0.85)", color: "white" }}>
+                <Sparkles className="h-2.5 w-2.5" /> AI
+              </span>
+            )}
+            {isPromoted && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold" style={{ background: "hsl(38 92% 50% / 0.85)", color: "white" }}>
+                <Crown className="h-2.5 w-2.5 inline" />
+              </span>
+            )}
           </div>
-        </div>
-      </div>
 
-      {/* Card body */}
-      <div className="p-2.5">
-        {/* Name + ticker + price change */}
-        <div className="flex items-center justify-between gap-1 mb-0.5">
-          <span className="text-[11px] font-bold text-foreground truncate leading-tight">
-            {token.name}
-          </span>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-[9px] font-mono" style={{ color: "hsl(var(--success))" }}>
-              ${token.ticker}
+          {/* Bottom-left overlay: Market cap */}
+          <div className="absolute bottom-2 left-3 right-3 flex items-end justify-between">
+            <span className="text-lg font-bold font-mono tracking-tight" style={{ color: "hsl(0 0% 100%)", textShadow: "0 2px 8px rgb(0 0 0 / 0.5)" }}>
+              {mcapFormatted}
             </span>
             {priceChange !== 0 && (
-              <span className={`flex items-center gap-0.5 text-[8px] font-bold ${isPositive ? 'lt-price-up' : 'lt-price-down'}`}>
-                {isPositive ? <TrendingUp className="h-2 w-2" /> : <TrendingDown className="h-2 w-2" />}
+              <span className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isPositive ? 'lt-price-up' : 'lt-price-down'}`}
+                style={{ background: isPositive ? "hsl(160 84% 39% / 0.15)" : "hsl(0 72% 55% / 0.15)" }}>
+                {isPositive ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
                 {Math.abs(priceChange).toFixed(1)}%
               </span>
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Card Body ── */}
+      <div className="px-3 pt-3 pb-2.5">
+        {/* Name + Ticker row */}
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <h3 className="text-sm font-bold truncate leading-tight" style={{ color: "hsl(0 0% 95%)" }}>
+            {token.name}
+          </h3>
+          <span className="text-xs font-mono font-semibold flex-shrink-0" style={{ color: "hsl(187 80% 55%)" }}>
+            ${token.ticker}
+          </span>
+        </div>
 
         {/* Source badges + age */}
-        <div className="flex items-center gap-1 mb-1">
+        <div className="flex items-center gap-1.5 mb-1.5">
           {isPumpFun && <PumpBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" className="px-0 py-0 bg-transparent hover:bg-transparent" />}
           {isBags && <BagsBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" className="px-0 py-0 bg-transparent hover:bg-transparent" />}
           {isPhantom && <PhantomBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" />}
-          <span className="text-[8px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{formatAge(token.created_at)} ago</span>
+          <span className="text-[10px] font-mono" style={{ color: "hsl(215 15% 55%)" }}>
+            {formatAge(token.created_at)} ago
+          </span>
         </div>
 
         {/* Description */}
         {token.description && (
-          <p className="text-[9px] leading-tight line-clamp-2 mb-1.5" style={{ color: "hsl(var(--foreground-secondary))" }}>
+          <p className="text-[11px] leading-relaxed line-clamp-2 mb-2" style={{ color: "hsl(215 15% 65%)" }}>
             {token.description}
           </p>
         )}
 
-        {/* Creator X attribution with fetched avatar + verified badge */}
+        {/* ── Creator Attribution ── */}
         {xUsername && (
           <a
             href={token.twitter_url || `https://x.com/${xUsername}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1.5 mb-1.5 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 mb-2 py-1.5 px-2 rounded-lg transition-colors hover:bg-white/[0.04]"
+            style={{ borderTop: "1px solid hsl(215 20% 25% / 0.4)" }}
           >
             {avatarUrl ? (
-              <img 
-                src={avatarUrl} 
-                alt={`@${xUsername}`} 
-                className="w-4 h-4 rounded-full object-cover ring-1 ring-border flex-shrink-0" 
+              <img
+                src={avatarUrl}
+                alt={`@${xUsername}`}
+                className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                style={{ border: "1.5px solid hsl(215 20% 35%)" }}
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             ) : (
-              <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold flex-shrink-0" style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0"
+                style={{ background: "hsl(215 25% 20%)", color: "hsl(215 15% 55%)", border: "1.5px solid hsl(215 20% 30%)" }}>
                 {xUsername[0]?.toUpperCase()}
               </div>
             )}
-            <span className="text-[9px] font-medium truncate" style={{ color: "hsl(187 80% 53%)" }}>
+            <span className="text-[11px] font-medium truncate" style={{ color: "hsl(187 70% 60%)" }}>
               @{xUsername}
             </span>
             {isVerified && (
-              <BadgeCheck className="h-3 w-3 flex-shrink-0" style={{ color: checkColor }} />
+              <BadgeCheck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: checkColor }} />
             )}
           </a>
         )}
 
-        {/* CA copy row */}
+        {/* ── CA Copy Row ── */}
         {token.mint_address && (
           <button
             onClick={handleCopyCA}
-            className="flex items-center gap-1 w-full text-left group/ca"
+            className="flex items-center gap-1.5 w-full text-left group/ca mb-2 px-2 py-1 rounded-md transition-colors hover:bg-white/[0.03]"
           >
-            <code className="text-[7px] font-mono truncate flex-1" style={{ color: "hsl(var(--muted-foreground))" }}>
+            <code className="text-[9px] font-mono truncate flex-1" style={{ color: "hsl(215 15% 45%)" }}>
               {token.mint_address.slice(0, 6)}...{token.mint_address.slice(-4)}
             </code>
             {copiedCA ? (
-              <CheckCircle className="h-2.5 w-2.5 flex-shrink-0" style={{ color: "hsl(160 84% 50%)" }} />
+              <CheckCircle className="h-3 w-3 flex-shrink-0" style={{ color: "hsl(160 84% 50%)" }} />
             ) : (
-              <Copy className="h-2.5 w-2.5 flex-shrink-0 transition-colors" style={{ color: "hsl(var(--muted-foreground))" }} />
+              <Copy className="h-3 w-3 flex-shrink-0 opacity-40 group-hover/ca:opacity-80 transition-opacity" style={{ color: "hsl(215 15% 60%)" }} />
             )}
           </button>
         )}
 
-        {/* Bonding progress bar — always visible with min width */}
-        <div className="flex items-center gap-1.5 mt-2">
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted) / 0.6)", border: "1px solid hsl(var(--border) / 0.4)" }}>
+        {/* ── Bonding Progress Bar ── */}
+        <div className="mt-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] font-medium tracking-wide uppercase" style={{ color: "hsl(215 15% 45%)" }}>
+              Bonding Progress
+            </span>
+            <span className="text-[10px] font-mono font-bold" style={{
+              color: bondingProgress >= 80 ? "hsl(24 95% 60%)"
+                : bondingProgress > 0 ? "hsl(160 84% 55%)"
+                : "hsl(215 15% 45%)"
+            }}>
+              {bondingProgress.toFixed(bondingProgress >= 1 ? 0 : 1)}%
+            </span>
+          </div>
+          <div className="w-full h-[7px] rounded-full overflow-hidden" style={{ background: "hsl(215 20% 20%)", boxShadow: "inset 0 1px 2px rgb(0 0 0 / 0.3)" }}>
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className="h-full rounded-full transition-all duration-700 relative overflow-hidden lt-progress-shine"
               style={{
-                // Minimum 4% width so even 0% shows a sliver; cap at 100%
-                width: `${Math.max(Math.min(bondingProgress, 100), 4)}%`,
+                width: `${Math.max(Math.min(bondingProgress, 100), 3)}%`,
                 background: bondingProgress >= 80
                   ? "linear-gradient(90deg, hsl(24 95% 53%), hsl(16 85% 48%))"
                   : bondingProgress > 0
-                    ? "linear-gradient(90deg, hsl(160 84% 39%), hsl(142 76% 36%))"
-                    : "hsl(var(--muted-foreground) / 0.35)",
+                    ? "linear-gradient(90deg, hsl(160 84% 39%), hsl(142 76% 42%))"
+                    : "hsl(215 15% 30%)",
+                boxShadow: bondingProgress > 0
+                  ? bondingProgress >= 80
+                    ? "0 0 8px hsl(24 95% 53% / 0.4)"
+                    : "0 0 8px hsl(160 84% 39% / 0.3)"
+                  : "none",
               }}
             />
           </div>
-          <span className="text-[8px] font-mono flex-shrink-0" style={{ color: bondingProgress >= 80 ? "hsl(24 95% 60%)" : "hsl(var(--muted-foreground))" }}>
-            {bondingProgress.toFixed(bondingProgress >= 1 ? 0 : 1)}%
-          </span>
         </div>
       </div>
     </Link>
