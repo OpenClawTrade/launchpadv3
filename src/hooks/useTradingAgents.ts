@@ -219,24 +219,26 @@ export function useTradingAgentLeaderboard(limit = 20) {
   return useQuery({
     queryKey: ["trading-agent-leaderboard", limit],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trading_agents")
-        .select(`
-          id,
-          name,
-          ticker,
-          avatar_url,
-          trading_capital_sol,
-          total_profit_sol,
-          win_rate,
-          total_trades,
-          strategy_type,
-          status,
-          agent:agents(id, name, avatar_url)
-        `)
-        .eq("status", "active")
-        .order("total_profit_sol", { ascending: false, nullsFirst: false })
-        .limit(limit);
+      // Query both tables and merge
+      const [oldResult, newResult] = await Promise.all([
+        supabase
+          .from("trading_agents")
+          .select(`id, name, ticker, avatar_url, trading_capital_sol, total_profit_sol, win_rate, total_trades, strategy_type, status, agent:agents(id, name, avatar_url)`)
+          .eq("status", "active")
+          .order("total_profit_sol", { ascending: false, nullsFirst: false })
+          .limit(limit),
+        supabase
+          .from("claw_trading_agents")
+          .select(`id, name, ticker, avatar_url, trading_capital_sol, total_profit_sol, win_rate, total_trades, strategy_type, status, agent:claw_agents(id, name, avatar_url)`)
+          .eq("status", "active")
+          .order("total_profit_sol", { ascending: false, nullsFirst: false })
+          .limit(limit),
+      ]);
+
+      const data = [...(oldResult.data || []), ...(newResult.data || [])]
+        .sort((a, b) => (b.total_profit_sol || 0) - (a.total_profit_sol || 0))
+        .slice(0, limit);
+      const error = oldResult.error || newResult.error;
 
       if (error) throw error;
       
