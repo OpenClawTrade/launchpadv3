@@ -102,7 +102,9 @@ export default function PanelMyLaunchesTab() {
   });
 
   const allTokens = [...tokens, ...clawTokens];
-  const totalEarned = allTokens.reduce((s, t) => s + (t.total_fees_earned || 0), 0);
+  // Creator gets 30% of total fees earned
+  const CREATOR_SHARE = 0.3;
+  const totalEarned = allTokens.reduce((s, t) => s + (t.total_fees_earned || 0) * CREATOR_SHARE, 0);
   const totalClaimed = allTokens.reduce((s, t) => s + (t.total_fees_claimed || 0), 0);
 
   if (!twitterUsername) {
@@ -144,7 +146,7 @@ export default function PanelMyLaunchesTab() {
             <p className="text-lg font-bold font-mono" style={{ color: "#4ade80" }}>
               {totalEarned.toFixed(4)}
             </p>
-            <p className="text-[10px] text-muted-foreground">Total Earned (SOL)</p>
+            <p className="text-[10px] text-muted-foreground">Your Share (SOL)</p>
           </Card>
           <Card className="p-3 bg-white/5 border-white/10 text-center">
             <p className="text-lg font-bold font-mono" style={{ color: "#4ade80" }}>
@@ -182,7 +184,7 @@ export default function PanelMyLaunchesTab() {
                   {token.name} <span className="text-muted-foreground">${token.ticker}</span>
                 </p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{(token.total_fees_earned || 0).toFixed(4)} SOL earned</span>
+                  <span>{((token.total_fees_earned || 0) * CREATOR_SHARE).toFixed(4)} SOL earned</span>
                   {token.mint_address && (
                     <a
                       href={`https://solscan.io/token/${token.mint_address}`}
