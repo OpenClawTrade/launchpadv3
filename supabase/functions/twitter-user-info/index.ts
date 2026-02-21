@@ -109,6 +109,17 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'username' });
 
+    // Also update any fun_tokens that have this username in their twitter_url
+    // so the data is cached directly on the token record
+    await supabase
+      .from('fun_tokens')
+      .update({
+        twitter_avatar_url: profileImageUrl,
+        twitter_verified: verified,
+        twitter_verified_type: verifiedType || 'none',
+      })
+      .ilike('twitter_url', `%/${cleanUsername}/%`);
+
     return new Response(JSON.stringify({
       username: cleanUsername,
       profileImageUrl,

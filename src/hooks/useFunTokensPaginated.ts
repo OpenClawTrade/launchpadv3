@@ -18,6 +18,9 @@ export interface FunToken {
   image_url: string | null;
   creator_wallet: string;
   twitter_url?: string | null;
+  twitter_avatar_url?: string | null;
+  twitter_verified?: boolean;
+  twitter_verified_type?: string | null;
   mint_address: string | null;
   dbc_pool_address: string | null;
   status: string;
@@ -53,8 +56,9 @@ async function fetchTokensPage(page: number, pageSize: number): Promise<{ tokens
   const { data, count, error } = await supabase
     .from("fun_tokens")
     .select(`
-      id, name, ticker, description, image_url, creator_wallet, twitter_url, mint_address,
-      dbc_pool_address, status, price_sol, price_change_24h, volume_24h_sol,
+      id, name, ticker, description, image_url, creator_wallet, twitter_url,
+      twitter_avatar_url, twitter_verified, twitter_verified_type,
+      mint_address, dbc_pool_address, status, price_sol, price_change_24h, volume_24h_sol,
       total_fees_earned, holder_count, market_cap_sol, bonding_progress,
       trading_fee_bps, fee_mode, agent_id, launchpad_type, last_distribution_at, created_at, updated_at
     `, { count: "exact" })
