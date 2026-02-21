@@ -73,7 +73,7 @@ export function EmbeddedWalletCard({ className = "" }: EmbeddedWalletCardProps) 
             <p className="text-xs text-muted-foreground">Connect to trade</p>
           </div>
         </div>
-        <Button onClick={login} className="w-full">
+        <Button onClick={login} className="w-full bg-green-500 hover:bg-green-600 text-white">
           <LogIn className="h-4 w-4 mr-2" />
           Connect Wallet
         </Button>

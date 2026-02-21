@@ -240,7 +240,7 @@ export function TradePanel({ token, userBalance = 0, userSolBalance = 0, onTrade
 
           {/* Action Button */}
           {!isAuthenticated ? (
-            <Button className="w-full h-12" onClick={() => login()}>
+            <Button className="w-full h-12 bg-green-500 hover:bg-green-600 text-white" onClick={() => login()}>
               <Wallet className="h-4 w-4 mr-2" />
               Connect Wallet
             </Button>
