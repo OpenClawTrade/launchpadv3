@@ -29,82 +29,21 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get total token count (fast exact count query)
-    const { count: totalTokensCount, error: countError } = await supabase
-      .from("fun_tokens")
-      .select("id", { count: "exact", head: true });
+    // Use DB-level aggregation to avoid 1000-row limit
+    const { data: statsJson, error: rpcError } = await supabase.rpc("get_agent_token_stats");
 
-    if (countError) {
-      console.error("[agent-stats] Token count error:", countError.message);
+    if (rpcError) {
+      throw new Error(`RPC error: ${rpcError.message}`);
     }
 
-    // Fast path: use fun_tokens.agent_id instead of joining agent_tokens -> fun_tokens.
-    // This avoids heavy joins on cold starts and keeps response time predictable.
-    const { data: agentLaunchedTokens, error: tokensError } = await supabase
-      .from("fun_tokens")
-      .select("id, market_cap_sol, agent_id")
-      .not("agent_id", "is", null)
-      .limit(1000);
-
-    if (tokensError) throw new Error(`Failed to fetch agent-launched tokens: ${tokensError.message}`);
-
-    // Get agent-launched token IDs for fee calculation
-    const agentTokenIds = (agentLaunchedTokens || [])
-      .map(t => (t as any)?.id)
-      .filter(Boolean);
-
-    // Sum claimed fees for agent tokens (lightweight: ~356 rows total)
-    let totalAgentFeesEarned = 0;
-    if (agentTokenIds.length > 0) {
-      const { data: feeClaims } = await supabase
-        .from("fun_fee_claims")
-        .select("claimed_sol")
-        .in("fun_token_id", agentTokenIds);
-      
-      totalAgentFeesEarned = (feeClaims || []).reduce(
-        (sum, c) => sum + Number((c as any)?.claimed_sol || 0), 0
-      ) * 0.8; // 80% goes to agents
-    }
-
-    // Count agent posts (lightweight query)
-    const { count: agentPostsCount } = await supabase
-      .from("subtuna_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("is_agent_post", true);
-
-    const totalAgentPosts = agentPostsCount || 0;
-
-    // Get agent count only (minimal query)
-    const { count: totalAgents, error: agentsError } = await supabase
-      .from("agents")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active");
-
-    if (agentsError) {
-      console.error("[agent-stats] Agents count error:", agentsError.message);
-    }
-
-    // Get total agent payouts (lightweight query on ~250 rows)
-    const { data: payoutRows } = await supabase
-      .from("agent_fee_distributions")
-      .select("amount_sol");
-
-    const totalAgentPayouts = payoutRows?.reduce(
-      (sum, r) => sum + Number(r.amount_sol || 0), 0
-    ) || 0;
-
-    const totalTokensLaunched = totalTokensCount || 0;
-    const totalMarketCap =
-      agentLaunchedTokens?.reduce((sum, t) => sum + Number((t as any)?.market_cap_sol || 0), 0) || 0;
-
-    const stats = {
-      totalMarketCap,
-      totalAgentFeesEarned,
-      totalTokensLaunched,
-      totalVolume: totalMarketCap * 10, // Rough estimate
-      totalAgents: totalAgents || 0,
-      totalAgentPosts,
-      totalAgentPayouts,
+    const stats = statsJson || {
+      totalMarketCap: 0,
+      totalVolume: 0,
+      totalTokensLaunched: 0,
+      totalAgents: 0,
+      totalAgentPosts: 0,
+      totalAgentFeesEarned: 0,
+      totalAgentPayouts: 0,
     };
 
     // Cache the result
