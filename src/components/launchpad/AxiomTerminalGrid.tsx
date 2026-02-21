@@ -66,7 +66,7 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminal
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     const finalStretch = tokens
-      .filter(t => (t.bonding_progress ?? 0) >= 80 && t.status !== 'graduated')
+      .filter(t => (t.bonding_progress ?? 0) >= 10 && t.status !== 'graduated')
       .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0));
 
     const migrated = tokens
