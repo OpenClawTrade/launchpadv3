@@ -7,6 +7,8 @@ import { EthPriceDisplay } from "./EthPriceDisplay";
 import { useChain } from "@/contexts/ChainContext";
 import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { usePanelNav } from "@/hooks/usePanelNav";
+import { HeaderWalletBalance } from "./HeaderWalletBalance";
+import { useAuth } from "@/hooks/useAuth";
 import clawLogo from "@/assets/claw-logo.png";
 
 interface TopBarProps {
@@ -18,6 +20,7 @@ interface TopBarProps {
 
 export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
   const { chain } = useChain();
+  const { isAuthenticated } = useAuth();
   const [search, setSearch] = useState("");
   const { goToPanel } = usePanelNav();
 
@@ -64,13 +67,17 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
           <XLogo className="h-3.5 w-3.5" weight="fill" />
         </a>
 
-        <button
-          onClick={goToPanel}
-          className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-bold transition-all duration-200 hover:bg-surface-hover hover-lift flex-shrink-0 border border-success/40 text-success cursor-pointer"
-        >
-          <img src={clawLogo} alt="" className="h-4 w-4 rounded-sm" />
-          Panel
-        </button>
+        {isAuthenticated ? (
+          <HeaderWalletBalance />
+        ) : (
+          <button
+            onClick={goToPanel}
+            className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-bold transition-all duration-200 hover:bg-surface-hover hover-lift flex-shrink-0 border border-success/40 text-success cursor-pointer"
+          >
+            <img src={clawLogo} alt="" className="h-4 w-4 rounded-sm" />
+            Panel
+          </button>
+        )}
 
         <Link
           to="/?create=1"
