@@ -8874,6 +8874,7 @@ export type Database = {
           wallet_address: string
         }[]
       }
+      get_agent_token_stats: { Args: never; Returns: Json }
       get_api_account_by_wallet: {
         Args: { p_wallet_address: string }
         Returns: {
