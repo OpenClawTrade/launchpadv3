@@ -33,7 +33,7 @@ interface LightweightChartProps {
 export function LightweightChart({
   data,
   chartType = "candlestick",
-  height = 300,
+  height = 380,
   showVolume = true,
   isPositive = true,
   markers = [],
@@ -41,17 +41,21 @@ export function LightweightChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
+  // Dexscreener/Birdeye palette: teal bullish, orange bearish
   const colors = useMemo(() => ({
     backgroundColor: "#0F172A",
-    textColor: "rgba(148, 163, 184, 0.8)",
-    gridColor: "rgba(148, 163, 184, 0.06)",
-    upColor: "#22c55e",
-    downColor: "#ef4444",
-    areaTopColor: isPositive ? "rgba(34, 211, 238, 0.3)" : "rgba(239, 68, 68, 0.3)",
-    areaBottomColor: isPositive ? "rgba(34, 211, 238, 0.0)" : "rgba(239, 68, 68, 0.0)",
-    lineColor: isPositive ? "#22D3EE" : "#ef4444",
-    volumeUpColor: "rgba(34, 197, 94, 0.25)",
-    volumeDownColor: "rgba(239, 68, 68, 0.25)",
+    textColor: "rgba(148, 163, 184, 0.6)",
+    gridColor: "rgba(51, 65, 85, 0.15)",
+    upColor: "#22D3EE",
+    downColor: "#F97316",
+    upWickColor: "rgba(34, 211, 238, 0.7)",
+    downWickColor: "rgba(249, 115, 22, 0.7)",
+    areaTopColor: isPositive ? "rgba(34, 211, 238, 0.18)" : "rgba(249, 115, 22, 0.18)",
+    areaBottomColor: "rgba(15, 23, 42, 0)",
+    lineColor: isPositive ? "#22D3EE" : "#F97316",
+    volumeUpColor: "rgba(34, 211, 238, 0.12)",
+    volumeDownColor: "rgba(249, 115, 22, 0.10)",
+    crosshairColor: "rgba(148, 163, 184, 0.15)",
   }), [isPositive]);
 
   useEffect(() => {
@@ -66,40 +70,54 @@ export function LightweightChart({
       layout: {
         background: { type: ColorType.Solid, color: colors.backgroundColor },
         textColor: colors.textColor,
-        fontFamily: "'IBM Plex Mono', monospace",
+        fontFamily: "'IBM Plex Mono', 'JetBrains Mono', monospace",
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: colors.gridColor },
-        horzLines: { color: colors.gridColor },
+        vertLines: { color: colors.gridColor, style: 1 },
+        horzLines: { color: colors.gridColor, style: 1 },
       },
       width: chartContainerRef.current.clientWidth,
       height: height,
       rightPriceScale: {
         borderVisible: false,
         scaleMargins: {
-          top: 0.1,
-          bottom: showVolume ? 0.25 : 0.1,
+          top: 0.08,
+          bottom: showVolume ? 0.22 : 0.08,
         },
+        entireTextOnly: true,
       },
       timeScale: {
         borderVisible: false,
         timeVisible: true,
         secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
       },
       crosshair: {
+        mode: 0, // Normal mode
         vertLine: {
-          color: "rgba(34, 211, 238, 0.3)",
-          labelBackgroundColor: "#1e293b",
+          color: colors.crosshairColor,
+          width: 1,
+          style: 2, // Dashed
+          labelVisible: false, // No floating label — clean look
         },
         horzLine: {
-          color: "rgba(34, 211, 238, 0.3)",
-          labelBackgroundColor: "#1e293b",
+          color: colors.crosshairColor,
+          width: 1,
+          style: 2,
+          labelVisible: false, // No floating label
         },
       },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
     });
 
     chartRef.current = chart;
+
+    // Remove TradingView watermark
+    const watermarkEl = chartContainerRef.current.querySelector('a[href*="tradingview"]');
+    if (watermarkEl) (watermarkEl as HTMLElement).style.display = 'none';
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
@@ -116,8 +134,8 @@ export function LightweightChart({
         downColor: colors.downColor,
         borderUpColor: colors.upColor,
         borderDownColor: colors.downColor,
-        wickUpColor: colors.upColor,
-        wickDownColor: colors.downColor,
+        wickUpColor: colors.upWickColor,
+        wickDownColor: colors.downWickColor,
       });
 
       mainSeries.setData(
@@ -130,15 +148,15 @@ export function LightweightChart({
         }))
       );
 
+      // Subtle volume histogram
       if (showVolume && (data as CandleData[])[0]?.volume !== undefined) {
         const volumeSeries = chart.addSeries(HistogramSeries, {
-          color: colors.volumeUpColor,
           priceFormat: { type: "volume" },
           priceScaleId: "",
         });
 
         volumeSeries.priceScale().applyOptions({
-          scaleMargins: { top: 0.8, bottom: 0 },
+          scaleMargins: { top: 0.85, bottom: 0 },
         });
 
         volumeSeries.setData(
@@ -155,6 +173,10 @@ export function LightweightChart({
         topColor: colors.areaTopColor,
         bottomColor: colors.areaBottomColor,
         lineWidth: 2,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: 4,
+        crosshairMarkerBorderColor: colors.lineColor,
+        crosshairMarkerBackgroundColor: colors.backgroundColor,
       });
 
       mainSeries.setData(
@@ -165,7 +187,7 @@ export function LightweightChart({
       );
     }
 
-    // Add migration/event markers
+    // Migration/graduation markers
     if (markers.length > 0 && mainSeries) {
       const chartMarkers = markers.map((m) => ({
         time: m.time as any,
@@ -191,10 +213,12 @@ export function LightweightChart({
   if (data.length === 0) {
     return (
       <div
-        className="flex items-center justify-center rounded-lg"
+        className="flex flex-col items-center justify-center gap-2 rounded-lg"
         style={{ height, backgroundColor: "#0F172A" }}
       >
-        <p className="text-xs text-muted-foreground font-mono">Waiting for trade data...</p>
+        <div className="h-px w-3/4 opacity-20" style={{ background: 'linear-gradient(90deg, transparent, #22D3EE, transparent)' }} />
+        <p className="text-[11px] text-muted-foreground/60 font-mono tracking-wider">Waiting for trade data…</p>
+        <div className="h-px w-3/4 opacity-20" style={{ background: 'linear-gradient(90deg, transparent, #22D3EE, transparent)' }} />
       </div>
     );
   }
@@ -202,7 +226,7 @@ export function LightweightChart({
   return (
     <div
       ref={chartContainerRef}
-      className="w-full rounded-lg overflow-hidden"
+      className="w-full overflow-hidden relative"
       style={{ height, backgroundColor: "#0F172A" }}
     />
   );
