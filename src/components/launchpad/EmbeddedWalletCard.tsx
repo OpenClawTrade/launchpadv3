@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { usePrivy } from "@privy-io/react-auth";
+import { useExportWallet } from "@privy-io/react-auth/solana";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ export function EmbeddedWalletCard({ className = "" }: EmbeddedWalletCardProps) 
 
 function EmbeddedWalletCardInner({ className }: { className: string }) {
   const { walletAddress, isWalletReady, getBalance, getBalanceStrict } = useSolanaWalletWithPrivy();
-  const { exportWallet } = usePrivy();
+  const { exportWallet } = useExportWallet();
   const { toast } = useToast();
 
   const [balance, setBalance] = useState<number | null>(null);
