@@ -166,12 +166,18 @@ export default {
           "100%": { transform: "translateX(200%)" },
         },
         "king-pulse": {
-          "0%, 100%": { boxShadow: "0 0 20px rgba(249,115,22,0.15), 0 8px 32px rgba(0,0,0,0.4)" },
-          "50%": { boxShadow: "0 0 32px rgba(249,115,22,0.3), 0 8px 40px rgba(0,0,0,0.5)" },
+          "0%, 100%": { boxShadow: "0 0 20px rgba(249,115,22,0.15), 0 8px 32px rgba(0,0,0,0.4)", borderColor: "rgba(249,115,22,0.3)" },
+          "50%": { boxShadow: "0 0 40px rgba(249,115,22,0.35), 0 12px 48px rgba(0,0,0,0.5)", borderColor: "rgba(249,115,22,0.5)" },
         },
         "bounce-subtle": {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-2px)" },
+          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
+          "25%": { transform: "translateY(-3px) rotate(-5deg)" },
+          "75%": { transform: "translateY(-1px) rotate(5deg)" },
+        },
+        "claw-shake": {
+          "0%, 100%": { transform: "translateX(0) rotate(0deg)" },
+          "25%": { transform: "translateX(-1px) rotate(-0.5deg)" },
+          "75%": { transform: "translateX(1px) rotate(0.5deg)" },
         },
       },
       animation: {
@@ -183,8 +189,9 @@ export default {
         "spin-slow": "spin-slow 3s linear infinite",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "shimmer": "shimmer 2.5s ease-in-out infinite",
-        "king-pulse": "king-pulse 8s ease-in-out infinite",
-        "bounce-subtle": "bounce-subtle 2s ease-in-out infinite",
+        "king-pulse": "king-pulse 2s ease-in-out infinite",
+        "bounce-subtle": "bounce-subtle 1.5s ease-in-out infinite",
+        "claw-shake": "claw-shake 0.3s ease-in-out",
       },
       spacing: {
         "18": "4.5rem",

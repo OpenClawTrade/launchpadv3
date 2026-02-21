@@ -112,7 +112,7 @@ function KothCard({ token, rank }: { token: KingToken; rank: number }) {
         config.glow,
         config.hoverGlow,
         // Hover lift
-        "hover:scale-[1.04] active:scale-[0.98]",
+        "hover:scale-[1.04] active:scale-[0.98] hover:animate-claw-shake",
         "transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
         "cursor-pointer",
         // King pulse for #1
