@@ -6,6 +6,7 @@ import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
 import { PhantomBadge } from "@/components/clawbook/PhantomBadge";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface TokenCardProps {
@@ -16,6 +17,15 @@ interface TokenCardProps {
   creatorAvatarUrl?: string | null;
   creatorVerified?: boolean;
 }
+
+interface XProfileInfo {
+  profileImageUrl: string | null;
+  verified: boolean;
+  verifiedType: string | null; // 'blue' | 'business' | 'government' | null
+}
+
+// Simple in-memory cache to avoid re-fetching
+const xProfileCache = new Map<string, XProfileInfo>();
 
 function formatUsd(mcapSol: number | null | undefined, solPrice: number | null): string {
   if (!mcapSol || !solPrice) return "$0";
@@ -49,6 +59,7 @@ function extractXUsername(twitterUrl?: string | null): string | null {
 export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creatorAvatarUrl, creatorVerified }: TokenCardProps) {
   const [copiedCA, setCopiedCA] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
+  const [xProfile, setXProfile] = useState<XProfileInfo | null>(null);
   const cardRef = useRef<HTMLAnchorElement>(null);
   const isPumpFun = token.launchpad_type === 'pumpfun';
   const isBags = token.launchpad_type === 'bags';
@@ -61,6 +72,38 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
 
   // Derive X username from twitter_url or use passed-in prop
   const xUsername = creatorUsername || extractXUsername(token.twitter_url);
+
+  // Fetch X profile info (avatar + verified) via edge function
+  useEffect(() => {
+    if (!xUsername) return;
+    // If props already provide avatar, skip
+    if (creatorAvatarUrl) {
+      setXProfile({ profileImageUrl: creatorAvatarUrl, verified: creatorVerified ?? false, verifiedType: null });
+      return;
+    }
+
+    const cached = xProfileCache.get(xUsername.toLowerCase());
+    if (cached) {
+      setXProfile(cached);
+      return;
+    }
+
+    let cancelled = false;
+    supabase.functions.invoke('twitter-user-info', {
+      body: { username: xUsername },
+    }).then(({ data, error }) => {
+      if (cancelled || error || !data) return;
+      const info: XProfileInfo = {
+        profileImageUrl: data.profileImageUrl || null,
+        verified: data.verified || false,
+        verifiedType: data.verifiedType || null,
+      };
+      xProfileCache.set(xUsername.toLowerCase(), info);
+      setXProfile(info);
+    });
+
+    return () => { cancelled = true; };
+  }, [xUsername, creatorAvatarUrl, creatorVerified]);
 
   const tradeUrl = (isPumpFun || isBags || isAgent)
     ? `/t/${token.ticker}`
@@ -93,6 +136,16 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
       setTimeout(() => setCopiedCA(false), 2000);
     }
   };
+
+  // Determine avatar and verified from fetched profile or props
+  const avatarUrl = xProfile?.profileImageUrl || creatorAvatarUrl || null;
+  const isVerified = xProfile?.verified || creatorVerified || false;
+  const verifiedType = xProfile?.verifiedType; // 'blue' | 'business' | 'government'
+
+  // Checkmark color: gold for business/government, blue for blue/default
+  const checkColor = (verifiedType === 'business' || verifiedType === 'government')
+    ? "hsl(38 92% 50%)" // gold
+    : "hsl(210 100% 50%)"; // blue
 
   return (
     <Link
@@ -178,21 +231,26 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
           </p>
         )}
 
-        {/* Creator X attribution */}
+        {/* Creator X attribution with fetched avatar + verified badge */}
         {xUsername && (
           <div className="flex items-center gap-1.5 mb-1.5">
-            {creatorAvatarUrl ? (
-              <img src={creatorAvatarUrl} alt="" className="w-4 h-4 rounded-full object-cover ring-1 ring-border" />
+            {avatarUrl ? (
+              <img 
+                src={avatarUrl} 
+                alt={`@${xUsername}`} 
+                className="w-4 h-4 rounded-full object-cover ring-1 ring-border flex-shrink-0" 
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
             ) : (
-              <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold" style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
+              <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold flex-shrink-0" style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
                 {xUsername[0]?.toUpperCase()}
               </div>
             )}
             <span className="text-[9px] font-medium truncate" style={{ color: "hsl(187 80% 53%)" }}>
               @{xUsername}
             </span>
-            {creatorVerified && (
-              <BadgeCheck className="h-3 w-3 flex-shrink-0" style={{ color: "hsl(210 100% 50%)" }} />
+            {isVerified && (
+              <BadgeCheck className="h-3 w-3 flex-shrink-0" style={{ color: checkColor }} />
             )}
           </div>
         )}
@@ -214,18 +272,19 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
           </button>
         )}
 
-        {/* Bonding progress bar — visible like KingOfTheHill */}
+        {/* Bonding progress bar — always visible with min width */}
         <div className="flex items-center gap-1.5 mt-2">
-          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted))" }}>
+          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted) / 0.6)", border: "1px solid hsl(var(--border) / 0.4)" }}>
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
-                width: `${Math.max(Math.min(bondingProgress, 100), 0)}%`,
+                // Minimum 4% width so even 0% shows a sliver; cap at 100%
+                width: `${Math.max(Math.min(bondingProgress, 100), 4)}%`,
                 background: bondingProgress >= 80
                   ? "linear-gradient(90deg, hsl(24 95% 53%), hsl(16 85% 48%))"
                   : bondingProgress > 0
                     ? "linear-gradient(90deg, hsl(160 84% 39%), hsl(142 76% 36%))"
-                    : "hsl(var(--muted-foreground) / 0.3)",
+                    : "hsl(var(--muted-foreground) / 0.35)",
               }}
             />
           </div>
