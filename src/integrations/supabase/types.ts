@@ -8907,6 +8907,16 @@ export type Database = {
           total_claimed_sol: number
         }[]
       }
+      get_platform_stats: {
+        Args: never
+        Returns: {
+          token_count: number
+          total_agent_payouts: number
+          total_fee_claims: number
+          total_fees_earned: number
+          total_mcap_sol: number
+        }[]
+      }
       get_suggested_users: {
         Args: { current_user_id: string; limit_count?: number }
         Returns: {
