@@ -4,8 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { TokenCard } from "@/components/launchpad/TokenCard";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
+import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
 import { Footer } from "@/components/layout/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
@@ -13,10 +13,7 @@ import { useJustLaunched } from "@/hooks/useJustLaunched";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useFunFeeClaims, useFunFeeClaimsSummary, useFunDistributions } from "@/hooks/useFunFeeData";
-import { useFunTopPerformers } from "@/hooks/useFunTopPerformers";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { useAgentStats } from "@/hooks/useAgentStats";
-import { useTokenPromotions } from "@/hooks/useTokenPromotions";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { useChainRoute } from "@/hooks/useChainRoute";
 import { useChain } from "@/contexts/ChainContext";
@@ -30,15 +27,9 @@ import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { Link, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import {
-  ChevronLeft, ChevronRight, PartyPopper, XCircle, ExternalLink, Copy, CheckCircle,
-  Coins, Wallet, Trophy, BarChart3, Users, AlertCircle, Flame, Bot, Clock, X,
+  PartyPopper, XCircle, ExternalLink, Copy, CheckCircle,
+  AlertCircle, Flame,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { FeeDistributionPie } from "@/components/launchpad/FeeDistributionPie";
 
 interface LaunchResult {
   success: boolean;
@@ -54,15 +45,7 @@ interface LaunchResult {
   error?: string;
 }
 
-const FILTER_TABS = [
-  { id: "new", label: "🚀 New" },
-  { id: "hot", label: "🔥 Hot" },
-  { id: "top", label: "👑 Top" },
-  { id: "agents", label: "🤖 Agents" },
-  
-] as const;
-
-type FilterTab = typeof FILTER_TABS[number]["id"];
+// Filter tabs removed — Axiom layout uses column-based organization
 
 export default function FunLauncherPage() {
   const { toast } = useToast();
@@ -85,9 +68,7 @@ export default function FunLauncherPage() {
 
   const { data: claimsSummary } = useFunFeeClaimsSummary();
   const { data: distributions = [] } = useFunDistributions();
-  const { data: topPerformers = [], isLoading: topPerformersLoading } = useFunTopPerformers(10);
-  const { data: agentStats } = useAgentStats();
-  const { activePromotions, isTokenPromoted } = useTokenPromotions();
+  // removed: topPerformers, agentStats, tokenPromotions (no longer used in Axiom layout)
   const { onlineCount } = useVisitorTracking();
 
   const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
@@ -98,7 +79,7 @@ export default function FunLauncherPage() {
   const [promoteTokenId, setPromoteTokenId] = useState<string | null>(null);
   const [promoteTokenName, setPromoteTokenName] = useState("");
   const [promoteTokenTicker, setPromoteTokenTicker] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterTab>("new");
+  // activeFilter removed — Axiom layout uses column-based organization
   const [adminWallet] = useState("");
   const { isAdmin } = useIsAdmin(adminWallet || null);
 
@@ -114,7 +95,7 @@ export default function FunLauncherPage() {
   const totalClaimed = claimsSummary?.totalClaimedSol ?? 0;
   const totalPayouts = useMemo(() => distributions.reduce((sum, d) => sum + Number(d.amount_sol || 0), 0), [distributions]);
   const creatorDistributions = useMemo(() => distributions.filter((d) => d.distribution_type === "creator" && d.status === "completed"), [distributions]);
-  const promotedTokenIds = new Set(activePromotions?.map(p => p.fun_token_id) || []);
+  // promotedTokenIds removed — Axiom layout doesn't use promotions
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -148,17 +129,7 @@ export default function FunLauncherPage() {
     setShowResultModal(true);
   }, []);
 
-  // Filter tokens for grid
-  const filteredTokens = useMemo(() => {
-    switch (activeFilter) {
-      case "new": return [...tokens].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      case "hot": return [...tokens].filter(t => (t.bonding_progress ?? 0) >= 30).sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0));
-      case "top": return [...tokens].sort((a, b) => (b.market_cap_sol ?? 0) - (a.market_cap_sol ?? 0));
-      case "agents": return tokens.filter(t => !!t.agent_id);
-      
-      default: return tokens;
-    }
-  }, [tokens, activeFilter, promotedTokenIds]);
+  // Token filtering now handled inside AxiomTerminalGrid
 
   return (
     <div className="min-h-screen relative z-[1] overflow-x-hidden">
@@ -277,66 +248,17 @@ export default function FunLauncherPage() {
               <KingOfTheHill />
             </div>
 
-            {/* Filter tabs */}
-            <div className="px-4 pt-5">
-              <div className="flex items-center gap-0 overflow-x-auto no-scrollbar border-b border-border">
-                {FILTER_TABS.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveFilter(tab.id)}
-                    className={`px-4 py-2.5 text-[12px] font-semibold whitespace-nowrap transition-all duration-200 border-b-2 -mb-px ${
-                      activeFilter === tab.id
-                        ? "text-foreground border-success"
-                        : "text-muted-foreground border-transparent hover:text-foreground/70"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-                <div className="ml-auto flex items-center gap-1.5 px-3 flex-shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
-                  <span className="text-[11px] font-mono text-muted-foreground">
-                    <span className="text-foreground font-semibold">{onlineCount ?? '—'}</span> online
-                  </span>
-                </div>
-              </div>
+            {/* Online indicator */}
+            <div className="px-4 pt-3 flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
+              <span className="text-[11px] font-mono text-muted-foreground">
+                <span className="text-foreground font-semibold">{onlineCount ?? '—'}</span> online
+              </span>
             </div>
 
-            {/* Token Grid */}
-            <div className="px-4 pt-3 pb-16">
-              {tokensLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
-                  {Array.from({ length: 20 }).map((_, i) => (
-                    <div key={i} className="lt-card overflow-hidden">
-                      <Skeleton className="w-full skeleton-shimmer" style={{ paddingBottom: "58%", display: "block" }} />
-                      <div className="p-2.5 space-y-1.5">
-                        <Skeleton className="h-3 w-3/4 skeleton-shimmer" />
-                        <Skeleton className="h-2 w-1/2 skeleton-shimmer" />
-                        <Skeleton className="h-2 w-full skeleton-shimmer" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredTokens.length === 0 ? (
-                <div className="text-center py-20 empty-state-fade">
-                  <div className="inline-block rounded-2xl px-10 py-8" style={{ background: "hsl(var(--surface) / 0.6)", border: "1px solid hsl(var(--border))" }}>
-                    <div className="text-3xl mb-3">🦞</div>
-                    <p className="text-sm font-semibold text-foreground">No tokens found</p>
-                    <p className="text-[11px] mt-1 text-muted-foreground">Try a different filter or check back soon</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
-                  {filteredTokens.map(token => (
-                    <TokenCard
-                      key={token.id}
-                      token={token}
-                      solPrice={solPrice}
-                      isPromoted={promotedTokenIds.has(token.id)}
-                    />
-                  ))}
-                </div>
-              )}
+            {/* Axiom Terminal Grid */}
+            <div className="pt-2 pb-16">
+              <AxiomTerminalGrid tokens={tokens} solPrice={solPrice} isLoading={tokensLoading} />
             </div>
 
           </main>
