@@ -161,7 +161,7 @@ export function TokenComments({ tokenId }: TokenCommentsProps) {
         <Card className="p-4 text-center">
           <p className="text-muted-foreground mb-2">Sign in to join the discussion</p>
           <Link to="/auth">
-            <Button size="sm">Sign In</Button>
+            <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white">Sign In</Button>
           </Link>
         </Card>
       )}
