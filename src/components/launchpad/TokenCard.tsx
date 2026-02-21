@@ -34,6 +34,18 @@ function formatAge(createdAt: string): string {
     .replace(" months", "mo").replace(" month", "mo");
 }
 
+/** Extract X username from twitter_url like https://x.com/username/status/... */
+function extractXUsername(twitterUrl?: string | null): string | null {
+  if (!twitterUrl) return null;
+  try {
+    const url = new URL(twitterUrl);
+    const parts = url.pathname.split('/').filter(Boolean);
+    return parts[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creatorAvatarUrl, creatorVerified }: TokenCardProps) {
   const [copiedCA, setCopiedCA] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
@@ -45,6 +57,10 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
   const isNearGrad = (token.bonding_progress ?? 0) >= 80;
   const priceChange = token.price_change_24h ?? 0;
   const isPositive = priceChange >= 0;
+  const bondingProgress = token.bonding_progress ?? 0;
+
+  // Derive X username from twitter_url or use passed-in prop
+  const xUsername = creatorUsername || extractXUsername(token.twitter_url);
 
   const tradeUrl = (isPumpFun || isBags || isAgent)
     ? `/t/${token.ticker}`
@@ -162,18 +178,18 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
           </p>
         )}
 
-        {/* Creator attribution */}
-        {creatorUsername && (
-          <div className="flex items-center gap-1.5 mb-1.5 lt-creator-row">
+        {/* Creator X attribution */}
+        {xUsername && (
+          <div className="flex items-center gap-1.5 mb-1.5">
             {creatorAvatarUrl ? (
               <img src={creatorAvatarUrl} alt="" className="w-4 h-4 rounded-full object-cover ring-1 ring-border" />
             ) : (
               <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold" style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
-                {creatorUsername[0]?.toUpperCase()}
+                {xUsername[0]?.toUpperCase()}
               </div>
             )}
             <span className="text-[9px] font-medium truncate" style={{ color: "hsl(187 80% 53%)" }}>
-              @{creatorUsername}
+              @{xUsername}
             </span>
             {creatorVerified && (
               <BadgeCheck className="h-3 w-3 flex-shrink-0" style={{ color: "hsl(210 100% 50%)" }} />
@@ -198,17 +214,24 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
           </button>
         )}
 
-        {/* Bonding progress bar */}
-        <div className="mt-1.5 h-[3px] w-full rounded-full overflow-hidden" style={{ background: "hsl(var(--muted))" }}>
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${Math.min(token.bonding_progress ?? 0, 100)}%`,
-              background: isNearGrad
-                ? "linear-gradient(90deg, hsl(24 95% 53%), hsl(16 85% 48%))"
-                : "linear-gradient(90deg, hsl(160 84% 39%), hsl(162 95% 24%))",
-            }}
-          />
+        {/* Bonding progress bar — visible like KingOfTheHill */}
+        <div className="flex items-center gap-1.5 mt-2">
+          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted))" }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.max(Math.min(bondingProgress, 100), 0)}%`,
+                background: bondingProgress >= 80
+                  ? "linear-gradient(90deg, hsl(24 95% 53%), hsl(16 85% 48%))"
+                  : bondingProgress > 0
+                    ? "linear-gradient(90deg, hsl(160 84% 39%), hsl(142 76% 36%))"
+                    : "hsl(var(--muted-foreground) / 0.3)",
+              }}
+            />
+          </div>
+          <span className="text-[8px] font-mono flex-shrink-0" style={{ color: bondingProgress >= 80 ? "hsl(24 95% 60%)" : "hsl(var(--muted-foreground))" }}>
+            {bondingProgress.toFixed(bondingProgress >= 1 ? 0 : 1)}%
+          </span>
         </div>
       </div>
     </Link>
