@@ -195,6 +195,14 @@ serve(async (req) => {
       return jsonResponse({ config, recentReplies, repliesLastHour: hourlyCount, enabled: ENABLE_INFLUENCER_REPLIES });
     }
 
+    // TEMPORARY HALT: Stop all X activity until this timestamp
+    const HALT_UNTIL = new Date("2026-02-22T11:40:00Z");
+    if (Date.now() < HALT_UNTIL.getTime()) {
+      const remainingMins = Math.ceil((HALT_UNTIL.getTime() - Date.now()) / 60000);
+      console.log(`[influencer-list-reply] ⏸️ TEMPORARY HALT active. Resumes in ${remainingMins} minutes`);
+      return jsonResponse({ halted: true, resumesAt: HALT_UNTIL.toISOString() });
+    }
+
     if (!ENABLE_INFLUENCER_REPLIES) {
       console.log("Influencer replies disabled via kill switch");
       return jsonResponse({ message: "Influencer replies disabled", debug });
