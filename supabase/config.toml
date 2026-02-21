@@ -377,3 +377,18 @@ verify_jwt = false
 
 [functions.bitquery-proxy]
 verify_jwt = false
+
+[functions.nfa-create-collection]
+verify_jwt = false
+
+[functions.nfa-generate-image]
+verify_jwt = false
+
+[functions.nfa-list]
+verify_jwt = false
+
+[functions.nfa-buy]
+verify_jwt = false
+
+[functions.nfa-delist]
+verify_jwt = false

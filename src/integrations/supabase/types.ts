@@ -4186,6 +4186,53 @@ export type Database = {
         }
         Relationships: []
       }
+      nfa_listings: {
+        Row: {
+          asking_price_sol: number
+          buyer_wallet: string | null
+          created_at: string
+          id: string
+          listed_at: string
+          nfa_mint_id: string
+          sale_signature: string | null
+          seller_wallet: string
+          sold_at: string | null
+          status: string
+        }
+        Insert: {
+          asking_price_sol: number
+          buyer_wallet?: string | null
+          created_at?: string
+          id?: string
+          listed_at?: string
+          nfa_mint_id: string
+          sale_signature?: string | null
+          seller_wallet: string
+          sold_at?: string | null
+          status?: string
+        }
+        Update: {
+          asking_price_sol?: number
+          buyer_wallet?: string | null
+          created_at?: string
+          id?: string
+          listed_at?: string
+          nfa_mint_id?: string
+          sale_signature?: string | null
+          seller_wallet?: string
+          sold_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfa_listings_nfa_mint_id_fkey"
+            columns: ["nfa_mint_id"]
+            isOneToOne: false
+            referencedRelation: "nfa_mints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nfa_mints: {
         Row: {
           agent_image_url: string | null
@@ -4194,12 +4241,19 @@ export type Database = {
           batch_id: string
           created_at: string
           id: string
+          listed_for_sale: boolean | null
+          listing_price_sol: number | null
+          metadata_locked: boolean | null
           minter_wallet: string
           nfa_mint_address: string | null
+          owner_wallet: string | null
           payment_signature: string | null
           payment_verified: boolean
           slot_number: number
           status: string
+          token_image_url: string | null
+          token_name: string | null
+          token_ticker: string | null
           trading_agent_id: string | null
         }
         Insert: {
@@ -4209,12 +4263,19 @@ export type Database = {
           batch_id: string
           created_at?: string
           id?: string
+          listed_for_sale?: boolean | null
+          listing_price_sol?: number | null
+          metadata_locked?: boolean | null
           minter_wallet: string
           nfa_mint_address?: string | null
+          owner_wallet?: string | null
           payment_signature?: string | null
           payment_verified?: boolean
           slot_number: number
           status?: string
+          token_image_url?: string | null
+          token_name?: string | null
+          token_ticker?: string | null
           trading_agent_id?: string | null
         }
         Update: {
@@ -4224,12 +4285,19 @@ export type Database = {
           batch_id?: string
           created_at?: string
           id?: string
+          listed_for_sale?: boolean | null
+          listing_price_sol?: number | null
+          metadata_locked?: boolean | null
           minter_wallet?: string
           nfa_mint_address?: string | null
+          owner_wallet?: string | null
           payment_signature?: string | null
           payment_verified?: boolean
           slot_number?: number
           status?: string
+          token_image_url?: string | null
+          token_name?: string | null
+          token_ticker?: string | null
           trading_agent_id?: string | null
         }
         Relationships: [
