@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useFunToken } from "@/hooks/useFunToken";
 import { usePoolState } from "@/hooks/usePoolState";
@@ -49,6 +49,12 @@ export default function FunTokenDetailPage() {
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('trade');
+
+  // Suppress matrix background on this page
+  useEffect(() => {
+    document.body.classList.add('matrix-hidden');
+    return () => { document.body.classList.remove('matrix-hidden'); };
+  }, []);
 
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');
   const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
