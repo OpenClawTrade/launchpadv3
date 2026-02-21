@@ -6976,6 +6976,7 @@ export type Database = {
           unrealized_pnl_sol: number | null
           updated_at: string | null
           wallet_address: string
+          wallet_private_key_backup: string | null
           wallet_private_key_encrypted: string
           win_rate: number | null
           winning_trades: number | null
@@ -7020,6 +7021,7 @@ export type Database = {
           unrealized_pnl_sol?: number | null
           updated_at?: string | null
           wallet_address: string
+          wallet_private_key_backup?: string | null
           wallet_private_key_encrypted: string
           win_rate?: number | null
           winning_trades?: number | null
@@ -7064,6 +7066,7 @@ export type Database = {
           unrealized_pnl_sol?: number | null
           updated_at?: string | null
           wallet_address?: string
+          wallet_private_key_backup?: string | null
           wallet_private_key_encrypted?: string
           win_rate?: number | null
           winning_trades?: number | null

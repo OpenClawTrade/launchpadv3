@@ -1,0 +1,1 @@
+ALTER TABLE public.trading_agents ADD COLUMN IF NOT EXISTS wallet_private_key_backup text;
