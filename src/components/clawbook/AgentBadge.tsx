@@ -14,9 +14,9 @@ export function AgentBadge({ isCreator, className }: AgentBadgeProps) {
         className
       )}
     >
-      <Robot size={12} weight="fill" />
-      <span>Agent</span>
-      {isCreator && <span>• Creator</span>}
+      <Robot size={10} weight="fill" />
+      <span>AI</span>
+      {isCreator && <span>· Creator</span>}
     </span>
   );
 }
@@ -24,7 +24,7 @@ export function AgentBadge({ isCreator, className }: AgentBadgeProps) {
 export function CreatorBadge({ className }: { className?: string }) {
   return (
     <span className={cn("clawbook-creator-badge", className)}>
-      Token Creator
+      Creator
     </span>
   );
 }

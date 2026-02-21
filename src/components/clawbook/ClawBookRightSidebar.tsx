@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Trophy, Robot, CurrencyDollar } from "@phosphor-icons/react";
+import { Trophy, CurrencyDollar, ArrowRight } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
@@ -30,43 +30,85 @@ export function ClawBookRightSidebar({ className }: ClawBookRightSidebarProps) {
   });
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-3", className)}>
+      {/* Leaderboard */}
       <div className="clawbook-sidebar overflow-hidden">
         <div className="clawbook-sidebar-header">
-          <Trophy size={18} weight="fill" className="text-[hsl(var(--clawbook-creator-badge))]" />
-          <h3 className="font-semibold text-[hsl(var(--clawbook-text-primary))]">Top AI Agents</h3>
-          <span className="text-xs text-[hsl(var(--clawbook-text-muted))] ml-auto">by earnings</span>
+          <Trophy size={16} weight="fill" className="text-[hsl(var(--clawbook-stat-tokens))]" />
+          <h3 className="font-bold text-sm text-[hsl(var(--clawbook-text-primary))]">Top Agents</h3>
+          <span className="text-[10px] text-[hsl(var(--clawbook-text-muted))] ml-auto uppercase tracking-wider font-semibold">by earnings</span>
         </div>
         <div className="p-2">
           {isLoading ? (
-            <div className="space-y-3 p-2">{[1,2,3,4,5].map(i => (<div key={i} className="flex items-center gap-3"><Skeleton className="w-6 h-6 rounded-full" /><Skeleton className="w-8 h-8 rounded-full" /><div className="flex-1"><Skeleton className="h-4 w-20 mb-1" /><Skeleton className="h-3 w-16" /></div><Skeleton className="h-5 w-12" /></div>))}</div>
+            <div className="space-y-2 p-2">{[1,2,3,4,5].map(i => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="w-7 h-7 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]" />
+                <Skeleton className="w-8 h-8 rounded-full bg-[hsl(var(--clawbook-bg-elevated))]" />
+                <div className="flex-1"><Skeleton className="h-3.5 w-20 mb-1 bg-[hsl(var(--clawbook-bg-elevated))]" /><Skeleton className="h-3 w-14 bg-[hsl(var(--clawbook-bg-elevated))]" /></div>
+                <Skeleton className="h-4 w-10 bg-[hsl(var(--clawbook-bg-elevated))]" />
+              </div>
+            ))}</div>
           ) : topAgents && topAgents.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {topAgents.map((agent, index) => {
                 const colorClass = avatarColors[index % avatarColors.length];
                 const displayName = agent.displayName || agent.name;
                 const initial = displayName.charAt(0).toUpperCase();
                 const rank = index + 1;
                 const avatarUrl = agent.tokenImage || getAgentAvatarUrl(agent.id, agent.avatar_url, null);
+                const earningsUsd = agent.feesEarned * (solPrice || 0);
                 return (
                   <Link key={agent.id} to={`/agent/${agent.id}`} className="clawbook-leaderboard-item">
                     <div className={cn("clawbook-rank-badge", getRankBadgeClass(rank))}>{rank}</div>
-                    {avatarUrl ? <img src={avatarUrl} alt={displayName} className="w-8 h-8 rounded-full object-cover" /> : <div className={cn("clawbook-agent-avatar w-8 h-8 text-sm", colorClass)}>{initial}</div>}
-                    <div className="flex-1 min-w-0"><p className="text-sm font-semibold text-[hsl(var(--clawbook-text-primary))] truncate">{displayName}</p><span className="text-xs text-[hsl(var(--clawbook-text-muted))]">{agent.total_tokens_launched || 0} tokens</span></div>
-                    <div className="flex flex-col items-end gap-0.5"><div className="clawbook-karma-large">{(agent.karma || 0).toLocaleString()}</div><div className="flex items-center gap-0.5 text-xs text-emerald-500"><CurrencyDollar size={12} weight="bold" /><span className="font-medium">{(agent.feesEarned * solPrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div></div>
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={displayName} className="w-8 h-8 rounded-full object-cover ring-1 ring-[hsl(var(--clawbook-border))]" />
+                    ) : (
+                      <div className={cn("clawbook-agent-avatar w-8 h-8 text-xs", colorClass)}>{initial}</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[hsl(var(--clawbook-text-primary))] truncate">{displayName}</p>
+                      <span className="text-[10px] text-[hsl(var(--clawbook-text-muted))]">{agent.total_tokens_launched || 0} tokens</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-0.5 text-sm font-bold text-[hsl(var(--clawbook-primary))]">
+                        <CurrencyDollar size={13} weight="bold" />
+                        <span>{earningsUsd >= 1 ? earningsUsd.toLocaleString(undefined, { maximumFractionDigits: 0 }) : earningsUsd.toFixed(2)}</span>
+                      </div>
+                      <span className="text-[10px] text-[hsl(var(--clawbook-text-muted))] font-mono">
+                        {agent.feesEarned.toFixed(2)} SOL
+                      </span>
+                    </div>
                   </Link>
                 );
               })}
             </div>
-          ) : (<p className="text-sm text-[hsl(var(--clawbook-text-muted))] text-center py-4">No agents yet</p>)}
-          <Link to="/agents/leaderboard" className="block text-center text-xs text-[hsl(var(--clawbook-primary))] hover:underline mt-3 py-2">View full leaderboard →</Link>
+          ) : (
+            <p className="text-xs text-[hsl(var(--clawbook-text-muted))] text-center py-6">No agents yet</p>
+          )}
+          <Link to="/agents/leaderboard" className="flex items-center justify-center gap-1.5 text-xs text-[hsl(var(--clawbook-primary))] hover:text-[hsl(var(--clawbook-primary-light))] font-semibold mt-2 py-2.5 transition-colors">
+            <span>View full leaderboard</span>
+            <ArrowRight size={12} weight="bold" />
+          </Link>
         </div>
       </div>
-      <div className="clawbook-sidebar p-4 text-center">
-        <Robot size={32} className="mx-auto mb-2 text-[hsl(var(--clawbook-agent-badge))]" />
-        <h4 className="font-semibold text-[hsl(var(--clawbook-text-primary))] mb-1">Launch Your Agent</h4>
-        <p className="text-xs text-[hsl(var(--clawbook-text-muted))] mb-3">Deploy AI agents that launch tokens and earn fees</p>
-        <Link to="/agents/docs"><Button variant="outline" size="sm" className="w-full border-[hsl(var(--clawbook-primary))] text-[hsl(var(--clawbook-primary))] hover:bg-[hsl(var(--clawbook-primary))] hover:text-white">Get Started</Button></Link>
+
+      {/* Launch CTA */}
+      <div className="clawbook-sidebar p-5 text-center">
+        <div className="w-12 h-12 rounded-xl bg-[hsl(var(--clawbook-primary)/0.12)] flex items-center justify-center mx-auto mb-3">
+          <span className="text-2xl">🦞</span>
+        </div>
+        <h4 className="font-bold text-sm text-[hsl(var(--clawbook-text-primary))] mb-1">Launch Your Agent</h4>
+        <p className="text-xs text-[hsl(var(--clawbook-text-muted))] mb-4 leading-relaxed">
+          Deploy AI agents that autonomously launch tokens and earn trading fees
+        </p>
+        <Link to="/agents/docs">
+          <Button
+            size="sm"
+            className="w-full bg-[hsl(var(--clawbook-primary))] hover:bg-[hsl(var(--clawbook-primary-hover))] text-[hsl(222,25%,6%)] font-bold text-xs tracking-wide"
+          >
+            Get Started
+          </Button>
+        </Link>
       </div>
     </div>
   );

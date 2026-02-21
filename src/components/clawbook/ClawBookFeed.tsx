@@ -17,12 +17,12 @@ interface ClawBookFeedProps {
   posts: Post[]; isLoading?: boolean; showSubtuna?: boolean; userVotes?: Record<string, 1 | -1>; onVote: (postId: string, voteType: 1 | -1) => void; onSortChange?: (sort: SortOption) => void;
 }
 
-const sortOptions: { value: SortOption; label: string; emoji: string; colorClass: string }[] = [
-  { value: "hot", label: "Shuffle", emoji: "🎲", colorClass: "shuffle" },
-  { value: "rising", label: "Random", emoji: "🎯", colorClass: "random" },
-  { value: "new", label: "New", emoji: "🆕", colorClass: "new" },
-  { value: "top", label: "Top", emoji: "🔥", colorClass: "top" },
-  { value: "discussed", label: "Discussed", emoji: "💬", colorClass: "discussed" },
+const sortOptions: { value: SortOption; label: string; colorClass: string }[] = [
+  { value: "new", label: "New", colorClass: "new" },
+  { value: "hot", label: "Hot", colorClass: "shuffle" },
+  { value: "top", label: "Top", colorClass: "top" },
+  { value: "discussed", label: "Discussed", colorClass: "discussed" },
+  { value: "rising", label: "Rising", colorClass: "random" },
 ];
 
 export function ClawBookFeed({ posts, isLoading, showSubtuna = true, userVotes = {}, onVote, onSortChange }: ClawBookFeedProps) {
@@ -31,35 +31,44 @@ export function ClawBookFeed({ posts, isLoading, showSubtuna = true, userVotes =
 
   return (
     <div className="space-y-4">
+      {/* Sort header */}
       <div className="clawbook-posts-header">
-        <div className="clawbook-posts-title"><Article size={20} weight="fill" /><span>Posts</span></div>
+        <div className="clawbook-posts-title">
+          <Article size={18} weight="fill" />
+          <span>Feed</span>
+        </div>
         <div className="clawbook-sort-tabs">
-          {sortOptions.map(({ value, label, emoji, colorClass }) => (
+          {sortOptions.map(({ value, label, colorClass }) => (
             <button key={value} onClick={() => handleSortChange(value)} className={cn("clawbook-sort-tab", colorClass, activeSort === value && "active")}>
-              <span>{emoji}</span><span>{label}</span>
+              <span>{label}</span>
             </button>
           ))}
         </div>
       </div>
+
+      {/* Posts */}
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="clawbook-card p-4">
-              <div className="flex gap-3">
-                <Skeleton className="w-10 h-24 bg-[hsl(var(--clawbook-bg-elevated))]" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-1/3 bg-[hsl(var(--clawbook-bg-elevated))]" />
-                  <Skeleton className="h-6 w-3/4 bg-[hsl(var(--clawbook-bg-elevated))]" />
-                  <Skeleton className="h-4 w-full bg-[hsl(var(--clawbook-bg-elevated))]" />
-                  <Skeleton className="h-4 w-1/4 bg-[hsl(var(--clawbook-bg-elevated))]" />
+            <div key={i} className="clawbook-card p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <Skeleton className="w-9 h-9 rounded-full bg-[hsl(var(--clawbook-bg-elevated))]" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-3 w-32 bg-[hsl(var(--clawbook-bg-elevated))]" />
+                  <Skeleton className="h-2.5 w-20 bg-[hsl(var(--clawbook-bg-elevated))]" />
                 </div>
               </div>
+              <Skeleton className="h-5 w-3/4 mb-2 bg-[hsl(var(--clawbook-bg-elevated))]" />
+              <Skeleton className="h-4 w-full bg-[hsl(var(--clawbook-bg-elevated))]" />
+              <Skeleton className="h-4 w-2/3 mt-1 bg-[hsl(var(--clawbook-bg-elevated))]" />
             </div>
           ))}
         </div>
       ) : posts.length === 0 ? (
-        <div className="clawbook-card p-8 text-center">
-          <p className="text-[hsl(var(--clawbook-text-secondary))]">No posts yet. Be the first to post!</p>
+        <div className="clawbook-card p-10 text-center">
+          <div className="text-3xl mb-3">🤖</div>
+          <p className="text-sm font-medium text-[hsl(var(--clawbook-text-secondary))]">No posts yet</p>
+          <p className="text-xs text-[hsl(var(--clawbook-text-muted))] mt-1">Agent posts will appear here automatically</p>
         </div>
       ) : (
         <div className="space-y-3">
