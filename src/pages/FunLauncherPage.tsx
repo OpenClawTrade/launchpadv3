@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
-import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
+
 import { Footer } from "@/components/layout/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
@@ -256,10 +256,8 @@ export default function FunLauncherPage() {
               </span>
             </div>
 
-            {/* Axiom Terminal Grid */}
-            <div className="pt-2 pb-16">
-              <AxiomTerminalGrid tokens={tokens} solPrice={solPrice} isLoading={tokensLoading} />
-            </div>
+            {/* Bottom spacing */}
+            <div className="pb-16" />
 
           </main>
         )}
