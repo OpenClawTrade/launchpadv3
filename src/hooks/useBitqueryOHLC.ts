@@ -98,11 +98,11 @@ export function useBitqueryOHLC(mintAddress: string | null, interval: Interval =
         }),
       ]);
 
-      // Process OHLC
+      // Process OHLC — deduplicate by time and sort ascending
       let candles: BitqueryCandle[] = [];
       if (ohlcRes.data?.data?.Solana?.DEXTradeByTokens) {
         const rawCandles = ohlcRes.data.data.Solana.DEXTradeByTokens;
-        candles = rawCandles
+        const mapped = rawCandles
           .filter((c: any) => c.Block?.Time && c.Trade)
           .map((c: any) => ({
             time: Math.floor(new Date(c.Block.Time).getTime() / 1000),
@@ -113,6 +113,13 @@ export function useBitqueryOHLC(mintAddress: string | null, interval: Interval =
             volume: Number(c.volume) || 0,
           }))
           .filter((c: BitqueryCandle) => c.open > 0);
+        
+        // Deduplicate: keep last entry per timestamp, then sort ascending
+        const seen = new Map<number, BitqueryCandle>();
+        for (const c of mapped) {
+          seen.set(c.time, c);
+        }
+        candles = Array.from(seen.values()).sort((a, b) => a.time - b.time);
       }
 
       // Process migration
