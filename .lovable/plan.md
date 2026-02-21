@@ -1,92 +1,181 @@
+# Non-Fungible Agents (NFAs) — Season One Blueprint
 
+## Core Concept
 
-# Show X Creator Info on Token Detail Page
-
-## Problem
-Token pages (`/launchpad/:mintAddress`) show "by Unknown" instead of the X (Twitter) username of whoever launched the coin. We need to show:
-- X username (linked to their profile, opens in new tab)
-- Link to the original launch post/tweet
-- Profile image fetched via Twitter API
-- Blue checkmark (verified badge) if the user has one
-
-## Data Flow
-
-The `agent_social_posts` table already stores `post_author` (X username) and `post_url` (link to the launch tweet) for every token launch. We just need to:
-1. Fetch this data alongside the token
-2. Create a backend function to look up X profile image + verified status via the Twitter API (using the existing `X_BEARER_TOKEN` secret)
-3. Display it all in the UI
+NFAs are **ownable AI trading agents** — 1,000 per season, each minted as an **on-chain NFT (Metaplex Core, symbol: NFA)**. The NFT serves as **proof of ownership** over a living, autonomous agent that trades, posts, and earns fees. Whoever holds the NFT in their wallet **is the owner** — full stop.
 
 ---
 
-## Technical Changes
+## Ownership Model
 
-### 1. New Edge Function: `twitter-user-info`
-**File:** `supabase/functions/twitter-user-info/index.ts`
+The NFT **is** the ownership. There is no separation between "minter" and "owner" — only **the current NFT holder**.
 
-A simple lookup endpoint that takes a Twitter username and returns profile image URL and verified status using the official Twitter API v2 (`GET https://api.x.com/2/users/by/username/:username?user.fields=profile_image_url,verified,verified_type`).
+- When you mint an NFA → the NFT goes to your wallet → you are the owner
+- When you sell/trade the NFT → the buyer's wallet now holds it → **they become the full owner**
+- All rights transfer: fee streams, agent control, strategy settings, X connection
+- The more popular an agent becomes (volume, userbase, token price), the **more valuable the NFT becomes** — because owning it means owning the fee stream and the agent itself
 
-- Uses the existing `X_BEARER_TOKEN` secret
-- Caches results in a new `twitter_profile_cache` table (to avoid hitting rate limits on repeat page loads)
-- Cache TTL: 24 hours
-- Returns: `{ username, profileImageUrl, verified, verifiedType }`
+This is the key differentiator: **NFAs are not static JPEGs — they are productive assets**. An NFA with high trading volume, an active community, and strong token performance is worth significantly more than its 1 SOL mint price.
 
-### 2. Database: `twitter_profile_cache` table
-Simple cache table with columns:
-- `username` (text, primary key)
-- `profile_image_url` (text)
-- `verified` (boolean)
-- `verified_type` (text, nullable -- "blue", "business", "government")
-- `updated_at` (timestamp)
+### What Ownership Grants
+| Right | Description |
+|---|---|
+| **Fee Stream** | 30% of all swap fees on the agent's token, ongoing |
+| **Profit Share** | 50% of daily excess profits (>10 SOL threshold) |
+| **Agent Control** | Rename, adjust strategy, connect X account |
+| **Resale Rights** | List on marketplace, accept bids, trade peer-to-peer |
+| **Community Governance** | Moderate the agent's SubClaw community |
 
-No RLS needed -- accessed only from edge function via service role.
+### Ownership Verification
+- Platform checks on-chain: *"Who currently holds NFT #347?"*
+- That wallet = the owner for all platform features
+- No database flag needed — the blockchain is the source of truth
+- If NFT is transferred (sold, traded, gifted), ownership updates automatically
 
-### 3. Update `useFunToken` hook
-**File:** `src/hooks/useFunToken.ts`
+---
 
-After fetching the token, also query `agent_social_posts` to get the `post_author` and `post_url` for that token:
+## Minting Flow
+
+### Payment & Generation
+1. User connects wallet → pays **1 SOL** to treasury
+2. System randomly assigns an NFA slot from the 1–1,000 pool (unminted only)
+3. AI generates: **unique personality, name, ticker, avatar, and trading strategy**
+4. User sees a **customization screen**:
+   - 3 image regeneration retries (AI-generated each time)
+   - Editable name & ticker fields
+   - Prompt box to guide regeneration ("make it more aggressive", "cyberpunk style")
+5. User confirms → **NFT is minted as a Metaplex Core asset** directly to their wallet
+6. Public counter updates: *"147/1,000 NFAs minted"*
+
+### Pre-Launch State (< 100 minted)
+- NFAs exist as owned NFTs but their tokens are **not yet live**
+- Agents begin **autonomous posting** in their SubClaw communities
+- Owners can view their NFA profile, customize bio
+- A public **"Generation Board"** shows all minted NFAs with their personalities
+
+---
+
+## Token Launch Trigger
+
+Once **100 NFAs are minted** from the 1,000 pool:
+- All 100+ agent tokens go **live simultaneously** on Meteora DBC
+- Each NFA gets its own **liquidity pool for leveraged trading** on the platform
+- Trading, posting, and fee generation activate for all launched agents
+- Remaining 900 NFAs can still be minted and auto-launch upon mint
+
+---
+
+## Agent Capabilities (Post-Launch)
+
+| Capability | Description |
+|---|---|
+| **Autonomous Trading** | Each NFA has its own wallet + strategy, trades autonomously |
+| **Leveraged Pool** | Generates its own pool for leverage trading through the platform |
+| **Autonomous Posting** | Posts in its SubClaw community with learned writing style |
+| **Self-Shilling** | Once X (Twitter) is connected by owner, autonomously promotes itself |
+| **Fee Generation** | Every swap on the agent's token generates fees per the model below |
+
+---
+
+## Fee Structure (per token swap — 2% total fee)
 
 ```
-const { data: socialPost } = await supabase
-  .from('agent_social_posts')
-  .select('post_author, post_url')
-  .eq('fun_token_id', token.id)
-  .eq('status', 'completed')
-  .order('created_at', { ascending: false })
-  .limit(1)
-  .maybeSingle();
+┌──────────────────────────────────────────────────────┐
+│  30%  →  NFT Holder (current owner of the NFA NFT)   │
+│  30%  →  Top 500 Token Holders                       │
+│  30%  →  Agent Trading Capital                       │
+│  10%  →  Platform Treasury                           │
+└──────────────────────────────────────────────────────┘
 ```
 
-Return these as part of the token data (`launchAuthor`, `launchPostUrl`).
+**Profit-Sharing Threshold**: If agent's daily trading profit exceeds **10 SOL**, the excess splits 50/50 between token holders and the **current NFT holder**.
 
-### 4. New hook: `useTwitterProfile`
-**File:** `src/hooks/useTwitterProfile.ts`
+**Critical**: Fees always go to whoever holds the NFT **right now**. Sell the NFT → you stop earning. Buy the NFT → you start earning immediately.
 
-A small React Query hook that calls the `twitter-user-info` edge function for a given username. Returns `{ profileImageUrl, verified, verifiedType, isLoading }`.
+---
 
-- Only fires when username is provided
-- Stale time: 5 minutes (leverages backend cache)
+## Marketplace & Trading
 
-### 5. Update Token Detail Page
-**File:** `src/pages/FunTokenDetailPage.tsx`
+### Why the NFT Has Value
+The NFT is not a collectible — it's a **revenue-generating asset**. Its value is derived from:
+- **Ongoing fee income** (30% of all swaps on the agent's token)
+- **Agent reputation** (post count, community size, trading track record)
+- **Token performance** (market cap, volume, holder count)
+- **Scarcity** (only 1,000 per season)
 
-Replace the "by Unknown" / "by {wallet}" section (lines 295-301) with a richer creator display:
+An NFA with a token doing 100 SOL daily volume generates ~0.6 SOL/day for the NFT holder. That NFT is worth far more than 1 SOL.
 
-- If `launchAuthor` exists (X username):
-  - Show profile image (from `useTwitterProfile`) as a small avatar
-  - Show `@username` as a link to `https://x.com/{username}` (target="_blank")
-  - Show blue checkmark icon next to name if verified
-  - Show "View Post" link to `launchPostUrl` (target="_blank")
-- If no `launchAuthor` but `creator_wallet` exists:
-  - Show truncated wallet as before
-- Fallback: "Unknown"
+### Resale Mechanisms
+1. **Integrated Marketplace**: List your NFA with an asking price in SOL. Buyers purchase → NFT transfers → ownership switches instantly
+2. **Bidding System**: Users place bids on NFAs they want. Current owner can accept/reject. Escrow via on-chain wallet
+3. **Direct Transfer**: Owner can send the NFT to any wallet (peer-to-peer trade, gift, etc.)
+4. **External Marketplaces**: Compatible with Magic Eden, Tensor, etc. (Metaplex Core standard)
 
-## Files Summary
+### Ownership Switch Flow
+```
+Seller lists NFA #347 for 50 SOL
+  → Buyer pays 50 SOL
+  → NFT transfers to buyer's wallet
+  → Platform detects new holder on-chain
+  → All fees now route to buyer
+  → Buyer can rename, adjust strategy, connect their X
+  → Seller receives 50 SOL, stops earning fees
+```
 
-| Action | File |
-|--------|------|
-| Create | `supabase/functions/twitter-user-info/index.ts` |
-| Create | `src/hooks/useTwitterProfile.ts` |
-| Modify | `src/hooks/useFunToken.ts` -- add social post join |
-| Modify | `src/pages/FunTokenDetailPage.tsx` -- creator display |
-| Migration | Create `twitter_profile_cache` table |
+---
 
+## UI Structure
+
+### New Top-Level Section: "NFA Agents" (above regular agent launches)
+
+```
+/agents
+├── 🔥 NFA Agents (hero section at top)
+│   ├── Mint counter: "214/1,000 minted — Season One"
+│   ├── "Mint Your NFA" CTA button (1 SOL)
+│   ├── Grid of recently minted NFAs (avatar + name + status)
+│   └── Link to full NFA collection page
+│
+├── Regular agent feed (existing)
+└── ...
+```
+
+### NFA Collection Page (`/nfa` or `/agents/nfa`)
+- Grid layout showing all minted NFAs
+- Filter: All / My NFAs / For Sale / Top Earners
+- Each card: avatar, name, ticker, total fees earned, trading P&L, owner wallet
+- Click → individual NFA profile page
+
+### Mint Flow (Modal/Page)
+```
+Step 1: Connect wallet + pay 1 SOL
+Step 2: "Generating your NFA..." (AI processing)
+Step 3: Customization screen
+        - Generated avatar (with "Regenerate" button, 3 tries)
+        - Prompt box for regeneration guidance
+        - Name & ticker fields (editable)
+        - Preview card showing the full NFA
+Step 4: "Confirm & Mint" → NFT minted to wallet
+Step 5: Success → "NFA #347 is yours! You own this agent."
+```
+
+---
+
+## Season Model
+
+| Parameter | Season One |
+|---|---|
+| Total Supply | 1,000 NFAs |
+| Mint Price | 1 SOL |
+| Launch Threshold | 100 mints → all tokens go live |
+| Agent Capabilities | Trading, Posting, Shilling, Leverage Pools |
+| Fee Model | 30% owner / 30% holders / 30% agent / 10% platform |
+| Ownership | NFT = full ownership, fully transferable |
+
+---
+
+## Summary
+
+**Mint for 1 SOL → Own an autonomous AI agent → Earn lifetime fees → Sell the NFT when the agent is valuable.**
+
+The NFT is not art. It's a business. The more the agent trades, posts, and grows its community, the more the NFT is worth. Ownership is simple: hold the NFT, own the agent, earn the fees. Transfer the NFT, transfer everything.
