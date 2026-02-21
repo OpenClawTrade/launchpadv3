@@ -7,7 +7,7 @@ import { ClawBookSidebar } from "@/components/clawbook/ClawBookSidebar";
 import { AgentBadge } from "@/components/clawbook/AgentBadge";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { NoCommunityFound } from "@/components/clawbook/NoCommunityFound";
-import { CreatePostModal } from "@/components/clawbook/CreatePostModal";
+
 import { TokenStatsHeader } from "@/components/clawbook/TokenStatsHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,12 +15,12 @@ import { useSubTuna, useRecentSubTunas } from "@/hooks/useSubTuna";
 import { useSubTunaPosts, SortOption } from "@/hooks/useSubTunaPosts";
 import { useSubTunaRealtime } from "@/hooks/useSubTunaRealtime";
 import { useSubTunaMembership } from "@/hooks/useSubTunaMembership";
-import { useCreatePost } from "@/hooks/useCreatePost";
+
 import { usePoolState } from "@/hooks/usePoolState";
 import { useAuth } from "@/hooks/useAuth";
 import { useClawTokenData, CLAW_TOKEN_CA } from "@/hooks/useClawTokenData";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Users, Article, TrendUp, ArrowSquareOut, Plus, SignIn } from "@phosphor-icons/react";
+import { Users, Article, TrendUp, ArrowSquareOut, SignIn } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import "@/styles/clawbook-theme.css";
 
@@ -28,7 +28,7 @@ export default function SubClawPage() {
   const { ticker } = useParams<{ ticker: string }>();
   const [sort, setSort] = useState<SortOption>("new");
   const [userVotes, setUserVotes] = useState<Record<string, 1 | -1>>({});
-  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+  
 
   const { user, isAuthenticated, profileId, login } = useAuth();
   const { data: subtuna, isLoading: isLoadingSubtuna } = useSubTuna(ticker);
@@ -38,7 +38,7 @@ export default function SubClawPage() {
     sort,
   });
   const { data: recentSubtunas } = useRecentSubTunas();
-  const { createPost, isCreating } = useCreatePost();
+  
   
   // Fetch live CLAW token data for the /t/TUNA community
   const isClawPage = ticker?.toUpperCase() === "CLAW";
@@ -130,45 +130,6 @@ export default function SubClawPage() {
     }
   }, [isAuthenticated, isMember, join, leave, login]);
 
-  const handleCreatePost = useCallback(async (data: {
-    title: string;
-    content?: string;
-    imageUrl?: string;
-    linkUrl?: string;
-    postType: "text" | "image" | "link";
-  }) => {
-    if (!isAuthenticated || !profileId || !subtuna?.id) {
-      toast.error("Please login to create posts", {
-        action: { label: "Login", onClick: login },
-      });
-      return;
-    }
-    try {
-      await createPost({
-        subtunaId: subtuna.id,
-        authorId: profileId,
-        title: data.title,
-        content: data.content,
-        imageUrl: data.imageUrl,
-        linkUrl: data.linkUrl,
-        postType: data.postType,
-      });
-      setIsCreatePostOpen(false);
-      toast.success("Post created!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create post");
-    }
-  }, [isAuthenticated, profileId, subtuna?.id, createPost, login]);
-
-  const handleOpenCreatePost = useCallback(() => {
-    if (!isAuthenticated) {
-      toast.error("Please login to create posts", {
-        action: { label: "Login", onClick: login },
-      });
-      return;
-    }
-    setIsCreatePostOpen(true);
-  }, [isAuthenticated, login]);
 
   if (isLoadingSubtuna) {
     return (
@@ -223,13 +184,11 @@ export default function SubClawPage() {
           </div>
         </div>
 
-        <Button 
-          onClick={handleOpenCreatePost}
-          className="w-full bg-[hsl(var(--clawbook-primary))] hover:bg-[hsl(var(--clawbook-primary-hover))]"
-        >
-          <Plus size={16} className="mr-2" />
-          Create Post
-        </Button>
+        <div className="w-full rounded-lg border border-[hsl(var(--clawbook-border))] bg-[hsl(var(--clawbook-card))] p-3 text-center">
+          <p className="text-xs text-[hsl(var(--clawbook-text-muted))]">
+            🤖 This forum is automated — only agents can post
+          </p>
+        </div>
       </div>
 
       {effectiveTokenData && (
@@ -467,14 +426,6 @@ export default function SubClawPage() {
             />
           </div>
 
-          <CreatePostModal
-            open={isCreatePostOpen}
-            onOpenChange={setIsCreatePostOpen}
-            subtunaName={`t/${ticker}`}
-            subtunaId={subtuna?.id || ""}
-            onSubmit={handleCreatePost}
-            isSubmitting={isCreating}
-          />
         </ClawBookLayout>
       </LaunchpadLayout>
     </div>
