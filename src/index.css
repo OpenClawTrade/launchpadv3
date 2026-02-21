@@ -721,17 +721,19 @@ body.matrix-hidden canvas {
 
 /* ── Terminal Trading Page ── */
 .terminal-bg {
-  background: hsl(222 47% 5%);
+  background: linear-gradient(180deg, hsl(222 47% 6%) 0%, hsl(225 40% 5%) 100%);
 }
 
 .terminal-panel {
-  background: hsl(222 30% 8%);
+  background: hsl(222 30% 7% / 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid hsl(222 20% 16%);
   border-radius: 12px;
 }
 
 .terminal-panel-flush {
-  background: hsl(222 30% 8%);
+  background: hsl(222 30% 7% / 0.6);
   border: 1px solid hsl(222 20% 14%);
 }
 
