@@ -148,8 +148,8 @@ export default function PanelPage() {
           {/* Divider */}
           <div className="my-6" style={{ borderTop: "1px solid rgba(51,65,85,0.25)" }} />
 
-          {/* Recent NFA Agents section */}
-          <div className="pb-8">
+          {/* Recent NFA Agents section — extra bottom padding clears sticky footer */}
+          <div className="pb-28 sm:pb-32" style={{ paddingBottom: "max(7rem, calc(60px + env(safe-area-inset-bottom, 0px) + 2rem))" }}>
             <Suspense fallback={null}>
               <RecentNfaAgents />
             </Suspense>

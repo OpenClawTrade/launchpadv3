@@ -47,17 +47,29 @@ export default function RecentNfaAgents() {
         </div>
       ) : mints.length === 0 ? (
         <div
-          className="rounded-2xl p-6 text-center"
+          className="rounded-2xl px-6 py-10 text-center max-w-[700px] mx-auto"
           style={{
-            background: "rgba(255,255,255,0.02)",
+            background: "rgba(30,41,59,0.45)",
+            backdropFilter: "blur(14px)",
+            WebkitBackdropFilter: "blur(14px)",
             border: "1px solid rgba(51,65,85,0.4)",
           }}
         >
-          <Bot className="h-8 w-8 mx-auto mb-3 text-[#334155]" />
-          <p className="text-sm text-[#64748B] mb-1">No NFA agents minted yet</p>
-          <p className="text-[11px] text-[#475569]">
-            Be the first — mint from the NFAs tab above
+          <Bot className="h-16 w-16 mx-auto mb-4" style={{ color: "hsl(187 80% 55% / 0.5)" }} />
+          <p className="text-base font-semibold text-[#E2E8F0] mb-1.5">No NFA agents minted yet</p>
+          <p className="text-sm text-[#94A3B8] leading-relaxed mb-4">
+            Be the first to mint an autonomous agent
           </p>
+          <span
+            className="inline-block text-xs font-medium px-4 py-2 rounded-full"
+            style={{
+              background: "hsl(187 80% 55% / 0.1)",
+              color: "hsl(187 80% 55%)",
+              border: "1px solid hsl(187 80% 55% / 0.2)",
+            }}
+          >
+            Mint from the NFAs tab above ↑
+          </span>
         </div>
       ) : (
         <div className="space-y-1.5">
