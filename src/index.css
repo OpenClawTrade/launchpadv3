@@ -815,10 +815,10 @@ body.matrix-hidden canvas {
 
 /* ── Axiom Terminal Layout ── */
 .axiom-grid-container {
-  border: 1px solid hsl(var(--border));
-  border-radius: 12px;
-  overflow: hidden;
-  background: hsl(var(--background-secondary));
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
 }
 
 .axiom-column {
