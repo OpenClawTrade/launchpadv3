@@ -129,9 +129,9 @@ export default function FunTokenDetailPage() {
         <div className="terminal-bg min-h-screen p-2">
           <div className="max-w-[1600px] mx-auto space-y-2">
             <Skeleton className="h-12 w-full rounded-lg" />
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
-              <Skeleton className="lg:col-span-9 h-[70vh] rounded-lg" />
-              <Skeleton className="hidden lg:block lg:col-span-3 h-[70vh] rounded-lg" />
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+              <Skeleton className="md:col-span-7 lg:col-span-9 h-[70vh] rounded-lg" />
+              <Skeleton className="hidden md:block md:col-span-5 lg:col-span-3 h-[70vh] rounded-lg" />
             </div>
           </div>
         </div>
@@ -196,22 +196,122 @@ export default function FunTokenDetailPage() {
     { label: 'SUPPLY', value: formatTokenAmount(TOTAL_SUPPLY) },
   ];
 
+  /* ────────────────────────── Reusable sub-sections ────────────────────────── */
+
+  const TradeSection = () => (
+    <>
+      {isBonding && <TradePanelWithSwap token={tokenForTradePanel} userBalance={0} />}
+      {isGraduated && token.mint_address && (
+        <UniversalTradePanel
+          token={{ mint_address: token.mint_address, ticker: token.ticker, name: token.name, decimals: 9 }}
+          userTokenBalance={0}
+        />
+      )}
+      {!isBonding && !isGraduated && (
+        <div className="terminal-panel-flush rounded-lg p-6 md:p-4 text-center">
+          <p className="text-muted-foreground text-sm md:text-xs font-mono">Trading not available · Status: {token.status}</p>
+        </div>
+      )}
+    </>
+  );
+
+  const ChartSection = ({ chartHeight = 380 }: { chartHeight?: number }) => (
+    <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: 'hsl(222 47% 7%)' }}>
+      <DexscreenerChart mintAddress={token.mint_address || mintAddress || ''} height={chartHeight} />
+    </div>
+  );
+
+  const TokenDetailsSection = () => (
+    <div className="terminal-panel-flush rounded-lg p-4 md:p-3 lg:p-2.5 space-y-2 md:space-y-1.5">
+      <h3 className="text-[10px] md:text-[9px] lg:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1">
+        <Activity className="h-3 w-3" /> Token Details
+      </h3>
+      <div className="space-y-0">
+        {[
+          { label: 'Price', value: `${(token.price_sol || 0).toFixed(8)} SOL` },
+          { label: 'Market Cap', value: formatUsd(token.market_cap_sol || 0) },
+          { label: 'Volume 24h', value: `${formatSolAmount(token.volume_24h_sol || 0)} SOL` },
+          { label: 'Holders', value: (token.holder_count || 0).toLocaleString() },
+          { label: 'Supply', value: formatTokenAmount(TOTAL_SUPPLY) },
+        ].map((row, i) => (
+          <div key={i} className="flex justify-between text-xs md:text-[11px] lg:text-[10px] font-mono py-2 md:py-1.5 lg:py-1 border-b border-border/10 last:border-0">
+            <span className="text-muted-foreground/70">{row.label}</span>
+            <span className="text-foreground/85 font-medium">{row.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const ContractSection = () => {
+    if (!token.mint_address) return null;
+    return (
+      <div className="terminal-panel-flush rounded-lg p-4 md:p-3 lg:p-2.5 space-y-1.5">
+        <h3 className="text-[10px] md:text-[9px] lg:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70">Contract</h3>
+        <div className="flex items-center gap-2">
+          <code className="text-xs md:text-[10px] lg:text-[9px] font-mono text-foreground/70 truncate flex-1">
+            {token.mint_address.slice(0, 10)}...{token.mint_address.slice(-4)}
+          </code>
+          <button onClick={copyAddress} className="text-muted-foreground hover:text-foreground transition-colors shrink-0 p-2 md:p-1 min-h-[44px] md:min-h-[36px] flex items-center justify-center">
+            <Copy className="h-4 w-4 md:h-3.5 md:w-3.5" />
+          </button>
+        </div>
+        {token.dbc_pool_address && (
+          <div>
+            <span className="text-[9px] md:text-[8px] font-mono text-muted-foreground/60 uppercase">Pool</span>
+            <code className="text-xs md:text-[10px] lg:text-[9px] font-mono text-foreground/70 truncate block">
+              {token.dbc_pool_address.slice(0, 10)}...{token.dbc_pool_address.slice(-4)}
+            </code>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const DescriptionSection = () => {
+    if (!token.description) return null;
+    return (
+      <div className="terminal-panel-flush rounded-lg p-4 md:p-3 lg:p-2.5">
+        <p className={`text-xs md:text-[11px] lg:text-[10px] text-muted-foreground/80 font-mono leading-relaxed ${!showFullDesc ? 'line-clamp-2' : ''}`}>
+          {token.description}
+        </p>
+        {token.description.length > 100 && (
+          <button
+            onClick={() => setShowFullDesc(!showFullDesc)}
+            className="text-xs md:text-[10px] font-mono text-accent-foreground hover:underline mt-1 flex items-center gap-0.5 min-h-[44px] md:min-h-[36px]"
+          >
+            {showFullDesc ? <><ChevronUp className="h-3 w-3" /> Less</> : <><ChevronDown className="h-3 w-3" /> More</>}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const CommentsSection = () => (
+    <div className="terminal-panel-flush rounded-lg p-4 md:p-3 lg:p-2.5 flex-1 min-h-0 overflow-hidden flex flex-col">
+      <h3 className="text-[10px] md:text-[9px] lg:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1 mb-2">
+        <MessageCircle className="h-3 w-3" /> Discussion
+      </h3>
+      <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
+        <TokenComments tokenId={token.id} />
+      </div>
+    </div>
+  );
+
   return (
     <LaunchpadLayout>
-      {/* Solid navy bg, no matrix bleed */}
+      {/* Solid navy bg */}
       <div className="min-h-screen -m-4 p-2 md:p-3" style={{ backgroundColor: 'hsl(222 47% 7%)' }}>
-        <div className="max-w-[1600px] mx-auto flex flex-col gap-1.5 lg:gap-1.5 pb-20 lg:pb-4">
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-1.5 pb-20 md:pb-4">
 
-          {/* ──── TOP BAR: Token identity + stats + actions ──── */}
-          <div className="terminal-panel-flush flex items-center gap-2 px-3 py-2 md:py-1.5 rounded-lg">
-            {/* Back */}
+          {/* ──── TOP BAR ──── */}
+          <div className="terminal-panel-flush flex items-center gap-2 px-3 py-2 md:py-2 lg:py-1.5 rounded-lg">
             <Link to="/" className="shrink-0">
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7 text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="h-4 w-4 md:h-3.5 md:w-3.5" />
               </Button>
             </Link>
 
-            {/* Avatar + Name */}
             <Avatar className="h-9 w-9 md:h-8 md:w-8 rounded-lg border border-border/40 shrink-0">
               <AvatarImage src={token.image_url || undefined} className="object-cover" />
               <AvatarFallback className="rounded-lg text-[10px] font-bold bg-primary/10 text-primary font-mono">
@@ -220,7 +320,7 @@ export default function FunTokenDetailPage() {
             </Avatar>
 
             <div className="flex items-center gap-1.5 min-w-0 shrink-0">
-              <h1 className="text-sm md:text-sm font-bold font-mono tracking-tight truncate max-w-[120px] md:max-w-none">{token.name}</h1>
+              <h1 className="text-sm font-bold font-mono tracking-tight truncate max-w-[120px] md:max-w-[200px] lg:max-w-none">{token.name}</h1>
               <span className="text-xs md:text-[11px] font-mono text-muted-foreground">${token.ticker}</span>
               {isGraduated && (
                 <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20">GRAD</span>
@@ -232,7 +332,7 @@ export default function FunTokenDetailPage() {
               )}
             </div>
 
-            {/* Inline stats — desktop only */}
+            {/* Inline stats — tablet+ */}
             <div className="hidden md:flex items-center gap-3 ml-3 flex-1 min-w-0">
               {stats.map((s, i) => (
                 <div key={i} className="flex items-center gap-1">
@@ -248,18 +348,12 @@ export default function FunTokenDetailPage() {
               )}
             </div>
 
-            {/* Creator — desktop only */}
+            {/* Creator — lg+ */}
             <div className="hidden lg:flex items-center gap-1.5 shrink-0">
               {token.launch_author ? (
-                <a
-                  href={`https://x.com/${token.launch_author}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {twitterProfile?.profileImageUrl && (
-                    <img src={twitterProfile.profileImageUrl} alt="" className="h-4 w-4 rounded-full object-cover" />
-                  )}
+                <a href={`https://x.com/${token.launch_author}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors">
+                  {twitterProfile?.profileImageUrl && <img src={twitterProfile.profileImageUrl} alt="" className="h-4 w-4 rounded-full object-cover" />}
                   @{token.launch_author}
                   {twitterProfile?.verified && (
                     <svg className="h-3 w-3 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
@@ -284,27 +378,26 @@ export default function FunTokenDetailPage() {
               </span>
             </div>
 
-            {/* Action buttons — show fewer on mobile */}
+            {/* Actions */}
             <div className="flex items-center gap-0.5 shrink-0 ml-auto">
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7 text-muted-foreground hover:text-foreground" onClick={handleRefresh}><RefreshCw className="h-4 w-4 md:h-3 md:w-3" /></Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7 text-muted-foreground hover:text-foreground" onClick={copyAddress}><Copy className="h-4 w-4 md:h-3 md:w-3" /></Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-7 md:w-7 text-muted-foreground hover:text-foreground" onClick={shareToken}><Share2 className="h-4 w-4 md:h-3 md:w-3" /></Button>
-              {/* Hide some links on mobile to reduce clutter */}
+              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={handleRefresh}><RefreshCw className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3" /></Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={copyAddress}><Copy className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3" /></Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={shareToken}><Share2 className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3" /></Button>
               <div className="hidden md:flex items-center gap-0.5">
-                {token.website_url && <a href={token.website_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"><Globe className="h-3 w-3" /></Button></a>}
-                {token.twitter_url && <a href={token.twitter_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"><Twitter className="h-3 w-3" /></Button></a>}
-                {token.telegram_url && <a href={token.telegram_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"><MessageCircle className="h-3 w-3" /></Button></a>}
-                {token.mint_address && <a href={`https://solscan.io/token/${token.mint_address}`} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"><ExternalLink className="h-3 w-3" /></Button></a>}
+                {token.website_url && <a href={token.website_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><Globe className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                {token.twitter_url && <a href={token.twitter_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><Twitter className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                {token.telegram_url && <a href={token.telegram_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><MessageCircle className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                {token.mint_address && <a href={`https://solscan.io/token/${token.mint_address}`} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
               </div>
               <a href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" className="h-9 md:h-7 px-2.5 md:px-2 text-[10px] md:text-[9px] font-mono gap-0.5 bg-accent/15 hover:bg-accent/25 text-accent-foreground rounded">
+                <Button size="sm" className="h-9 md:h-8 lg:h-7 px-2.5 md:px-2 text-[10px] md:text-[9px] font-mono gap-0.5 bg-accent/15 hover:bg-accent/25 text-accent-foreground rounded">
                   <svg className="h-3 w-3 md:h-2.5 md:w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
                   Axiom
                 </Button>
               </a>
               {(token as any).launchpad_type === 'bags' && token.mint_address && (
                 <a href={`https://bags.fm/coin/${token.mint_address}`} target="_blank" rel="noopener noreferrer" className="hidden md:inline-flex">
-                  <Button size="sm" className="h-7 px-2 text-[9px] font-mono gap-0.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded">
+                  <Button size="sm" className="h-8 lg:h-7 px-2 text-[9px] font-mono gap-0.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded">
                     <Briefcase className="h-2.5 w-2.5" />bags
                   </Button>
                 </a>
@@ -317,7 +410,7 @@ export default function FunTokenDetailPage() {
             </div>
           </div>
 
-          {/* ──── MOBILE: Stats row — larger fonts, 3-column grid ──── */}
+          {/* ──── PHONE ONLY: Stats row ──── */}
           <div className="md:hidden grid grid-cols-3 gap-px terminal-panel-flush overflow-hidden rounded-lg" style={{ backgroundColor: 'hsl(222 30% 10%)' }}>
             {stats.slice(0, 3).map((s, i) => (
               <div key={i} className="px-3 py-2.5 text-center" style={{ backgroundColor: 'hsl(222 30% 8% / 0.9)' }}>
@@ -327,7 +420,7 @@ export default function FunTokenDetailPage() {
             ))}
           </div>
 
-          {/* ──── MOBILE: Price change row ──── */}
+          {/* ──── PHONE ONLY: Price change ──── */}
           {priceChange !== 0 && (
             <div className="md:hidden flex items-center justify-between px-4 py-2 terminal-panel-flush rounded-lg">
               <span className="text-xs font-mono text-muted-foreground">24h Change</span>
@@ -338,13 +431,13 @@ export default function FunTokenDetailPage() {
             </div>
           )}
 
-          {/* ──── BONDING PROGRESS — thicker on mobile ──── */}
+          {/* ──── BONDING PROGRESS ──── */}
           {isBonding && (
-            <div className="terminal-panel-flush flex items-center gap-3 px-4 py-2.5 md:py-1.5 rounded-lg">
-              <Zap className="h-4 w-4 md:h-3 md:w-3 terminal-stat-orange shrink-0" />
+            <div className="terminal-panel-flush flex items-center gap-3 px-4 py-2.5 md:py-2 lg:py-1.5 rounded-lg">
+              <Zap className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3 terminal-stat-orange shrink-0" />
               <span className="text-[10px] md:text-[9px] font-mono text-muted-foreground uppercase tracking-wider shrink-0">Bonding</span>
-              {/* Thicker progress bar on mobile (h-3 vs h-1.5) */}
-              <div className="flex-1 h-3 md:h-1.5 bg-secondary rounded-full overflow-hidden relative">
+              {/* Progress bar: thick on phone, medium on tablet, thin on desktop */}
+              <div className="flex-1 h-3 md:h-2.5 lg:h-1.5 bg-secondary rounded-full overflow-hidden relative">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
@@ -355,23 +448,23 @@ export default function FunTokenDetailPage() {
                     boxShadow: bondingProgress >= 80 ? '0 0 8px hsl(24 95% 53% / 0.4)' : '0 0 8px hsl(187 80% 53% / 0.25)',
                   }}
                 />
-                {/* Percentage overlay inside bar on mobile */}
+                {/* % overlay on phone only */}
                 <span className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-bold text-white md:hidden drop-shadow-sm">
                   {bondingProgress.toFixed(1)}%
                 </span>
               </div>
-              <span className="text-xs md:text-[10px] font-mono font-bold terminal-stat-orange shrink-0 hidden md:inline">{bondingProgress.toFixed(1)}%</span>
-              <span className="text-xs md:text-[9px] font-mono text-muted-foreground shrink-0">{realSolReserves.toFixed(1)}/{GRADUATION_THRESHOLD} SOL</span>
+              <span className="text-xs md:text-[11px] lg:text-[10px] font-mono font-bold terminal-stat-orange shrink-0 hidden md:inline">{bondingProgress.toFixed(1)}%</span>
+              <span className="text-xs md:text-[10px] lg:text-[9px] font-mono text-muted-foreground shrink-0">{realSolReserves.toFixed(1)}/{GRADUATION_THRESHOLD} SOL</span>
               {livePoolState && (
-                <span className="flex items-center gap-1 text-[10px] md:text-[8px] font-mono text-red-400 shrink-0">
-                  <span className="h-2 w-2 md:h-1 md:w-1 rounded-full bg-red-400 animate-pulse" />LIVE
+                <span className="flex items-center gap-1 text-[10px] md:text-[9px] lg:text-[8px] font-mono text-red-400 shrink-0">
+                  <span className="h-2 w-2 md:h-1.5 md:w-1.5 lg:h-1 lg:w-1 rounded-full bg-red-400 animate-pulse" />LIVE
                 </span>
               )}
             </div>
           )}
 
-          {/* ──── MOBILE TAB SWITCHER — larger touch targets ──── */}
-          <div className="lg:hidden">
+          {/* ──── PHONE ONLY: Tab switcher ──── */}
+          <div className="md:hidden">
             <div className="grid grid-cols-3 gap-px terminal-panel-flush rounded-lg overflow-hidden">
               {(['trade', 'chart', 'comments'] as const).map(tab => (
                 <button
@@ -392,147 +485,87 @@ export default function FunTokenDetailPage() {
             </div>
           </div>
 
-          {/* ──── MAIN CONTENT: 2-column (chart+trade | sidebar) ──── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-1.5 flex-1">
+          {/* ════════════════════════════════════════════════════════════════
+               MAIN CONTENT — 3 layouts:
+               Phone (<md):  single column, tab-switched
+               Tablet (md):  2-col — chart+info left (7), trade+wallet right (5)
+               Desktop (lg): 3-zone — chart+trade left (9), info+comments right (3)
+             ════════════════════════════════════════════════════════════════ */}
 
-            {/* LEFT: Chart + Trade (stacked) */}
-            <div className={`lg:col-span-9 flex flex-col gap-2 lg:gap-1.5 ${mobileTab === 'comments' ? 'hidden lg:flex' : ''}`}>
+          {/* ── PHONE layout (< md) ── */}
+          <div className="md:hidden flex flex-col gap-2">
+            {mobileTab === 'trade' && (
+              <>
+                <TradeSection />
+                <EmbeddedWalletCard />
+              </>
+            )}
+            {mobileTab === 'chart' && <ChartSection chartHeight={340} />}
+            {mobileTab === 'comments' && (
+              <>
+                <TokenDetailsSection />
+                <ContractSection />
+                <DescriptionSection />
+                <CommentsSection />
+              </>
+            )}
+          </div>
 
-              {/* Chart */}
-              <div className={`terminal-panel-flush rounded-lg overflow-hidden flex-1 ${mobileTab === 'trade' ? 'hidden lg:block' : ''}`} style={{ backgroundColor: 'hsl(222 47% 7%)' }}>
-                <DexscreenerChart
-                  mintAddress={token.mint_address || mintAddress || ''}
-                  height={380}
-                />
-              </div>
-
-              {/* Trade Panel */}
-              <div className={`${mobileTab === 'chart' ? 'hidden lg:block' : ''}`}>
-                {isBonding && (
-                  <TradePanelWithSwap token={tokenForTradePanel} userBalance={0} />
-                )}
-                {isGraduated && token.mint_address && (
-                  <UniversalTradePanel
-                    token={{ mint_address: token.mint_address, ticker: token.ticker, name: token.name, decimals: 9 }}
-                    userTokenBalance={0}
-                  />
-                )}
-                {!isBonding && !isGraduated && (
-                  <div className="terminal-panel-flush rounded-lg p-6 md:p-4 text-center">
-                    <p className="text-muted-foreground text-sm md:text-xs font-mono">Trading not available · Status: {token.status}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Mobile: wallet card below trade */}
-              <div className="lg:hidden">
-                {mobileTab === 'trade' && <EmbeddedWalletCard />}
+          {/* ── TABLET layout (md to lg) ── */}
+          <div className="hidden md:grid lg:hidden grid-cols-12 gap-2">
+            {/* Left: Chart + Info */}
+            <div className="col-span-7 flex flex-col gap-2">
+              <ChartSection chartHeight={420} />
+              <TokenDetailsSection />
+              <ContractSection />
+              <DescriptionSection />
+              <CommentsSection />
+            </div>
+            {/* Right: Trade + Wallet (sticky) */}
+            <div className="col-span-5 flex flex-col gap-2">
+              <div className="sticky top-2 flex flex-col gap-2">
+                <TradeSection />
+                <EmbeddedWalletCard />
               </div>
             </div>
+          </div>
 
-            {/* RIGHT SIDEBAR: Token Info + Description + Comments + Wallet */}
-            <div className={`lg:col-span-3 flex flex-col gap-2 lg:gap-1.5 ${mobileTab !== 'comments' ? 'hidden lg:flex' : ''}`}>
-
-              {/* Token Details */}
-              <div className="terminal-panel-flush rounded-lg p-4 md:p-2.5 space-y-2 md:space-y-1.5">
-                <h3 className="text-[10px] md:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1">
-                  <Activity className="h-3 w-3 md:h-2.5 md:w-2.5" /> Token Details
-                </h3>
-                <div className="space-y-0">
-                  {[
-                    { label: 'Price', value: `${(token.price_sol || 0).toFixed(8)} SOL` },
-                    { label: 'Market Cap', value: formatUsd(token.market_cap_sol || 0) },
-                    { label: 'Volume 24h', value: `${formatSolAmount(token.volume_24h_sol || 0)} SOL` },
-                    { label: 'Holders', value: (token.holder_count || 0).toLocaleString() },
-                    { label: 'Supply', value: formatTokenAmount(TOTAL_SUPPLY) },
-                  ].map((row, i) => (
-                    <div key={i} className="flex justify-between text-xs md:text-[10px] font-mono py-2 md:py-1 border-b border-border/10 last:border-0">
-                      <span className="text-muted-foreground/70">{row.label}</span>
-                      <span className="text-foreground/85 font-medium">{row.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Contract */}
-              {token.mint_address && (
-                <div className="terminal-panel-flush rounded-lg p-4 md:p-2.5 space-y-1.5 md:space-y-1">
-                  <h3 className="text-[10px] md:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70">Contract</h3>
-                  <div className="flex items-center gap-2 md:gap-1">
-                    <code className="text-xs md:text-[9px] font-mono text-foreground/70 truncate flex-1">
-                      {token.mint_address.slice(0, 10)}...{token.mint_address.slice(-4)}
-                    </code>
-                    <button onClick={copyAddress} className="text-muted-foreground hover:text-foreground transition-colors shrink-0 p-2 md:p-0 -m-2 md:m-0 min-h-[44px] md:min-h-0 flex items-center justify-center">
-                      <Copy className="h-4 w-4 md:h-3 md:w-3" />
-                    </button>
-                  </div>
-                  {token.dbc_pool_address && (
-                    <div>
-                      <span className="text-[9px] md:text-[8px] font-mono text-muted-foreground/60 uppercase">Pool</span>
-                      <code className="text-xs md:text-[9px] font-mono text-foreground/70 truncate block">
-                        {token.dbc_pool_address.slice(0, 10)}...{token.dbc_pool_address.slice(-4)}
-                      </code>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Description */}
-              {token.description && (
-                <div className="terminal-panel-flush rounded-lg p-4 md:p-2.5">
-                  <p className={`text-xs md:text-[10px] text-muted-foreground/80 font-mono leading-relaxed ${!showFullDesc ? 'line-clamp-2' : ''}`}>
-                    {token.description}
-                  </p>
-                  {token.description.length > 100 && (
-                    <button
-                      onClick={() => setShowFullDesc(!showFullDesc)}
-                      className="text-xs md:text-[9px] font-mono text-accent-foreground hover:underline mt-1 md:mt-0.5 flex items-center gap-0.5 min-h-[44px] md:min-h-0"
-                    >
-                      {showFullDesc ? <><ChevronUp className="h-3 w-3 md:h-2.5 md:w-2.5" /> Less</> : <><ChevronDown className="h-3 w-3 md:h-2.5 md:w-2.5" /> More</>}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Holder Rewards */}
+          {/* ── DESKTOP layout (lg+) ── */}
+          <div className="hidden lg:grid grid-cols-12 gap-1.5 flex-1">
+            {/* Left: Chart + Trade */}
+            <div className="col-span-9 flex flex-col gap-1.5">
+              <ChartSection chartHeight={380} />
+              <TradeSection />
+            </div>
+            {/* Right: Info + Comments + Wallet */}
+            <div className="col-span-3 flex flex-col gap-1.5">
+              <TokenDetailsSection />
+              <ContractSection />
+              <DescriptionSection />
               {(token as any).fee_mode === 'holder_rewards' && (
-                <div className="terminal-panel-flush rounded-lg p-4 md:p-2.5 space-y-2 md:space-y-1.5">
-                  <h3 className="text-[10px] md:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1">
-                    <Users className="h-3 w-3 md:h-2.5 md:w-2.5 text-green-400" /> Holder Rewards
-                    <span className="text-[8px] md:text-[7px] px-1 py-px rounded bg-green-500/15 text-green-400 border border-green-500/20">ON</span>
+                <div className="terminal-panel-flush rounded-lg p-2.5 space-y-1.5">
+                  <h3 className="text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1">
+                    <Users className="h-2.5 w-2.5 text-green-400" /> Holder Rewards
+                    <span className="text-[7px] px-1 py-px rounded bg-green-500/15 text-green-400 border border-green-500/20">ON</span>
                   </h3>
-                  <div className="space-y-1 md:space-y-0.5 text-xs md:text-[9px] font-mono text-muted-foreground/80">
+                  <div className="space-y-0.5 text-[9px] font-mono text-muted-foreground/80">
                     <p className="flex items-center gap-1"><span className="text-green-400">✓</span> Top 50 holders share 50% fees</p>
                     <p className="flex items-center gap-1"><span className="text-green-400">✓</span> Proportional to balance</p>
                     <p className="flex items-center gap-1"><span className="text-green-400">✓</span> Auto SOL payouts every 5 min</p>
                   </div>
                 </div>
               )}
-
-              {/* Discussion */}
-              <div className="terminal-panel-flush rounded-lg p-4 md:p-2.5 flex-1 min-h-0 overflow-hidden flex flex-col">
-                <h3 className="text-[10px] md:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1 mb-2">
-                  <MessageCircle className="h-3 w-3 md:h-2.5 md:w-2.5" /> Discussion
-                </h3>
-                <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
-                  <TokenComments tokenId={token.id} />
-                </div>
-              </div>
-
-              {/* Wallet (desktop) */}
-              <div className="hidden lg:block">
-                <EmbeddedWalletCard />
-              </div>
+              <CommentsSection />
+              <EmbeddedWalletCard />
             </div>
           </div>
 
         </div>
       </div>
 
-      {/* ──── MOBILE: Bottom-fixed quick action bar ──── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50" style={{ backgroundColor: 'hsl(222 30% 7% / 0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid hsl(222 20% 16%)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
+      {/* ──── PHONE ONLY: Bottom-fixed quick action bar ──── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50" style={{ backgroundColor: 'hsl(222 30% 7% / 0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid hsl(222 20% 16%)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
         <div className="flex items-center gap-2 px-4 py-2.5">
-          {/* Quick stats */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-[10px] font-mono text-muted-foreground truncate">
               {(token.price_sol || 0).toFixed(6)} SOL
@@ -543,7 +576,6 @@ export default function FunTokenDetailPage() {
               </span>
             )}
           </div>
-          {/* Quick trade buttons */}
           <button
             onClick={() => setMobileTab('trade')}
             className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95"
