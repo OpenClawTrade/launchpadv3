@@ -48,12 +48,42 @@ serve(async (req) => {
       );
     }
 
+    // Try to extract explicit name and ticker from the user's request BEFORE calling AI
+    // Patterns like: "name X and ticker $Y", "name X ticker Y", "called X $Y", etc.
+    const nameMatch = userIdea.match(/(?:name|called|named)\s+([A-Za-z0-9.\s]+?)(?:\s+(?:and\s+)?(?:the\s+)?ticker\s+(?:is\s+)?\$?([A-Z0-9.]{2,10}))/i)
+      || userIdea.match(/(?:name|called|named)\s+([A-Za-z0-9.]+)\s+\$([A-Z0-9.]{2,10})/i)
+      || userIdea.match(/\$([A-Z0-9.]{2,10})\s+(?:name|called|named)\s+([A-Za-z0-9.\s]+)/i);
+    
+    // Also try: "token X ticker Y" or just explicit "$TICKER - Name" patterns
+    const tickerOnlyMatch = !nameMatch ? userIdea.match(/ticker\s+(?:is\s+)?\$?([A-Z0-9.]{2,10})/i) : null;
+    const nameOnlyMatch = !nameMatch ? userIdea.match(/(?:token\s+)?name\s+(?:is\s+)?([A-Za-z0-9.]+)/i) : null;
+
+    let explicitName: string | null = null;
+    let explicitTicker: string | null = null;
+
+    if (nameMatch) {
+      // Check which capture group pattern matched
+      if (userIdea.match(/\$([A-Z0-9.]{2,10})\s+(?:name|called)/i)) {
+        explicitTicker = nameMatch[1].trim().toUpperCase();
+        explicitName = nameMatch[2].trim();
+      } else {
+        explicitName = nameMatch[1].trim();
+        explicitTicker = nameMatch[2].trim().toUpperCase();
+      }
+    } else {
+      if (tickerOnlyMatch) explicitTicker = tickerOnlyMatch[1].trim().toUpperCase();
+      if (nameOnlyMatch) explicitName = nameOnlyMatch[1].trim();
+    }
+
     // Generate meme token identity purely from user's idea
     const textPrompt = `You are a meme coin name generator. The user wants to launch a meme coin based on this idea: "${userIdea}"
 
-Generate a UNIQUE meme token identity. Rules:
-- Name: 1-2 short catchy meme-style words (max 10 chars total). Must directly relate to the user's idea. Examples: "cool cat" -> "CoolCat", "angry frog" -> "AngryFrog", "moon dog" -> "MoonDog", "fast snail" -> "Turbo"
-- Ticker: 3-6 UPPERCASE letters that make sense from the name. NO random letter combos. Examples: "CoolCat" -> "COOL", "MoonDog" -> "MOON", "AngryFrog" -> "FROG"
+${explicitName ? `CRITICAL: The user EXPLICITLY requested the token name to be "${explicitName}". You MUST use EXACTLY "${explicitName}" as the name. Do NOT change it, do NOT get creative with the name.` : ''}
+${explicitTicker ? `CRITICAL: The user EXPLICITLY requested the ticker to be "${explicitTicker}". You MUST use EXACTLY "${explicitTicker}" as the ticker. Do NOT change it, do NOT get creative with the ticker.` : ''}
+
+Generate a meme token identity. Rules:
+${explicitName ? `- Name: USE EXACTLY "${explicitName}" - do NOT modify it` : '- Name: 1-2 short catchy meme-style words (max 10 chars total). Must directly relate to the user\'s idea.'}
+${explicitTicker ? `- Ticker: USE EXACTLY "${explicitTicker}" - do NOT modify it` : '- Ticker: 3-6 UPPERCASE letters that make sense from the name. NO random letter combos.'}
 - Description: Fun catchy meme coin description under 200 chars with emoji. Reference the user's idea.
 - Personality: 2-4 word fun personality matching the character vibe
 
@@ -78,8 +108,8 @@ Return ONLY valid JSON: {"name": "...", "ticker": "...", "personality": "...", "
     } catch {
       // Fallback: derive from user prompt
       const words = userIdea.split(/\s+/).filter(Boolean);
-      const name = words.slice(0, 2).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("").slice(0, 10);
-      const ticker = name.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 5) || "MEME";
+      const name = explicitName || words.slice(0, 2).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("").slice(0, 10);
+      const ticker = explicitTicker || name.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 5) || "MEME";
       identity = {
         name: name || "MemeCoin",
         ticker,
@@ -87,6 +117,10 @@ Return ONLY valid JSON: {"name": "...", "ticker": "...", "personality": "...", "
         description: `${name} - born from the idea: "${userIdea}" 🚀`,
       };
     }
+
+    // ALWAYS override with explicit values if user specified them - AI must not ignore user's exact request
+    if (explicitName) identity.name = explicitName;
+    if (explicitTicker) identity.ticker = explicitTicker;
 
     // Generate avatar based on user's idea
     const imagePrompt = `Create a fun, cute meme-style illustration for a memecoin called "${identity.name}" based on this idea: "${userIdea}"
