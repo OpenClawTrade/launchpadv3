@@ -9,12 +9,7 @@ import { AgentPlatformToken } from "@/components/agents/AgentPlatformToken";
 import { AgentHowItWorks } from "@/components/agents/AgentHowItWorks";
 import { AgentTopTokens } from "@/components/agents/AgentTopTokens";
 import { AgentTokenGrid } from "@/components/agents/AgentTokenGrid";
-import { AgentIdeaGenerator } from "@/components/agents/AgentIdeaGenerator";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-
 export default function AgentsPage() {
-  const [showIdeaGenerator, setShowIdeaGenerator] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -23,28 +18,14 @@ export default function AgentsPage() {
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
         <main className="flex-1 p-4 pb-14">
-          {showIdeaGenerator ? (
-            <div className="space-y-4">
-              <Button
-                variant="ghost"
-                onClick={() => setShowIdeaGenerator(false)}
-                className="gap-2 text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Agents
-              </Button>
-              <AgentIdeaGenerator />
-            </div>
-          ) : (
             <div className="space-y-8">
-              <AgentHero onShowIdeaGenerator={() => setShowIdeaGenerator(true)} />
+              <AgentHero />
               <AgentStatsBar />
               <AgentPlatformToken />
               <AgentHowItWorks />
               <AgentTopTokens />
               <AgentTokenGrid />
             </div>
-          )}
         </main>
         <Footer />
       </div>

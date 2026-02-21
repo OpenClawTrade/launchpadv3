@@ -1,12 +1,8 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Bot, Trophy, Twitter, Wallet, Code, ArrowRight, Lightbulb, Coins } from "lucide-react";
+import { FileText, Bot, Trophy, Twitter, Wallet, Code, ArrowRight, Coins } from "lucide-react";
 
-interface AgentHeroProps {
-  onShowIdeaGenerator?: () => void;
-}
-
-export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
+export function AgentHero() {
   return (
     <div className="py-8 md:py-12 px-4">
       {/* Welcome Banner */}
@@ -89,15 +85,6 @@ export function AgentHero({ onShowIdeaGenerator }: AgentHeroProps) {
 
       {/* CTA Row */}
       <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
-        <Button 
-          size="lg" 
-          variant="outline" 
-          className="gap-2 w-full sm:w-auto border-primary/50 hover:bg-primary/10"
-          onClick={onShowIdeaGenerator}
-        >
-          <Lightbulb className="h-5 w-5 text-primary" />
-          Help me with Agent Idea
-        </Button>
         <Link to="/agents/docs">
           <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 w-full sm:w-auto">
             <FileText className="h-5 w-5" />
