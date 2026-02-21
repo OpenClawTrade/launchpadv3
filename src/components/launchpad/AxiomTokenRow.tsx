@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { Globe, MessageCircle, Users, Copy, CheckCircle, Bot, Sparkles } from "lucide-react";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
+import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { toast } from "sonner";
 
 interface AxiomTokenRowProps {
@@ -91,18 +92,14 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
       <div className="flex items-start gap-2">
         {/* Avatar */}
         <div className="axiom-avatar flex-shrink-0">
-          {token.image_url ? (
-            <img
-              src={token.image_url}
-              alt={token.name}
-              className="w-full h-full object-cover rounded-lg"
-              onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
-            />
-          ) : (
-            <div className="w-full h-full rounded-lg flex items-center justify-center text-[11px] font-bold bg-muted text-success">
-              {token.ticker?.slice(0, 2)}
-            </div>
-          )}
+          <OptimizedTokenImage
+            src={token.image_url}
+            fallbackText={token.ticker}
+            size={48}
+            loading="eager"
+            alt={token.name}
+            className="w-full h-full object-cover rounded-lg"
+          />
         </div>
 
         {/* Info */}
