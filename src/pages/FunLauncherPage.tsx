@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
-
+import { TokenCard } from "@/components/launchpad/TokenCard";
 import { Footer } from "@/components/layout/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
@@ -256,8 +256,26 @@ export default function FunLauncherPage() {
               </span>
             </div>
 
-            {/* Bottom spacing */}
-            <div className="pb-16" />
+            {/* Token Grid */}
+            <div className="px-4 pt-4 pb-16">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {tokensLoading
+                  ? Array.from({ length: 12 }).map((_, i) => (
+                    <div key={i} className="rounded-xl bg-surface border border-border overflow-hidden">
+                      <Skeleton className="w-full aspect-[16/9] skeleton-shimmer" />
+                      <div className="p-3 space-y-2">
+                        <Skeleton className="h-4 w-3/4 skeleton-shimmer" />
+                        <Skeleton className="h-3 w-1/2 skeleton-shimmer" />
+                        <Skeleton className="h-2 w-full skeleton-shimmer" />
+                      </div>
+                    </div>
+                  ))
+                  : tokens.map(token => (
+                    <TokenCard key={token.id} token={token} solPrice={solPrice} />
+                  ))
+                }
+              </div>
+            </div>
 
           </main>
         )}
