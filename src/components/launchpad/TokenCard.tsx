@@ -296,8 +296,7 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
             </span>
             <span className="text-[10px] font-mono font-bold" style={{
               color: bondingProgress >= 80 ? "hsl(24 95% 60%)"
-                : bondingProgress > 0 ? "hsl(160 84% 55%)"
-                : "hsl(215 15% 45%)"
+                : "hsl(160 84% 55%)"
             }}>
               {bondingProgress.toFixed(bondingProgress >= 1 ? 0 : 1)}%
             </span>
@@ -309,14 +308,10 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
                 width: `${Math.max(Math.min(bondingProgress, 100), 3)}%`,
                 background: bondingProgress >= 80
                   ? "linear-gradient(90deg, hsl(24 95% 53%), hsl(16 85% 48%))"
-                  : bondingProgress > 0
-                    ? "linear-gradient(90deg, hsl(160 84% 39%), hsl(142 76% 42%))"
-                    : "hsl(215 15% 30%)",
-                boxShadow: bondingProgress > 0
-                  ? bondingProgress >= 80
-                    ? "0 0 8px hsl(24 95% 53% / 0.4)"
-                    : "0 0 8px hsl(160 84% 39% / 0.3)"
-                  : "none",
+                  : "linear-gradient(90deg, hsl(160 84% 39%), hsl(142 76% 42%))",
+                boxShadow: bondingProgress >= 80
+                  ? "0 0 8px hsl(24 95% 53% / 0.4)"
+                  : "0 0 8px hsl(160 84% 39% / 0.3)",
               }}
             />
           </div>
