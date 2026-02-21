@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useFunToken } from "@/hooks/useFunToken";
 import { usePoolState } from "@/hooks/usePoolState";
@@ -8,7 +8,8 @@ import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { UniversalTradePanel } from "@/components/launchpad/UniversalTradePanel";
 import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
 import { TokenComments } from "@/components/launchpad/TokenComments";
-import { LightweightChart } from "@/components/launchpad/LightweightChart";
+import { LightweightChart, type ChartMarker } from "@/components/launchpad/LightweightChart";
+import { useBitqueryOHLC } from "@/hooks/useBitqueryOHLC";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,8 @@ export default function FunTokenDetailPage() {
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('trade');
+  const [chartInterval, setChartInterval] = useState<"1m" | "5m" | "15m" | "1h" | "4h" | "1d">("5m");
+  const [chartType, setChartType] = useState<"candlestick" | "area">("candlestick");
 
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');
   const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
@@ -56,6 +59,23 @@ export default function FunTokenDetailPage() {
     enabled: !!token?.mint_address && token?.status === 'active',
     refetchInterval: 60000,
   });
+
+  // Bitquery OHLC data
+  const { data: bitqueryData } = useBitqueryOHLC(
+    mintAddress || null,
+    chartInterval
+  );
+
+  const chartData = useMemo(() => {
+    if (!bitqueryData?.candles?.length) return [];
+    if (chartType === "candlestick") return bitqueryData.candles;
+    return bitqueryData.candles.map(c => ({ time: c.time, value: c.close }));
+  }, [bitqueryData, chartType]);
+
+  const chartMarkers = useMemo((): ChartMarker[] => {
+    if (!bitqueryData?.migration) return [];
+    return [{ time: bitqueryData.migration.time, label: bitqueryData.migration.label, color: "#F97316" }];
+  }, [bitqueryData]);
 
   const formatUsd = (marketCapSol: number) => {
     const usdValue = Number(marketCapSol || 0) * Number(solPrice || 0);
@@ -356,25 +376,53 @@ export default function FunTokenDetailPage() {
             <div className={`lg:col-span-9 flex flex-col gap-1.5 ${mobileTab === 'comments' ? 'hidden lg:flex' : ''}`}>
 
               {/* Chart */}
-              <div className={`terminal-panel-flush rounded-lg overflow-hidden flex-1 ${mobileTab === 'trade' ? 'hidden lg:block' : ''}`}>
+              <div className={`terminal-panel-flush rounded-lg overflow-hidden flex-1 ${mobileTab === 'trade' ? 'hidden lg:block' : ''}`} style={{ backgroundColor: '#0F172A' }}>
                 <div className="px-3 py-1.5 border-b border-border/15 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-3 w-3 text-muted-foreground" />
                     <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Price Chart</span>
+                    {bitqueryData?.migration && (
+                      <span className="text-[8px] font-mono px-1.5 py-px rounded bg-orange-500/15 text-orange-400 border border-orange-500/20">
+                        MIGRATED
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-0.5">
-                    {['1H', '4H', '1D', '1W'].map(tf => (
-                      <button key={tf} className="text-[9px] font-mono px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all">
-                        {tf}
+                  <div className="flex items-center gap-1">
+                    {/* Chart type toggle */}
+                    <div className="flex items-center gap-0.5 mr-2 border-r border-border/20 pr-2">
+                      {(['candlestick', 'area'] as const).map(ct => (
+                        <button
+                          key={ct}
+                          onClick={() => setChartType(ct)}
+                          className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-all ${
+                            chartType === ct ? 'bg-accent/20 text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                          }`}
+                        >
+                          {ct === 'candlestick' ? '🕯' : '📈'}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Interval selector */}
+                    {(['1m', '5m', '15m', '1h', '4h', '1d'] as const).map(tf => (
+                      <button
+                        key={tf}
+                        onClick={() => setChartInterval(tf)}
+                        className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-all ${
+                          chartInterval === tf ? 'bg-accent/20 text-accent-foreground font-bold' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                        }`}
+                      >
+                        {tf.toUpperCase()}
                       </button>
                     ))}
                   </div>
                 </div>
                 <LightweightChart
-                  data={[]}
-                  chartType="area"
+                  data={chartData}
+                  chartType={chartType}
                   height={320}
+                  showVolume={chartType === "candlestick"}
                   isPositive={isPriceUp}
+                  markers={chartMarkers}
                 />
               </div>
 

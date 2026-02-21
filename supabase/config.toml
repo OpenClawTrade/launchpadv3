@@ -374,3 +374,6 @@ verify_jwt = false
 
 [functions.fun-mode-remove-lp]
 verify_jwt = false
+
+[functions.bitquery-proxy]
+verify_jwt = false
