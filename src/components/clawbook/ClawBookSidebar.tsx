@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { House, Fire, Compass, Robot, BookOpen, ArrowSquareOut, Rocket } from "@phosphor-icons/react";
+import { House, Fire, Compass, Robot, Rocket } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { CreateTokenModal } from "@/components/launchpad/CreateTokenModal";
 
@@ -51,20 +51,6 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
         </div>
       </button>
 
-      {/* Launch Agent CTA */}
-      <Link
-        to="/agents/docs"
-        className="clawbook-sidebar group flex items-center gap-3 p-4 hover:border-[hsl(var(--clawbook-primary)/0.3)] transition-all"
-      >
-        <div className="w-9 h-9 rounded-lg bg-[hsl(var(--clawbook-primary)/0.12)] flex items-center justify-center flex-shrink-0 group-hover:bg-[hsl(var(--clawbook-primary)/0.2)] transition-colors">
-          <BookOpen size={18} className="text-[hsl(var(--clawbook-primary))]" weight="duotone" />
-        </div>
-        <div>
-          <span className="text-sm font-semibold text-[hsl(var(--clawbook-text-primary))] block">Launch your Agent</span>
-          <span className="text-xs text-[hsl(var(--clawbook-text-muted))]">Get started with the API</span>
-        </div>
-        <ArrowSquareOut size={14} className="ml-auto text-[hsl(var(--clawbook-text-muted))] group-hover:text-[hsl(var(--clawbook-primary))] transition-colors" />
-      </Link>
 
       <CreateTokenModal open={showCreateToken} onClose={() => setShowCreateToken(false)} />
 

@@ -197,14 +197,13 @@ export function useSubTuna(ticker?: string) {
 
 export function useRecentSubTunas(limit = 10) {
   return useQuery({
-    queryKey: ["recent-subtunas-v4", limit],
+    queryKey: ["recent-subtunas-v5", limit],
     queryFn: async () => {
-      // Step 1: Fetch subtunas without join
+      // Step 1: Fetch all subtunas (we'll sort by activity later)
       const { data: subtunas, error } = await supabase
         .from("subtuna")
         .select("id, name, ticker, description, icon_url, member_count, post_count, fun_token_id")
-        .order("created_at", { ascending: false })
-        .limit(limit);
+        .limit(100);
 
       if (error) throw error;
       if (!subtunas || subtunas.length === 0) return [];
@@ -221,25 +220,31 @@ export function useRecentSubTunas(limit = 10) {
         tokenMap = new Map((tokens || []).map(t => [t.id, t]));
       }
 
-      // Step 3: Get real post counts per community using individual count queries
+      // Step 3: Get real post AND comment counts per community
       const subtunaIds = subtunas.map(s => s.id);
       const postCountMap = new Map<string, number>();
+      const commentCountMap = new Map<string, number>();
+      
       const countPromises = subtunaIds.map(async (id) => {
-        const { count } = await supabase
+        const { data: posts, count } = await supabase
           .from("subtuna_posts")
-          .select("id", { count: "exact", head: true })
+          .select("comment_count", { count: "exact" })
           .eq("subtuna_id", id);
         postCountMap.set(id, count || 0);
+        const totalComments = (posts || []).reduce((sum: number, p: any) => sum + (p.comment_count || 0), 0);
+        commentCountMap.set(id, totalComments);
       });
       await Promise.all(countPromises);
 
-      // Transform with token data
-      return subtunas.map((s: any) => {
+      // Step 4: Transform and sort by total activity (posts + comments) descending
+      const results = subtunas.map((s: any) => {
         const token = s.fun_token_id ? tokenMap.get(s.fun_token_id) : null;
         let ticker = s.ticker || token?.ticker || "";
         if (!ticker && s.name?.startsWith("t/")) {
           ticker = s.name.slice(2);
         }
+        const posts = postCountMap.get(s.id) || 0;
+        const comments = commentCountMap.get(s.id) || 0;
         return {
           id: s.id,
           name: s.name,
@@ -247,10 +252,15 @@ export function useRecentSubTunas(limit = 10) {
           description: s.description,
           iconUrl: s.icon_url || token?.image_url,
           memberCount: s.member_count || 0,
-          postCount: postCountMap.get(s.id) || s.post_count || 0,
+          postCount: posts + comments,
           marketCapSol: token?.market_cap_sol,
         };
       });
+
+      // Sort by activity descending and take top N
+      return results
+        .sort((a, b) => b.postCount - a.postCount)
+        .slice(0, limit);
     },
     staleTime: 1000 * 60,
     retry: 1,
