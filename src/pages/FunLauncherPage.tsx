@@ -316,57 +316,70 @@ export default function FunLauncherPage() {
               </div>
             )}
 
-            {/* Filter tabs */}
-            <div className="px-4 pt-5">
-              <div
-                className="flex items-center gap-0 overflow-x-auto no-scrollbar border-b border-border"
-              >
+            {/* Section header — Last Trades */}
+            <div className="px-4 pt-6 pb-2">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-[18px] font-extrabold text-foreground tracking-tight lt-neon-underline">
+                    Last Trades
+                  </h2>
+                  <p className="text-[10px] mt-2" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Live updates on recent buys & sells across Claw Mode tokens
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: "hsl(var(--surface))", border: "1px solid hsl(var(--border))" }}>
+                    <div className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: "hsl(var(--success))" }} />
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      <span className="text-foreground font-semibold">{onlineCount ?? '—'}</span> online
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter tabs */}
+              <div className="flex items-center gap-0 overflow-x-auto no-scrollbar border-b" style={{ borderColor: "hsl(var(--border))" }}>
                 {FILTER_TABS.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveFilter(tab.id)}
-                    className={`px-4 py-2.5 text-[12px] font-semibold whitespace-nowrap transition-all duration-200 border-b-2 -mb-px ${
+                    className={`px-4 py-2 text-[11px] font-semibold whitespace-nowrap transition-all duration-200 border-b-2 -mb-px ${
                       activeFilter === tab.id
-                        ? "text-foreground border-success"
+                        ? "text-foreground border-accent-foreground"
                         : "text-muted-foreground border-transparent hover:text-foreground/70"
                     }`}
                   >
                     {tab.label}
                   </button>
                 ))}
-                {/* Online indicator */}
-                <div className="ml-auto flex items-center gap-1.5 px-3 flex-shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
-                  <span className="text-[11px] font-mono text-muted-foreground">
-                    <span className="text-foreground font-semibold">{onlineCount ?? '—'}</span> online
-                  </span>
-                </div>
               </div>
             </div>
 
-            {/* Token Grid — 4 columns */}
-            <div className="px-4 pt-4 pb-16">
+            {/* Token Grid */}
+            <div className="px-4 pt-3 pb-16">
               {tokensLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
                   {Array.from({ length: 20 }).map((_, i) => (
-                    <div key={i} className="rounded-xl overflow-hidden bg-surface border border-border">
-                      <Skeleton className="w-full skeleton-shimmer" style={{ paddingBottom: "62%", display: "block" }} />
-                      <div className="p-3 space-y-1.5">
+                    <div key={i} className="lt-card overflow-hidden">
+                      <Skeleton className="w-full skeleton-shimmer" style={{ paddingBottom: "58%", display: "block" }} />
+                      <div className="p-2.5 space-y-1.5">
                         <Skeleton className="h-3 w-3/4 skeleton-shimmer" />
-                        <Skeleton className="h-2.5 w-1/2 skeleton-shimmer" />
+                        <Skeleton className="h-2 w-1/2 skeleton-shimmer" />
+                        <Skeleton className="h-2 w-full skeleton-shimmer" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : filteredTokens.length === 0 ? (
                 <div className="text-center py-20 empty-state-fade">
-                  <div className="inline-block bg-surface/60 border border-border rounded-2xl px-10 py-8">
-                    <p className="text-lg font-semibold text-foreground-secondary">No tokens found</p>
-                    <p className="text-sm mt-1 text-muted-foreground">Try a different filter</p>
+                  <div className="inline-block rounded-2xl px-10 py-8" style={{ background: "hsl(var(--surface) / 0.6)", border: "1px solid hsl(var(--border))" }}>
+                    <div className="text-3xl mb-3">🦞</div>
+                    <p className="text-sm font-semibold text-foreground">No tokens found</p>
+                    <p className="text-[11px] mt-1 text-muted-foreground">Try a different filter or check back soon</p>
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
                   {filteredTokens.map(token => (
                     <TokenCard
                       key={token.id}
