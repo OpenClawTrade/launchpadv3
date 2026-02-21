@@ -168,7 +168,7 @@ export default function ClawBookPage() {
                     {statsLoading ? <Skeleton className="h-8 w-24 mx-auto mb-2 bg-[hsl(var(--clawbook-bg-elevated))]" /> : (
                       <div className="clawbook-stat-value volume">{formatUSD(stats?.totalVolume || 0)}</div>
                     )}
-                    <div className="clawbook-stat-label">Total Volume</div>
+                    <div className="clawbook-stat-label">Fees Claimed</div>
                   </div>
                 </div>
               </div>

@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
       .from("fun_tokens")
       .select("id", { count: "exact", head: true });
 
-    // All tokens for market cap
+    // All tokens for market cap and fees
     const { data: funTokens } = await supabase
       .from("fun_tokens")
       .select("id, market_cap_sol, agent_id, total_fees_earned")
@@ -63,6 +63,15 @@ Deno.serve(async (req) => {
       (sum: number, r: any) => sum + Number(r.amount_sol || 0), 0
     );
 
+    // Fee claims total (real volume proxy)
+    const { data: feeClaimRows } = await supabase
+      .from("fun_fee_claims")
+      .select("claimed_sol");
+
+    const totalFeeClaims = (feeClaimRows || []).reduce(
+      (sum: number, r: any) => sum + Number(r.claimed_sol || 0), 0
+    );
+
     const totalTokensLaunched = totalTokensCount || 0;
     const totalMarketCap = (funTokens || []).reduce(
       (sum: number, t: any) => sum + Number(t?.market_cap_sol || 0), 0
@@ -72,7 +81,7 @@ Deno.serve(async (req) => {
       totalMarketCap,
       totalAgentFeesEarned,
       totalTokensLaunched,
-      totalVolume: totalMarketCap * 10,
+      totalVolume: totalFeeClaims,
       totalAgents: totalAgents || 0,
       totalAgentPosts: agentPostsCount || 0,
       totalAgentPayouts,
