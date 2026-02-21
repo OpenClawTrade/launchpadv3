@@ -1,17 +1,20 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+
+const PENDING_NAV_KEY = "claw_pending_panel_nav";
 
 export function usePanelNav(defaultPath = "/panel") {
   const { isAuthenticated, login } = useAuth();
   const navigate = useNavigate();
-  const pendingRef = useRef<string | false>(false);
 
   useEffect(() => {
-    if (isAuthenticated && pendingRef.current) {
-      const target = pendingRef.current;
-      pendingRef.current = false;
-      navigate(target);
+    if (isAuthenticated) {
+      const pending = sessionStorage.getItem(PENDING_NAV_KEY);
+      if (pending) {
+        sessionStorage.removeItem(PENDING_NAV_KEY);
+        navigate(pending);
+      }
     }
   }, [isAuthenticated, navigate]);
 
@@ -20,7 +23,7 @@ export function usePanelNav(defaultPath = "/panel") {
     if (isAuthenticated) {
       navigate(target);
     } else {
-      pendingRef.current = target;
+      sessionStorage.setItem(PENDING_NAV_KEY, target);
       login();
     }
   }, [isAuthenticated, login, navigate, defaultPath]);
