@@ -233,7 +233,13 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
 
         {/* Creator X attribution with fetched avatar + verified badge */}
         {xUsername && (
-          <div className="flex items-center gap-1.5 mb-1.5">
+          <a
+            href={token.twitter_url || `https://x.com/${xUsername}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1.5 mb-1.5 hover:opacity-80 transition-opacity"
+          >
             {avatarUrl ? (
               <img 
                 src={avatarUrl} 
@@ -252,7 +258,7 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
             {isVerified && (
               <BadgeCheck className="h-3 w-3 flex-shrink-0" style={{ color: checkColor }} />
             )}
-          </div>
+          </a>
         )}
 
         {/* CA copy row */}
