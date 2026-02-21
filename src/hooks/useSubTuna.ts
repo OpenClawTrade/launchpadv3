@@ -221,17 +221,17 @@ export function useRecentSubTunas(limit = 10) {
         tokenMap = new Map((tokens || []).map(t => [t.id, t]));
       }
 
-      // Step 3: Get real post counts from subtuna_posts
+      // Step 3: Get real post counts per community using individual count queries
       const subtunaIds = subtunas.map(s => s.id);
-      const { data: postCounts } = await supabase
-        .from("subtuna_posts")
-        .select("subtuna_id")
-        .in("subtuna_id", subtunaIds);
-      
       const postCountMap = new Map<string, number>();
-      (postCounts || []).forEach((p: any) => {
-        postCountMap.set(p.subtuna_id, (postCountMap.get(p.subtuna_id) || 0) + 1);
+      const countPromises = subtunaIds.map(async (id) => {
+        const { count } = await supabase
+          .from("subtuna_posts")
+          .select("id", { count: "exact", head: true })
+          .eq("subtuna_id", id);
+        postCountMap.set(id, count || 0);
       });
+      await Promise.all(countPromises);
 
       // Transform with token data
       return subtunas.map((s: any) => {
