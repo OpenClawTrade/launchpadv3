@@ -142,6 +142,17 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
                   <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                 </a>
               )}
+              {token.website_url && (
+                <a
+                  href={token.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                >
+                  <Globe className="h-2.5 w-2.5" />
+                </a>
+              )}
               {holders > 0 && (
                 <span className="flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/60">
                   <Users className="h-2.5 w-2.5" />{holders}
