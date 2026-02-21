@@ -719,6 +719,77 @@ body.matrix-hidden canvas {
   box-shadow: 0 0 8px hsl(187 80% 53% / 0.4);
 }
 
+/* ── Terminal Trading Page ── */
+.terminal-bg {
+  background: linear-gradient(180deg, hsl(222 47% 6%) 0%, hsl(225 40% 5%) 100%);
+}
+
+.terminal-panel {
+  background: hsl(222 30% 7% / 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid hsl(222 20% 16%);
+  border-radius: 12px;
+}
+
+.terminal-panel-flush {
+  background: hsl(222 30% 7% / 0.6);
+  border: 1px solid hsl(222 20% 14%);
+}
+
+.terminal-stat-teal {
+  color: hsl(187 80% 55%);
+}
+
+.terminal-stat-orange {
+  color: hsl(24 95% 60%);
+}
+
+.terminal-trust-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.04em;
+  border-radius: 9999px;
+  background: hsl(187 80% 53% / 0.08);
+  color: hsl(187 80% 55%);
+  border: 1px solid hsl(187 80% 53% / 0.2);
+}
+
+.terminal-divider {
+  border-color: hsl(222 20% 14%);
+}
+
+/* Teal glow for active metrics */
+.teal-glow {
+  text-shadow: 0 0 12px hsl(187 80% 53% / 0.4);
+}
+
+/* Orange CTA button */
+.btn-terminal-cta {
+  background: linear-gradient(135deg, hsl(24 95% 53%) 0%, hsl(28 90% 48%) 100%);
+  color: #fff;
+  font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: none;
+  border-radius: 10px;
+  transition: all 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.btn-terminal-cta:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 24px hsl(24 95% 53% / 0.35);
+  filter: brightness(1.08);
+}
+.btn-terminal-cta:active {
+  transform: scale(0.98);
+}
+
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
