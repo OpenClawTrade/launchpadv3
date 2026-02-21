@@ -13,6 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 
 /* ─── rank visual config ─── */
 const RANK_CONFIG = [
@@ -187,20 +188,13 @@ function KothCard({ token, rank }: { token: KingToken; rank: number }) {
                 config.isKing ? "w-[52px] h-[52px]" : "w-11 h-11"
               )}
             >
-              {token.image_url ? (
-                <img
-                  src={token.image_url}
-                  alt={token.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/placeholder.svg";
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-slate-700 text-xs font-bold text-muted-foreground">
-                  {token.ticker?.slice(0, 2)}
-                </div>
-              )}
+              <OptimizedTokenImage
+                src={token.image_url}
+                alt={token.name}
+                fallbackText={token.ticker}
+                size={96}
+                className="w-full h-full object-cover"
+              />
             </div>
 
             {/* ── Name + Mcap + Meta ── */}
