@@ -984,7 +984,9 @@ export async function processLaunchPost(
       // Sanitize
       const cleanName = parsed.name
         .replace(/https?:\/\/\S+/gi, "")
+        .replace(/\bhttps?\b/gi, "")
         .replace(/[,.:;!?]+$/, "")
+        .replace(/\s+/g, " ")
         .trim()
         .slice(0, 32);
       const cleanSymbol = parsed.symbol

@@ -122,6 +122,17 @@ Return ONLY valid JSON: {"name": "...", "ticker": "...", "personality": "...", "
     if (explicitName) identity.name = explicitName;
     if (explicitTicker) identity.ticker = explicitTicker;
 
+    // Strip any stray "http" or "https" that AI may have injected into the name/ticker
+    identity.name = identity.name
+      .replace(/https?:\/\/\S+/gi, "")
+      .replace(/\bhttps?\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    identity.ticker = identity.ticker
+      .replace(/https?:\/\/\S+/gi, "")
+      .replace(/[^A-Z0-9]/gi, "")
+      .toUpperCase();
+
     // Generate avatar based on user's idea
     const imagePrompt = `Create a fun, cute meme-style illustration for a memecoin called "${identity.name}" based on this idea: "${userIdea}"
 
