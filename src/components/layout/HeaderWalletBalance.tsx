@@ -20,10 +20,12 @@ function HeaderWalletBalanceInner() {
     const fetchBal = async () => {
       try {
         const { Connection, PublicKey } = await import("@solana/web3.js");
-        const heliusKey = import.meta.env.VITE_HELIUS_API_KEY;
-        const rpcUrl = import.meta.env.VITE_HELIUS_RPC_URL 
-          || import.meta.env.VITE_SOLANA_RPC_URL 
-          || (heliusKey ? `https://mainnet.helius-rpc.com/?api-key=${heliusKey}` : null);
+        // Use runtime config (from public-config edge function) first, then env vars
+        const rpcUrl = localStorage.getItem("heliusRpcUrl")
+          || (window as any)?.__PUBLIC_CONFIG__?.heliusRpcUrl
+          || import.meta.env.VITE_HELIUS_RPC_URL
+          || import.meta.env.VITE_SOLANA_RPC_URL
+          || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : null);
         if (!rpcUrl) {
           if (!cancelled) setBalance(null);
           return;
