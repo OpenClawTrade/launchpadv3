@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Wallet, Briefcase, DollarSign, Fingerprint, Rocket, Shield, Ghost } from "lucide-react";
+import { Wallet, Briefcase, DollarSign, Fingerprint, Rocket, Shield, Ghost, LogOut } from "lucide-react";
 import clawLogo from "@/assets/claw-logo.png";
 
 const PanelWalletBar = lazy(() => import("@/components/panel/PanelWalletBar"));
@@ -27,7 +27,7 @@ function TabLoader() {
 }
 
 export default function PanelPage() {
-  const { isAuthenticated, login, user, solanaAddress } = useAuth();
+  const { isAuthenticated, login, logout, user, solanaAddress } = useAuth();
   const { isAdmin } = useIsAdmin(solanaAddress);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -117,6 +117,15 @@ export default function PanelPage() {
                 )}
               </p>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => logout()}
+              className="gap-1.5 text-[11px] text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Logout
+            </Button>
           </div>
 
           {/* Wallet Bar */}
