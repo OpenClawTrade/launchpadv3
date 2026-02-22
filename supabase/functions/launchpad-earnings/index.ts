@@ -1,6 +1,17 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+// Convert Privy DID to deterministic UUID via SHA-1 (matches frontend auth logic)
+async function privyDidToUuid(did: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(did);
+  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+  const hashArray = new Uint8Array(hashBuffer);
+  const hex = Array.from(hashArray).map(b => b.toString(16).padStart(2, "0")).join("");
+  // Format as UUID v5-style: 8-4-4-4-12
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -46,7 +57,8 @@ serve(async (req) => {
       `);
 
     if (profileId) {
-      query = query.eq("profile_id", profileId);
+      const uuid = await privyDidToUuid(profileId);
+      query = query.eq("profile_id", uuid);
     } else if (walletAddress) {
       query = query.eq("wallet_address", walletAddress);
     }
