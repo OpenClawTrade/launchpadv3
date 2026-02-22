@@ -82,12 +82,21 @@ Deno.serve(async (req) => {
 
     const collectionAddress = collectionSigner.publicKey.toString();
 
+    // Save collection address to all open batches automatically
+    const { error: updateError } = await supabase
+      .from("nfa_batches")
+      .update({ collection_address: collectionAddress })
+      .eq("status", "open");
+
     return new Response(
       JSON.stringify({
         success: true,
         collectionAddress,
         metadataUrl,
-        message: "Collection created! Save the collectionAddress as NFA_COLLECTION_ADDRESS secret.",
+        savedToDatabase: !updateError,
+        message: updateError 
+          ? "Collection created but failed to save to DB: " + updateError.message
+          : "Collection created and saved to all open batches automatically!",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
