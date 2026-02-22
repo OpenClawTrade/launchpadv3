@@ -65,9 +65,20 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminal
       .filter(t => (t.bonding_progress ?? 0) < 80 && t.status !== 'graduated')
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    const finalStretch = tokens
+    // Primary: tokens with ≥5% bonding progress
+    let finalStretch = tokens
       .filter(t => (t.bonding_progress ?? 0) >= 5 && t.status !== 'graduated')
       .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0));
+
+    // Fallback: if fewer than 3, fill with top tokens by bonding progress (king of the hill)
+    if (finalStretch.length < 3) {
+      const existingIds = new Set(finalStretch.map(t => t.id));
+      const topByProgress = tokens
+        .filter(t => t.status !== 'graduated' && !existingIds.has(t.id))
+        .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0))
+        .slice(0, 3 - finalStretch.length);
+      finalStretch = [...finalStretch, ...topByProgress];
+    }
 
     const migrated = tokens
       .filter(t => t.status === 'graduated')
