@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Copy, Check, Rocket, Shield, Zap, Globe, Sparkles } from "lucide-react";
+import { X, Copy, Check, Rocket, Shield, Zap, Globe } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -83,36 +83,6 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
 
         {/* Content — scrollable */}
         <div className="flex-1 overflow-y-auto px-5 md:px-10 py-4 md:py-6 space-y-5 md:space-y-5">
-
-          {/* NFA Announcement */}
-          <div
-            className="rounded-2xl md:rounded-xl p-5 md:p-5 space-y-3"
-            style={{
-              background: "linear-gradient(135deg, rgba(34,211,238,0.06), rgba(139,92,246,0.06))",
-              border: "1px solid rgba(34,211,238,0.15)",
-            }}
-          >
-            <div className="flex items-center gap-2.5">
-              <div
-                className="flex items-center justify-center w-8 h-8 rounded-lg"
-                style={{ background: "linear-gradient(135deg, #22D3EE, #8B5CF6)" }}
-              >
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-[14px] font-bold text-[#F1F5F9]">
-                  NFA — Non-Fungible Agents
-                </p>
-                <p className="text-[11px] text-[#64748B] font-medium">Coming Soon</p>
-              </div>
-            </div>
-            <p className="text-[13px] text-[#CBD5E1] leading-[1.65]">
-              We're preparing for the launch of{" "}
-              <span className="text-[#22D3EE] font-semibold">Non-Fungible Agents (NFAs)</span> — 
-              1,000 unique AI agents minted as NFTs on Solana. Each NFA owns its own token, 
-              earns trading fees, and can be traded as a complete on-chain business.
-            </p>
-          </div>
 
           {/* Steps */}
           <div className="space-y-0">
