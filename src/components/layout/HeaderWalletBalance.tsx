@@ -59,7 +59,13 @@ function HeaderWalletBalanceInner() {
 
   const handleLogout = async () => {
     setMenuOpen(false);
-    await logout();
+    try {
+      await logout();
+    } catch (e) {
+      console.warn("Logout error:", e);
+    }
+    // Force full reload to clear Privy session state
+    window.location.href = "/";
   };
 
   return (
