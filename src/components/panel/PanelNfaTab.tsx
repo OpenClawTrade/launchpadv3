@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
@@ -6,15 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Fingerprint, Loader2, Zap, Users, TrendingUp, Bot,
   CheckCircle2, ExternalLink, Globe, Coins,
   Sparkles, Upload, X, ArrowLeft, AlertTriangle, Tag, ShoppingCart,
-  Shield,
+  Shield, Copy, Check, RefreshCw, ArrowDownToLine,
 } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/clipboard";
+import QRCode from "react-qr-code";
 
 const TREASURY_WALLET = "HSVmkUnmjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 const MINT_PRICE_SOL = 1.0;
@@ -116,9 +125,48 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
   const [uploading, setUploading] = useState(false);
   const [minting, setMinting] = useState(false);
   const [mintResult, setMintResult] = useState<any>(null);
+  const [showDepositDialog, setShowDepositDialog] = useState(false);
+  const [embeddedBalance, setEmbeddedBalance] = useState<number | null>(null);
+  const [depositCopied, setDepositCopied] = useState(false);
+  const [balanceAtOpen, setBalanceAtOpen] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const { signAndSendTransaction, isWalletReady } = useSolanaWalletWithPrivy();
+  const { signAndSendTransaction, isWalletReady, walletAddress: embeddedWalletAddress, getBalance } = useSolanaWalletWithPrivy();
+
+  // The embedded wallet is the one that signs & pays
+  const mintWalletAddress = embeddedWalletAddress || solanaAddress;
+
+  // Fetch embedded wallet balance periodically
+  useEffect(() => {
+    if (!embeddedWalletAddress) return;
+    let cancelled = false;
+    const fetch = async () => {
+      try {
+        const bal = await getBalance();
+        if (!cancelled) setEmbeddedBalance(bal);
+      } catch {}
+    };
+    fetch();
+    const interval = setInterval(fetch, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [embeddedWalletAddress, getBalance]);
+
+  // Deposit detection polling when dialog is open
+  useEffect(() => {
+    if (!showDepositDialog || !embeddedWalletAddress) return;
+    const interval = setInterval(async () => {
+      try {
+        const currentBal = await getBalance();
+        setEmbeddedBalance(currentBal);
+        const openingBal = balanceAtOpen ?? 0;
+        if (currentBal > openingBal + 0.0001) {
+          toast.success(`🎉 Deposit received! +${(currentBal - openingBal).toFixed(4)} SOL`);
+          setTimeout(() => setShowDepositDialog(false), 1500);
+        }
+      } catch {}
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [showDepositDialog, embeddedWalletAddress, getBalance, balanceAtOpen]);
 
   const nameValid = tokenName.trim().length > 0 && tokenName.trim().length <= 32;
   const tickerValid = /^[A-Z0-9.]+$/.test(tokenTicker.toUpperCase()) && tokenTicker.trim().length > 0 && tokenTicker.trim().length <= 10;
@@ -174,7 +222,21 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
   };
 
   const handleMint = async () => {
-    if (!solanaAddress || !isWalletReady) return;
+    if (!mintWalletAddress || !isWalletReady) return;
+
+    // Check embedded wallet balance first
+    try {
+      const bal = await getBalance();
+      setEmbeddedBalance(bal);
+      if (bal < MINT_PRICE_SOL + 0.005) {
+        // Insufficient balance — show deposit dialog
+        setBalanceAtOpen(bal);
+        setShowDepositDialog(true);
+        toast.error(`Insufficient balance (${bal.toFixed(4)} SOL). You need at least ${MINT_PRICE_SOL} SOL + fees.`);
+        return;
+      }
+    } catch {}
+
     setMinting(true);
     setStep("minting");
     try {
@@ -185,7 +247,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
         || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : null)
         || "https://mainnet.helius-rpc.com/?api-key=7305c408-6932-49f6-8613-2ec8606fb82d";
       const connection = new Connection(rpcUrl, "confirmed");
-      const fromPubkey = new PublicKey(solanaAddress);
+      const fromPubkey = new PublicKey(mintWalletAddress);
       const toPubkey = new PublicKey(TREASURY_WALLET);
       const transaction = new Transaction().add(
         SystemProgram.transfer({ fromPubkey, toPubkey, lamports: Math.floor(MINT_PRICE_SOL * LAMPORTS_PER_SOL) })
@@ -197,7 +259,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
 
       const { data, error } = await supabase.functions.invoke("nfa-mint", {
         body: {
-          minterWallet: solanaAddress,
+          minterWallet: mintWalletAddress,
           paymentSignature: signature,
           tokenName: tokenName.trim(),
           tokenTicker: tokenTicker.trim().toUpperCase(),
@@ -338,6 +400,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
           <NfaPreviewCard name={tokenName} ticker={tokenTicker} imageUrl={imageUrl} />
         </div>
 
+        {/* Embedded wallet info */}
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
           {[
             { k: "Token Name", v: tokenName.trim() },
@@ -350,6 +413,29 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
               <span className="font-mono font-medium">{v}</span>
             </div>
           ))}
+          <div className="border-t border-white/10 pt-3 mt-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/50">Paying from</span>
+              <span className="font-mono font-medium text-xs">
+                {mintWalletAddress ? `${mintWalletAddress.slice(0, 6)}...${mintWalletAddress.slice(-4)}` : "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm mt-1.5">
+              <span className="text-white/50">Embedded balance</span>
+              <span className={`font-mono font-medium ${(embeddedBalance ?? 0) < MINT_PRICE_SOL + 0.005 ? "text-red-400" : "text-green-400"}`}>
+                {embeddedBalance !== null ? `${embeddedBalance.toFixed(4)} SOL` : "Loading..."}
+              </span>
+            </div>
+            {(embeddedBalance ?? 0) < MINT_PRICE_SOL + 0.005 && (
+              <button
+                onClick={() => { setBalanceAtOpen(embeddedBalance); setShowDepositDialog(true); }}
+                className="mt-2 w-full flex items-center justify-center gap-2 text-xs font-medium py-2 rounded-lg border border-yellow-400/30 bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 transition-colors"
+              >
+                <ArrowDownToLine className="h-3.5 w-3.5" />
+                Deposit SOL to mint
+              </button>
+            )}
+          </div>
         </div>
 
         <button
@@ -360,6 +446,50 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
           <Fingerprint className="h-5 w-5" />
           MINT FOR 1 SOL
         </button>
+
+        {/* Deposit Dialog */}
+        <Dialog open={showDepositDialog} onOpenChange={(open) => { setShowDepositDialog(open); if (open) setBalanceAtOpen(embeddedBalance); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ArrowDownToLine className="h-5 w-5" /> Deposit SOL
+              </DialogTitle>
+              <DialogDescription>Send SOL to your embedded wallet to mint your NFA</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-4">
+              {mintWalletAddress && (
+                <div className="bg-white rounded-xl p-3">
+                  <QRCode value={mintWalletAddress} size={180} />
+                </div>
+              )}
+              <div className="w-full">
+                <p className="text-xs text-muted-foreground mb-1.5 text-center">Your embedded wallet address</p>
+                <div className="flex items-center gap-2 bg-white/[0.05] rounded-lg px-3 py-2 border border-white/10">
+                  <code className="text-xs font-mono flex-1 truncate">{mintWalletAddress}</code>
+                  <button
+                    onClick={async () => {
+                      if (mintWalletAddress) {
+                        const ok = await copyToClipboard(mintWalletAddress);
+                        if (ok) { setDepositCopied(true); toast.success("Address copied!"); setTimeout(() => setDepositCopied(false), 2000); }
+                      }
+                    }}
+                    className="shrink-0 hover:text-white transition-colors"
+                  >
+                    {depositCopied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-sm font-medium">Current balance: <span className="font-mono text-green-400">{embeddedBalance?.toFixed(4) ?? "—"} SOL</span></p>
+                <p className="text-xs text-muted-foreground">Need at least {MINT_PRICE_SOL} SOL + ~0.005 SOL for fees</p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                <span>Waiting for deposit...</span>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
