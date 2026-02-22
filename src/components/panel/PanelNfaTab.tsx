@@ -179,7 +179,11 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
     setStep("minting");
     try {
       const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = await import("@solana/web3.js");
-      const rpcUrl = (window as any).__RUNTIME_RPC_URL || import.meta.env.VITE_HELIUS_RPC_URL || "https://api.mainnet-beta.solana.com";
+      const rpcUrl = localStorage.getItem("heliusRpcUrl")
+        || (window as any)?.__PUBLIC_CONFIG__?.heliusRpcUrl
+        || import.meta.env.VITE_HELIUS_RPC_URL
+        || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : null)
+        || "https://mainnet.helius-rpc.com/?api-key=7305c408-6932-49f6-8613-2ec8606fb82d";
       const connection = new Connection(rpcUrl, "confirmed");
       const fromPubkey = new PublicKey(solanaAddress);
       const toPubkey = new PublicKey(TREASURY_WALLET);
