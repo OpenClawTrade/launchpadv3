@@ -285,7 +285,7 @@ export default function FunTokenDetailPage() {
     <LaunchpadLayout>
       {/* Solid navy bg */}
       <div className="min-h-screen -m-4 p-2 md:p-3" style={{ backgroundColor: 'hsl(222 47% 7%)' }}>
-        <div className="max-w-[1600px] mx-auto flex flex-col gap-1.5 pb-28 md:pb-16">
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-1.5 pb-32 md:pb-24">
 
           {/* ──── TOP BAR ──── */}
           <div className="terminal-panel-flush flex items-center gap-2 px-3 py-2 md:py-2 lg:py-1.5 rounded-lg">
