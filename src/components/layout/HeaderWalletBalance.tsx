@@ -25,11 +25,8 @@ function HeaderWalletBalanceInner() {
           || (window as any)?.__PUBLIC_CONFIG__?.heliusRpcUrl
           || import.meta.env.VITE_HELIUS_RPC_URL
           || import.meta.env.VITE_SOLANA_RPC_URL
-          || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : null);
-        if (!rpcUrl) {
-          if (!cancelled) setBalance(null);
-          return;
-        }
+          || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : null)
+          || "https://mainnet.helius-rpc.com/?api-key=7305c408-6932-49f6-8613-2ec8606fb82d";
         const connection = new Connection(rpcUrl, "confirmed");
         const bal = await connection.getBalance(new PublicKey(solanaAddress));
         if (!cancelled) setBalance(bal / 1e9);

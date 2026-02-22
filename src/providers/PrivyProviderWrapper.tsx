@@ -58,7 +58,8 @@ function getHeliusRpcUrlFromRuntime(): string | null {
     return `https://mainnet.helius-rpc.com/?api-key=${apiKey.trim()}`;
   }
 
-  return null;
+  // 4) hardcoded fallback — this key is already publicly exposed via public-config endpoint
+  return "https://mainnet.helius-rpc.com/?api-key=7305c408-6932-49f6-8613-2ec8606fb82d";
 }
 
 function toWebsocketUrl(httpUrl: string): string {
