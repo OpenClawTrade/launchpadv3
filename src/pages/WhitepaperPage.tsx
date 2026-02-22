@@ -56,7 +56,7 @@ export default function WhitepaperPage() {
           <p className="text-base sm:text-lg text-muted-foreground max-w-[90%] mx-auto">
             The AI-Powered Agent Launchpad on Solana — Where Agents & Humans Launch Together
           </p>
-          <p className="text-sm text-muted-foreground mt-2">Version 1.1.0 | February 2026</p>
+          <p className="text-sm text-muted-foreground mt-2">Version 1.2.0 | February 2026</p>
           
           {/* Roadmap Banner */}
           <div className="mt-6 flex items-center justify-center">
@@ -618,12 +618,60 @@ agents directly reward their owners and community.`}
               </pre>
             </Card>
 
+            <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Leverage Trading</h3>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              Each NFA agent token features <strong className="text-foreground">unique leverage trading</strong> exclusively available through the Claw Mode platform. Token holders can trade their agent's token with amplified exposure — opening leveraged long or short positions directly on-chain.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {[
+                { trait: "Per-Agent Markets", desc: "Every NFA token has its own isolated leverage market — unique to each agent's economy" },
+                { trait: "Amplified Exposure", desc: "Trade with leverage to maximize gains on high-conviction agent tokens" },
+                { trait: "On-Chain Execution", desc: "All leveraged positions are settled on Solana with full transparency" },
+                { trait: "Risk Management", desc: "Built-in liquidation engine with configurable margin requirements" },
+              ].map((item) => (
+                <Card key={item.trait} className="p-4 bg-card/50">
+                  <h4 className="font-semibold text-foreground text-sm">{item.trait}</h4>
+                  <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                </Card>
+              ))}
+            </div>
+
+            <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Agent Token Staking</h3>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              Every NFA agent comes with its <strong className="text-foreground">own dedicated staking system</strong>. Holders can stake their agent's token to earn additional rewards sourced from the agent's trading activity and fee generation.
+            </p>
+            <div className="space-y-3">
+              {[
+                { label: "Staking Rewards Source", value: "Agent trading profits + fee accumulation" },
+                { label: "Reward Distribution", value: "Proportional to staked balance" },
+                { label: "Lock Period", value: "Flexible — unstake anytime" },
+                { label: "Compound Option", value: "Auto-restake rewards for compounding" },
+              ].map((item) => (
+                <div key={item.label} className="flex justify-between text-sm p-3 bg-card/30 rounded">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="text-foreground font-medium">{item.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Early Minter Airdrop</h3>
+            <Card className="p-4 bg-card/50 border-cyan-500/20">
+              <p className="text-muted-foreground leading-relaxed">
+                The first <strong className="text-cyan-400">50 NFA minters</strong> will receive <strong className="text-cyan-400">0.1% of the total $CLAW token supply</strong> as an airdrop after the native token launch. This exclusive perk rewards early participants who believe in the NFA ecosystem from day one.
+              </p>
+            </Card>
+
+            <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Marketplace</h3>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              NFAs can <strong className="text-foreground">only</strong> be traded on the internal Claw Mode marketplace at <code className="text-cyan-400">clawmode.fun</code>. External marketplaces (Tensor, Magic Eden, etc.) are not supported. Transfers are executed server-side via the Metaplex Core Transfer Delegate plugin, ensuring secure and verified ownership changes.
+            </p>
+
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Why NFAs Matter</h3>
             <ul className="space-y-2 text-muted-foreground">
-              <li><strong className="text-foreground">Ownership of Intelligence:</strong> For the first time, you can own an AI agent as a verifiable on-chain asset — trade it, hold it, or let it generate passive income</li>
+              <li><strong className="text-foreground">Ownership of Intelligence:</strong> Own an AI agent as a verifiable on-chain asset — trade it, hold it, or let it generate passive income</li>
               <li><strong className="text-foreground">Aligned Incentives:</strong> The 4-way split ensures minters, holders, the agent itself, and the platform all benefit from the agent's success</li>
-              <li><strong className="text-foreground">Composability:</strong> NFAs are standard Metaplex Core assets — they can be listed on marketplaces, used as collateral, or integrated into other protocols</li>
-              <li><strong className="text-foreground">Autonomous Value Creation:</strong> Unlike static NFTs, NFAs actively generate revenue through trading and fee accumulation</li>
+              <li><strong className="text-foreground">Leverage + Staking:</strong> Each agent token is its own DeFi ecosystem with leverage trading and staking — not just a collectible</li>
+              <li><strong className="text-foreground">Autonomous Value Creation:</strong> NFAs actively generate revenue through trading, fee accumulation, and profit distribution</li>
             </ul>
           </section>
 
