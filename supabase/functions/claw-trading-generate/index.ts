@@ -49,14 +49,15 @@ serve(async (req) => {
     }
 
     // Try to extract explicit name and ticker from the user's request BEFORE calling AI
-    // Patterns like: "name X and ticker $Y", "name X ticker Y", "called X $Y", etc.
-    const nameMatch = userIdea.match(/(?:name|called|named)\s+([A-Za-z0-9.\s]+?)(?:\s+(?:and\s+)?(?:the\s+)?ticker\s+(?:is\s+)?\$?([A-Z0-9.]{2,10}))/i)
-      || userIdea.match(/(?:name|called|named)\s+([A-Za-z0-9.]+)\s+\$([A-Z0-9.]{2,10})/i)
-      || userIdea.match(/\$([A-Z0-9.]{2,10})\s+(?:name|called|named)\s+([A-Za-z0-9.\s]+)/i);
+    // Patterns like: "name X and ticker $Y", "name it X ticker Y", "called X $Y", etc.
+    const nameMatch = userIdea.match(/(?:name|called|named)\s+(?:it\s+|as\s+|to\s+)?([A-Za-z0-9.\s]+?)(?:\s+(?:and\s+)?(?:the\s+)?ticker\s+(?:is\s+)?\$?([A-Z0-9.]{2,10}))/i)
+      || userIdea.match(/(?:name|called|named)\s+(?:it\s+|as\s+|to\s+)?([A-Za-z0-9.]+)\s+\$([A-Z0-9.]{2,10})/i)
+      || userIdea.match(/\$([A-Z0-9.]{2,10})\s+(?:name|called|named)\s+(?:it\s+|as\s+|to\s+)?([A-Za-z0-9.\s]+)/i);
     
     // Also try: "token X ticker Y" or just explicit "$TICKER - Name" patterns
     const tickerOnlyMatch = !nameMatch ? userIdea.match(/ticker\s+(?:is\s+)?\$?([A-Z0-9.]{2,10})/i) : null;
-    const nameOnlyMatch = !nameMatch ? userIdea.match(/(?:token\s+)?name\s+(?:is\s+)?([A-Za-z0-9.]+)/i) : null;
+    // Handle "name it X", "name is X", "name X" patterns - skip filler words like "it", "is", "as", "to"
+    const nameOnlyMatch = !nameMatch ? userIdea.match(/(?:token\s+)?name\s+(?:it\s+|is\s+|as\s+|to\s+)?([A-Za-z0-9.]+)/i) : null;
 
     let explicitName: string | null = null;
     let explicitTicker: string | null = null;
