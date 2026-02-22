@@ -292,8 +292,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
             <button
               onClick={() => setStep("confirm")}
               disabled={!canContinue}
-              className="w-full h-12 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all duration-200 border border-green-500/30 hover:scale-[1.01] hover:shadow-[0_0_30px_rgba(74,222,128,0.2)]"
-              style={{ background: canContinue ? "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)" : "rgba(74, 222, 128, 0.12)", color: canContinue ? "#000" : "rgba(74, 222, 128, 0.5)" }}
+              className={`w-full h-12 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all duration-200 border hover:scale-[1.01] ${canContinue ? "border-green-400/50 bg-gradient-to-r from-green-500 to-green-600 text-black shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:shadow-[0_0_30px_rgba(74,222,128,0.4)]" : "border-green-500/20 bg-green-500/10 text-green-400/50"}`}
             >
               Continue to Payment
             </button>
