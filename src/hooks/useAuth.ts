@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
+import { privyUserIdToUuid } from "@/lib/privyUuid";
 
 export interface AuthUser {
   id: string;
@@ -29,6 +30,16 @@ export interface UseAuthReturn {
 function useAuthPrivy(): UseAuthReturn {
   const { ready, authenticated, user, login, logout } = usePrivy();
   const { wallets } = useWallets();
+  const [profileId, setProfileId] = useState<string | null>(null);
+
+  // Convert Privy DID to deterministic UUID (must match server-side sync-privy-user)
+  useEffect(() => {
+    if (user?.id) {
+      privyUserIdToUuid(user.id).then(setProfileId);
+    } else {
+      setProfileId(null);
+    }
+  }, [user?.id]);
 
   const solanaAddress = useMemo(() => {
     // Check linked wallet on user object
@@ -71,7 +82,7 @@ function useAuthPrivy(): UseAuthReturn {
     isAuthenticated: authenticated,
     isLoading: !ready,
     solanaAddress,
-    profileId: user?.id || null,
+    profileId,
     login,
     logout,
   };
