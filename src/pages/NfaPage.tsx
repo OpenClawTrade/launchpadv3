@@ -261,10 +261,10 @@ function InlineMintFlow({ batch, solanaAddress }: { batch: any; solanaAddress: s
       <button
         onClick={() => setStep("confirm")}
         disabled={!canContinue}
-        className="w-full h-12 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40"
-        style={{ background: canContinue ? "linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)" : "rgba(74,222,128,0.2)", color: canContinue ? "#000" : "#aaa" }}
+        className="w-full h-12 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{ background: canContinue ? "linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)" : "rgba(74,222,128,0.15)", color: canContinue ? "#000" : "#666" }}
       >
-        Continue to Payment
+        {!nameValid && tokenName.length > 0 ? "Invalid name" : !tickerValid && tokenTicker.length > 0 ? "Invalid ticker" : !imageUrl ? "Upload or generate an image first" : "Continue to Payment"}
       </button>
     </div>
   );
@@ -298,7 +298,7 @@ export default function NfaPage() {
           </p>
 
           {/* Stats */}
-          <div className="flex items-center rounded-2xl bg-white/[0.06] backdrop-blur-sm border border-white/10 divide-x divide-white/10">
+          <div className="flex items-center rounded-2xl bg-white/[0.06] backdrop-blur-sm border border-white/10 divide-x divide-white/10 overflow-x-auto">
             {[
               { label: "Items", value: "1,000" },
               { label: "Minted", value: totalMinted.toLocaleString() },
@@ -373,7 +373,7 @@ export default function NfaPage() {
         {tab === "mint" && (
           <div className="max-w-2xl mx-auto pb-12">
             {/* Value props */}
-            <div className="grid grid-cols-3 gap-3 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
               {[
                 { icon: Bot, title: "Autonomous Trading", desc: "Each NFA runs its own AI trading strategy on-chain" },
                 { icon: Coins, title: "Earn Fees", desc: "2% swap fees split between minter, holders & agent" },
@@ -388,7 +388,7 @@ export default function NfaPage() {
             </div>
 
             {/* Mint Flow */}
-            <div className="rounded-2xl border border-white/10 p-6" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.04), rgba(0,0,0,0))" }}>
+            <div className="rounded-2xl border border-white/10 p-4 sm:p-6" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.04), rgba(0,0,0,0))" }}>
               <div className="flex items-center gap-2 mb-5">
                 <Fingerprint className="h-5 w-5 text-green-400" />
                 <h2 className="font-bold text-sm font-mono">Customize & Mint Your NFA</h2>
