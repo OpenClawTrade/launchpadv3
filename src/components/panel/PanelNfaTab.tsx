@@ -294,7 +294,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
               disabled={!canContinue}
               className={`w-full h-12 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all duration-200 border hover:scale-[1.01] ${canContinue ? "border-green-400/50 bg-gradient-to-r from-green-500 to-green-600 text-black shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:shadow-[0_0_30px_rgba(74,222,128,0.4)]" : "border-green-500/20 bg-green-500/10 text-green-400/50"}`}
             >
-              Continue to Payment
+              {!nameValid && tokenName.length > 0 ? "Invalid name" : !nameValid ? "Enter agent name" : !tickerValid && tokenTicker.length > 0 ? "Invalid ticker" : !tickerValid ? "Enter ticker" : !imageUrl ? "Upload or generate image" : "Continue to Payment"}
             </button>
           </div>
 
