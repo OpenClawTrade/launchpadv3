@@ -4153,6 +4153,7 @@ export type Database = {
       nfa_batches: {
         Row: {
           batch_number: number
+          collection_address: string | null
           created_at: string
           generation_completed_at: string | null
           generation_started_at: string | null
@@ -4164,6 +4165,7 @@ export type Database = {
         }
         Insert: {
           batch_number: number
+          collection_address?: string | null
           created_at?: string
           generation_completed_at?: string | null
           generation_started_at?: string | null
@@ -4175,6 +4177,7 @@ export type Database = {
         }
         Update: {
           batch_number?: number
+          collection_address?: string | null
           created_at?: string
           generation_completed_at?: string | null
           generation_started_at?: string | null

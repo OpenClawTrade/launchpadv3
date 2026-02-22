@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
     // Mint NFT on-chain using Metaplex Core
     let nfaMintAddress: string | null = null;
     const treasuryPrivateKey = Deno.env.get("TREASURY_PRIVATE_KEY");
-    const nfaCollectionAddress = Deno.env.get("NFA_COLLECTION_ADDRESS");
+    const nfaCollectionAddress = batch.collection_address;
 
     if (treasuryPrivateKey && nfaCollectionAddress) {
       try {

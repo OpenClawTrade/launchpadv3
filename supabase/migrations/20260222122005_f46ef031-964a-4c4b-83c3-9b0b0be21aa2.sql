@@ -1,0 +1,1 @@
+ALTER TABLE public.nfa_batches ADD COLUMN IF NOT EXISTS collection_address text;
