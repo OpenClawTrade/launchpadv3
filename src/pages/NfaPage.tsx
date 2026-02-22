@@ -251,9 +251,9 @@ function InlineMintFlow({ batch, solanaAddress }: { batch: any; solanaAddress: s
             <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-green-400/10 to-green-600/5">
               {imageUrl ? <img src={imageUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Fingerprint className="h-10 w-10 opacity-30 text-green-400" /></div>}
             </div>
-            <div className="p-3">
+            <div className="p-3 flex items-center gap-2">
               <p className="font-medium text-sm truncate">{tokenName || "Unnamed Agent"}</p>
-              <p className="text-xs text-muted-foreground font-mono">${tokenTicker || "TICKER"}</p>
+              <p className="text-xs text-muted-foreground font-mono flex-shrink-0">${tokenTicker || "TICKER"}</p>
             </div>
           </div>
         </div>
