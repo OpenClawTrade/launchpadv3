@@ -227,17 +227,12 @@ serve(async (req) => {
 
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Skip scan if queue already has 5+ pending items (saves API credits)
-    const { count: pendingCount } = await supabase
+    // Flush stale pending queue items older than 30 min so fresh tweets always get picked up
+    await supabase
       .from("x_bot_account_queue")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending");
-
-    if (pendingCount && pendingCount >= 5) {
-      return new Response(JSON.stringify({ ok: true, reason: "Queue has 5+ pending items, skipping scan", debug }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      .delete()
+      .eq("status", "pending")
+      .lt("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
 
     // Acquire lock
     const lockName = "x-bot-scan";
