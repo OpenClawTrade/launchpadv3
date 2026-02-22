@@ -487,6 +487,9 @@ export function useMeteoraApi() {
   ): Promise<SwapResponse & { signature?: string }> => {
     setIsLoading(true);
     try {
+      // Make sure runtime config has loaded so we hit the correct API URL
+      await waitForRuntimeConfigLoaded(2000);
+
       // Step 1: Get transaction from API
       const result = await apiRequest<SwapResponse>('/swap/execute', params);
       
