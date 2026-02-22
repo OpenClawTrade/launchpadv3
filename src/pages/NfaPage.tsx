@@ -261,8 +261,8 @@ function InlineMintFlow({ batch, solanaAddress }: { batch: any; solanaAddress: s
       <button
         onClick={() => setStep("confirm")}
         disabled={!canContinue}
-        className="w-full h-12 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{ background: canContinue ? "linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)" : "rgba(74,222,128,0.15)", color: canContinue ? "#000" : "#666" }}
+        className="w-full h-12 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all disabled:cursor-not-allowed"
+        style={{ background: canContinue ? "linear-gradient(135deg, #16a34a 0%, #15803d 50%, #166534 100%)" : "linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)", color: "#000", opacity: canContinue ? 1 : 0.5 }}
       >
         {!nameValid && tokenName.length > 0 ? "Invalid name" : !tickerValid && tokenTicker.length > 0 ? "Invalid ticker" : !imageUrl ? "Upload or generate an image first" : "Continue to Payment"}
       </button>
