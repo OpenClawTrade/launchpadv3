@@ -161,7 +161,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    const newSlotNumber = batch.minted_count + 1;
+    // Pick a random slot number (1-1000) that hasn't been used yet
+    const { data: usedSlots } = await supabase
+      .from("nfa_mints")
+      .select("slot_number")
+      .eq("batch_id", batch.id);
+
+    const usedSet = new Set((usedSlots || []).map((s: any) => s.slot_number));
+    const availableSlots: number[] = [];
+    for (let i = 1; i <= batch.total_slots; i++) {
+      if (!usedSet.has(i)) availableSlots.push(i);
+    }
+
+    if (availableSlots.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No available slots in this batch" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const newSlotNumber = availableSlots[Math.floor(Math.random() * availableSlots.length)];
 
     // Mint NFT on-chain using Metaplex Core
     let nfaMintAddress: string | null = null;
