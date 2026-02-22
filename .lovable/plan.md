@@ -1,108 +1,41 @@
 
-# Auto-Trading (No Popup) + Admin Wallet Setup
 
-## What This Does
-- Enables **one-click trading** by removing the Privy approval popup for embedded wallet transactions
-- Prompts users to enable auto-trading on first login (or if they haven't enabled it yet)
-- Adds your wallet as admin so you can access admin features
+## Admin-Only Phantom Launch Tab in Panel
 
-## Two Parts
+### What
+Add a new "Phantom" tab to the Panel page that is only visible to admins. It will embed the existing `TokenLauncher` component (which already has full Phantom launch support) pre-set to Phantom mode, allowing admins to launch tokens directly from the Panel.
 
-### Part 1: Add Admin Role for Your Wallet
+### Changes
 
-Since your wallet `6B19APooM4Vsk3CC2HZ1ubMm82s9wcgwVuB9xpYFMSP6` doesn't have a profile in the database yet, we need to:
-1. Create a profile row for this wallet (via a database migration or by logging in first)
-2. Add the admin role for that profile in `user_roles`
+**1. `src/pages/PanelPage.tsx`**
+- Import `useIsAdmin` hook and the `Ghost` (or similar) icon from lucide
+- Lazy-import a new `PanelPhantomTab` component
+- Read `isAdmin` from `useIsAdmin(solanaAddress)`
+- Conditionally render a new `<PanelTab value="phantom" ...>` after the "Launches" tab, only when `isAdmin` is true
+- Add the corresponding `<TabsContent value="phantom">` rendering `<PanelPhantomTab />`
 
-Since profile IDs are derived from Privy user IDs (deterministic UUID), the simplest approach is:
-- Insert a profile with this wallet address via DB migration
-- Add the admin role for that profile
+**2. `src/components/panel/PanelPhantomTab.tsx`** (new file)
+- Simple wrapper that renders `TokenLauncher` with:
+  - `onLaunchSuccess` callback (shows toast or refetches)
+  - `onShowResult` callback (shows launch result inline)
+  - Force the launcher into Phantom mode by default (the component's `generatorMode` state initializes to "random" -- we'll either pass a prop or create a thin wrapper that only renders the Phantom section)
+- Since `TokenLauncher` is a 2900-line monolith and doesn't accept a `defaultMode` prop, the cleanest approach is to create `PanelPhantomTab` that imports `TokenLauncher` with `bare={true}` and manually sets the mode. However, `bare` only hides the header -- it doesn't force phantom mode.
+- **Better approach**: Create `PanelPhantomTab` as a standalone component that directly uses `usePhantomWallet` and reuses the Phantom launch logic (the `handlePhantomLaunch` callback pattern from `TokenLauncher`). But this would duplicate ~500 lines.
+- **Simplest approach**: Import `TokenLauncher` as-is with `bare={true}`, and add a new optional prop `defaultMode` to `TokenLauncher` that sets the initial `generatorMode` state. This is a 1-line change in `TokenLauncher`.
 
-Alternatively, we can update `useIsAdmin` to look up admin status directly by wallet address from a new `admin_wallets` table or just insert the profile + role once you log in and the `sync-privy-user` function runs.
+### Implementation Steps
 
-**Recommended approach**: Run a DB migration that inserts the admin role linked to your wallet address. We'll also ensure the profile sync creates the profile on login, and add a fallback admin check by wallet address.
+1. **Modify `TokenLauncher`** -- Add optional `defaultMode` prop to `TokenLauncherProps`. Use it as the initial value for `generatorMode` state. When `defaultMode` is `"phantom"`, also hide the mode selector tabs so users can't switch away.
 
-### Part 2: Enable Privy Delegated Actions (Auto-Signing)
+2. **Create `PanelPhantomTab.tsx`** -- Renders `TokenLauncher` with `bare={true}` and `defaultMode="phantom"`, plus simple `onLaunchSuccess` and `onShowResult` handlers (toast + optional inline result display).
 
-Privy supports **delegated actions** via the `useHeadlessDelegatedActions` hook. This allows the app to sign transactions on behalf of the user without showing a popup.
+3. **Update `PanelPage.tsx`** -- Add admin-gated Phantom tab with `useIsAdmin` check.
 
-#### How it works:
-1. User logs in and gets an embedded Solana wallet
-2. We prompt them (once) to "Enable Auto-Trading" which calls `delegateWallet({ address, chainType: 'solana' })`
-3. Once delegated, all future transactions sign automatically -- no popup
+### Technical Details
 
-#### Implementation:
+- `TokenLauncherProps` gets: `defaultMode?: "phantom" | "holders" | "random" | ...` 
+- In `TokenLauncher`, line ~106: `useState(defaultMode || "random")`
+- When `defaultMode === "phantom"`, hide the mode selector row so only Phantom UI shows
+- `PanelPhantomTab` will show a launch result card (mint address, solscan link) after successful launch
+- Admin check uses existing `useIsAdmin(solanaAddress)` hook which queries `user_roles` table via `has_role` RPC
 
-**New file: `src/hooks/useDelegatedWallet.ts`**
-- Uses `useHeadlessDelegatedActions` from `@privy-io/react-auth`
-- Tracks delegation status in `localStorage` 
-- Exposes `isDelegated`, `requestDelegation()`, and `needsDelegation` flags
-
-**New file: `src/components/DelegationPrompt.tsx`**
-- A modal/dialog shown after login when delegation hasn't been granted
-- Explains what auto-trading means ("Trade with one click, no approval popups")
-- "Enable Auto-Trading" button that calls `delegateWallet`
-- "Maybe Later" dismiss option
-- Shown once per session until enabled
-
-**Modified: `src/providers/PrivyProviderWrapper.tsx`**
-- No changes needed to Privy config (delegated actions work with existing embedded wallet setup)
-
-**Modified: App layout or main wrapper**
-- Mount `DelegationPrompt` so it appears when a logged-in user hasn't delegated yet
-
-**Modified: `src/hooks/useSolanaWalletPrivy.ts`**
-- Update `signAndSendTransaction` to use the delegated signing path when available (Privy handles this transparently once delegation is active)
-
----
-
-## Technical Details
-
-### Database Migration
-```sql
--- Ensure profile exists for admin wallet (will be updated when user actually logs in)
-INSERT INTO profiles (id, username, display_name, solana_wallet_address)
-VALUES (gen_random_uuid(), 'admin_6B19', 'Admin', '6B19APooM4Vsk3CC2HZ1ubMm82s9wcgwVuB9xpYFMSP6')
-ON CONFLICT (solana_wallet_address) DO NOTHING;
-
--- Add admin role (will reference the profile created above or after login)
-INSERT INTO user_roles (user_id, role)
-SELECT id, 'admin' FROM profiles 
-WHERE solana_wallet_address = '6B19APooM4Vsk3CC2HZ1ubMm82s9wcgwVuB9xpYFMSP6'
-ON CONFLICT (user_id, role) DO NOTHING;
-```
-
-### Delegation Hook
-```typescript
-import { useHeadlessDelegatedActions } from '@privy-io/react-auth';
-
-const { delegateWallet } = useHeadlessDelegatedActions();
-
-// Call once per user to enable auto-signing:
-await delegateWallet({ address: embeddedWalletAddress, chainType: 'solana' });
-```
-
-### Delegation Prompt Flow
-```text
-User logs in
-    |
-    v
-Check: Has delegation been granted?
-    |
-   No --> Show "Enable Auto-Trading" dialog
-    |         |
-    |     User clicks "Enable"
-    |         |
-    |     Call delegateWallet()
-    |         |
-    |     Save to localStorage
-    |
-   Yes --> Normal app usage (trades sign automatically)
-```
-
-### Files Changed
-1. **DB migration** -- insert profile + admin role for your wallet
-2. **`src/hooks/useDelegatedWallet.ts`** -- new hook for delegation state
-3. **`src/components/DelegationPrompt.tsx`** -- new auto-trading opt-in dialog  
-4. **App layout** -- mount the delegation prompt for logged-in users
-5. **`src/hooks/useSolanaWalletPrivy.ts`** -- minor update to leverage delegated signing
