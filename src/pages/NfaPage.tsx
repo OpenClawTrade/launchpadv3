@@ -106,7 +106,7 @@ export default function NfaPage() {
                 const image = nfa.token_image_url || nfa.agent_image_url;
                 const name = nfa.token_name || nfa.agent_name || `NFA #${nfa.slot_number}`;
                 return (
-                  <div key={nfa.id} className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:scale-[1.02] transition-all duration-200 group">
+                  <Link to={`/nfa/${nfa.id}`} key={nfa.id} className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:scale-[1.02] transition-all duration-200 group block">
                     <div className="aspect-square relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.08), rgba(34,197,94,0.03))" }}>
                       {image ? (
                         <img src={image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -131,7 +131,7 @@ export default function NfaPage() {
                         {nfa.owner_wallet ? `${nfa.owner_wallet.slice(0, 4)}...${nfa.owner_wallet.slice(-4)}` : "—"}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
