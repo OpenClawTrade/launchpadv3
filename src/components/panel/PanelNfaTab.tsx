@@ -222,20 +222,36 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
   };
 
   const handleMint = async () => {
-    if (!mintWalletAddress || !isWalletReady) return;
+    console.log("[NFA-MINT] handleMint called", {
+      mintWalletAddress,
+      embeddedWalletAddress,
+      solanaAddress,
+      isWalletReady,
+    });
+
+    // Use mintWalletAddress even if isWalletReady is false — the embedded wallet
+    // address is enough; the Privy ready/authenticated flags may lag behind.
+    const payingWallet = mintWalletAddress;
+    if (!payingWallet) {
+      toast.error("No wallet available. Please log in first.");
+      console.error("[NFA-MINT] No wallet address available");
+      return;
+    }
 
     // Check embedded wallet balance first
     try {
       const bal = await getBalance();
+      console.log("[NFA-MINT] Embedded balance:", bal);
       setEmbeddedBalance(bal);
       if (bal < MINT_PRICE_SOL + 0.005) {
-        // Insufficient balance — show deposit dialog
         setBalanceAtOpen(bal);
         setShowDepositDialog(true);
         toast.error(`Insufficient balance (${bal.toFixed(4)} SOL). You need at least ${MINT_PRICE_SOL} SOL + fees.`);
         return;
       }
-    } catch {}
+    } catch (balErr) {
+      console.error("[NFA-MINT] Balance check failed:", balErr);
+    }
 
     setMinting(true);
     setStep("minting");
@@ -246,26 +262,38 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
         || import.meta.env.VITE_HELIUS_RPC_URL
         || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : null)
         || "https://mainnet.helius-rpc.com/?api-key=7305c408-6932-49f6-8613-2ec8606fb82d";
+      console.log("[NFA-MINT] RPC URL:", rpcUrl);
+
       const connection = new Connection(rpcUrl, "confirmed");
-      const fromPubkey = new PublicKey(mintWalletAddress);
+      const fromPubkey = new PublicKey(payingWallet);
       const toPubkey = new PublicKey(TREASURY_WALLET);
+      const lamports = Math.floor(MINT_PRICE_SOL * LAMPORTS_PER_SOL);
+      console.log("[NFA-MINT] Building tx:", { from: payingWallet, to: TREASURY_WALLET, lamports });
+
       const transaction = new Transaction().add(
-        SystemProgram.transfer({ fromPubkey, toPubkey, lamports: Math.floor(MINT_PRICE_SOL * LAMPORTS_PER_SOL) })
+        SystemProgram.transfer({ fromPubkey, toPubkey, lamports })
       );
       toast.info("Approve the transaction in your wallet...");
+
+      console.log("[NFA-MINT] Requesting signAndSendTransaction...");
       const { signature, confirmed } = await signAndSendTransaction(transaction);
+      console.log("[NFA-MINT] Tx result:", { signature, confirmed });
+
       if (!confirmed) { toast.error("Transaction not confirmed"); setStep("confirm"); setMinting(false); return; }
       toast.info("Payment confirmed! Minting your NFA on-chain...");
 
+      console.log("[NFA-MINT] Calling nfa-mint edge function...");
       const { data, error } = await supabase.functions.invoke("nfa-mint", {
         body: {
-          minterWallet: mintWalletAddress,
+          minterWallet: payingWallet,
           paymentSignature: signature,
           tokenName: tokenName.trim(),
           tokenTicker: tokenTicker.trim().toUpperCase(),
           tokenImageUrl: imageUrl,
         },
       });
+
+      console.log("[NFA-MINT] Edge function response:", { data, error });
       if (error) { toast.error("Mint failed: " + error.message); setStep("confirm"); setMinting(false); return; }
       const resp = data as any;
       if (resp?.error) { toast.error(resp.error); setStep("confirm"); setMinting(false); return; }
@@ -275,6 +303,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
       queryClient.invalidateQueries({ queryKey: ["nfa-my-mints"] });
       setStep("done");
     } catch (err: any) {
+      console.error("[NFA-MINT] Mint error:", err);
       if (err.message?.includes("User rejected") || err.message?.includes("cancelled")) {
         toast.info("Transaction cancelled");
       } else {
@@ -440,7 +469,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
 
         <button
           onClick={handleMint}
-          disabled={minting || !isWalletReady}
+          disabled={minting || !mintWalletAddress}
           className="w-full h-14 rounded-xl font-bold font-mono text-base gap-2 flex items-center justify-center transition-all duration-200 border border-green-400/50 bg-gradient-to-r from-green-500 to-green-600 text-black shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(74,222,128,0.4)] disabled:opacity-50"
         >
           <Fingerprint className="h-5 w-5" />
