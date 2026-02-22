@@ -366,6 +366,12 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
         <Loader2 className="h-12 w-12 animate-spin" style={{ color: "#4ade80" }} />
         <p className="font-bold text-lg">Minting your NFA on Solana...</p>
         <p className="text-sm text-white/50">This may take a moment</p>
+        <button
+          onClick={() => setStep("confirm")}
+          className="mt-4 px-6 py-2 rounded-lg text-sm font-mono font-bold border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
