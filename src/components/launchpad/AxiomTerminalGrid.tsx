@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
+import { useKingOfTheHill } from "@/hooks/useKingOfTheHill";
 import { AxiomTokenRow } from "./AxiomTokenRow";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Rocket, Flame, CheckCircle2 } from "lucide-react";
@@ -60,6 +61,8 @@ function EmptyColumn({ label }: { label: string }) {
 export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminalGridProps) {
   const [mobileTab, setMobileTab] = useState<ColumnTab>("new");
 
+  const { tokens: kingTokens } = useKingOfTheHill();
+
   const { newPairs, finalStretch, migrated } = useMemo(() => {
     const newPairs = tokens
       .filter(t => (t.bonding_progress ?? 0) < 80 && t.status !== 'graduated')
@@ -70,14 +73,43 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminal
       .filter(t => (t.bonding_progress ?? 0) >= 5 && t.status !== 'graduated')
       .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0));
 
-    // Fallback: if fewer than 3, fill with top tokens by bonding progress (king of the hill)
-    if (finalStretch.length < 3) {
+    // Fallback: fill with King of the Hill tokens if fewer than 3
+    if (finalStretch.length < 3 && kingTokens.length > 0) {
       const existingIds = new Set(finalStretch.map(t => t.id));
-      const topByProgress = tokens
-        .filter(t => t.status !== 'graduated' && !existingIds.has(t.id))
-        .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0))
-        .slice(0, 3 - finalStretch.length);
-      finalStretch = [...finalStretch, ...topByProgress];
+      const kingFill = kingTokens
+        .filter(k => !existingIds.has(k.id))
+        .slice(0, 3 - finalStretch.length)
+        .map(k => ({
+          id: k.id,
+          name: k.name,
+          ticker: k.ticker,
+          description: null,
+          image_url: k.image_url,
+          creator_wallet: k.creator_wallet ?? "",
+          twitter_url: k.twitter_url,
+          website_url: null,
+          twitter_avatar_url: k.twitter_avatar_url ?? null,
+          twitter_verified: k.twitter_verified ?? false,
+          twitter_verified_type: k.twitter_verified_type ?? null,
+          mint_address: k.mint_address,
+          dbc_pool_address: k.dbc_pool_address,
+          status: k.status,
+          price_sol: 0,
+          price_change_24h: null,
+          volume_24h_sol: 0,
+          total_fees_earned: 0,
+          holder_count: k.holder_count,
+          market_cap_sol: k.market_cap_sol,
+          bonding_progress: k.bonding_progress,
+          trading_fee_bps: k.trading_fee_bps,
+          fee_mode: k.fee_mode,
+          agent_id: k.agent_id,
+          launchpad_type: k.launchpad_type,
+          last_distribution_at: null,
+          created_at: k.created_at,
+          updated_at: k.created_at,
+        } satisfies FunToken));
+      finalStretch = [...finalStretch, ...kingFill];
     }
 
     const migrated = tokens
@@ -85,7 +117,7 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminal
       .sort((a, b) => (b.market_cap_sol ?? 0) - (a.market_cap_sol ?? 0));
 
     return { newPairs, finalStretch, migrated };
-  }, [tokens]);
+  }, [tokens, kingTokens]);
 
   const columns = [
     { id: "new" as const, label: "New Pairs", icon: Rocket, tokens: newPairs },
