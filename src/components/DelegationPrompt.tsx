@@ -47,8 +47,7 @@ function DelegationPromptInner() {
             Enable One-Click Trading
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Trade instantly without approval popups. Your wallet stays secure —
-            only this app can sign transactions on your behalf.
+            Trade instantly on Terminal mode without extra approvals. Your wallet stays secure.
           </DialogDescription>
         </DialogHeader>
 
@@ -65,9 +64,9 @@ function DelegationPromptInner() {
           <div className="flex items-start gap-3 p-3 rounded-lg bg-surface border border-border">
             <Shield className="h-4 w-4 mt-0.5 text-accent-blue flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-foreground">Secure delegation</p>
+              <p className="text-sm font-medium text-foreground">Secure & revocable</p>
               <p className="text-xs text-muted-foreground">
-                Only Claw Mode can execute trades. You can revoke anytime.
+                You stay in full control. Revoke access anytime from settings.
               </p>
             </div>
           </div>
