@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { X, Copy, Check, Rocket, Shield, Zap, Globe, Clock, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { X, Copy, Check, Rocket, Shield, Zap, Globe, Sparkles } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -9,32 +9,10 @@ interface CreateTokenModalProps {
 }
 
 const EXAMPLE_TEXT = "@clawmode !clawmode a meme coin about a dancing lobster";
-const HALT_UNTIL = new Date("2026-02-22T11:40:00Z");
-
-function useCountdown(targetDate: Date) {
-  const [remaining, setRemaining] = useState(() => Math.max(0, targetDate.getTime() - Date.now()));
-
-  useEffect(() => {
-    if (remaining <= 0) return;
-    const timer = setInterval(() => {
-      const diff = Math.max(0, targetDate.getTime() - Date.now());
-      setRemaining(diff);
-      if (diff <= 0) clearInterval(timer);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [targetDate]);
-
-  const hours = Math.floor(remaining / 3600000);
-  const minutes = Math.floor((remaining % 3600000) / 60000);
-  const seconds = Math.floor((remaining % 60000) / 1000);
-
-  return { hours, minutes, seconds, isActive: remaining > 0 };
-}
 
 export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
   const [copied, setCopied] = useState(false);
   const isMobile = useIsMobile();
-  const countdown = useCountdown(HALT_UNTIL);
 
   if (!open) return null;
 
@@ -81,20 +59,16 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
           <div className="flex items-center gap-3.5">
             <div
               className="flex items-center justify-center w-11 h-11 md:w-10 md:h-10 rounded-2xl md:rounded-xl"
-              style={{ background: countdown.isActive ? "linear-gradient(135deg, #64748B, #475569)" : "linear-gradient(135deg, #F97316, #EA580C)" }}
+              style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
             >
-              {countdown.isActive ? (
-                <Clock className="w-5 h-5 md:w-5 md:h-5 text-white" />
-              ) : (
-                <Rocket className="w-5 h-5 md:w-5 md:h-5 text-white" />
-              )}
+              <Rocket className="w-5 h-5 md:w-5 md:h-5 text-white" />
             </div>
             <div>
               <h2 className="text-[22px] md:text-xl font-bold text-[#F1F5F9] tracking-tight leading-tight">
-                {countdown.isActive ? "Launching Soon" : "Launch Token"}
+                Launch Token
               </h2>
               <p className="text-xs md:text-xs text-[#64748B] font-medium mt-0.5">
-                {countdown.isActive ? "Temporarily paused" : "via X (Twitter)"}
+                via X (Twitter)
               </p>
             </div>
           </div>
@@ -109,37 +83,6 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
 
         {/* Content — scrollable */}
         <div className="flex-1 overflow-y-auto px-5 md:px-10 py-4 md:py-6 space-y-5 md:space-y-5">
-
-          {/* Countdown Banner */}
-          {countdown.isActive && (
-            <div
-              className="rounded-2xl md:rounded-xl p-5 md:p-5 text-center space-y-4"
-              style={{
-                background: "linear-gradient(135deg, rgba(249,115,22,0.08), rgba(234,88,12,0.04))",
-                border: "1px solid rgba(249,115,22,0.2)",
-              }}
-            >
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Clock className="w-4 h-4 text-[#F97316]" />
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#F97316]">
-                  Resumes In
-                </p>
-              </div>
-
-              {/* Timer digits */}
-              <div className="flex items-center justify-center gap-3">
-                <TimeUnit value={countdown.hours} label="HRS" />
-                <span className="text-2xl font-bold text-[#475569] -mt-4">:</span>
-                <TimeUnit value={countdown.minutes} label="MIN" />
-                <span className="text-2xl font-bold text-[#475569] -mt-4">:</span>
-                <TimeUnit value={countdown.seconds} label="SEC" />
-              </div>
-
-              <p className="text-[13px] text-[#94A3B8] leading-relaxed">
-                Token creation is temporarily paused while we prepare for our next phase.
-              </p>
-            </div>
-          )}
 
           {/* NFA Announcement */}
           <div
@@ -160,7 +103,7 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
                 <p className="text-[14px] font-bold text-[#F1F5F9]">
                   NFA — Non-Fungible Agents
                 </p>
-                <p className="text-[11px] text-[#64748B] font-medium">Coming Next</p>
+                <p className="text-[11px] text-[#64748B] font-medium">Coming Soon</p>
               </div>
             </div>
             <p className="text-[13px] text-[#CBD5E1] leading-[1.65]">
@@ -169,94 +112,86 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
               1,000 unique AI agents minted as NFTs on Solana. Each NFA owns its own token, 
               earns trading fees, and can be traded as a complete on-chain business.
             </p>
-            <p className="text-[13px] text-[#94A3B8] leading-[1.65]">
-              Once NFAs launch, the native token creation feature will resume with enhanced capabilities 
-              powered by the NFA ecosystem.
-            </p>
           </div>
 
-          {/* Steps — show only when not halted */}
-          {!countdown.isActive && (
-            <>
-              <div className="space-y-0">
-                <p className="text-xs md:text-[11px] font-semibold uppercase tracking-[0.15em] text-[#64748B] mb-5 md:mb-4">
-                  How it works
+          {/* Steps */}
+          <div className="space-y-0">
+            <p className="text-xs md:text-[11px] font-semibold uppercase tracking-[0.15em] text-[#64748B] mb-5 md:mb-4">
+              How it works
+            </p>
+
+            {/* Step 1 */}
+            <div className="flex items-start gap-4 md:gap-4">
+              <StepNumber n={1} />
+              <div className="flex-1 pt-1">
+                <p className="text-[15px] md:text-[14px] font-medium leading-snug text-[#E2E8F0]">
+                  Reply to any post on X with:
                 </p>
-
-                {/* Step 1 */}
-                <div className="flex items-start gap-4 md:gap-4">
-                  <StepNumber n={1} />
-                  <div className="flex-1 pt-1">
-                    <p className="text-[15px] md:text-[14px] font-medium leading-snug text-[#E2E8F0]">
-                      Reply to any post on X with:
-                    </p>
-                    <div
-                      className="mt-3 rounded-2xl md:rounded-xl px-4 py-4 md:px-5 md:py-3.5 font-mono text-[13px] md:text-[13px] relative"
-                      style={{
-                        background: "rgba(15,23,42,0.9)",
-                        border: "1px solid rgba(51,65,85,0.6)",
-                      }}
-                    >
-                      <div className="pr-10">
-                        <span className="text-[#F97316] font-semibold">@clawmode</span>{" "}
-                        <span className="text-[#64748B]">!clawmode</span>
-                        <br className="sm:hidden" />
-                        <span className="text-[#94A3B8] italic"> describe what you want to launch</span>
-                      </div>
-
-                      <button
-                        onClick={handleCopy}
-                        className={cn(
-                          "absolute top-3 right-3 flex items-center justify-center w-10 h-10 md:w-7 md:h-7 rounded-xl md:rounded-lg transition-all active:scale-90",
-                          copied
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-white/8 text-[#64748B] hover:bg-white/10 hover:text-[#94A3B8]"
-                        )}
-                        aria-label="Copy command"
-                      >
-                        {copied ? <Check className="w-4 h-4 md:w-3.5 md:h-3.5" /> : <Copy className="w-4 h-4 md:w-3.5 md:h-3.5" />}
-                      </button>
-                    </div>
+                <div
+                  className="mt-3 rounded-2xl md:rounded-xl px-4 py-4 md:px-5 md:py-3.5 font-mono text-[13px] md:text-[13px] relative"
+                  style={{
+                    background: "rgba(15,23,42,0.9)",
+                    border: "1px solid rgba(51,65,85,0.6)",
+                  }}
+                >
+                  <div className="pr-10">
+                    <span className="text-[#F97316] font-semibold">@clawmode</span>{" "}
+                    <span className="text-[#64748B]">!clawmode</span>
+                    <br className="sm:hidden" />
+                    <span className="text-[#94A3B8] italic"> describe what you want to launch</span>
                   </div>
-                </div>
 
-                <div className="h-5 md:h-4" />
-
-                {/* Step 2 */}
-                <div className="flex items-start gap-4 md:gap-4">
-                  <StepNumber n={2} />
-                  <p className="text-[15px] md:text-[14px] pt-1 leading-[1.55] text-[#CBD5E1]">
-                    Our AI generates the name, ticker, description & avatar automatically
-                  </p>
-                </div>
-
-                <div className="h-5 md:h-4" />
-
-                {/* Step 3 */}
-                <div className="flex items-start gap-4 md:gap-4">
-                  <StepNumber n={3} />
-                  <p className="text-[15px] md:text-[14px] pt-1 leading-[1.55] text-[#CBD5E1]">
-                    Token deploys instantly on Solana — you'll get a reply with the link
-                  </p>
+                  <button
+                    onClick={handleCopy}
+                    className={cn(
+                      "absolute top-3 right-3 flex items-center justify-center w-10 h-10 md:w-7 md:h-7 rounded-xl md:rounded-lg transition-all active:scale-90",
+                      copied
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-white/8 text-[#64748B] hover:bg-white/10 hover:text-[#94A3B8]"
+                    )}
+                    aria-label="Copy command"
+                  >
+                    {copied ? <Check className="w-4 h-4 md:w-3.5 md:h-3.5" /> : <Copy className="w-4 h-4 md:w-3.5 md:h-3.5" />}
+                  </button>
                 </div>
               </div>
+            </div>
 
-              {/* Example */}
-              <div
-                className="rounded-2xl md:rounded-xl px-4 py-3.5 md:px-5 md:py-3.5"
-                style={{
-                  background: "rgba(249,115,22,0.05)",
-                  border: "1px solid rgba(249,115,22,0.12)",
-                }}
-              >
-                <p className="text-[12px] md:text-[12px] font-mono text-[#94A3B8] leading-relaxed">
-                  <span className="text-[#64748B]">Example:</span>{" "}
-                  <span className="text-[#F97316]">@clawmode !clawmode</span>{" "}
-                  <span className="text-[#CBD5E1]">a meme coin about a dancing lobster</span>
-                </p>
-              </div>
-            </>
-          )}
+            <div className="h-5 md:h-4" />
+
+            {/* Step 2 */}
+            <div className="flex items-start gap-4 md:gap-4">
+              <StepNumber n={2} />
+              <p className="text-[15px] md:text-[14px] pt-1 leading-[1.55] text-[#CBD5E1]">
+                Our AI generates the name, ticker, description & avatar automatically
+              </p>
+            </div>
+
+            <div className="h-5 md:h-4" />
+
+            {/* Step 3 */}
+            <div className="flex items-start gap-4 md:gap-4">
+              <StepNumber n={3} />
+              <p className="text-[15px] md:text-[14px] pt-1 leading-[1.55] text-[#CBD5E1]">
+                Token deploys instantly on Solana — you'll get a reply with the link
+              </p>
+            </div>
+          </div>
+
+          {/* Example */}
+          <div
+            className="rounded-2xl md:rounded-xl px-4 py-3.5 md:px-5 md:py-3.5"
+            style={{
+              background: "rgba(249,115,22,0.05)",
+              border: "1px solid rgba(249,115,22,0.12)",
+            }}
+          >
+            <p className="text-[12px] md:text-[12px] font-mono text-[#94A3B8] leading-relaxed">
+              <span className="text-[#64748B]">Example:</span>{" "}
+              <span className="text-[#F97316]">@clawmode !clawmode</span>{" "}
+              <span className="text-[#CBD5E1]">a meme coin about a dancing lobster</span>
+            </p>
+          </div>
 
           {/* Trust badges */}
           <div className="flex flex-wrap gap-2.5 md:gap-2">
@@ -272,22 +207,15 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
             href="https://x.com/clawmode"
             target="_blank"
             rel="noopener noreferrer"
-            className={cn(
-              "flex items-center justify-center gap-2.5 w-full py-4 md:py-4 rounded-2xl text-[16px] md:text-[15px] font-bold text-white transition-all active:scale-[0.97] hover:shadow-lg",
-              countdown.isActive && "opacity-60 pointer-events-none"
-            )}
+            className="flex items-center justify-center gap-2.5 w-full py-4 md:py-4 rounded-2xl text-[16px] md:text-[15px] font-bold text-white transition-all active:scale-[0.97] hover:shadow-lg"
             style={{
-              background: countdown.isActive 
-                ? "linear-gradient(135deg, #475569, #334155)" 
-                : "linear-gradient(135deg, #F97316, #EA580C)",
-              boxShadow: countdown.isActive 
-                ? "none" 
-                : "0 6px 24px rgba(249,115,22,0.35)",
+              background: "linear-gradient(135deg, #F97316, #EA580C)",
+              boxShadow: "0 6px 24px rgba(249,115,22,0.35)",
               minHeight: "54px",
             }}
           >
-            {countdown.isActive ? "Paused — Resuming Soon" : "Go to @clawmode on X"}
-            {!countdown.isActive && <span className="text-white/80">→</span>}
+            Go to @clawmode on X
+            <span className="text-white/80">→</span>
           </a>
 
           <p className="text-[10px] text-[#475569] text-center mt-3.5 leading-relaxed">
@@ -295,23 +223,6 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
           </p>
         </div>
       </div>
-    </div>
-  );
-}
-
-function TimeUnit({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="flex flex-col items-center">
-      <div
-        className="w-16 h-16 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-2xl md:text-xl font-mono font-bold text-[#F1F5F9]"
-        style={{
-          background: "rgba(15,23,42,0.8)",
-          border: "1px solid rgba(249,115,22,0.2)",
-        }}
-      >
-        {String(value).padStart(2, "0")}
-      </div>
-      <p className="text-[9px] font-semibold tracking-wider text-[#64748B] mt-1.5">{label}</p>
     </div>
   );
 }
