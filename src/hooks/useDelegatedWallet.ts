@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
-import { useHeadlessDelegatedActions } from "@privy-io/react-auth";
 
 const DELEGATION_KEY = "claw_wallet_delegated";
 
 export function useDelegatedWallet() {
   const { ready, authenticated } = usePrivy();
   const { wallets } = useWallets();
-  const { delegateWallet } = useHeadlessDelegatedActions();
 
   const [isDelegated, setIsDelegated] = useState(() => {
     try {
@@ -34,9 +32,10 @@ export function useDelegatedWallet() {
       String(w?.name ?? "").toLowerCase().includes("privy")
   );
 
-  // Check if the wallet is already delegated via Privy's wallet object
+  // With TEE execution, delegation is not needed — wallets already support
+  // server-side access. Auto-mark as delegated when an embedded wallet exists.
   useEffect(() => {
-    if (embeddedWallet && (embeddedWallet as any).delegated) {
+    if (embeddedWallet) {
       setIsDelegated(true);
       try {
         localStorage.setItem(DELEGATION_KEY, "true");
@@ -44,34 +43,15 @@ export function useDelegatedWallet() {
     }
   }, [embeddedWallet]);
 
-  const needsDelegation =
-    ready && authenticated && !!embeddedWallet && !isDelegated && !dismissed;
+  const needsDelegation = false; // TEE wallets don't need delegation
 
   const requestDelegation = useCallback(async () => {
-    if (!embeddedWallet) throw new Error("No embedded wallet found");
-    setIsDelegating(true);
+    // No-op for TEE wallets — already delegated
+    setIsDelegated(true);
     try {
-      // Add timeout to prevent infinite "Enabling..." state
-      const result = await Promise.race([
-        delegateWallet({
-          address: embeddedWallet.address,
-          chainType: "solana",
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Delegation timed out. Please try again.")), 30000)
-        ),
-      ]);
-      setIsDelegated(true);
-      try {
-        localStorage.setItem(DELEGATION_KEY, "true");
-      } catch {}
-    } catch (err) {
-      console.error("[useDelegatedWallet] delegation error:", err);
-      setIsDelegating(false);
-      throw err;
-    }
-    setIsDelegating(false);
-  }, [embeddedWallet, delegateWallet]);
+      localStorage.setItem(DELEGATION_KEY, "true");
+    } catch {}
+  }, []);
 
   const dismiss = useCallback(() => {
     setDismissed(true);
