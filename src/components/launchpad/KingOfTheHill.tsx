@@ -48,6 +48,20 @@ function Bar({ value }: { value: number }) {
 
 /* ── card ── */
 function Card({ token, rank }: { token: KingToken; rank: number }) {
+  const [blink, setBlink] = useState(false);
+
+  useEffect(() => {
+    const schedule = () => {
+      const delay = 2000 + Math.random() * 4000; // 2-6s random
+      return setTimeout(() => {
+        setBlink(true);
+        setTimeout(() => setBlink(false), 300);
+        timerId = schedule();
+      }, delay);
+    };
+    let timerId = schedule();
+    return () => clearTimeout(timerId);
+  }, []);
   const { solPrice } = useSolPrice();
   const progress = token.bonding_progress ?? 0;
   const mcapUsd = (token.market_cap_sol ?? 0) * (solPrice || 0);
@@ -74,6 +88,7 @@ function Card({ token, rank }: { token: KingToken; rank: number }) {
         "p-4 md:p-5",
         r.accent, r.hoverAccent,
         "hover:scale-[1.02] active:scale-[0.99]",
+        blink && "animate-[king-blink_0.3s_ease-in-out]",
       )}
       style={{
         background: "hsl(215 28% 12% / 0.55)",

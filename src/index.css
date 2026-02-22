@@ -692,6 +692,12 @@ body.matrix-hidden canvas {
   animation: lt-shake 0.5s ease-in-out;
 }
 
+/* King of the Claws blink */
+@keyframes king-blink {
+  0%, 100% { opacity: 1; box-shadow: none; }
+  50% { opacity: 0.7; box-shadow: 0 0 12px 2px hsl(var(--success) / 0.35); }
+}
+
 /* Price pulse glow */
 @keyframes lt-price-pulse {
   0% { text-shadow: 0 0 0 transparent; }
