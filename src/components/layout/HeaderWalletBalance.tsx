@@ -55,7 +55,9 @@ function HeaderWalletBalanceInner() {
     >
       <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="text-foreground font-mono">
-        {balance !== null ? `${balance.toFixed(3)} SOL` : "..."}
+        {balance !== null
+          ? `${balance.toFixed(3)} SOL`
+          : `${solanaAddress.slice(0, 4)}..${solanaAddress.slice(-4)}`}
       </span>
       <span className="text-muted-foreground group-hover:text-foreground transition-colors">
         {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
