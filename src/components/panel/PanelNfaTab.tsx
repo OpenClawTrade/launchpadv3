@@ -672,9 +672,9 @@ export default function PanelNfaTab() {
   const slotsRemaining = batch ? batch.total_slots - batch.minted_count : 0;
 
   return (
-    <div className="max-w-3xl mx-auto pb-8 space-y-0">
+    <div className="max-w-3xl mx-auto pb-8 space-y-6">
       {/* ── Hero Banner ── */}
-      <div className="relative rounded-2xl overflow-hidden mb-6" style={{ background: "linear-gradient(135deg, #0a1628 0%, #0d2818 50%, #0a1628 100%)" }}>
+      <div className="relative rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0a1628 0%, #0d2818 50%, #0a1628 100%)" }}>
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "linear-gradient(rgba(74,222,128,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.3) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
         <div className="relative px-6 py-8 flex flex-col items-center text-center">
           <div className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(74,222,128,0.3)]" style={{ background: "linear-gradient(135deg, #4ade80, #16a34a)" }}>
@@ -687,7 +687,7 @@ export default function PanelNfaTab() {
           <p className="text-xs text-muted-foreground max-w-sm">
             The first NFA standard on Solana — autonomous trading agents that earn, trade & evolve
           </p>
-          <div className="flex items-center gap-0 mt-6 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 divide-x divide-white/10">
+          <div className="flex items-center gap-0 mt-6 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 divide-x divide-white/10 overflow-x-auto">
             {[
               { label: "Items", value: batch?.total_slots?.toLocaleString() ?? "1,000" },
               { label: "Minted", value: batch?.minted_count?.toLocaleString() ?? "0" },
@@ -704,7 +704,7 @@ export default function PanelNfaTab() {
 
       {/* ── Live Mint Section ── */}
       {batch && (
-        <div className="relative rounded-2xl border border-white/10 p-5 mb-6" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.04), rgba(0,0,0,0))" }}>
+        <div className="relative rounded-2xl border border-white/10 p-5" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.04), rgba(0,0,0,0))" }}>
           <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ boxShadow: "inset 0 0 30px rgba(74,222,128,0.05)" }} />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
@@ -747,7 +747,7 @@ export default function PanelNfaTab() {
       )}
 
       {/* ── About + Details ── */}
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
             <Globe className="h-4 w-4" style={{ color: "#4ade80" }} />
