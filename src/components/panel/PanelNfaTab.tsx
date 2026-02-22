@@ -866,6 +866,26 @@ export default function PanelNfaTab() {
   return (
     <div className="pb-8 space-y-6">
 
+      {/* Early Minter Airdrop Info Box */}
+      <div className="relative rounded-2xl border border-primary/30 overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.08) 0%, rgba(250,204,21,0.06) 100%)" }}>
+        <div className="absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[10px] font-bold font-mono uppercase tracking-wider bg-primary/20 text-primary">
+          Limited
+        </div>
+        <div className="px-5 py-4 flex items-start gap-4">
+          <div className="shrink-0 h-10 w-10 rounded-xl flex items-center justify-center mt-0.5" style={{ background: "linear-gradient(135deg, #4ade80, #facc15)" }}>
+            <Coins className="h-5 w-5 text-black" />
+          </div>
+          <div>
+            <h3 className="font-mono font-bold text-sm text-foreground mb-1">🎁 Mint 1 NFA → Get 0.1% of $CLAW Supply</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Each NFA mint earns you <span className="text-primary font-semibold">0.1% of the total $CLAW token supply</span>, airdropped after our native token launch.{" "}
+              <span className="text-yellow-400 font-semibold">First 50 NFA mints only</span> — don't miss out.
+            </p>
+          </div>
+        </div>
+      </div>
+
+
       {/* ── Desktop: 2-column layout. Mobile: stacked ── */}
       <div className="flex flex-col xl:flex-row gap-6">
 
