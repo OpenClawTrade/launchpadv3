@@ -416,25 +416,22 @@ export default function FunTokenDetailPage() {
 
           {/* ──── BONDING PROGRESS ──── */}
           {isBonding && (
-            <div className="terminal-panel-flush flex items-center gap-3 px-4 py-2.5 md:py-2 lg:py-1.5 rounded-lg">
+            <div className="terminal-panel-flush flex items-center gap-3 px-4 py-3 md:py-2.5 lg:py-2 rounded-lg">
               <Zap className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3 terminal-stat-orange shrink-0" />
               <span className="text-[10px] md:text-[9px] font-mono text-muted-foreground uppercase tracking-wider shrink-0">Bonding</span>
-              {/* Progress bar: thick on phone, medium on tablet, thin on desktop */}
-              <div className="flex-1 h-3 md:h-2.5 lg:h-1.5 bg-secondary rounded-full overflow-hidden relative">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(bondingProgress, 100)}%`,
-                    background: bondingProgress >= 80
-                      ? 'linear-gradient(90deg, hsl(24 95% 53%), hsl(0 72% 55%))'
-                      : 'linear-gradient(90deg, hsl(187 80% 53%), hsl(160 84% 39%))',
-                    boxShadow: bondingProgress >= 80 ? '0 0 8px hsl(24 95% 53% / 0.4)' : '0 0 8px hsl(187 80% 53% / 0.25)',
-                  }}
-                />
-                {/* % overlay on phone only */}
-                <span className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-bold text-white md:hidden drop-shadow-sm">
-                  {bondingProgress.toFixed(1)}%
-                </span>
+              {/* Progress bar */}
+              <div className="flex-1 min-w-[80px]">
+                <div className="w-full rounded-full overflow-hidden bg-white/10" style={{ height: '10px' }}>
+                  <div
+                    className="rounded-full bg-cyan-400"
+                    style={{
+                      height: '10px',
+                      width: `${Math.max(Math.min(bondingProgress, 100), 1)}%`,
+                      boxShadow: '0 0 12px rgba(34,211,238,0.5)',
+                      transition: 'width 0.5s ease',
+                    }}
+                  />
+                </div>
               </div>
               <span className="text-xs md:text-[11px] lg:text-[10px] font-mono font-bold terminal-stat-orange shrink-0 hidden md:inline">{bondingProgress.toFixed(1)}%</span>
               <span className="text-xs md:text-[10px] lg:text-[9px] font-mono text-muted-foreground shrink-0">{realSolReserves.toFixed(1)}/{GRADUATION_THRESHOLD} SOL</span>
