@@ -81,9 +81,16 @@ function decodePoolReserves(base64Data: string): {
       }
     }
 
-    const virtualSolReserves = Number(quoteReserve) / 1e9;
-    const virtualTokenReserves = Number(baseReserve) / Math.pow(10, TOKEN_DECIMALS);
-    const realSolReserves = Math.max(0, virtualSolReserves - INITIAL_VIRTUAL_SOL);
+    // quoteReserve = accumulated SOL from trades (NOT total virtual SOL)
+    // baseReserve = remaining token reserves
+    const baseReserveNum = Number(baseReserve);
+    // Detect token decimals: 9-decimal tokens have baseReserve > 1e17
+    const tokenDecimals = baseReserveNum > 1e17 ? 9 : TOKEN_DECIMALS;
+    const virtualTokenReserves = baseReserveNum / Math.pow(10, tokenDecimals);
+    
+    const accumulatedSol = Number(quoteReserve) / 1e9;
+    const virtualSolReserves = INITIAL_VIRTUAL_SOL + accumulatedSol;
+    const realSolReserves = accumulatedSol;
 
     if (virtualSolReserves <= 0 || virtualTokenReserves <= 0) {
       console.warn('[pool-state] Invalid reserves:', { virtualSolReserves, virtualTokenReserves });
@@ -94,6 +101,7 @@ function decodePoolReserves(base64Data: string): {
       virtualSolReserves: virtualSolReserves.toFixed(4),
       virtualTokenReserves: virtualTokenReserves.toFixed(0),
       realSolReserves: realSolReserves.toFixed(4),
+      tokenDecimals,
     });
 
     return { realSolReserves, virtualSolReserves, virtualTokenReserves, mintAddress };
@@ -270,24 +278,43 @@ Deno.serve(async (req) => {
     const heliusRpcUrl = Deno.env.get('HELIUS_RPC_URL') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get token from database first
+    // Check fun_tokens first (primary table), fallback to tokens
     let token: any = null;
     if (mintAddress) {
       const { data } = await supabase
-        .from('tokens')
+        .from('fun_tokens')
         .select('*')
         .eq('mint_address', mintAddress)
         .maybeSingle();
       token = data;
+      
+      // Fallback to tokens table if not found
+      if (!token) {
+        const { data: legacyData } = await supabase
+          .from('tokens')
+          .select('*')
+          .eq('mint_address', mintAddress)
+          .maybeSingle();
+        token = legacyData;
+      }
     }
 
     if (!token && poolAddress) {
       const { data } = await supabase
-        .from('tokens')
+        .from('fun_tokens')
         .select('*')
         .eq('dbc_pool_address', poolAddress)
         .maybeSingle();
       token = data;
+      
+      if (!token) {
+        const { data: legacyData } = await supabase
+          .from('tokens')
+          .select('*')
+          .eq('dbc_pool_address', poolAddress)
+          .maybeSingle();
+        token = legacyData;
+      }
     }
 
     const dbcPool = poolAddress || token?.dbc_pool_address;
