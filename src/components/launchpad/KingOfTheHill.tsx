@@ -62,12 +62,7 @@ function Card({ token, rank }: { token: KingToken; rank: number }) {
   const vType = token.twitter_verified_type;
   const checkClr = vType === "business" || vType === "government" ? "#EAB308" : "#1D9BF0";
 
-  const url =
-    isPump || isBags || isTrader
-      ? `/t/${token.ticker}`
-      : token.agent_id
-        ? `/t/${token.ticker}`
-        : `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`;
+  const url = `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`;
 
   return (
     <Link
