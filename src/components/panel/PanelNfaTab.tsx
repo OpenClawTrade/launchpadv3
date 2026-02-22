@@ -367,7 +367,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
         <p className="font-bold text-lg">Minting your NFA on Solana...</p>
         <p className="text-sm text-white/50">This may take a moment</p>
         <button
-          onClick={() => setStep("confirm")}
+          onClick={() => { setMinting(false); setStep("confirm"); }}
           className="mt-4 px-6 py-2 rounded-lg text-sm font-mono font-bold border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-colors"
         >
           Retry
