@@ -25,8 +25,7 @@ function LinkXButton() {
         }
       }}
       disabled={linking}
-      className="gap-2 font-mono"
-      style={{ background: "#4ade80", color: "#000" }}
+      className="gap-2 font-mono bg-green-500 hover:bg-green-600 text-black border-0"
     >
       {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Twitter className="h-4 w-4" />}
       Link X Account
