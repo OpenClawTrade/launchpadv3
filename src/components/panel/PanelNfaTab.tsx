@@ -46,7 +46,40 @@ interface NfaMint {
 
 type MintStep = "customize" | "confirm" | "minting" | "done";
 
-/* ───────── NFA Preview Card ───────── */
+/* ───────── Large Preview Card ───────── */
+function NfaPreviewCardLarge({ name, ticker, imageUrl, slot }: { name: string; ticker: string; imageUrl: string | null; slot?: number }) {
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center p-4">
+      <div
+        className="w-full max-w-[360px] aspect-square rounded-2xl overflow-hidden relative border border-white/10 transition-all duration-500"
+        style={{
+          background: "linear-gradient(135deg, rgba(74,222,128,0.08), rgba(34,197,94,0.03))",
+          boxShadow: imageUrl ? "0 0 60px rgba(74,222,128,0.12)" : "none",
+        }}
+      >
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="w-full h-full object-cover animate-[fadeIn_0.4s_ease]" />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+            <Fingerprint className="h-16 w-16 opacity-20" style={{ color: "#4ade80" }} />
+            <p className="text-xs text-white/30 font-mono">Generate or upload an image</p>
+          </div>
+        )}
+        {slot && (
+          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-black/70 backdrop-blur-sm text-white">
+            #{slot}
+          </div>
+        )}
+      </div>
+      <div className="mt-4 text-center">
+        <p className="font-bold text-base truncate max-w-[280px]">{name || "Unnamed Agent"}</p>
+        <p className="text-sm text-white/50 font-mono mt-0.5">${ticker || "TICKER"}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ───────── Small Preview Card (for grids) ───────── */
 function NfaPreviewCard({ name, ticker, imageUrl, slot }: { name: string; ticker: string; imageUrl: string | null; slot?: number }) {
   return (
     <div className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] max-w-[200px] mx-auto">
@@ -189,100 +222,111 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
 
   if (step === "customize") {
     return (
-      <div className="space-y-5">
-        <div className="text-center">
-          <h3 className="font-bold text-sm mb-1">Customize Your NFA</h3>
-          <p className="text-xs text-muted-foreground">Define your agent's identity before minting</p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-5">
-          {/* Form */}
-          <div className="space-y-4">
+      <div className="space-y-6">
+        {/* Desktop: side-by-side form + preview */}
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+          {/* Form — left side on desktop */}
+          <div className="flex-1 min-w-0 space-y-5">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Token Name</label>
-              <Input
-                value={tokenName}
-                onChange={e => setTokenName(e.target.value)}
-                placeholder="e.g. Neptune Agent"
-                maxLength={32}
-                className="bg-white/[0.04] border-white/10 text-sm"
-              />
-              <p className="text-[10px] text-muted-foreground mt-1">{tokenName.length}/32</p>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Ticker</label>
-              <Input
-                value={tokenTicker}
-                onChange={e => setTokenTicker(e.target.value.replace(/[^A-Za-z0-9.]/g, "").toUpperCase())}
-                placeholder="e.g. NEPTUNE"
-                maxLength={10}
-                className="bg-white/[0.04] border-white/10 text-sm font-mono"
-              />
-              <p className="text-[10px] text-muted-foreground mt-1">{tokenTicker.length}/10</p>
+              <h3 className="font-bold text-lg lg:text-xl mb-1 text-[#F1F5F9]">Customize Your NFA</h3>
+              <p className="text-sm text-white/50">Define your agent's identity before minting</p>
             </div>
 
-            {/* Image */}
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Agent Image</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleGenerateAI}
-                  disabled={generating || uploading}
-                  className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-medium border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors disabled:opacity-50"
-                >
-                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" style={{ color: "#4ade80" }} />}
-                  Generate AI
-                </button>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={generating || uploading}
-                  className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-medium border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors disabled:opacity-50"
-                >
-                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  Upload
-                </button>
-                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleUpload} />
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-white/70 mb-2 block">Token Name</label>
+                <Input
+                  value={tokenName}
+                  onChange={e => setTokenName(e.target.value)}
+                  placeholder="e.g. Neptune Agent"
+                  maxLength={32}
+                  className="bg-white/[0.04] border-white/10 text-sm h-11 rounded-xl"
+                />
+                <p className="text-[11px] text-white/30 mt-1.5 font-mono">{tokenName.length}/32</p>
               </div>
-              {imageUrl && (
-                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                  <CheckCircle2 className="h-3.5 w-3.5" style={{ color: "#4ade80" }} />
-                  {imageSource === "ai" ? "AI-generated" : "Uploaded"} image
-                  <button onClick={() => { setImageUrl(null); setImageSource(null); }} className="ml-auto hover:text-white"><X className="h-3 w-3" /></button>
+              <div>
+                <label className="text-sm font-medium text-white/70 mb-2 block">Ticker</label>
+                <Input
+                  value={tokenTicker}
+                  onChange={e => setTokenTicker(e.target.value.replace(/[^A-Za-z0-9.]/g, "").toUpperCase())}
+                  placeholder="e.g. NEPTUNE"
+                  maxLength={10}
+                  className="bg-white/[0.04] border-white/10 text-sm font-mono h-11 rounded-xl"
+                />
+                <p className="text-[11px] text-white/30 mt-1.5 font-mono">{tokenTicker.length}/10</p>
+              </div>
+
+              {/* Image buttons */}
+              <div>
+                <label className="text-sm font-medium text-white/70 mb-2 block">Agent Image</label>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleGenerateAI}
+                    disabled={generating || uploading}
+                    className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-medium border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-[#4ade80]/30 transition-all disabled:opacity-50"
+                  >
+                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" style={{ color: "#4ade80" }} />}
+                    Generate AI
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={generating || uploading}
+                    className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-medium border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-all disabled:opacity-50"
+                  >
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    Upload
+                  </button>
+                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleUpload} />
                 </div>
-              )}
+                {imageUrl && (
+                  <div className="flex items-center gap-2 mt-2.5 text-sm text-white/60">
+                    <CheckCircle2 className="h-4 w-4" style={{ color: "#4ade80" }} />
+                    {imageSource === "ai" ? "AI-generated" : "Uploaded"} image
+                    <button onClick={() => { setImageUrl(null); setImageSource(null); }} className="ml-auto hover:text-white transition-colors"><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CTA button — visible on desktop within form column */}
+            <button
+              onClick={() => setStep("confirm")}
+              disabled={!canContinue}
+              className="w-full h-12 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all duration-200 border border-green-500/30 hover:scale-[1.01] hover:shadow-[0_0_30px_rgba(74,222,128,0.2)]"
+              style={{ background: canContinue ? "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)" : "rgba(74, 222, 128, 0.12)", color: canContinue ? "#000" : "rgba(74, 222, 128, 0.5)" }}
+            >
+              Continue to Payment
+            </button>
+          </div>
+
+          {/* Preview — right side on desktop, large */}
+          <div className="lg:w-[45%] flex-shrink-0">
+            <div
+              className="rounded-2xl border border-white/[0.08] h-full min-h-[320px] lg:min-h-[460px]"
+              style={{ background: "rgba(10,14,26,0.6)", backdropFilter: "blur(8px)" }}
+            >
+              <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.06]">
+                <span className="text-[11px] text-white/30 uppercase tracking-widest font-mono">Preview</span>
+              </div>
+              <NfaPreviewCardLarge name={tokenName} ticker={tokenTicker} imageUrl={imageUrl} />
             </div>
           </div>
-
-          {/* Preview */}
-          <div className="flex flex-col items-center justify-center">
-            <p className="text-[10px] text-muted-foreground mb-3 uppercase tracking-wider">Preview</p>
-            <NfaPreviewCard name={tokenName} ticker={tokenTicker} imageUrl={imageUrl} />
-          </div>
         </div>
-
-        <button
-          onClick={() => setStep("confirm")}
-          disabled={!canContinue}
-          className="w-full h-11 rounded-xl font-bold font-mono text-sm flex items-center justify-center gap-2 transition-all border border-green-500/30"
-          style={{ background: canContinue ? "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)" : "rgba(74, 222, 128, 0.15)", color: canContinue ? "#000" : "rgba(74, 222, 128, 0.6)" }}
-        >
-          Continue to Payment
-        </button>
       </div>
     );
   }
 
   if (step === "confirm") {
     return (
-      <div className="space-y-5">
-        <button onClick={() => setStep("customize")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-white transition-colors">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to customize
+      <div className="max-w-lg mx-auto space-y-6">
+        <button onClick={() => setStep("customize")} className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back to customize
         </button>
 
         <div className="text-center">
-          <h3 className="font-bold text-sm mb-1">Confirm & Mint</h3>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-medium mt-2" style={{ background: "rgba(251,191,36,0.1)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.2)" }}>
-            <AlertTriangle className="h-3 w-3" />
+          <h3 className="font-bold text-xl mb-2 text-[#F1F5F9]">Confirm & Mint</h3>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium mt-1" style={{ background: "rgba(251,191,36,0.1)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.2)" }}>
+            <AlertTriangle className="h-3.5 w-3.5" />
             Cannot be changed after minting
           </div>
         </div>
@@ -291,15 +335,15 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
           <NfaPreviewCard name={tokenName} ticker={tokenTicker} imageUrl={imageUrl} />
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
           {[
             { k: "Token Name", v: tokenName.trim() },
             { k: "Ticker", v: `$${tokenTicker.toUpperCase()}` },
             { k: "Image", v: imageSource === "ai" ? "AI Generated" : "Uploaded" },
             { k: "Mint Price", v: "1 SOL" },
           ].map(({ k, v }) => (
-            <div key={k} className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">{k}</span>
+            <div key={k} className="flex items-center justify-between text-sm">
+              <span className="text-white/50">{k}</span>
               <span className="font-mono font-medium">{v}</span>
             </div>
           ))}
@@ -320,23 +364,23 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
 
   if (step === "minting") {
     return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <Loader2 className="h-10 w-10 animate-spin" style={{ color: "#4ade80" }} />
-        <p className="font-medium text-sm">Minting your NFA on Solana...</p>
-        <p className="text-xs text-muted-foreground">This may take a moment</p>
+      <div className="flex flex-col items-center justify-center py-16 space-y-5">
+        <Loader2 className="h-12 w-12 animate-spin" style={{ color: "#4ade80" }} />
+        <p className="font-bold text-lg">Minting your NFA on Solana...</p>
+        <p className="text-sm text-white/50">This may take a moment</p>
       </div>
     );
   }
 
   // done
   return (
-    <div className="flex flex-col items-center py-8 space-y-5">
-      <div className="h-14 w-14 rounded-full flex items-center justify-center" style={{ background: "rgba(74,222,128,0.15)" }}>
-        <CheckCircle2 className="h-8 w-8" style={{ color: "#4ade80" }} />
+    <div className="flex flex-col items-center py-12 space-y-6">
+      <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ background: "rgba(74,222,128,0.15)" }}>
+        <CheckCircle2 className="h-9 w-9" style={{ color: "#4ade80" }} />
       </div>
       <div className="text-center">
-        <h3 className="font-bold text-lg mb-1">NFA Minted!</h3>
-        <p className="text-xs text-muted-foreground">Slot #{mintResult?.slotNumber} • Batch #{mintResult?.batchNumber}</p>
+        <h3 className="font-bold text-xl mb-1">NFA Minted!</h3>
+        <p className="text-sm text-white/50">Slot #{mintResult?.slotNumber} • Batch #{mintResult?.batchNumber}</p>
       </div>
       <NfaPreviewCard name={tokenName} ticker={tokenTicker} imageUrl={imageUrl} slot={mintResult?.slotNumber} />
       {mintResult?.nfaMintAddress && (
@@ -344,15 +388,15 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
           href={`https://solscan.io/token/${mintResult.nfaMintAddress}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs hover:underline"
+          className="flex items-center gap-1.5 text-sm hover:underline"
           style={{ color: "#4ade80" }}
         >
-          View on Solscan <ExternalLink className="h-3 w-3" />
+          View on Solscan <ExternalLink className="h-3.5 w-3.5" />
         </a>
       )}
       <button
         onClick={() => { setStep("customize"); setTokenName(""); setTokenTicker(""); setImageUrl(null); setImageSource(null); setMintResult(null); }}
-        className="text-xs text-muted-foreground hover:text-white transition-colors"
+        className="text-sm text-white/50 hover:text-white transition-colors"
       >
         Mint another NFA
       </button>
@@ -459,7 +503,6 @@ function MyNfasGrid({ mints, solanaAddress }: { mints: NfaMint[]; solanaAddress:
     if (!solanaAddress) return;
     setProcessing(mint.id);
     try {
-      // Find active listing
       const { data: listings } = await supabase
         .from("nfa_listings")
         .select("id")
@@ -496,7 +539,7 @@ function MyNfasGrid({ mints, solanaAddress }: { mints: NfaMint[]; solanaAddress:
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {mints.map((mint) => {
         const isOwner = mint.owner_wallet === solanaAddress;
         const displayImage = mint.token_image_url || mint.agent_image_url;
@@ -534,7 +577,6 @@ function MyNfasGrid({ mints, solanaAddress }: { mints: NfaMint[]; solanaAddress:
                 <Badge variant="outline" className="text-[10px] capitalize h-5 px-1.5">{mint.status}</Badge>
               </div>
 
-              {/* List/Delist Controls */}
               {isOwner && (
                 <div className="mt-2 pt-2 border-t border-white/5">
                   {mint.listed_for_sale ? (
@@ -639,6 +681,19 @@ function AdminCreateCollection() {
   );
 }
 
+/* ───────── Stats Card ───────── */
+function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div
+      className="rounded-xl px-4 py-3 text-center border border-white/[0.08]"
+      style={{ background: "rgba(255,255,255,0.02)" }}
+    >
+      <p className="text-[10px] text-white/40 uppercase tracking-wider font-mono mb-1">{label}</p>
+      <p className={`font-mono font-bold text-lg ${accent ? "text-[#4ade80]" : "text-[#F1F5F9]"}`}>{value}</p>
+    </div>
+  );
+}
+
 /* ═══════════ Main Component ═══════════ */
 export default function PanelNfaTab() {
   const { solanaAddress } = useAuth();
@@ -659,7 +714,6 @@ export default function PanelNfaTab() {
     queryKey: ["nfa-my-mints", solanaAddress],
     enabled: !!solanaAddress,
     queryFn: async () => {
-      // Show NFAs user minted OR currently owns
       const { data: minted } = await supabase.from("nfa_mints").select("*").eq("minter_wallet", solanaAddress!);
       const { data: owned } = await supabase.from("nfa_mints").select("*").eq("owner_wallet", solanaAddress!);
       const map = new Map<string, NfaMint>();
@@ -672,117 +726,143 @@ export default function PanelNfaTab() {
   const slotsRemaining = batch ? batch.total_slots - batch.minted_count : 0;
 
   return (
-    <div className="max-w-3xl mx-auto pb-8 space-y-6">
-      {/* ── Hero Banner ── */}
-      <div className="relative rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0a1628 0%, #0d2818 50%, #0a1628 100%)" }}>
-        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "linear-gradient(rgba(74,222,128,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.3) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="relative px-6 py-8 flex flex-col items-center text-center">
-          <div className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(74,222,128,0.3)]" style={{ background: "linear-gradient(135deg, #4ade80, #16a34a)" }}>
-            <Fingerprint className="h-8 w-8 text-black" />
-          </div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-xl font-bold font-mono tracking-tight">Non-Fungible Agents</h2>
-            <CheckCircle2 className="h-4 w-4" style={{ color: "#4ade80" }} />
-          </div>
-          <p className="text-xs text-muted-foreground max-w-sm">
-            The first NFA standard on Solana — autonomous trading agents that earn, trade & evolve
-          </p>
-          <div className="flex items-center gap-0 mt-6 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 divide-x divide-white/10 overflow-x-auto">
-            {[
-              { label: "Items", value: batch?.total_slots?.toLocaleString() ?? "1,000" },
-              { label: "Minted", value: batch?.minted_count?.toLocaleString() ?? "0" },
-              { label: "Floor", value: "1 SOL" },
-            ].map(({ label, value }) => (
-              <div key={label} className="px-5 py-3 text-center min-w-[80px]">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
-                <p className="font-mono font-bold text-sm mt-0.5">{value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+    <div className="pb-8 space-y-6">
 
-      {/* ── Live Mint Section ── */}
-      {batch && (
-        <div className="relative rounded-2xl border border-white/10 p-5" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.04), rgba(0,0,0,0))" }}>
-          <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ boxShadow: "inset 0 0 30px rgba(74,222,128,0.05)" }} />
-          <div className="relative">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#4ade80" }} />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "#4ade80" }} />
-                </span>
-                <Badge className="text-[10px] font-mono uppercase tracking-wider" style={{ background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" }}>
-                  Live Mint
-                </Badge>
-              </div>
-              <Badge variant="outline" className="font-mono text-xs">Batch #{batch.batch_number}</Badge>
-            </div>
+      {/* ── Desktop: 2-column layout. Mobile: stacked ── */}
+      <div className="flex flex-col xl:flex-row gap-6">
 
-            {/* Progress */}
-            <div className="mb-5">
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="text-2xl font-bold font-mono">{batch.minted_count}<span className="text-sm text-muted-foreground font-normal"> / {batch.total_slots.toLocaleString()}</span></span>
-                <span className="text-xs text-muted-foreground">{slotsRemaining} remaining</span>
-              </div>
-              <div className="h-3 rounded-full bg-white/[0.06] overflow-hidden relative">
-                <div
-                  className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
-                  style={{ width: `${Math.max(progress, 1)}%`, background: "linear-gradient(90deg, #4ade80, #22c55e, #16a34a)" }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" style={{ animation: "shimmer 2s infinite" }} />
+        {/* ── LEFT: Main content area ── */}
+        <div className="flex-1 min-w-0 space-y-6">
+
+          {/* Hero Banner — compact on desktop */}
+          <div className="relative rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0a1628 0%, #0d2818 50%, #0a1628 100%)" }}>
+            <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "linear-gradient(rgba(74,222,128,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.3) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+            <div className="relative px-6 lg:px-8 py-6 lg:py-8">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+                <div className="h-14 w-14 lg:h-16 lg:w-16 rounded-2xl flex items-center justify-center shrink-0 shadow-[0_0_40px_rgba(74,222,128,0.25)]" style={{ background: "linear-gradient(135deg, #4ade80, #16a34a)" }}>
+                  <Fingerprint className="h-7 w-7 lg:h-8 lg:w-8 text-black" />
+                </div>
+                <div className="text-center sm:text-left">
+                  <div className="flex items-center gap-2 justify-center sm:justify-start mb-1">
+                    <h2 className="text-xl lg:text-2xl font-bold font-mono tracking-tight text-[#F1F5F9]">Non-Fungible Agents</h2>
+                    <CheckCircle2 className="h-4 w-4" style={{ color: "#4ade80" }} />
+                  </div>
+                  <p className="text-sm text-white/50 max-w-md">
+                    The first NFA standard on Solana — autonomous trading agents that earn, trade & evolve
+                  </p>
                 </div>
               </div>
-            </div>
 
-            {/* Mint Flow or Fallback */}
-            {privyAvailable && solanaAddress && batch.status === "open" ? (
-              <NfaMintFlow batch={batch} solanaAddress={solanaAddress} />
-            ) : (
-              <NfaMintFallback />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── About + Details ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <Globe className="h-4 w-4" style={{ color: "#4ade80" }} />
-            About
-          </h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Non-Fungible Agents (NFAs) are autonomous AI trading agents minted as unique Metaplex Core NFTs on Solana.
-            Each NFA has its own name, ticker, avatar, and trading strategy. Customize your agent before minting — once paid, the metadata is permanently locked on-chain.
-          </p>
-        </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <Coins className="h-4 w-4" style={{ color: "#4ade80" }} />
-            Details
-          </h3>
-          <div className="space-y-2.5">
-            {[
-              { k: "Chain", v: "Solana" },
-              { k: "Token Standard", v: "Metaplex Core" },
-              { k: "Mint Price", v: "1 SOL" },
-              { k: "Batch Size", v: "1,000" },
-              { k: "Swap Fee", v: "2%" },
-            ].map(({ k, v }) => (
-              <div key={k} className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{k}</span>
-                <span className="font-mono font-medium">{v}</span>
+              {/* Stats row — inline on desktop */}
+              <div className="flex items-center gap-0 mt-5 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 divide-x divide-white/10 overflow-x-auto w-fit mx-auto sm:mx-0">
+                {[
+                  { label: "Items", value: batch?.total_slots?.toLocaleString() ?? "1,000" },
+                  { label: "Minted", value: batch?.minted_count?.toLocaleString() ?? "0" },
+                  { label: "Floor", value: "1 SOL" },
+                ].map(({ label, value }) => (
+                  <div key={label} className="px-5 py-2.5 text-center min-w-[80px]">
+                    <p className="text-[10px] text-white/40 uppercase tracking-wider">{label}</p>
+                    <p className="font-mono font-bold text-sm mt-0.5">{value}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+          </div>
+
+          {/* ── Live Mint Section ── */}
+          {batch && (
+            <div className="relative rounded-2xl border border-white/10 p-5 lg:p-7" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.04), rgba(0,0,0,0))" }}>
+              <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ boxShadow: "inset 0 0 30px rgba(74,222,128,0.05)" }} />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#4ade80" }} />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "#4ade80" }} />
+                    </span>
+                    <Badge className="text-[10px] font-mono uppercase tracking-wider" style={{ background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" }}>
+                      Live Mint
+                    </Badge>
+                  </div>
+                  <Badge variant="outline" className="font-mono text-xs">Batch #{batch.batch_number}</Badge>
+                </div>
+
+                {/* Progress */}
+                <div className="mb-6">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="text-2xl lg:text-3xl font-bold font-mono">{batch.minted_count}<span className="text-sm text-white/40 font-normal"> / {batch.total_slots.toLocaleString()}</span></span>
+                    <span className="text-sm text-white/40">{slotsRemaining} remaining</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-white/[0.06] overflow-hidden relative">
+                    <div
+                      className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+                      style={{ width: `${Math.max(progress, 1)}%`, background: "linear-gradient(90deg, #4ade80, #22c55e, #16a34a)" }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" style={{ animation: "shimmer 2s infinite" }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mint Flow or Fallback */}
+                {privyAvailable && solanaAddress && batch.status === "open" ? (
+                  <NfaMintFlow batch={batch} solanaAddress={solanaAddress} />
+                ) : (
+                  <NfaMintFallback />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT SIDEBAR: Details, stats, info ── */}
+        <div className="xl:w-[320px] 2xl:w-[360px] flex-shrink-0 space-y-5">
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 xl:grid-cols-1 gap-3">
+            <StatCard label="Mint Price" value="1 SOL" accent />
+            <StatCard label="Swap Fee" value="2%" />
+            <StatCard label="Supply" value="1,000" />
+          </div>
+
+          {/* Details Card */}
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-[#F1F5F9]">
+              <Coins className="h-4 w-4" style={{ color: "#4ade80" }} />
+              Details
+            </h3>
+            <div className="space-y-2.5">
+              {[
+                { k: "Chain", v: "Solana" },
+                { k: "Token Standard", v: "Metaplex Core" },
+                { k: "Mint Price", v: "1 SOL" },
+                { k: "Batch Size", v: "1,000" },
+                { k: "Swap Fee", v: "2%" },
+              ].map(({ k, v }) => (
+                <div key={k} className="flex items-center justify-between text-sm">
+                  <span className="text-white/40">{k}</span>
+                  <span className="font-mono font-medium text-[#E2E8F0]">{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* About Card */}
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-[#F1F5F9]">
+              <Globe className="h-4 w-4" style={{ color: "#4ade80" }} />
+              About
+            </h3>
+            <p className="text-sm text-white/50 leading-relaxed">
+              Non-Fungible Agents (NFAs) are autonomous AI trading agents minted as unique Metaplex Core NFTs on Solana.
+              Each NFA has its own name, ticker, avatar, and trading strategy.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* ── Sub-Tabs ── */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden">
-        <div className="flex border-b border-white/10">
+      {/* ── Sub-Tabs: My NFAs / How It Works / Fees ── */}
+      <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
+        <div className="flex border-b border-white/[0.08]">
           {([
             { id: "mynfas" as const, label: `My NFAs${myMints.length > 0 ? ` (${myMints.length})` : ""}` },
             { id: "howitworks" as const, label: "How It Works" },
@@ -791,8 +871,8 @@ export default function PanelNfaTab() {
             <button
               key={id}
               onClick={() => setSubTab(id)}
-              className={`flex-1 text-xs font-medium py-3 px-4 transition-colors relative ${
-                subTab === id ? "text-white" : "text-muted-foreground hover:text-white/70"
+              className={`flex-1 text-sm font-medium py-3.5 px-4 transition-colors relative ${
+                subTab === id ? "text-white" : "text-white/40 hover:text-white/70"
               }`}
             >
               {label}
@@ -802,7 +882,7 @@ export default function PanelNfaTab() {
             </button>
           ))}
         </div>
-        <div className="p-4">
+        <div className="p-5">
           {subTab === "mynfas" && <MyNfasGrid mints={myMints} solanaAddress={solanaAddress} />}
           {subTab === "howitworks" && <HowItWorksTimeline />}
           {subTab === "fees" && <FeeStructureBars />}
