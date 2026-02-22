@@ -351,8 +351,7 @@ function NfaMintFlow({ batch, solanaAddress }: { batch: NfaBatch; solanaAddress:
         <button
           onClick={handleMint}
           disabled={minting || !isWalletReady}
-          className="w-full h-14 rounded-xl font-bold font-mono text-base gap-2 flex items-center justify-center transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(74,222,128,0.3)] disabled:opacity-50"
-          style={{ background: "linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)", color: "#000" }}
+          className="w-full h-14 rounded-xl font-bold font-mono text-base gap-2 flex items-center justify-center transition-all duration-200 border border-green-400/50 bg-gradient-to-r from-green-500 to-green-600 text-black shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(74,222,128,0.4)] disabled:opacity-50"
         >
           <Fingerprint className="h-5 w-5" />
           MINT FOR 1 SOL
