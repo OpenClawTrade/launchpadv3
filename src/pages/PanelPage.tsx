@@ -5,14 +5,14 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Wallet, Briefcase, DollarSign, Bot, Fingerprint, Rocket, Shield } from "lucide-react";
+import { Wallet, Briefcase, DollarSign, Fingerprint, Rocket, Shield } from "lucide-react";
 import clawLogo from "@/assets/claw-logo.png";
 
 const PanelWalletBar = lazy(() => import("@/components/panel/PanelWalletBar"));
 const PanelPortfolioTab = lazy(() => import("@/components/panel/PanelPortfolioTab"));
 const PanelEarningsTab = lazy(() => import("@/components/panel/PanelEarningsTab"));
 const PanelNfaTab = lazy(() => import("@/components/panel/PanelNfaTab"));
-const PanelAgentsTab = lazy(() => import("@/components/panel/PanelAgentsTab"));
+
 const PanelMyLaunchesTab = lazy(() => import("@/components/panel/PanelMyLaunchesTab"));
 const RecentNfaAgents = lazy(() => import("@/components/panel/RecentNfaAgents"));
 
@@ -131,7 +131,7 @@ export default function PanelPage() {
                 <PanelTab value="nfas" icon={<Fingerprint className="h-3.5 w-3.5" />} label="NFAs" active={activeTab === "nfas"} />
                 <PanelTab value="portfolio" icon={<Briefcase className="h-3.5 w-3.5" />} label="Portfolio" active={activeTab === "portfolio"} />
                 <PanelTab value="earnings" icon={<DollarSign className="h-3.5 w-3.5" />} label="Earnings" active={activeTab === "earnings"} />
-                <PanelTab value="agents" icon={<Bot className="h-3.5 w-3.5" />} label="Agents" active={activeTab === "agents"} />
+                
                 <PanelTab value="launches" icon={<Rocket className="h-3.5 w-3.5" />} label="Launches" active={activeTab === "launches"} />
               </TabsList>
 
@@ -139,7 +139,7 @@ export default function PanelPage() {
                 <TabsContent value="nfas"><PanelNfaTab /></TabsContent>
                 <TabsContent value="portfolio"><PanelPortfolioTab /></TabsContent>
                 <TabsContent value="earnings"><PanelEarningsTab /></TabsContent>
-                <TabsContent value="agents"><PanelAgentsTab /></TabsContent>
+                
                 <TabsContent value="launches"><PanelMyLaunchesTab /></TabsContent>
               </Suspense>
             </Tabs>
