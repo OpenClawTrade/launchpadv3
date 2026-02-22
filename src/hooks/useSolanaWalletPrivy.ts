@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useWallets } from "@privy-io/react-auth/solana";
+import { useWallets, useSignAndSendTransaction as usePrivySolanaSignAndSend } from "@privy-io/react-auth/solana";
 import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { getRpcUrl } from "./useSolanaWallet";
 
@@ -9,6 +9,7 @@ import { getRpcUrl } from "./useSolanaWallet";
 export function useSolanaWalletWithPrivy() {
   const { authenticated, user, ready } = usePrivy();
   const { wallets } = useWallets();
+  const privySolana = usePrivySolanaSignAndSend();
   const [isConnecting, setIsConnecting] = useState(false);
 
   const rpcData = getRpcUrl();
@@ -66,16 +67,29 @@ export function useSolanaWalletWithPrivy() {
           (transaction as Transaction).feePayer = wallet.address ? new PublicKey(wallet.address) : undefined;
         }
 
-        const provider = (wallet as any).getEthereumProvider?.() || wallet;
-        if (!provider) throw new Error("Could not get wallet provider");
+        // Serialize transaction to Uint8Array for Privy's standard wallet API
+        const serializedTx = transaction.serialize({ requireAllSignatures: false, verifySignatures: false });
 
-        const signedTx = provider.signTransaction ? await provider.signTransaction(transaction) : transaction;
-
-        const signature = await connection.sendRawTransaction(signedTx.serialize(), {
-          skipPreflight: options?.skipPreflight ?? true,
-          preflightCommitment: "confirmed",
+        console.log("[useSolanaWalletPrivy] Signing via Privy signAndSendTransaction", {
+          walletAddress: wallet.address,
+          txBytes: serializedTx.length,
         });
 
+        const result = await privySolana.signAndSendTransaction({
+          transaction: serializedTx,
+          wallet: wallet as any,
+          chain: "solana:mainnet" as any,
+        });
+
+        // result.signature is Uint8Array — convert to base58 string
+        const { default: bs58 } = await import("bs58");
+        const signature = typeof result.signature === "string"
+          ? result.signature
+          : bs58.encode(Buffer.from(result.signature));
+
+        console.log("[useSolanaWalletPrivy] Tx sent, signature:", signature);
+
+        // Wait for confirmation
         const confirmation = await connection.confirmTransaction(
           { signature, blockhash, lastValidBlockHeight },
           "confirmed"
@@ -88,7 +102,7 @@ export function useSolanaWalletWithPrivy() {
         setIsConnecting(false);
       }
     },
-    [getSolanaWallet, getConnection]
+    [getSolanaWallet, getConnection, privySolana]
   );
 
   const getBalance = useCallback(async (): Promise<number> => {
