@@ -90,13 +90,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // TEMPORARY HALT: Stop all X activity until this timestamp
-    const HALT_UNTIL = new Date("2026-02-22T11:40:00Z");
-    if (Date.now() < HALT_UNTIL.getTime()) {
-      const remainingMins = Math.ceil((HALT_UNTIL.getTime() - Date.now()) / 60000);
-      return new Response(JSON.stringify({ success: false, halted: true, error: `X activity halted. Resumes in ${remainingMins} minutes` }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
 
     // Emergency kill-switch: disable ALL X posting/replying unless explicitly enabled.
     // Default behavior: OFF.
