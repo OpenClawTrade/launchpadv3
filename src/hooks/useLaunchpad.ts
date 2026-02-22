@@ -408,13 +408,6 @@ export function useLaunchpad() {
         if (walletAddress) params.set('wallet', walletAddress);
         if (profileId) params.set('profileId', profileId);
 
-        const { data, error } = await supabase.functions.invoke('launchpad-earnings', {
-          method: 'GET',
-          body: null,
-          headers: {},
-        });
-
-        // For GET requests with query params, we use a different approach
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/launchpad-earnings?${params.toString()}`,
           {
@@ -426,7 +419,10 @@ export function useLaunchpad() {
         );
 
         if (!response.ok) {
-          throw new Error('Failed to fetch earnings');
+          const body = await response.text();
+          console.warn('[useUserEarnings] Error:', response.status, body);
+          // Return empty data instead of throwing for non-critical errors
+          return { earnings: [], claims: [], summary: { totalEarned: 0, totalUnclaimed: 0, tokensWithEarnings: 0 } };
         }
 
         return response.json();
