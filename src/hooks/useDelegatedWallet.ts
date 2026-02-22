@@ -51,17 +51,26 @@ export function useDelegatedWallet() {
     if (!embeddedWallet) throw new Error("No embedded wallet found");
     setIsDelegating(true);
     try {
-      await delegateWallet({
-        address: embeddedWallet.address,
-        chainType: "solana",
-      });
+      // Add timeout to prevent infinite "Enabling..." state
+      const result = await Promise.race([
+        delegateWallet({
+          address: embeddedWallet.address,
+          chainType: "solana",
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Delegation timed out. Please try again.")), 30000)
+        ),
+      ]);
       setIsDelegated(true);
       try {
         localStorage.setItem(DELEGATION_KEY, "true");
       } catch {}
-    } finally {
+    } catch (err) {
+      console.error("[useDelegatedWallet] delegation error:", err);
       setIsDelegating(false);
+      throw err;
     }
+    setIsDelegating(false);
   }, [embeddedWallet, delegateWallet]);
 
   const dismiss = useCallback(() => {
