@@ -91,8 +91,8 @@ export default function PanelPage() {
       <div className="md:ml-[160px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
 
-        {/* Constrained center column */}
-        <div className="w-full max-w-[960px] mx-auto px-4 md:px-6 lg:px-8 flex-1 flex flex-col">
+        {/* Constrained center column — wider for NFA tab */}
+        <div className={`w-full mx-auto px-4 md:px-6 lg:px-8 flex-1 flex flex-col ${activeTab === "nfas" ? "max-w-[1400px]" : "max-w-[960px]"}`}>
 
           {/* Panel Header */}
           <div className="pt-5 pb-3 flex items-center gap-3">
