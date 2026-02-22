@@ -19,10 +19,15 @@ function HeaderWalletBalanceInner() {
 
     const fetchBal = async () => {
       try {
-        const { useSolanaWalletWithPrivy } = await import("@/hooks/useSolanaWalletPrivy");
-        // We can't call hooks dynamically, so use RPC directly
-        const { Connection, PublicKey, clusterApiUrl } = await import("@solana/web3.js");
-        const rpcUrl = import.meta.env.VITE_SOLANA_RPC_URL || clusterApiUrl("mainnet-beta");
+        const { Connection, PublicKey } = await import("@solana/web3.js");
+        const heliusKey = import.meta.env.VITE_HELIUS_API_KEY;
+        const rpcUrl = import.meta.env.VITE_HELIUS_RPC_URL 
+          || import.meta.env.VITE_SOLANA_RPC_URL 
+          || (heliusKey ? `https://mainnet.helius-rpc.com/?api-key=${heliusKey}` : null);
+        if (!rpcUrl) {
+          if (!cancelled) setBalance(null);
+          return;
+        }
         const connection = new Connection(rpcUrl, "confirmed");
         const bal = await connection.getBalance(new PublicKey(solanaAddress));
         if (!cancelled) setBalance(bal / 1e9);
