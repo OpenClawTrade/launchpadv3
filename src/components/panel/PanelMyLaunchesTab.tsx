@@ -8,9 +8,33 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { usePrivy } from "@privy-io/react-auth";
 
+function isInIframe(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
 function LinkXButton() {
   const { linkTwitter } = usePrivy();
   const [linking, setLinking] = useState(false);
+
+  // When running inside Lovable's preview iframe, X.com blocks framed OAuth.
+  // Direct the user to the published app instead.
+  if (isInIframe()) {
+    return (
+      <a
+        href="https://clawmode.lovable.app/panel?tab=launches"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-mono text-sm bg-green-500 hover:bg-green-600 text-black font-medium"
+      >
+        <Twitter className="h-4 w-4" />
+        Link X Account (opens published app)
+      </a>
+    );
+  }
 
   return (
     <Button
