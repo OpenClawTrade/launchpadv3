@@ -8,9 +8,7 @@ import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { UniversalTradePanel } from "@/components/launchpad/UniversalTradePanel";
 import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
 import { TokenComments } from "@/components/launchpad/TokenComments";
-import { LightweightChart, type ChartMarker } from "@/components/launchpad/LightweightChart";
 import { DexscreenerChart } from "@/components/launchpad/DexscreenerChart";
-import { useBitqueryOHLC } from "@/hooks/useBitqueryOHLC";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -51,8 +49,7 @@ export default function FunTokenDetailPage() {
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('trade');
-  const [chartInterval, setChartInterval] = useState<"1m" | "5m" | "15m" | "1h" | "4h" | "1d">("5m");
-  const [chartType, setChartType] = useState<"candlestick" | "area">("candlestick");
+
 
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');
   const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
@@ -61,22 +58,8 @@ export default function FunTokenDetailPage() {
     refetchInterval: 60000,
   });
 
-  // Bitquery OHLC data
-  const { data: bitqueryData } = useBitqueryOHLC(
-    mintAddress || null,
-    chartInterval
-  );
 
-  const chartData = useMemo(() => {
-    if (!bitqueryData?.candles?.length) return [];
-    if (chartType === "candlestick") return bitqueryData.candles;
-    return bitqueryData.candles.map(c => ({ time: c.time, value: c.close }));
-  }, [bitqueryData, chartType]);
 
-  const chartMarkers = useMemo((): ChartMarker[] => {
-    if (!bitqueryData?.migration) return [];
-    return [{ time: bitqueryData.migration.time, label: bitqueryData.migration.label, color: "#F97316" }];
-  }, [bitqueryData]);
 
   const formatUsd = (marketCapSol: number) => {
     const usdValue = Number(marketCapSol || 0) * Number(solPrice || 0);
