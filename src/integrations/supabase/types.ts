@@ -6349,7 +6349,7 @@ export type Database = {
             foreignKeyName: "token_comments_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "tokens"
+            referencedRelation: "fun_tokens"
             referencedColumns: ["id"]
           },
           {
