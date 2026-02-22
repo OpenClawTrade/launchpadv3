@@ -1,11 +1,12 @@
 import { useState, lazy, Suspense, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Wallet, Briefcase, DollarSign, Fingerprint, Rocket, Shield } from "lucide-react";
+import { Wallet, Briefcase, DollarSign, Fingerprint, Rocket, Shield, Ghost } from "lucide-react";
 import clawLogo from "@/assets/claw-logo.png";
 
 const PanelWalletBar = lazy(() => import("@/components/panel/PanelWalletBar"));
@@ -14,6 +15,7 @@ const PanelEarningsTab = lazy(() => import("@/components/panel/PanelEarningsTab"
 const PanelNfaTab = lazy(() => import("@/components/panel/PanelNfaTab"));
 
 const PanelMyLaunchesTab = lazy(() => import("@/components/panel/PanelMyLaunchesTab"));
+const PanelPhantomTab = lazy(() => import("@/components/panel/PanelPhantomTab"));
 const RecentNfaAgents = lazy(() => import("@/components/panel/RecentNfaAgents"));
 
 function TabLoader() {
@@ -26,6 +28,7 @@ function TabLoader() {
 
 export default function PanelPage() {
   const { isAuthenticated, login, user, solanaAddress } = useAuth();
+  const { isAdmin } = useIsAdmin(solanaAddress);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "nfas";
@@ -133,6 +136,7 @@ export default function PanelPage() {
                 <PanelTab value="earnings" icon={<DollarSign className="h-3.5 w-3.5" />} label="Earnings" active={activeTab === "earnings"} />
                 
                 <PanelTab value="launches" icon={<Rocket className="h-3.5 w-3.5" />} label="Launches" active={activeTab === "launches"} />
+                {isAdmin && <PanelTab value="phantom" icon={<Ghost className="h-3.5 w-3.5" />} label="Phantom" active={activeTab === "phantom"} />}
               </TabsList>
 
               <Suspense fallback={<TabLoader />}>
@@ -141,6 +145,7 @@ export default function PanelPage() {
                 <TabsContent value="earnings"><PanelEarningsTab /></TabsContent>
                 
                 <TabsContent value="launches"><PanelMyLaunchesTab /></TabsContent>
+                {isAdmin && <TabsContent value="phantom"><PanelPhantomTab /></TabsContent>}
               </Suspense>
             </Tabs>
           </div>
