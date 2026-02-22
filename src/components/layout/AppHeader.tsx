@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Search, Plus, Menu } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { EthPriceDisplay } from "./EthPriceDisplay";
 import { useChain } from "@/contexts/ChainContext";
@@ -21,7 +21,40 @@ interface TopBarProps {
 export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
   const { chain } = useChain();
   const { isAuthenticated } = useAuth();
-  const [search, setSearch] = useState("");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isOnTrade = location.pathname === "/trade";
+
+  // Sync search with URL ?q= when on /trade
+  const [search, setSearch] = useState(() => isOnTrade ? (searchParams.get("q") || "") : "");
+
+  useEffect(() => {
+    if (isOnTrade) {
+      setSearch(searchParams.get("q") || "");
+    } else {
+      setSearch("");
+    }
+  }, [location.pathname]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    if (isOnTrade) {
+      // Update URL param on /trade
+      if (value.trim()) {
+        setSearchParams({ q: value }, { replace: true });
+      } else {
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [isOnTrade, setSearchParams]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && search.trim() && !isOnTrade) {
+      navigate(`/trade?q=${encodeURIComponent(search.trim())}`);
+    }
+  }, [search, isOnTrade, navigate]);
+
   const { goToPanel } = usePanelNav();
 
   return (
@@ -49,7 +82,8 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
           type="text"
           placeholder="Search for token..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
           className="w-full h-8 pl-9 pr-3 text-[13px] rounded-xl outline-none text-foreground placeholder-muted-foreground bg-surface border border-border transition-all duration-200 focus:border-accent-purple/40 focus:ring-2 focus:ring-accent-purple/20 focus-ring-purple"
         />
       </div>

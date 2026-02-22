@@ -1,22 +1,23 @@
-import { useState } from "react";
-import { Search } from "lucide-react";
+import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
-import { Input } from "@/components/ui/input";
 
 export default function TradePage() {
-  const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const search = searchParams.get("q") || "";
   const { tokens, totalCount, isLoading } = useFunTokensPaginated(1, 100);
   const { solPrice } = useSolPrice();
 
-  const filtered = search.trim()
-    ? tokens.filter(t => {
-        const q = search.toLowerCase();
-        return t.name.toLowerCase().includes(q) || t.ticker.toLowerCase().includes(q);
-      })
-    : tokens;
+  const filtered = useMemo(() => {
+    if (!search.trim()) return tokens;
+    const q = search.toLowerCase();
+    return tokens.filter(t =>
+      t.name.toLowerCase().includes(q) || t.ticker.toLowerCase().includes(q)
+    );
+  }, [tokens, search]);
 
   return (
     <LaunchpadLayout>
@@ -33,15 +34,11 @@ export default function TradePage() {
               {totalCount.toLocaleString()} tokens
             </span>
           </div>
-          <div className="relative flex-1 max-w-xs ml-auto">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search..."
-              className="pl-8 h-8 text-xs font-mono bg-secondary/30 border-border/60 focus-visible:border-primary/60"
-            />
-          </div>
+          {search && (
+            <span className="text-[10px] font-mono text-accent-purple ml-1">
+              filtering: "{search}"
+            </span>
+          )}
         </div>
 
         {/* Axiom Terminal Grid */}
