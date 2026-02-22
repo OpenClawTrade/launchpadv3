@@ -72,6 +72,7 @@ interface TokenLauncherProps {
   onLaunchSuccess: () => void;
   onShowResult: (result: LaunchResult) => void;
   bare?: boolean;
+  defaultMode?: "random" | "custom" | "describe" | "realistic" | "phantom" | "holders" | "fun";
 }
 
 const DEV_BUY_MAX_SOL = 100;
@@ -95,7 +96,7 @@ function formatDevBuySolInput(n: number): string {
   return n.toFixed(DEV_BUY_DECIMALS).replace(/\.?0+$/, "");
 }
 
-export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false }: TokenLauncherProps) {
+export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, defaultMode }: TokenLauncherProps) {
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
   const { solPrice } = useSolPrice();
@@ -103,7 +104,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false }: T
   // Idempotency key to prevent duplicate launches - regenerated on successful launch or ticker change
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
-  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "realistic" | "phantom" | "holders" | "fun">("random");
+  const [generatorMode, setGeneratorMode] = useState<"random" | "custom" | "describe" | "realistic" | "phantom" | "holders" | "fun">(defaultMode || "random");
   const [meme, setMeme] = useState<MemeToken | null>(null);
   const [customToken, setCustomToken] = useState<MemeToken>({
     name: "",
@@ -1607,7 +1608,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false }: T
 
   const innerContent = (
     <div className={bare ? "p-5 space-y-4" : "gate-card-body space-y-4"}>
-        {/* Mode Selector */}
+        {/* Mode Selector - hidden when defaultMode is set (locked mode) */}
+        {!defaultMode && (
         <div className="gate-launch-modes">
           {modes.map((mode) => (
             <button
@@ -1620,6 +1622,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false }: T
             </button>
           ))}
         </div>
+        )}
 
         {/* Random Mode */}
         {generatorMode === "random" && (
