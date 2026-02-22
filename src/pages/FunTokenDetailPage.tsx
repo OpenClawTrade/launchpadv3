@@ -544,7 +544,7 @@ export default function FunTokenDetailPage() {
       </div>
 
       {/* ──── PHONE ONLY: Bottom-fixed quick action bar ──── */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50" style={{ backgroundColor: 'hsl(222 30% 7% / 0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid hsl(222 20% 16%)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
+      <div className="md:hidden fixed left-0 right-0 z-50" style={{ bottom: '40px', backgroundColor: 'hsl(222 30% 7% / 0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid hsl(222 20% 16%)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
         <div className="flex items-center gap-2 px-4 py-2.5">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-[10px] font-mono text-muted-foreground truncate">
