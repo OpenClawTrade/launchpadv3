@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { copyToClipboard } from "@/lib/clipboard";
 import QRCode from "react-qr-code";
 
-const TREASURY_WALLET = "HSVmkUnmjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
+const TREASURY_WALLET = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 const MINT_PRICE_SOL = 1.0;
 
 interface NfaBatch {
