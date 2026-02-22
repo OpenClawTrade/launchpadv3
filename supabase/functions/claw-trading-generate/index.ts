@@ -48,35 +48,63 @@ serve(async (req) => {
       );
     }
 
-    // Try to extract explicit name and ticker from the user's request BEFORE calling AI
-    // Patterns like: "name X and ticker $Y", "name it X ticker Y", "called X $Y", etc.
-    const nameMatch = userIdea.match(/(?:name|called|named)\s+(?:it\s+|as\s+|to\s+)?([A-Za-z0-9.\s]+?)(?:\s+(?:and\s+)?(?:the\s+)?ticker\s+(?:is\s+)?\$?([A-Z0-9.]{2,10}))/i)
-      || userIdea.match(/(?:name|called|named)\s+(?:it\s+|as\s+|to\s+)?([A-Za-z0-9.]+)\s+\$([A-Z0-9.]{2,10})/i)
-      || userIdea.match(/\$([A-Z0-9.]{2,10})\s+(?:name|called|named)\s+(?:it\s+|as\s+|to\s+)?([A-Za-z0-9.\s]+)/i);
-    
-    // Also try: "token X ticker Y" or just explicit "$TICKER - Name" patterns
-    const tickerOnlyMatch = !nameMatch ? userIdea.match(/ticker\s+(?:is\s+)?\$?([A-Z0-9.]{2,10})/i) : null;
-    // Handle "name it X", "name is X", "name X" patterns - skip filler words like "it", "is", "as", "to"
-    const nameOnlyMatch = !nameMatch ? userIdea.match(/(?:token\s+)?name\s+(?:it\s+|is\s+|as\s+|to\s+)?([A-Za-z0-9.]+)/i) : null;
-
+    // === STEP 1: Use AI to extract any explicit name/ticker from the user's natural language ===
+    // This replaces fragile regex parsing with proper NLU
     let explicitName: string | null = null;
     let explicitTicker: string | null = null;
 
-    if (nameMatch) {
-      // Check which capture group pattern matched
-      if (userIdea.match(/\$([A-Z0-9.]{2,10})\s+(?:name|called)/i)) {
-        explicitTicker = nameMatch[1].trim().toUpperCase();
-        explicitName = nameMatch[2].trim();
-      } else {
-        explicitName = nameMatch[1].trim();
-        explicitTicker = nameMatch[2].trim().toUpperCase();
+    try {
+      const extractionPrompt = `The user sent this message to launch a meme coin: "${userIdea}"
+
+Your job: determine if the user explicitly requested a specific NAME or TICKER for the token.
+
+Examples:
+- "name it Kenny" → name: "Kenny", ticker: null
+- "launch on sol, name it Kenny" → name: "Kenny", ticker: null  
+- "call it Doggo ticker $DGO" → name: "Doggo", ticker: "DGO"
+- "make a cat meme coin" → name: null, ticker: null (no explicit name, just a theme)
+- "$PEPE token" → name: null, ticker: "PEPE"
+- "Kenny" → name: "Kenny", ticker: null (single word = explicit name)
+- "launch Kenny on sol" → name: "Kenny", ticker: null
+- "a funny dog token named Bork" → name: "Bork", ticker: null
+- "ticker MOON" → name: null, ticker: "MOON"
+- "create a lobster meme" → name: null, ticker: null (theme, not a name)
+
+Rules:
+- Only extract names/tickers the user EXPLICITLY specified (via words like "name", "call", "named", or by clearly stating a proper noun as the token identity)
+- If user just describes a theme/concept (e.g. "a cat meme"), that is NOT an explicit name
+- Single capitalized proper nouns that appear to be the intended token identity count as explicit names
+- Return null for fields the user did NOT explicitly specify
+
+Return ONLY valid JSON: {"explicit_name": "..." or null, "explicit_ticker": "..." or null}`;
+
+      const extractResponse = await callAIWithRetry(LOVABLE_API_KEY, {
+        model: "google/gemini-2.5-flash-lite",
+        messages: [{ role: "user", content: extractionPrompt }],
+      });
+      const extractData = await extractResponse.json();
+      const extractContent = extractData.choices?.[0]?.message?.content || "";
+      const extractJson = extractContent.match(/\{[\s\S]*\}/);
+      if (extractJson) {
+        const extracted = JSON.parse(extractJson[0]);
+        if (extracted.explicit_name && typeof extracted.explicit_name === "string" && extracted.explicit_name !== "null") {
+          explicitName = extracted.explicit_name.trim();
+        }
+        if (extracted.explicit_ticker && typeof extracted.explicit_ticker === "string" && extracted.explicit_ticker !== "null") {
+          explicitTicker = extracted.explicit_ticker.trim().toUpperCase();
+        }
       }
-    } else {
-      if (tickerOnlyMatch) explicitTicker = tickerOnlyMatch[1].trim().toUpperCase();
-      if (nameOnlyMatch) explicitName = nameOnlyMatch[1].trim();
+      console.log(`[claw-trading-generate] AI extraction: name="${explicitName}", ticker="${explicitTicker}" from "${userIdea}"`);
+    } catch (e) {
+      console.error("[claw-trading-generate] AI extraction failed, falling back to regex:", e);
+      // Fallback: simple regex for obvious patterns
+      const nameRegex = userIdea.match(/(?:name|called|named)\s+(?:it\s+|is\s+|as\s+|to\s+)?([A-Za-z0-9.]+)/i);
+      const tickerRegex = userIdea.match(/ticker\s+(?:is\s+)?\$?([A-Z0-9.]{2,10})/i) || userIdea.match(/\$([A-Z0-9.]{2,10})/i);
+      if (nameRegex) explicitName = nameRegex[1].trim();
+      if (tickerRegex) explicitTicker = tickerRegex[1].trim().toUpperCase();
     }
 
-    // Generate meme token identity purely from user's idea
+    // === STEP 2: Generate full token identity with AI, enforcing explicit overrides ===
     const textPrompt = `You are a meme coin name generator. The user wants to launch a meme coin based on this idea: "${userIdea}"
 
 ${explicitName ? `CRITICAL: The user EXPLICITLY requested the token name to be "${explicitName}". You MUST use EXACTLY "${explicitName}" as the name. Do NOT change it, do NOT get creative with the name.` : ''}
