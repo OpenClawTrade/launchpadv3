@@ -209,17 +209,6 @@ serve(async (req) => {
     );
   }
 
-  // TEMPORARY HALT: Stop all launches and replies until this timestamp
-  const HALT_UNTIL = new Date("2026-02-22T11:40:00Z"); // 15 hours from Feb 21 ~20:40 UTC
-  if (Date.now() < HALT_UNTIL.getTime()) {
-    const remainingMs = HALT_UNTIL.getTime() - Date.now();
-    const remainingMins = Math.ceil(remainingMs / 60000);
-    console.log(`[mention-launcher] ⏸️ TEMPORARY HALT active. Resumes in ${remainingMins} minutes (at ${HALT_UNTIL.toISOString()})`);
-    return new Response(
-      JSON.stringify({ success: true, halted: true, resumesAt: HALT_UNTIL.toISOString(), remainingMinutes: remainingMins }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 

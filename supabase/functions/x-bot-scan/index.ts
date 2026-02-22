@@ -204,14 +204,6 @@ serve(async (req) => {
   let supabase: SupabaseClient | null = null;
 
   try {
-    // TEMPORARY HALT: Stop all X activity until this timestamp
-    const HALT_UNTIL = new Date("2026-02-22T11:40:00Z");
-    if (Date.now() < HALT_UNTIL.getTime()) {
-      const remainingMins = Math.ceil((HALT_UNTIL.getTime() - Date.now()) / 60000);
-      console.log(`[x-bot-scan] ⏸️ TEMPORARY HALT active. Resumes in ${remainingMins} minutes`);
-      return new Response(JSON.stringify({ ok: true, halted: true, resumesAt: HALT_UNTIL.toISOString() }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
 
     const ENABLE_PROMO_MENTIONS = Deno.env.get("ENABLE_PROMO_MENTIONS");
     const ENABLE_X_POSTING = Deno.env.get("ENABLE_X_POSTING");

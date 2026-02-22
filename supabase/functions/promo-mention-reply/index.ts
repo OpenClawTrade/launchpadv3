@@ -355,14 +355,6 @@ serve(async (req) => {
   };
 
   try {
-    // TEMPORARY HALT: Stop all X activity until this timestamp
-    const HALT_UNTIL = new Date("2026-02-22T11:40:00Z");
-    if (Date.now() < HALT_UNTIL.getTime()) {
-      const remainingMins = Math.ceil((HALT_UNTIL.getTime() - Date.now()) / 60000);
-      console.log(`[promo-mention-reply] ⏸️ TEMPORARY HALT active. Resumes in ${remainingMins} minutes`);
-      return new Response(JSON.stringify({ ok: true, halted: true, resumesAt: HALT_UNTIL.toISOString() }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
 
     // Check kill switches
     const ENABLE_PROMO_MENTIONS = Deno.env.get("ENABLE_PROMO_MENTIONS");
