@@ -659,9 +659,12 @@ export default function PanelNfaTab() {
     queryKey: ["nfa-my-mints", solanaAddress],
     enabled: !!solanaAddress,
     queryFn: async () => {
-      const { data, error } = await supabase.from("nfa_mints").select("*").eq("minter_wallet", solanaAddress!).order("created_at", { ascending: false });
-      if (error) return [];
-      return data as NfaMint[];
+      // Show NFAs user minted OR currently owns
+      const { data: minted } = await supabase.from("nfa_mints").select("*").eq("minter_wallet", solanaAddress!);
+      const { data: owned } = await supabase.from("nfa_mints").select("*").eq("owner_wallet", solanaAddress!);
+      const map = new Map<string, NfaMint>();
+      for (const m of [...(minted || []), ...(owned || [])]) map.set(m.id, m as NfaMint);
+      return Array.from(map.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     },
   });
 

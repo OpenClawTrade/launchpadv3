@@ -1,11 +1,11 @@
 import { useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useNfaMarketplace } from "@/hooks/useNfaMarketplace";
 import { useAuth } from "@/hooks/useAuth";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { Badge } from "@/components/ui/badge";
 import { Fingerprint, ShoppingCart, ArrowLeft, Loader2, ExternalLink } from "lucide-react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -122,7 +122,7 @@ export default function NfaMarketplacePage() {
               const isSelf = listing.seller_wallet === solanaAddress;
 
               return (
-                <div key={listing.id} className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all duration-200 group">
+                <Link to={`/nfa/${listing.nfa_mint_id}`} key={listing.id} className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all duration-200 group block">
                   <div className="aspect-square relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.08), rgba(34,197,94,0.03))" }}>
                     {image ? (
                       <img src={image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -158,7 +158,7 @@ export default function NfaMarketplacePage() {
                       <p className="text-[10px] text-muted-foreground text-center mt-3">Your listing</p>
                     )}
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
