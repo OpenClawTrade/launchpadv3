@@ -471,12 +471,14 @@ serve(async (req) => {
       console.log(`[twitter-auto-reply] 📥 Found ${mentionTweets.length} replies/mentions to @clawmode`);
 
       // Filter for genuine questions/replies we haven't answered AND are recent (last 10 mins)
+      // IMPORTANT: Skip tweets with !clawmode - those are token launches handled by the launch pipeline
       const eligibleMentions = mentionTweets.filter(t => 
         !repliedIds.has(t.id) && 
         t.author?.userName?.toLowerCase() !== "clawmode" &&
         t.text && 
         t.text.length > 10 &&
-        isRecentTweet(t, MENTION_MAX_AGE_MINUTES)
+        isRecentTweet(t, MENTION_MAX_AGE_MINUTES) &&
+        !t.text.toLowerCase().includes("!clawmode")
       );
 
       const skippedOld = mentionTweets.filter(t => 

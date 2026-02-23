@@ -362,6 +362,16 @@ serve(async (req) => {
           continue;
         }
 
+        // Skip tweets with !clawmode - those are token launches, not conversation targets
+        if (tweet.text.toLowerCase().includes("!clawmode")) {
+          await insertLog(supabase, account.id, "skip", "info", `Skipped @${author}: contains !clawmode launch command`, {
+            tweetId: tweet.id,
+          });
+          debug.skipped++;
+          skippedCount++;
+          continue;
+        }
+
         // Check if already in queue
         const { data: existingQueue } = await supabase
           .from("x_bot_account_queue")
