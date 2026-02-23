@@ -260,15 +260,17 @@ export default function PanelMyLaunchesTab() {
       {totalUnclaimed >= MIN_CLAIM_SOL && (
         <Button
           onClick={() => handleClaim()}
-          disabled={!!claimingTokenId}
-          className="w-full gap-2 font-mono bg-green-500 hover:bg-green-600 text-black border-0 font-bold"
+          disabled={!!claimingTokenId || claimStatus?.canClaim === false}
+          className="w-full gap-2 font-mono bg-green-500 hover:bg-green-600 text-black border-0 font-bold disabled:opacity-50"
         >
           {claimingTokenId ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <DollarSign className="h-4 w-4" />
           )}
-          Claim {totalUnclaimed.toFixed(4)} SOL → Embedded Wallet
+          {claimStatus?.canClaim === false && claimStatus?.remainingSeconds
+            ? `Cooldown: ${Math.floor(claimStatus.remainingSeconds / 60)}m ${claimStatus.remainingSeconds % 60}s`
+            : `Claim ${totalUnclaimed.toFixed(4)} SOL → Embedded Wallet`}
         </Button>
       )}
 

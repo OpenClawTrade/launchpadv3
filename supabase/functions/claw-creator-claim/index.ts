@@ -58,9 +58,14 @@ async function calculateClaimable(
     }
   }
 
-  // Get already-paid distributions — check by BOTH token ID and twitter_username
-  // This catches distributions even if fun_token_id was null (fallback inserts)
-  const [{ data: distByToken }, { data: distByUsername }] = await Promise.all([
+  // Get already-paid distributions — check BOTH claw_distributions AND fun_distributions
+  // This prevents double-claiming across the old and new systems
+  const [
+    { data: distByToken },
+    { data: distByUsername },
+    { data: funDistByToken },
+    { data: funDistByUsername },
+  ] = await Promise.all([
     targetTokenIds.length > 0
       ? supabase
           .from("claw_distributions")
@@ -75,12 +80,30 @@ async function calculateClaimable(
       .eq("twitter_username", normalizedUsername)
       .in("distribution_type", ["creator_claim", "creator"])
       .in("status", ["completed", "pending"]),
+    // Also check legacy fun_distributions table
+    targetTokenIds.length > 0
+      ? supabase
+          .from("fun_distributions")
+          .select("amount_sol, fun_token_id, id")
+          .in("fun_token_id", targetTokenIds)
+          .in("distribution_type", ["creator_claim", "creator"])
+          .in("status", ["completed", "pending"])
+      : Promise.resolve({ data: [] }),
+    supabase
+      .from("fun_distributions")
+      .select("amount_sol, fun_token_id, id")
+      .eq("twitter_username", normalizedUsername)
+      .in("distribution_type", ["creator_claim", "creator"])
+      .in("status", ["completed", "pending"]),
   ]);
 
-  // Merge and deduplicate by id
+  // Merge and deduplicate by id (prefix fun_ IDs to avoid collision)
   const allDists = new Map<string, any>();
   for (const d of [...(distByToken || []), ...(distByUsername || [])]) {
     allDists.set(d.id, d);
+  }
+  for (const d of [...(funDistByToken || []), ...(funDistByUsername || [])]) {
+    allDists.set("fun_" + d.id, d);
   }
 
   let totalCreatorPaid = 0;
