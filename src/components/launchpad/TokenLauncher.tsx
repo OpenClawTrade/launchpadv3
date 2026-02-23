@@ -1057,7 +1057,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             tradingFeeBps: phantomTradingFee,
             devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
             feeMode: feeMode || 'standard',
-            specificVanityId: 'beef27e2-e826-46b7-a8f5-8a796ea97efb',
+            specificVanityId: '037d44f3-403f-4745-be3d-55ef79504828',
           },
         }),
         60_000,
