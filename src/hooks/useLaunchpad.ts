@@ -1,9 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useMeteoraApi } from "./useMeteoraApi";
 import { filterHiddenTokens } from "@/lib/hiddenTokens";
+import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
+import { getRpcUrl } from "@/hooks/useSolanaWallet";
+import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 
 export interface Token {
   id: string;
@@ -96,6 +99,7 @@ export function useLaunchpad() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { executeSwap: executeSwapApi, claimFees: claimFeesApi } = useMeteoraApi();
+  const { signAndSendTransaction } = useSolanaWalletWithPrivy();
 
   // Fetch all tokens
   const {
@@ -319,7 +323,7 @@ export function useLaunchpad() {
     });
   };
 
-  // Execute swap using Vercel API
+  // Execute swap using Vercel API + sign & send on-chain
   const executeSwap = useMutation({
     mutationFn: async ({
       mintAddress,
@@ -336,6 +340,9 @@ export function useLaunchpad() {
       slippageBps?: number;
       profileId?: string;
     }) => {
+      console.log('[useLaunchpad] executeSwap called:', { mintAddress, userWallet, amount, isBuy, slippageBps });
+
+      // Step 1: Get transaction from API
       const result = await executeSwapApi({
         mintAddress,
         userWallet,
@@ -345,11 +352,39 @@ export function useLaunchpad() {
         profileId,
       });
 
+      console.log('[useLaunchpad] API result:', { success: result.success, hasTransaction: !!result.transaction, tokensOut: result.tokensOut, solOut: result.solOut });
+
       if (!result.success) {
         throw new Error('Swap failed');
       }
 
-      // Return normalized result with both naming conventions for compatibility
+      // Step 2: Sign and send the transaction on-chain
+      let onChainSignature: string | undefined;
+      if (result.transaction) {
+        console.log('[useLaunchpad] Signing and sending transaction on-chain...');
+        try {
+          // Deserialize the transaction
+          const bytes = Uint8Array.from(atob(result.transaction), c => c.charCodeAt(0));
+          let tx: Transaction | VersionedTransaction;
+          try {
+            tx = VersionedTransaction.deserialize(bytes);
+          } catch {
+            tx = Transaction.from(bytes);
+          }
+
+          // Sign and send via Privy embedded wallet
+          const { signature, confirmed } = await signAndSendTransaction(tx);
+          onChainSignature = signature;
+          console.log('[useLaunchpad] Transaction confirmed on-chain:', { signature, confirmed });
+        } catch (signError) {
+          console.error('[useLaunchpad] Transaction signing/sending failed:', signError);
+          throw new Error(signError instanceof Error ? signError.message : 'Transaction signing failed');
+        }
+      } else {
+        console.warn('[useLaunchpad] No transaction returned from API - swap may not have executed on-chain');
+      }
+
+      // Return normalized result
       return {
         success: result.success,
         tokensOut: result.tokensOut || 0,
@@ -358,11 +393,12 @@ export function useLaunchpad() {
         bondingProgress: result.bondingProgress,
         graduated: result.graduated,
         marketCap: result.marketCap,
-        signature: result.signature,
+        signature: onChainSignature || result.signature,
         transaction: result.transaction,
       };
     },
     onSuccess: (data, variables) => {
+      console.log('[useLaunchpad] Swap success, invalidating queries. Signature:', data.signature);
       queryClient.invalidateQueries({ queryKey: ['launchpad-token', variables.mintAddress] });
       queryClient.invalidateQueries({ queryKey: ['launchpad-tokens'] });
       queryClient.invalidateQueries({ queryKey: ['user-holdings', variables.userWallet] });
