@@ -659,81 +659,111 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const crypto = await import('crypto');
     const tokenId = crypto.randomUUID();
 
-    // Insert token into database
+    // Insert token into database with retry logic for transient 502s
     // Use fresh deployer as creator_wallet for on-chain attribution
     // Use auto-populated socials (finalWebsiteUrl, finalTwitterUrl) for proper metadata
-    const { error: tokenError } = await supabase.rpc('backend_create_token', {
-      p_id: tokenId,
-      p_mint_address: mintAddress,
-      p_name: name.slice(0, 32),
-      p_ticker: ticker.toUpperCase().slice(0, 10),
-      p_creator_wallet: deployerAddress, // Fresh deployer (or treasury if not enabled)
-      p_dbc_pool_address: dbcPoolAddress,
-      p_description: description || `${name} - A fun meme coin!`,
-      p_image_url: imageUrl || null,
-      p_website_url: finalWebsiteUrl,
-      p_twitter_url: finalTwitterUrl,
-      p_virtual_sol_reserves: virtualSol,
-      p_virtual_token_reserves: virtualToken,
-      p_total_supply: TOTAL_SUPPLY,
-      p_price_sol: initialPrice,
-      p_market_cap_sol: virtualSol,
-      p_graduation_threshold_sol: GRADUATION_THRESHOLD_SOL,
-      p_system_fee_bps: TRADING_FEE_BPS,
-      p_creator_fee_bps: 0,
-    });
+    const DB_RETRY_COUNT = 3;
+    const DB_RETRY_DELAY_MS = 2000;
 
-    if (tokenError) {
-      console.error(`[create-fun][${VERSION}] CRITICAL: Token created on-chain but DB insert failed!`);
-      console.error(`[create-fun][${VERSION}] Mint: ${mintAddress}, Pool: ${dbcPoolAddress}, Deployer: ${deployerAddress}`);
-      console.error(`[create-fun][${VERSION}] Metadata: ${JSON.stringify({ name, ticker, imageUrl })}`);
-      console.error(`[create-fun][${VERSION}] DB Error:`, tokenError);
-      throw new Error(`Failed to create token record: ${tokenError.message}`);
+    let tokenInserted = false;
+    for (let dbAttempt = 0; dbAttempt < DB_RETRY_COUNT; dbAttempt++) {
+      const { error: tokenError } = await supabase.rpc('backend_create_token', {
+        p_id: tokenId,
+        p_mint_address: mintAddress,
+        p_name: name.slice(0, 32),
+        p_ticker: ticker.toUpperCase().slice(0, 10),
+        p_creator_wallet: deployerAddress,
+        p_dbc_pool_address: dbcPoolAddress,
+        p_description: description || `${name} - A fun meme coin!`,
+        p_image_url: imageUrl || null,
+        p_website_url: finalWebsiteUrl,
+        p_twitter_url: finalTwitterUrl,
+        p_virtual_sol_reserves: virtualSol,
+        p_virtual_token_reserves: virtualToken,
+        p_total_supply: TOTAL_SUPPLY,
+        p_price_sol: initialPrice,
+        p_market_cap_sol: virtualSol,
+        p_graduation_threshold_sol: GRADUATION_THRESHOLD_SOL,
+        p_system_fee_bps: TRADING_FEE_BPS,
+        p_creator_fee_bps: 0,
+      });
+
+      if (!tokenError) {
+        tokenInserted = true;
+        console.log(`[create-fun][${VERSION}] Token saved to tokens table (attempt ${dbAttempt + 1})`, { tokenId, mintAddress, deployerAddress, imageUrl: imageUrl?.slice(0, 50), elapsed: Date.now() - startTime });
+        break;
+      }
+
+      const errorMsg = tokenError.message || String(tokenError);
+      const isTransient = errorMsg.includes('502') || errorMsg.includes('Bad gateway') || errorMsg.includes('503') || errorMsg.includes('TIMEOUT') || errorMsg.includes('FetchError');
+      console.error(`[create-fun][${VERSION}] DB insert attempt ${dbAttempt + 1}/${DB_RETRY_COUNT} failed (transient=${isTransient}):`, errorMsg.slice(0, 200));
+
+      if (!isTransient || dbAttempt === DB_RETRY_COUNT - 1) {
+        console.error(`[create-fun][${VERSION}] CRITICAL: Token created on-chain but DB insert failed!`);
+        console.error(`[create-fun][${VERSION}] Mint: ${mintAddress}, Pool: ${dbcPoolAddress}, Deployer: ${deployerAddress}`);
+        throw new Error(`Failed to create token record: ${errorMsg.slice(0, 200)}`);
+      }
+
+      const retryDelay = DB_RETRY_DELAY_MS * Math.pow(2, dbAttempt);
+      console.log(`[create-fun][${VERSION}] Retrying DB insert in ${retryDelay}ms...`);
+      await sleep(retryDelay);
     }
-
-    console.log(`[create-fun][${VERSION}] Token saved to tokens table`, { tokenId, mintAddress, deployerAddress, imageUrl: imageUrl?.slice(0, 50), elapsed: Date.now() - startTime });
 
     // === ALSO INSERT INTO fun_tokens TABLE ===
     // The frontend and API use fun_tokens, so we need to ensure it's populated with all metadata
     const { creatorUsername } = req.body;
-    const { data: funTokenResult, error: funTokenError } = await supabase
-      .from('fun_tokens')
-      .upsert({
-        id: tokenId,
-        name: name.slice(0, 50),
-        ticker: ticker.toUpperCase().slice(0, 10),
-        description: description || `${name} - A fun meme coin!`,
-        image_url: imageUrl || null,
-        website_url: finalWebsiteUrl,
-        twitter_url: finalTwitterUrl,
-        telegram_url: telegramUrl || null,
-        discord_url: discordUrl || null,
-        creator_wallet: feeRecipientWallet || null,
-        deployer_wallet: deployerAddress,
-        mint_address: mintAddress,
-        dbc_pool_address: dbcPoolAddress,
-        status: 'active',
-        price_sol: initialPrice,
-        market_cap_sol: virtualSol,
-        bonding_progress: 0,
-        holder_count: 0,
-        trading_fee_bps: TRADING_FEE_BPS,
-        fee_mode: tokenFeeMode,
-        chain: 'solana',
-        // Trading agent fields - if agentId is provided, this is a trading agent token
-        agent_id: agentId || null,
-        is_trading_agent_token: !!agentId,
-      }, {
-        onConflict: 'mint_address',
-        ignoreDuplicates: false,
-      })
-      .select('id')
-      .single();
 
-    if (funTokenError) {
-      console.error(`[create-fun][${VERSION}] fun_tokens insert failed (non-fatal):`, funTokenError.message);
-    } else {
-      console.log(`[create-fun][${VERSION}] ✅ fun_tokens saved`, { id: funTokenResult?.id || tokenId, elapsed: Date.now() - startTime });
+    let funTokenResult: any = null;
+    for (let dbAttempt = 0; dbAttempt < DB_RETRY_COUNT; dbAttempt++) {
+      const { data, error: funTokenError } = await supabase
+        .from('fun_tokens')
+        .upsert({
+          id: tokenId,
+          name: name.slice(0, 50),
+          ticker: ticker.toUpperCase().slice(0, 10),
+          description: description || `${name} - A fun meme coin!`,
+          image_url: imageUrl || null,
+          website_url: finalWebsiteUrl,
+          twitter_url: finalTwitterUrl,
+          telegram_url: telegramUrl || null,
+          discord_url: discordUrl || null,
+          creator_wallet: feeRecipientWallet || null,
+          deployer_wallet: deployerAddress,
+          mint_address: mintAddress,
+          dbc_pool_address: dbcPoolAddress,
+          status: 'active',
+          price_sol: initialPrice,
+          market_cap_sol: virtualSol,
+          bonding_progress: 0,
+          holder_count: 0,
+          trading_fee_bps: TRADING_FEE_BPS,
+          fee_mode: tokenFeeMode,
+          chain: 'solana',
+          agent_id: agentId || null,
+          is_trading_agent_token: !!agentId,
+        }, {
+          onConflict: 'mint_address',
+          ignoreDuplicates: false,
+        })
+        .select('id')
+        .single();
+
+      if (!funTokenError) {
+        funTokenResult = data;
+        console.log(`[create-fun][${VERSION}] ✅ fun_tokens saved (attempt ${dbAttempt + 1})`, { id: data?.id || tokenId, elapsed: Date.now() - startTime });
+        break;
+      }
+
+      const errorMsg = funTokenError.message || String(funTokenError);
+      const isTransient = errorMsg.includes('502') || errorMsg.includes('Bad gateway') || errorMsg.includes('503') || errorMsg.includes('TIMEOUT') || errorMsg.includes('FetchError');
+      console.error(`[create-fun][${VERSION}] fun_tokens attempt ${dbAttempt + 1}/${DB_RETRY_COUNT} failed (transient=${isTransient}):`, errorMsg.slice(0, 200));
+
+      if (!isTransient || dbAttempt === DB_RETRY_COUNT - 1) {
+        console.error(`[create-fun][${VERSION}] fun_tokens insert failed (non-fatal):`, errorMsg.slice(0, 200));
+        break;
+      }
+
+      await sleep(DB_RETRY_DELAY_MS * Math.pow(2, dbAttempt));
     }
 
     // Store encrypted deployer keypair for dust recovery (fire-and-forget)
