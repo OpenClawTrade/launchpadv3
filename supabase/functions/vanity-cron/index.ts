@@ -11,10 +11,11 @@ const corsHeaders = {
 // Configuration
 const TARGET_SUFFIX = 'CLAW'; // Displayed uppercase, matched case-insensitively
 const TARGET_AVAILABLE = 500; // Keep at least 500 available
-const MAX_DURATION_MS = 8000; // 8 seconds (safe for edge function CPU limits)
-const BATCH_SIZE = 10; // Smaller batches to stay within CPU budget
+const TARGET_FOUND = 100; // Stop after finding this many in one run
+const MAX_DURATION_MS = 50000; // 50 seconds (safe for edge function ~60s wall clock)
+const BATCH_SIZE = 50; // Batch size per inner loop
 const CASE_SENSITIVE = false; // Case-insensitive matching for ~60x faster generation
-const YIELD_EVERY = 1; // Yield CPU every attempt to avoid compute limit
+const YIELD_EVERY = 10; // Yield CPU every N attempts to avoid compute limit
 
 // XOR encryption for secret key storage
 function encryptSecretKey(secretKeyHex: string, encryptionKey: string): string {
@@ -131,7 +132,7 @@ Deno.serve(async (req) => {
     let found = 0;
     const newAddresses: string[] = [];
     
-    while (Date.now() - startTime < MAX_DURATION_MS) {
+    while (Date.now() - startTime < MAX_DURATION_MS && found < TARGET_FOUND) {
       // Generate batch
       for (let i = 0; i < BATCH_SIZE; i++) {
         attempts++;
