@@ -76,6 +76,15 @@ const VanityAdminPage = () => {
     return stored.toUpperCase();
   });
 
+  // Refs to avoid stale closures in long-running auto-run loops
+  const backendBaseUrlRef = useRef<string | null>(null);
+  const authSecretRef = useRef(authSecret);
+  const targetSuffixRef = useRef(targetSuffix);
+
+  useEffect(() => { backendBaseUrlRef.current = backendBaseUrl; }, [backendBaseUrl]);
+  useEffect(() => { authSecretRef.current = authSecret; }, [authSecret]);
+  useEffect(() => { targetSuffixRef.current = targetSuffix; }, [targetSuffix]);
+
   const MAX_AUTO_RUNS = 30;
 
   useEffect(() => {
@@ -199,7 +208,11 @@ const VanityAdminPage = () => {
   }, [authSecret, backendBaseUrl, fetchStatus]);
 
   const triggerGenerationOnce = useCallback(async (opts?: { targetCount?: number; ignoreTarget?: boolean }) => {
-    if (!authSecret) return null;
+    const secret = authSecretRef.current;
+    const baseUrl = backendBaseUrlRef.current;
+    const suffix = targetSuffixRef.current;
+
+    if (!secret) return null;
 
     const { targetCount, ignoreTarget } = opts ?? {};
 
@@ -216,7 +229,7 @@ const VanityAdminPage = () => {
     const ESTIMATED_RATE = 3300;
     const MAX_DURATION = 55000;
 
-    if (!backendBaseUrl) {
+    if (!baseUrl) {
       toast.error('Backend URL not configured yet — refresh the page');
       setIsGenerating(false);
       return null;
@@ -231,8 +244,8 @@ const VanityAdminPage = () => {
       
       // Fetch real count from database
       try {
-        const progressRes = await fetch(`${backendBaseUrl}/api/vanity/progress?suffix=${encodeURIComponent(targetSuffix)}`, {
-          headers: { 'x-vanity-secret': authSecret },
+        const progressRes = await fetch(`${baseUrl}/api/vanity/progress?suffix=${encodeURIComponent(suffix)}`, {
+          headers: { 'x-vanity-secret': secret },
         });
         const progressData = await progressRes.json();
         
@@ -260,17 +273,17 @@ const VanityAdminPage = () => {
           recentAddresses: prev?.recentAddresses || [],
         }));
       }
-    }, 2000); // Poll every 2 seconds
+    }, 2500); // Poll every 2.5 seconds
 
     try {
-      const response = await fetch(`${backendBaseUrl}/api/vanity/batch`, {
+      const response = await fetch(`${baseUrl}/api/vanity/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-vanity-secret': authSecret,
+          'x-vanity-secret': secret,
         },
         body: JSON.stringify({
-          suffix: targetSuffix,
+          suffix,
           ...(typeof targetCount === 'number' && targetCount > 0 ? { targetCount } : {}),
           ...(ignoreTarget ? { ignoreTarget: true } : {}),
         }),
@@ -316,7 +329,7 @@ const VanityAdminPage = () => {
       setIsGenerating(false);
       setLiveProgress(null);
     }
-  }, [authSecret, stats?.available, targetSuffix]);
+  }, [stats?.available]);
 
   const stopAutoRun = useCallback(() => {
     autoRunRef.current = false;
@@ -325,7 +338,7 @@ const VanityAdminPage = () => {
   }, []);
 
   const startAutoRun = useCallback(async () => {
-    if (!authSecret) return;
+    if (!authSecretRef.current) return;
 
     autoRunRef.current = true;
     setIsAutoRunning(true);
@@ -336,25 +349,42 @@ const VanityAdminPage = () => {
       // Use ref to check if we should stop (avoids stale closure)
       if (!autoRunRef.current) break;
 
-      const data = await triggerGenerationOnce(
-        shouldStopOnTarget
-          ? { targetCount: targetAvailable }
-          : { ignoreTarget: true }
-      );
-      if (!data) break;
+      try {
+        const data = await triggerGenerationOnce(
+          shouldStopOnTarget
+            ? { targetCount: targetAvailable }
+            : { ignoreTarget: true }
+        );
+        
+        // Only break on null if it's NOT an abort (user stopped)
+        if (!data) {
+          if (!autoRunRef.current) break; // user stopped
+          // Otherwise retry after a delay (could be transient error)
+          console.warn('[auto-run] Batch returned null, retrying in 3s...');
+          await new Promise(r => setTimeout(r, 3000));
+          continue;
+        }
 
-      await fetchStatus();
+        await fetchStatus();
 
-      const available = data?.stats?.available ?? 0;
-      if (shouldStopOnTarget && available >= targetAvailable) {
-        toast.success(`Auto-run target reached: ${available}/${targetAvailable} available`);
-        break;
+        const available = data?.stats?.available ?? 0;
+        if (shouldStopOnTarget && available >= targetAvailable) {
+          toast.success(`Auto-run target reached: ${available}/${targetAvailable} available`);
+          break;
+        }
+
+        // Small delay between batches to let state settle
+        await new Promise(r => setTimeout(r, 1000));
+      } catch (err) {
+        console.error('[auto-run] Unexpected error:', err);
+        if (!autoRunRef.current) break;
+        await new Promise(r => setTimeout(r, 3000));
       }
     }
 
     autoRunRef.current = false;
     setIsAutoRunning(false);
-  }, [authSecret, fetchStatus, triggerGenerationOnce, targetAvailable]);
+  }, [fetchStatus, triggerGenerationOnce, targetAvailable]);
 
 
   if (!authSecret) {
