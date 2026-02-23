@@ -16,8 +16,7 @@ const TREASURY_RESERVE_SOL = 0.05;
 
 /**
  * Calculate claimable amount for a twitter user.
- * Uses fun_fee_claims / claw_fee_claims as source of truth (actual on-chain claims).
- * Subtracts already-paid distributions to get the remaining claimable amount.
+ * Checks BOTH token-specific and username-based distributions to prevent double-pay.
  */
 async function calculateClaimable(
   supabase: any,
@@ -59,18 +58,38 @@ async function calculateClaimable(
     }
   }
 
-  // Get already-paid distributions — check ALL creator distribution types
-  const { data: distributions } = await supabase
-    .from("claw_distributions")
-    .select("amount_sol, fun_token_id")
-    .in("fun_token_id", targetTokenIds)
-    .in("distribution_type", ["creator_claim", "creator"])
-    .eq("status", "completed");
+  // Get already-paid distributions — check by BOTH token ID and twitter_username
+  // This catches distributions even if fun_token_id was null (fallback inserts)
+  const [{ data: distByToken }, { data: distByUsername }] = await Promise.all([
+    targetTokenIds.length > 0
+      ? supabase
+          .from("claw_distributions")
+          .select("amount_sol, fun_token_id, id")
+          .in("fun_token_id", targetTokenIds)
+          .in("distribution_type", ["creator_claim", "creator"])
+          .in("status", ["completed", "pending"])
+      : Promise.resolve({ data: [] }),
+    supabase
+      .from("claw_distributions")
+      .select("amount_sol, fun_token_id, id")
+      .eq("twitter_username", normalizedUsername)
+      .in("distribution_type", ["creator_claim", "creator"])
+      .in("status", ["completed", "pending"]),
+  ]);
 
-  const totalCreatorPaid = (distributions || []).reduce((sum: number, d: any) => sum + (d.amount_sol || 0), 0);
+  // Merge and deduplicate by id
+  const allDists = new Map<string, any>();
+  for (const d of [...(distByToken || []), ...(distByUsername || [])]) {
+    allDists.set(d.id, d);
+  }
+
+  let totalCreatorPaid = 0;
   const paidPerToken: Record<string, number> = {};
-  for (const d of distributions || []) {
-    paidPerToken[d.fun_token_id] = (paidPerToken[d.fun_token_id] || 0) + (d.amount_sol || 0);
+  for (const d of allDists.values()) {
+    totalCreatorPaid += d.amount_sol || 0;
+    if (d.fun_token_id) {
+      paidPerToken[d.fun_token_id] = (paidPerToken[d.fun_token_id] || 0) + (d.amount_sol || 0);
+    }
   }
 
   let claimable = Math.max(0, totalCreatorEarned - totalCreatorPaid);
@@ -113,12 +132,50 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Rate limit check — check ALL creator distribution types
+    // ===== Find tokens OWNED by this Twitter user =====
+    const { data: socialPosts } = await supabase
+      .from("agent_social_posts")
+      .select("fun_token_id")
+      .ilike("post_author", normalizedUsername)
+      .eq("platform", "twitter")
+      .eq("status", "completed")
+      .not("fun_token_id", "is", null);
+
+    const funTokenIds = [...new Set((socialPosts || []).map((p: any) => p.fun_token_id).filter(Boolean))];
+
+    let clawTokenIds: string[] = [];
+    const { data: matchingAgents } = await supabase
+      .from("claw_agents")
+      .select("id")
+      .ilike("twitter_handle", normalizedUsername);
+
+    if (matchingAgents && matchingAgents.length > 0) {
+      const agentIds = matchingAgents.map((a: any) => a.id);
+      const [{ data: agentClawTokens }, { data: agentTokenLinks }] = await Promise.all([
+        supabase.from("claw_tokens").select("id").in("agent_id", agentIds),
+        supabase.from("claw_agent_tokens").select("fun_token_id").in("agent_id", agentIds),
+      ]);
+      clawTokenIds = [
+        ...(agentClawTokens || []).map((t: any) => t.id),
+        ...(agentTokenLinks || []).map((t: any) => t.fun_token_id),
+      ];
+      clawTokenIds = [...new Set(clawTokenIds)];
+    }
+
+    const allTokenIds = [...new Set([...funTokenIds, ...clawTokenIds])];
+    const targetTokenIds = tokenIds?.length ? allTokenIds.filter((id: string) => tokenIds.includes(id)) : allTokenIds;
+
+    if (targetTokenIds.length === 0) {
+      return new Response(JSON.stringify({ success: false, error: `No tokens found launched by @${normalizedUsername}` }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ===== Rate limit check — by twitter_username =====
     const { data: lastClaim } = await supabase
       .from("claw_distributions")
       .select("created_at")
+      .eq("twitter_username", normalizedUsername)
       .in("distribution_type", ["creator_claim", "creator"])
-      .eq("status", "completed")
+      .in("status", ["completed", "pending"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -137,57 +194,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ===== SECURITY FIX: Only find tokens OWNED by this Twitter user =====
-    
-    // Source 1: fun_tokens via agent_social_posts (post_author must match username)
-    const { data: socialPosts } = await supabase
-      .from("agent_social_posts")
-      .select("fun_token_id")
-      .ilike("post_author", normalizedUsername)
-      .eq("platform", "twitter")
-      .eq("status", "completed")
-      .not("fun_token_id", "is", null);
-
-    const funTokenIds = [...new Set((socialPosts || []).map((p: any) => p.fun_token_id).filter(Boolean))];
-
-    // Source 2: claw_tokens — ONLY those created by agents with matching twitter_handle
-    let clawTokenIds: string[] = [];
-    const { data: matchingAgents } = await supabase
-      .from("claw_agents")
-      .select("id")
-      .ilike("twitter_handle", normalizedUsername);
-
-    if (matchingAgents && matchingAgents.length > 0) {
-      const agentIds = matchingAgents.map((a: any) => a.id);
-      const { data: agentClawTokens } = await supabase
-        .from("claw_tokens")
-        .select("id")
-        .in("agent_id", agentIds);
-      clawTokenIds = (agentClawTokens || []).map((t: any) => t.id);
-    }
-
-    // Source 3: Also check claw_agent_tokens for agent->token mappings
-    if (matchingAgents && matchingAgents.length > 0) {
-      const agentIds = matchingAgents.map((a: any) => a.id);
-      const { data: agentTokenLinks } = await supabase
-        .from("claw_agent_tokens")
-        .select("fun_token_id")
-        .in("agent_id", agentIds);
-      const linkedIds = (agentTokenLinks || []).map((t: any) => t.fun_token_id);
-      clawTokenIds = [...new Set([...clawTokenIds, ...linkedIds])];
-    }
-
-    const allTokenIds = [...new Set([...funTokenIds, ...clawTokenIds])];
-    const targetTokenIds = tokenIds?.length ? allTokenIds.filter((id: string) => tokenIds.includes(id)) : allTokenIds;
-
-    if (targetTokenIds.length === 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: `No tokens found launched by @${normalizedUsername}`,
-      }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // Initial calculation for checkOnly / display
+    // Calculate claimable
     const initialCalc = await calculateClaimable(supabase, normalizedUsername, targetTokenIds, funTokenIds, clawTokenIds);
 
     console.log(`[claw-creator-claim] @${normalizedUsername}: earned=${initialCalc.totalCreatorEarned.toFixed(6)}, paid=${initialCalc.totalCreatorPaid.toFixed(6)}, claimable=${initialCalc.claimable.toFixed(6)}, tokens=${targetTokenIds.length}`);
@@ -212,29 +219,28 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: false, error: `Minimum claim is ${MIN_CLAIM_SOL} SOL. Current: ${initialCalc.claimable.toFixed(6)} SOL`, pendingAmount: initialCalc.claimable }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Acquire lock
+    // ===== Acquire lock =====
     const { data: lockAcquired } = await supabase.rpc("acquire_claw_creator_claim_lock", { p_twitter_username: normalizedUsername, p_duration_seconds: CLAIM_LOCK_SECONDS });
     if (!lockAcquired) {
       return new Response(JSON.stringify({ success: false, error: "Another claim in progress", locked: true }), { status: 423, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     try {
-      // ===== SECURITY FIX: Re-verify claimable amount AFTER acquiring lock =====
-      // This prevents race conditions where two requests pass the initial check
-      // but only one should actually be paid out.
+      // Re-verify after lock
       const verifiedCalc = await calculateClaimable(supabase, normalizedUsername, targetTokenIds, funTokenIds, clawTokenIds);
       
       if (verifiedCalc.claimable < MIN_CLAIM_SOL) {
-        console.log(`[claw-creator-claim] ⚠️ Post-lock verification failed: claimable=${verifiedCalc.claimable.toFixed(6)} < ${MIN_CLAIM_SOL}`);
-        return new Response(JSON.stringify({ success: false, error: `Nothing left to claim after verification. Another claim may have just completed.`, pendingAmount: verifiedCalc.claimable }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        console.log(`[claw-creator-claim] ⚠️ Post-lock: claimable=${verifiedCalc.claimable.toFixed(6)} < ${MIN_CLAIM_SOL}`);
+        return new Response(JSON.stringify({ success: false, error: `Nothing left to claim. Another claim may have just completed.`, pendingAmount: verifiedCalc.claimable }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Also re-check rate limit after lock (prevent race condition)
+      // Re-check rate limit after lock
       const { data: recentClaim } = await supabase
         .from("claw_distributions")
         .select("created_at")
+        .eq("twitter_username", normalizedUsername)
         .in("distribution_type", ["creator_claim", "creator"])
-        .eq("status", "completed")
+        .in("status", ["completed", "pending"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -243,18 +249,58 @@ Deno.serve(async (req) => {
         const timeSinceRecent = Date.now() - new Date(recentClaim.created_at).getTime();
         if (timeSinceRecent < CLAIM_COOLDOWN_MS) {
           const secs = Math.ceil((CLAIM_COOLDOWN_MS - timeSinceRecent) / 1000);
-          console.log(`[claw-creator-claim] ⚠️ Post-lock rate limit hit: ${secs}s remaining`);
           return new Response(JSON.stringify({ success: false, error: `Rate limited. Try again in ${Math.floor(secs / 60)}m`, rateLimited: true, remainingSeconds: secs }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
 
       const claimable = verifiedCalc.claimable;
 
+      // ===== STEP 1: Record distributions as PENDING *before* sending SOL =====
+      const distributionIds: string[] = [];
+      for (const tokenId of targetTokenIds) {
+        const tokenEarned = verifiedCalc.tokenEarnings[tokenId] || 0;
+        const tokenPaid = verifiedCalc.paidPerToken[tokenId] || 0;
+        const tokenClaimable = Math.max(0, tokenEarned - tokenPaid);
+        if (tokenClaimable > 0.000001) {
+          const { data: inserted, error: insertError } = await supabase.from("claw_distributions").insert({
+            fun_token_id: null, // Use null to avoid any FK issues
+            creator_wallet: payoutWallet,
+            amount_sol: tokenClaimable,
+            distribution_type: "creator_claim",
+            signature: null,
+            status: "pending",
+            twitter_username: normalizedUsername,
+          }).select("id").single();
+
+          if (insertError || !inserted) {
+            console.error(`[claw-creator-claim] ❌ Failed to insert pending distribution:`, insertError);
+            // Clean up any already-inserted pending distributions
+            if (distributionIds.length > 0) {
+              await supabase.from("claw_distributions").delete().in("id", distributionIds);
+            }
+            throw new Error("Failed to record distribution - claim aborted for safety");
+          }
+          distributionIds.push(inserted.id);
+          console.log(`[claw-creator-claim] 📝 Recorded pending distribution ${inserted.id}: ${tokenClaimable.toFixed(6)} SOL`);
+        }
+      }
+
+      if (distributionIds.length === 0) {
+        throw new Error("No distributions to record - claim aborted");
+      }
+
+      console.log(`[claw-creator-claim] ✅ ${distributionIds.length} pending distributions recorded. Now sending SOL...`);
+
+      // ===== STEP 2: Send SOL on-chain =====
       let treasuryKeypair: Keypair;
       try {
         if (treasuryKey.startsWith("[")) treasuryKeypair = Keypair.fromSecretKey(new Uint8Array(JSON.parse(treasuryKey)));
         else treasuryKeypair = Keypair.fromSecretKey(bs58.decode(treasuryKey));
-      } catch { throw new Error("Invalid treasury configuration"); }
+      } catch {
+        // Clean up pending distributions
+        await supabase.from("claw_distributions").update({ status: "failed" }).in("id", distributionIds);
+        throw new Error("Invalid treasury configuration");
+      }
 
       const connection = new Connection(heliusRpcUrl, "confirmed");
       const treasuryBalance = await connection.getBalance(treasuryKeypair.publicKey);
@@ -263,58 +309,37 @@ Deno.serve(async (req) => {
       console.log(`[claw-creator-claim] Treasury: ${treasuryBalanceSol.toFixed(6)} SOL, claiming: ${claimable.toFixed(6)} SOL`);
 
       if (treasuryBalanceSol < claimable + TREASURY_RESERVE_SOL) {
+        // Mark distributions as failed
+        await supabase.from("claw_distributions").update({ status: "failed" }).in("id", distributionIds);
         throw new Error(`Insufficient treasury balance (${treasuryBalanceSol.toFixed(4)} SOL available, need ${(claimable + TREASURY_RESERVE_SOL).toFixed(4)} SOL)`);
       }
 
-      const recipientPubkey = new PublicKey(payoutWallet);
-      const lamports = Math.floor(claimable * 1e9);
-      const transaction = new Transaction().add(SystemProgram.transfer({ fromPubkey: treasuryKeypair.publicKey, toPubkey: recipientPubkey, lamports }));
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = treasuryKeypair.publicKey;
-      const signature = await sendAndConfirmTransaction(connection, transaction, [treasuryKeypair], { commitment: "confirmed", maxRetries: 3 });
+      let signature: string;
+      try {
+        const recipientPubkey = new PublicKey(payoutWallet);
+        const lamports = Math.floor(claimable * 1e9);
+        const transaction = new Transaction().add(SystemProgram.transfer({ fromPubkey: treasuryKeypair.publicKey, toPubkey: recipientPubkey, lamports }));
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = treasuryKeypair.publicKey;
+        signature = await sendAndConfirmTransaction(connection, transaction, [treasuryKeypair], { commitment: "confirmed", maxRetries: 3 });
+      } catch (txError) {
+        // Mark distributions as failed since SOL wasn't sent
+        await supabase.from("claw_distributions").update({ status: "failed" }).in("id", distributionIds);
+        throw txError;
+      }
 
       console.log(`[claw-creator-claim] ✅ Sent ${claimable.toFixed(6)} SOL to ${payoutWallet}, sig: ${signature}`);
 
-      // Record distributions per token — CRITICAL: must succeed or the claim is invalid
-      let distributionRecorded = false;
-      for (const tokenId of targetTokenIds) {
-        const tokenEarned = verifiedCalc.tokenEarnings[tokenId] || 0;
-        const tokenPaid = verifiedCalc.paidPerToken[tokenId] || 0;
-        const tokenClaimable = Math.max(0, tokenEarned - tokenPaid);
-        if (tokenClaimable > 0.000001) {
-          const { error: insertError } = await supabase.from("claw_distributions").insert({
-            fun_token_id: tokenId,
-            creator_wallet: payoutWallet,
-            amount_sol: tokenClaimable,
-            distribution_type: "creator_claim",
-            signature,
-            status: "completed",
-            twitter_username: normalizedUsername,
-          });
-          if (insertError) {
-            console.error(`[claw-creator-claim] ❌ CRITICAL: Failed to record distribution for token ${tokenId}:`, insertError);
-            // Try inserting without fun_token_id as fallback (FK issue)
-            const { error: fallbackError } = await supabase.from("claw_distributions").insert({
-              fun_token_id: null,
-              creator_wallet: payoutWallet,
-              amount_sol: tokenClaimable,
-              distribution_type: "creator_claim",
-              signature,
-              status: "completed",
-              twitter_username: normalizedUsername,
-            });
-            if (fallbackError) {
-              console.error(`[claw-creator-claim] ❌ CRITICAL: Fallback distribution insert also failed:`, fallbackError);
-              throw new Error("Failed to record distribution - claim aborted");
-            }
-          }
-          distributionRecorded = true;
-        }
-      }
+      // ===== STEP 3: Mark distributions as completed with signature =====
+      const { error: updateError } = await supabase
+        .from("claw_distributions")
+        .update({ status: "completed", signature })
+        .in("id", distributionIds);
 
-      if (!distributionRecorded) {
-        throw new Error("No distributions to record - claim aborted");
+      if (updateError) {
+        console.error(`[claw-creator-claim] ⚠️ Failed to mark distributions as completed (SOL was sent!):`, updateError);
+        // SOL was sent but we couldn't update status - this is logged but not fatal
       }
 
       return new Response(JSON.stringify({
