@@ -25,15 +25,11 @@ const SLIPPAGE_PRESETS = [0.5, 1, 2, 5, 10];
 export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTradePanelProps) {
   const { isAuthenticated, login, solanaAddress } = useAuth();
   const { getBuyQuote, getSellQuote, buyToken, sellToken, isLoading: swapLoading } = useJupiterSwap();
-  const { getEmbeddedWallet, isWalletReady } = useSolanaWalletWithPrivy();
+  const { signAndSendTransaction, isWalletReady } = useSolanaWalletWithPrivy();
 
-  const signTransaction = useCallback(async (tx: VersionedTransaction): Promise<VersionedTransaction> => {
-    const wallet = getEmbeddedWallet();
-    if (!wallet) throw new Error("No embedded wallet connected");
-    const provider = (wallet as any).getProvider?.() || (wallet as any).getSolanaProvider?.() || wallet;
-    if (!provider?.signTransaction) throw new Error("Wallet does not support signing");
-    return await provider.signTransaction(tx);
-  }, [getEmbeddedWallet]);
+  const signAndSendTx = useCallback(async (tx: VersionedTransaction): Promise<{ signature: string; confirmed: boolean }> => {
+    return await signAndSendTransaction(tx);
+  }, [signAndSendTransaction]);
 
   const { toast } = useToast();
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
@@ -121,7 +117,7 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
       toast({ title: "Please connect your wallet", variant: "destructive" });
       return;
     }
-    if (!signTransaction) {
+    if (!signAndSendTx) {
       toast({ title: "Wallet not ready", variant: "destructive" });
       return;
     }
@@ -129,8 +125,8 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
     setIsLoading(true);
     try {
       const result = isBuy
-        ? await buyToken(token.mint_address, numericAmount, solanaAddress, signTransaction, slippage * 100)
-        : await sellToken(token.mint_address, numericAmount, tokenDecimals, solanaAddress, signTransaction, slippage * 100);
+        ? await buyToken(token.mint_address, numericAmount, solanaAddress, signAndSendTx, slippage * 100)
+        : await sellToken(token.mint_address, numericAmount, tokenDecimals, solanaAddress, signAndSendTx, slippage * 100);
 
       setAmount('');
       setQuote(null);
