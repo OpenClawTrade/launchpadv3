@@ -3,11 +3,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Twitter, Loader2, DollarSign, ExternalLink, Rocket, CheckCircle } from "lucide-react";
+import { Twitter, Loader2, DollarSign, ExternalLink, Rocket, CheckCircle, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePrivy } from "@privy-io/react-auth";
 import { useToast } from "@/hooks/use-toast";
+import { formatDistanceToNow } from "date-fns";
 
 function isInIframe(): boolean {
   try {
@@ -366,6 +367,109 @@ export default function PanelMyLaunchesTab() {
           })}
         </div>
       )}
+
+      {/* Recent Creator Claims - Public Feed */}
+      <RecentClaimsFeed />
+    </div>
+  );
+}
+
+function RecentClaimsFeed() {
+  const { data: claims = [], isLoading } = useQuery({
+    queryKey: ["recent-creator-claims"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("claw_distributions")
+        .select("twitter_username, amount_sol, signature, created_at, fun_token_id")
+        .eq("distribution_type", "creator_claim")
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (!data?.length) return [];
+
+      const tokenIds = [...new Set(data.map(d => d.fun_token_id).filter(Boolean))];
+      
+      // Try both tables for token names
+      const [{ data: funTokens }, { data: clawTokens }] = await Promise.all([
+        supabase.from("fun_tokens" as any).select("id, name, ticker, image_url").in("id", tokenIds),
+        supabase.from("claw_tokens").select("id, name, ticker, image_url").in("id", tokenIds),
+      ]);
+
+      const tokenMap: Record<string, { name: string; ticker: string; image_url: string | null }> = {};
+      for (const t of [...(funTokens || []), ...(clawTokens || [])] as any[]) {
+        tokenMap[t.id] = { name: t.name, ticker: t.ticker, image_url: t.image_url };
+      }
+
+      return data.map(d => ({
+        ...d,
+        token: tokenMap[d.fun_token_id] || null,
+      }));
+    },
+    refetchInterval: 60000,
+  });
+
+  if (isLoading || claims.length === 0) return null;
+
+  return (
+    <div className="mt-8 pt-6 border-t border-white/10">
+      <div className="flex items-center gap-2 mb-4">
+        <History className="h-4 w-4 text-muted-foreground" />
+        <h4 className="font-bold font-mono text-xs text-muted-foreground tracking-wider uppercase">
+          Recent Creator Claims
+        </h4>
+      </div>
+      <div className="space-y-1.5">
+        {claims.map((claim, i) => (
+          <div
+            key={`${claim.signature}-${i}`}
+            className="flex items-center gap-3 py-2 px-3 rounded-lg bg-white/[0.02] border border-white/5 text-xs"
+          >
+            {claim.token?.image_url ? (
+              <img src={claim.token.image_url} alt="" className="h-6 w-6 rounded-md object-cover shrink-0" />
+            ) : (
+              <div className="h-6 w-6 rounded-md bg-white/5 shrink-0 flex items-center justify-center">
+                <DollarSign className="h-3 w-3 text-muted-foreground" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0 flex items-center gap-1.5 truncate">
+              <a
+                href={`https://x.com/${claim.twitter_username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono font-medium hover:underline"
+                style={{ color: "#4ade80" }}
+              >
+                @{claim.twitter_username}
+              </a>
+              <span className="text-muted-foreground">claimed</span>
+              <span className="font-mono font-bold text-foreground">
+                {claim.amount_sol?.toFixed(4)} SOL
+              </span>
+              {claim.token && (
+                <span className="text-muted-foreground truncate">
+                  from <span className="font-medium text-foreground/80">${claim.token.ticker}</span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0 text-muted-foreground">
+              <span className="text-[10px]">
+                {formatDistanceToNow(new Date(claim.created_at), { addSuffix: true })}
+              </span>
+              {claim.signature && (
+                <a
+                  href={`https://solscan.io/tx/${claim.signature}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-foreground"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
