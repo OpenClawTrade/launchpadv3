@@ -1,60 +1,87 @@
 
 
-# Fix: Cross-Table Distribution Check + Remove Old Claim Function
+# Fix: Token Holdings Not Being Saved After Swap
 
-## Problem
-There are TWO claim functions with TWO separate distribution tables, creating a security gap:
+## Problem Identified
 
-1. **Old function** (`agent-creator-claim`): reads/writes `fun_distributions`
-2. **New function** (`claw-creator-claim`): reads/writes `claw_distributions`
+The swap edge function has a **silent failure** in the token holdings insert. Here's what happens:
 
-Neither function checks the other's table. A user could theoretically call both functions and double-claim. Additionally, the old `agent-creator-claim` function is still deployed and accessible.
+1. User buys 0.05 SOL worth of tokens -- WORKS
+2. Token reserves update in database -- WORKS  
+3. Transaction record is saved (with FK retry logic) -- WORKS
+4. **Token holdings insert fails silently** because `profile_id` references a non-existent profile -- BROKEN
+5. User sees "Buy successful!" but their token balance stays at 0
 
-For user `@sandracinca` specifically: their 1.1769 SOL is genuinely unclaimed (zero records in either distribution table). The first claim will work correctly. The concern is preventing abuse after that first claim.
+Evidence from logs:
+- TX insert shows: `"TX insert failed, retrying without profile_id"` (retry logic exists here)
+- But `token_holdings` table has **zero records** for wallet `DrWkWu7Mhv9V7Dt2iqxpjuwPfehmQq1DrkEQ39sqX8jV`
+- The holdings insert has NO retry logic for FK failures
 
 ## Fix Plan
 
-### 1. Update `claw-creator-claim` to also check `fun_distributions`
-In the `calculateClaimable` function, add a query to `fun_distributions` for the same token IDs and merge those paid amounts into the total. This ensures that any past distributions recorded by the old system are accounted for.
+### 1. Fix Edge Function (`supabase/functions/launchpad-swap/index.ts`)
 
-Changes to `supabase/functions/claw-creator-claim/index.ts`:
-- In `calculateClaimable()`, after querying `claw_distributions`, also query `fun_distributions` for matching token IDs and twitter_username
-- Merge and deduplicate both sets of distributions before calculating `totalCreatorPaid`
+Add the same FK-safe retry pattern to ALL `token_holdings` operations (both insert and update paths for buy and sell):
 
-### 2. Delete the old `agent-creator-claim` edge function
-Remove `supabase/functions/agent-creator-claim/index.ts` and delete the deployed function. This eliminates the secondary claim vector entirely. The frontend already only calls `claw-creator-claim`.
+```text
+// Current (broken):
+await supabase.from("token_holdings").insert({
+  token_id: token.id,
+  wallet_address: userWallet,
+  profile_id: profileId || null,  // <-- fails silently if FK missing
+  balance: tokensOut,
+});
 
-### 3. Frontend: disable claim button when `checkOnly` returns `canClaim: false`
-Currently the claim button is only disabled based on local `totalUnclaimed` math. Update `PanelMyLaunchesTab.tsx` to:
-- Use `claimStatus?.canClaim === false` to grey out the button
-- Show remaining cooldown time from `claimStatus?.remainingSeconds` on the button text
-- Disable the button entirely when `claimStatus?.pendingAmount < MIN_CLAIM_SOL`
+// Fixed:
+const { error: holdingInsertError } = await supabase.from("token_holdings").insert({
+  token_id: token.id,
+  wallet_address: userWallet,
+  profile_id: profileId || null,
+  balance: tokensOut,
+});
 
-### Technical Details
-
-**Edge function change** (`claw-creator-claim/index.ts`, `calculateClaimable` function):
-```
-// After existing claw_distributions queries, add:
-const { data: funDistByToken } = await supabase
-  .from("fun_distributions")
-  .select("amount_sol, fun_token_id, id")
-  .in("fun_token_id", targetTokenIds)
-  .in("distribution_type", ["creator_claim", "creator"])
-  .in("status", ["completed", "pending"]);
-
-const { data: funDistByUsername } = await supabase
-  .from("fun_distributions")
-  .select("amount_sol, fun_token_id, id")
-  .eq("twitter_username", normalizedUsername)
-  .in("distribution_type", ["creator_claim", "creator"])
-  .in("status", ["completed", "pending"]);
-
-// Merge fun_distributions into allDists (prefix IDs to avoid collision)
-for (const d of [...(funDistByToken || []), ...(funDistByUsername || [])]) {
-  allDists.set("fun_" + d.id, d);
+if (holdingInsertError) {
+  // Retry without profile_id if FK constraint fails
+  console.warn("[launchpad-swap] Holdings insert failed, retrying without profile_id:", holdingInsertError.message);
+  await supabase.from("token_holdings").insert({
+    token_id: token.id,
+    wallet_address: userWallet,
+    profile_id: null,
+    balance: tokensOut,
+  });
 }
 ```
 
-**Frontend change** (`PanelMyLaunchesTab.tsx`):
-- Line 260: Add `claimStatus?.canClaim === false` to the disabled condition
-- Update button text to show cooldown when rate-limited
+Apply this same pattern to all 3 holdings operations in the function:
+- Buy: new holding insert
+- Buy: existing holding update  
+- Sell: existing holding update
+
+### 2. Fix Existing Missing Holdings (Database Migration)
+
+Insert the missing holdings for the 2 completed buy transactions that never got holdings records:
+
+```sql
+-- Credit the missing token balance from the 2 successful buys
+INSERT INTO token_holdings (token_id, wallet_address, profile_id, balance)
+VALUES (
+  '8718bbbb-eefe-4546-a629-bbe05f7aceb7',
+  'DrWkWu7Mhv9V7Dt2iqxpjuwPfehmQq1DrkEQ39sqX8jV',
+  NULL,
+  3256030.3010166883  -- sum of 1625360.40 + 1630669.91 from the 2 buys
+)
+ON CONFLICT (token_id, wallet_address) 
+DO UPDATE SET balance = EXCLUDED.balance;
+```
+
+### 3. Redeploy Edge Function
+
+Deploy the updated `launchpad-swap` function to ensure all future trades correctly save holdings.
+
+## Summary
+
+- Root cause: `profile_id` FK constraint silently kills the holdings insert
+- The transaction retry was fixed previously but the holdings insert was missed
+- This affects ALL users whose Privy ID hasn't been synced to the `profiles` table yet
+- After this fix, every successful swap will always record the token balance correctly
+
