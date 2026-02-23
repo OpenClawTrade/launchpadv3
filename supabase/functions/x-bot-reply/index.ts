@@ -349,7 +349,7 @@ async function postReply(
           tweet_text: replyText,
           reply_to_tweet_id: tweetId,
           login_cookies: loginCookies,
-          proxy,
+          ...(proxy ? { proxy } : {}),
         }),
       },
       20000
