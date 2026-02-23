@@ -8,26 +8,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const TWITTERAPI_BASE = "https://api.twitterapi.io";
 const BOT_USERNAMES = new Set([
   "clawmode", "moltbook", "openclaw",
 ]);
 
-
-
 interface Tweet {
   id: string;
   text: string;
-  author?: {
-    userName?: string;
-    id?: string;
-    isBlueVerified?: boolean;
-    isGoldVerified?: boolean;
-    verified?: boolean;
-    verifiedType?: string;
-    followers?: number;
-    followersCount?: number;
-  };
+  authorUsername: string;
+  authorId: string;
   createdAt?: string;
   conversationId?: string;
   inReplyToTweetId?: string;
@@ -47,52 +36,57 @@ async function fetchWithTimeout(
   }
 }
 
-async function searchMentions(apiKey: string): Promise<Tweet[]> {
-  const searchUrl = new URL(`${TWITTERAPI_BASE}/twitter/tweet/advanced_search`);
-  // ONLY search for direct platform mentions - NO generic crypto terms
-  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @clawmode) -is:retweet -is:reply");
-  searchUrl.searchParams.set("queryType", "Latest");
-  searchUrl.searchParams.set("count", "10"); // Limit to 10 results to save API credits
+// Search using Official X API v2 with Bearer Token (same as agent-scan-twitter)
+async function searchMentions(bearerToken: string): Promise<Tweet[]> {
+  const searchUrl = new URL("https://api.x.com/2/tweets/search/recent");
+  // Search for mentions of our accounts - no -is:reply so we catch reply mentions too
+  searchUrl.searchParams.set("query", "(@moltbook OR @openclaw OR @clawmode) -is:retweet");
+  searchUrl.searchParams.set("max_results", "20");
+  searchUrl.searchParams.set("tweet.fields", "created_at,author_id,conversation_id,in_reply_to_user_id,referenced_tweets");
+  searchUrl.searchParams.set("expansions", "author_id");
+  searchUrl.searchParams.set("user.fields", "username");
 
   try {
     const response = await fetchWithTimeout(
       searchUrl.toString(),
-      { headers: { "X-API-Key": apiKey } },
+      {
+        headers: {
+          Authorization: `Bearer ${bearerToken}`,
+        },
+      },
       20000
     );
 
     if (!response.ok) {
-      console.error("Search API error:", response.status);
+      const errorText = await response.text();
+      console.error("[promo-mention-scan] X API error:", response.status, errorText);
       return [];
     }
 
     const data = await response.json();
-    return data.tweets || [];
+    const rawTweets = data.data || [];
+    const users = data.includes?.users || [];
+
+    // Build username map from includes
+    const userMap: Record<string, string> = {};
+    for (const user of users) {
+      userMap[user.id] = user.username;
+    }
+
+    // Map to our Tweet interface
+    return rawTweets.map((t: any) => ({
+      id: t.id,
+      text: t.text,
+      authorUsername: userMap[t.author_id] || "",
+      authorId: t.author_id || "",
+      createdAt: t.created_at,
+      conversationId: t.conversation_id || t.id,
+      inReplyToTweetId: t.referenced_tweets?.find((r: any) => r.type === "replied_to")?.id || null,
+    }));
   } catch (e) {
-    console.error("Search error:", e);
+    console.error("[promo-mention-scan] Search error:", e);
     return [];
   }
-}
-
-function isActuallyReply(tweet: Tweet): boolean {
-  if (tweet.inReplyToTweetId) return true;
-  const text = tweet.text.trim();
-  if (text.startsWith("@") && !text.startsWith("@moltbook") && !text.startsWith("@openclaw") && !text.startsWith("@Solana")) {
-    return true;
-  }
-  return false;
-}
-
-function hasVerificationBadge(tweet: Tweet): boolean {
-  const author = tweet.author;
-  if (!author) return false;
-  if (author.isBlueVerified === true) return true;
-  if (author.isGoldVerified === true) return true;
-  if (author.verified === true) return true;
-  if (author.verifiedType && ["blue", "gold", "business", "government"].includes(author.verifiedType.toLowerCase())) {
-    return true;
-  }
-  return false;
 }
 
 function determineMentionType(text: string): string {
@@ -109,12 +103,6 @@ function determineMentionType(text: string): string {
   return "openclaw";
 }
 
-function getFollowerCount(tweet: Tweet): number {
-  const author = tweet.author;
-  if (!author) return 0;
-  return author.followersCount || author.followers || 0;
-}
-
 function isRecentTweet(createdAt: string | undefined, maxAgeMinutes: number): boolean {
   if (!createdAt) return false;
   const tweetTime = new Date(createdAt).getTime();
@@ -126,7 +114,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const debug = { tweetsSearched: 0, queued: 0, skipped: 0, errors: [] as string[] };
+  const debug = { tweetsSearched: 0, queued: 0, skipped: 0, errors: [] as string[], searchMethod: "official_x_api" };
 
   try {
 
@@ -139,12 +127,12 @@ serve(async (req) => {
       });
     }
 
-    const TWITTERAPI_IO_KEY = Deno.env.get("TWITTERAPI_IO_KEY");
+    const X_BEARER_TOKEN = Deno.env.get("X_BEARER_TOKEN");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!TWITTERAPI_IO_KEY) {
-      return new Response(JSON.stringify({ ok: false, error: "Missing API key" }), {
+    if (!X_BEARER_TOKEN) {
+      return new Response(JSON.stringify({ ok: false, error: "Missing X_BEARER_TOKEN" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -152,7 +140,7 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Skip scan if queue already has 5+ pending items (saves API credits)
+    // Skip scan if queue already has 5+ pending items
     const { count: pendingCount } = await supabase
       .from("promo_mention_queue")
       .select("id", { count: "exact", head: true })
@@ -175,9 +163,10 @@ serve(async (req) => {
     // Cleanup old queue entries
     await supabase.from("promo_mention_queue").delete().lt("created_at", new Date(Date.now() - 3600000).toISOString());
 
-    // Search for mentions
-    const tweets = await searchMentions(TWITTERAPI_IO_KEY);
+    // Search for mentions using Official X API
+    const tweets = await searchMentions(X_BEARER_TOKEN);
     debug.tweetsSearched = tweets.length;
+    console.log(`[promo-mention-scan] Found ${tweets.length} tweets via Official X API`);
 
     for (const tweet of tweets) {
       // Skip old tweets (only last 30 minutes)
@@ -186,22 +175,8 @@ serve(async (req) => {
         continue;
       }
 
-      // Skip replies
-      if (isActuallyReply(tweet)) {
-        debug.skipped++;
-        continue;
-      }
-
-
-      const username = tweet.author?.userName?.toLowerCase() || "";
+      const username = tweet.authorUsername.toLowerCase();
       if (BOT_USERNAMES.has(username)) {
-        debug.skipped++;
-        continue;
-      }
-
-      // Skip tweets from our own bot accounts
-      const tweetAuthorLower = tweet.author?.userName?.toLowerCase() || "";
-      if (BOT_USERNAMES.has(tweetAuthorLower)) {
         debug.skipped++;
         continue;
       }
@@ -234,19 +209,22 @@ serve(async (req) => {
       // Add to queue
       const { error: insertError } = await supabase.from("promo_mention_queue").insert({
         tweet_id: tweet.id,
-        tweet_author: tweet.author?.userName || null,
-        tweet_author_id: tweet.author?.id || null,
+        tweet_author: tweet.authorUsername || null,
+        tweet_author_id: tweet.authorId || null,
         tweet_text: tweet.text.substring(0, 500),
         conversation_id: tweet.conversationId || tweet.id,
         mention_type: determineMentionType(tweet.text),
-        follower_count: getFollowerCount(tweet),
-        is_verified: hasVerificationBadge(tweet),
+        follower_count: 0, // Official API doesn't return follower count in search
+        is_verified: false, // Not available in basic search response
         tweet_created_at: tweet.createdAt || null,
         status: "pending",
       });
 
       if (!insertError) {
         debug.queued++;
+        console.log(`[promo-mention-scan] Queued tweet ${tweet.id} from @${tweet.authorUsername}`);
+      } else {
+        debug.errors.push(`Insert error for ${tweet.id}: ${insertError.message}`);
       }
     }
 
