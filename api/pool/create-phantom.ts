@@ -171,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     } else if (useVanityAddress) {
       try {
-        vanityKeypair = await getAvailableVanityAddress('tuna');
+        vanityKeypair = await getAvailableVanityAddress('claw');
         if (vanityKeypair) {
           vanityKeypairId = vanityKeypair.id;
           console.log('[create-phantom] 🎯 Using pool vanity mint address:', vanityKeypair.publicKey);
