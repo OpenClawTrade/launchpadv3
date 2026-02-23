@@ -276,13 +276,14 @@ Deno.serve(async (req) => {
 
       console.log(`[claw-creator-claim] ✅ Sent ${claimable.toFixed(6)} SOL to ${payoutWallet}, sig: ${signature}`);
 
-      // Record distributions per token
+      // Record distributions per token — CRITICAL: must succeed or the claim is invalid
+      let distributionRecorded = false;
       for (const tokenId of targetTokenIds) {
         const tokenEarned = verifiedCalc.tokenEarnings[tokenId] || 0;
         const tokenPaid = verifiedCalc.paidPerToken[tokenId] || 0;
         const tokenClaimable = Math.max(0, tokenEarned - tokenPaid);
         if (tokenClaimable > 0.000001) {
-          await supabase.from("claw_distributions").insert({
+          const { error: insertError } = await supabase.from("claw_distributions").insert({
             fun_token_id: tokenId,
             creator_wallet: payoutWallet,
             amount_sol: tokenClaimable,
@@ -291,7 +292,29 @@ Deno.serve(async (req) => {
             status: "completed",
             twitter_username: normalizedUsername,
           });
+          if (insertError) {
+            console.error(`[claw-creator-claim] ❌ CRITICAL: Failed to record distribution for token ${tokenId}:`, insertError);
+            // Try inserting without fun_token_id as fallback (FK issue)
+            const { error: fallbackError } = await supabase.from("claw_distributions").insert({
+              fun_token_id: null,
+              creator_wallet: payoutWallet,
+              amount_sol: tokenClaimable,
+              distribution_type: "creator_claim",
+              signature,
+              status: "completed",
+              twitter_username: normalizedUsername,
+            });
+            if (fallbackError) {
+              console.error(`[claw-creator-claim] ❌ CRITICAL: Fallback distribution insert also failed:`, fallbackError);
+              throw new Error("Failed to record distribution - claim aborted");
+            }
+          }
+          distributionRecorded = true;
         }
+      }
+
+      if (!distributionRecorded) {
+        throw new Error("No distributions to record - claim aborted");
       }
 
       return new Response(JSON.stringify({
