@@ -140,7 +140,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
           Create Token
         </Link>
         <div className="text-center text-[10px] text-muted-foreground/40 font-mono">
-          clawmode.io
+          clawsai.fun
         </div>
       </div>
     </div>
