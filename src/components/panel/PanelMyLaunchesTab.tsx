@@ -378,17 +378,31 @@ function RecentClaimsFeed() {
   const { data: claims = [], isLoading } = useQuery({
     queryKey: ["recent-creator-claims"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("claw_distributions")
-        .select("twitter_username, amount_sol, signature, created_at, fun_token_id")
-        .eq("distribution_type", "creator_claim")
-        .eq("status", "completed")
-        .order("created_at", { ascending: false })
-        .limit(20);
+      // Query both distribution tables
+      const [{ data: clawData }, { data: funData }] = await Promise.all([
+        supabase
+          .from("claw_distributions")
+          .select("twitter_username, creator_wallet, amount_sol, signature, created_at, fun_token_id")
+          .in("distribution_type", ["creator_claim", "creator"])
+          .eq("status", "completed")
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabase
+          .from("fun_distributions" as any)
+          .select("twitter_username, creator_wallet, amount_sol, signature, created_at, fun_token_id")
+          .in("distribution_type", ["creator_claim", "creator"])
+          .eq("status", "completed")
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ]);
 
-      if (!data?.length) return [];
+      const allClaims = [...(clawData || []), ...(funData || [])] as any[];
+      if (!allClaims.length) return [];
 
-      const tokenIds = [...new Set(data.map(d => d.fun_token_id).filter(Boolean))];
+      // Sort by date descending
+      allClaims.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      const tokenIds = [...new Set(allClaims.map((d: any) => d.fun_token_id).filter(Boolean))];
       
       // Try both tables for token names
       const [{ data: funTokens }, { data: clawTokens }] = await Promise.all([
@@ -401,7 +415,7 @@ function RecentClaimsFeed() {
         tokenMap[t.id] = { name: t.name, ticker: t.ticker, image_url: t.image_url };
       }
 
-      return data.map(d => ({
+      return allClaims.slice(0, 50).map((d: any) => ({
         ...d,
         token: tokenMap[d.fun_token_id] || null,
       }));
@@ -433,15 +447,21 @@ function RecentClaimsFeed() {
               </div>
             )}
             <div className="flex-1 min-w-0 flex items-center gap-1.5 truncate">
-              <a
-                href={`https://x.com/${claim.twitter_username}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono font-medium hover:underline"
-                style={{ color: "#4ade80" }}
-              >
-                @{claim.twitter_username}
-              </a>
+              {claim.twitter_username ? (
+                <a
+                  href={`https://x.com/${claim.twitter_username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono font-medium hover:underline"
+                  style={{ color: "#4ade80" }}
+                >
+                  @{claim.twitter_username}
+                </a>
+              ) : (
+                <span className="font-mono font-medium text-foreground/70" title={claim.creator_wallet || ""}>
+                  {claim.creator_wallet ? `${claim.creator_wallet.slice(0, 4)}...${claim.creator_wallet.slice(-4)}` : "Unknown"}
+                </span>
+              )}
               <span className="text-muted-foreground">claimed</span>
               <span className="font-mono font-bold text-foreground">
                 {claim.amount_sol?.toFixed(4)} SOL
