@@ -10,6 +10,19 @@ const corsHeaders = {
 
 const TWITTERAPI_BASE = "https://api.twitterapi.io";
 
+// Parse cookie string into object (same as twitter-mention-launcher)
+function parseCookieString(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split("=");
+    if (!k) continue;
+    const val = rest.join("=");
+    if (val) out[k.trim()] = val.replace(/^['"]+|['"]+$/g, "").trim();
+  }
+  return out;
+}
+
 // Helper: Detect error payloads that come with HTTP 200
 const isTwitterApiErrorPayload = (postData: any): boolean => {
   if (!postData || typeof postData !== "object") return true;
@@ -407,11 +420,28 @@ serve(async (req) => {
       });
     }
 
-    // Get login credentials from env
-    const xEmail = Deno.env.get("X_ACCOUNT_EMAIL");
-    const xPassword = Deno.env.get("X_ACCOUNT_PASSWORD");
-    const xTotpSecret = normalizeTotpSecret(Deno.env.get("X_TOTP_SECRET"));
+    // Use same cookie-based auth as token launcher (no proxy login needed)
+    const X_FULL_COOKIE = Deno.env.get("X_FULL_COOKIE");
+    const X_AUTH_TOKEN = Deno.env.get("X_AUTH_TOKEN");
+    const X_CT0_TOKEN = Deno.env.get("X_CT0_TOKEN");
     const envProxy = Deno.env.get("TWITTER_PROXY");
+
+    let loginCookiesObj: Record<string, string> | null = null;
+    if (X_FULL_COOKIE) {
+      loginCookiesObj = parseCookieString(X_FULL_COOKIE);
+    } else if (X_AUTH_TOKEN && X_CT0_TOKEN) {
+      loginCookiesObj = { auth_token: X_AUTH_TOKEN, ct0: X_CT0_TOKEN };
+    }
+
+    if (!loginCookiesObj) {
+      return new Response(JSON.stringify({ ok: false, error: "Missing X_FULL_COOKIE or X_AUTH_TOKEN+X_CT0_TOKEN env vars" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const loginCookieB64 = btoa(JSON.stringify(loginCookiesObj));
+    console.log(`[x-bot-reply] Using cookie-based auth (same as token launcher)`);
 
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -429,9 +459,6 @@ serve(async (req) => {
       .select(`
         id,
         username,
-        proxy_url,
-        socks5_urls,
-        current_socks5_index,
         x_bot_account_rules (
           author_cooldown_hours,
           max_replies_per_thread,
@@ -451,43 +478,6 @@ serve(async (req) => {
       if (!rules?.enabled) continue;
 
       debug.accountsProcessed++;
-
-      // Get proxy - prefer socks5_urls with rotation, then proxy_url, then env
-      let proxyUrl = account.proxy_url || envProxy || "";
-      const socks5Urls = (account as any).socks5_urls || [];
-      if (socks5Urls.length > 0) {
-        const currentIndex = (account as any).current_socks5_index || 0;
-        proxyUrl = socks5Urls[currentIndex % socks5Urls.length];
-        await supabase
-          .from("x_bot_accounts")
-          .update({ current_socks5_index: (currentIndex + 1) % socks5Urls.length })
-          .eq("id", account.id);
-      }
-
-      if (!proxyUrl) {
-        debug.errors.push(`Account ${account.username}: No proxy configured`);
-        await insertLog(supabase, account.id, "error", "error", `No proxy configured for @${account.username}`);
-        continue;
-      }
-
-      if (!xEmail || !xPassword) {
-        debug.errors.push(`Account ${account.username}: No X login credentials in env`);
-        await insertLog(supabase, account.id, "error", "error", `Missing X_ACCOUNT_EMAIL or X_ACCOUNT_PASSWORD env vars`);
-        continue;
-      }
-
-      // Login via twitterapi.io to get a fresh login_cookie
-      const loginResult = await loginViaApi(TWITTERAPI_IO_KEY, xEmail, xPassword, proxyUrl, account.username, xTotpSecret);
-      
-      if (!loginResult.loginCookie) {
-        debug.errors.push(`Account ${account.username}: Login failed: ${loginResult.error}`);
-        await insertLog(supabase, account.id, "error", "error", `Login failed: ${loginResult.error}`, {
-          proxy: proxyUrl.replace(/:[^:@]+@/, ':***@'),
-        });
-        continue;
-      }
-
-      console.log(`[x-bot-reply] Account ${account.username}: Login successful, got login_cookie`);
 
       // Get oldest pending tweet from queue
       const { data: queuedTweets, error: queueError } = await supabase
@@ -545,8 +535,7 @@ serve(async (req) => {
         }
       }
 
-      // Thread reply limit: max 3 replies to the same author in one conversation
-      // Prevents infinite reply loops with other bots/agents
+      // Thread reply limit: max 3 replies per author per conversation
       const conversationId = queuedTweet.conversation_id || queuedTweet.tweet_id;
       if (queuedTweet.tweet_author_id && conversationId) {
         const { count: threadReplies } = await supabase
@@ -613,13 +602,13 @@ serve(async (req) => {
 
       await insertLog(supabase, account.id, "reply", "info", `Generated reply (${replyText.length} chars), topics: [${extractedTopics.join(", ")}]`);
 
-      // Post reply using the login_cookie from API login
+      // Post reply using cookie-based auth (same as token launcher)
       const result = await postReply(
         queuedTweet.tweet_id,
         replyText,
         TWITTERAPI_IO_KEY,
-        loginResult.loginCookie,
-        proxyUrl
+        loginCookieB64,
+        envProxy || ""
       );
 
       // Record in replies table
