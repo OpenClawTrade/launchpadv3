@@ -1,76 +1,33 @@
 
 
-## Problem Analysis
+# Fix NFA Mint Edge Function Failure
 
-The "Insufficient treasury balance" error occurs because:
+## Problem
+The `nfa-mint` edge function returns a non-2xx status because it is **not listed in `supabase/config.toml`**. By default, Supabase enforces JWT verification, which rejects the request since the client calls `supabase.functions.invoke("nfa-mint")` without a valid JWT token.
 
-1. **Two different treasury wallets**: Fee claims from Meteora pools go into the `TREASURY_PRIVATE_KEY` wallet (`HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx`), but creator payouts use `CLAW_TREASURY_PRIVATE_KEY` -- a different wallet that has no funds.
+The user's payment (1 SOL) went through on-chain, but the minting step failed because the edge function was never reached.
 
-2. **Inflated earnings calculation**: The edge function uses `fun_tokens.total_fees_earned` (which may be stale/inflated) instead of `fun_fee_claims.claimed_sol` (actual on-chain claims that represent real money in the treasury).
+## Root Cause
+Every other edge function in the project has `verify_jwt = false` in `config.toml`, but `nfa-mint` was never added. This is a simple configuration oversight.
 
-3. **No safety cap**: If data is corrupted, the function could try to send more SOL than was ever actually collected.
+## Secondary Issue
+The `collection_address` in the `nfa_batches` table is `null`, which means even if the edge function succeeds, the on-chain NFT minting will be silently skipped (the code checks `if (treasuryPrivateKey && nfaCollectionAddress)` and skips minting if either is missing). The DB record will still be created, but no actual NFT is minted on-chain.
 
-## Plan
+## Fix Plan
 
-### 1. Fix treasury wallet mismatch
-
-Change `claw-creator-claim` edge function to use `TREASURY_PRIVATE_KEY` (the wallet that actually received the claimed fees) instead of `CLAW_TREASURY_PRIVATE_KEY`.
-
-### 2. Use `fun_fee_claims` as the source of truth (not `total_fees_earned`)
-
-Replace the earnings calculation:
-- **Before**: `earned = fun_tokens.total_fees_earned * 0.3` (could be inflated)  
-- **After**: `earned = SUM(fun_fee_claims.claimed_sol) * 0.3` (actual on-chain claimed fees = real money)
-
-This matches the pattern already used in the original `agent-creator-claim` function.
-
-### 3. Add safety caps
-
-- Add a per-claim maximum (e.g., 5 SOL cap) to prevent draining the treasury from a single bad claim
-- Ensure the treasury balance check has adequate buffer (at least 0.05 SOL reserved for rent/fees)
-- Log the treasury balance alongside claim amounts for auditing
-
-### 4. UI: Show accurate amounts from the `checkOnly` response
-
-The frontend should prefer the `checkOnly` API response values (which come from the corrected server-side calculation) over the locally-computed totals from `total_fees_earned`.
-
-### Technical Details
-
-**File: `supabase/functions/claw-creator-claim/index.ts`**
-
-Changes to the earnings calculation section (~lines 98-128):
-
-```text
-Replace total_fees_earned lookup with:
-  SELECT fun_token_id, SUM(claimed_sol) 
-  FROM fun_fee_claims 
-  WHERE fun_token_id IN (targetTokenIds)
-  GROUP BY fun_token_id
-
-earned_per_token = claimed_sol_sum * CREATOR_SHARE (0.3)
+### Step 1: Add `nfa-mint` to config.toml
+Add the missing entry:
+```toml
+[functions.nfa-mint]
+verify_jwt = false
 ```
 
-Change treasury key from `CLAW_TREASURY_PRIVATE_KEY` to `TREASURY_PRIVATE_KEY` (line 37).
+### Step 2: Redeploy the edge function
+After the config change, redeploy `nfa-mint` so requests are accepted.
 
-Add safety cap:
+### Step 3: Manually record the user's paid mint
+Since the user already paid 1 SOL (tx: `vJiaFzaR...`), we need to manually invoke the edge function or insert the mint record into `nfa_mints` so their payment is honored. We can retry the edge function call with the same payment signature after deployment.
 
-```text
-const MAX_SINGLE_CLAIM_SOL = 5.0;
-if (claimable > MAX_SINGLE_CLAIM_SOL) {
-  claimable = MAX_SINGLE_CLAIM_SOL; // Cap and let them claim remainder next time
-}
-```
-
-Add minimum treasury reserve:
-
-```text
-const TREASURY_RESERVE_SOL = 0.05;
-if (treasuryBalance / 1e9 < claimable + TREASURY_RESERVE_SOL) {
-  throw new Error("Insufficient treasury balance");
-}
-```
-
-**File: `src/components/panel/PanelMyLaunchesTab.tsx`**
-
-No major changes needed -- it already shows `claimStatus?.pendingAmount` from the server. Just ensure the Claim button amount reflects server-verified data.
+### Step 4: Address the collection address (optional)
+Either run `nfa-create-collection` to generate the on-chain collection and populate `collection_address` in `nfa_batches`, or accept that NFAs are DB-only until the collection is created. Without it, no actual Metaplex Core NFT is minted on-chain.
 
