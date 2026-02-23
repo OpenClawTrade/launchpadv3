@@ -1057,7 +1057,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             tradingFeeBps: phantomTradingFee,
             devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
             feeMode: feeMode || 'standard',
-            specificVanityId: '3373a5d3-7cc3-4962-97c0-446d0734f581', // 6qzVTMwV...6tCLAW
+            // Let backend pick fresh vanity from pool (no hardcoded ID — prevents reuse of burned keypairs)
           },
         }),
         60_000,
