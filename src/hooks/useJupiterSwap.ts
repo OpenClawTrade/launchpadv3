@@ -59,7 +59,7 @@ export function useJupiterSwap() {
     }
   }, []);
 
-  // Execute swap via Jupiter
+  // Execute swap via Jupiter using signAndSendTransaction (Privy compatible)
   const executeSwap = useCallback(async (
     inputMint: string,
     outputMint: string,
@@ -67,7 +67,7 @@ export function useJupiterSwap() {
     userWallet: string,
     inputDecimals: number = 9,
     slippageBps: number = 500,
-    signTransaction: (tx: VersionedTransaction) => Promise<VersionedTransaction>
+    signAndSendTx: (tx: VersionedTransaction) => Promise<{ signature: string; confirmed: boolean }>
   ): Promise<SwapResult> => {
     setIsLoading(true);
     
@@ -99,31 +99,15 @@ export function useJupiterSwap() {
 
       const { swapTransaction } = await swapResponse.json();
 
-      // Step 3: Deserialize and sign transaction
+      // Step 3: Deserialize transaction
       const txBytes = Uint8Array.from(atob(swapTransaction), c => c.charCodeAt(0));
       const transaction = VersionedTransaction.deserialize(txBytes);
 
-      const signedTx = await signTransaction(transaction);
-
-      // Step 4: Send transaction
-      const rpcUrl = getRpcUrl().url;
-      const connection = new Connection(rpcUrl, 'confirmed');
-
-      const signature = await connection.sendRawTransaction(signedTx.serialize(), {
-        skipPreflight: true,
-        maxRetries: 3,
-      });
-
-      // Step 5: Confirm transaction
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-      await connection.confirmTransaction({
-        signature,
-        blockhash,
-        lastValidBlockHeight,
-      }, 'confirmed');
+      // Step 4: Sign and send via Privy embedded wallet
+      const { signature } = await signAndSendTx(transaction);
 
       const inputAmount = parseInt(quote.inAmount) / (10 ** inputDecimals);
-      const outputAmount = parseInt(quote.outAmount) / (10 ** 9); // Assuming output is SOL or has 9 decimals
+      const outputAmount = parseInt(quote.outAmount) / (10 ** 9);
       const priceImpact = parseFloat(quote.priceImpactPct);
 
       return {
@@ -147,10 +131,10 @@ export function useJupiterSwap() {
     tokenMint: string,
     solAmount: number,
     userWallet: string,
-    signTransaction: (tx: VersionedTransaction) => Promise<VersionedTransaction>,
+    signAndSendTx: (tx: VersionedTransaction) => Promise<{ signature: string; confirmed: boolean }>,
     slippageBps: number = 500
   ): Promise<SwapResult> => {
-    return executeSwap(SOL_MINT, tokenMint, solAmount, userWallet, 9, slippageBps, signTransaction);
+    return executeSwap(SOL_MINT, tokenMint, solAmount, userWallet, 9, slippageBps, signAndSendTx);
   }, [executeSwap]);
 
   // Helper: Sell token for SOL
@@ -159,10 +143,10 @@ export function useJupiterSwap() {
     tokenAmount: number,
     tokenDecimals: number,
     userWallet: string,
-    signTransaction: (tx: VersionedTransaction) => Promise<VersionedTransaction>,
+    signAndSendTx: (tx: VersionedTransaction) => Promise<{ signature: string; confirmed: boolean }>,
     slippageBps: number = 500
   ): Promise<SwapResult> => {
-    return executeSwap(tokenMint, SOL_MINT, tokenAmount, userWallet, tokenDecimals, slippageBps, signTransaction);
+    return executeSwap(tokenMint, SOL_MINT, tokenAmount, userWallet, tokenDecimals, slippageBps, signAndSendTx);
   }, [executeSwap]);
 
   // Get buy quote (SOL -> Token)
