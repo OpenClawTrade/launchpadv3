@@ -183,12 +183,14 @@ async function loginViaApi(
 async function generateReply(
   tweetText: string,
   username: string,
-  personaPrompt?: string | null
-): Promise<string | null> {
+  personaPrompt?: string | null,
+  conversationHistory?: { incoming_text: string; reply_text: string | null; created_at: string }[],
+  userTopics?: { topic: string; ask_count: number }[]
+): Promise<{ reply: string | null; topics: string[] }> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) {
     console.error("LOVABLE_API_KEY not configured");
-    return null;
+    return { reply: null, topics: [] };
   }
 
   const defaultSystemPrompt = `You're a knowledgeable crypto native with genuine opinions. Generate a reply (max 240 chars) to this tweet.
@@ -203,55 +205,110 @@ Rules:
 - If you think something is wrong, explain why constructively — don't attack the person.
 - Sound human and conversational. No corporate drone energy. No sycophancy.
 - Do NOT mention any specific launchpad, platform, agent, or product. You're just a person with opinions.
-- Claw emojis (🦞🦀) are fine if it feels natural.
 - Do NOT add taglines, signatures, hashtags, or calls to action.
 
 Be the thoughtful reply you'd actually want to read. Confident, not aggressive. Sharp, not mean.`;
 
   const systemPrompt = personaPrompt || defaultSystemPrompt;
 
-  const userPrompt = `Tweet by @${username}: "${tweetText.substring(0, 500)}"
+  // Build context about this user's history
+  let historyContext = "";
+  if (conversationHistory && conversationHistory.length > 0) {
+    const recentExchanges = conversationHistory.slice(0, 10).map(h => 
+      `  User: "${h.incoming_text.substring(0, 100)}"${h.reply_text ? `\n  You: "${h.reply_text.substring(0, 100)}"` : ""}`
+    ).join("\n---\n");
+    historyContext = `\n\nPREVIOUS CONVERSATIONS WITH @${username} (${conversationHistory.length} total interactions):\n${recentExchanges}`;
+  }
 
-Reply:`;
+  let topicContext = "";
+  if (userTopics && userTopics.length > 0) {
+    const repeatedTopics = userTopics.filter(t => t.ask_count >= 2);
+    if (repeatedTopics.length > 0) {
+      topicContext = `\n\nTHIS USER FREQUENTLY ASKS ABOUT: ${repeatedTopics.map(t => `${t.topic} (${t.ask_count}x)`).join(", ")}`;
+      topicContext += `\nIf they're asking the same thing again, acknowledge it professionally — e.g. "we covered this before" or "as i mentioned" — but still be helpful. Don't be rude about repetition.`;
+    }
+  }
 
+  const userPrompt = `Tweet by @${username}: "${tweetText.substring(0, 500)}"${historyContext}${topicContext}
+
+Reply (max 240 chars):`;
+
+  // Also extract topics in a second call
+  let extractedTopics: string[] = [];
+  
   try {
-    const response = await fetchWithTimeout(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
+    // Generate reply and extract topics in parallel
+    const [replyResponse, topicResponse] = await Promise.all([
+      fetchWithTimeout(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            max_tokens: 100,
+            temperature: 0.8,
+          }),
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: 100,
-          temperature: 0.8,
-        }),
-      },
-      15000
-    );
+        15000
+      ),
+      fetchWithTimeout(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
+              { role: "system", content: "Extract 1-3 short topic tags from this tweet. Return ONLY a JSON array of lowercase strings. Examples: [\"price\",\"wallet\",\"airdrop\"], [\"send sol\",\"begging\"], [\"token launch\"]. No explanation." },
+              { role: "user", content: tweetText.substring(0, 300) },
+            ],
+            max_tokens: 50,
+            temperature: 0.1,
+          }),
+        },
+        10000
+      ).catch(() => null),
+    ]);
 
-    if (!response.ok) {
-      console.error("AI API error:", response.status);
-      return null;
+    if (!replyResponse.ok) {
+      console.error("AI API error:", replyResponse.status);
+      return { reply: null, topics: [] };
     }
 
-    const data = await response.json();
+    const data = await replyResponse.json();
     let reply = data.choices?.[0]?.message?.content?.trim() || null;
 
     if (reply && reply.length > 280) {
       reply = reply.substring(0, 277) + "...";
     }
 
-    return reply;
+    // Parse topics
+    if (topicResponse && topicResponse.ok) {
+      try {
+        const topicData = await topicResponse.json();
+        const topicStr = topicData.choices?.[0]?.message?.content?.trim() || "[]";
+        const parsed = JSON.parse(topicStr);
+        if (Array.isArray(parsed)) {
+          extractedTopics = parsed.filter((t: unknown) => typeof t === "string").slice(0, 3);
+        }
+      } catch { /* ignore topic parse errors */ }
+    }
+
+    return { reply, topics: extractedTopics };
   } catch (e) {
     console.error("AI generation error:", e);
-    return null;
+    return { reply: null, topics: [] };
   }
 }
 
@@ -511,13 +568,40 @@ serve(async (req) => {
         }
       }
 
-      // Generate reply with persona prompt
+      // Fetch conversation history and user topics for context
+      let conversationHistory: { incoming_text: string; reply_text: string | null; created_at: string }[] = [];
+      let userTopics: { topic: string; ask_count: number }[] = [];
+
+      if (queuedTweet.tweet_author_id) {
+        const [historyRes, topicsRes] = await Promise.all([
+          supabase
+            .from("x_bot_conversation_history")
+            .select("incoming_text, reply_text, created_at")
+            .eq("account_id", account.id)
+            .eq("tweet_author_id", queuedTweet.tweet_author_id)
+            .order("created_at", { ascending: false })
+            .limit(10),
+          supabase
+            .from("x_bot_user_topics")
+            .select("topic, ask_count")
+            .eq("account_id", account.id)
+            .eq("tweet_author_id", queuedTweet.tweet_author_id)
+            .order("ask_count", { ascending: false })
+            .limit(20),
+        ]);
+        conversationHistory = historyRes.data || [];
+        userTopics = topicsRes.data || [];
+      }
+
+      // Generate reply with persona prompt + conversation history
       await insertLog(supabase, account.id, "reply", "info", `Generating AI reply for @${author}...`);
       
-      const replyText = await generateReply(
+      const { reply: replyText, topics: extractedTopics } = await generateReply(
         queuedTweet.tweet_text || "",
         queuedTweet.tweet_author || "user",
-        rules.persona_prompt
+        rules.persona_prompt,
+        conversationHistory,
+        userTopics
       );
 
       if (!replyText) {
@@ -527,7 +611,7 @@ serve(async (req) => {
         continue;
       }
 
-      await insertLog(supabase, account.id, "reply", "info", `Generated reply (${replyText.length} chars)`);
+      await insertLog(supabase, account.id, "reply", "info", `Generated reply (${replyText.length} chars), topics: [${extractedTopics.join(", ")}]`);
 
       // Post reply using the login_cookie from API login
       const result = await postReply(
@@ -538,7 +622,7 @@ serve(async (req) => {
         proxyUrl
       );
 
-      // Record in database
+      // Record in replies table
       await supabase.from("x_bot_account_replies").insert({
         account_id: account.id,
         tweet_id: queuedTweet.tweet_id,
@@ -553,6 +637,50 @@ serve(async (req) => {
         error_message: result.error || null,
       });
 
+      // Save conversation history + update user topics (fire-and-forget)
+      if (result.success && queuedTweet.tweet_author_id) {
+        // Save conversation entry
+        supabase.from("x_bot_conversation_history").insert({
+          account_id: account.id,
+          tweet_author_id: queuedTweet.tweet_author_id,
+          tweet_author_username: author,
+          conversation_id: queuedTweet.conversation_id || queuedTweet.tweet_id,
+          tweet_id: queuedTweet.tweet_id,
+          incoming_text: queuedTweet.tweet_text || "",
+          reply_text: replyText,
+          extracted_topics: extractedTopics,
+        }).then(() => {});
+
+        // Upsert each extracted topic
+        for (const topic of extractedTopics) {
+          supabase.rpc("backend_upsert_user_topic" as any, {}).then(() => {});
+          // Use raw upsert since we have a unique constraint
+          supabase.from("x_bot_user_topics").upsert(
+            {
+              account_id: account.id,
+              tweet_author_id: queuedTweet.tweet_author_id,
+              tweet_author_username: author,
+              topic: topic.toLowerCase(),
+              ask_count: 1,
+              last_asked_at: new Date().toISOString(),
+              first_asked_at: new Date().toISOString(),
+            },
+            { onConflict: "account_id,tweet_author_id,topic" }
+          ).then(() => {
+            // Increment ask_count for existing topics
+            supabase.from("x_bot_user_topics")
+              .update({ 
+                ask_count: (userTopics.find(t => t.topic === topic.toLowerCase())?.ask_count || 0) + 1,
+                last_asked_at: new Date().toISOString(),
+              })
+              .eq("account_id", account.id)
+              .eq("tweet_author_id", queuedTweet.tweet_author_id)
+              .eq("topic", topic.toLowerCase())
+              .then(() => {});
+          });
+        }
+      }
+
       // Update queue status
       await supabase
         .from("x_bot_account_queue")
@@ -565,6 +693,7 @@ serve(async (req) => {
           tweetId: queuedTweet.tweet_id,
           replyId: result.replyId,
           replyPreview: replyText.substring(0, 80),
+          topics: extractedTopics,
         });
       } else {
         debug.errors.push(`Reply failed for ${account.username}: ${result.error}`);

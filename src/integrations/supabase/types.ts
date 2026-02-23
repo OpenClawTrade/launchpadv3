@@ -8219,6 +8219,53 @@ export type Database = {
         }
         Relationships: []
       }
+      x_bot_conversation_history: {
+        Row: {
+          account_id: string
+          conversation_id: string | null
+          created_at: string
+          extracted_topics: string[] | null
+          id: string
+          incoming_text: string
+          reply_text: string | null
+          tweet_author_id: string
+          tweet_author_username: string | null
+          tweet_id: string | null
+        }
+        Insert: {
+          account_id: string
+          conversation_id?: string | null
+          created_at?: string
+          extracted_topics?: string[] | null
+          id?: string
+          incoming_text: string
+          reply_text?: string | null
+          tweet_author_id: string
+          tweet_author_username?: string | null
+          tweet_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          extracted_topics?: string[] | null
+          id?: string
+          incoming_text?: string
+          reply_text?: string | null
+          tweet_author_id?: string
+          tweet_author_username?: string | null
+          tweet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "x_bot_conversation_history_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "x_bot_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       x_bot_rate_limits: {
         Row: {
           id: string
@@ -8239,6 +8286,47 @@ export type Database = {
           x_username?: string | null
         }
         Relationships: []
+      }
+      x_bot_user_topics: {
+        Row: {
+          account_id: string
+          ask_count: number
+          first_asked_at: string
+          id: string
+          last_asked_at: string
+          topic: string
+          tweet_author_id: string
+          tweet_author_username: string | null
+        }
+        Insert: {
+          account_id: string
+          ask_count?: number
+          first_asked_at?: string
+          id?: string
+          last_asked_at?: string
+          topic: string
+          tweet_author_id: string
+          tweet_author_username?: string | null
+        }
+        Update: {
+          account_id?: string
+          ask_count?: number
+          first_asked_at?: string
+          id?: string
+          last_asked_at?: string
+          topic?: string
+          tweet_author_id?: string
+          tweet_author_username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "x_bot_user_topics_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "x_bot_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       x_follower_scans: {
         Row: {
