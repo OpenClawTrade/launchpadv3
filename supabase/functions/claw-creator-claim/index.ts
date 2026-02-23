@@ -8,9 +8,11 @@ const corsHeaders = {
 };
 
 const MIN_CLAIM_SOL = 0.01;
+const MAX_SINGLE_CLAIM_SOL = 5.0; // Safety cap per claim
 const CREATOR_SHARE = 0.3; // Creator gets 30% of total fees earned
 const CLAIM_COOLDOWN_MS = 60 * 60 * 1000;
 const CLAIM_LOCK_SECONDS = 60;
+const TREASURY_RESERVE_SOL = 0.05; // Keep reserved for rent/fees
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -34,10 +36,11 @@ Deno.serve(async (req) => {
     const normalizedUsername = twitterUsername.replace(/^@/, "").toLowerCase();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const clawTreasuryKey = Deno.env.get("CLAW_TREASURY_PRIVATE_KEY");
+    // Use TREASURY_PRIVATE_KEY - this is the wallet that actually receives claimed fees
+    const treasuryKey = Deno.env.get("TREASURY_PRIVATE_KEY");
     const heliusRpcUrl = Deno.env.get("HELIUS_RPC_URL") || Deno.env.get("VITE_HELIUS_RPC_URL");
 
-    if (!clawTreasuryKey || !heliusRpcUrl) return new Response(JSON.stringify({ success: false, error: "Server configuration error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!treasuryKey || !heliusRpcUrl) return new Response(JSON.stringify({ success: false, error: "Server configuration error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -95,22 +98,23 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: false, error: "No tokens found to claim from" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Calculate claimable amounts from fun_tokens.total_fees_earned
-    // Fun tokens store total_fees_earned directly
+    // Calculate claimable amounts from ACTUAL on-chain fee claims (source of truth)
+    // Use fun_fee_claims.claimed_sol instead of fun_tokens.total_fees_earned
     let totalCreatorEarned = 0;
     const tokenEarnings: Record<string, number> = {};
 
+    // Get actual claimed fees from fun_fee_claims for fun tokens
     if (funTokenIds.length > 0) {
       const funTargetIds = targetTokenIds.filter((id: string) => funTokenIds.includes(id));
       if (funTargetIds.length > 0) {
-        const { data: funTokenData } = await supabase
-          .from("fun_tokens")
-          .select("id, total_fees_earned")
-          .in("id", funTargetIds);
+        const { data: feeClaims } = await supabase
+          .from("fun_fee_claims")
+          .select("fun_token_id, claimed_sol")
+          .in("fun_token_id", funTargetIds);
 
-        for (const ft of funTokenData || []) {
-          const earned = (ft.total_fees_earned || 0) * CREATOR_SHARE;
-          tokenEarnings[ft.id] = earned;
+        for (const fc of feeClaims || []) {
+          const earned = (fc.claimed_sol || 0) * CREATOR_SHARE;
+          tokenEarnings[fc.fun_token_id] = (tokenEarnings[fc.fun_token_id] || 0) + earned;
           totalCreatorEarned += earned;
         }
       }
@@ -142,7 +146,13 @@ Deno.serve(async (req) => {
       paidPerToken[d.fun_token_id] = (paidPerToken[d.fun_token_id] || 0) + (d.amount_sol || 0);
     }
 
-    const claimable = Math.max(0, totalCreatorEarned - totalCreatorPaid);
+    let claimable = Math.max(0, totalCreatorEarned - totalCreatorPaid);
+
+    // Safety cap: prevent draining treasury from a single claim
+    if (claimable > MAX_SINGLE_CLAIM_SOL) {
+      console.log(`[claw-creator-claim] ⚠️ Capping claim from ${claimable.toFixed(6)} to ${MAX_SINGLE_CLAIM_SOL} SOL`);
+      claimable = MAX_SINGLE_CLAIM_SOL;
+    }
 
     console.log(`[claw-creator-claim] User @${normalizedUsername}: earned=${totalCreatorEarned.toFixed(6)}, paid=${totalCreatorPaid.toFixed(6)}, claimable=${claimable.toFixed(6)}, tokens=${targetTokenIds.length} (fun=${funTokenIds.length}, claw=${clawTargetIds.length})`);
 
@@ -175,13 +185,19 @@ Deno.serve(async (req) => {
     try {
       let treasuryKeypair: Keypair;
       try {
-        if (clawTreasuryKey.startsWith("[")) treasuryKeypair = Keypair.fromSecretKey(new Uint8Array(JSON.parse(clawTreasuryKey)));
-        else treasuryKeypair = Keypair.fromSecretKey(bs58.decode(clawTreasuryKey));
+        if (treasuryKey.startsWith("[")) treasuryKeypair = Keypair.fromSecretKey(new Uint8Array(JSON.parse(treasuryKey)));
+        else treasuryKeypair = Keypair.fromSecretKey(bs58.decode(treasuryKey));
       } catch { throw new Error("Invalid treasury configuration"); }
 
       const connection = new Connection(heliusRpcUrl, "confirmed");
       const treasuryBalance = await connection.getBalance(treasuryKeypair.publicKey);
-      if (treasuryBalance / 1e9 < claimable + 0.01) throw new Error("Insufficient treasury balance");
+      const treasuryBalanceSol = treasuryBalance / 1e9;
+
+      console.log(`[claw-creator-claim] Treasury balance: ${treasuryBalanceSol.toFixed(6)} SOL, claiming: ${claimable.toFixed(6)} SOL, reserve: ${TREASURY_RESERVE_SOL} SOL`);
+
+      if (treasuryBalanceSol < claimable + TREASURY_RESERVE_SOL) {
+        throw new Error(`Insufficient treasury balance (${treasuryBalanceSol.toFixed(4)} SOL available, need ${(claimable + TREASURY_RESERVE_SOL).toFixed(4)} SOL)`);
+      }
 
       const recipientPubkey = new PublicKey(payoutWallet);
       const lamports = Math.floor(claimable * 1e9);
@@ -208,14 +224,6 @@ Deno.serve(async (req) => {
             status: "completed",
             twitter_username: normalizedUsername,
           });
-
-          // Also update fun_tokens.total_fees_claimed
-          if (funTokenIds.includes(tokenId)) {
-            await supabase
-              .from("fun_tokens")
-              .update({ total_fees_claimed: tokenPaid + tokenClaimable })
-              .eq("id", tokenId);
-          }
         }
       }
 
