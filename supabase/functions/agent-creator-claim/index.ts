@@ -351,7 +351,7 @@ Deno.serve(async (req) => {
         const tokenClaimable = Math.max(0, tokenEarned - tokenPaid);
 
         if (tokenClaimable > 0.000001) {
-          await supabase.from("fun_distributions").insert({
+          const { error: insertError } = await supabase.from("fun_distributions").insert({
             fun_token_id: tokenId,
             creator_wallet: payoutWallet,
             amount_sol: tokenClaimable,
@@ -360,6 +360,10 @@ Deno.serve(async (req) => {
             status: "completed",
             twitter_username: normalizedUsername,
           });
+          if (insertError) {
+            console.error(`[agent-creator-claim] ❌ CRITICAL: Failed to record distribution for token ${tokenId}:`, insertError);
+            throw new Error("Failed to record distribution - this is a critical error");
+          }
         }
       }
 

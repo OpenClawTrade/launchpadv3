@@ -1486,15 +1486,7 @@ export type Database = {
           status?: string
           twitter_username?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "claw_distributions_fun_token_id_fkey"
-            columns: ["fun_token_id"]
-            isOneToOne: false
-            referencedRelation: "claw_tokens"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       claw_fee_claims: {
         Row: {
