@@ -488,6 +488,29 @@ serve(async (req) => {
         }
       }
 
+      // Thread reply limit: max 3 replies to the same author in one conversation
+      // Prevents infinite reply loops with other bots/agents
+      const conversationId = queuedTweet.conversation_id || queuedTweet.tweet_id;
+      if (queuedTweet.tweet_author_id && conversationId) {
+        const { count: threadReplies } = await supabase
+          .from("x_bot_account_replies")
+          .select("*", { count: "exact", head: true })
+          .eq("account_id", account.id)
+          .eq("tweet_author_id", queuedTweet.tweet_author_id)
+          .eq("conversation_id", conversationId)
+          .eq("status", "sent");
+
+        if ((threadReplies || 0) >= 3) {
+          await supabase
+            .from("x_bot_account_queue")
+            .update({ status: "skipped" })
+            .eq("id", queuedTweet.id);
+          debug.skipped++;
+          await insertLog(supabase, account.id, "skip", "warn", `Skipped @${author}: max 3 replies per thread reached (conversation ${conversationId})`);
+          continue;
+        }
+      }
+
       // Generate reply with persona prompt
       await insertLog(supabase, account.id, "reply", "info", `Generating AI reply for @${author}...`);
       
