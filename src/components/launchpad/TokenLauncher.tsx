@@ -2071,22 +2071,51 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
 
         {/* Phantom Mode */}
         {generatorMode === "phantom" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {!phantomWallet.isConnected ? (
-              <Button onClick={phantomWallet.connect} disabled={phantomWallet.isConnecting} className="gate-btn gate-btn-primary w-full">
-                {phantomWallet.isConnecting ? "Connecting..." : <><Wallet className="h-4 w-4 mr-2" /> Connect Phantom</>}
-              </Button>
+              <button
+                onClick={phantomWallet.connect}
+                disabled={phantomWallet.isConnecting}
+                className="w-full h-12 rounded-xl font-semibold text-sm tracking-wide text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-500/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{
+                  background: "linear-gradient(135deg, #8b5cf6, #06b6d4)",
+                  border: "1px solid rgba(139,92,246,0.3)",
+                  boxShadow: "0 0 20px rgba(139,92,246,0.15)",
+                }}
+              >
+                {phantomWallet.isConnecting ? "Connecting..." : <><Wallet className="h-4 w-4" /> Connect Phantom</>}
+              </button>
             ) : (
               <>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-primary rounded-full" />
-                    <span className="text-sm font-mono text-foreground">{phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}</span>
-                    {phantomWallet.balance !== null && <span className="text-xs text-muted-foreground">{phantomWallet.balance.toFixed(3)} SOL</span>}
+                <div
+                  className="flex items-center justify-between p-4 rounded-xl transition-all duration-200"
+                  style={{
+                    background: "rgba(0,0,0,0.4)",
+                    backdropFilter: "blur(20px)",
+                    border: "1px solid rgba(139,92,246,0.2)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: "#10b981", boxShadow: "0 0 8px rgba(16,185,129,0.5)" }} />
+                    <span className="text-sm font-mono font-semibold tracking-tight" style={{ background: "linear-gradient(90deg, #a78bfa, #22d3ee)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                      {phantomWallet.address?.slice(0, 4)}...{phantomWallet.address?.slice(-4)}
+                    </span>
+                    {phantomWallet.balance !== null && (
+                      <span className="text-xs font-mono text-[#94A3B8]">{phantomWallet.balance.toFixed(3)} SOL</span>
+                    )}
                   </div>
-                  <Button variant="ghost" size="sm" onClick={phantomWallet.disconnect} className="text-muted-foreground hover:text-foreground">
+                  <button
+                    onClick={phantomWallet.disconnect}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 hover:scale-[1.03] cursor-pointer"
+                    style={{
+                      background: "rgba(239,68,68,0.1)",
+                      color: "#fca5a5",
+                      border: "1px solid rgba(239,68,68,0.2)",
+                    }}
+                  >
                     Disconnect
-                  </Button>
+                  </button>
                 </div>
 
                 <div className="space-y-2">
@@ -2156,14 +2185,21 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                 </div>
 
                 {/* Dev Buy - Atomic with pool creation to prevent frontrunning */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Dev Buy (optional)</span>
-                    <span className="font-semibold text-primary">{phantomDevBuySol} SOL</span>
+                <div
+                  className="space-y-3 p-4 rounded-xl"
+                  style={{
+                    background: "rgba(0,0,0,0.3)",
+                    border: "1px solid rgba(51,65,85,0.3)",
+                    backdropFilter: "blur(12px)",
+                  }}
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#94A3B8] uppercase tracking-wider font-medium">Dev Buy (optional)</span>
+                    <span className="font-bold text-sm" style={{ color: "#06b6d4" }}>{phantomDevBuySol} SOL</span>
                   </div>
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #9945FF, #14F195)", boxShadow: "0 0 8px rgba(153,69,255,0.3)" }}>
                         <span className="text-[8px] font-bold text-white">◎</span>
                       </div>
                     </div>
@@ -2176,7 +2212,6 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                       value={phantomDevBuySolInput}
                       onChange={(e) => {
                         let next = e.target.value;
-                        // Normalize leading decimal (e.g., ".01" -> "0.01")
                         if (next.startsWith('.')) {
                           next = '0' + next;
                         }
@@ -2187,16 +2222,28 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                       onBlur={() => {
                         setPhantomDevBuySolInput(formatDevBuySolInput(parseDevBuySol(phantomDevBuySolInput)));
                       }}
-                      className="h-10 bg-secondary/50 border-0 rounded-lg pl-9 text-sm font-medium placeholder:text-muted-foreground/60"
+                      className="h-11 rounded-xl pl-10 text-sm font-medium font-mono"
+                      style={{
+                        background: "rgba(0,0,0,0.5)",
+                        border: "1px solid rgba(139,92,246,0.2)",
+                        color: "#e2e8f0",
+                      }}
                     />
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[10px] text-[#64748B] leading-relaxed">
                     Buy tokens atomically with pool creation to prevent frontrunning. Max 10 SOL.
                   </p>
                 </div>
 
 
-                <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
+                <div
+                  className="flex gap-1 p-1 rounded-xl"
+                  style={{
+                    background: "rgba(0,0,0,0.4)",
+                    border: "1px solid rgba(51,65,85,0.25)",
+                    backdropFilter: "blur(12px)",
+                  }}
+                >
                   {[
                     { id: "random" as const, label: "Random", icon: Shuffle },
                     { id: "describe" as const, label: "Describe", icon: Sparkles },
@@ -2206,11 +2253,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                     <button
                       key={subMode.id}
                       onClick={() => setPhantomSubMode(subMode.id)}
-                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-2 text-xs rounded-md transition-all ${
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs rounded-lg transition-all duration-200 cursor-pointer"
+                      style={
                         phantomSubMode === subMode.id
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                      }`}
+                          ? {
+                              background: "linear-gradient(135deg, rgba(139,92,246,0.8), rgba(6,182,212,0.8))",
+                              color: "#fff",
+                              fontWeight: 600,
+                              boxShadow: "0 0 12px rgba(139,92,246,0.3)",
+                              transform: "scale(1.03)",
+                            }
+                          : { color: "#64748B" }
+                      }
                     >
                       <subMode.icon className="h-3 w-3" />
                       {subMode.label}
@@ -2221,9 +2275,18 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                 {/* Random Sub-Mode */}
                 {phantomSubMode === "random" && (
                   <>
-                    <Button onClick={handlePhantomRandomize} disabled={isPhantomGenerating} className="gate-btn gate-btn-secondary w-full">
-                      {isPhantomGenerating ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4 mr-2" /> AI Randomize</>}
-                    </Button>
+                    <button
+                      onClick={handlePhantomRandomize}
+                      disabled={isPhantomGenerating}
+                      className="w-full h-11 rounded-xl font-semibold text-sm text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(139,92,246,0.6), rgba(6,182,212,0.6))",
+                        border: "1px solid rgba(139,92,246,0.3)",
+                        backdropFilter: "blur(8px)",
+                      }}
+                    >
+                      {isPhantomGenerating ? <><RefreshCw className="h-4 w-4 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4" /> AI Randomize</>}
+                    </button>
 
                     {isPhantomGenerating && (
                       <div className="gate-token-preview">
@@ -2241,17 +2304,31 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                 {/* Realistic Sub-Mode */}
                 {phantomSubMode === "realistic" && (
                   <>
-                    <p className="text-sm text-muted-foreground">Describe what you want. AI generates a realistic, real-life image.</p>
-                    <Textarea
+                    <p className="text-sm text-[#94A3B8]">Describe what you want. AI generates a realistic, real-life image.</p>
+                    <textarea
                       value={phantomRealisticPrompt}
                       onChange={(e) => setPhantomRealisticPrompt(e.target.value)}
                       placeholder="e.g., A golden retriever wearing a tiny top hat in a park..."
-                      className="gate-input gate-textarea"
                       maxLength={500}
+                      className="w-full min-h-[80px] rounded-xl p-4 text-sm resize-none placeholder:italic placeholder:text-[#475569] focus:outline-none focus:ring-2 transition-all duration-200"
+                      style={{
+                        background: "rgba(0,0,0,0.5)",
+                        border: "1px solid rgba(139,92,246,0.2)",
+                        color: "#e2e8f0",
+                      }}
                     />
-                    <Button onClick={handlePhantomRealisticGenerate} disabled={isPhantomGenerating || !phantomRealisticPrompt.trim()} className="gate-btn gate-btn-secondary w-full">
-                      {isPhantomGenerating ? <><Camera className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Camera className="h-4 w-4 mr-2" /> Generate Realistic Image</>}
-                    </Button>
+                    <button
+                      onClick={handlePhantomRealisticGenerate}
+                      disabled={isPhantomGenerating || !phantomRealisticPrompt.trim()}
+                      className="w-full h-11 rounded-xl font-semibold text-sm text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(139,92,246,0.6), rgba(6,182,212,0.6))",
+                        border: "1px solid rgba(139,92,246,0.3)",
+                        backdropFilter: "blur(8px)",
+                      }}
+                    >
+                      {isPhantomGenerating ? <><Camera className="h-4 w-4 animate-spin" /> Generating...</> : <><Camera className="h-4 w-4" /> Generate Realistic Image</>}
+                    </button>
 
                     {isPhantomGenerating && (
                       <div className="gate-token-preview">
@@ -2338,13 +2415,17 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                     <Input type="file" accept="image/*" onChange={handlePhantomImageChange} className="gate-input text-xs" />
 
 
-                    <Button
+                    <button
                       onClick={() => handlePhantomLaunch()}
                       disabled={isPhantomLaunching || !phantomToken.name.trim() || !phantomToken.ticker.trim() || (!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl) || (phantomWallet.balance !== null && phantomWallet.balance < 0.02)}
-                      className="gate-btn gate-btn-primary w-full"
+                      className="w-full h-12 rounded-xl font-semibold text-sm tracking-wide text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 cursor-pointer"
+                      style={{
+                        background: "linear-gradient(135deg, #8b5cf6, #06b6d4)",
+                        boxShadow: "0 4px 20px rgba(139,92,246,0.25)",
+                      }}
                     >
-                      {isPhantomLaunching ? <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</> : <><Rocket className="h-4 w-4 mr-2" /> Launch (~0.02 SOL)</>}
-                    </Button>
+                      {isPhantomLaunching ? <><Rocket className="h-4 w-4 animate-bounce" /> Launching...</> : <><Rocket className="h-4 w-4" /> Launch (~0.02 SOL)</>}
+                    </button>
 
                     {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && (
                       <p className="text-xs text-destructive flex items-center gap-1">
@@ -2357,23 +2438,33 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
               </>
             )}
 
-            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
-              <div className="flex items-center gap-2 mb-2">
-                <Coins className="h-4 w-4 text-primary" />
-                <span className="text-xs font-semibold">Fee Structure</span>
+            <div
+              className="p-5 rounded-2xl"
+              style={{
+                background: "rgba(0,0,0,0.5)",
+                backdropFilter: "blur(24px)",
+                border: "1px solid rgba(6,182,212,0.15)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.3), 0 0 1px rgba(6,182,212,0.1)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Coins className="h-4 w-4" style={{ color: "#06b6d4" }} />
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#94A3B8" }}>Fee Structure</span>
               </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Launch Fee</span>
-                  <span className="text-primary font-semibold">~0.02 SOL</span>
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-[#64748B]">Launch Fee</span>
+                  <span className="font-bold" style={{ color: "#06b6d4" }}>~0.02 SOL</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Your Fee Share</span>
-                  <span className="text-primary font-bold">50%</span>
+                <div className="h-px" style={{ background: "rgba(51,65,85,0.3)" }} />
+                <div className="flex justify-between items-center">
+                  <span className="text-[#64748B]">Your Fee Share</span>
+                  <span className="font-bold" style={{ color: "#10b981" }}>50%</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Trading Fee</span>
-                  <span className="text-primary font-semibold">{(phantomTradingFee / 100).toFixed(1)}%</span>
+                <div className="h-px" style={{ background: "rgba(51,65,85,0.3)" }} />
+                <div className="flex justify-between items-center">
+                  <span className="text-[#64748B]">Trading Fee</span>
+                  <span className="font-bold" style={{ color: "#a78bfa" }}>{(phantomTradingFee / 100).toFixed(1)}%</span>
                 </div>
               </div>
             </div>
