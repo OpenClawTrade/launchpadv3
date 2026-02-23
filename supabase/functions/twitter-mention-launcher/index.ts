@@ -440,7 +440,7 @@ Launch your unique Solana Agent from Claw Mode`;
 Example:
 !clawmode A lobster that trades crypto underwater
 
-Don't forget to attach an image! 🖼️`;
+Attach an image or let AI generate one for you! 🖼️✨`;
 
       await postReply(mention.id, usageReply, null, {
         TWITTERAPI_IO_KEY,
