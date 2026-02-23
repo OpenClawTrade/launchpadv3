@@ -208,8 +208,9 @@ serve(async (req) => {
     // Use client-provided signature or generate a tracking ID
     const signature = clientSignature || `pending_${token.id}_${Date.now()}`;
 
-    // Record transaction
-    const { error: txError } = await supabase.from("launchpad_transactions").insert({
+    // Record transaction - try with profile_id first, fall back to null if FK fails
+    let txError: any = null;
+    const txPayload = {
       token_id: token.id,
       user_wallet: userWallet,
       user_profile_id: profileId || null,
@@ -220,10 +221,21 @@ serve(async (req) => {
       system_fee_sol: systemFee,
       creator_fee_sol: creatorFee,
       signature,
-    });
+    };
 
-    if (txError) {
-      console.error("[launchpad-swap] Transaction insert error:", txError);
+    const { error: firstTxError } = await supabase.from("launchpad_transactions").insert(txPayload);
+
+    if (firstTxError) {
+      console.warn("[launchpad-swap] TX insert failed, retrying without profile_id:", firstTxError.message);
+      // Retry without profile_id in case of FK constraint failure
+      const { error: retryError } = await supabase.from("launchpad_transactions").insert({
+        ...txPayload,
+        user_profile_id: null,
+      });
+      if (retryError) {
+        console.error("[launchpad-swap] Transaction insert retry error:", retryError);
+        txError = retryError;
+      }
     }
 
     // Record API fee distribution if this is an API launchpad trade

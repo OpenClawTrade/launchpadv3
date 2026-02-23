@@ -90,9 +90,20 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       setAmount('');
       toast({
         title: `${isBuy ? 'Buy' : 'Sell'} successful!`,
-        description: isBuy
-          ? `Bought ${formatTokenAmount(result.tokensOut || 0)} ${token.ticker}`
-          : `Sold for ${formatSolAmount(result.solOut || 0)} SOL`,
+        description: (
+          <div className="flex items-center gap-2 font-mono text-xs">
+            <span>
+              {isBuy
+                ? `Bought ${formatTokenAmount(result.tokensOut || 0)} ${token.ticker}`
+                : `Sold for ${formatSolAmount(result.solOut || 0)} SOL`}
+            </span>
+            {result.signature && (
+              <a href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                View TX ↗
+              </a>
+            )}
+          </div>
+        ),
       });
 
       if (result.graduated) {
