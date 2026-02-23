@@ -13,7 +13,7 @@ const BOT_USERNAMES = new Set([
   "clawmode", "moltbook", "openclaw",
 ]);
 
-const MIN_FOLLOWER_COUNT = 5000; // Minimum followers for quality engagement
+
 
 interface Tweet {
   id: string;
@@ -192,18 +192,6 @@ serve(async (req) => {
         continue;
       }
 
-      // Skip unverified
-      if (!hasVerificationBadge(tweet)) {
-        debug.skipped++;
-        continue;
-      }
-
-      // Require minimum 5000 followers for quality engagement
-      const followers = getFollowerCount(tweet);
-      if (followers < MIN_FOLLOWER_COUNT) {
-        debug.skipped++;
-        continue;
-      }
 
       const username = tweet.author?.userName?.toLowerCase() || "";
       if (BOT_USERNAMES.has(username)) {
