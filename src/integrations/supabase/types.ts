@@ -9149,6 +9149,15 @@ export type Database = {
         Returns: boolean
       }
       update_token_24h_stats: { Args: never; Returns: undefined }
+      upsert_bot_user_topic: {
+        Args: {
+          p_account_id: string
+          p_topic: string
+          p_tweet_author_id: string
+          p_tweet_author_username: string
+        }
+        Returns: undefined
+      }
       verify_api_key: {
         Args: { p_api_key: string }
         Returns: {

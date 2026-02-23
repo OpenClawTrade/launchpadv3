@@ -651,33 +651,14 @@ serve(async (req) => {
           extracted_topics: extractedTopics,
         }).then(() => {});
 
-        // Upsert each extracted topic
+        // Upsert each extracted topic using DB function
         for (const topic of extractedTopics) {
-          supabase.rpc("backend_upsert_user_topic" as any, {}).then(() => {});
-          // Use raw upsert since we have a unique constraint
-          supabase.from("x_bot_user_topics").upsert(
-            {
-              account_id: account.id,
-              tweet_author_id: queuedTweet.tweet_author_id,
-              tweet_author_username: author,
-              topic: topic.toLowerCase(),
-              ask_count: 1,
-              last_asked_at: new Date().toISOString(),
-              first_asked_at: new Date().toISOString(),
-            },
-            { onConflict: "account_id,tweet_author_id,topic" }
-          ).then(() => {
-            // Increment ask_count for existing topics
-            supabase.from("x_bot_user_topics")
-              .update({ 
-                ask_count: (userTopics.find(t => t.topic === topic.toLowerCase())?.ask_count || 0) + 1,
-                last_asked_at: new Date().toISOString(),
-              })
-              .eq("account_id", account.id)
-              .eq("tweet_author_id", queuedTweet.tweet_author_id)
-              .eq("topic", topic.toLowerCase())
-              .then(() => {});
-          });
+          supabase.rpc("upsert_bot_user_topic", {
+            p_account_id: account.id,
+            p_tweet_author_id: queuedTweet.tweet_author_id,
+            p_tweet_author_username: author,
+            p_topic: topic,
+          }).then(() => {});
         }
       }
 
