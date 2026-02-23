@@ -37,30 +37,7 @@ const parseCookieString = (raw: string): Record<string, string> => {
   return out;
 };
 
-const buildLoginCookiesBase64FromEnv = (args: {
-  xFullCookie?: string | null;
-  xAuthToken?: string | null;
-  xCt0Token?: string | null;
-}): string | null => {
-  const { xFullCookie, xAuthToken, xCt0Token } = args;
-
-  if (xFullCookie && xFullCookie.trim()) {
-    const cookies = parseCookieString(xFullCookie.trim());
-    if (cookies.auth_token && cookies.ct0) {
-      return btoa(JSON.stringify(cookies));
-    }
-  }
-
-  if (xAuthToken && xCt0Token) {
-    const authVal = stripQuotes(xAuthToken.trim());
-    const ct0Val = stripQuotes(xCt0Token.trim());
-    if (authVal && ct0Val) {
-      return btoa(JSON.stringify({ auth_token: authVal, ct0: ct0Val }));
-    }
-  }
-
-  return null;
-};
+// buildLoginCookiesBase64FromEnv removed - using launcher's direct parseCookieString + btoa pattern
 
 interface Tweet {
   id: string;
@@ -231,46 +208,45 @@ async function postReply(
   proxy: string
 ): Promise<{ success: boolean; replyId?: string; error?: string }> {
   try {
-    // Prefer the JSON cookie-map encoding (most reliable), then fall back to raw cookie string.
-    const loginCookies =
-      buildLoginCookiesBase64FromEnv({ xFullCookie: cookie }) ?? btoa(cookie);
+    // Use the exact same cookie handling as the working twitter-mention-launcher
+    const loginCookies = parseCookieString(cookie);
+    const loginCookiesB64 = btoa(JSON.stringify(loginCookies));
 
-    const response = await fetchWithTimeout(
-      // Use the endpoint/payload that is currently working in twitter-auto-reply.
-      `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey,
-        },
-        body: JSON.stringify({
-          tweet_text: replyText,
-          reply_to_tweet_id: tweetId,
-          login_cookies: loginCookies,
-          ...(proxy && { proxy }),
-        }),
+    const body: any = {
+      tweet_text: replyText,
+      reply_to_tweet_id: tweetId,
+      login_cookies: loginCookiesB64,
+    };
+
+    if (proxy) {
+      body.proxy = proxy;
+    }
+
+    const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+      method: "POST",
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
       },
-      20000
-    );
+      body: JSON.stringify(body),
+    });
 
     const rawText = await response.text();
-    const data = (() => {
-      try {
-        return JSON.parse(rawText);
-      } catch {
-        return null;
-      }
-    })();
+    let data: any;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = { raw: rawText };
+    }
 
-    if (!response.ok) {
-      const apiMsg =
-        (data && (data.message || data.error || data.msg)) ||
-        (rawText ? rawText.slice(0, 300) : null);
+    // Check both HTTP status AND result.status === "error" (API returns 200 on some failures)
+    if (!response.ok || data.status === "error") {
+      const apiMsg = data?.message || data?.error || data?.msg || rawText?.slice(0, 300);
+      console.error("[promo-mention-reply] Reply failed:", response.status, rawText.slice(0, 300));
       return { success: false, error: apiMsg || `HTTP ${response.status}` };
     }
 
-    const replyId = data?.data?.tweet?.rest_id || data?.tweet_id || data?.id;
+    const replyId = data?.tweet_id || data?.data?.id;
     return { success: true, replyId };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
