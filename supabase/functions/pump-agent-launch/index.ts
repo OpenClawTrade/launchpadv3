@@ -34,11 +34,11 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-// Try to get a pre-mined vanity keypair with TUNA suffix
+// Try to get a pre-mined vanity keypair with CLAW suffix
 async function getVanityKeypair(supabase: any, encryptionKey: string): Promise<{ keypair: Keypair; publicKey: string; id: string } | null> {
   try {
     const { data, error } = await supabase.rpc('backend_reserve_vanity_address', {
-      p_suffix: 'tuna'
+      p_suffix: 'claw'
     });
     
     if (error || !data || data.length === 0) {

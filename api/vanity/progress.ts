@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const suffix = (req.query.suffix as string) || 'tuna';
+    const suffix = (req.query.suffix as string) || 'claw';
     const stats = await getVanityStats(suffix);
     
     return res.status(200).json({
