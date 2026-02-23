@@ -99,7 +99,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
                 ? `Bought ${formatTokenAmount(result.tokensOut || 0)} ${token.ticker}`
                 : `Sold for ${formatSolAmount(result.solOut || 0)} SOL`}
             </span>
-            {result.signature && (
+            {result.signature && !result.signature.startsWith('pending_') && (
               <a href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 View TX ↗
               </a>

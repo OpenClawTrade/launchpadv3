@@ -50,7 +50,7 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
         description: (
           <div className="flex items-center gap-2 font-mono text-xs">
             <span>Bought {formatTokenAmount(result.tokensOut || 0)} {token.ticker} for {solAmount} SOL</span>
-            {result.signature && (
+            {result.signature && !result.signature.startsWith('pending_') && (
               <a href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 View TX ↗
               </a>
