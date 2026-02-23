@@ -336,6 +336,8 @@ async function postReply(
     console.log(`[postReply] Posting reply to tweet ${tweetId}`);
     console.log(`[postReply] Using proxy: ${proxy ? "yes" : "no"}`);
     console.log(`[postReply] loginCookies length: ${loginCookies.length}`);
+    console.log(`[postReply] loginCookies first 50: ${loginCookies.substring(0, 50)}`);
+    console.log(`[postReply] tweet_text length: ${replyText.length}`);
 
     const response = await fetchWithTimeout(
       `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
@@ -423,7 +425,7 @@ serve(async (req) => {
     // Use same cookie-based auth as token launcher (no proxy login needed)
     const X_FULL_COOKIE = Deno.env.get("X_FULL_COOKIE");
     const X_AUTH_TOKEN = Deno.env.get("X_AUTH_TOKEN");
-    const X_CT0_TOKEN = Deno.env.get("X_CT0_TOKEN");
+    const X_CT0_TOKEN = Deno.env.get("X_CT0_TOKEN") || Deno.env.get("X_CT0");
     const envProxy = Deno.env.get("TWITTER_PROXY");
 
     let loginCookiesObj: Record<string, string> | null = null;
@@ -441,7 +443,8 @@ serve(async (req) => {
     }
 
     const loginCookieB64 = btoa(JSON.stringify(loginCookiesObj));
-    console.log(`[x-bot-reply] Using cookie-based auth (same as token launcher)`);
+    const cookieKeys = Object.keys(loginCookiesObj);
+    console.log(`[x-bot-reply] Using cookie-based auth, keys: [${cookieKeys.join(', ')}], has_auth_token: ${!!loginCookiesObj.auth_token}, has_ct0: ${!!loginCookiesObj.ct0}, source: ${X_FULL_COOKIE ? 'X_FULL_COOKIE' : 'X_AUTH_TOKEN+X_CT0_TOKEN'}`);
 
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
