@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const API_BASE_URL = "https://clawmode.fun/functions/v1";
+const API_BASE_URL = "https://clawsai.fun/functions/v1";
 
 // X icon component (matching brand identity)
 const XIcon = ({ className }: { className?: string }) => (

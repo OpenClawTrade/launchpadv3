@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
     }
 
     // Set website to SubTuna page if not provided
-    const finalWebsite = website || `https://clawmode.fun/t/${ticker.toUpperCase()}`;
+    const finalWebsite = website || `https://clawsai.fun/t/${ticker.toUpperCase()}`;
     const finalTwitter = twitter || "https://x.com/clawmode";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

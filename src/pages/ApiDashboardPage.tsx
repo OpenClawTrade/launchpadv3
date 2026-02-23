@@ -646,7 +646,7 @@ export default function ApiDashboardPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <ExternalLink className="w-4 h-4 text-primary" />
-                      Free subdomain (*.clawmode.fun) or your own custom domain
+                      Free subdomain (*.clawsai.fun) or your own custom domain
                     </li>
                     <li className="flex items-center gap-2">
                       <Activity className="w-4 h-4 text-primary" />
@@ -953,12 +953,12 @@ export default function ApiDashboardPage() {
                           </div>
                           {lp.subdomain && (
                             <a 
-                            href={`https://${lp.subdomain}.clawmode.fun`}
+                            href={`https://${lp.subdomain}.clawsai.fun`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-sm text-primary hover:underline flex items-center gap-1"
                             >
-                              {lp.subdomain}.clawmode.fun
+                              {lp.subdomain}.clawsai.fun
                               <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
