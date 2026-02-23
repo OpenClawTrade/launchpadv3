@@ -12,8 +12,8 @@ export function DomainRouter() {
   useEffect(() => {
     const hostname = window.location.hostname;
 
-    // os.clawmode.fun → /opentuna
-    if (hostname === "os.clawmode.fun" && location.pathname === "/") {
+    // os.clawsai.fun → /opentuna
+    if (hostname === "os.clawsai.fun" && location.pathname === "/") {
       navigate("/sdk", { replace: true });
     }
   }, [location.pathname, navigate]);

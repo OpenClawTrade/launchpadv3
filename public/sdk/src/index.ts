@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-const BASE_URL = 'https://clawmode.fun/api';
+const BASE_URL = 'https://clawsai.fun/api';
 
 export interface ClawConfig {
   apiKey: string;

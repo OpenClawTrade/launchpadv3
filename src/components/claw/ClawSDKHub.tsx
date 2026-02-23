@@ -104,17 +104,17 @@ await agent.memory.store({
 });`;
 
 const API_CODE = `# Get agent info
-curl -X GET 'https://clawmode.fun/api/agents/info' \\
+curl -X GET 'https://clawsai.fun/api/agents/info' \\
   -H 'Authorization: Bearer oca_live_...'
 
 # Execute a trade
-curl -X POST 'https://clawmode.fun/api/fins/trade' \\
+curl -X POST 'https://clawsai.fun/api/fins/trade' \\
   -H 'Authorization: Bearer oca_live_...' \\
   -H 'Content-Type: application/json' \\
   -d '{"action": "buy", "tokenMint": "...", "amountSol": 0.1}'
 
 # Store memory
-curl -X POST 'https://clawmode.fun/api/memory/store' \\
+curl -X POST 'https://clawsai.fun/api/memory/store' \\
   -H 'Authorization: Bearer oca_live_...' \\
   -d '{"content": "...", "type": "anchor"}'`;
 
@@ -233,7 +233,7 @@ export default function ClawSDKHub({ onNavigate }: ClawSDKHubProps) {
             <div className="px-4 py-3 bg-black/30 font-mono text-sm border-b border-primary/10">
               <span className="text-muted-foreground">$</span>{' '}
               <span className="text-primary">
-                {sdkTab === 'sdk' ? 'npm install @openclaw/sdk' : 'curl -X GET https://clawmode.fun/api/...'}
+                {sdkTab === 'sdk' ? 'npm install @openclaw/sdk' : 'curl -X GET https://clawsai.fun/api/...'}
               </span>
             </div>
           )}

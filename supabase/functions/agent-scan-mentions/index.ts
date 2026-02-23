@@ -357,7 +357,7 @@ Deno.serve(async (req) => {
 
             const tokenName = tokenData.name || post.parsed_name || "Token";
             const tokenTicker = tokenData.ticker || post.parsed_symbol || "TOKEN";
-            const catchUpReplyText = `🦞 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${tokenData.mint_address}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawmode.fun`;
+            const catchUpReplyText = `🦞 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${tokenData.mint_address}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawsai.fun`;
 
             const catchUpResult = await replyToTweet(
               post.post_id,
@@ -541,7 +541,7 @@ Deno.serve(async (req) => {
                 if (mintAddress) {
                   const tokenName = tokenData?.name || postData?.parsed_name || "Token";
                   const tokenTicker = tokenData?.ticker || postData?.parsed_symbol || "TOKEN";
-                  const catchUpReplyText = `🦞 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${mintAddress}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawmode.fun`;
+                  const catchUpReplyText = `🦞 Token launched on $SOL!\n\n$${tokenTicker} - ${tokenName}\nCA: ${mintAddress}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawsai.fun`;
 
                   const catchUpReply = await replyToTweet(
                     tweetId,
@@ -621,7 +621,7 @@ Deno.serve(async (req) => {
             console.log(`[agent-scan-mentions] ⏭️ Skipping reply to ${tweetId} - already replied`);
           } else {
             // New format: full CA, no links, token name/symbol
-            const replyText = `🦞 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawmode.fun`;
+            const replyText = `🦞 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nPowered by Claw Agents - 80% of fees go to you! Launch your token on clawsai.fun`;
 
             const replyResult = await replyToTweet(
               tweetId,

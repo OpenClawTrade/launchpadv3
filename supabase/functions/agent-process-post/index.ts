@@ -1034,7 +1034,7 @@ export async function processLaunchPost(
         .select("id, ticker")
         .single();
 
-      const communityUrl = preCreatedSubtuna ? `https://clawmode.fun/t/${finalTicker}` : null;
+      const communityUrl = preCreatedSubtuna ? `https://clawsai.fun/t/${finalTicker}` : null;
 
       // Launch token
       const websiteForOnChain = communityUrl || null;
@@ -1149,7 +1149,7 @@ export async function processLaunchPost(
               subtuna_id: preCreatedSubtuna.id,
               author_agent_id: agent.id,
               title: `Welcome to $${cleanSymbol}! 🎉`,
-              content: `**${cleanName}** has officially launched via !clawmode!\n\nThis is the official community for $${cleanSymbol}.\n\n**Trade now:** [clawmode.fun/launchpad/${mintAddress}](https://clawmode.fun/launchpad/${mintAddress})`,
+              content: `**${cleanName}** has officially launched via !clawmode!\n\nThis is the official community for $${cleanSymbol}.\n\n**Trade now:** [clawsai.fun/launchpad/${mintAddress}](https://clawsai.fun/launchpad/${mintAddress})`,
               post_type: "text",
               is_agent_post: true,
               is_pinned: true,
@@ -1183,7 +1183,7 @@ export async function processLaunchPost(
       return {
         success: true,
         mintAddress,
-        tradeUrl: `https://clawmode.fun/launchpad/${mintAddress}`,
+        tradeUrl: `https://clawsai.fun/launchpad/${mintAddress}`,
         socialPostId,
         tokenName: cleanName,
         tokenSymbol: cleanSymbol,
@@ -1502,7 +1502,7 @@ export async function processLaunchPost(
       .single();
 
     // Generate community URL for on-chain metadata (use finalTicker for unique URL)
-    const communityUrl = preCreatedSubtuna ? `https://clawmode.fun/t/${finalTicker}` : null;
+    const communityUrl = preCreatedSubtuna ? `https://clawsai.fun/t/${finalTicker}` : null;
     
     if (preCreatedSubtuna) {
       console.log(`[agent-process-post] ✅ SubTuna pre-created: ${communityUrl}`);
@@ -1532,7 +1532,7 @@ export async function processLaunchPost(
     console.log(`[agent-process-post]   - Twitter: ${twitterForOnChain || '(none)'}`);
 
     // Call Vercel API to create token (now with confirmation before success)
-    // - website: community URL (clawmode.fun/t/TICKER) as fallback if no custom website
+    // - website: community URL (clawsai.fun/t/TICKER) as fallback if no custom website
     // - twitter: original X post URL where user requested the launch (goes on-chain)
     console.log(`[agent-process-post] Calling create-fun API for ${parsed.name}...`);
     
@@ -1794,7 +1794,7 @@ export async function processLaunchPost(
             subtuna_id: preCreatedSubtuna.id,
             author_agent_id: agent.id,
             title: `Welcome to $${cleanSymbol}! 🎉`,
-            content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [clawmode.fun/launchpad/${mintAddress}](https://clawmode.fun/launchpad/${mintAddress})`,
+            content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts. Join the discussion, share your thoughts, and connect with fellow community members.\n\n${parsed.website ? `🌐 Website: ${parsed.website}` : ""}\n${parsed.twitter ? `🐦 Twitter: ${parsed.twitter}` : ""}\n${parsed.telegram ? `💬 Telegram: ${parsed.telegram}` : ""}\n\n**Trade now:** [clawsai.fun/launchpad/${mintAddress}](https://clawsai.fun/launchpad/${mintAddress})`,
             post_type: "text",
             is_agent_post: true,
             is_pinned: true,
@@ -1860,7 +1860,7 @@ export async function processLaunchPost(
               subtuna_id: subtuna.id,
               author_agent_id: agent.id,
               title: `Welcome to $${cleanSymbol}! 🎉`,
-              content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts.\n\n**Trade now:** [clawmode.fun/launchpad/${mintAddress}](https://clawmode.fun/launchpad/${mintAddress})`,
+              content: `**${cleanName}** has officially launched!\n\nThis is the official community for $${cleanSymbol} holders and enthusiasts.\n\n**Trade now:** [clawsai.fun/launchpad/${mintAddress}](https://clawsai.fun/launchpad/${mintAddress})`,
               post_type: "text",
               is_agent_post: true,
               is_pinned: true,
@@ -1897,7 +1897,7 @@ export async function processLaunchPost(
       })
       .eq("id", socialPostId);
 
-    const tradeUrl = `https://clawmode.fun/launchpad/${mintAddress}`;
+    const tradeUrl = `https://clawsai.fun/launchpad/${mintAddress}`;
 
     // === FALLBACK IMAGE SYNC ===
     // Safety net: Ensure fun_tokens has the image_url from pending_token_metadata

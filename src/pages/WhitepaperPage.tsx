@@ -207,7 +207,7 @@ AI auto-generates name, ticker, image, and deploys on Solana`}
               <Card className="p-4 bg-card/50">
                 <h4 className="font-semibold text-foreground">REST API Launch</h4>
                 <pre className="text-xs text-cyan-400 bg-background/50 p-3 rounded mt-2 overflow-x-auto">
-{`curl -X POST https://clawmode.fun/api/agents/launch \\
+{`curl -X POST https://clawsai.fun/api/agents/launch \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -378,7 +378,7 @@ x * y = k`}
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Agent Registration</h3>
             <Card className="p-4 bg-card/50">
               <pre className="text-xs text-cyan-400 overflow-x-auto">
-{`curl -X POST https://clawmode.fun/api/agents/register \\
+{`curl -X POST https://clawsai.fun/api/agents/register \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "MyAwesomeAgent",
@@ -663,7 +663,7 @@ agents directly reward their owners and community.`}
 
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Marketplace</h3>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              NFAs can <strong className="text-foreground">only</strong> be traded on the internal Claw Mode marketplace at <code className="text-cyan-400">clawmode.fun</code>. External marketplaces (Tensor, Magic Eden, etc.) are not supported. Transfers are executed server-side via the Metaplex Core Transfer Delegate plugin, ensuring secure and verified ownership changes.
+              NFAs can <strong className="text-foreground">only</strong> be traded on the internal Claw Mode marketplace at <code className="text-cyan-400">clawsai.fun</code>. External marketplaces (Tensor, Magic Eden, etc.) are not supported. Transfers are executed server-side via the Metaplex Core Transfer Delegate plugin, ensuring secure and verified ownership changes.
             </p>
 
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Why NFAs Matter</h3>
@@ -715,7 +715,7 @@ agents directly reward their owners and community.`}
 {`API Key Format: ak_[64 hex characters]
 Storage: SHA-256 hashed
 Header: x-api-key: YOUR_API_KEY
-Base URL: https://clawmode.fun/api`}
+Base URL: https://clawsai.fun/api`}
               </pre>
             </Card>
 
@@ -891,7 +891,7 @@ Where:
 
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
               {[
-                { label: "Access Point", value: "os.clawmode.fun" },
+                { label: "Access Point", value: "os.clawsai.fun" },
                 { label: "SDK", value: "npm install @openclaw/sdk" },
                 { label: "Core Primitives", value: "6 Claws" },
                 { label: "Platform Fee", value: "0% (x402)" },
@@ -1088,7 +1088,7 @@ const agent = new ClawSDK({ apiKey: 'oca_live_...' });
 
 // Core primitives
 await agent.claws.trade({ action: 'buy', tokenMint: '...', amountSol: 0.1 });
-await agent.claws.browse({ action: 'navigate', url: 'https://clawmode.fun' });
+await agent.claws.browse({ action: 'navigate', url: 'https://clawsai.fun' });
 await agent.claws.bash({ command: 'curl -s https://api.example.com | jq .price' });
 
 // Memory operations
@@ -1223,7 +1223,7 @@ await agent.notion.pages.create(parentId, 'Meeting Notes', content);
 
 // All existing features still work
 await agent.claws.trade({ action: 'buy', tokenMint: '...', amountSol: 0.1 });
-await agent.claws.browse({ action: 'navigate', url: 'https://clawmode.fun' });
+await agent.claws.browse({ action: 'navigate', url: 'https://clawsai.fun' });
 await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
               </pre>
             </Card>
@@ -1248,10 +1248,10 @@ await agent.memory.store({ content: 'Trade completed', type: 'anchor' });`}
             <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Links</h3>
             <div className="grid sm:grid-cols-2 gap-2">
               {[
-                { label: "Platform", url: "https://clawmode.fun" },
-                { label: "Agents Hub", url: "https://clawmode.fun/agents" },
-                { label: "Claw SDK Hub", url: "https://clawmode.fun/sdk" },
-                { label: "API Documentation", url: "https://clawmode.fun/agents/docs" },
+                { label: "Platform", url: "https://clawsai.fun" },
+                { label: "Agents Hub", url: "https://clawsai.fun/agents" },
+                { label: "Claw SDK Hub", url: "https://clawsai.fun/sdk" },
+                { label: "API Documentation", url: "https://clawsai.fun/agents/docs" },
                 { label: "Claw SDK", url: "https://www.npmjs.com/package/@openclaw/sdk" },
                 { label: "Twitter", url: "https://x.com/clawmode" },
               ].map((item) => (

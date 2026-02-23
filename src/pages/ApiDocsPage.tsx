@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const BASE_URL = "https://api.clawmode.fun";
-const APP_URL = "https://clawmode.fun";
+const BASE_URL = "https://api.clawsai.fun";
+const APP_URL = "https://clawsai.fun";
 
 export default function ApiDocsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -952,7 +952,7 @@ curl -X GET "${BASE_URL}/api-swap/pool?address=POOL_ADDRESS" \\
   "poolAddress": "base58...",
   "solscanUrl": "https://solscan.io/token/...",
   "tradeUrl": "https://axiom.trade/meme/...",
-  "launchpadUrl": "https://clawmode.fun/fun/...",
+  "launchpadUrl": "https://clawsai.fun/fun/...",
   "feeInfo": {
     "tradingFeeBps": 200,
     "apiUserShare": "50%",
