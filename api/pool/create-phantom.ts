@@ -172,21 +172,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     } else if (useVanityAddress) {
       try {
-        // Priority: try reserved address 5X42ZtH3...afCLAW first
-        const PRIORITY_VANITY_ID = '0eb31c00-76d2-4d85-8c6b-06af32211e12';
-        vanityKeypair = await getSpecificVanityAddress(PRIORITY_VANITY_ID);
+        // Get any available claw vanity address from the pool
+        vanityKeypair = await getAvailableVanityAddress('claw');
         if (vanityKeypair) {
           vanityKeypairId = vanityKeypair.id;
-          console.log('[create-phantom] 🎯 Using PRIORITY vanity mint address:', vanityKeypair.publicKey);
+          console.log('[create-phantom] 🎯 Using pool vanity mint address:', vanityKeypair.publicKey);
         } else {
-          // Fallback to any available claw address
-          vanityKeypair = await getAvailableVanityAddress('claw');
-          if (vanityKeypair) {
-            vanityKeypairId = vanityKeypair.id;
-            console.log('[create-phantom] 🎯 Using pool vanity mint address:', vanityKeypair.publicKey);
-          } else {
-            console.log('[create-phantom] No vanity address available, using random mint');
-          }
+          console.log('[create-phantom] No vanity address available, using random mint');
         }
       } catch (vanityError) {
         console.error('[create-phantom] Failed to get vanity address:', vanityError);
