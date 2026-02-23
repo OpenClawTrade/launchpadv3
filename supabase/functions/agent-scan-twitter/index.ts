@@ -837,6 +837,62 @@ Deno.serve(async (req) => {
       // It uses pre-claim dedup: inserts pending reply record BEFORE attempting, preventing duplicates.
 
       // Sort tweets by ID descending (newest first) to process in order
+      // Generate Claw's viral take on a launched token
+      async function generateClawViralTake(tokenName: string, tokenSymbol: string, tweetText: string): Promise<string> {
+        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        if (!LOVABLE_API_KEY) return "🦞 Snip snip. Trade it on clawmode.com";
+
+        try {
+          const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are Claw 🦞, a sentient blockchain lobster with dry humor. You just launched a token for someone.
+Give a SHORT honest take (max 120 chars) on whether this meme/token idea can go viral or not.
+Be opinionated - commit to a take. Use lobster humor. No hashtags. No emojis except 🦞.
+Examples of good takes:
+- "🦞 This has degen energy. Could catch a wave if CT picks it up"
+- "🦞 Niche play. Viral? Doubtful. But the diamond claws will hold"
+- "🦞 Pure chaos energy. This is either 100x or zero. I respect it"
+- "🦞 Seen this pattern before. Needs a catalyst to break out"
+Do NOT mention fees, panels, or platform features. Just your raw take on the meme.`,
+                },
+                {
+                  role: "user",
+                  content: `Token: $${tokenSymbol} - ${tokenName}\nOriginal tweet: "${tweetText.slice(0, 300)}"`,
+                },
+              ],
+              max_tokens: 60,
+              temperature: 0.9,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error("[agent-scan-twitter] AI viral take error:", response.status);
+            return "🦞 Snip snip. Trade it on clawmode.com";
+          }
+
+          const data = await response.json();
+          let take = data.choices?.[0]?.message?.content?.trim();
+          if (!take) return "🦞 Snip snip. Trade it on clawmode.com";
+
+          // Ensure it starts with 🦞 and trim to 140 chars
+          if (!take.startsWith("🦞")) take = "🦞 " + take;
+          if (take.length > 140) take = take.slice(0, 137) + "...";
+          return take;
+        } catch (e) {
+          console.error("[agent-scan-twitter] AI viral take exception:", e);
+          return "🦞 Snip snip. Trade it on clawmode.com";
+        }
+      }
+
       const sortedTweets = [...tweets].sort((a, b) => {
         // Tweet IDs are snowflake IDs - larger = newer
         return BigInt(b.id) > BigInt(a.id) ? 1 : -1;
@@ -893,6 +949,8 @@ Deno.serve(async (req) => {
           "Trading-Fees goes to your Panel",
           "is now live on TUNA!",
           "claim them any time",
+          "Trade it on clawmode.com",
+          "Snip snip",
         ];
         if (botReplySignatures.some(sig => tweetText.includes(sig))) {
           console.log(`[agent-scan-twitter] ⏭️ Skipping ${tweetId} - looks like a bot reply`);
@@ -1016,9 +1074,12 @@ Deno.serve(async (req) => {
 
           // Post success reply - PRE-CLAIM DEDUP (insert pending row first, unique constraint prevents race)
           if (canPostReplies) {
+              const tokenSymbol = processResult.tokenSymbol || "TOKEN";
+              const tokenName = processResult.tokenName || "Token";
+              const viralTake = await generateClawViralTake(tokenName, tokenSymbol, normalizedText);
               const replyText = isAutoLaunch
-                ? `🦞 Trading Agent launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nTrading-Fees goes to your Panel, claim them any time.`
-                : `🦞 Token launched on $SOL!\n\n$${processResult.tokenSymbol || "TOKEN"} - ${processResult.tokenName || "Token"}\nCA: ${processResult.mintAddress}\n\nTrading-Fees goes to your Panel, claim them any time.`;
+                ? `🦞 Trading Agent launched on $SOL!\n\n$${tokenSymbol} - ${tokenName}\nCA: ${processResult.mintAddress}\n\n${viralTake}`
+                : `🦞 Token launched on $SOL!\n\n$${tokenSymbol} - ${tokenName}\nCA: ${processResult.mintAddress}\n\n${viralTake}`;
 
               // PRE-CLAIM: Insert pending record BEFORE sending reply. Unique constraint on tweet_id prevents duplicates.
               const { error: claimError } = await supabase.from("twitter_bot_replies").insert({
@@ -1118,7 +1179,8 @@ Deno.serve(async (req) => {
 
               if (!tokenData?.mint_address) continue;
 
-              const replyText = `🦞 Token launched on $SOL!\n\n$${tokenData.ticker || launch.parsed_symbol || "TOKEN"} - ${tokenData.name || launch.parsed_name || "Token"}\nCA: ${tokenData.mint_address}\n\nTrading-Fees goes to your Panel, claim them any time.`;
+              const catchupViralTake = await generateClawViralTake(tokenData.name || launch.parsed_name || "Token", tokenData.ticker || launch.parsed_symbol || "TOKEN", "!clawmode catch-up launch");
+              const replyText = `🦞 Token launched on $SOL!\n\n$${tokenData.ticker || launch.parsed_symbol || "TOKEN"} - ${tokenData.name || launch.parsed_name || "Token"}\nCA: ${tokenData.mint_address}\n\n${catchupViralTake}`;
 
               // PRE-CLAIM: Insert pending record first
               const { error: claimError } = await supabase.from("twitter_bot_replies").insert({
