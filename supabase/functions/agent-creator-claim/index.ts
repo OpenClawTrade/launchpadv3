@@ -258,7 +258,37 @@ Deno.serve(async (req) => {
     }
 
     try {
-      console.log(`[agent-creator-claim] @${normalizedUsername} claiming ${claimable.toFixed(6)} SOL to ${payoutWallet}`);
+      // ===== SECURITY: Re-verify claimable amount AFTER acquiring lock =====
+      // Prevents race condition where two concurrent requests both pass initial checks
+      const { data: feeClaims2 } = await supabase
+        .from("fun_fee_claims")
+        .select("fun_token_id, claimed_sol")
+        .in("fun_token_id", targetTokenIds);
+
+      const totalCollected2 = (feeClaims2 || []).reduce((sum, f) => sum + (f.claimed_sol || 0), 0);
+      const creatorEarned2 = totalCollected2 * CREATOR_SHARE;
+
+      const { data: distributions2 } = await supabase
+        .from("fun_distributions")
+        .select("amount_sol")
+        .in("fun_token_id", targetTokenIds)
+        .eq("distribution_type", "creator_claim")
+        .eq("status", "completed");
+
+      const creatorPaid2 = (distributions2 || []).reduce((sum, d) => sum + (d.amount_sol || 0), 0);
+      const verifiedClaimable = Math.max(0, creatorEarned2 - creatorPaid2);
+
+      if (verifiedClaimable < MIN_CLAIM_SOL) {
+        console.log(`[agent-creator-claim] ⚠️ Post-lock verification: claimable=${verifiedClaimable.toFixed(6)} < ${MIN_CLAIM_SOL}`);
+        return new Response(
+          JSON.stringify({ success: false, error: "Nothing left to claim after verification.", pendingAmount: verifiedClaimable }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Use verified amount (not pre-lock amount)
+      const claimableVerified = verifiedClaimable;
+      console.log(`[agent-creator-claim] @${normalizedUsername} claiming ${claimableVerified.toFixed(6)} SOL to ${payoutWallet}`);
 
       // Step 5: Send SOL from treasury to user's wallet
       let treasuryKeypair: Keypair;
@@ -280,13 +310,13 @@ Deno.serve(async (req) => {
       const treasuryBalance = await connection.getBalance(treasuryKeypair.publicKey);
       const treasuryBalanceSol = treasuryBalance / 1e9;
 
-      if (treasuryBalanceSol < claimable + 0.01) {
+      if (treasuryBalanceSol < claimableVerified + 0.05) {
         throw new Error("Insufficient treasury balance. Please try again later.");
       }
 
       // Create and send transaction
       const recipientPubkey = new PublicKey(payoutWallet);
-      const lamports = Math.floor(claimable * 1e9);
+      const lamports = Math.floor(claimableVerified * 1e9);
 
       const transaction = new Transaction().add(
         SystemProgram.transfer({
@@ -305,25 +335,21 @@ Deno.serve(async (req) => {
         maxRetries: 3,
       });
 
-      console.log(`[agent-creator-claim] ✅ Sent ${claimable.toFixed(6)} SOL to ${payoutWallet}, sig: ${signature}`);
+      console.log(`[agent-creator-claim] ✅ Sent ${claimableVerified.toFixed(6)} SOL to ${payoutWallet}, sig: ${signature}`);
 
       // Step 6: Record the distribution with twitter_username for future cooldown checks
       // Record per-token for accurate tracking
       for (const tokenId of targetTokenIds) {
-        // Calculate this token's share of the claimable amount
-        const tokenCollected = (feeClaims || [])
+        const tokenCollected = (feeClaims2 || [])
           .filter(f => f.fun_token_id === tokenId)
           .reduce((sum, f) => sum + (f.claimed_sol || 0), 0);
-        
         const tokenEarned = tokenCollected * CREATOR_SHARE;
-        
-        const tokenPaid = (distributions || [])
+        const tokenPaid = (distributions2 || [])
           .filter((d: any) => d.fun_token_id === tokenId)
           .reduce((sum: number, d: any) => sum + (d.amount_sol || 0), 0);
-        
         const tokenClaimable = Math.max(0, tokenEarned - tokenPaid);
 
-        if (tokenClaimable > 0) {
+        if (tokenClaimable > 0.000001) {
           await supabase.from("fun_distributions").insert({
             fun_token_id: tokenId,
             creator_wallet: payoutWallet,
@@ -342,7 +368,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          claimedAmount: claimable,
+          claimedAmount: claimableVerified,
           payoutWallet,
           signature,
           solscanUrl: `https://solscan.io/tx/${signature}`,

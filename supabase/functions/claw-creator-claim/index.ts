@@ -8,11 +8,82 @@ const corsHeaders = {
 };
 
 const MIN_CLAIM_SOL = 0.01;
-const MAX_SINGLE_CLAIM_SOL = 5.0; // Safety cap per claim
-const CREATOR_SHARE = 0.3; // Creator gets 30% of total fees earned
+const MAX_SINGLE_CLAIM_SOL = 5.0;
+const CREATOR_SHARE = 0.3;
 const CLAIM_COOLDOWN_MS = 60 * 60 * 1000;
 const CLAIM_LOCK_SECONDS = 60;
-const TREASURY_RESERVE_SOL = 0.05; // Keep reserved for rent/fees
+const TREASURY_RESERVE_SOL = 0.05;
+
+/**
+ * Calculate claimable amount for a twitter user.
+ * Uses fun_fee_claims / claw_fee_claims as source of truth (actual on-chain claims).
+ * Subtracts already-paid distributions to get the remaining claimable amount.
+ */
+async function calculateClaimable(
+  supabase: any,
+  normalizedUsername: string,
+  targetTokenIds: string[],
+  funTokenIds: string[],
+  clawTokenIds: string[],
+) {
+  let totalCreatorEarned = 0;
+  const tokenEarnings: Record<string, number> = {};
+
+  // Get actual claimed fees from fun_fee_claims for fun tokens
+  const funTargetIds = targetTokenIds.filter((id) => funTokenIds.includes(id));
+  if (funTargetIds.length > 0) {
+    const { data: feeClaims } = await supabase
+      .from("fun_fee_claims")
+      .select("fun_token_id, claimed_sol")
+      .in("fun_token_id", funTargetIds);
+
+    for (const fc of feeClaims || []) {
+      const earned = (fc.claimed_sol || 0) * CREATOR_SHARE;
+      tokenEarnings[fc.fun_token_id] = (tokenEarnings[fc.fun_token_id] || 0) + earned;
+      totalCreatorEarned += earned;
+    }
+  }
+
+  // Also check claw_fee_claims for claw tokens
+  const clawTargetIds = targetTokenIds.filter((id) => clawTokenIds.includes(id) && !funTokenIds.includes(id));
+  if (clawTargetIds.length > 0) {
+    const { data: feeClaims } = await supabase
+      .from("claw_fee_claims")
+      .select("fun_token_id, claimed_sol")
+      .in("fun_token_id", clawTargetIds);
+
+    for (const fc of feeClaims || []) {
+      const earned = (fc.claimed_sol || 0) * CREATOR_SHARE;
+      tokenEarnings[fc.fun_token_id] = (tokenEarnings[fc.fun_token_id] || 0) + earned;
+      totalCreatorEarned += earned;
+    }
+  }
+
+  // Get already-paid distributions for THIS specific user
+  const { data: distributions } = await supabase
+    .from("claw_distributions")
+    .select("amount_sol, fun_token_id")
+    .in("fun_token_id", targetTokenIds)
+    .eq("distribution_type", "creator_claim")
+    .eq("status", "completed")
+    .eq("twitter_username", normalizedUsername);
+
+  const totalCreatorPaid = (distributions || []).reduce((sum: number, d: any) => sum + (d.amount_sol || 0), 0);
+  const paidPerToken: Record<string, number> = {};
+  for (const d of distributions || []) {
+    paidPerToken[d.fun_token_id] = (paidPerToken[d.fun_token_id] || 0) + (d.amount_sol || 0);
+  }
+
+  let claimable = Math.max(0, totalCreatorEarned - totalCreatorPaid);
+
+  // Safety cap
+  if (claimable > MAX_SINGLE_CLAIM_SOL) {
+    console.log(`[claw-creator-claim] ⚠️ Capping claim from ${claimable.toFixed(6)} to ${MAX_SINGLE_CLAIM_SOL} SOL`);
+    claimable = MAX_SINGLE_CLAIM_SOL;
+  }
+
+  return { claimable, totalCreatorEarned, totalCreatorPaid, tokenEarnings, paidPerToken };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -36,7 +107,6 @@ Deno.serve(async (req) => {
     const normalizedUsername = twitterUsername.replace(/^@/, "").toLowerCase();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    // Use TREASURY_PRIVATE_KEY - this is the wallet that actually receives claimed fees
     const treasuryKey = Deno.env.get("TREASURY_PRIVATE_KEY");
     const heliusRpcUrl = Deno.env.get("HELIUS_RPC_URL") || Deno.env.get("VITE_HELIUS_RPC_URL");
 
@@ -44,7 +114,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Rate limit check via claw_distributions
+    // Rate limit check
     const { data: lastClaim } = await supabase
       .from("claw_distributions")
       .select("created_at")
@@ -69,111 +139,79 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Find tokens created by this Twitter user from BOTH sources:
-    // 1. fun_tokens via agent_social_posts (post_author match)
-    // 2. claw_tokens directly
+    // ===== SECURITY FIX: Only find tokens OWNED by this Twitter user =====
     
-    // Source 1: fun_tokens via agent_social_posts
+    // Source 1: fun_tokens via agent_social_posts (post_author must match username)
     const { data: socialPosts } = await supabase
       .from("agent_social_posts")
       .select("fun_token_id")
       .ilike("post_author", normalizedUsername)
+      .eq("platform", "twitter")
+      .eq("status", "completed")
       .not("fun_token_id", "is", null);
 
-    const funTokenIds = [...new Set((socialPosts || []).map(p => p.fun_token_id).filter(Boolean))];
+    const funTokenIds = [...new Set((socialPosts || []).map((p: any) => p.fun_token_id).filter(Boolean))];
 
-    // Source 2: claw_tokens  
-    const { data: clawTokens } = await supabase
-      .from("claw_tokens")
+    // Source 2: claw_tokens — ONLY those created by agents with matching twitter_handle
+    let clawTokenIds: string[] = [];
+    const { data: matchingAgents } = await supabase
+      .from("claw_agents")
       .select("id")
-      .eq("status", "active");
+      .ilike("twitter_handle", normalizedUsername);
 
-    const clawTokenIds = (clawTokens || []).map(t => t.id);
+    if (matchingAgents && matchingAgents.length > 0) {
+      const agentIds = matchingAgents.map((a: any) => a.id);
+      const { data: agentClawTokens } = await supabase
+        .from("claw_tokens")
+        .select("id")
+        .in("agent_id", agentIds);
+      clawTokenIds = (agentClawTokens || []).map((t: any) => t.id);
+    }
 
-    // Combine both sources
+    // Source 3: Also check claw_agent_tokens for agent->token mappings
+    if (matchingAgents && matchingAgents.length > 0) {
+      const agentIds = matchingAgents.map((a: any) => a.id);
+      const { data: agentTokenLinks } = await supabase
+        .from("claw_agent_tokens")
+        .select("fun_token_id")
+        .in("agent_id", agentIds);
+      const linkedIds = (agentTokenLinks || []).map((t: any) => t.fun_token_id);
+      clawTokenIds = [...new Set([...clawTokenIds, ...linkedIds])];
+    }
+
     const allTokenIds = [...new Set([...funTokenIds, ...clawTokenIds])];
     const targetTokenIds = tokenIds?.length ? allTokenIds.filter((id: string) => tokenIds.includes(id)) : allTokenIds;
 
     if (targetTokenIds.length === 0) {
-      return new Response(JSON.stringify({ success: false, error: "No tokens found to claim from" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({
+        success: false,
+        error: `No tokens found launched by @${normalizedUsername}`,
+      }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Calculate claimable amounts from ACTUAL on-chain fee claims (source of truth)
-    // Use fun_fee_claims.claimed_sol instead of fun_tokens.total_fees_earned
-    let totalCreatorEarned = 0;
-    const tokenEarnings: Record<string, number> = {};
+    // Initial calculation for checkOnly / display
+    const initialCalc = await calculateClaimable(supabase, normalizedUsername, targetTokenIds, funTokenIds, clawTokenIds);
 
-    // Get actual claimed fees from fun_fee_claims for fun tokens
-    if (funTokenIds.length > 0) {
-      const funTargetIds = targetTokenIds.filter((id: string) => funTokenIds.includes(id));
-      if (funTargetIds.length > 0) {
-        const { data: feeClaims } = await supabase
-          .from("fun_fee_claims")
-          .select("fun_token_id, claimed_sol")
-          .in("fun_token_id", funTargetIds);
-
-        for (const fc of feeClaims || []) {
-          const earned = (fc.claimed_sol || 0) * CREATOR_SHARE;
-          tokenEarnings[fc.fun_token_id] = (tokenEarnings[fc.fun_token_id] || 0) + earned;
-          totalCreatorEarned += earned;
-        }
-      }
-    }
-
-    // Also check claw_fee_claims for claw tokens
-    const clawTargetIds = targetTokenIds.filter((id: string) => clawTokenIds.includes(id) && !funTokenIds.includes(id));
-    if (clawTargetIds.length > 0) {
-      const { data: feeClaims } = await supabase.from("claw_fee_claims").select("fun_token_id, claimed_sol").in("fun_token_id", clawTargetIds);
-      for (const fc of feeClaims || []) {
-        const earned = (fc.claimed_sol || 0) * CREATOR_SHARE;
-        tokenEarnings[fc.fun_token_id] = (tokenEarnings[fc.fun_token_id] || 0) + earned;
-        totalCreatorEarned += earned;
-      }
-    }
-
-    // Get already-paid distributions
-    const { data: distributions } = await supabase
-      .from("claw_distributions")
-      .select("amount_sol, fun_token_id")
-      .in("fun_token_id", targetTokenIds)
-      .eq("distribution_type", "creator_claim")
-      .eq("status", "completed")
-      .eq("twitter_username", normalizedUsername);
-
-    const totalCreatorPaid = (distributions || []).reduce((sum, d) => sum + (d.amount_sol || 0), 0);
-    const paidPerToken: Record<string, number> = {};
-    for (const d of distributions || []) {
-      paidPerToken[d.fun_token_id] = (paidPerToken[d.fun_token_id] || 0) + (d.amount_sol || 0);
-    }
-
-    let claimable = Math.max(0, totalCreatorEarned - totalCreatorPaid);
-
-    // Safety cap: prevent draining treasury from a single claim
-    if (claimable > MAX_SINGLE_CLAIM_SOL) {
-      console.log(`[claw-creator-claim] ⚠️ Capping claim from ${claimable.toFixed(6)} to ${MAX_SINGLE_CLAIM_SOL} SOL`);
-      claimable = MAX_SINGLE_CLAIM_SOL;
-    }
-
-    console.log(`[claw-creator-claim] User @${normalizedUsername}: earned=${totalCreatorEarned.toFixed(6)}, paid=${totalCreatorPaid.toFixed(6)}, claimable=${claimable.toFixed(6)}, tokens=${targetTokenIds.length} (fun=${funTokenIds.length}, claw=${clawTargetIds.length})`);
+    console.log(`[claw-creator-claim] @${normalizedUsername}: earned=${initialCalc.totalCreatorEarned.toFixed(6)}, paid=${initialCalc.totalCreatorPaid.toFixed(6)}, claimable=${initialCalc.claimable.toFixed(6)}, tokens=${targetTokenIds.length}`);
 
     if (checkOnly) {
       return new Response(JSON.stringify({
         success: true, canClaim, remainingSeconds, nextClaimAt,
-        pendingAmount: claimable,
-        totalEarned: totalCreatorEarned,
-        totalClaimed: totalCreatorPaid,
+        pendingAmount: initialCalc.claimable,
+        totalEarned: initialCalc.totalCreatorEarned,
+        totalClaimed: initialCalc.totalCreatorPaid,
         minClaimAmount: MIN_CLAIM_SOL,
-        meetsMinimum: claimable >= MIN_CLAIM_SOL,
+        meetsMinimum: initialCalc.claimable >= MIN_CLAIM_SOL,
         tokenCount: targetTokenIds.length,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!canClaim) {
-      return new Response(JSON.stringify({ success: false, error: `Rate limited. Next claim in ${Math.floor(remainingSeconds / 60)}m`, rateLimited: true, remainingSeconds, pendingAmount: claimable }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ success: false, error: `Rate limited. Next claim in ${Math.floor(remainingSeconds / 60)}m`, rateLimited: true, remainingSeconds, pendingAmount: initialCalc.claimable }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (claimable < MIN_CLAIM_SOL) {
-      return new Response(JSON.stringify({ success: false, error: `Minimum claim is ${MIN_CLAIM_SOL} SOL. Current: ${claimable.toFixed(6)} SOL`, pendingAmount: claimable }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (initialCalc.claimable < MIN_CLAIM_SOL) {
+      return new Response(JSON.stringify({ success: false, error: `Minimum claim is ${MIN_CLAIM_SOL} SOL. Current: ${initialCalc.claimable.toFixed(6)} SOL`, pendingAmount: initialCalc.claimable }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Acquire lock
@@ -183,6 +221,38 @@ Deno.serve(async (req) => {
     }
 
     try {
+      // ===== SECURITY FIX: Re-verify claimable amount AFTER acquiring lock =====
+      // This prevents race conditions where two requests pass the initial check
+      // but only one should actually be paid out.
+      const verifiedCalc = await calculateClaimable(supabase, normalizedUsername, targetTokenIds, funTokenIds, clawTokenIds);
+      
+      if (verifiedCalc.claimable < MIN_CLAIM_SOL) {
+        console.log(`[claw-creator-claim] ⚠️ Post-lock verification failed: claimable=${verifiedCalc.claimable.toFixed(6)} < ${MIN_CLAIM_SOL}`);
+        return new Response(JSON.stringify({ success: false, error: `Nothing left to claim after verification. Another claim may have just completed.`, pendingAmount: verifiedCalc.claimable }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Also re-check rate limit after lock (prevent race condition)
+      const { data: recentClaim } = await supabase
+        .from("claw_distributions")
+        .select("created_at")
+        .eq("distribution_type", "creator_claim")
+        .eq("status", "completed")
+        .eq("twitter_username", normalizedUsername)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recentClaim) {
+        const timeSinceRecent = Date.now() - new Date(recentClaim.created_at).getTime();
+        if (timeSinceRecent < CLAIM_COOLDOWN_MS) {
+          const secs = Math.ceil((CLAIM_COOLDOWN_MS - timeSinceRecent) / 1000);
+          console.log(`[claw-creator-claim] ⚠️ Post-lock rate limit hit: ${secs}s remaining`);
+          return new Response(JSON.stringify({ success: false, error: `Rate limited. Try again in ${Math.floor(secs / 60)}m`, rateLimited: true, remainingSeconds: secs }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+
+      const claimable = verifiedCalc.claimable;
+
       let treasuryKeypair: Keypair;
       try {
         if (treasuryKey.startsWith("[")) treasuryKeypair = Keypair.fromSecretKey(new Uint8Array(JSON.parse(treasuryKey)));
@@ -193,7 +263,7 @@ Deno.serve(async (req) => {
       const treasuryBalance = await connection.getBalance(treasuryKeypair.publicKey);
       const treasuryBalanceSol = treasuryBalance / 1e9;
 
-      console.log(`[claw-creator-claim] Treasury balance: ${treasuryBalanceSol.toFixed(6)} SOL, claiming: ${claimable.toFixed(6)} SOL, reserve: ${TREASURY_RESERVE_SOL} SOL`);
+      console.log(`[claw-creator-claim] Treasury: ${treasuryBalanceSol.toFixed(6)} SOL, claiming: ${claimable.toFixed(6)} SOL`);
 
       if (treasuryBalanceSol < claimable + TREASURY_RESERVE_SOL) {
         throw new Error(`Insufficient treasury balance (${treasuryBalanceSol.toFixed(4)} SOL available, need ${(claimable + TREASURY_RESERVE_SOL).toFixed(4)} SOL)`);
@@ -211,8 +281,8 @@ Deno.serve(async (req) => {
 
       // Record distributions per token
       for (const tokenId of targetTokenIds) {
-        const tokenEarned = tokenEarnings[tokenId] || 0;
-        const tokenPaid = paidPerToken[tokenId] || 0;
+        const tokenEarned = verifiedCalc.tokenEarnings[tokenId] || 0;
+        const tokenPaid = verifiedCalc.paidPerToken[tokenId] || 0;
         const tokenClaimable = Math.max(0, tokenEarned - tokenPaid);
         if (tokenClaimable > 0.000001) {
           await supabase.from("claw_distributions").insert({
