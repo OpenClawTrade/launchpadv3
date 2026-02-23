@@ -129,6 +129,13 @@ async function calculateClaimable(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // ===== EMERGENCY KILL SWITCH: All claims disabled until security audit complete =====
+  return new Response(JSON.stringify({ 
+    success: false, 
+    error: "Claims are temporarily paused for maintenance. Please try again later.",
+    paused: true 
+  }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   try {
     if (req.method !== "POST") {
       return new Response(JSON.stringify({ success: false, error: "Method not allowed" }), { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } });
