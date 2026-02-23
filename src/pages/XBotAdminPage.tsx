@@ -8,7 +8,9 @@ import { XBotAccountsPanel } from "@/components/admin/XBotAccountsPanel";
 import { XBotAccountForm } from "@/components/admin/XBotAccountForm";
 import { XBotRulesForm } from "@/components/admin/XBotRulesForm";
 import { XBotActivityPanel } from "@/components/admin/XBotActivityPanel";
-import { Play, RefreshCw, Shield } from "lucide-react";
+import { Play, RefreshCw, Shield, Brain } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const ADMIN_PASSWORD = "claw";
 const AUTH_STORAGE_KEY = "xbot-admin-auth";
@@ -24,6 +26,8 @@ export default function XBotAdminPage() {
   const [showRulesForm, setShowRulesForm] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<XBotAccountWithRules | null>(null);
   const [viewingAccount, setViewingAccount] = useState<XBotAccountWithRules | null>(null);
+  const [learningVoice, setLearningVoice] = useState(false);
+  const [voiceResult, setVoiceResult] = useState<Record<string, unknown> | null>(null);
 
   const {
     accounts,
@@ -91,6 +95,36 @@ export default function XBotAdminPage() {
     await Promise.all([fetchAccounts(), fetchReplies(), fetchQueue()]);
   };
 
+  const handleLearnVoice = async () => {
+    setLearningVoice(true);
+    setVoiceResult(null);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/claw-learn-voice`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ username: "LobstarWilde", count: 100 }),
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setVoiceResult(data.style);
+        toast.success(`Learned voice from ${data.tweetsAnalyzed} tweets!`);
+      } else {
+        toast.error(data.error || "Failed to learn voice");
+      }
+    } catch (err) {
+      toast.error("Failed to reach learn-voice function");
+      console.error(err);
+    } finally {
+      setLearningVoice(false);
+    }
+  };
+
   const activeAccounts = accounts.filter((a) => a.is_active);
   const totalActiveRules = accounts.filter((a) => a.is_active && a.rules?.enabled).length;
 
@@ -145,6 +179,10 @@ export default function XBotAdminPage() {
               <Play className="w-4 h-4 mr-2" />
               Run Scan
             </Button>
+            <Button variant="outline" onClick={handleLearnVoice} disabled={learningVoice}>
+              <Brain className={`w-4 h-4 mr-2 ${learningVoice ? "animate-pulse" : ""}`} />
+              {learningVoice ? "Learning..." : "Learn Voice"}
+            </Button>
             <Button onClick={runReply}>
               <Play className="w-4 h-4 mr-2" />
               Run Reply
@@ -183,6 +221,38 @@ export default function XBotAdminPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Voice Learning Result */}
+        {voiceResult && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">🦞 Learned Voice: @LobstarWilde</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Tone:</span> <span className="font-medium">{String(voiceResult.tone)}</span></div>
+                <div><span className="text-muted-foreground">Energy:</span> <span className="font-medium">{String(voiceResult.energy_level || "—")}</span></div>
+                <div><span className="text-muted-foreground">Vocabulary:</span> <span className="font-medium">{String(voiceResult.vocabulary_style)}</span></div>
+                <div><span className="text-muted-foreground">Emojis:</span> <span className="font-medium">{(voiceResult.preferred_emojis as string[] || []).join(" ")}</span></div>
+              </div>
+              {voiceResult.sample_voice && (
+                <div className="mt-3 p-3 bg-muted rounded-md text-sm italic">
+                  "{String(voiceResult.sample_voice)}"
+                </div>
+              )}
+              {voiceResult.humor_patterns && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  <strong>Humor:</strong> {String(voiceResult.humor_patterns)}
+                </div>
+              )}
+              {voiceResult.common_phrases && (
+                <div className="mt-2 text-sm">
+                  <strong>Phrases:</strong> {(voiceResult.common_phrases as string[]).join(" • ")}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-2 gap-6">
