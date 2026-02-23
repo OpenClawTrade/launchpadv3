@@ -323,7 +323,7 @@ export function useLaunchpad() {
     });
   };
 
-  // Execute swap using Vercel API + sign & send on-chain
+  // Execute swap via launchpad-swap edge function (bonding curve trades)
   const executeSwap = useMutation({
     mutationFn: async ({
       mintAddress,
@@ -342,59 +342,32 @@ export function useLaunchpad() {
     }) => {
       console.log('[useLaunchpad] executeSwap called:', { mintAddress, userWallet, amount, isBuy, slippageBps });
 
-      // Step 1: Get transaction from API
-      const result = await executeSwapApi({
-        mintAddress,
-        userWallet,
-        amount,
-        isBuy,
-        slippageBps,
-        profileId,
+      // Call launchpad-swap edge function directly
+      const { data, error } = await supabase.functions.invoke('launchpad-swap', {
+        body: { mintAddress, userWallet, amount, isBuy, profileId },
       });
 
-      console.log('[useLaunchpad] API result:', { success: result.success, hasTransaction: !!result.transaction, tokensOut: result.tokensOut, solOut: result.solOut });
-
-      if (!result.success) {
-        throw new Error('Swap failed');
+      if (error) {
+        console.error('[useLaunchpad] Edge function error:', error);
+        throw new Error(error.message || 'Swap failed');
       }
 
-      // Step 2: Sign and send the transaction on-chain
-      let onChainSignature: string | undefined;
-      if (result.transaction) {
-        console.log('[useLaunchpad] Signing and sending transaction on-chain...');
-        try {
-          // Deserialize the transaction
-          const bytes = Uint8Array.from(atob(result.transaction), c => c.charCodeAt(0));
-          let tx: Transaction | VersionedTransaction;
-          try {
-            tx = VersionedTransaction.deserialize(bytes);
-          } catch {
-            tx = Transaction.from(bytes);
-          }
-
-          // Sign and send via Privy embedded wallet
-          const { signature, confirmed } = await signAndSendTransaction(tx);
-          onChainSignature = signature;
-          console.log('[useLaunchpad] Transaction confirmed on-chain:', { signature, confirmed });
-        } catch (signError) {
-          console.error('[useLaunchpad] Transaction signing/sending failed:', signError);
-          throw new Error(signError instanceof Error ? signError.message : 'Transaction signing failed');
-        }
-      } else {
-        console.warn('[useLaunchpad] No transaction returned from API - swap may not have executed on-chain');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Swap failed');
       }
 
-      // Return normalized result
+      console.log('[useLaunchpad] Swap result:', { tokensOut: data.tokensOut, solOut: data.solOut, newPrice: data.newPrice });
+
       return {
-        success: result.success,
-        tokensOut: result.tokensOut || 0,
-        solOut: result.solOut || 0,
-        newPrice: result.newPrice,
-        bondingProgress: result.bondingProgress,
-        graduated: result.graduated,
-        marketCap: result.marketCap,
-        signature: onChainSignature || result.signature,
-        transaction: result.transaction,
+        success: true,
+        tokensOut: data.tokensOut || 0,
+        solOut: data.solOut || 0,
+        newPrice: data.newPrice,
+        bondingProgress: data.bondingProgress,
+        graduated: data.graduated,
+        marketCap: data.marketCap,
+        signature: data.signature,
+        transaction: null,
       };
     },
     onSuccess: (data, variables) => {
