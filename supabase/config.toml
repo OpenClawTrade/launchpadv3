@@ -395,3 +395,6 @@ verify_jwt = false
 
 [functions.nfa-mint]
 verify_jwt = false
+
+[functions.claw-learn-voice]
+verify_jwt = false
