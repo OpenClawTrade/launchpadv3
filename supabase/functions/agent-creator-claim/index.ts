@@ -94,34 +94,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check rate limit per Twitter username
-    const { data: lastClaim } = await supabase
-      .from("fun_distributions")
-      .select("created_at")
-      .eq("distribution_type", "creator_claim")
-      .eq("status", "completed")
-      .eq("twitter_username", normalizedUsername)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const now = Date.now();
-    let nextClaimAt: string | null = null;
-    let canClaim = true;
-    let remainingSeconds = 0;
-
-    if (lastClaim) {
-      const lastClaimTime = new Date(lastClaim.created_at).getTime();
-      const timeSinceLastClaim = now - lastClaimTime;
-      
-      if (timeSinceLastClaim < CLAIM_COOLDOWN_MS) {
-        canClaim = false;
-        remainingSeconds = Math.ceil((CLAIM_COOLDOWN_MS - timeSinceLastClaim) / 1000);
-        nextClaimAt = new Date(lastClaimTime + CLAIM_COOLDOWN_MS).toISOString();
-      }
-    }
-
-    // Step 1: Find all tokens launched by this Twitter user
+    // Step 1: Find all tokens launched by this Twitter user (BEFORE rate limit so we can check by wallet too)
     const { data: socialPosts, error: postsError } = await supabase
       .from("agent_social_posts")
       .select("fun_token_id, wallet_address, post_author")
@@ -144,10 +117,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 2: Get all token IDs
-    const allTokenIds = socialPosts
-      .map(p => p.fun_token_id)
-      .filter((id): id is string => id !== null);
+    // Get all token IDs and creator wallets
+    const allTokenIds = [...new Set(socialPosts.map(p => p.fun_token_id).filter((id): id is string => id !== null))];
+    const creatorWallets = [...new Set(socialPosts.map(p => p.wallet_address).filter(Boolean))];
 
     const targetTokenIds = tokenIds && tokenIds.length > 0
       ? allTokenIds.filter(id => tokenIds.includes(id))
@@ -159,6 +131,35 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Rate limit: check ALL creator distributions (both manual 'creator_claim' and auto 'creator')
+    // Match by twitter_username OR by creator_wallet (auto-distributions don't have twitter_username)
+    const { data: lastClaim } = await supabase
+      .from("fun_distributions")
+      .select("created_at")
+      .in("distribution_type", ["creator_claim", "creator"])
+      .eq("status", "completed")
+      .in("fun_token_id", targetTokenIds)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const now = Date.now();
+    let nextClaimAt: string | null = null;
+    let canClaim = true;
+    let remainingSeconds = 0;
+
+    if (lastClaim) {
+      const lastClaimTime = new Date(lastClaim.created_at).getTime();
+      const timeSinceLastClaim = now - lastClaimTime;
+      
+      if (timeSinceLastClaim < CLAIM_COOLDOWN_MS) {
+        canClaim = false;
+        remainingSeconds = Math.ceil((CLAIM_COOLDOWN_MS - timeSinceLastClaim) / 1000);
+        nextClaimAt = new Date(lastClaimTime + CLAIM_COOLDOWN_MS).toISOString();
+      }
+    }
+
 
     // Step 3: Calculate claimable using correct formula
     // earned = sum(fun_fee_claims.claimed_sol) * CREATOR_SHARE
@@ -174,12 +175,12 @@ Deno.serve(async (req) => {
     const totalCollected = (feeClaims || []).reduce((sum, f) => sum + (f.claimed_sol || 0), 0);
     const creatorEarned = totalCollected * CREATOR_SHARE;
 
-    // paid = sum(fun_distributions where type='creator_claim' & status='completed')
+    // paid = sum of ALL creator distributions (both 'creator' auto and 'creator_claim' manual)
     const { data: distributions } = await supabase
       .from("fun_distributions")
       .select("amount_sol")
       .in("fun_token_id", targetTokenIds)
-      .eq("distribution_type", "creator_claim")
+      .in("distribution_type", ["creator_claim", "creator"])
       .eq("status", "completed");
 
     const creatorPaid = (distributions || []).reduce((sum, d) => sum + (d.amount_sol || 0), 0);
@@ -270,9 +271,9 @@ Deno.serve(async (req) => {
 
       const { data: distributions2 } = await supabase
         .from("fun_distributions")
-        .select("amount_sol")
+        .select("amount_sol, fun_token_id")
         .in("fun_token_id", targetTokenIds)
-        .eq("distribution_type", "creator_claim")
+        .in("distribution_type", ["creator_claim", "creator"])
         .eq("status", "completed");
 
       const creatorPaid2 = (distributions2 || []).reduce((sum, d) => sum + (d.amount_sol || 0), 0);

@@ -59,14 +59,13 @@ async function calculateClaimable(
     }
   }
 
-  // Get already-paid distributions for THIS specific user
+  // Get already-paid distributions — check ALL creator distribution types
   const { data: distributions } = await supabase
     .from("claw_distributions")
     .select("amount_sol, fun_token_id")
     .in("fun_token_id", targetTokenIds)
-    .eq("distribution_type", "creator_claim")
-    .eq("status", "completed")
-    .eq("twitter_username", normalizedUsername);
+    .in("distribution_type", ["creator_claim", "creator"])
+    .eq("status", "completed");
 
   const totalCreatorPaid = (distributions || []).reduce((sum: number, d: any) => sum + (d.amount_sol || 0), 0);
   const paidPerToken: Record<string, number> = {};
@@ -114,13 +113,12 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Rate limit check
+    // Rate limit check — check ALL creator distribution types
     const { data: lastClaim } = await supabase
       .from("claw_distributions")
       .select("created_at")
-      .eq("distribution_type", "creator_claim")
+      .in("distribution_type", ["creator_claim", "creator"])
       .eq("status", "completed")
-      .eq("twitter_username", normalizedUsername)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -235,9 +233,8 @@ Deno.serve(async (req) => {
       const { data: recentClaim } = await supabase
         .from("claw_distributions")
         .select("created_at")
-        .eq("distribution_type", "creator_claim")
+        .in("distribution_type", ["creator_claim", "creator"])
         .eq("status", "completed")
-        .eq("twitter_username", normalizedUsername)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
