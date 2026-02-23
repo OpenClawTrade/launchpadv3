@@ -1,41 +1,59 @@
 
 
-## Admin-Only Phantom Launch Tab in Panel
+# Fix Vanity Addresses for X !clawmode Launches + Clean Up Stale Reservations
 
-### What
-Add a new "Phantom" tab to the Panel page that is only visible to admins. It will embed the existing `TokenLauncher` component (which already has full Phantom launch support) pre-set to Phantom mode, allowing admins to launch tokens directly from the Panel.
+## Problem 1: Vanity addresses silently failing on all launches
 
-### Changes
+The hardcoded anon key fallback in `lib/vanityGenerator.ts` (line 63) has a **typo** -- one character is wrong (`x` instead of `z`):
+- Current (broken): `...7FFIiwQTgqIQn4l`**x**`yDHPTsX...`
+- Correct: `...7FFIiwQTgqIQn4l`**z**`yDHPTsX...`
 
-**1. `src/pages/PanelPage.tsx`**
-- Import `useIsAdmin` hook and the `Ghost` (or similar) icon from lucide
-- Lazy-import a new `PanelPhantomTab` component
-- Read `isAdmin` from `useIsAdmin(solanaAddress)`
-- Conditionally render a new `<PanelTab value="phantom" ...>` after the "Launches" tab, only when `isAdmin` is true
-- Add the corresponding `<TabsContent value="phantom">` rendering `<PanelPhantomTab />`
+This means when the Vercel `create-fun` endpoint calls `getAvailableVanityAddress()`, if no `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_ANON_KEY` env var is set, the fallback key is invalid. The RPC call to `backend_reserve_vanity_address` fails with an auth error, returns null, and the code silently falls back to a random mint address.
 
-**2. `src/components/panel/PanelPhantomTab.tsx`** (new file)
-- Simple wrapper that renders `TokenLauncher` with:
-  - `onLaunchSuccess` callback (shows toast or refetches)
-  - `onShowResult` callback (shows launch result inline)
-  - Force the launcher into Phantom mode by default (the component's `generatorMode` state initializes to "random" -- we'll either pass a prop or create a thin wrapper that only renders the Phantom section)
-- Since `TokenLauncher` is a 2900-line monolith and doesn't accept a `defaultMode` prop, the cleanest approach is to create `PanelPhantomTab` that imports `TokenLauncher` with `bare={true}` and manually sets the mode. However, `bare` only hides the header -- it doesn't force phantom mode.
-- **Better approach**: Create `PanelPhantomTab` as a standalone component that directly uses `usePhantomWallet` and reuses the Phantom launch logic (the `handlePhantomLaunch` callback pattern from `TokenLauncher`). But this would duplicate ~500 lines.
-- **Simplest approach**: Import `TokenLauncher` as-is with `bare={true}`, and add a new optional prop `defaultMode` to `TokenLauncher` that sets the initial `generatorMode` state. This is a 1-line change in `TokenLauncher`.
+**Fix:** Correct the hardcoded anon key in `lib/vanityGenerator.ts`.
 
-### Implementation Steps
+## Problem 2: 5 addresses stuck as "reserved" (should be 1)
 
-1. **Modify `TokenLauncher`** -- Add optional `defaultMode` prop to `TokenLauncherProps`. Use it as the initial value for `generatorMode` state. When `defaultMode` is `"phantom"`, also hide the mode selector tabs so users can't switch away.
+The database has 5 "reserved" vanity addresses. Only 1 (`5X42ZtH3...afCLAW`) is intentionally reserved. The other 4 (from Feb 20) were reserved during failed launches and never released because:
 
-2. **Create `PanelPhantomTab.tsx`** -- Renders `TokenLauncher` with `bare={true}` and `defaultMode="phantom"`, plus simple `onLaunchSuccess` and `onShowResult` handlers (toast + optional inline result display).
+1. The `pump-agent-launch` edge function's error handler (catch block at line 376) does **not** release the vanity address when the launch fails.
+2. Some `create-fun` Vercel failures may also leak reservations if the `releaseVanityAddress` call itself fails (same broken anon key).
 
-3. **Update `PanelPage.tsx`** -- Add admin-gated Phantom tab with `useIsAdmin` check.
+**Fix (two parts):**
 
-### Technical Details
+a. **Database cleanup:** Run a migration to release the 4 stale reserved addresses back to "available" (the ones from Feb 20 with no `used_for_token_id`).
 
-- `TokenLauncherProps` gets: `defaultMode?: "phantom" | "holders" | "random" | ...` 
-- In `TokenLauncher`, line ~106: `useState(defaultMode || "random")`
-- When `defaultMode === "phantom"`, hide the mode selector row so only Phantom UI shows
-- `PanelPhantomTab` will show a launch result card (mint address, solscan link) after successful launch
-- Admin check uses existing `useIsAdmin(solanaAddress)` hook which queries `user_roles` table via `has_role` RPC
+b. **Code fix in `pump-agent-launch`:** Add vanity release logic to the catch block so failed launches always return their reserved address to the pool.
+
+## Technical Changes
+
+### 1. `lib/vanityGenerator.ts` (line 63)
+Fix the typo in the hardcoded anon key fallback: change `lxyDHPTsX` to `lzyDHPTsX`.
+
+### 2. Database migration
+Release the 4 stale reserved addresses:
+```text
+UPDATE vanity_keypairs 
+SET status = 'available' 
+WHERE status = 'reserved' 
+  AND used_for_token_id IS NULL 
+  AND id != '0eb31c00-76d2-4d85-8c6b-06af32211e12';
+```
+
+### 3. `supabase/functions/pump-agent-launch/index.ts` (catch block, ~line 376)
+Add vanity release on error:
+```text
+} catch (error) {
+    // Release vanity address if reserved
+    if (vanityId) {
+      await supabase.rpc('backend_release_vanity_address', {
+        p_keypair_id: vanityId,
+      }).catch(() => {});
+    }
+    console.error("[pump-agent-launch] Error:", error);
+    ...
+}
+```
+
+After these changes, the reserved count should show 1, and all future X !clawmode launches will correctly use vanity CLAW addresses.
 
