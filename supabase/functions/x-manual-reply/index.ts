@@ -20,41 +20,8 @@ function parseCookieString(raw: string): Record<string, string> {
   return out;
 }
 
-function buildLoginCookiesBase64FromEnv(args: {
-  xFullCookie?: string | null;
-  xAuthToken?: string | null;
-  xCt0Token?: string | null;
-}): string | null {
-  // twitterapi.io expects login_cookies as base64(JSON cookies)
-  if (args.xFullCookie) {
-    const cookies = parseCookieString(args.xFullCookie);
-    if (Object.keys(cookies).length === 0) return null;
-    return btoa(JSON.stringify(cookies));
-  }
-
-  if (args.xAuthToken && args.xCt0Token) {
-    return btoa(
-      JSON.stringify({
-        auth_token: stripQuotes(args.xAuthToken),
-        ct0: stripQuotes(args.xCt0Token),
-      }),
-    );
-  }
-
-  return null;
-}
-
-const safeJsonParse = (text: string): any => {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-};
-
-const extractCreatedTweetId = (payload: any): string | null => {
-  return payload?.tweet_id || payload?.data?.id || payload?.id || null;
-};
+// buildLoginCookiesBase64FromEnv, safeJsonParse, extractCreatedTweetId removed
+// - using launcher's direct parseCookieString + btoa pattern
 
 async function requireAdmin(req: Request): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const authHeader = req.headers.get("authorization");
@@ -119,22 +86,14 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get("TWITTERAPI_IO_KEY");
     const proxyUrl = Deno.env.get("TWITTER_PROXY");
     const xFullCookie = Deno.env.get("X_FULL_COOKIE");
-    const xAuthToken = Deno.env.get("X_AUTH_TOKEN");
-    const xCt0Token = Deno.env.get("X_CT0_TOKEN") || Deno.env.get("X_CT0");
-    const loginCookies = buildLoginCookiesBase64FromEnv({
-      xFullCookie,
-      xAuthToken,
-      xCt0Token,
-    });
 
-    if (!apiKey || !proxyUrl || !loginCookies) {
+    if (!apiKey || !xFullCookie) {
       return new Response(
         JSON.stringify({
           success: false,
           error: "Missing credentials",
           has_api_key: !!apiKey,
-          has_proxy: !!proxyUrl,
-          has_login_cookies: !!loginCookies,
+          has_cookie: !!xFullCookie,
         }),
         {
           status: 500,
@@ -143,41 +102,57 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Use the exact same cookie handling as the working twitter-mention-launcher
+    const loginCookies = parseCookieString(xFullCookie);
+    const loginCookiesB64 = btoa(JSON.stringify(loginCookies));
+
+    const body: any = {
+      tweet_text: String(text).slice(0, 280),
+      reply_to_tweet_id: String(tweet_id),
+      login_cookies: loginCookiesB64,
+    };
+
+    if (proxyUrl) {
+      body.proxy = proxyUrl;
+    }
+
     const res = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
       method: "POST",
       headers: {
         "X-API-Key": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        login_cookies: loginCookies,
-        tweet_text: String(text).slice(0, 280),
-        reply_to_tweet_id: String(tweet_id),
-        proxy: proxyUrl,
-      }),
+      body: JSON.stringify(body),
     });
 
     const responseText = await res.text();
-    const json = safeJsonParse(responseText);
-    const createdTweetId = extractCreatedTweetId(json);
+    let json: any;
+    try {
+      json = JSON.parse(responseText);
+    } catch {
+      json = { raw: responseText };
+    }
 
-    if (!res.ok) {
+    // Check both HTTP status AND result.status === "error" (API returns 200 on some failures)
+    if (!res.ok || json.status === "error") {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `HTTP ${res.status}`,
-          details: (json ?? responseText)?.toString?.() ?? responseText,
+          error: json?.message || json?.error || `HTTP ${res.status}`,
+          details: responseText.slice(0, 500),
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    const createdTweetId = json?.tweet_id || json?.data?.id;
 
     return new Response(
       JSON.stringify({
         success: true,
         tweet_id,
         created_tweet_id: createdTweetId,
-        response: json ?? responseText,
+        response: json,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
