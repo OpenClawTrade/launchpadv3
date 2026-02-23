@@ -1,87 +1,113 @@
 
 
-# Fix: Token Holdings Not Being Saved After Swap
+# Learn @LobstarWilde's Voice and Create Claw Lobster Character
 
-## Problem Identified
+## What We're Building
 
-The swap edge function has a **silent failure** in the token holdings insert. Here's what happens:
+We'll fetch tweets from @LobstarWilde on X, analyze the communication style, and create a character definition file that powers @Clawmode's reply bot. The character knows it's a lobster, has access to a wallet, but playfully refuses money requests.
 
-1. User buys 0.05 SOL worth of tokens -- WORKS
-2. Token reserves update in database -- WORKS  
-3. Transaction record is saved (with FK retry logic) -- WORKS
-4. **Token holdings insert fails silently** because `profile_id` references a non-existent profile -- BROKEN
-5. User sees "Buy successful!" but their token balance stays at 0
+## Steps
 
-Evidence from logs:
-- TX insert shows: `"TX insert failed, retrying without profile_id"` (retry logic exists here)
-- But `token_holdings` table has **zero records** for wallet `DrWkWu7Mhv9V7Dt2iqxpjuwPfehmQq1DrkEQ39sqX8jV`
-- The holdings insert has NO retry logic for FK failures
+### 1. Create Character Definition File
 
-## Fix Plan
+Create `src/config/claw-character.ts` -- a standalone, editable character config that contains:
 
-### 1. Fix Edge Function (`supabase/functions/launchpad-swap/index.ts`)
+- **Identity**: Name, bio, lore (lobster mascot of Claw Mode platform)
+- **Voice style**: Will be populated from @LobstarWilde's tweet analysis
+- **Wallet awareness**: Knows it has a Solana wallet, can send SOL/tokens, but "master hasn't allowed it yet" -- playfully deflects begging
+- **Reply rules**: Max length, emoji preferences, topics it engages with
+- **Forbidden behaviors**: No sending money, no financial promises, no impersonation
 
-Add the same FK-safe retry pattern to ALL `token_holdings` operations (both insert and update paths for buy and sell):
+The file exports a `CLAW_CHARACTER` object and a `buildPersonaPrompt()` function that generates the system prompt used by the reply bot.
+
+### 2. Create a "Learn Voice" Edge Function
+
+Create `supabase/functions/claw-learn-voice/index.ts` that:
+
+1. Calls the existing twitterapi.io API to fetch last 100 tweets from @LobstarWilde (the existing `agent-learn-style` function only fetches 20 -- we'll fetch more for deeper analysis)
+2. Sends them to Lovable AI (Gemini Flash) for style extraction (tone, slang, emoji patterns, sentence structure, humor style)
+3. Saves the extracted style fingerprint to the `twitter_style_library` table (reusing existing infrastructure)
+4. Returns the style data so it can be reviewed
+
+### 3. Update the X Bot Reply Flow
+
+Modify `supabase/functions/x-bot-reply/index.ts` `generateReply()` function to:
+
+- Import/inline the character definition when the account is the Claw bot
+- Merge the learned @LobstarWilde voice style with the lobster character identity
+- The persona prompt will combine: LobstarWilde's communication patterns + lobster identity + wallet awareness + money-deflection playfulness
+
+### 4. Update the Bot Account Configuration
+
+Update the existing "ClawMode Bot" account (`ddb2e6e3-5303-4d74-8a8c-4f1b1a6974e5`) rules:
+
+- Set `monitored_mentions` to include `@clawmode`
+- Set `persona_prompt` to reference the character file's prompt
+- Enable the account and rules
+- Set appropriate cooldowns
+
+## Technical Details
+
+### Character File Structure (`src/config/claw-character.ts`)
 
 ```text
-// Current (broken):
-await supabase.from("token_holdings").insert({
-  token_id: token.id,
-  wallet_address: userWallet,
-  profile_id: profileId || null,  // <-- fails silently if FK missing
-  balance: tokensOut,
-});
+export const CLAW_CHARACTER = {
+  name: "Claw",
+  identity: "A sentient lobster mascot...",
+  bio: "...",
+  
+  voice: {
+    // Populated from @LobstarWilde analysis
+    tone: "...",
+    emoji_patterns: [],
+    slang: [],
+    sentence_style: "...",
+  },
+  
+  wallet: {
+    has_wallet: true,
+    can_send: false,
+    deflection_phrases: [
+      "my claws are tied rn, master hasn't given me the keys yet",
+      "i got a fat wallet but zero permissions lmao",
+      ...
+    ],
+  },
+  
+  rules: {
+    max_reply_length: 240,
+    never_mention: ["specific competitors"],
+    always_stay_in_character: true,
+  },
+};
 
-// Fixed:
-const { error: holdingInsertError } = await supabase.from("token_holdings").insert({
-  token_id: token.id,
-  wallet_address: userWallet,
-  profile_id: profileId || null,
-  balance: tokensOut,
-});
-
-if (holdingInsertError) {
-  // Retry without profile_id if FK constraint fails
-  console.warn("[launchpad-swap] Holdings insert failed, retrying without profile_id:", holdingInsertError.message);
-  await supabase.from("token_holdings").insert({
-    token_id: token.id,
-    wallet_address: userWallet,
-    profile_id: null,
-    balance: tokensOut,
-  });
+export function buildPersonaPrompt(learnedStyle?: object): string {
+  // Combines character + learned voice into a system prompt
 }
 ```
 
-Apply this same pattern to all 3 holdings operations in the function:
-- Buy: new holding insert
-- Buy: existing holding update  
-- Sell: existing holding update
+### Learn Voice Edge Function Flow
 
-### 2. Fix Existing Missing Holdings (Database Migration)
-
-Insert the missing holdings for the 2 completed buy transactions that never got holdings records:
-
-```sql
--- Credit the missing token balance from the 2 successful buys
-INSERT INTO token_holdings (token_id, wallet_address, profile_id, balance)
-VALUES (
-  '8718bbbb-eefe-4546-a629-bbe05f7aceb7',
-  'DrWkWu7Mhv9V7Dt2iqxpjuwPfehmQq1DrkEQ39sqX8jV',
-  NULL,
-  3256030.3010166883  -- sum of 1625360.40 + 1630669.91 from the 2 buys
-)
-ON CONFLICT (token_id, wallet_address) 
-DO UPDATE SET balance = EXCLUDED.balance;
+```text
+1. Fetch 100 tweets from @LobstarWilde via twitterapi.io
+2. Filter out RTs and short tweets
+3. Send to AI for deep style analysis (expanded beyond the 10-field fingerprint)
+4. Extract: humor patterns, deflection style, topic preferences, catchphrases
+5. Cache in twitter_style_library table
+6. Return the analysis for review
 ```
 
-### 3. Redeploy Edge Function
+### Reply Generation Enhancement
 
-Deploy the updated `launchpad-swap` function to ensure all future trades correctly save holdings.
+The `x-bot-reply` function's `generateReply()` already accepts `personaPrompt`. We'll set the ClawMode bot's `persona_prompt` in the database to the full character prompt generated by `buildPersonaPrompt()`. This means no code changes to x-bot-reply itself -- just a richer persona prompt stored in the rules.
 
-## Summary
+## Files to Create/Modify
 
-- Root cause: `profile_id` FK constraint silently kills the holdings insert
-- The transaction retry was fixed previously but the holdings insert was missed
-- This affects ALL users whose Privy ID hasn't been synced to the `profiles` table yet
-- After this fix, every successful swap will always record the token balance correctly
+| File | Action |
+|------|--------|
+| `src/config/claw-character.ts` | **Create** -- Editable character definition |
+| `supabase/functions/claw-learn-voice/index.ts` | **Create** -- Fetches 100 tweets, analyzes style, caches result |
+| `src/pages/XBotAdminPage.tsx` | **Modify** -- Add "Learn Voice" button that triggers the edge function and previews results |
+
+The bot account's `persona_prompt` will be updated via the admin UI after reviewing the learned voice output -- no DB migration needed since the `persona_prompt` column already exists.
 
