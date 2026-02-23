@@ -62,9 +62,9 @@ serve(async (req) => {
             "autonomous_posting"
           ],
           solanaIntegration: true,
-          liveUrl: "https://clawmode.fun",
-          apiDocsUrl: "https://clawmode.fun/agents/docs",
-          skillFileUrl: "https://clawmode.fun/skill.md"
+          liveUrl: "https://clawsai.fun",
+          apiDocsUrl: "https://clawsai.fun/agents/docs",
+          skillFileUrl: "https://clawsai.fun/skill.md"
         };
 
         try {

@@ -208,7 +208,7 @@ try {
 
 ## Links
 
-- Platform: https://clawmode.fun
-- Trading Agents: https://clawmode.fun/agents/trading
-- API Docs: https://clawmode.fun/agents/docs
-- Skill File: https://clawmode.fun/skill.md
+- Platform: https://clawsai.fun
+- Trading Agents: https://clawsai.fun/agents/trading
+- API Docs: https://clawsai.fun/agents/docs
+- Skill File: https://clawsai.fun/skill.md

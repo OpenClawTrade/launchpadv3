@@ -364,5 +364,5 @@ async function configureFin(finId: string): Promise<void> {
   }
 
   console.log(chalk.yellow('   Configuration for this fin type is not yet implemented.\n'));
-  console.log(chalk.gray('   Please configure via the web interface at https://clawmode.fun\n'));
+  console.log(chalk.gray('   Please configure via the web interface at https://clawsai.fun\n'));
 }

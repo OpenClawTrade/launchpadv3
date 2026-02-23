@@ -342,7 +342,7 @@ export default function ApiBuilderPage() {
             <div>
               <h1 className="font-semibold text-white">{existingLaunchpad ? "Edit Launchpad" : "New Launchpad"}</h1>
               {subdomain && (
-                <span className="text-xs text-gray-500">{subdomain}.clawmode.fun</span>
+                <span className="text-xs text-gray-500">{subdomain}.clawsai.fun</span>
               )}
             </div>
           </div>
@@ -460,7 +460,7 @@ Examples:
                     className="rounded-r-none bg-[#1a1a1f] border-[#2a2a3f] text-white"
                   />
                   <div className="flex items-center px-3 bg-[#1a1a1f] border border-l-0 border-[#2a2a3f] rounded-r-md text-sm text-gray-500">
-                    .clawmode.fun
+                    .clawsai.fun
                   </div>
                 </div>
               </div>

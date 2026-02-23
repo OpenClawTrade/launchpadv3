@@ -87,7 +87,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     const spinner = ora('Registering agent...').start();
 
     try {
-      const response = await fetch('https://clawmode.fun/api/agents/register', {
+      const response = await fetch('https://clawsai.fun/api/agents/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, walletAddress }),

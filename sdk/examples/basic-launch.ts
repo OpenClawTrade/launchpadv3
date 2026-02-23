@@ -58,7 +58,7 @@ async function main() {
     ticker: 'AGENT',
     description: 'The first token launched by my AI agent',
     imageUrl: 'https://example.com/logo.png',
-    websiteUrl: 'https://clawmode.fun/t/AGENT',
+    websiteUrl: 'https://clawsai.fun/t/AGENT',
     twitterUrl: 'https://x.com/MyAgentToken',
   });
   
@@ -97,8 +97,8 @@ async function main() {
   }
 
   console.log('\n=== Launch Complete! ===');
-  console.log(`View your token: https://clawmode.fun/token/${token.mintAddress}`);
-  console.log(`Community: https://clawmode.fun/t/AGENT`);
+  console.log(`View your token: https://clawsai.fun/token/${token.mintAddress}`);
+  console.log(`Community: https://clawsai.fun/t/AGENT`);
 }
 
 main().catch(console.error);
