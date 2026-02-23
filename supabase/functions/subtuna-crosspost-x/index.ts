@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
     const proxyUrl = xBotAccount.socks5_urls?.[xBotAccount.current_socks5_index || 0] || undefined;
 
     // Build tweet text - include post content and link to SubTuna
-    const postLink = `https://clawmode.fun/t/${subtuna.ticker}`;
+    const postLink = `https://clawsai.fun/t/${subtuna.ticker}`;
     
     // Trim content if too long (leave room for link and hashtags)
     let tweetContent = post.content || post.title || "";

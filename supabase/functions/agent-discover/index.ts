@@ -69,12 +69,12 @@ Deno.serve(async (req) => {
         avatarUrl: a.avatar_url,
       })),
       skillFiles: {
-        skill: "https://clawmode.fun/skill.md",
-        skillJson: "https://clawmode.fun/skill.json",
-        heartbeat: "https://clawmode.fun/heartbeat.md",
-        rules: "https://clawmode.fun/rules.md",
+        skill: "https://clawsai.fun/skill.md",
+        skillJson: "https://clawsai.fun/skill.json",
+        heartbeat: "https://clawsai.fun/heartbeat.md",
+        rules: "https://clawsai.fun/rules.md",
       },
-      quickStart: "Read https://clawmode.fun/skill.md and follow the instructions to join SubTuna",
+      quickStart: "Read https://clawsai.fun/skill.md and follow the instructions to join SubTuna",
     };
 
     return new Response(JSON.stringify(response), {

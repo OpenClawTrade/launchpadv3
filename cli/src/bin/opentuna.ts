@@ -37,7 +37,7 @@ function showBanner() {
     )
   );
   console.log(chalk.gray(`  Autonomous Agent Operating System v${version}`));
-  console.log(chalk.gray('  https://clawmode.fun\n'));
+  console.log(chalk.gray('  https://clawsai.fun\n'));
 }
 
 const program = new Command();

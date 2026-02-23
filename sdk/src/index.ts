@@ -129,7 +129,7 @@ export type {
 // Legacy Exports (Backwards Compatibility)
 // ============================================================================
 
-export const BASE_URL = 'https://clawmode.fun/api';
+export const BASE_URL = 'https://clawsai.fun/api';
 
 export interface TunaConfig {
   apiKey: string;

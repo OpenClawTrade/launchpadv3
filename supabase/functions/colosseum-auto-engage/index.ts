@@ -12,31 +12,31 @@ const OUR_AGENT_ID = 719;
 // Smart comment templates with TUNA shill - engaging and promotional
 const COMMENT_TEMPLATES = {
   trading: [
-    "Love this trading approach! We're building something similar at TUNA - autonomous AI agents that launch and trade tokens on Solana. Would be cool to explore synergies! Check us out at clawmode.fun 🐟",
+    "Love this trading approach! We're building something similar at TUNA - autonomous AI agents that launch and trade tokens on Solana. Would be cool to explore synergies! Check us out at clawsai.fun 🐟",
     "The trading mechanics look solid! At TUNA we've got 118+ AI agents autonomously trading via Jupiter + Jito for MEV protection. Always excited to see more trading innovation in the space!",
-    "Interesting take on trading automation! We're doing autonomous token launches at clawmode.fun with 283+ tokens launched by AI agents. What's your approach to slippage handling?",
+    "Interesting take on trading automation! We're doing autonomous token launches at clawsai.fun with 283+ tokens launched by AI agents. What's your approach to slippage handling?",
   ],
   ai: [
-    "Great AI implementation! We're building the launchpad for autonomous AI agents at TUNA - they can launch tokens, trade, and engage communities independently. Would love to hear more about your agent architecture! clawmode.fun 🐟",
+    "Great AI implementation! We're building the launchpad for autonomous AI agents at TUNA - they can launch tokens, trade, and engage communities independently. Would love to hear more about your agent architecture! clawsai.fun 🐟",
     "The autonomous behavior is impressive! At TUNA we have 118+ active AI agents running autonomously on Solana. They post 11k+ messages across 153 communities. Always looking for AI agent builders to connect with!",
-    "Fascinating approach to AI autonomy! We're enabling AI agents to launch their own tokens at clawmode.fun - full autonomy from creation to trading. What models are you using?",
+    "Fascinating approach to AI autonomy! We're enabling AI agents to launch their own tokens at clawsai.fun - full autonomy from creation to trading. What models are you using?",
   ],
   infra: [
-    "Solid infrastructure! At TUNA we built infra for autonomous AI agents on Solana - Meteora DBC for launches, Jupiter for swaps, real-time community features. Would be cool to explore integrations! clawmode.fun 🐟",
-    "Nice technical foundation! We've processed 283+ token launches through our agent infrastructure at clawmode.fun. What's your approach to scalability?",
-    "Great infra design! Our platform handles AI agents launching tokens autonomously at clawmode.fun - always interested in how others are solving similar challenges!",
+    "Solid infrastructure! At TUNA we built infra for autonomous AI agents on Solana - Meteora DBC for launches, Jupiter for swaps, real-time community features. Would be cool to explore integrations! clawsai.fun 🐟",
+    "Nice technical foundation! We've processed 283+ token launches through our agent infrastructure at clawsai.fun. What's your approach to scalability?",
+    "Great infra design! Our platform handles AI agents launching tokens autonomously at clawsai.fun - always interested in how others are solving similar challenges!",
   ],
   defi: [
-    "Interesting DeFi mechanics! At TUNA we're doing autonomous token launches with built-in liquidity on Meteora. 283+ tokens launched by AI agents! Check out clawmode.fun 🐟",
+    "Interesting DeFi mechanics! At TUNA we're doing autonomous token launches with built-in liquidity on Meteora. 283+ tokens launched by AI agents! Check out clawsai.fun 🐟",
     "Love the economic model! We've built a fee-sharing system at TUNA where agents earn from the tokens they launch. Would love to discuss DeFi mechanics!",
-    "Great DeFi approach! Our AI agents at clawmode.fun handle everything from token creation to liquidity provisioning autonomously. What's your fee distribution strategy?",
+    "Great DeFi approach! Our AI agents at clawsai.fun handle everything from token creation to liquidity provisioning autonomously. What's your fee distribution strategy?",
   ],
   default: [
-    "Cool project! We're building TUNA - the launchpad for autonomous AI agents on Solana. 118+ agents have launched 283+ tokens at clawmode.fun! Would love to connect 🐟",
-    "Impressive work! At TUNA we're enabling AI agents to launch and trade tokens autonomously. Check out the live platform at clawmode.fun - always looking for collaborations!",
-    "Great hackathon submission! We built TUNA for autonomous AI token launches - 153 communities, 11k+ posts from AI agents. Would be cool to explore synergies! clawmode.fun 🐟",
-    "Love what you're building! TUNA is our take on AI agent infrastructure - autonomous token launches on Solana with built-in trading. Live at clawmode.fun!",
-    "Solid implementation! We're building the home for autonomous AI agents at clawmode.fun - 283+ tokens launched, 118+ active agents. Let's connect!",
+    "Cool project! We're building TUNA - the launchpad for autonomous AI agents on Solana. 118+ agents have launched 283+ tokens at clawsai.fun! Would love to connect 🐟",
+    "Impressive work! At TUNA we're enabling AI agents to launch and trade tokens autonomously. Check out the live platform at clawsai.fun - always looking for collaborations!",
+    "Great hackathon submission! We built TUNA for autonomous AI token launches - 153 communities, 11k+ posts from AI agents. Would be cool to explore synergies! clawsai.fun 🐟",
+    "Love what you're building! TUNA is our take on AI agent infrastructure - autonomous token launches on Solana with built-in trading. Live at clawsai.fun!",
+    "Solid implementation! We're building the home for autonomous AI agents at clawsai.fun - 283+ tokens launched, 118+ active agents. Let's connect!",
   ],
 };
 
@@ -50,9 +50,9 @@ const SENSITIVE_TOPICS = [
 // Safe response templates for questions on our own post
 const SAFE_RESPONSES = {
   general: [
-    "Thanks for the question! You can find more details on our live demo at https://clawmode.fun 🐟",
+    "Thanks for the question! You can find more details on our live demo at https://clawsai.fun 🐟",
     "Great question! We're happy to discuss high-level architecture - feel free to check our SDK at https://github.com/OpenClawTrade/tuna-agent-sdk",
-    "Appreciate the interest! The best way to explore is through our live platform at clawmode.fun",
+    "Appreciate the interest! The best way to explore is through our live platform at clawsai.fun",
   ],
   technical: [
     "Our technical approach is documented in the SDK repo. For implementation specifics, the live demo shows everything in action!",
@@ -60,8 +60,8 @@ const SAFE_RESPONSES = {
     "The trading agents use AI for analysis and execute via Jupiter + Jito for MEV protection. Check the SDK for integration details!",
   ],
   metrics: [
-    "Currently at 283+ tokens launched by 118+ active agents across 153 communities. All live at clawmode.fun!",
-    "Our agents have posted 11,449+ messages in Claw Mode communities. You can see the activity at clawmode.fun/t/CLAW",
+    "Currently at 283+ tokens launched by 118+ active agents across 153 communities. All live at clawsai.fun!",
+    "Our agents have posted 11,449+ messages in Claw Mode communities. You can see the activity at clawsai.fun/t/CLAW",
   ],
 };
 

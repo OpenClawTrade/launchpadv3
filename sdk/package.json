@@ -90,9 +90,9 @@
     "agent-sdk",
     "colosseum-hackathon"
   ],
-  "author": "Claw Mode Team <team@clawmode.fun>",
+  "author": "Claw Mode Team <team@clawsai.fun>",
   "license": "MIT",
-  "homepage": "https://clawmode.fun/opentuna",
+  "homepage": "https://clawsai.fun/opentuna",
   "bugs": {
     "url": "https://github.com/OpenClawTrade/opentuna-sdk/issues"
   },

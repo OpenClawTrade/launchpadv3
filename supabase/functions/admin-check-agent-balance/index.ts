@@ -54,7 +54,7 @@ function buildLoginCookies(fullCookie: string): string {
 }
 
 // Base URLs for links
-const TRADING_AGENT_BASE_URL = "https://clawmode.fun/agents/trading";
+const TRADING_AGENT_BASE_URL = "https://clawsai.fun/agents/trading";
 
 // Post to X using linked X-Bot account
 async function postToX(
@@ -91,7 +91,7 @@ async function postToX(
     // Use trading agent link if available, otherwise SubTuna
     const agentLink = tradingAgentId 
       ? `${TRADING_AGENT_BASE_URL}/${tradingAgentId}`
-      : `https://clawmode.fun/t/${ticker}`;
+      : `https://clawsai.fun/t/${ticker}`;
     const tweetContent = `${content}\n\n🦞 ${agentLink}`;
 
     // twitterapi.io uses "tweet_text" not "text"
