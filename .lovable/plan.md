@@ -1,33 +1,60 @@
 
 
-# Fix NFA Mint Edge Function Failure
+# Fix: Cross-Table Distribution Check + Remove Old Claim Function
 
 ## Problem
-The `nfa-mint` edge function returns a non-2xx status because it is **not listed in `supabase/config.toml`**. By default, Supabase enforces JWT verification, which rejects the request since the client calls `supabase.functions.invoke("nfa-mint")` without a valid JWT token.
+There are TWO claim functions with TWO separate distribution tables, creating a security gap:
 
-The user's payment (1 SOL) went through on-chain, but the minting step failed because the edge function was never reached.
+1. **Old function** (`agent-creator-claim`): reads/writes `fun_distributions`
+2. **New function** (`claw-creator-claim`): reads/writes `claw_distributions`
 
-## Root Cause
-Every other edge function in the project has `verify_jwt = false` in `config.toml`, but `nfa-mint` was never added. This is a simple configuration oversight.
+Neither function checks the other's table. A user could theoretically call both functions and double-claim. Additionally, the old `agent-creator-claim` function is still deployed and accessible.
 
-## Secondary Issue
-The `collection_address` in the `nfa_batches` table is `null`, which means even if the edge function succeeds, the on-chain NFT minting will be silently skipped (the code checks `if (treasuryPrivateKey && nfaCollectionAddress)` and skips minting if either is missing). The DB record will still be created, but no actual NFT is minted on-chain.
+For user `@sandracinca` specifically: their 1.1769 SOL is genuinely unclaimed (zero records in either distribution table). The first claim will work correctly. The concern is preventing abuse after that first claim.
 
 ## Fix Plan
 
-### Step 1: Add `nfa-mint` to config.toml
-Add the missing entry:
-```toml
-[functions.nfa-mint]
-verify_jwt = false
+### 1. Update `claw-creator-claim` to also check `fun_distributions`
+In the `calculateClaimable` function, add a query to `fun_distributions` for the same token IDs and merge those paid amounts into the total. This ensures that any past distributions recorded by the old system are accounted for.
+
+Changes to `supabase/functions/claw-creator-claim/index.ts`:
+- In `calculateClaimable()`, after querying `claw_distributions`, also query `fun_distributions` for matching token IDs and twitter_username
+- Merge and deduplicate both sets of distributions before calculating `totalCreatorPaid`
+
+### 2. Delete the old `agent-creator-claim` edge function
+Remove `supabase/functions/agent-creator-claim/index.ts` and delete the deployed function. This eliminates the secondary claim vector entirely. The frontend already only calls `claw-creator-claim`.
+
+### 3. Frontend: disable claim button when `checkOnly` returns `canClaim: false`
+Currently the claim button is only disabled based on local `totalUnclaimed` math. Update `PanelMyLaunchesTab.tsx` to:
+- Use `claimStatus?.canClaim === false` to grey out the button
+- Show remaining cooldown time from `claimStatus?.remainingSeconds` on the button text
+- Disable the button entirely when `claimStatus?.pendingAmount < MIN_CLAIM_SOL`
+
+### Technical Details
+
+**Edge function change** (`claw-creator-claim/index.ts`, `calculateClaimable` function):
+```
+// After existing claw_distributions queries, add:
+const { data: funDistByToken } = await supabase
+  .from("fun_distributions")
+  .select("amount_sol, fun_token_id, id")
+  .in("fun_token_id", targetTokenIds)
+  .in("distribution_type", ["creator_claim", "creator"])
+  .in("status", ["completed", "pending"]);
+
+const { data: funDistByUsername } = await supabase
+  .from("fun_distributions")
+  .select("amount_sol, fun_token_id, id")
+  .eq("twitter_username", normalizedUsername)
+  .in("distribution_type", ["creator_claim", "creator"])
+  .in("status", ["completed", "pending"]);
+
+// Merge fun_distributions into allDists (prefix IDs to avoid collision)
+for (const d of [...(funDistByToken || []), ...(funDistByUsername || [])]) {
+  allDists.set("fun_" + d.id, d);
+}
 ```
 
-### Step 2: Redeploy the edge function
-After the config change, redeploy `nfa-mint` so requests are accepted.
-
-### Step 3: Manually record the user's paid mint
-Since the user already paid 1 SOL (tx: `vJiaFzaR...`), we need to manually invoke the edge function or insert the mint record into `nfa_mints` so their payment is honored. We can retry the edge function call with the same payment signature after deployment.
-
-### Step 4: Address the collection address (optional)
-Either run `nfa-create-collection` to generate the on-chain collection and populate `collection_address` in `nfa_batches`, or accept that NFAs are DB-only until the collection is created. Without it, no actual Metaplex Core NFT is minted on-chain.
-
+**Frontend change** (`PanelMyLaunchesTab.tsx`):
+- Line 260: Add `claimStatus?.canClaim === false` to the disabled condition
+- Update button text to show cooldown when rate-limited
