@@ -256,21 +256,14 @@ export default function PanelMyLaunchesTab() {
         </div>
       )}
 
-      {/* Claim All Button */}
+      {/* Claim All Button - DISABLED: Claims paused for maintenance */}
       {totalUnclaimed >= MIN_CLAIM_SOL && (
         <Button
-          onClick={() => handleClaim()}
-          disabled={!!claimingTokenId || claimStatus?.canClaim === false}
-          className="w-full gap-2 font-mono bg-green-500 hover:bg-green-600 text-black border-0 font-bold disabled:opacity-50"
+          disabled={true}
+          className="w-full gap-2 font-mono bg-gray-500 text-black border-0 font-bold opacity-50 cursor-not-allowed"
         >
-          {claimingTokenId ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <DollarSign className="h-4 w-4" />
-          )}
-          {claimStatus?.canClaim === false && claimStatus?.remainingSeconds
-            ? `Cooldown: ${Math.floor(claimStatus.remainingSeconds / 60)}m ${claimStatus.remainingSeconds % 60}s`
-            : `Claim ${totalUnclaimed.toFixed(4)} SOL → Embedded Wallet`}
+          <DollarSign className="h-4 w-4" />
+          Claims temporarily paused for maintenance
         </Button>
       )}
 
