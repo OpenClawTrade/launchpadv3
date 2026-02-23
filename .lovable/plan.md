@@ -1,59 +1,76 @@
 
 
-# Fix Vanity Addresses for X !clawmode Launches + Clean Up Stale Reservations
+## Problem Analysis
 
-## Problem 1: Vanity addresses silently failing on all launches
+The "Insufficient treasury balance" error occurs because:
 
-The hardcoded anon key fallback in `lib/vanityGenerator.ts` (line 63) has a **typo** -- one character is wrong (`x` instead of `z`):
-- Current (broken): `...7FFIiwQTgqIQn4l`**x**`yDHPTsX...`
-- Correct: `...7FFIiwQTgqIQn4l`**z**`yDHPTsX...`
+1. **Two different treasury wallets**: Fee claims from Meteora pools go into the `TREASURY_PRIVATE_KEY` wallet (`HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx`), but creator payouts use `CLAW_TREASURY_PRIVATE_KEY` -- a different wallet that has no funds.
 
-This means when the Vercel `create-fun` endpoint calls `getAvailableVanityAddress()`, if no `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_ANON_KEY` env var is set, the fallback key is invalid. The RPC call to `backend_reserve_vanity_address` fails with an auth error, returns null, and the code silently falls back to a random mint address.
+2. **Inflated earnings calculation**: The edge function uses `fun_tokens.total_fees_earned` (which may be stale/inflated) instead of `fun_fee_claims.claimed_sol` (actual on-chain claims that represent real money in the treasury).
 
-**Fix:** Correct the hardcoded anon key in `lib/vanityGenerator.ts`.
+3. **No safety cap**: If data is corrupted, the function could try to send more SOL than was ever actually collected.
 
-## Problem 2: 5 addresses stuck as "reserved" (should be 1)
+## Plan
 
-The database has 5 "reserved" vanity addresses. Only 1 (`5X42ZtH3...afCLAW`) is intentionally reserved. The other 4 (from Feb 20) were reserved during failed launches and never released because:
+### 1. Fix treasury wallet mismatch
 
-1. The `pump-agent-launch` edge function's error handler (catch block at line 376) does **not** release the vanity address when the launch fails.
-2. Some `create-fun` Vercel failures may also leak reservations if the `releaseVanityAddress` call itself fails (same broken anon key).
+Change `claw-creator-claim` edge function to use `TREASURY_PRIVATE_KEY` (the wallet that actually received the claimed fees) instead of `CLAW_TREASURY_PRIVATE_KEY`.
 
-**Fix (two parts):**
+### 2. Use `fun_fee_claims` as the source of truth (not `total_fees_earned`)
 
-a. **Database cleanup:** Run a migration to release the 4 stale reserved addresses back to "available" (the ones from Feb 20 with no `used_for_token_id`).
+Replace the earnings calculation:
+- **Before**: `earned = fun_tokens.total_fees_earned * 0.3` (could be inflated)  
+- **After**: `earned = SUM(fun_fee_claims.claimed_sol) * 0.3` (actual on-chain claimed fees = real money)
 
-b. **Code fix in `pump-agent-launch`:** Add vanity release logic to the catch block so failed launches always return their reserved address to the pool.
+This matches the pattern already used in the original `agent-creator-claim` function.
 
-## Technical Changes
+### 3. Add safety caps
 
-### 1. `lib/vanityGenerator.ts` (line 63)
-Fix the typo in the hardcoded anon key fallback: change `lxyDHPTsX` to `lzyDHPTsX`.
+- Add a per-claim maximum (e.g., 5 SOL cap) to prevent draining the treasury from a single bad claim
+- Ensure the treasury balance check has adequate buffer (at least 0.05 SOL reserved for rent/fees)
+- Log the treasury balance alongside claim amounts for auditing
 
-### 2. Database migration
-Release the 4 stale reserved addresses:
+### 4. UI: Show accurate amounts from the `checkOnly` response
+
+The frontend should prefer the `checkOnly` API response values (which come from the corrected server-side calculation) over the locally-computed totals from `total_fees_earned`.
+
+### Technical Details
+
+**File: `supabase/functions/claw-creator-claim/index.ts`**
+
+Changes to the earnings calculation section (~lines 98-128):
+
 ```text
-UPDATE vanity_keypairs 
-SET status = 'available' 
-WHERE status = 'reserved' 
-  AND used_for_token_id IS NULL 
-  AND id != '0eb31c00-76d2-4d85-8c6b-06af32211e12';
+Replace total_fees_earned lookup with:
+  SELECT fun_token_id, SUM(claimed_sol) 
+  FROM fun_fee_claims 
+  WHERE fun_token_id IN (targetTokenIds)
+  GROUP BY fun_token_id
+
+earned_per_token = claimed_sol_sum * CREATOR_SHARE (0.3)
 ```
 
-### 3. `supabase/functions/pump-agent-launch/index.ts` (catch block, ~line 376)
-Add vanity release on error:
+Change treasury key from `CLAW_TREASURY_PRIVATE_KEY` to `TREASURY_PRIVATE_KEY` (line 37).
+
+Add safety cap:
+
 ```text
-} catch (error) {
-    // Release vanity address if reserved
-    if (vanityId) {
-      await supabase.rpc('backend_release_vanity_address', {
-        p_keypair_id: vanityId,
-      }).catch(() => {});
-    }
-    console.error("[pump-agent-launch] Error:", error);
-    ...
+const MAX_SINGLE_CLAIM_SOL = 5.0;
+if (claimable > MAX_SINGLE_CLAIM_SOL) {
+  claimable = MAX_SINGLE_CLAIM_SOL; // Cap and let them claim remainder next time
 }
 ```
 
-After these changes, the reserved count should show 1, and all future X !clawmode launches will correctly use vanity CLAW addresses.
+Add minimum treasury reserve:
+
+```text
+const TREASURY_RESERVE_SOL = 0.05;
+if (treasuryBalance / 1e9 < claimable + TREASURY_RESERVE_SOL) {
+  throw new Error("Insufficient treasury balance");
+}
+```
+
+**File: `src/components/panel/PanelMyLaunchesTab.tsx`**
+
+No major changes needed -- it already shows `claimStatus?.pendingAmount` from the server. Just ensure the Claim button amount reflects server-verified data.
 
