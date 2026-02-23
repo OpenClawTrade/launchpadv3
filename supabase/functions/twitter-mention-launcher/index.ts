@@ -421,6 +421,49 @@ Launch your unique Solana Agent from Claw Mode`;
       );
     }
 
+    // === CHECK FOR BARE !clawmode WITH NO PROMPT ===
+    // Strip the command, mentions, and URLs to see if there's actual descriptive content
+    const strippedText = mention.text
+      .replace(/!clawmode/gi, '')
+      .replace(/@\w+/g, '')
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .trim();
+
+    if (strippedText.length < 3) {
+      await logger.log("no_prompt", false, {}, "Bare !clawmode with no descriptive text");
+
+      const usageReply = `@${mention.author.userName} 🦞 To launch a coin, use the command like this:
+
+!clawmode [Describe your meme/token idea here]
+
+Example:
+!clawmode A lobster that trades crypto underwater
+
+Don't forget to attach an image! 🖼️`;
+
+      await postReply(mention.id, usageReply, null, {
+        TWITTERAPI_IO_KEY,
+        X_FULL_COOKIE,
+        X_AUTH_TOKEN,
+        X_CT0_TOKEN,
+        TWITTER_PROXY,
+      });
+
+      await supabase.from("x_pending_requests").insert({
+        tweet_id: mention.id,
+        x_user_id: mention.author.id,
+        x_username: mention.author.userName,
+        original_tweet_text: mention.text,
+        status: "failed",
+      });
+
+      return new Response(
+        JSON.stringify({ success: false, error: "No prompt provided - usage instructions sent" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // === STRICT IMAGE REQUIREMENT ===
     const rawImageUrl = mention.mediaUrls?.[0] || null;
     
