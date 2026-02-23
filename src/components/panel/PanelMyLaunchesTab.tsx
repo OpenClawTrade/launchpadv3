@@ -394,8 +394,19 @@ function RecentClaimsFeed() {
       const allClaims = [...(clawData || []), ...(funData || [])] as any[];
       if (!allClaims.length) return [];
 
-      // Sort by date descending
-      allClaims.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      // Group by signature so one claim click = one entry
+      const grouped = new Map<string, any>();
+      for (const d of allClaims) {
+        const key = d.signature || d.created_at;
+        if (grouped.has(key)) {
+          grouped.get(key).amount_sol += d.amount_sol || 0;
+        } else {
+          grouped.set(key, { ...d, amount_sol: d.amount_sol || 0 });
+        }
+      }
+
+      const mergedClaims = Array.from(grouped.values());
+      mergedClaims.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       const tokenIds = [...new Set(allClaims.map((d: any) => d.fun_token_id).filter(Boolean))];
       
@@ -410,7 +421,7 @@ function RecentClaimsFeed() {
         tokenMap[t.id] = { name: t.name, ticker: t.ticker, image_url: t.image_url };
       }
 
-      return allClaims.slice(0, 50).map((d: any) => ({
+      return mergedClaims.slice(0, 30).map((d: any) => ({
         ...d,
         token: tokenMap[d.fun_token_id] || null,
       }));
