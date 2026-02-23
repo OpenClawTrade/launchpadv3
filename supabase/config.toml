@@ -392,3 +392,6 @@ verify_jwt = false
 
 [functions.nfa-delist]
 verify_jwt = false
+
+[functions.nfa-mint]
+verify_jwt = false
