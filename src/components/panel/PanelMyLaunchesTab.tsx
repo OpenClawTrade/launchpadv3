@@ -3,10 +3,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Twitter, Loader2, DollarSign, ExternalLink, Rocket } from "lucide-react";
+import { Twitter, Loader2, DollarSign, ExternalLink, Rocket, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePrivy } from "@privy-io/react-auth";
+import { useToast } from "@/hooks/use-toast";
 
 function isInIframe(): boolean {
   try {
@@ -20,8 +21,6 @@ function LinkXButton() {
   const { linkTwitter } = usePrivy();
   const [linking, setLinking] = useState(false);
 
-  // When running inside Lovable's preview iframe, X.com blocks framed OAuth.
-  // Direct the user to the published app instead.
   if (isInIframe()) {
     return (
       <a
@@ -57,7 +56,6 @@ function LinkXButton() {
   );
 }
 
-
 interface LaunchedToken {
   id: string;
   name: string;
@@ -70,16 +68,21 @@ interface LaunchedToken {
   created_at: string | null;
 }
 
+const MIN_CLAIM_SOL = 0.01;
+const CREATOR_SHARE = 0.3;
+
 export default function PanelMyLaunchesTab() {
-  const { user } = useAuth();
+  const { user, solanaAddress } = useAuth();
   const twitterUsername = user?.twitter?.username;
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [claimingTokenId, setClaimingTokenId] = useState<string | null>(null);
 
   // Fetch tokens launched by this X username
   const { data: tokens = [], isLoading } = useQuery({
     queryKey: ["my-launches", twitterUsername],
     enabled: !!twitterUsername,
     queryFn: async () => {
-      // Search agent_social_posts for tokens where post_author matches
       const { data: posts, error } = await supabase
         .from("agent_social_posts")
         .select("fun_token_id")
@@ -90,7 +93,6 @@ export default function PanelMyLaunchesTab() {
 
       const tokenIds = [...new Set(posts.map((p) => p.fun_token_id).filter(Boolean))];
 
-      // Also check claw_tokens via agent_social_posts
       const { data: funTokens } = await supabase
         .from("fun_tokens" as any)
         .select("id, name, ticker, mint_address, image_url, status, total_fees_earned, total_fees_claimed, created_at")
@@ -114,11 +116,88 @@ export default function PanelMyLaunchesTab() {
     },
   });
 
+  // Check claim status for each token via the edge function
+  const { data: claimStatus } = useQuery({
+    queryKey: ["claim-status", twitterUsername],
+    enabled: !!twitterUsername,
+    queryFn: async () => {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/claw-creator-claim`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            twitterUsername: twitterUsername,
+            checkOnly: true,
+          }),
+        }
+      );
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+
+  const handleClaim = async (tokenIds?: string[]) => {
+    if (!twitterUsername || !solanaAddress) {
+      toast({ title: "Missing wallet", description: "Connect your wallet first", variant: "destructive" });
+      return;
+    }
+
+    const claimId = tokenIds?.[0] || "all";
+    setClaimingTokenId(claimId);
+
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/claw-creator-claim`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            twitterUsername: twitterUsername,
+            payoutWallet: solanaAddress,
+            tokenIds: tokenIds,
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || "Claim failed");
+      }
+
+      toast({
+        title: "✅ Fees claimed!",
+        description: `${result.claimedAmount?.toFixed(4)} SOL sent to your embedded wallet`,
+      });
+
+      // Refetch data
+      queryClient.invalidateQueries({ queryKey: ["my-launches"] });
+      queryClient.invalidateQueries({ queryKey: ["my-claw-launches"] });
+      queryClient.invalidateQueries({ queryKey: ["claim-status"] });
+    } catch (error) {
+      toast({
+        title: "Claim failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setClaimingTokenId(null);
+    }
+  };
+
   const allTokens = [...tokens, ...clawTokens];
-  // Creator gets 30% of total fees earned
-  const CREATOR_SHARE = 0.3;
   const totalEarned = allTokens.reduce((s, t) => s + (t.total_fees_earned || 0) * CREATOR_SHARE, 0);
-  const totalClaimed = allTokens.reduce((s, t) => s + (t.total_fees_claimed || 0), 0);
+  const totalClaimed = claimStatus?.totalClaimed || allTokens.reduce((s, t) => s + (t.total_fees_claimed || 0), 0);
+  const totalUnclaimed = claimStatus?.pendingAmount ?? Math.max(0, totalEarned - totalClaimed);
+
+  // Separate tokens into claimable and fully claimed
+  const claimableTokens = allTokens.filter((t) => {
+    const earned = (t.total_fees_earned || 0) * CREATOR_SHARE;
+    return earned > 0;
+  });
 
   if (!twitterUsername) {
     return (
@@ -154,7 +233,7 @@ export default function PanelMyLaunchesTab() {
 
       {/* Summary */}
       {allTokens.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Card className="p-3 bg-white/5 border-white/10 text-center">
             <p className="text-lg font-bold font-mono" style={{ color: "#4ade80" }}>
               {totalEarned.toFixed(4)}
@@ -167,7 +246,42 @@ export default function PanelMyLaunchesTab() {
             </p>
             <p className="text-[10px] text-muted-foreground">Total Claimed (SOL)</p>
           </Card>
+          <Card className="p-3 bg-white/5 border-white/10 text-center">
+            <p className="text-lg font-bold font-mono text-yellow-400">
+              {totalUnclaimed.toFixed(4)}
+            </p>
+            <p className="text-[10px] text-muted-foreground">Unclaimed (SOL)</p>
+          </Card>
         </div>
+      )}
+
+      {/* Claim All Button */}
+      {totalUnclaimed >= MIN_CLAIM_SOL && (
+        <Button
+          onClick={() => handleClaim()}
+          disabled={!!claimingTokenId}
+          className="w-full gap-2 font-mono bg-green-500 hover:bg-green-600 text-black border-0 font-bold"
+        >
+          {claimingTokenId ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <DollarSign className="h-4 w-4" />
+          )}
+          Claim {totalUnclaimed.toFixed(4)} SOL → Embedded Wallet
+        </Button>
+      )}
+
+      {totalUnclaimed > 0 && totalUnclaimed < MIN_CLAIM_SOL && (
+        <p className="text-xs text-muted-foreground text-center font-mono">
+          Minimum claim: {MIN_CLAIM_SOL} SOL. Current unclaimed: {totalUnclaimed.toFixed(4)} SOL
+        </p>
+      )}
+
+      {/* Payout info */}
+      {solanaAddress && (
+        <p className="text-[10px] text-muted-foreground text-center truncate px-4">
+          Payouts go to your embedded wallet: {solanaAddress.slice(0, 6)}...{solanaAddress.slice(-4)}
+        </p>
       )}
 
       {/* Token List */}
@@ -205,38 +319,51 @@ export default function PanelMyLaunchesTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {allTokens.map((token) => (
-            <Card key={token.id} className="p-3 flex items-center gap-3 bg-white/[0.02] border-white/10">
-              <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0 bg-white/5 flex items-center justify-center">
-                {token.image_url ? (
-                  <img src={token.image_url} alt="" className="h-10 w-10 object-cover" />
-                ) : (
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">
-                  {token.name} <span className="text-muted-foreground">${token.ticker}</span>
-                </p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{((token.total_fees_earned || 0) * CREATOR_SHARE).toFixed(4)} SOL earned</span>
-                  {token.mint_address && (
-                    <a
-                      href={`https://solscan.io/token/${token.mint_address}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-0.5 hover:text-foreground"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+          {claimableTokens.map((token) => {
+            const earned = (token.total_fees_earned || 0) * CREATOR_SHARE;
+            const claimed = token.total_fees_claimed || 0;
+            const unclaimed = Math.max(0, earned - claimed);
+            const fullyClaimed = unclaimed < 0.0001 && earned > 0;
+
+            return (
+              <Card key={token.id} className={`p-3 flex items-center gap-3 bg-white/[0.02] border-white/10 ${fullyClaimed ? "opacity-50" : ""}`}>
+                <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0 bg-white/5 flex items-center justify-center">
+                  {token.image_url ? (
+                    <img src={token.image_url} alt="" className="h-10 w-10 object-cover" />
+                  ) : (
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
                   )}
                 </div>
-              </div>
-              <Badge variant="outline" className="text-[10px] capitalize shrink-0">
-                {token.status || "active"}
-              </Badge>
-            </Card>
-          ))}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">
+                    {token.name} <span className="text-muted-foreground">${token.ticker}</span>
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{earned.toFixed(4)} SOL earned</span>
+                    {token.mint_address && (
+                      <a
+                        href={`https://solscan.io/token/${token.mint_address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 hover:text-foreground"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+                {fullyClaimed ? (
+                  <Badge variant="outline" className="text-[10px] shrink-0 text-green-500 border-green-500/30 gap-1">
+                    <CheckCircle className="h-3 w-3" /> Claimed
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                    {token.status || "active"}
+                  </Badge>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
