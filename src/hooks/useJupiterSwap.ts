@@ -4,7 +4,7 @@ import { Connection, VersionedTransaction } from '@solana/web3.js';
 import { getRpcUrl } from '@/hooks/useSolanaWallet';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
-const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6';
+const JUPITER_QUOTE_API = 'https://api.jup.ag/swap/v1';
 
 interface QuoteResponse {
   inputMint: string;
