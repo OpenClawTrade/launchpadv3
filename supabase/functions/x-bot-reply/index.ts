@@ -339,23 +339,19 @@ async function postReply(
     console.log(`[postReply] loginCookies first 50: ${loginCookies.substring(0, 50)}`);
     console.log(`[postReply] tweet_text length: ${replyText.length}`);
 
-    const response = await fetchWithTimeout(
-      `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey,
-        },
-        body: JSON.stringify({
-          tweet_text: replyText,
-          reply_to_tweet_id: tweetId,
-          login_cookies: loginCookies,
-          ...(proxy ? { proxy } : {}),
-        }),
+    const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": apiKey,
       },
-      20000
-    );
+      body: JSON.stringify({
+        tweet_text: replyText,
+        reply_to_tweet_id: tweetId,
+        login_cookies: loginCookies,
+        ...(proxy ? { proxy } : {}),
+      }),
+    });
 
     const rawText = await response.text();
     console.log(`[postReply] HTTP Status: ${response.status}`);
@@ -430,11 +426,7 @@ serve(async (req) => {
 
     let loginCookiesObj: Record<string, string> | null = null;
     if (X_FULL_COOKIE) {
-      // Parse full cookie but only keep auth_token and ct0 (same as launcher)
-      const allCookies = parseCookieString(X_FULL_COOKIE);
-      if (allCookies.auth_token && allCookies.ct0) {
-        loginCookiesObj = { auth_token: allCookies.auth_token, ct0: allCookies.ct0 };
-      }
+      loginCookiesObj = parseCookieString(X_FULL_COOKIE);
     } else if (X_AUTH_TOKEN && X_CT0_TOKEN) {
       loginCookiesObj = { auth_token: X_AUTH_TOKEN, ct0: X_CT0_TOKEN };
     }
