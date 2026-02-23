@@ -1,49 +1,52 @@
 
 
-## Fix x-bot-reply to Use the Same Auth as the Working Launcher
+## Make `promo-mention-reply` and `x-manual-reply` Use the Exact Same Reply Method as the Working Launcher
 
-### The Problem
+The `twitter-mention-launcher` posts replies successfully. The other two functions (`promo-mention-reply` and `x-manual-reply`) use different cookie handling and fetch methods. We will copy the launcher's exact `postReply` pattern into both.
 
-The `x-bot-reply` function filters cookies to only `auth_token` + `ct0`, but the working `twitter-mention-launcher` passes **all cookies** from `X_FULL_COOKIE`. It also uses `fetchWithTimeout` instead of plain `fetch`.
+### What the working launcher does (lines 958-1012)
 
-### The Fix
-
-**File: `supabase/functions/x-bot-reply/index.ts`**
-
-Two changes:
-
-1. **Cookie handling (lines 431-437)**: Remove the filtering. Pass all parsed cookies exactly like the launcher does on line 961.
-
-Before:
-```typescript
-const allCookies = parseCookieString(X_FULL_COOKIE);
-if (allCookies.auth_token && allCookies.ct0) {
-  loginCookiesObj = { auth_token: allCookies.auth_token, ct0: allCookies.ct0 };
-}
+```text
+1. parseCookieString(X_FULL_COOKIE) -> raw cookie object
+2. btoa(JSON.stringify(cookies))    -> base64 encode
+3. Plain fetch() call               -> no timeout wrapper
+4. Checks result.status === "error" -> catches 200-but-failed responses
 ```
 
-After:
-```typescript
-loginCookiesObj = parseCookieString(X_FULL_COOKIE);
-```
+### What's different in promo-mention-reply
 
-2. **Post reply function (lines 342-358)**: Replace `fetchWithTimeout` with plain `fetch`, matching the launcher's approach on line 988.
+| Aspect | Working Launcher | promo-mention-reply |
+|--------|-----------------|---------------------|
+| Cookie encoding | `parseCookieString` then `btoa(JSON.stringify)` | `buildLoginCookiesBase64FromEnv` (different parsing logic) |
+| Fetch | Plain `fetch` | `fetchWithTimeout` with 20s timeout |
+| Error detection | Checks `result.status === "error"` | Only checks `response.ok` |
 
-Before:
-```typescript
-const response = await fetchWithTimeout(
-  `${TWITTERAPI_BASE}/twitter/create_tweet_v2`,
-  { ... },
-  20000
-);
-```
+### What's different in x-manual-reply
 
-After:
-```typescript
-const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
-  ...
-});
-```
+| Aspect | Working Launcher | x-manual-reply |
+|--------|-----------------|----------------|
+| Cookie encoding | `parseCookieString` then `btoa(JSON.stringify)` | `buildLoginCookiesBase64FromEnv` (different parsing logic) |
+| Error detection | Checks `result.status === "error"` | Only checks `res.ok` |
 
-That's it -- two changes to make it identical to the working launcher.
+### Changes
 
+#### 1. `supabase/functions/promo-mention-reply/index.ts`
+
+- **Replace `postReply` function (lines 226-278)** with the exact same pattern from the launcher:
+  - Use `parseCookieString(cookie)` then `btoa(JSON.stringify(cookies))`
+  - Use plain `fetch` instead of `fetchWithTimeout`
+  - Add `result.status === "error"` check
+  - Extract reply ID using `result.tweet_id || result.data?.id`
+
+#### 2. `supabase/functions/x-manual-reply/index.ts`
+
+- **Replace the cookie handling and fetch call (lines 113-145)** with the launcher's pattern:
+  - Use `parseCookieString` then `btoa(JSON.stringify)` instead of `buildLoginCookiesBase64FromEnv`
+  - Add `result.status === "error"` check after the fetch
+
+#### 3. Both files: Remove unused code
+
+- Remove `buildLoginCookiesBase64FromEnv` function from both files since it's no longer needed
+- Remove `fetchWithTimeout` function from `promo-mention-reply` (only used for the reply call; the AI call can keep it or also switch to plain fetch)
+
+All three reply functions will then use the identical authentication and posting logic that is proven to work in the launcher.
