@@ -430,7 +430,11 @@ serve(async (req) => {
 
     let loginCookiesObj: Record<string, string> | null = null;
     if (X_FULL_COOKIE) {
-      loginCookiesObj = parseCookieString(X_FULL_COOKIE);
+      // Parse full cookie but only keep auth_token and ct0 (same as launcher)
+      const allCookies = parseCookieString(X_FULL_COOKIE);
+      if (allCookies.auth_token && allCookies.ct0) {
+        loginCookiesObj = { auth_token: allCookies.auth_token, ct0: allCookies.ct0 };
+      }
     } else if (X_AUTH_TOKEN && X_CT0_TOKEN) {
       loginCookiesObj = { auth_token: X_AUTH_TOKEN, ct0: X_CT0_TOKEN };
     }
