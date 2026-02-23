@@ -300,20 +300,35 @@ serve(async (req) => {
         .single();
 
       if (existingHolding) {
-        await supabase
+        const { error: holdingUpdateError } = await supabase
           .from("token_holdings")
           .update({
             balance: existingHolding.balance + tokensOut,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingHolding.id);
+        if (holdingUpdateError) {
+          console.warn("[launchpad-swap] Holdings update failed:", holdingUpdateError.message);
+        }
       } else {
-        await supabase.from("token_holdings").insert({
+        const { error: holdingInsertError } = await supabase.from("token_holdings").insert({
           token_id: token.id,
           wallet_address: userWallet,
           profile_id: profileId || null,
           balance: tokensOut,
         });
+        if (holdingInsertError) {
+          console.warn("[launchpad-swap] Holdings insert failed, retrying without profile_id:", holdingInsertError.message);
+          const { error: retryError } = await supabase.from("token_holdings").insert({
+            token_id: token.id,
+            wallet_address: userWallet,
+            profile_id: null,
+            balance: tokensOut,
+          });
+          if (retryError) {
+            console.error("[launchpad-swap] Holdings insert retry also failed:", retryError.message);
+          }
+        }
       }
     } else {
       const { data: existingHolding } = await supabase
@@ -325,13 +340,16 @@ serve(async (req) => {
 
       if (existingHolding) {
         const newBalance = Math.max(0, existingHolding.balance - amount);
-        await supabase
+        const { error: holdingSellError } = await supabase
           .from("token_holdings")
           .update({
             balance: newBalance,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingHolding.id);
+        if (holdingSellError) {
+          console.warn("[launchpad-swap] Holdings sell update failed:", holdingSellError.message);
+        }
       }
     }
 
