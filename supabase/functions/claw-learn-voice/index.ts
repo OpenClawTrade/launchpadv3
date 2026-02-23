@@ -39,7 +39,18 @@ async function fetchTweets(username: string, apiKey: string, count = 100): Promi
       }
 
       const data = await response.json();
-      const tweets = data.tweets || data.data || [];
+      
+      // Handle multiple response structures from twitterapi.io
+      let tweets: any[] = [];
+      if (data?.data?.tweets && Array.isArray(data.data.tweets)) {
+        tweets = data.data.tweets;
+      } else if (Array.isArray(data?.data)) {
+        tweets = data.data;
+      } else if (Array.isArray(data?.tweets)) {
+        tweets = data.tweets;
+      } else if (Array.isArray(data)) {
+        tweets = data;
+      }
 
       if (tweets.length === 0) break;
 
@@ -56,7 +67,7 @@ async function fetchTweets(username: string, apiKey: string, count = 100): Promi
       allTweets.push(...filtered);
       
       // Get pagination cursor
-      cursor = data.next_cursor || data.cursor || null;
+      cursor = data?.next_cursor || data?.cursor || data?.data?.next_cursor || null;
       if (!cursor) break;
       
       pages++;
