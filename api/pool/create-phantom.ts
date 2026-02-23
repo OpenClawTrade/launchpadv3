@@ -104,6 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       imageUrl, 
       websiteUrl, 
       twitterUrl, 
+      telegramUrl,
       phantomWallet,
       feeRecipientWallet,
       useVanityAddress = true,
@@ -316,6 +317,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         extensions: {
           website: tokenWebsite,
           twitter: tokenTwitter,
+          ...(telegramUrl ? { telegram: telegramUrl } : {}),
         },
       };
       
