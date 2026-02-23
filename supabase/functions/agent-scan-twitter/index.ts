@@ -484,38 +484,64 @@ async function getLoginCookies(creds: LoginCredentials): Promise<string | null> 
   return loginCookies;
 }
 
-// Send reply using ONLY Official X API (OAuth 1.0a)
+// Send reply using twitterapi.io + cookie + proxy (same as promo-mention-reply)
 async function replyToTweet(
   tweetId: string,
   text: string,
-  oauthCreds: { consumerKey: string; consumerSecret: string; accessToken: string; accessTokenSecret: string },
+  cookieCreds: { apiKey: string; cookie: string; proxy?: string },
   username?: string,
 ): Promise<{ success: boolean; replyId?: string; error?: string }> {
   try {
-    console.log(`[agent-scan-twitter] 📤 Attempting reply via Official X API to @${username || "unknown"} (tweet ${tweetId})`);
+    console.log(`[agent-scan-twitter] 📤 Attempting reply via twitterapi.io to @${username || "unknown"} (tweet ${tweetId})`);
+
+    const loginCookies = parseCookieString(cookieCreds.cookie);
+    const loginCookiesB64 = btoa(JSON.stringify(loginCookies));
+
+    const body: Record<string, string> = {
+      tweet_text: text,
+      reply_to_tweet_id: tweetId,
+      login_cookies: loginCookiesB64,
+    };
+
+    if (cookieCreds.proxy) {
+      body.proxy = cookieCreds.proxy;
+    }
 
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const res = await replyViaOfficialApi(
-        tweetId,
-        text,
-        oauthCreds.consumerKey,
-        oauthCreds.consumerSecret,
-        oauthCreds.accessToken,
-        oauthCreds.accessTokenSecret
-      );
+      const response = await fetch(`${TWITTERAPI_BASE}/twitter/create_tweet_v2`, {
+        method: "POST",
+        headers: {
+          "X-API-Key": cookieCreds.apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
 
-      if (res.success && res.replyId) {
-        console.log(`[agent-scan-twitter] ✅ Reply sent via Official X API to @${username || "unknown"}: ${res.replyId}`);
-        return res;
+      const rawText = await response.text();
+      let data: any;
+      try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
+
+      console.log(`[agent-scan-twitter] 📥 twitterapi.io reply response: ${response.status} - ${rawText.slice(0, 300)}`);
+
+      if (!response.ok || data.status === "error") {
+        const apiMsg = data?.message || data?.error || data?.msg || rawText?.slice(0, 300);
+        // Retry only on transient errors
+        const isTransient = /429|5\d{2}/.test(String(response.status)) || /timeout|gateway/i.test(apiMsg || "");
+        if (!isTransient || attempt === 2) {
+          return { success: false, error: apiMsg || `HTTP ${response.status}` };
+        }
+        const backoffMs = 600 * Math.pow(2, attempt - 1) + Math.random() * 200;
+        console.warn(`[agent-scan-twitter] 🔁 twitterapi.io transient failure (attempt ${attempt}/2): ${String(apiMsg).slice(0, 180)}; retrying in ~${Math.round(backoffMs)}ms`);
+        await sleep(backoffMs);
+        continue;
       }
 
-      // Retry only on transient errors (429/5xx/timeouts)
-      const isTransient = res.error && (/429|5\d{2}/.test(res.error) || /timeout|gateway/i.test(res.error));
-      if (!isTransient || attempt === 2) return res;
-
-      const backoffMs = 600 * Math.pow(2, attempt - 1) + Math.random() * 200;
-      console.warn(`[agent-scan-twitter] 🔁 Official X API transient failure (attempt ${attempt}/2): ${String(res.error).slice(0, 180)}; retrying in ~${Math.round(backoffMs)}ms`);
-      await sleep(backoffMs);
+      const replyId = data?.tweet_id || data?.data?.id;
+      if (replyId) {
+        console.log(`[agent-scan-twitter] ✅ Reply sent via twitterapi.io to @${username || "unknown"}: ${replyId}`);
+        return { success: true, replyId };
+      }
+      return { success: false, error: `No reply ID in response: ${rawText.slice(0, 200)}` };
     }
 
     return { success: false, error: "Unknown retry error" };
@@ -608,16 +634,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if we can post replies (Official X API OAuth 1.0a only)
-    const canPostRepliesRaw = !!(oauthCreds);
+    // Check if we can post replies (twitterapi.io + cookie)
+    const cookieCreds = (twitterApiIoKey && xFullCookie)
+      ? { apiKey: twitterApiIoKey, cookie: xFullCookie, proxy: proxyUrl || undefined }
+      : undefined;
+    const canPostRepliesRaw = !!(cookieCreds);
     const canPostReplies = postingEnabled && canPostRepliesRaw;
     
     if (!postingEnabled) {
       console.log("[agent-scan-twitter] 🚫 X posting disabled (ENABLE_X_POSTING != true) - will detect/process but skip replies");
     } else if (!canPostRepliesRaw) {
-      console.log("[agent-scan-twitter] Reply credentials not configured (need TWITTER_CONSUMER_KEY/SECRET + ACCESS_TOKEN/SECRET) - will detect/process but skip replies");
+      console.log("[agent-scan-twitter] Reply credentials not configured (need TWITTERAPI_IO_KEY + X_FULL_COOKIE) - will detect/process but skip replies");
     } else {
-      console.log("[agent-scan-twitter] Will use Official X API (OAuth 1.0a) for replies");
+      console.log("[agent-scan-twitter] Will use twitterapi.io + cookie for replies");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -1021,7 +1050,7 @@ Do NOT mention fees, panels, or platform features. Just your raw take on the mem
               const rateLimitReply = await replyToTweet(
                 tweetId,
                 rateLimitText,
-                oauthCreds!,
+                cookieCreds!,
                 username
               );
 
@@ -1097,7 +1126,7 @@ Do NOT mention fees, panels, or platform features. Just your raw take on the mem
                 const replyResult = await replyToTweet(
                   tweetId,
                   replyText,
-                  oauthCreds!,
+                  cookieCreds!,
                   username
                 );
 
@@ -1138,7 +1167,7 @@ Do NOT mention fees, panels, or platform features. Just your raw take on the mem
               if (claimError) {
                 console.log(`[agent-scan-twitter] ⏭️ Skipping error reply to ${tweetId} - already claimed`);
               } else {
-                const replyResult = await replyToTweet(tweetId, errorReplyText, oauthCreds!, username);
+                const replyResult = await replyToTweet(tweetId, errorReplyText, cookieCreds!, username);
                 if (!replyResult.success) {
                   console.error(`[agent-scan-twitter] ❌ FAILED to send error reply to @${username}:`, replyResult.error);
                 } else {
@@ -1198,7 +1227,7 @@ Do NOT mention fees, panels, or platform features. Just your raw take on the mem
               const replyResult = await replyToTweet(
                 launch.post_id,
                 replyText,
-                oauthCreds!,
+                cookieCreds!,
                 launch.post_author || ""
               );
 
