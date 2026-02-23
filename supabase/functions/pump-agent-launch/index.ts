@@ -374,6 +374,21 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
+    // Release vanity address if one was reserved during this launch attempt
+    if (typeof vanityId === 'string' && vanityId) {
+      try {
+        const releaseClient = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+        );
+        await releaseClient.rpc('backend_release_vanity_address', {
+          p_keypair_id: vanityId,
+        });
+        console.log(`[pump-agent-launch] Released vanity address ${vanityId} after error`);
+      } catch (releaseErr) {
+        console.error("[pump-agent-launch] Failed to release vanity address:", releaseErr);
+      }
+    }
     console.error("[pump-agent-launch] Error:", error);
     return new Response(
       JSON.stringify({
