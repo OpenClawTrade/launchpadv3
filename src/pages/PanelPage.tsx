@@ -154,7 +154,7 @@ export default function PanelPage() {
                 <TabsContent value="earnings"><PanelEarningsTab /></TabsContent>
                 
                 <TabsContent value="launches"><PanelMyLaunchesTab /></TabsContent>
-                {isAdmin && <TabsContent value="phantom"><PanelPhantomTab /></TabsContent>}
+                <TabsContent value="phantom"><PanelPhantomTab /></TabsContent>
               </Suspense>
             </Tabs>
           </div>
