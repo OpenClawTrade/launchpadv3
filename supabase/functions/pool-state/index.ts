@@ -401,6 +401,22 @@ Deno.serve(async (req) => {
               })
               .eq('id', token.id)
               .then(() => console.log('[pool-state] Updated DB'));
+
+            // Auto-detect graduation for fun_tokens
+            if (rpcState.isGraduated && token?.status === 'active') {
+              supabaseAdmin
+                .from('fun_tokens')
+                .update({
+                  status: 'graduated',
+                  bonding_progress: 100,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('dbc_pool_address', dbcPool)
+                .eq('status', 'active')
+                .then(({ data, error }) => {
+                  if (!error) console.log('[pool-state] 🎓 Auto-graduated fun_token for pool:', dbcPool);
+                });
+            }
           }
         }
 

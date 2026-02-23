@@ -323,6 +323,34 @@ Deno.serve(async (req) => {
     // Save to DATABASE cache (persists across cold starts)
     await setCachedPoolState(poolAddress, mintAddress, poolState);
 
+    // Auto-detect graduation: if bonding progress >= 100%, update fun_tokens status
+    if (rpcData.isGraduated) {
+      try {
+        const supabase = getSupabaseClient();
+        // Find and update the fun_token by pool address if still active
+        const { data: tokenToGraduate } = await supabase
+          .from('fun_tokens')
+          .select('id, status, ticker')
+          .eq('dbc_pool_address', poolAddress)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (tokenToGraduate) {
+          await supabase
+            .from('fun_tokens')
+            .update({
+              status: 'graduated',
+              bonding_progress: 100,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', tokenToGraduate.id);
+          console.log(`[fun-pool-state] 🎓 Auto-graduated token: $${tokenToGraduate.ticker} (${tokenToGraduate.id})`);
+        }
+      } catch (e) {
+        console.error('[fun-pool-state] Auto-graduation error:', e);
+      }
+    }
+
     console.log('[fun-pool-state] Returning fresh data:', {
       price: poolState.priceSol,
       progress: poolState.bondingProgress,
