@@ -323,32 +323,38 @@ Deno.serve(async (req) => {
     // Save to DATABASE cache (persists across cold starts)
     await setCachedPoolState(poolAddress, mintAddress, poolState);
 
-    // Auto-detect graduation: if bonding progress >= 100%, update fun_tokens status
-    if (rpcData.isGraduated) {
-      try {
-        const supabase = getSupabaseClient();
-        // Find and update the fun_token by pool address if still active
-        const { data: tokenToGraduate } = await supabase
-          .from('fun_tokens')
-          .select('id, status, ticker')
-          .eq('dbc_pool_address', poolAddress)
-          .eq('status', 'active')
-          .maybeSingle();
+    // Always sync price/mcap/holders to fun_tokens DB (for both active and graduated tokens)
+    try {
+      const supabase = getSupabaseClient();
+      const { data: tokenRecord } = await supabase
+        .from('fun_tokens')
+        .select('id, status, ticker')
+        .eq('dbc_pool_address', poolAddress)
+        .maybeSingle();
 
-        if (tokenToGraduate) {
-          await supabase
-            .from('fun_tokens')
-            .update({
-              status: 'graduated',
-              bonding_progress: 100,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', tokenToGraduate.id);
-          console.log(`[fun-pool-state] 🎓 Auto-graduated token: $${tokenToGraduate.ticker} (${tokenToGraduate.id})`);
+      if (tokenRecord) {
+        const updatePayload: Record<string, any> = {
+          price_sol: rpcData.priceSol,
+          market_cap_sol: rpcData.marketCapSol,
+          bonding_progress: rpcData.bondingProgress,
+          holder_count: holderCount,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Auto-graduate if needed
+        if (rpcData.isGraduated && tokenRecord.status === 'active') {
+          updatePayload.status = 'graduated';
+          updatePayload.bonding_progress = 100;
+          console.log(`[fun-pool-state] 🎓 Auto-graduating token: $${tokenRecord.ticker} (${tokenRecord.id})`);
         }
-      } catch (e) {
-        console.error('[fun-pool-state] Auto-graduation error:', e);
+
+        await supabase
+          .from('fun_tokens')
+          .update(updatePayload)
+          .eq('id', tokenRecord.id);
       }
+    } catch (e) {
+      console.error('[fun-pool-state] DB sync error:', e);
     }
 
     console.log('[fun-pool-state] Returning fresh data:', {
