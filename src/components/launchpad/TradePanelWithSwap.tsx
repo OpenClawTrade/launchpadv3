@@ -64,11 +64,13 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
   };
 
   const handleTrade = async () => {
-    if (!numericAmount || numericAmount <= 0) {
-      toast({ title: "Invalid amount", variant: "destructive" });
+    const tradeAmount = parseFloat(amount);
+    console.log("[TradePanelWithSwap] handleTrade called, amount state:", amount, "parsed:", tradeAmount);
+    if (!tradeAmount || tradeAmount <= 0 || isNaN(tradeAmount)) {
+      toast({ title: "Invalid amount", description: `Entered: "${amount}", parsed: ${tradeAmount}`, variant: "destructive" });
       return;
     }
-    if (!isBuy && numericAmount > userBalance) {
+    if (!isBuy && tradeAmount > userBalance) {
       toast({ title: "Insufficient token balance", variant: "destructive" });
       return;
     }
@@ -82,7 +84,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       const result = await executeSwap.mutateAsync({
         mintAddress: token.mint_address,
         userWallet: solanaAddress,
-        amount: numericAmount,
+        amount: tradeAmount,
         isBuy,
         profileId: profileId || undefined,
       });
