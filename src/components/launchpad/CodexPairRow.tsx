@@ -147,7 +147,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0 min-w-[72px]">
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">MC</span>
-            <span className="text-[13px] font-mono font-bold text-foreground leading-tight">{mcap}</span>
+            <span className="text-[14px] font-mono font-bold text-foreground leading-tight">{mcap}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">V</span>

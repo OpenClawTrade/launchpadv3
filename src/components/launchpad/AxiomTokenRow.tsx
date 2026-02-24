@@ -142,7 +142,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
             {xUsername ? (
               <span className="text-[9px] text-muted-foreground/40 font-mono">by <span className="text-muted-foreground/60">@{xUsername}</span></span>
             ) : (
-              <span className="text-[9px] text-muted-foreground/30 font-mono">by {token.creator_wallet.slice(0, 6)}...</span>
+              <span className="text-[9px] text-muted-foreground/30 font-mono">by {token.launchpad_type === 'dbc' ? 'Meteora' : token.launchpad_type === 'pump' ? 'Pump.fun' : token.creator_wallet.slice(0, 6) + '...'}</span>
             )}
             {holders > 0 && (
               <span className="flex items-center gap-0.5 text-[8px] font-mono text-muted-foreground/35">
@@ -156,7 +156,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0 min-w-[72px]">
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">MC</span>
-            <span className="text-[13px] font-mono font-bold text-foreground leading-tight">{mcap}</span>
+            <span className="text-[14px] font-mono font-bold text-foreground leading-tight">{mcap}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">V</span>

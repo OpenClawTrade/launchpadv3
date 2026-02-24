@@ -971,7 +971,7 @@ body.matrix-hidden canvas {
 .pulse-column-scroll {
   flex: 1;
   overflow-y: auto;
-  max-height: calc(100vh - 140px);
+  max-height: calc(100vh - 100px);
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border) / 0.4) transparent;
 }
