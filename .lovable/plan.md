@@ -1,50 +1,74 @@
 
-# Quick Buy SOL Button on Pulse Cards
+# Quick Buy Default Amount Input + Card Spacing Fix
 
-## Overview
-Convert the static "0 SOL" button on each Pulse card into an interactive quick-buy button that purchases the token using the Privy embedded wallet. Clicking it will execute a real on-chain swap (bonding curve via Meteora DBC or graduated via Jupiter) directly from the card -- no navigation to another page needed.
+## 1. Persistent Quick Buy Amount Input (Axiom-style)
 
-## How It Works
-1. User clicks the SOL button on a card
-2. A small popover/dropdown appears with preset SOL amounts (0.1, 0.5, 1, 2 SOL)
-3. Clicking an amount triggers the swap via the existing `useRealSwap` hook
-4. The button shows a loading spinner during the transaction
-5. A toast notification confirms success or failure with a Solscan link
-6. If the user is not logged in, clicking the button triggers Privy login first
+Add a small SOL amount input field in the Pulse header toolbar that persists the user's default buy amount. When users click "Buy" on any card, it uses this saved amount to execute immediately (one-click buy) instead of opening a popover to pick an amount.
 
-## Technical Details
+### How It Works
+- A compact input field appears in the Pulse toolbar header (next to the counter badge on the right side), showing something like: `[lightning] 0.5 SOL`
+- The value is saved to `localStorage` under key `pulse-quick-buy-amount`
+- Default value: `0.5` SOL
+- Users can click the input, type a custom amount (e.g., 0.1, 1, 2, etc.), and it persists across sessions
+- The `PulseQuickBuyButton` on each card reads this saved amount and executes immediately on click (no popover needed for the default amount)
+- Long-press or right-click still opens the popover with preset amounts as a fallback
 
-### File 1: New Component `src/components/launchpad/PulseQuickBuyButton.tsx`
-A self-contained button component that:
-- Accepts a `FunToken` (or `CodexPairToken`) and converts it to the `Token` shape needed by `useRealSwap`
-- Uses `useRealSwap().executeRealSwap()` for on-chain execution
-- Uses `useAuth()` to check authentication and trigger login
-- Shows a Popover (from Radix) with 4 preset amounts: 0.1, 0.5, 1, 2 SOL
-- Shows loading state on the selected amount button
-- Displays toast on success/failure
-- Stops event propagation so clicking doesn't navigate to the token detail page
+### Files to Modify
 
-### File 2: `src/components/launchpad/AxiomTokenRow.tsx`
-- Import and use the new `PulseQuickBuyButton` component
-- Replace the static `<div className="pulse-sol-btn">` with `<PulseQuickBuyButton token={token} />`
-- The button handles `e.preventDefault()` and `e.stopPropagation()` internally so it won't trigger the parent `<Link>` navigation
+**`src/pages/TradePage.tsx`**
+- Add state for `quickBuyAmount` initialized from `localStorage` (default `0.5`)
+- Add a small inline input in the Pulse header toolbar (right side, before the counter badge)
+- Input styling: compact, dark background, mono font, lightning icon prefix, "SOL" suffix label
+- On change, save to `localStorage` and update state
+- Pass `quickBuyAmount` down to `AxiomTerminalGrid`
 
-### File 3: `src/components/launchpad/CodexPairRow.tsx`
-- Same replacement: swap the static SOL button div for `<PulseQuickBuyButton>`
-- Pass the CodexPairToken data, mapped to the required shape inside the component
+**`src/components/launchpad/AxiomTerminalGrid.tsx`**
+- Accept new prop `quickBuyAmount: number`
+- Pass it through to `AxiomTokenRow` and `CodexPairRow`
 
-### Type Bridging
-The `useRealSwap` hook expects a `Token` type (from `useLaunchpad`), but cards use `FunToken` or `CodexPairToken`. The new component will create a minimal `Token`-compatible object from the card data:
+**`src/components/launchpad/AxiomTokenRow.tsx`**
+- Accept `quickBuyAmount` prop
+- Pass it to `PulseQuickBuyButton`
 
-```text
-FunToken/CodexPairToken --> minimal Token shape:
-  - id, mint_address, ticker, name, status, dbc_pool_address
-  - Other fields default to 0/null (not needed for swap execution)
-```
+**`src/components/launchpad/CodexPairRow.tsx`**
+- Accept `quickBuyAmount` prop
+- Pass it to `PulseQuickBuyButton`
 
-### What stays untouched
-- `useRealSwap` hook -- no changes
-- `useJupiterSwap` hook -- no changes
-- `useSolanaWalletPrivy` hook -- no changes
-- Sidebar, header, footer -- no changes
-- Card layout and styling -- no changes (only the button element is swapped)
+**`src/components/launchpad/PulseQuickBuyButton.tsx`**
+- Accept optional `quickBuyAmount` prop
+- When `quickBuyAmount` is provided and user clicks the button, execute the swap immediately with that amount (skip the popover)
+- The button label changes from "Buy" to show the amount, e.g., "0.5 SOL"
+- Keep the popover as a secondary option (e.g., on a small dropdown arrow or long-press)
+
+---
+
+## 2. Card Spacing Fix
+
+### Problem
+Cards are touching edge-to-edge with `gap-0.5` (2px) -- looks cramped and unprofessional.
+
+### Fix
+
+**`src/components/launchpad/AxiomTerminalGrid.tsx`**
+- In `renderColumnContent`, change the card list container from `gap-0.5 p-1` to `gap-3 p-2`
+- In `PulseColumnSkeleton`, change from `gap-1 p-1.5` to `gap-3 p-2`
+
+This gives 12px vertical spacing between cards with 8px padding around the column -- clean, professional breathing room without being too spread out for a dense terminal.
+
+---
+
+## Summary of Changes
+| File | Change |
+|------|--------|
+| `TradePage.tsx` | Add quick buy amount input in header toolbar + state/localStorage |
+| `AxiomTerminalGrid.tsx` | Accept + pass `quickBuyAmount` prop; fix `gap-0.5` to `gap-3` |
+| `AxiomTokenRow.tsx` | Accept + pass `quickBuyAmount` to button |
+| `CodexPairRow.tsx` | Accept + pass `quickBuyAmount` to button |
+| `PulseQuickBuyButton.tsx` | Accept `quickBuyAmount`, execute immediately on click, show amount on button |
+
+## What Stays Untouched
+- Left sidebar -- 100% untouched
+- Top app header -- 100% untouched
+- All data hooks -- 100% untouched
+- Card design/colors -- 100% untouched (only spacing between cards changes)
+- Swap execution logic (`useRealSwap`) -- 100% untouched
