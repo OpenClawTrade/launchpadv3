@@ -104,7 +104,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
 
           {/* Line 2: Age + social icons */}
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            <span className="text-[10px] font-mono text-muted-foreground/60">{age}</span>
+            <span className="text-[10px] font-mono text-foreground/50">{age}</span>
             <span className="pulse-icon-separator" />
             {token.twitterUrl && (
               <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
@@ -124,19 +124,19 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
             )}
             <span className="pulse-social-icon"><Search className="h-2.5 w-2.5" /></span>
             {token.holders > 0 && (
-              <span className="text-[9px] font-mono text-muted-foreground/60">{formatTxCount(token.holders)}</span>
+              <span className="text-[9px] font-mono text-foreground/45">{formatTxCount(token.holders)}</span>
             )}
           </div>
 
           {/* Line 3: Creator line */}
           <div className="flex items-center gap-1 mt-0.5">
             {xUsername ? (
-              <span className="text-[10px] text-muted-foreground/60 font-mono">by <span className="text-muted-foreground/80">@{xUsername}</span></span>
+              <span className="text-[10px] text-foreground/45 font-mono">by <span className="text-foreground/65">@{xUsername}</span></span>
             ) : (
-              <span className="text-[10px] text-muted-foreground/50 font-mono">by {token.launchpadName}</span>
+              <span className="text-[10px] text-foreground/40 font-mono">by {token.launchpadName}</span>
             )}
             {token.holders > 0 && (
-              <span className="flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/50">
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/40">
                 <Users className="h-2.5 w-2.5" />{formatTxCount(token.holders)}
               </span>
             )}
@@ -151,15 +151,15 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
           </div>
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">V</span>
-            <span className="text-[11px] font-mono font-semibold text-foreground/75">{vol}</span>
+            <span className="text-[11px] font-mono font-semibold text-foreground/85">{vol}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">F</span>
-            <span className="text-[11px] font-mono font-semibold text-foreground/65">{liq}</span>
+            <span className="text-[11px] font-mono font-semibold text-foreground/80">{liq}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">TX</span>
-            <span className="text-[11px] font-mono font-semibold text-foreground/65">{formatTxCount(token.holders)}</span>
+            <span className="text-[11px] font-mono font-semibold text-foreground/80">{formatTxCount(token.holders)}</span>
             {token.change24h !== 0 && (
               <>
                 {token.change24h > 0 ? (
@@ -177,7 +177,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
       </div>
 
       {/* Row 2: Bottom bar */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/40">
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-[hsl(0_0%_16%)]">
         <div className="flex items-center gap-1.5">
           {/* Progress % */}
           <div className="flex items-center gap-1">
@@ -203,7 +203,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
           {shortAddr && (
             <button
               onClick={handleCopyCA}
-              className="flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/40 hover:text-foreground/70 transition-colors"
             >
               {copiedCA ? <CheckCircle className="h-2 w-2 text-success" /> : <Copy className="h-2 w-2" />}
               <span>{shortAddr}</span>
