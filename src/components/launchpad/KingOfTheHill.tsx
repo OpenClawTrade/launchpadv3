@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ArrowUpRight, Globe, MessageCircle, Copy, Check } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
@@ -84,6 +84,7 @@ function ProgressBar({ value }: { value: number }) {
 
 /* ── premium card ── */
 function KingCard({ token, rank }: { token: KingToken; rank: number }) {
+  const navigate = useNavigate();
   const [blink, setBlink] = useState(false);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -143,8 +144,8 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
   };
 
   return (
-    <Link
-      to={url}
+    <div
+      onClick={() => navigate(url)}
       className={cn(
         "group relative flex flex-col",
         "rounded-2xl border transition-all duration-300 ease-out",
@@ -265,9 +266,8 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
 
       {/* Bottom Tools Row */}
       <div className="flex items-center justify-between pt-2 border-t border-border/10">
-        <Link
-          to={url}
-          onClick={handleTradeClick}
+        <button
+          onClick={(e) => { e.stopPropagation(); navigate(url); }}
           className={cn(
             "flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
             "bg-primary/10 text-primary hover:bg-primary/20",
@@ -276,7 +276,7 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
         >
           <TrendingUp className="w-3 h-3" />
           Trade
-        </Link>
+        </button>
 
         <div className="flex items-center gap-1.5">
           {/* Social Links */}
@@ -341,7 +341,7 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
           </TooltipProvider>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
