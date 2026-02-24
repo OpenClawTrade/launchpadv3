@@ -309,8 +309,8 @@ Reply (max 240 chars):`;
     const data = await replyResponse.json();
     let reply = data.choices?.[0]?.message?.content?.trim() || null;
 
-    if (reply && reply.length > 280) {
-      reply = reply.substring(0, 277) + "...";
+    if (reply && reply.length > 250) {
+      reply = reply.substring(0, 247) + "...";
     }
 
     // Parse topics
