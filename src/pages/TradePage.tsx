@@ -29,17 +29,18 @@ export default function TradePage() {
   const { solPrice } = useSolPrice();
   const { newPairs: codexNewPairs, completing: codexCompleting, graduated: codexGraduated } = useCodexNewPairs();
   const [quickBuyAmount, setQuickBuyAmount] = useState(getStoredQuickBuy);
+  const [quickBuyInput, setQuickBuyInput] = useState(String(getStoredQuickBuy()));
 
   const handleQuickBuyChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    const num = parseFloat(val);
-    if (val === "" || val === "0" || val === "0.") {
-      setQuickBuyAmount(0);
-      return;
-    }
-    if (num > 0 && isFinite(num)) {
-      setQuickBuyAmount(num);
-      localStorage.setItem(QUICK_BUY_KEY, String(num));
+    // Allow empty, partial decimals like "0.", "0.0", "0.05"
+    if (val === "" || /^\d*\.?\d*$/.test(val)) {
+      setQuickBuyInput(val);
+      const num = parseFloat(val);
+      if (num > 0 && isFinite(num)) {
+        setQuickBuyAmount(num);
+        localStorage.setItem(QUICK_BUY_KEY, String(num));
+      }
     }
   }, []);
 
@@ -81,18 +82,20 @@ export default function TradePage() {
             <div className="flex items-center gap-1 ml-1 px-2 py-1 rounded bg-muted/50">
               <Zap className="h-3 w-3 text-warning flex-shrink-0" />
               <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={quickBuyAmount || ""}
+                type="text"
+                inputMode="decimal"
+                value={quickBuyInput}
                 onChange={handleQuickBuyChange}
                 onBlur={() => {
                   if (!quickBuyAmount || quickBuyAmount <= 0) {
                     setQuickBuyAmount(DEFAULT_QUICK_BUY);
+                    setQuickBuyInput(String(DEFAULT_QUICK_BUY));
                     localStorage.setItem(QUICK_BUY_KEY, String(DEFAULT_QUICK_BUY));
+                  } else {
+                    setQuickBuyInput(String(quickBuyAmount));
                   }
                 }}
-                className="w-12 bg-transparent text-[11px] font-mono font-bold text-foreground outline-none border-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-12 bg-transparent text-[11px] font-mono font-bold text-foreground outline-none border-none p-0"
               />
               <span className="text-[10px] font-mono text-muted-foreground">SOL</span>
             </div>
