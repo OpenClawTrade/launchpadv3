@@ -137,8 +137,8 @@ export default function ConsolePage() {
   }, [input, isSending, displayName]);
 
   return (
-    <LaunchpadLayout>
-      <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
+    <LaunchpadLayout hideFooter noPadding>
+      <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-[calc(100vh)]">
         {/* Chat Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-sidebar/50 backdrop-blur-sm">
           <img src={clawLogo} alt="" className="h-9 w-9 rounded-full ring-2 ring-success/30" />
