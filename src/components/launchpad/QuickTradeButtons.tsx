@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Token, useLaunchpad, formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
+import { Token, formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRealSwap } from "@/hooks/useRealSwap";
 
 interface QuickTradeButtonsProps {
   token: Token;
@@ -16,8 +17,8 @@ const QUICK_BUY_AMOUNTS = [0.1, 0.5, 1, 5];
 const QUICK_SELL_PERCENTAGES = [25, 50, 75, 100];
 
 export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: QuickTradeButtonsProps) {
-  const { isAuthenticated, login, solanaAddress, profileId } = useAuth();
-  const { executeSwap } = useLaunchpad();
+  const { isAuthenticated, login, solanaAddress } = useAuth();
+  const { executeRealSwap } = useRealSwap();
   const { toast } = useToast();
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
@@ -37,20 +38,14 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
 
     setLoadingIndex(index);
     try {
-      const result = await executeSwap.mutateAsync({
-        mintAddress: token.mint_address,
-        userWallet: solanaAddress,
-        amount: solAmount,
-        isBuy: true,
-        profileId: profileId || undefined,
-      });
+      const result = await executeRealSwap(token, solAmount, true);
 
       toast({
         title: "Buy successful!",
         description: (
           <div className="flex items-center gap-2 font-mono text-xs">
-            <span>Bought {formatTokenAmount(result.tokensOut || 0)} {token.ticker} for {solAmount} SOL</span>
-            {result.signature && !result.signature.startsWith('pending_') && (
+            <span>Bought {token.ticker} for {solAmount} SOL</span>
+            {result.signature && (
               <a href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 View TX ↗
               </a>
@@ -96,19 +91,22 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
       return;
     }
 
-    setLoadingIndex(index + 10); // Offset for sell buttons
+    setLoadingIndex(index + 10);
     try {
-      const result = await executeSwap.mutateAsync({
-        mintAddress: token.mint_address,
-        userWallet: solanaAddress,
-        amount: tokenAmount,
-        isBuy: false,
-        profileId: profileId || undefined,
-      });
+      const result = await executeRealSwap(token, tokenAmount, false);
 
       toast({
         title: "Sell successful!",
-        description: `Sold ${formatTokenAmount(tokenAmount)} ${token.ticker} for ${formatSolAmount(result.solOut || 0)} SOL`,
+        description: (
+          <div className="flex items-center gap-2 font-mono text-xs">
+            <span>Sold {formatTokenAmount(tokenAmount)} {token.ticker}</span>
+            {result.signature && (
+              <a href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                View TX ↗
+              </a>
+            )}
+          </div>
+        ),
       });
 
       onTradeComplete?.();

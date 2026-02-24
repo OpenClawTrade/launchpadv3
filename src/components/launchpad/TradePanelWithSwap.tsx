@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Token, calculateBuyQuote, calculateSellQuote, formatTokenAmount, formatSolAmount, useLaunchpad } from "@/hooks/useLaunchpad";
+import { Token, calculateBuyQuote, calculateSellQuote, formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowDown, Loader2, Wallet, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useRealSwap } from "@/hooks/useRealSwap";
 
 interface TradePanelWithSwapProps {
   token: Token;
@@ -15,7 +16,7 @@ const SLIPPAGE_PRESETS = [0.5, 1, 2, 5, 10];
 
 export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwapProps) {
   const { isAuthenticated, login, solanaAddress, profileId } = useAuth();
-  const { executeSwap } = useLaunchpad();
+  const { executeRealSwap, isLoading: isSwapLoading, getBalance } = useRealSwap();
   const { toast } = useToast();
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState<string>('');
@@ -23,9 +24,17 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
   const [slippage, setSlippage] = useState(5);
   const [customSlippage, setCustomSlippage] = useState<string>('');
   const [showCustomSlippage, setShowCustomSlippage] = useState(false);
+  const [solBalance, setSolBalance] = useState<number | null>(null);
 
   const isBuy = tradeType === 'buy';
   const numericAmount = parseFloat(amount) || 0;
+
+  // Fetch real SOL balance
+  useEffect(() => {
+    if (isAuthenticated && solanaAddress) {
+      getBalance().then(setSolBalance).catch(() => setSolBalance(null));
+    }
+  }, [isAuthenticated, solanaAddress, getBalance, isLoading]);
 
   const virtualSol = (token.virtual_sol_reserves || 30) + (token.real_sol_reserves || 0);
   const virtualToken = (token.virtual_token_reserves || 1_000_000_000) - (token.real_token_reserves || 0);
@@ -74,6 +83,10 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       toast({ title: "Insufficient token balance", variant: "destructive" });
       return;
     }
+    if (isBuy && solBalance !== null && tradeAmount > solBalance) {
+      toast({ title: "Insufficient SOL balance", description: `You have ${solBalance.toFixed(4)} SOL`, variant: "destructive" });
+      return;
+    }
     if (!solanaAddress) {
       toast({ title: "Please connect your wallet", variant: "destructive" });
       return;
@@ -81,25 +94,22 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
 
     setIsLoading(true);
     try {
-      const result = await executeSwap.mutateAsync({
-        mintAddress: token.mint_address,
-        userWallet: solanaAddress,
-        amount: tradeAmount,
-        isBuy,
-        profileId: profileId || undefined,
-      });
+      const result = await executeRealSwap(token, tradeAmount, isBuy, slippage * 100);
 
       setAmount('');
+      // Refresh SOL balance after trade
+      getBalance().then(setSolBalance).catch(() => {});
+
       toast({
         title: `${isBuy ? 'Buy' : 'Sell'} successful!`,
         description: (
           <div className="flex items-center gap-2 font-mono text-xs">
             <span>
               {isBuy
-                ? `Bought ${formatTokenAmount(result.tokensOut || 0)} ${token.ticker}`
-                : `Sold for ${formatSolAmount(result.solOut || 0)} SOL`}
+                ? `Bought ${token.ticker}`
+                : `Sold ${token.ticker}`}
             </span>
-            {result.signature && !result.signature.startsWith('pending_') && (
+            {result.signature && (
               <a href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 View TX ↗
               </a>
@@ -146,6 +156,8 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
     );
   }
 
+  const tradingDisabled = isLoading || isSwapLoading;
+
   return (
     <div className="border border-border/40 rounded-lg overflow-hidden">
       {/* Buy / Sell Toggle */}
@@ -180,7 +192,9 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
               {isBuy ? 'You Pay' : 'You Sell'}
             </span>
             <span className="text-[10px] font-mono text-muted-foreground">
-              Bal: {isBuy ? '—' : formatTokenAmount(userBalance)} {isBuy ? 'SOL' : token.ticker}
+              Bal: {isBuy 
+                ? (solBalance !== null ? `${solBalance.toFixed(4)} SOL` : '—') 
+                : `${formatTokenAmount(userBalance)} ${token.ticker}`}
             </span>
           </div>
           <div className="relative bg-background/60 border border-border/50 rounded-lg hover:border-border/80 focus-within:border-primary/50 transition-colors">
@@ -330,14 +344,14 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
         ) : (
           <button
             onClick={handleTrade}
-            disabled={isLoading || !numericAmount}
+            disabled={tradingDisabled || !numericAmount}
             className={`w-full h-12 rounded-lg font-mono text-sm font-bold uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
               isBuy
                 ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/40 hover:border-green-500/60 hover:shadow-[0_0_16px_hsl(142_60%_40%/0.25)]'
                 : 'bg-destructive/20 hover:bg-destructive/30 text-destructive border border-destructive/40 hover:border-destructive/60 hover:shadow-[0_0_16px_hsl(var(--destructive)/0.25)]'
             }`}
           >
-            {isLoading ? (
+            {tradingDisabled ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               `${isBuy ? 'Buy' : 'Sell'} ${token.ticker}`
