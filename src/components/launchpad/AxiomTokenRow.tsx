@@ -10,6 +10,7 @@ import { toast } from "sonner";
 interface AxiomTokenRowProps {
   token: FunToken;
   solPrice: number | null;
+  quickBuyAmount?: number;
 }
 
 function formatUsd(mcapSol: number | null | undefined, solPrice: number | null): string {
@@ -55,7 +56,7 @@ function formatHolders(n: number): string {
   return String(n);
 }
 
-export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: AxiomTokenRowProps) {
+export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quickBuyAmount }: AxiomTokenRowProps) {
   const [copiedCA, setCopiedCA] = useState(false);
   const bondingProgress = token.bonding_progress ?? 0;
   const isAgent = !!token.agent_id;
@@ -229,7 +230,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
         </div>
 
         {/* Quick Buy button */}
-        <PulseQuickBuyButton funToken={token} />
+        <PulseQuickBuyButton funToken={token} quickBuyAmount={quickBuyAmount} />
       </div>
     </Link>
   );

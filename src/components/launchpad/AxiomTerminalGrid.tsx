@@ -14,6 +14,7 @@ interface AxiomTerminalGridProps {
   codexNewPairs?: CodexPairToken[];
   codexCompleting?: CodexPairToken[];
   codexGraduated?: CodexPairToken[];
+  quickBuyAmount: number;
 }
 
 const COLUMN_TABS = [
@@ -48,7 +49,7 @@ function PulseColumnHeader({ label, count, icon: Icon }: { label: string; count:
 
 function PulseColumnSkeleton() {
   return (
-    <div className="flex flex-col gap-1 p-1.5">
+    <div className="flex flex-col gap-3 p-2">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="pulse-card-skeleton">
           <Skeleton className="w-12 h-12 rounded-xl skeleton-shimmer" />
@@ -78,7 +79,7 @@ function PulseEmptyColumn({ label }: { label: string }) {
   );
 }
 
-export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs = [], codexCompleting = [], codexGraduated = [] }: AxiomTerminalGridProps) {
+export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs = [], codexCompleting = [], codexGraduated = [], quickBuyAmount }: AxiomTerminalGridProps) {
   const [mobileTab, setMobileTab] = useState<ColumnTab>("new");
   const { tokens: kingTokens } = useKingOfTheHill();
 
@@ -133,12 +134,12 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
     if (isLoading) return <PulseColumnSkeleton />;
     if (col.tokens.length === 0 && col.codex.length === 0) return <PulseEmptyColumn label={col.label} />;
     return (
-      <div className="flex flex-col gap-0.5 p-1">
+      <div className="flex flex-col gap-3 p-2">
         {col.codex.map(t => (
-          <CodexPairRow key={`codex-${t.address}`} token={t} />
+          <CodexPairRow key={`codex-${t.address}`} token={t} quickBuyAmount={quickBuyAmount} />
         ))}
         {col.tokens.map(token => (
-          <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} />
+          <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} quickBuyAmount={quickBuyAmount} />
         ))}
       </div>
     );

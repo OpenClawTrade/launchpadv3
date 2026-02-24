@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
@@ -7,8 +7,19 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { useCodexNewPairs } from "@/hooks/useCodexNewPairs";
 import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
 import {
-  List, Settings, Bookmark, Monitor, Volume2, LayoutGrid, ChevronDown
+  List, Settings, Bookmark, Monitor, Volume2, LayoutGrid, ChevronDown, Zap
 } from "lucide-react";
+
+const QUICK_BUY_KEY = "pulse-quick-buy-amount";
+const DEFAULT_QUICK_BUY = 0.5;
+
+function getStoredQuickBuy(): number {
+  try {
+    const v = localStorage.getItem(QUICK_BUY_KEY);
+    if (v) { const n = parseFloat(v); if (n > 0 && isFinite(n)) return n; }
+  } catch {}
+  return DEFAULT_QUICK_BUY;
+}
 
 export default function TradePage() {
   const [searchParams] = useSearchParams();
@@ -17,6 +28,20 @@ export default function TradePage() {
   const { tokens: graduatedTokens } = useGraduatedTokens();
   const { solPrice } = useSolPrice();
   const { newPairs: codexNewPairs, completing: codexCompleting, graduated: codexGraduated } = useCodexNewPairs();
+  const [quickBuyAmount, setQuickBuyAmount] = useState(getStoredQuickBuy);
+
+  const handleQuickBuyChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const num = parseFloat(val);
+    if (val === "" || val === "0" || val === "0.") {
+      setQuickBuyAmount(0);
+      return;
+    }
+    if (num > 0 && isFinite(num)) {
+      setQuickBuyAmount(num);
+      localStorage.setItem(QUICK_BUY_KEY, String(num));
+    }
+  }, []);
 
   const allTokens = useMemo(() => {
     const tokenIds = new Set(tokens.map(t => t.id));
@@ -52,6 +77,25 @@ export default function TradePage() {
             <button className="pulse-toolbar-icon"><Volume2 className="h-3.5 w-3.5" /></button>
             <button className="pulse-toolbar-icon"><Settings className="h-3.5 w-3.5" /></button>
             <button className="pulse-toolbar-icon"><LayoutGrid className="h-3.5 w-3.5" /></button>
+            {/* Quick Buy Amount Input */}
+            <div className="flex items-center gap-1 ml-1 px-2 py-1 rounded bg-muted/50">
+              <Zap className="h-3 w-3 text-warning flex-shrink-0" />
+              <input
+                type="number"
+                min="0.01"
+                step="0.1"
+                value={quickBuyAmount || ""}
+                onChange={handleQuickBuyChange}
+                onBlur={() => {
+                  if (!quickBuyAmount || quickBuyAmount <= 0) {
+                    setQuickBuyAmount(DEFAULT_QUICK_BUY);
+                    localStorage.setItem(QUICK_BUY_KEY, String(DEFAULT_QUICK_BUY));
+                  }
+                }}
+                className="w-12 bg-transparent text-[11px] font-mono font-bold text-foreground outline-none border-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="text-[10px] font-mono text-muted-foreground">SOL</span>
+            </div>
             <div className="flex items-center gap-1 ml-1 px-2 py-1 rounded bg-muted/50 text-[10px] font-mono text-muted-foreground">
               <span className="text-foreground font-bold">1</span>
               <span>=</span>
@@ -77,6 +121,7 @@ export default function TradePage() {
           codexNewPairs={codexNewPairs}
           codexCompleting={codexCompleting}
           codexGraduated={codexGraduated}
+          quickBuyAmount={quickBuyAmount}
         />
       </div>
     </LaunchpadLayout>
