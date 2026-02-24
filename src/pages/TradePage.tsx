@@ -6,6 +6,9 @@ import { useGraduatedTokens } from "@/hooks/useGraduatedTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useCodexNewPairs } from "@/hooks/useCodexNewPairs";
 import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
+import {
+  List, Settings, Bookmark, Monitor, Volume2, LayoutGrid, ChevronDown
+} from "lucide-react";
 
 export default function TradePage() {
   const [searchParams] = useSearchParams();
@@ -15,7 +18,6 @@ export default function TradePage() {
   const { solPrice } = useSolPrice();
   const { newPairs: codexNewPairs, completing: codexCompleting, graduated: codexGraduated } = useCodexNewPairs();
 
-  // Merge graduated tokens that might not be in the paginated results
   const allTokens = useMemo(() => {
     const tokenIds = new Set(tokens.map(t => t.id));
     const missingGraduated = graduatedTokens.filter(t => !tokenIds.has(t.id));
@@ -32,25 +34,40 @@ export default function TradePage() {
 
   return (
     <LaunchpadLayout>
-      <div className="space-y-3 relative z-10">
-        {/* Header + Search */}
-        <div className="flex items-center gap-3 px-4">
+      <div className="space-y-0 relative z-10">
+        {/* Pulse Header Toolbar */}
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/40">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold font-mono text-foreground">Terminal</h1>
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-[10px] font-bold font-mono">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse inline-block" />
-              LIVE
-            </span>
-            <span className="text-[10px] font-mono text-muted-foreground ml-1">
-              {totalCount.toLocaleString()} tokens
-            </span>
+            <h1 className="text-[15px] font-bold text-foreground tracking-tight">Pulse</h1>
+            <button className="pulse-toolbar-icon"><List className="h-3.5 w-3.5" /></button>
+            <button className="pulse-toolbar-icon"><Settings className="h-3.5 w-3.5" /></button>
           </div>
-          {search && (
-            <span className="text-[10px] font-mono text-accent-purple ml-1">
+          <div className="flex items-center gap-1.5">
+            <button className="pulse-toolbar-btn">
+              <span>Display</span>
+              <ChevronDown className="h-3 w-3 opacity-50" />
+            </button>
+            <button className="pulse-toolbar-icon"><Bookmark className="h-3.5 w-3.5" /></button>
+            <button className="pulse-toolbar-icon"><Monitor className="h-3.5 w-3.5" /></button>
+            <button className="pulse-toolbar-icon"><Volume2 className="h-3.5 w-3.5" /></button>
+            <button className="pulse-toolbar-icon"><Settings className="h-3.5 w-3.5" /></button>
+            <button className="pulse-toolbar-icon"><LayoutGrid className="h-3.5 w-3.5" /></button>
+            <div className="flex items-center gap-1 ml-1 px-2 py-1 rounded bg-muted/50 text-[10px] font-mono text-muted-foreground">
+              <span className="text-foreground font-bold">1</span>
+              <span>=</span>
+              <span>{totalCount.toLocaleString()}</span>
+              <ChevronDown className="h-2.5 w-2.5 opacity-40" />
+            </div>
+          </div>
+        </div>
+
+        {search && (
+          <div className="px-3 py-1">
+            <span className="text-[10px] font-mono text-accent-purple">
               filtering: "{search}"
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Axiom Terminal Grid */}
         <AxiomTerminalGrid

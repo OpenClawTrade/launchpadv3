@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Globe, Users, Copy, CheckCircle, Sparkles, Zap, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Globe, Users, Copy, CheckCircle, Sparkles, Zap, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { toast } from "sonner";
@@ -49,13 +49,6 @@ function extractXUsername(twitterUrl?: string | null): string | null {
   }
 }
 
-function getBadgeLabel(type?: string | null): string | null {
-  if (type === 'pumpfun') return 'P';
-  if (type === 'bags') return 'B';
-  if (type === 'phantom') return 'PH';
-  return null;
-}
-
 function formatHolders(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return String(n);
@@ -66,10 +59,9 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
   const bondingProgress = token.bonding_progress ?? 0;
   const isAgent = !!token.agent_id;
   const xUsername = extractXUsername(token.twitter_url);
-  const badgeLabel = getBadgeLabel(token.launchpad_type);
   const mcap = formatUsd(token.market_cap_sol, solPrice);
   const vol = formatVolume(token.volume_24h_sol, solPrice);
-  const fees = token.total_fees_earned?.toFixed(3) ?? "0";
+  const fees = formatUsd(token.total_fees_earned, solPrice);
   const holders = token.holder_count ?? 0;
   const age = formatAge(token.created_at);
   const shortAddr = token.mint_address ? `${token.mint_address.slice(0, 4)}...${token.mint_address.slice(-4)}` : "";
@@ -94,7 +86,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
     <Link to={tradeUrl} className="pulse-card group">
       {/* Row 1: Avatar + Info + Metrics */}
       <div className="flex items-start gap-2.5">
-        {/* Avatar with verified dot */}
+        {/* Avatar */}
         <div className="pulse-avatar-wrap">
           <div className="pulse-avatar">
             <OptimizedTokenImage
@@ -109,13 +101,13 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
           {token.status === 'graduated' && <div className="pulse-verified-dot" />}
         </div>
 
-        {/* Center info */}
+        {/* Center info block */}
         <div className="flex-1 min-w-0">
-          {/* Name + symbol + badges */}
+          {/* Line 1: Name + symbol + link */}
           <div className="flex items-center gap-1">
-            <span className="text-[13px] font-bold text-foreground truncate leading-tight">{token.name}</span>
-            <span className="text-[10px] text-muted-foreground/70 font-mono">${token.ticker}</span>
-            {badgeLabel && <span className="axiom-platform-badge">{badgeLabel}</span>}
+            <span className="text-[12px] font-bold text-foreground truncate leading-tight">{token.ticker}</span>
+            <span className="text-[10px] text-muted-foreground/50 truncate italic">{token.name}</span>
+            <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/30 flex-shrink-0" />
             {isAgent && (
               <span className="axiom-agent-badge">
                 <Sparkles className="h-2.5 w-2.5" />
@@ -123,46 +115,44 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
             )}
           </div>
 
-          {/* Creator line: age + socials + handle */}
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[9px] font-mono text-muted-foreground/60">{age}</span>
+          {/* Line 2: Age + social icons row with counts */}
+          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+            <span className="text-[9px] font-mono text-muted-foreground/50">{age}</span>
+            <span className="pulse-icon-separator" />
             {token.twitter_url && (
               <a href={token.twitter_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
                 <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
               </a>
             )}
+            <span className="pulse-social-icon"><Users className="h-2.5 w-2.5" /></span>
             {token.website_url && (
               <a href={token.website_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
                 <Globe className="h-2.5 w-2.5" />
               </a>
             )}
-            {xUsername && (
-              <span className="text-[9px] font-mono text-muted-foreground/50 truncate max-w-[70px]">@{xUsername}</span>
+            <span className="pulse-social-icon"><MessageCircle className="h-2.5 w-2.5" /></span>
+            <span className="pulse-social-icon"><Search className="h-2.5 w-2.5" /></span>
+            {holders > 0 && (
+              <span className="text-[8px] font-mono text-muted-foreground/40">{formatHolders(holders)}</span>
+            )}
+          </div>
+
+          {/* Line 3: Creator line */}
+          <div className="flex items-center gap-1 mt-0.5">
+            {xUsername ? (
+              <span className="text-[9px] text-muted-foreground/40 font-mono">by <span className="text-muted-foreground/60">@{xUsername}</span></span>
+            ) : (
+              <span className="text-[9px] text-muted-foreground/30 font-mono">by {token.creator_wallet.slice(0, 6)}...</span>
             )}
             {holders > 0 && (
-              <span className="flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/50">
+              <span className="flex items-center gap-0.5 text-[8px] font-mono text-muted-foreground/35">
                 <Users className="h-2 w-2" />{formatHolders(holders)}
               </span>
             )}
           </div>
-
-          {/* Progress bar inline */}
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <div className="pulse-progress-track flex-1">
-              <div
-                className="pulse-progress-fill"
-                style={{ width: `${Math.max(Math.min(bondingProgress, 100), 2)}%` }}
-              />
-            </div>
-            <span className="text-[9px] font-mono font-bold flex-shrink-0" style={{
-              color: bondingProgress >= 80 ? "hsl(38 92% 50%)" : bondingProgress >= 50 ? "hsl(45 93% 47%)" : "hsl(160 84% 50%)"
-            }}>
-              {bondingProgress.toFixed(bondingProgress >= 1 ? 0 : 1)}%
-            </span>
-          </div>
         </div>
 
-        {/* Right metrics column */}
+        {/* Right metrics */}
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0 min-w-[72px]">
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">MC</span>
@@ -176,45 +166,65 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
             <span className="pulse-metric-label">F</span>
             <span className="text-[10px] font-mono text-foreground/50">{fees}</span>
           </div>
-          {priceChange !== 0 && (
-            <div className="flex items-center gap-0.5 mt-0.5">
-              {priceChange > 0 ? (
-                <ArrowUpRight className="h-2.5 w-2.5 text-success" />
-              ) : (
-                <ArrowDownRight className="h-2.5 w-2.5 text-destructive" />
-              )}
-              <span className={`text-[9px] font-mono font-bold ${priceChange > 0 ? "text-success" : "text-destructive"}`}>
-                {priceChange > 0 ? "+" : ""}{priceChange.toFixed(0)}%
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-1">
+            <span className="pulse-metric-label">TX</span>
+            <span className="text-[10px] font-mono text-foreground/50">{formatHolders(holders)}</span>
+            {priceChange !== 0 && (
+              <>
+                {priceChange > 0 ? (
+                  <ArrowUpRight className="h-2.5 w-2.5 text-success" />
+                ) : (
+                  <ArrowDownRight className="h-2.5 w-2.5 text-destructive" />
+                )}
+                <span className={`text-[9px] font-mono font-bold ${priceChange > 0 ? "text-success" : "text-destructive"}`}>
+                  {priceChange > 0 ? "+" : ""}{priceChange.toFixed(0)}%
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Row 2: Bottom metrics + SOL button */}
-      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-border/30">
+      {/* Row 2: Bottom bar */}
+      <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/20">
         <div className="flex items-center gap-1.5">
+          {/* Progress % */}
+          <div className="flex items-center gap-1">
+            {bondingProgress > 0 && (
+              <ArrowUpRight className="h-2.5 w-2.5 text-success" />
+            )}
+            <span className="text-[9px] font-mono font-bold" style={{
+              color: bondingProgress >= 80 ? "hsl(38 92% 50%)" : bondingProgress >= 50 ? "hsl(45 93% 47%)" : "hsl(160 84% 39%)"
+            }}>
+              {bondingProgress.toFixed(bondingProgress >= 1 ? 0 : 1)}%
+            </span>
+          </div>
+
+          {/* Colored % dots */}
+          {token.trading_fee_bps != null && (
+            <span className="pulse-metric-dot pulse-metric-dot--neutral">
+              {(token.trading_fee_bps / 100).toFixed(0)}%
+            </span>
+          )}
+
+          {/* DS badge */}
+          <span className="pulse-metric-dot pulse-metric-dot--neutral">DS</span>
+
+          {/* Paid badge */}
+          {token.fee_mode === 'paid' && (
+            <span className="pulse-metric-dot pulse-metric-dot--success">Paid</span>
+          )}
+
           {/* Short address */}
           {shortAddr && (
             <button
               onClick={handleCopyCA}
-              className="flex items-center gap-1 text-[8px] font-mono text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+              className="flex items-center gap-0.5 text-[8px] font-mono text-muted-foreground/30 hover:text-muted-foreground transition-colors"
             >
               {copiedCA ? <CheckCircle className="h-2 w-2 text-success" /> : <Copy className="h-2 w-2" />}
               <span>{shortAddr}</span>
             </button>
           )}
-          {/* Metric dots */}
-          <div className="flex items-center gap-1">
-            {token.trading_fee_bps != null && (
-              <span className="pulse-metric-dot pulse-metric-dot--neutral">
-                {(token.trading_fee_bps / 100).toFixed(0)}%
-              </span>
-            )}
-            {token.fee_mode === 'paid' && (
-              <span className="pulse-metric-dot pulse-metric-dot--success">Paid</span>
-            )}
-          </div>
         </div>
 
         {/* SOL button */}

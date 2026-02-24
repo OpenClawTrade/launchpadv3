@@ -1,10 +1,9 @@
 import { memo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Users, Copy, CheckCircle, Globe, Zap, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Users, Copy, CheckCircle, Globe, Zap, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
 import { CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { toast } from "sonner";
-import pumpfunPill from "@/assets/pumpfun-pill.webp";
 
 function formatUsdCompact(usd: number): string {
   if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(2)}M`;
@@ -79,7 +78,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
     >
       {/* Row 1: Avatar + Info + Metrics */}
       <div className="flex items-start gap-2.5">
-        {/* Avatar with platform indicator */}
+        {/* Avatar */}
         <div className="pulse-avatar-wrap">
           <div className="pulse-avatar">
             <OptimizedTokenImage
@@ -96,21 +95,23 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
 
         {/* Center info */}
         <div className="flex-1 min-w-0">
-          {/* Name + symbol + PF badge */}
+          {/* Line 1: Symbol + name + link */}
           <div className="flex items-center gap-1">
-            <span className="text-[13px] font-bold text-foreground truncate leading-tight">{token.name}</span>
-            <span className="text-[10px] text-muted-foreground/70 font-mono">${token.symbol}</span>
-            <img src={pumpfunPill} alt="" className="h-3.5 w-3.5 object-contain flex-shrink-0" />
+            <span className="text-[12px] font-bold text-foreground truncate leading-tight">{token.symbol}</span>
+            <span className="text-[10px] text-muted-foreground/50 truncate italic">{token.name}</span>
+            <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/30 flex-shrink-0" />
           </div>
 
-          {/* Creator line */}
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[9px] font-mono text-muted-foreground/60">{age}</span>
+          {/* Line 2: Age + social icons */}
+          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+            <span className="text-[9px] font-mono text-muted-foreground/50">{age}</span>
+            <span className="pulse-icon-separator" />
             {token.twitterUrl && (
               <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
                 <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
               </a>
             )}
+            <span className="pulse-social-icon"><Users className="h-2.5 w-2.5" /></span>
             {token.websiteUrl && (
               <a href={token.websiteUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
                 <Globe className="h-2.5 w-2.5" />
@@ -118,32 +119,27 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
             )}
             {token.telegramUrl && (
               <a href={token.telegramUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
-                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                <MessageCircle className="h-2.5 w-2.5" />
               </a>
             )}
-            {xUsername && (
-              <span className="text-[9px] font-mono text-muted-foreground/50 truncate max-w-[70px]">@{xUsername}</span>
-            )}
+            <span className="pulse-social-icon"><Search className="h-2.5 w-2.5" /></span>
             {token.holders > 0 && (
-              <span className="flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/50">
-                <Users className="h-2 w-2" />{formatTxCount(token.holders)}
-              </span>
+              <span className="text-[8px] font-mono text-muted-foreground/40">{formatTxCount(token.holders)}</span>
             )}
           </div>
 
-          {/* Progress bar */}
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <div className="pulse-progress-track flex-1">
-              <div
-                className="pulse-progress-fill"
-                style={{ width: `${Math.max(Math.min(gradPct, 100), 2)}%` }}
-              />
-            </div>
-            <span className="text-[9px] font-mono font-bold flex-shrink-0" style={{
-              color: gradPct >= 80 ? "hsl(38 92% 50%)" : gradPct >= 50 ? "hsl(45 93% 47%)" : "hsl(160 84% 50%)"
-            }}>
-              {gradPct.toFixed(gradPct >= 1 ? 0 : 1)}%
-            </span>
+          {/* Line 3: Creator line */}
+          <div className="flex items-center gap-1 mt-0.5">
+            {xUsername ? (
+              <span className="text-[9px] text-muted-foreground/40 font-mono">by <span className="text-muted-foreground/60">@{xUsername}</span></span>
+            ) : (
+              <span className="text-[9px] text-muted-foreground/30 font-mono">by {token.launchpadName}</span>
+            )}
+            {token.holders > 0 && (
+              <span className="flex items-center gap-0.5 text-[8px] font-mono text-muted-foreground/35">
+                <Users className="h-2 w-2" />{formatTxCount(token.holders)}
+              </span>
+            )}
           </div>
         </div>
 
@@ -158,41 +154,64 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
             <span className="text-[10px] font-mono text-foreground/60">{vol}</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="pulse-metric-label">LIQ</span>
+            <span className="pulse-metric-label">F</span>
             <span className="text-[10px] font-mono text-foreground/50">{liq}</span>
           </div>
-          {token.change24h !== 0 && (
-            <div className="flex items-center gap-0.5 mt-0.5">
-              {token.change24h > 0 ? (
-                <ArrowUpRight className="h-2.5 w-2.5 text-success" />
-              ) : (
-                <ArrowDownRight className="h-2.5 w-2.5 text-destructive" />
-              )}
-              <span className={`text-[9px] font-mono font-bold ${token.change24h > 0 ? "text-success" : "text-destructive"}`}>
-                {token.change24h > 0 ? "+" : ""}{token.change24h.toFixed(0)}%
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-1">
+            <span className="pulse-metric-label">TX</span>
+            <span className="text-[10px] font-mono text-foreground/50">{formatTxCount(token.holders)}</span>
+            {token.change24h !== 0 && (
+              <>
+                {token.change24h > 0 ? (
+                  <ArrowUpRight className="h-2.5 w-2.5 text-success" />
+                ) : (
+                  <ArrowDownRight className="h-2.5 w-2.5 text-destructive" />
+                )}
+                <span className={`text-[9px] font-mono font-bold ${token.change24h > 0 ? "text-success" : "text-destructive"}`}>
+                  {token.change24h > 0 ? "+" : ""}{token.change24h.toFixed(0)}%
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Row 2: Bottom metrics + SOL button */}
-      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-border/30">
+      {/* Row 2: Bottom bar */}
+      <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/20">
         <div className="flex items-center gap-1.5">
+          {/* Progress % */}
+          <div className="flex items-center gap-1">
+            {gradPct > 0 && (
+              <ArrowUpRight className="h-2.5 w-2.5 text-success" />
+            )}
+            <span className="text-[9px] font-mono font-bold" style={{
+              color: gradPct >= 80 ? "hsl(38 92% 50%)" : gradPct >= 50 ? "hsl(45 93% 47%)" : "hsl(160 84% 39%)"
+            }}>
+              {gradPct.toFixed(gradPct >= 1 ? 0 : 1)}%
+            </span>
+          </div>
+
+          {/* DS badge */}
+          <span className="pulse-metric-dot pulse-metric-dot--neutral">DS</span>
+
+          {/* Paid badge */}
+          {token.completed && (
+            <span className="pulse-metric-dot pulse-metric-dot--success">Paid</span>
+          )}
+
+          {/* Short address */}
           {shortAddr && (
             <button
               onClick={handleCopyCA}
-              className="flex items-center gap-1 text-[8px] font-mono text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+              className="flex items-center gap-0.5 text-[8px] font-mono text-muted-foreground/30 hover:text-muted-foreground transition-colors"
             >
               {copiedCA ? <CheckCircle className="h-2 w-2 text-success" /> : <Copy className="h-2 w-2" />}
               <span>{shortAddr}</span>
             </button>
           )}
-          {token.completed && (
-            <span className="pulse-metric-dot pulse-metric-dot--success">Paid</span>
-          )}
         </div>
 
+        {/* SOL button */}
         <div className="pulse-sol-btn">
           <Zap className="h-2.5 w-2.5" />
           <span>0 SOL</span>
