@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
+import { CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { useKingOfTheHill } from "@/hooks/useKingOfTheHill";
 import { AxiomTokenRow } from "./AxiomTokenRow";
+import { CodexPairRow } from "./CodexPairRow";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Rocket, Flame, CheckCircle2 } from "lucide-react";
 
@@ -9,6 +11,9 @@ interface AxiomTerminalGridProps {
   tokens: FunToken[];
   solPrice: number | null;
   isLoading: boolean;
+  codexNewPairs?: CodexPairToken[];
+  codexCompleting?: CodexPairToken[];
+  codexGraduated?: CodexPairToken[];
 }
 
 const COLUMN_TABS = [
@@ -58,7 +63,7 @@ function EmptyColumn({ label }: { label: string }) {
   );
 }
 
-export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminalGridProps) {
+export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs = [], codexCompleting = [], codexGraduated = [] }: AxiomTerminalGridProps) {
   const [mobileTab, setMobileTab] = useState<ColumnTab>("new");
 
   const { tokens: kingTokens } = useKingOfTheHill();
@@ -159,11 +164,20 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminal
           ) : activeColumn.tokens.length === 0 ? (
             <EmptyColumn label={activeColumn.label} />
           ) : (
-            <div className="flex flex-col gap-0.5 p-1.5">
-              {activeColumn.tokens.map(token => (
-                <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} />
-              ))}
-            </div>
+              <div className="flex flex-col gap-0.5 p-1.5">
+                {mobileTab === "new" && codexNewPairs.map(t => (
+                  <CodexPairRow key={`codex-${t.address}`} token={t} />
+                ))}
+                {mobileTab === "final" && codexCompleting.map(t => (
+                  <CodexPairRow key={`codex-${t.address}`} token={t} />
+                ))}
+                {mobileTab === "migrated" && codexGraduated.map(t => (
+                  <CodexPairRow key={`codex-${t.address}`} token={t} />
+                ))}
+                {activeColumn.tokens.map(token => (
+                  <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} />
+                ))}
+              </div>
           )}
         </div>
       </div>
@@ -180,6 +194,15 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading }: AxiomTerminal
                 <EmptyColumn label={col.label} />
               ) : (
                 <div className="flex flex-col gap-0.5 p-1.5">
+                  {col.id === "new" && codexNewPairs.map(t => (
+                    <CodexPairRow key={`codex-${t.address}`} token={t} />
+                  ))}
+                  {col.id === "final" && codexCompleting.map(t => (
+                    <CodexPairRow key={`codex-${t.address}`} token={t} />
+                  ))}
+                  {col.id === "migrated" && codexGraduated.map(t => (
+                    <CodexPairRow key={`codex-${t.address}`} token={t} />
+                  ))}
                   {col.tokens.map(token => (
                     <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} />
                   ))}
