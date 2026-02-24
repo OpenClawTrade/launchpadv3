@@ -1,13 +1,15 @@
-import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import {
   createChart,
   ColorType,
+  CrosshairMode,
   CandlestickSeries,
   AreaSeries,
   LineSeries,
   HistogramSeries,
   type IChartApi,
   type ISeriesApi,
+  type UTCTimestamp,
 } from "lightweight-charts";
 import { useCodexChart, type CodexBar } from "@/hooks/useCodexChart";
 import { CodexChartToolbar } from "./CodexChartToolbar";
@@ -20,30 +22,14 @@ interface CodexChartProps {
   defaultResolution?: string;
 }
 
-const COLORS = {
-  bg: "#0a0a0a",
-  grid: "rgba(255,255,255,0.03)",
-  upColor: "#22C55E",
-  downColor: "#EF4444",
-  upWick: "rgba(34,197,94,0.7)",
-  downWick: "rgba(239,68,68,0.7)",
-  volUp: "rgba(34,197,94,0.15)",
-  volDown: "rgba(239,68,68,0.12)",
-  crosshair: "rgba(255,255,255,0.1)",
-  text: "rgba(255,255,255,0.5)",
-  areaTop: "rgba(34,197,94,0.18)",
-  areaBottom: "rgba(10,10,10,0)",
-  lineColor: "#22C55E",
-};
-
 export function CodexChart({
   tokenAddress,
   networkId = 1399811149,
-  height = 460,
+  height = 520,
 }: CodexChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const mainSeriesRef = useRef<ISeriesApi<any> | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<any> | null>(null);
   const volSeriesRef = useRef<ISeriesApi<any> | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -94,47 +80,49 @@ export function CodexChart({
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  // Chart rendering
+  // ---------- CHART RENDERING ----------
   useEffect(() => {
     if (!containerRef.current || bars.length === 0) return;
 
-    // Clear previous chart
+    // Destroy previous chart
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
-      mainSeriesRef.current = null;
+      candleSeriesRef.current = null;
       volSeriesRef.current = null;
     }
 
+    const chartHeight = isFullscreen ? window.innerHeight - 40 : height;
+
     const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height: chartHeight,
       layout: {
-        background: { type: ColorType.Solid, color: COLORS.bg },
-        textColor: COLORS.text,
+        background: { type: ColorType.Solid, color: "#0a0a0a" },
+        textColor: "#888888",
         fontFamily: "'IBM Plex Mono', 'JetBrains Mono', monospace",
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: COLORS.grid, style: 1 },
-        horzLines: { color: COLORS.grid, style: 1 },
+        vertLines: { color: "rgba(255,255,255,0.06)" },
+        horzLines: { color: "rgba(255,255,255,0.06)" },
       },
-      width: containerRef.current.clientWidth,
-      height: isFullscreen ? window.innerHeight - 40 : height,
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: "rgba(255,255,255,0.15)", width: 1, style: 2, labelVisible: false },
+        horzLine: { color: "rgba(255,255,255,0.15)", width: 1, style: 2, labelVisible: false },
+      },
       rightPriceScale: {
-        borderVisible: false,
-        scaleMargins: { top: 0.08, bottom: showVolume ? 0.22 : 0.08 },
+        borderColor: "#333",
+        scaleMargins: { top: 0.1, bottom: showVolume ? 0.22 : 0.08 },
         entireTextOnly: true,
       },
       timeScale: {
-        borderVisible: false,
+        borderColor: "#333",
         timeVisible: true,
         secondsVisible: resolution.includes("S"),
         fixLeftEdge: true,
         fixRightEdge: true,
-      },
-      crosshair: {
-        mode: 0,
-        vertLine: { color: COLORS.crosshair, width: 1, style: 2, labelVisible: false },
-        horzLine: { color: COLORS.crosshair, width: 1, style: 2, labelVisible: false },
       },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
@@ -146,80 +134,108 @@ export function CodexChart({
     const wm = containerRef.current.querySelector('a[href*="tradingview"]');
     if (wm) (wm as HTMLElement).style.display = "none";
 
-    // Main series
+    // --- Transform data ---
+    const chartData: any[] = [];
+    const volumeData: any[] = [];
+
+    for (let i = 0; i < bars.length; i++) {
+      const b = bars[i];
+      const time = b.time as UTCTimestamp;
+
+      chartData.push({
+        time,
+        open: b.open,
+        high: b.high,
+        low: b.low,
+        close: b.close,
+      });
+
+      volumeData.push({
+        time,
+        value: b.volume || 0,
+        color:
+          (b.buyVolume || 0) >= (b.sellVolume || 0)
+            ? "rgba(34,197,94,0.25)"
+            : "rgba(239,68,68,0.2)",
+      });
+    }
+
+    // --- Main series ---
     let mainSeries: ISeriesApi<any>;
 
     if (chartType === "candlestick") {
       mainSeries = chart.addSeries(CandlestickSeries, {
-        upColor: COLORS.upColor,
-        downColor: COLORS.downColor,
-        borderUpColor: COLORS.upColor,
-        borderDownColor: COLORS.downColor,
-        wickUpColor: COLORS.upWick,
-        wickDownColor: COLORS.downWick,
+        upColor: "#22C55E",
+        downColor: "#EF4444",
+        borderVisible: false,
+        borderUpColor: "#22C55E",
+        borderDownColor: "#EF4444",
+        wickUpColor: "#22C55E",
+        wickDownColor: "#EF4444",
+        priceFormat: {
+          type: "price",
+          precision: 12,
+          minMove: 0.000000000001,
+        },
       });
-      mainSeries.setData(
-        bars.map((b) => ({
-          time: b.time as any,
-          open: b.open,
-          high: b.high,
-          low: b.low,
-          close: b.close,
-        }))
-      );
+      mainSeries.setData(chartData);
     } else if (chartType === "line") {
       mainSeries = chart.addSeries(LineSeries, {
-        color: COLORS.lineColor,
+        color: "#22C55E",
         lineWidth: 2,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
+        priceFormat: {
+          type: "price",
+          precision: 12,
+          minMove: 0.000000000001,
+        },
       });
       mainSeries.setData(
-        bars.map((b) => ({ time: b.time as any, value: b.close }))
+        chartData.map((d: any) => ({ time: d.time, value: d.close }))
       );
     } else {
       mainSeries = chart.addSeries(AreaSeries, {
-        lineColor: COLORS.lineColor,
-        topColor: COLORS.areaTop,
-        bottomColor: COLORS.areaBottom,
+        lineColor: "#22C55E",
+        topColor: "rgba(34,197,94,0.18)",
+        bottomColor: "rgba(10,10,10,0)",
         lineWidth: 2,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
-        crosshairMarkerBorderColor: COLORS.lineColor,
-        crosshairMarkerBackgroundColor: COLORS.bg,
+        priceFormat: {
+          type: "price",
+          precision: 12,
+          minMove: 0.000000000001,
+        },
       });
       mainSeries.setData(
-        bars.map((b) => ({ time: b.time as any, value: b.close }))
+        chartData.map((d: any) => ({ time: d.time, value: d.close }))
       );
     }
 
-    mainSeriesRef.current = mainSeries;
+    candleSeriesRef.current = mainSeries;
 
-    // Volume histogram
+    // --- Volume series on SEPARATE price scale ---
     if (showVolume) {
       const volSeries = chart.addSeries(HistogramSeries, {
         priceFormat: { type: "volume" },
-        priceScaleId: "",
+        priceScaleId: "volume",
       });
-      volSeries.priceScale().applyOptions({
-        scaleMargins: { top: 0.85, bottom: 0 },
+
+      chart.priceScale("volume").applyOptions({
+        scaleMargins: { top: 0.78, bottom: 0 },
       });
-      volSeries.setData(
-        bars.map((b) => ({
-          time: b.time as any,
-          value: b.volume || 0,
-          color: b.close >= b.open ? COLORS.volUp : COLORS.volDown,
-        }))
-      );
+
+      volSeries.setData(volumeData);
       volSeriesRef.current = volSeries;
     }
 
-    // Price line for last bar
+    // Price line for last price
     const lastBar = bars[bars.length - 1];
     if (lastBar && mainSeries) {
       mainSeries.createPriceLine({
         price: lastBar.close,
-        color: lastBar.close >= lastBar.open ? COLORS.upColor : COLORS.downColor,
+        color: lastBar.close >= lastBar.open ? "#22C55E" : "#EF4444",
         lineWidth: 1,
         lineStyle: 2,
         axisLabelVisible: true,
@@ -228,7 +244,7 @@ export function CodexChart({
 
     chart.timeScale().fitContent();
 
-    // Resize
+    // Resize handler
     const handleResize = () => {
       if (containerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
@@ -244,33 +260,36 @@ export function CodexChart({
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
-        mainSeriesRef.current = null;
+        candleSeriesRef.current = null;
         volSeriesRef.current = null;
       }
     };
   }, [bars, chartType, height, showVolume, resolution, isFullscreen]);
 
+  // --- Toolbar props ---
+  const toolbarProps = {
+    resolution,
+    onResolutionChange: setResolution,
+    chartType,
+    onCycleChartType: cycleChartType,
+    currencyCode,
+    onCurrencyToggle: () => setCurrencyCode((p) => (p === "USD" ? "TOKEN" : "USD")),
+    statsType,
+    onStatsToggle: () => setStatsType((p) => (p === "FILTERED" ? "UNFILTERED" : "FILTERED")),
+    showVolume,
+    onVolumeToggle: () => setShowVolume((p) => !p),
+    isLoading,
+    onFullscreen: toggleFullscreen,
+  };
+
   // Error state
   if (error && bars.length === 0) {
     return (
-      <div className="flex flex-col">
-        <CodexChartToolbar
-          resolution={resolution}
-          onResolutionChange={setResolution}
-          chartType={chartType}
-          onCycleChartType={cycleChartType}
-          currencyCode={currencyCode}
-          onCurrencyToggle={() => setCurrencyCode((p) => (p === "USD" ? "TOKEN" : "USD"))}
-          statsType={statsType}
-          onStatsToggle={() => setStatsType((p) => (p === "FILTERED" ? "UNFILTERED" : "FILTERED"))}
-          showVolume={showVolume}
-          onVolumeToggle={() => setShowVolume((p) => !p)}
-          isLoading={isLoading}
-          onFullscreen={toggleFullscreen}
-        />
+      <div className="flex flex-col w-full rounded-xl overflow-hidden" style={{ backgroundColor: "#0a0a0a" }}>
+        <CodexChartToolbar {...toolbarProps} />
         <div
           className="flex flex-col items-center justify-center gap-2"
-          style={{ height, backgroundColor: COLORS.bg }}
+          style={{ height }}
         >
           <div className="px-3 py-1 rounded bg-red-500/10 border border-red-500/20">
             <p className="text-[11px] font-mono text-red-400">⚠ Chart data unavailable</p>
@@ -284,23 +303,9 @@ export function CodexChart({
   // Loading state
   if (isLoading && bars.length === 0) {
     return (
-      <div className="flex flex-col">
-        <CodexChartToolbar
-          resolution={resolution}
-          onResolutionChange={setResolution}
-          chartType={chartType}
-          onCycleChartType={cycleChartType}
-          currencyCode={currencyCode}
-          onCurrencyToggle={() => setCurrencyCode((p) => (p === "USD" ? "TOKEN" : "USD"))}
-          statsType={statsType}
-          onStatsToggle={() => setStatsType((p) => (p === "FILTERED" ? "UNFILTERED" : "FILTERED"))}
-          showVolume={showVolume}
-          onVolumeToggle={() => setShowVolume((p) => !p)}
-          isLoading={true}
-          onFullscreen={toggleFullscreen}
-        />
-        <div style={{ height, backgroundColor: COLORS.bg }} className="relative overflow-hidden">
-          {/* Chart skeleton */}
+      <div className="flex flex-col w-full rounded-xl overflow-hidden" style={{ backgroundColor: "#0a0a0a" }}>
+        <CodexChartToolbar {...toolbarProps} isLoading={true} />
+        <div style={{ height }} className="relative overflow-hidden">
           <div className="absolute inset-0 flex flex-col justify-end p-4 gap-1">
             {Array.from({ length: 8 }).map((_, i) => (
               <Skeleton
@@ -327,21 +332,8 @@ export function CodexChart({
   }
 
   return (
-    <div className="flex flex-col" style={{ backgroundColor: COLORS.bg }}>
-      <CodexChartToolbar
-        resolution={resolution}
-        onResolutionChange={setResolution}
-        chartType={chartType}
-        onCycleChartType={cycleChartType}
-        currencyCode={currencyCode}
-        onCurrencyToggle={() => setCurrencyCode((p) => (p === "USD" ? "TOKEN" : "USD"))}
-        statsType={statsType}
-        onStatsToggle={() => setStatsType((p) => (p === "FILTERED" ? "UNFILTERED" : "FILTERED"))}
-        showVolume={showVolume}
-        onVolumeToggle={() => setShowVolume((p) => !p)}
-        isLoading={isLoading}
-        onFullscreen={toggleFullscreen}
-      />
+    <div className="flex flex-col w-full rounded-xl overflow-hidden" style={{ backgroundColor: "#0a0a0a" }}>
+      <CodexChartToolbar {...toolbarProps} />
       {/* Delayed data banner */}
       {error && bars.length > 0 && (
         <div className="px-2 py-0.5 text-center" style={{ backgroundColor: "rgba(239,68,68,0.08)" }}>
@@ -351,7 +343,7 @@ export function CodexChart({
       <div
         ref={containerRef}
         className="w-full overflow-hidden relative"
-        style={{ height: isFullscreen ? "calc(100vh - 40px)" : height, backgroundColor: COLORS.bg }}
+        style={{ height: isFullscreen ? "calc(100vh - 40px)" : height }}
       />
     </div>
   );
