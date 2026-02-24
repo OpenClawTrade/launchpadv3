@@ -16,6 +16,8 @@ interface TokenInfo {
   decimals?: number;
   /** Whether this token has graduated/migrated from bonding curve to DEX */
   graduated?: boolean;
+  /** Current price in SOL (used for PumpPortal estimate) */
+  price_sol?: number;
 }
 
 interface UniversalTradePanelProps {
@@ -84,7 +86,22 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
     return () => clearTimeout(t);
   }, [numericAmount, isBuy, token.mint_address, tokenDecimals, slippage, getBuyQuote, getSellQuote, useJupiterRoute]);
 
-  const outputAmount = quote ? parseInt(quote.outAmount) / (10 ** (isBuy ? tokenDecimals : 9)) : 0;
+  // For Jupiter route, use quote data; for PumpPortal, estimate from token price
+  const outputAmount = (() => {
+    if (useJupiterRoute && quote) {
+      return parseInt(quote.outAmount) / (10 ** (isBuy ? tokenDecimals : 9));
+    }
+    if (!useJupiterRoute && numericAmount > 0 && token.price_sol && token.price_sol > 0) {
+      if (isBuy) {
+        // Buying tokens with SOL: tokens = SOL / price_per_token
+        return numericAmount / token.price_sol;
+      } else {
+        // Selling tokens for SOL: SOL = tokens * price_per_token
+        return numericAmount * token.price_sol;
+      }
+    }
+    return 0;
+  })();
   const priceImpact = quote ? parseFloat(quote.priceImpactPct) : 0;
 
   const quickBuyAmounts = [0.1, 0.5, 1, 5];
@@ -282,7 +299,7 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
               {quoteLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : (
-                numericAmount > 0 ? formatAmount(outputAmount) : '0'
+                numericAmount > 0 ? `${!useJupiterRoute ? '~' : ''}${formatAmount(outputAmount)}` : '0'
               )}
             </span>
             <span className="text-xs font-mono text-muted-foreground">{isBuy ? token.ticker : 'SOL'}</span>
