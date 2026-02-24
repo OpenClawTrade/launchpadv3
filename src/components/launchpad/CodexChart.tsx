@@ -4,11 +4,8 @@ import {
   ColorType,
   CrosshairMode,
   CandlestickSeries,
-  AreaSeries,
-  LineSeries,
   HistogramSeries,
   type IChartApi,
-  type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useCodexChart } from "@/hooks/useCodexChart";
@@ -60,42 +57,36 @@ export function CodexChart({
 
   // ========== CHART ==========
   useEffect(() => {
-    if (!containerRef.current || bars.length === 0) return;
+    const container = containerRef.current;
+    if (!container || bars.length === 0) return;
 
-    if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+    }
 
     const chartH = isFullscreen ? window.innerHeight - 40 : height;
 
-    const chart = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
+    const chart = createChart(container, {
+      width: container.clientWidth,
       height: chartH,
       layout: {
         background: { type: ColorType.Solid, color: "#0a0a0a" },
-        textColor: "#888",
-        fontFamily: "'IBM Plex Mono', monospace",
-        fontSize: 10,
+        textColor: "#888888",
       },
       grid: {
         vertLines: { color: "rgba(255,255,255,0.06)" },
         horzLines: { color: "rgba(255,255,255,0.06)" },
       },
-      crosshair: {
-        mode: CrosshairMode.Magnet,
-        vertLine: { color: "rgba(255,255,255,0.15)", width: 1, style: 2, labelVisible: true },
-        horzLine: { color: "rgba(255,255,255,0.15)", width: 1, style: 2, labelVisible: true },
+      crosshair: { mode: CrosshairMode.Magnet },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: true,
+        borderColor: "#333333",
       },
       rightPriceScale: {
-        borderColor: "#333",
-        scaleMargins: { top: 0.05, bottom: showVolume ? 0.28 : 0.05 },
-        autoScale: true,
-        entireTextOnly: true,
-      },
-      timeScale: {
-        borderColor: "#333",
-        timeVisible: true,
-        secondsVisible: resolution.includes("S"),
-        fixLeftEdge: true,
-        fixRightEdge: true,
+        borderColor: "#333333",
+        scaleMargins: { top: 0.08, bottom: 0.30 },
       },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
@@ -103,92 +94,121 @@ export function CodexChart({
 
     chartRef.current = chart;
 
-    // Hide watermark
-    const wm = containerRef.current.querySelector('a[href*="tradingview"]');
-    if (wm) (wm as HTMLElement).style.display = "none";
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: "#22C55E",
+      downColor: "#EF4444",
+      borderVisible: false,
+      wickUpColor: "#22C55E",
+      wickDownColor: "#EF4444",
+      priceFormat: {
+        type: "price",
+        precision: 12,
+        minMove: 0.000000000001,
+      },
+      priceScaleId: "right",
+    });
 
-    // --- Transform ---
-    const chartData: any[] = [];
-    const volumeData: any[] = [];
-    for (const b of bars) {
-      const time = b.time as UTCTimestamp;
-      chartData.push({ time, open: b.open, high: b.high, low: b.low, close: b.close });
-      volumeData.push({
-        time,
-        value: b.volume || 0,
-        color: (b.buyVolume || 0) >= (b.sellVolume || 0)
-          ? "rgba(34,197,94,0.35)"
-          : "rgba(239,68,68,0.3)",
-      });
-    }
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume", precision: 2 },
+      priceScaleId: "volume",
+    });
 
-    // --- Main series ---
-    let mainSeries: ISeriesApi<any>;
-    const priceFormat = { type: "price" as const, precision: 12, minMove: 0.000000000001 };
+    chart.priceScale("volume").applyOptions({
+      scaleMargins: { top: 0.72, bottom: 0 },
+      visible: true,
+      borderVisible: false,
+      entireTextOnly: true,
+    });
 
-    if (chartType === "candlestick") {
-      mainSeries = chart.addSeries(CandlestickSeries, {
-        upColor: "#22C55E",
-        downColor: "#EF4444",
-        borderVisible: false,
-        borderUpColor: "#22C55E",
-        borderDownColor: "#EF4444",
-        wickUpColor: "#22C55E",
-        wickDownColor: "#EF4444",
-        priceFormat,
-      });
-      mainSeries.setData(chartData);
-    } else if (chartType === "line") {
-      mainSeries = chart.addSeries(LineSeries, {
-        color: "#22C55E", lineWidth: 2,
-        crosshairMarkerVisible: true, crosshairMarkerRadius: 4,
-        priceFormat,
-      });
-      mainSeries.setData(chartData.map((d: any) => ({ time: d.time, value: d.close })));
-    } else {
-      mainSeries = chart.addSeries(AreaSeries, {
-        lineColor: "#22C55E",
-        topColor: "rgba(34,197,94,0.18)",
-        bottomColor: "rgba(10,10,10,0)",
-        lineWidth: 2,
-        crosshairMarkerVisible: true, crosshairMarkerRadius: 4,
-        priceFormat,
-      });
-      mainSeries.setData(chartData.map((d: any) => ({ time: d.time, value: d.close })));
-    }
+    const transformCodexBars = (raw: {
+      o: number[];
+      h: number[];
+      l: number[];
+      c: number[];
+      t: number[];
+      volume: number[];
+      buyVolume: number[];
+      sellVolume: number[];
+    }) => {
+      if (!raw?.o?.length) return { chartData: [], volumeData: [] };
 
-    // --- Volume on SEPARATE scale ---
-    if (showVolume) {
-      const volSeries = chart.addSeries(HistogramSeries, {
-        priceFormat: { type: "volume" },
-        priceScaleId: "volume",
-      });
+      const chartData: Array<{ time: UTCTimestamp; open: number; high: number; low: number; close: number }> = [];
+      const volumeData: Array<{ time: UTCTimestamp; value: number; color: string }> = [];
 
-      chart.priceScale("volume").applyOptions({
-        scaleMargins: { top: 0.75, bottom: 0 },
-        borderVisible: false,
-        entireTextOnly: true,
-      });
+      for (let i = 0; i < raw.o.length; i++) {
+        const time = raw.t[i] as UTCTimestamp;
 
-      volSeries.setData(volumeData);
-    }
+        chartData.push({
+          time,
+          open: Number(raw.o[i]),
+          high: Number(raw.h[i]),
+          low: Number(raw.l[i]),
+          close: Number(raw.c[i]),
+        });
 
-    // Last price line
-    const last = bars[bars.length - 1];
-    if (last) {
-      mainSeries.createPriceLine({
-        price: last.close,
-        color: last.close >= last.open ? "#22C55E" : "#EF4444",
-        lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
-      });
-    }
+        volumeData.push({
+          time,
+          value: Number(raw.volume?.[i] || 0),
+          color:
+            Number(raw.buyVolume?.[i] || 0) >= Number(raw.sellVolume?.[i] || 0)
+              ? "rgba(34,197,94,0.35)"
+              : "rgba(239,68,68,0.30)",
+        });
+      }
+
+      return { chartData, volumeData };
+    };
+
+    const rawData = {
+      o: bars.map((b) => b.open),
+      h: bars.map((b) => b.high),
+      l: bars.map((b) => b.low),
+      c: bars.map((b) => b.close),
+      t: bars.map((b) => b.time),
+      volume: bars.map((b) => b.volume || 0),
+      buyVolume: bars.map((b) => b.buyVolume || 0),
+      sellVolume: bars.map((b) => b.sellVolume || 0),
+    };
+
+    const { chartData, volumeData } = transformCodexBars(rawData);
+
+    candleSeries.setData(chartData);
+    volumeSeries.setData(volumeData);
 
     chart.timeScale().fitContent();
+    chart.priceScale("right").applyOptions({ autoScale: true });
 
-    // Small right padding
-    setTimeout(() => chart.timeScale().scrollToPosition(5, false), 50);
+    chart.timeScale().applyOptions({
+      rightOffset: 8,
+      barSpacing: 8,
+      minBarSpacing: 6,
+      fixLeftEdge: false,
+      fixRightEdge: false,
+    });
 
-    // Resize
+    if (chartData.length > 0) {
+      chart.timeScale().setVisibleLogicalRange({
+        from: Math.max(-20, chartData.length - 80),
+        to: chartData.length + 8,
+      });
+    }
+
+    const paddingTimeout = window.setTimeout(() => chart.timeScale().scrollToPosition(8, false), 100);
+
+    const toggleVolume = (show: boolean) => {
+      chart.priceScale("right").applyOptions({
+        scaleMargins: show ? { top: 0.08, bottom: 0.30 } : { top: 0.08, bottom: 0.08 },
+      });
+      volumeSeries.applyOptions({ visible: show });
+      chart.timeScale().fitContent();
+    };
+
+    toggleVolume(showVolume);
+
+    // Hide watermark if present
+    const wm = container.querySelector('a[href*="tradingview"]');
+    if (wm) (wm as HTMLElement).style.display = "none";
+
     const onResize = () => {
       if (containerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
@@ -197,12 +217,18 @@ export function CodexChart({
         });
       }
     };
+
     window.addEventListener("resize", onResize);
+
     return () => {
+      window.clearTimeout(paddingTimeout);
       window.removeEventListener("resize", onResize);
-      if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
     };
-  }, [bars, chartType, height, showVolume, resolution, isFullscreen]);
+  }, [bars, height, isFullscreen, showVolume]);
 
   // --- Toolbar props ---
   const tp = {
@@ -258,8 +284,8 @@ export function CodexChart({
       )}
       <div
         ref={containerRef}
-        className="w-full overflow-hidden"
-        style={{ height: isFullscreen ? "calc(100vh - 40px)" : height }}
+        className="w-full h-[520px] bg-[#0a0a0a] rounded-2xl overflow-hidden border border-[#222222]"
+        style={isFullscreen ? { height: "calc(100vh - 40px)" } : undefined}
       />
     </div>
   );
