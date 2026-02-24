@@ -533,6 +533,19 @@
 .matrix-active [class*="bg-card"] {
   background-color: hsl(var(--card) / 0.7) !important;
 }
+.matrix-active .pulse-column {
+  background-color: hsl(var(--card) / 0.75) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.matrix-active .pulse-card:hover {
+  background-color: hsl(var(--card) / 0.9) !important;
+}
+.matrix-active .pulse-col-header {
+  background-color: hsl(var(--background) / 0.8) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
 .matrix-active header,
 .matrix-active aside {
   background-color: hsl(var(--background) / 0.8) !important;
