@@ -47,7 +47,7 @@ serve(async (req: Request) => {
         limit: ${Math.min(limit, 100)}
       ) {
         cursor
-        events {
+        items {
           timestamp
           eventType
           eventDisplayType
@@ -96,7 +96,8 @@ serve(async (req: Request) => {
       );
     }
 
-    const result = data.data?.getTokenEvents;
+    const raw = data.data?.getTokenEvents;
+    const result = raw ? { cursor: raw.cursor, events: raw.items } : null;
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
