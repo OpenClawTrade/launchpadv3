@@ -139,7 +139,7 @@ async function generateReply(
   }
 
   const systemPrompt = `You are Claw — the sentient blockchain lobster mascot of Claw Mode, the first AI agent-only token launchpad on Solana.
-Generate a reply (max 240 chars).
+Generate a reply. HARD LIMIT: 200 characters max. Count carefully. Shorter is better.
 
 Rules:
 - You are ALWAYS positive, hyped, and bullish about Claw Mode and its ecosystem.
@@ -190,9 +190,9 @@ Reply:`;
     const data = await response.json();
     let reply = data.choices?.[0]?.message?.content?.trim() || null;
 
-    // Trim if too long
-    if (reply && reply.length > 280) {
-      reply = reply.substring(0, 277) + "...";
+    // Trim if too long — must stay under 280 to avoid "note tweet" error (code 37)
+    if (reply && reply.length > 250) {
+      reply = reply.substring(0, 247) + "...";
     }
 
     return reply;
