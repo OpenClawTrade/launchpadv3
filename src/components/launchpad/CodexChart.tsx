@@ -66,27 +66,42 @@ export function CodexChart({
     }
 
     const chartH = isFullscreen ? window.innerHeight - 40 : height;
+    const volMargin = showVolume ? 0.32 : 0.08;
 
+    // ── CREATE CHART ──
     const chart = createChart(container, {
       width: container.clientWidth,
       height: chartH,
       layout: {
         background: { type: ColorType.Solid, color: "#0a0a0a" },
-        textColor: "#888888",
+        textColor: "#888",
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: 10,
       },
       grid: {
-        vertLines: { color: "rgba(255,255,255,0.06)" },
-        horzLines: { color: "rgba(255,255,255,0.06)" },
+        vertLines: { color: "rgba(255,255,255,0.04)" },
+        horzLines: { color: "rgba(255,255,255,0.04)" },
       },
-      crosshair: { mode: CrosshairMode.Magnet },
+      crosshair: {
+        mode: CrosshairMode.Magnet,
+        vertLine: { color: "rgba(255,255,255,0.12)", width: 1, style: 2, labelVisible: true },
+        horzLine: { color: "rgba(255,255,255,0.12)", width: 1, style: 2, labelVisible: true },
+      },
       timeScale: {
         timeVisible: true,
-        secondsVisible: true,
-        borderColor: "#333333",
+        secondsVisible: resolution.includes("S"),
+        borderColor: "#222",
+        rightOffset: 12,
+        barSpacing: 12,
+        minBarSpacing: 4,
+        fixLeftEdge: false,
+        fixRightEdge: false,
       },
       rightPriceScale: {
-        borderColor: "#333333",
-        scaleMargins: { top: 0.08, bottom: 0.30 },
+        borderColor: "#222",
+        scaleMargins: { top: 0.08, bottom: volMargin },
+        autoScale: true,
+        entireTextOnly: true,
       },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
@@ -94,121 +109,83 @@ export function CodexChart({
 
     chartRef.current = chart;
 
+    // ── CANDLE SERIES on default right scale ──
     const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#22C55E",
       downColor: "#EF4444",
       borderVisible: false,
+      borderUpColor: "#22C55E",
+      borderDownColor: "#EF4444",
       wickUpColor: "#22C55E",
       wickDownColor: "#EF4444",
-      priceFormat: {
-        type: "price",
-        precision: 12,
-        minMove: 0.000000000001,
-      },
-      priceScaleId: "right",
+      priceFormat: { type: "price", precision: 12, minMove: 0.000000000001 },
     });
 
+    // ── VOLUME SERIES on separate "volume" scale ──
     const volumeSeries = chart.addSeries(HistogramSeries, {
-      priceFormat: { type: "volume", precision: 2 },
+      priceFormat: { type: "volume" },
       priceScaleId: "volume",
     });
 
     chart.priceScale("volume").applyOptions({
-      scaleMargins: { top: 0.72, bottom: 0 },
-      visible: true,
+      scaleMargins: { top: 0.7, bottom: 0 },
       borderVisible: false,
       entireTextOnly: true,
     });
 
-    const transformCodexBars = (raw: {
-      o: number[];
-      h: number[];
-      l: number[];
-      c: number[];
-      t: number[];
-      volume: number[];
-      buyVolume: number[];
-      sellVolume: number[];
-    }) => {
-      if (!raw?.o?.length) return { chartData: [], volumeData: [] };
+    // ── BUILD DATA ──
+    const chartData: Array<{ time: UTCTimestamp; open: number; high: number; low: number; close: number }> = [];
+    const volumeData: Array<{ time: UTCTimestamp; value: number; color: string }> = [];
 
-      const chartData: Array<{ time: UTCTimestamp; open: number; high: number; low: number; close: number }> = [];
-      const volumeData: Array<{ time: UTCTimestamp; value: number; color: string }> = [];
-
-      for (let i = 0; i < raw.o.length; i++) {
-        const time = raw.t[i] as UTCTimestamp;
-
-        chartData.push({
-          time,
-          open: Number(raw.o[i]),
-          high: Number(raw.h[i]),
-          low: Number(raw.l[i]),
-          close: Number(raw.c[i]),
-        });
-
-        volumeData.push({
-          time,
-          value: Number(raw.volume?.[i] || 0),
-          color:
-            Number(raw.buyVolume?.[i] || 0) >= Number(raw.sellVolume?.[i] || 0)
-              ? "rgba(34,197,94,0.35)"
-              : "rgba(239,68,68,0.30)",
-        });
-      }
-
-      return { chartData, volumeData };
-    };
-
-    const rawData = {
-      o: bars.map((b) => b.open),
-      h: bars.map((b) => b.high),
-      l: bars.map((b) => b.low),
-      c: bars.map((b) => b.close),
-      t: bars.map((b) => b.time),
-      volume: bars.map((b) => b.volume || 0),
-      buyVolume: bars.map((b) => b.buyVolume || 0),
-      sellVolume: bars.map((b) => b.sellVolume || 0),
-    };
-
-    const { chartData, volumeData } = transformCodexBars(rawData);
-
-    candleSeries.setData(chartData);
-    volumeSeries.setData(volumeData);
-
-    chart.timeScale().fitContent();
-    chart.priceScale("right").applyOptions({ autoScale: true });
-
-    chart.timeScale().applyOptions({
-      rightOffset: 8,
-      barSpacing: 8,
-      minBarSpacing: 6,
-      fixLeftEdge: false,
-      fixRightEdge: false,
-    });
-
-    if (chartData.length > 0) {
-      chart.timeScale().setVisibleLogicalRange({
-        from: Math.max(-20, chartData.length - 80),
-        to: chartData.length + 8,
+    for (const b of bars) {
+      const time = b.time as UTCTimestamp;
+      chartData.push({
+        time,
+        open: Number(b.open),
+        high: Number(b.high),
+        low: Number(b.low),
+        close: Number(b.close),
+      });
+      volumeData.push({
+        time,
+        value: Number(b.volume || 0),
+        color: Number(b.buyVolume || 0) >= Number(b.sellVolume || 0)
+          ? "rgba(34,197,94,0.25)"
+          : "rgba(239,68,68,0.20)",
       });
     }
 
-    const paddingTimeout = window.setTimeout(() => chart.timeScale().scrollToPosition(8, false), 100);
+    // ── SET DATA ──
+    candleSeries.setData(chartData);
+    if (showVolume) {
+      volumeSeries.setData(volumeData);
+    }
 
-    const toggleVolume = (show: boolean) => {
-      chart.priceScale("right").applyOptions({
-        scaleMargins: show ? { top: 0.08, bottom: 0.30 } : { top: 0.08, bottom: 0.08 },
+    // ── FIT & ZOOM ──
+    chart.timeScale().fitContent();
+
+    // Last price line
+    const last = bars[bars.length - 1];
+    if (last) {
+      candleSeries.createPriceLine({
+        price: last.close,
+        color: last.close >= last.open ? "#22C55E" : "#EF4444",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
       });
-      volumeSeries.applyOptions({ visible: show });
-      chart.timeScale().fitContent();
-    };
+    }
 
-    toggleVolume(showVolume);
+    // Small right padding so last candle isn't crushed
+    const paddingTimeout = window.setTimeout(() => {
+      chart.timeScale().scrollToPosition(12, false);
+    }, 80);
 
-    // Hide watermark if present
+    // Hide TradingView watermark
     const wm = container.querySelector('a[href*="tradingview"]');
     if (wm) (wm as HTMLElement).style.display = "none";
 
+    // Resize handler
     const onResize = () => {
       if (containerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
@@ -217,7 +194,6 @@ export function CodexChart({
         });
       }
     };
-
     window.addEventListener("resize", onResize);
 
     return () => {
@@ -228,9 +204,9 @@ export function CodexChart({
         chartRef.current = null;
       }
     };
-  }, [bars, height, isFullscreen, showVolume]);
+  }, [bars, height, isFullscreen, showVolume, resolution]);
 
-  // --- Toolbar props ---
+  // ── Toolbar props ──
   const tp = {
     resolution, onResolutionChange: setResolution,
     chartType, onCycleChartType: cycleChartType,
@@ -242,11 +218,11 @@ export function CodexChart({
 
   if (error && bars.length === 0) {
     return (
-      <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-white/10" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-border/20" style={{ backgroundColor: "#0a0a0a" }}>
         <CodexChartToolbar {...tp} />
         <div className="flex flex-col items-center justify-center gap-2" style={{ height }}>
-          <div className="px-3 py-1 rounded bg-red-500/10 border border-red-500/20">
-            <p className="text-[11px] font-mono text-red-400">⚠ Chart data unavailable</p>
+          <div className="px-3 py-1 rounded bg-destructive/10 border border-destructive/20">
+            <p className="text-[11px] font-mono text-destructive">⚠ Chart data unavailable</p>
           </div>
         </div>
       </div>
@@ -255,7 +231,7 @@ export function CodexChart({
 
   if (isLoading && bars.length === 0) {
     return (
-      <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-white/10" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-border/20" style={{ backgroundColor: "#0a0a0a" }}>
         <CodexChartToolbar {...tp} isLoading={true} />
         <div style={{ height }} className="relative overflow-hidden">
           <div className="absolute inset-0 flex flex-col justify-end p-4 gap-1">
@@ -266,7 +242,7 @@ export function CodexChart({
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-[11px] font-mono text-white/40">Loading chart…</span>
+              <span className="text-[11px] font-mono text-muted-foreground">Loading chart…</span>
             </div>
           </div>
         </div>
@@ -275,17 +251,17 @@ export function CodexChart({
   }
 
   return (
-    <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-white/10" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-border/20" style={{ backgroundColor: "#0a0a0a" }}>
       <CodexChartToolbar {...tp} />
       {error && bars.length > 0 && (
         <div className="px-2 py-0.5 text-center" style={{ backgroundColor: "rgba(239,68,68,0.08)" }}>
-          <span className="text-[9px] font-mono text-red-400/80">⚠ Data may be delayed</span>
+          <span className="text-[9px] font-mono text-destructive/80">⚠ Data may be delayed</span>
         </div>
       )}
       <div
         ref={containerRef}
-        className="w-full h-[520px] bg-[#0a0a0a] rounded-2xl overflow-hidden border border-[#222222]"
-        style={isFullscreen ? { height: "calc(100vh - 40px)" } : undefined}
+        className="w-full overflow-hidden"
+        style={{ height: isFullscreen ? "calc(100vh - 40px)" : height }}
       />
     </div>
   );
