@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Users, Bot, BadgeCheck } from "lucide-react";
+import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ExternalLink, ArrowUpRight } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,11 +9,35 @@ import { BagsBadge } from "@/components/clawbook/BagsBadge";
 import { useEffect, useState } from "react";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 
-/* ── rank styling ── */
+/* ── rank config ── */
 const RANKS = [
-  { accent: "border-orange-500/20", hoverAccent: "hover:border-orange-400/40", mcap: "text-emerald-400", badgeBg: "from-orange-500 to-amber-600", king: true },
-  { accent: "border-slate-600/20", hoverAccent: "hover:border-cyan-500/30", mcap: "text-emerald-400", badgeBg: "from-cyan-600 to-teal-700", king: false },
-  { accent: "border-slate-600/15", hoverAccent: "hover:border-cyan-500/20", mcap: "text-emerald-400", badgeBg: "from-slate-600 to-slate-700", king: false },
+  {
+    border: "border-amber-500/30",
+    hoverBorder: "hover:border-amber-400/60",
+    glow: "hover:shadow-[0_0_24px_rgba(245,158,11,0.2)]",
+    badgeBg: "bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600",
+    badgeRing: "ring-2 ring-amber-400/30",
+    king: true,
+    label: "#1",
+  },
+  {
+    border: "border-cyan-500/20",
+    hoverBorder: "hover:border-cyan-400/50",
+    glow: "hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]",
+    badgeBg: "bg-gradient-to-br from-cyan-400 via-teal-500 to-cyan-600",
+    badgeRing: "ring-1 ring-cyan-400/20",
+    king: false,
+    label: "#2",
+  },
+  {
+    border: "border-slate-500/15",
+    hoverBorder: "hover:border-slate-400/40",
+    glow: "hover:shadow-[0_0_16px_rgba(148,163,184,0.1)]",
+    badgeBg: "bg-gradient-to-br from-slate-400 via-slate-500 to-slate-600",
+    badgeRing: "ring-1 ring-slate-400/15",
+    king: false,
+    label: "#3",
+  },
 ];
 
 function extractXUsername(url?: string | null): string | null {
@@ -21,38 +45,47 @@ function extractXUsername(url?: string | null): string | null {
   try { return new URL(url).pathname.split("/").filter(Boolean)[0] || null; } catch { return null; }
 }
 
-/* ── progress bar ── */
-function Bar({ value }: { value: number }) {
+/* ── premium progress bar ── */
+function ProgressBar({ value }: { value: number }) {
   const [w, setW] = useState(0);
-  useEffect(() => { const t = setTimeout(() => setW(Math.min(value, 100)), 100); return () => clearTimeout(t); }, [value]);
+  useEffect(() => { const t = setTimeout(() => setW(Math.min(value, 100)), 150); return () => clearTimeout(t); }, [value]);
+
+  const gradient = value >= 80
+    ? "from-orange-500 via-amber-400 to-yellow-300"
+    : value >= 50
+      ? "from-emerald-500 via-lime-400 to-yellow-400"
+      : "from-emerald-600 via-emerald-400 to-teal-300";
 
   return (
-    <div className="w-full space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground/50 font-medium">Progress</span>
-        <span className="text-sm font-bold text-foreground font-mono tabular-nums">{value.toFixed(0)}%</span>
-      </div>
-      <div className="h-2.5 w-full rounded-md overflow-hidden" style={{ background: "hsl(215 25% 18%)" }}>
+    <div className="w-full">
+      <div className="h-[6px] w-full rounded-full overflow-hidden bg-muted/30">
         <div
-          className="h-full rounded-md bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-[1s] ease-out relative"
+          className={cn(
+            "h-full rounded-full bg-gradient-to-r transition-all duration-[1.2s] ease-out relative",
+            gradient,
+          )}
           style={{ width: `${Math.max(w, 2)}%` }}
         >
-          <div className="absolute inset-0 rounded-md overflow-hidden">
-            <div className="absolute -left-full top-0 w-full h-full bg-gradient-to-r from-transparent via-white/15 to-transparent animate-shimmer" />
+          {/* shimmer */}
+          <div className="absolute inset-0 rounded-full overflow-hidden">
+            <div className="absolute -left-full top-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
           </div>
         </div>
+      </div>
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-medium">Progress</span>
+        <span className="text-[11px] font-bold font-mono tabular-nums text-foreground">{value.toFixed(0)}%</span>
       </div>
     </div>
   );
 }
 
-/* ── card ── */
-function Card({ token, rank }: { token: KingToken; rank: number }) {
+/* ── premium card ── */
+function KingCard({ token, rank }: { token: KingToken; rank: number }) {
   const [blink, setBlink] = useState(false);
-
   useEffect(() => {
     const schedule = () => {
-      const delay = 2000 + Math.random() * 4000; // 2-6s random
+      const delay = 2000 + Math.random() * 4000;
       return setTimeout(() => {
         setBlink(true);
         setTimeout(() => setBlink(false), 300);
@@ -62,6 +95,7 @@ function Card({ token, rank }: { token: KingToken; rank: number }) {
     let timerId = schedule();
     return () => clearTimeout(timerId);
   }, []);
+
   const { solPrice } = useSolPrice();
   const progress = token.bonding_progress ?? 0;
   const mcapUsd = (token.market_cap_sol ?? 0) * (solPrice || 0);
@@ -69,65 +103,85 @@ function Card({ token, rank }: { token: KingToken; rank: number }) {
   const isBags = token.launchpad_type === "bags";
   const isTrader = !!(token.trading_agent_id || token.is_trading_agent_token);
   const r = RANKS[rank - 1] || RANKS[2];
-
   const xUser = extractXUsername(token.twitter_url);
   const xAvatar = token.twitter_avatar_url;
   const verified = token.twitter_verified;
   const vType = token.twitter_verified_type;
-  const checkClr = vType === "business" || vType === "government" ? "#EAB308" : "#1D9BF0";
+  const checkClr = vType === "business" || vType === "government" ? "hsl(45 93% 47%)" : "hsl(204 88% 53%)";
+  const holders = token.holder_count ?? 0;
 
   const url = `/launchpad/${token.mint_address || token.dbc_pool_address || token.id}`;
+  const codexChartUrl = token.mint_address ? `https://www.defined.fi/sol/${token.mint_address}` : null;
+
+  const handleTradeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  const handleChartClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (codexChartUrl) window.open(codexChartUrl, "_blank");
+  };
 
   return (
     <Link
       to={url}
       className={cn(
-        "group relative flex flex-col md:flex-1 md:min-w-0",
-        "rounded-xl border transition-all duration-200",
+        "group relative flex flex-col",
+        "rounded-2xl border transition-all duration-300 ease-out",
         "cursor-pointer",
-        "p-4 md:p-5",
-        r.accent, r.hoverAccent,
-        "hover:scale-[1.02] active:scale-[0.99]",
+        r.border, r.hoverBorder, r.glow,
+        "hover:scale-[1.02] active:scale-[0.98]",
+        r.king ? "md:flex-[1.15]" : "md:flex-1",
         blink && "animate-[king-blink_0.3s_ease-in-out]",
       )}
       style={{
-        background: "hsl(215 28% 12% / 0.55)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        background: "linear-gradient(135deg, hsl(0 0% 7%) 0%, hsl(0 0% 5%) 100%)",
+        padding: "20px",
       }}
     >
-      {/* Top: rank + avatar + name block */}
-      <div className="flex items-center gap-3 mb-3.5">
-        {/* Rank */}
+      {/* King crown glow for #1 */}
+      {r.king && (
+        <div className="absolute -top-px -left-px -right-px h-[2px] rounded-t-2xl bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
+      )}
+
+      {/* Top: Rank badge + Avatar + Info */}
+      <div className="flex items-center gap-3 mb-4">
+        {/* Rank Badge */}
         <div className={cn(
-          "flex-shrink-0 flex items-center justify-center rounded-lg font-bold text-white text-sm shadow-sm bg-gradient-to-br",
-          r.badgeBg,
-          r.king ? "w-10 h-10" : "w-9 h-9 text-xs",
+          "flex-shrink-0 flex items-center justify-center rounded-xl font-black text-white shadow-lg",
+          r.badgeBg, r.badgeRing,
+          r.king ? "w-11 h-11 text-base" : "w-9 h-9 text-sm",
         )}>
-          #{rank}
+          {r.label}
         </div>
 
-        {/* Avatar */}
+        {/* Token Avatar */}
         <div className={cn(
-          "flex-shrink-0 rounded-full overflow-hidden",
-          r.king ? "w-10 h-10" : "w-9 h-9",
-        )} style={{ border: "1.5px solid hsl(215 20% 25%)" }}>
+          "flex-shrink-0 rounded-2xl overflow-hidden border border-border/30",
+          r.king ? "w-14 h-14" : "w-12 h-12",
+        )}>
           <OptimizedTokenImage
             src={token.image_url}
             alt={token.name}
             fallbackText={token.ticker}
-            size={80}
+            size={112}
             className="w-full h-full object-cover"
           />
         </div>
 
-        {/* Name + creator */}
+        {/* Name + Creator */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[15px] font-semibold text-foreground truncate">{token.name}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={cn(
+              "font-bold text-foreground truncate leading-tight",
+              r.king ? "text-[16px]" : "text-[14px]",
+            )}>
+              {token.name}
+            </span>
+            <span className="text-[11px] font-mono text-muted-foreground/50 truncate">${token.ticker}</span>
             {isTrader && (
-              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wider flex-shrink-0"
-                style={{ background: "hsl(187 70% 55% / 0.1)", color: "hsl(187 70% 55%)", border: "1px solid hsl(187 70% 55% / 0.15)" }}>
+              <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-md uppercase tracking-wider flex-shrink-0 bg-cyan-500/10 text-cyan-400 border border-cyan-500/15">
                 <Bot className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />Trader
               </span>
             )}
@@ -137,28 +191,66 @@ function Card({ token, rank }: { token: KingToken; rank: number }) {
           {xUser && (
             <div className="flex items-center gap-1 mt-0.5">
               {xAvatar && (
-                <img src={xAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0" style={{ border: "1px solid hsl(215 20% 28%)" }} />
+                <img src={xAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-border/20" />
               )}
-              <span className="text-[11px] text-muted-foreground/50 truncate">@{xUser}</span>
+              <span className="text-[11px] text-muted-foreground/45 truncate">@{xUser}</span>
               {verified && <BadgeCheck className="w-3.5 h-3.5 flex-shrink-0" style={{ color: checkClr }} />}
             </div>
           )}
         </div>
       </div>
 
-      {/* Bottom: mcap + holders | progress */}
-      <div className="flex items-end gap-4">
-        <div className="flex-shrink-0">
-          <span className={cn("text-lg font-bold font-mono tabular-nums block leading-none", r.mcap)}>
-            ${mcapUsd >= 1000 ? `${(mcapUsd / 1000).toFixed(1)}K` : mcapUsd.toFixed(0)}
+      {/* Middle: MCAP + Volume + Holders */}
+      <div className="flex items-center gap-4 mb-3">
+        <div>
+          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 block mb-0.5">MCap</span>
+          <span className="text-lg font-bold font-mono tabular-nums text-emerald-400 leading-none">
+            ${mcapUsd >= 1_000_000 ? `${(mcapUsd / 1_000_000).toFixed(2)}M` : mcapUsd >= 1_000 ? `${(mcapUsd / 1_000).toFixed(1)}K` : mcapUsd.toFixed(0)}
           </span>
-          <div className="flex items-center gap-1 mt-1 text-muted-foreground/30">
-            <Users className="w-3 h-3" />
-            <span className="text-[10px] font-mono">{token.holder_count ?? 0}</span>
+        </div>
+        <div className="h-6 w-px bg-border/20" />
+        <div>
+          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 block mb-0.5">Holders</span>
+          <div className="flex items-center gap-1">
+            <Users className="w-3 h-3 text-muted-foreground/40" />
+            <span className="text-[13px] font-mono font-semibold text-foreground/80">{holders >= 1000 ? `${(holders / 1000).toFixed(1)}K` : holders}</span>
           </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <Bar value={progress} />
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mb-3">
+        <ProgressBar value={progress} />
+      </div>
+
+      {/* Bottom Tools Row */}
+      <div className="flex items-center justify-between pt-2 border-t border-border/10">
+        <Link
+          to={url}
+          onClick={handleTradeClick}
+          className={cn(
+            "flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+            "bg-primary/10 text-primary hover:bg-primary/20",
+            "border border-primary/20 hover:border-primary/40",
+          )}
+        >
+          <TrendingUp className="w-3 h-3" />
+          Trade Now
+        </Link>
+
+        <div className="flex items-center gap-2">
+          {codexChartUrl && (
+            <button
+              onClick={handleChartClick}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium text-muted-foreground/60 hover:text-foreground/80 transition-colors bg-muted/20 hover:bg-muted/40"
+            >
+              <BarChart3 className="w-3 h-3" />
+              Chart
+            </button>
+          )}
+          <span className="text-[9px] font-mono text-muted-foreground/30">
+            {holders} buyers
+          </span>
         </div>
       </div>
     </Link>
@@ -166,26 +258,34 @@ function Card({ token, rank }: { token: KingToken; rank: number }) {
 }
 
 /* ── skeleton ── */
-function CardSkeleton() {
+function KingCardSkeleton() {
   return (
-    <div className="flex flex-col md:flex-1 rounded-xl border border-slate-700/20 p-4 md:p-5"
-      style={{ background: "hsl(215 28% 12% / 0.55)", backdropFilter: "blur(20px)" }}>
-      <div className="flex items-center gap-3 mb-3.5">
-        <Skeleton className="w-10 h-10 rounded-lg" />
-        <Skeleton className="w-9 h-9 rounded-full" />
+    <div
+      className="flex flex-col md:flex-1 rounded-2xl border border-border/10"
+      style={{ background: "linear-gradient(135deg, hsl(0 0% 7%) 0%, hsl(0 0% 5%) 100%)", padding: "20px" }}
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <Skeleton className="w-11 h-11 rounded-xl" />
+        <Skeleton className="w-14 h-14 rounded-2xl" />
         <div className="flex-1 space-y-1.5">
-          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-28" />
           <Skeleton className="h-3 w-16" />
         </div>
       </div>
-      <div className="flex items-end gap-4">
+      <div className="flex items-center gap-4 mb-3">
         <div className="space-y-1">
-          <Skeleton className="h-5 w-14" />
-          <Skeleton className="h-3 w-10" />
+          <Skeleton className="h-2 w-8" />
+          <Skeleton className="h-5 w-16" />
         </div>
-        <div className="flex-1 space-y-1.5">
-          <Skeleton className="h-2.5 w-full rounded-md" />
+        <div className="space-y-1">
+          <Skeleton className="h-2 w-8" />
+          <Skeleton className="h-4 w-10" />
         </div>
+      </div>
+      <Skeleton className="h-[6px] w-full rounded-full mb-3" />
+      <div className="flex items-center justify-between pt-2 border-t border-border/10">
+        <Skeleton className="h-7 w-20 rounded-lg" />
+        <Skeleton className="h-6 w-14 rounded-lg" />
       </div>
     </div>
   );
@@ -197,19 +297,34 @@ export function KingOfTheHill() {
 
   return (
     <div className="w-full">
-      {/* Header */}
-      <div className="flex items-baseline gap-3 mb-4">
-        <img src="/claw-logo.png" alt="" className="w-4 h-4 object-contain self-center" />
-        <h2 className="text-sm font-bold uppercase tracking-[0.1em] text-foreground">King of the Claws</h2>
-        <span className="text-[11px] text-muted-foreground/40">Soon to Graduate</span>
-        <div className="flex-1 h-px bg-border/40 ml-1 self-center" />
+      {/* Premium Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <img src="/claw-logo.png" alt="" className="w-5 h-5 object-contain" />
+          <div>
+            <h2 className="text-base font-black uppercase tracking-[0.08em] text-foreground" style={{ textShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
+              King of the Claws
+            </h2>
+            <span className="text-[11px] text-muted-foreground/40 tracking-wide">Soon to Graduate</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/15">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-mono font-medium text-emerald-400/80">45 online</span>
+          </div>
+          <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-semibold text-primary/80 border border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all">
+            View Full Leaderboard
+            <ArrowUpRight className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
-      {/* Row */}
-      <div className="flex flex-col md:flex-row gap-3">
+      {/* Cards Row */}
+      <div className="flex flex-col md:flex-row gap-4">
         {isLoading
-          ? [1, 2, 3].map(i => <CardSkeleton key={i} />)
-          : tokens?.map((t, i) => <Card key={t.id} token={t} rank={i + 1} />)
+          ? [1, 2, 3].map(i => <KingCardSkeleton key={i} />)
+          : tokens?.map((t, i) => <KingCard key={t.id} token={t} rank={i + 1} />)
         }
       </div>
     </div>
