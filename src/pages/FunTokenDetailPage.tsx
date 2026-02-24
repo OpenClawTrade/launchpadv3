@@ -8,7 +8,7 @@ import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { UniversalTradePanel } from "@/components/launchpad/UniversalTradePanel";
 import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
 import { TokenComments } from "@/components/launchpad/TokenComments";
-import { DexscreenerChart } from "@/components/launchpad/DexscreenerChart";
+import { CodexChart } from "@/components/launchpad/CodexChart";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -198,9 +198,9 @@ export default function FunTokenDetailPage() {
     </>
   );
 
-  const ChartSection = ({ chartHeight = 380 }: { chartHeight?: number }) => (
-    <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: 'hsl(222 47% 7%)' }}>
-      <DexscreenerChart mintAddress={token.mint_address || mintAddress || ''} height={chartHeight} />
+  const ChartSection = ({ chartHeight = 460 }: { chartHeight?: number }) => (
+    <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
+      <CodexChart tokenAddress={token.mint_address || mintAddress || ''} height={chartHeight} />
     </div>
   );
 
