@@ -32,7 +32,7 @@ export default function TradePage() {
 
   return (
     <LaunchpadLayout>
-      <div className="space-y-3">
+      <div className="space-y-3 relative z-10">
         {/* Header + Search */}
         <div className="flex items-center gap-3 px-4">
           <div className="flex items-center gap-2">
