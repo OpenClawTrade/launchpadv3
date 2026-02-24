@@ -4,6 +4,7 @@ import { Users, Copy, CheckCircle, Globe } from "lucide-react";
 import { CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { toast } from "sonner";
+import pumpfunPill from "@/assets/pumpfun-pill.webp";
 
 function formatUsdCompact(usd: number): string {
   if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(2)}M`;
@@ -86,7 +87,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] font-bold text-foreground truncate">{token.name}</span>
             <span className="text-[10px] font-mono text-success flex-shrink-0">${token.symbol}</span>
-            <span className="axiom-platform-badge" style={{ background: "hsl(280 60% 45%)", color: "white" }}>PF</span>
+            <img src={pumpfunPill} alt="pump.fun" className="h-3.5 w-3.5 object-contain flex-shrink-0" />
           </div>
 
           <div className="flex items-center gap-1.5 mt-0.5">
