@@ -312,6 +312,9 @@ serve(async (req) => {
         const author = tweet.author?.userName || "unknown";
         const followers = getFollowerCount(tweet);
 
+        // Determine if this tweet is a direct @clawmode mention (bypass filters)
+        const isDirectMention = tweet.text.toLowerCase().includes("@clawmode");
+
         // Skip tweets older than last scan (or 30 min for first scan)
         if (!isTweetAfterTimestamp(tweet.createdAt, lastScannedAt, 30)) {
           debug.skipped++;
@@ -330,8 +333,8 @@ serve(async (req) => {
           continue;
         }
 
-        // Check verification requirements
-        if (!hasVerificationBadge(tweet, rules.require_blue_verified, rules.require_gold_verified)) {
+        // Check verification requirements (skip for direct @clawmode mentions)
+        if (!isDirectMention && !hasVerificationBadge(tweet, rules.require_blue_verified, rules.require_gold_verified)) {
           await insertLog(supabase, account.id, "skip", "info", `Skipped @${author}: verification not met`, {
             tweetId: tweet.id,
             requireBlue: rules.require_blue_verified,
@@ -342,8 +345,8 @@ serve(async (req) => {
           continue;
         }
 
-        // Check follower count
-        if (followers < (rules.min_follower_count || 5000)) {
+        // Check follower count (skip for direct @clawmode mentions)
+        if (!isDirectMention && followers < (rules.min_follower_count || 5000)) {
           await insertLog(supabase, account.id, "skip", "info", `Skipped @${author}: ${followers.toLocaleString()} followers < ${rules.min_follower_count.toLocaleString()} min`, {
             tweetId: tweet.id,
             followers,
