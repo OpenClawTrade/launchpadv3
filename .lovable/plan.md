@@ -1,100 +1,125 @@
 
 
-# Pump.fun New Pairs via Codex filterTokens API
+# Axiom Pulse 1:1 Redesign Plan for /trade
 
-## Overview
-Add a live "New Pairs" feed to the `/trade` terminal that pulls recent Pump.fun token launches from across the entire Solana network using the Codex.io `filterTokens` GraphQL API. This data will be fetched through a new backend function (proxied through the existing Codex API key) and displayed in the existing "New Pairs" column of the Axiom terminal grid.
+## Current State
+The `/trade` page currently shows a loading spinner with no visible content. The existing card components (`AxiomTokenRow.tsx` and `CodexPairRow.tsx`) have a basic layout that doesn't match the Axiom Pulse screenshot. The page also has a loading/rendering issue that needs to be fixed.
 
-## How It Works
-The Codex `filterTokens` query supports launchpad-specific filters. We can query for:
-- **New (bonding)**: `launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false`
-- **Completing (near graduation)**: `launchpadName: ["Pump.fun"], launchpadGraduationPercent: {gte: 50}, launchpadMigrated: false`
-- **Graduated (migrated)**: `launchpadName: ["Pump.fun"], launchpadMigrated: true`
+## What Changes (Sidebar + Layout = UNTOUCHED)
+Only the main content area inside `LaunchpadLayout` will be modified. The left sidebar, `AppHeader`, `Footer`, and routing remain completely untouched.
 
-All scoped to Solana network `1399811149`. The response includes token name, symbol, address, market cap, volume, holders, launchpad graduation percent, image URL, and more.
+---
 
-## Technical Plan
+## Detailed Breakdown from Screenshot Analysis
 
-### 1. New Edge Function: `codex-filter-tokens`
-Create `supabase/functions/codex-filter-tokens/index.ts` that:
-- Accepts a POST body with `{ column: "new" | "completing" | "completed", limit: number }`
-- Builds the appropriate `filterTokens` GraphQL query with pump.fun filters
-- Uses the existing `CODEX_API_KEY` secret (already configured)
-- Returns normalized token data with: address, name, symbol, marketCap, volume24h, holders, graduationPercent, imageUrl, createdAt, launchpadName
-- Includes CORS headers for web app access
+### 1. Page Header ("Pulse" Title Bar)
+The screenshot shows:
+- "Pulse" title in bold white, left-aligned
+- Two small icons next to "Pulse" (list view icon + settings gear icon)
+- Right side: "Display" dropdown button, bookmark icon, monitor icon, sound icon, gear icon, layout icon, count "1 = 1,573" with chevron
 
-GraphQL query structure:
-```text
-{
-  filterTokens(
-    filters: {
-      network: 1399811149
-      launchpadName: ["Pump.fun"]
-      launchpadCompleted: false
-      launchpadMigrated: false
-    }
-    rankings: { attribute: createdAt, direction: DESC }
-    limit: 50
-  ) {
-    results {
-      createdAt
-      holders
-      liquidity
-      marketCap
-      circulatingMarketCap
-      volume24
-      change24
-      token {
-        info { address name symbol imageSmallUrl }
-        launchpad {
-          graduationPercent
-          poolAddress
-          launchpadName
-          completed
-          migrated
-        }
-      }
-    }
-  }
-}
-```
+**Implementation:** Update `TradePage.tsx` header section to match. Add a toolbar row with icon buttons and a "Display" dropdown (visual only for now).
 
-### 2. New React Hook: `useCodexNewPairs`
-Create `src/hooks/useCodexNewPairs.ts` that:
-- Uses `@tanstack/react-query` to poll the edge function every 30 seconds
-- Returns `{ newPairs, completing, graduated, isLoading, error }`
-- Maps Codex response to a `CodexPairToken` interface compatible with the terminal grid
+### 2. Column Headers (per column)
+Each of the 3 columns shows:
+- Column title: "New Pairs" / "Final Stretch" / "Migrated" in bold white
+- Lightning bolt icon with number (e.g., "2")
+- P1, P2, P3 tab buttons (small, inline)
+- Star/bookmark icon on far right
+- Settings/filter icon on far right
 
-### 3. New Terminal Column Component: `CodexPairRow`
-Create `src/components/launchpad/CodexPairRow.tsx`:
-- Renders similarly to `AxiomTokenRow` but for external Codex tokens
-- Shows: token image (from Codex `imageSmallUrl`), name, ticker, market cap (formatted as K/M), graduation %, holder count
-- Clicking opens the token on the platform's detail page or links externally (since these aren't platform-native tokens)
+**Implementation:** Redesign `PulseColumnHeader` in `AxiomTerminalGrid.tsx` to include lightning icon with count, P1/P2/P3 mini-tabs, star icon, and filter icon.
 
-### 4. Update `AxiomTerminalGrid`
-Modify `src/components/launchpad/AxiomTerminalGrid.tsx` to:
-- Accept an optional `codexNewPairs` prop
-- Merge Codex Pump.fun pairs into the "New Pairs" column (shown above platform-native tokens, or in a sub-section)
-- Add a small "PumpFun" badge/icon to distinguish external pairs from native platform tokens
+### 3. Token Card Layout (THE MAIN REDESIGN)
+Each card in the screenshot has this exact structure:
 
-### 5. Update `TradePage`
-Modify `src/pages/TradePage.tsx` to:
-- Call the `useCodexNewPairs` hook
-- Pass the data to `AxiomTerminalGrid`
+**Row 1 (top):**
+- Left: 48x48 rounded avatar with green verified dot (bottom-right)
+- Center-left block:
+  - Line 1: Token name (bold white) + full name italic + link icon
+  - Line 2: Age (e.g., "6d") + social icons row (X, people, link, globe, chat, search) + icon counts (e.g., "4666", "511", "1")
+  - Line 3: "by @handle" in gray + follower icon + follower count (e.g., "1,379")
+- Right block:
+  - MC value large bold (e.g., "$25.5K")
+  - V value (e.g., "$12K")
+  - F value + TX count with green line indicator (e.g., "TX 958")
 
-## Files to Create
-- `supabase/functions/codex-filter-tokens/index.ts` -- edge function proxying Codex filterTokens
-- `src/hooks/useCodexNewPairs.ts` -- React Query hook for fetching/polling
-- `src/components/launchpad/CodexPairRow.tsx` -- row component for Codex pairs
+**Row 2 (bottom, below a subtle separator):**
+- Left: graduation % with arrow icon (e.g., "19%") + colored % dots (e.g., "1% 1% 74% 0%")
+- Center: "DS" badge + "Paid" green badge
+- Right: Blue pill button with lightning icon (e.g., "2 SOL")
+
+**Bottom-left corner:** Shortened address (e.g., "H83K...pump")
+
+### 4. Card Colors and Hover
+- Card background: `#121212` (dark)
+- Card border: `#222` (subtle)
+- Hover: `#22C55E` border glow at ~35% opacity + 1px lift + shadow
+- Text: White for names/MC, `#888` for secondary
+- Accents: Green `#22C55E` for positive, Red `#EF4444` for negative
+- Blue button: `#2563eb` / `#3b82f6`
+
+### 5. Social Icons Row
+Each card shows a row of small gray icons:
+- X (Twitter) icon
+- People/community icon
+- Link icon
+- Globe icon
+- Chat/search icon
+- Each with a count next to them
+
+---
 
 ## Files to Modify
-- `src/components/launchpad/AxiomTerminalGrid.tsx` -- integrate Codex pairs into columns
-- `src/pages/TradePage.tsx` -- wire up the new hook
-- `supabase/config.toml` -- add verify_jwt config for new function (if not already covered by wildcard)
 
-## Notes
-- The `CODEX_API_KEY` is already configured as a secret
-- Solana network ID in Codex is `1399811149` (already used for charts)
-- No new database tables needed; this is a live API feed
-- Cache can be added later via the existing `pool_state_cache` pattern if rate limits become an issue
+### File 1: `src/components/launchpad/AxiomTokenRow.tsx` (FULL REWRITE)
+Completely rebuild the card to match the Axiom screenshot:
+- Increase avatar to 48px with proper rounded corners
+- Add detailed social icons row with counts
+- Add "by @handle" creator line with follower count
+- Add right-side metrics block: MC (large), V (medium), F + TX count with indicator line
+- Add bottom row with graduation %, colored metric dots, DS badge, Paid badge
+- Add shortened address bottom-left
+- Add blue SOL pill button bottom-right
+- Match exact font sizes, spacing, and colors
+
+### File 2: `src/components/launchpad/CodexPairRow.tsx` (FULL REWRITE)
+Same card redesign as AxiomTokenRow but using Codex data fields:
+- Map `marketCap` to MC, `volume24h` to V, `liquidity` to F
+- Map `holders` to TX count
+- Map `graduationPercent` to progress indicator
+- Include all social icons from Codex data (twitter, telegram, website, discord)
+- Include "by" creator line
+- Shortened address from `token.address`
+
+### File 3: `src/components/launchpad/AxiomTerminalGrid.tsx` (UPDATE)
+- Redesign `PulseColumnHeader` to include: lightning icon with count, P1/P2/P3 mini tabs, star icon, filter icon
+- Keep existing data logic (column splitting, king of the hill backfill)
+- Update skeleton to match new card height (~130px)
+- Keep responsive mobile tab switcher
+
+### File 4: `src/pages/TradePage.tsx` (UPDATE)
+- Replace "Terminal" header with "Pulse" title matching Axiom
+- Add toolbar row with Display dropdown, bookmark, monitor, sound, gear, layout icons
+- Keep existing data hooks unchanged
+
+### File 5: `src/index.css` (UPDATE pulse-* classes)
+- Update `.pulse-card` padding to `12px 14px`
+- Update `.pulse-avatar` to `48px` x `48px` with `border-radius: 12px`
+- Add new classes: `.pulse-social-row`, `.pulse-creator-line`, `.pulse-tx-indicator`
+- Update `.pulse-col-header` for the new header layout with P1/P2/P3 tabs
+- Add `.pulse-metric-row` for bottom metrics with colored dots
+- Update `.pulse-sol-btn` padding to `px-5 py-1.5`
+- Ensure all hover states match: green glow + lift + shadow
+
+---
+
+## Technical Notes
+
+- All existing data hooks (`useFunTokensPaginated`, `useCodexNewPairs`, `useGraduatedTokens`, `useSolPrice`, `useKingOfTheHill`) remain unchanged
+- The sidebar component (`Sidebar.tsx`), layout (`LaunchpadLayout.tsx`), and routing are not touched
+- Social icon counts will use available data (holders, volume) - some fields may show 0 if data isn't available from the API
+- P1/P2/P3 tabs in column headers will be visual-only for now (no filtering logic)
+- The "Display" dropdown in the page header will be visual-only
+- The blue SOL button remains a visual element (buy functionality added later)
 
