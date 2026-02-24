@@ -19,11 +19,11 @@ function buildQuery(column: Column, limit: number): string {
       break;
     case "completing":
       filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false, launchpadGraduationPercent: { gte: 50 } }`;
-      rankings = `{ attribute: marketCap, direction: DESC }`;
+      rankings = `{ attribute: createdAt, direction: DESC }`;
       break;
     case "completed":
       filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadMigrated: true }`;
-      rankings = `{ attribute: marketCap, direction: DESC }`;
+      rankings = `{ attribute: createdAt, direction: DESC }`;
       break;
   }
 
@@ -48,12 +48,20 @@ function buildQuery(column: Column, limit: number): string {
           imageSmallUrl
           imageLargeUrl
         }
+        socialLinks {
+          twitter
+          website
+          telegram
+          discord
+        }
         launchpad {
           graduationPercent
           poolAddress
           launchpadName
           completed
           migrated
+          completedAt
+          migratedAt
         }
       }
     }
@@ -126,7 +134,13 @@ Deno.serve(async (req) => {
       launchpadName: r.token?.launchpad?.launchpadName ?? "Pump.fun",
       completed: r.token?.launchpad?.completed ?? false,
       migrated: r.token?.launchpad?.migrated ?? false,
+      completedAt: r.token?.launchpad?.completedAt ?? null,
+      migratedAt: r.token?.launchpad?.migratedAt ?? null,
       createdAt: r.createdAt ?? null,
+      twitterUrl: r.token?.socialLinks?.twitter ?? null,
+      websiteUrl: r.token?.socialLinks?.website ?? null,
+      telegramUrl: r.token?.socialLinks?.telegram ?? null,
+      discordUrl: r.token?.socialLinks?.discord ?? null,
     }));
 
     return new Response(JSON.stringify({ tokens, column: validColumn }), {
