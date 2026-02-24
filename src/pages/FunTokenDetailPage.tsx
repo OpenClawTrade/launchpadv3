@@ -7,6 +7,7 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { UniversalTradePanel } from "@/components/launchpad/UniversalTradePanel";
 import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
+import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 import { TokenComments } from "@/components/launchpad/TokenComments";
 import { CodexChart } from "@/components/launchpad/CodexChart";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
@@ -45,6 +46,7 @@ function formatSolAmount(amount: number): string {
 export default function FunTokenDetailPage() {
   const { mintAddress } = useParams<{ mintAddress: string }>();
   const { solanaAddress } = useAuth();
+  const privyAvailable = usePrivyAvailable();
   const { solPrice } = useSolPrice();
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
@@ -77,7 +79,14 @@ export default function FunTokenDetailPage() {
     if (sol >= 1) return `${sol.toFixed(2)} SOL`;
     return `${sol.toFixed(6)} SOL`;
   };
-
+  const formatCompact = (value: number) => {
+    const n = Number(value || 0);
+    if (!Number.isFinite(n) || n <= 0) return "0";
+    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)}B`;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toFixed(2).replace(/\.00$/, "");
+  };
   const copyAddress = () => {
     const address = token?.mint_address || mintAddress;
     if (address) {
@@ -181,10 +190,10 @@ export default function FunTokenDetailPage() {
   };
 
   const stats = [
-    { label: 'MCAP', value: formatUsd(token.market_cap_sol || 0), accent: true },
+    { label: 'MCAP', value: formatCompact(token.market_cap_sol || 0), accent: true },
     { label: 'VOL 24H', value: `${formatSolAmount(token.volume_24h_sol || 0)} SOL` },
     { label: 'HOLDERS', value: (token.holder_count || 0).toLocaleString() },
-    { label: 'PRICE', value: formatUsd(token.price_sol || 0) },
+    { label: 'PRICE', value: `${(token.price_sol || 0).toExponential(2)} SOL` },
     { label: 'SUPPLY', value: formatTokenAmount(TOTAL_SUPPLY) },
   ];
 
@@ -192,14 +201,19 @@ export default function FunTokenDetailPage() {
 
   const TradeSection = () => (
     <>
-      {isBonding && <TradePanelWithSwap token={tokenForTradePanel} userBalance={0} />}
-      {isGraduated && token.mint_address && (
+      {!privyAvailable && (
+        <div className="terminal-panel-flush rounded-lg p-6 md:p-4 text-center">
+          <p className="text-muted-foreground text-sm md:text-xs font-mono">Wallet backend unavailable right now. Reload in a moment.</p>
+        </div>
+      )}
+      {privyAvailable && isBonding && <TradePanelWithSwap token={tokenForTradePanel} userBalance={0} />}
+      {privyAvailable && isGraduated && token.mint_address && (
         <UniversalTradePanel
           token={{ mint_address: token.mint_address, ticker: token.ticker, name: token.name, decimals: 9 }}
           userTokenBalance={0}
         />
       )}
-      {!isBonding && !isGraduated && (
+      {privyAvailable && !isBonding && !isGraduated && (
         <div className="terminal-panel-flush rounded-lg p-6 md:p-4 text-center">
           <p className="text-muted-foreground text-sm md:text-xs font-mono">Trading not available · Status: {token.status}</p>
         </div>
