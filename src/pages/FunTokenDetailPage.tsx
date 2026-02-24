@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useFunToken } from "@/hooks/useFunToken";
+import { useExternalToken } from "@/hooks/useExternalToken";
 import { usePoolState } from "@/hooks/usePoolState";
 import { useAuth } from "@/hooks/useAuth";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -44,6 +45,263 @@ function formatSolAmount(amount: number): string {
   return amount.toFixed(4);
 }
 
+/** Lightweight view for tokens not in our database — fetched from Codex on-chain data */
+function ExternalTokenView({ token, mintAddress, solPrice }: { token: import("@/hooks/useExternalToken").ExternalToken; mintAddress: string; solPrice: number }) {
+  const privyAvailable = usePrivyAvailable();
+  const { toast } = useToast();
+  const [mobileTab, setMobileTab] = useState<'trade' | 'chart'>('trade');
+
+  const copyAddress = () => {
+    navigator.clipboard.writeText(mintAddress);
+    toast({ title: "Address copied!" });
+  };
+  const shareToken = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast({ title: "Link copied!" });
+  };
+
+  const formatUsdCompact = (v: number) => {
+    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+    if (v >= 1) return `$${v.toFixed(2)}`;
+    if (v > 0) return `$${v.toFixed(6)}`;
+    return '$0';
+  };
+
+  const isPriceUp = token.change24h >= 0;
+
+  const stats = [
+    { label: 'MCAP', value: formatUsdCompact(token.marketCapUsd), accent: true },
+    { label: 'VOL 24H', value: formatUsdCompact(token.volume24hUsd) },
+    { label: 'HOLDERS', value: token.holders.toLocaleString() },
+    { label: 'PRICE', value: formatUsdCompact(token.priceUsd) },
+    { label: 'LIQ', value: formatUsdCompact(token.liquidity) },
+  ];
+
+  return (
+    <LaunchpadLayout>
+      <div className="min-h-screen -m-4 p-2 md:p-3" style={{ backgroundColor: 'hsl(222 47% 7%)' }}>
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-1.5 pb-32 md:pb-24">
+
+          {/* TOP BAR */}
+          <div className="terminal-panel-flush rounded-lg overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 lg:py-1.5">
+              <Link to="/trade" className="shrink-0">
+                <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                </Button>
+              </Link>
+
+              <Avatar className="h-9 w-9 md:h-8 md:w-8 rounded-lg border border-border/40 shrink-0">
+                <AvatarImage src={token.imageUrl || undefined} className="object-cover" />
+                <AvatarFallback className="rounded-lg text-[10px] font-bold bg-primary/10 text-primary font-mono">
+                  {(token.symbol || '??').slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="flex items-center gap-1.5 min-w-0 shrink">
+                <h1 className="text-sm font-bold font-mono tracking-tight truncate max-w-[100px] sm:max-w-[140px] md:max-w-[200px] lg:max-w-none">{token.name}</h1>
+                <span className="text-xs md:text-[11px] font-mono text-muted-foreground shrink-0">${token.symbol}</span>
+                {token.migrated && (
+                  <span className="hidden sm:inline text-[9px] font-mono px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20 shrink-0">GRAD</span>
+                )}
+                {!token.completed && !token.migrated && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/20 flex items-center gap-0.5 shrink-0">
+                    <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />LIVE
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 ml-auto sm:ml-2 shrink-0">
+                <span className="text-sm sm:text-xs font-mono font-bold text-foreground">{formatUsdCompact(token.priceUsd)}</span>
+                {token.change24h !== 0 && (
+                  <span className={`text-xs sm:text-[11px] font-mono font-semibold flex items-center gap-0.5 ${isPriceUp ? 'text-green-400' : 'text-destructive'}`}>
+                    {isPriceUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {isPriceUp ? '+' : ''}{Math.abs(token.change24h).toFixed(1)}%
+                  </span>
+                )}
+              </div>
+
+              <div className="hidden lg:flex items-center gap-3 ml-2 min-w-0">
+                {stats.map((s, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <span className="text-[9px] font-mono text-muted-foreground/70 uppercase">{s.label}</span>
+                    <span className={`text-[11px] font-mono font-semibold ${s.accent ? 'terminal-stat-teal' : 'text-foreground/90'}`}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-0.5 shrink-0 ml-1 sm:ml-2">
+                <Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={copyAddress}><Copy className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button>
+                <Button variant="ghost" size="icon" className="hidden sm:flex h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={shareToken}><Share2 className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button>
+                <div className="hidden md:flex items-center gap-0.5">
+                  {token.websiteUrl && <a href={token.websiteUrl} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><Globe className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                  {token.twitterUrl && <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><Twitter className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                  <a href={`https://solscan.io/token/${mintAddress}`} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>
+                </div>
+                <a href={`https://axiom.trade/meme/${mintAddress}?chain=sol`} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" className="h-8 lg:h-7 px-2 text-[9px] font-mono gap-0.5 bg-accent/15 hover:bg-accent/25 text-accent-foreground rounded">
+                    <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                    <span className="hidden sm:inline">Axiom</span>
+                  </Button>
+                </a>
+              </div>
+            </div>
+
+            <div className="hidden sm:flex lg:hidden items-center gap-3 px-3 py-1.5 overflow-x-auto scrollbar-none border-t border-border/10">
+              {stats.map((s, i) => (
+                <div key={i} className="flex items-center gap-1 shrink-0">
+                  <span className="text-[9px] font-mono text-muted-foreground/70 uppercase">{s.label}</span>
+                  <span className={`text-[11px] font-mono font-semibold ${s.accent ? 'terminal-stat-teal' : 'text-foreground/90'}`}>{s.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Phone stats */}
+          <div className="md:hidden grid grid-cols-3 gap-px terminal-panel-flush overflow-hidden rounded-lg" style={{ backgroundColor: 'hsl(222 30% 10%)' }}>
+            {stats.slice(0, 3).map((s, i) => (
+              <div key={i} className="px-3 py-2.5 text-center" style={{ backgroundColor: 'hsl(222 30% 8% / 0.9)' }}>
+                <p className="text-[10px] font-mono text-muted-foreground/80 uppercase tracking-wider">{s.label}</p>
+                <p className={`text-sm font-mono font-bold mt-0.5 ${s.accent ? 'terminal-stat-teal' : 'text-foreground'}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Graduation progress */}
+          {token.graduationPercent !== null && !token.completed && !token.migrated && (
+            <div className="terminal-panel-flush flex items-center gap-3 px-4 py-3 md:py-2.5 lg:py-2 rounded-lg">
+              <Zap className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3 terminal-stat-orange shrink-0" />
+              <span className="text-[10px] md:text-[9px] font-mono text-muted-foreground uppercase tracking-wider shrink-0">Bonding</span>
+              <div className="flex-1 min-w-[80px]">
+                <div className="w-full rounded-full overflow-hidden bg-white/10" style={{ height: '10px' }}>
+                  <div className="rounded-full bg-cyan-400" style={{ height: '10px', width: `${Math.max(Math.min(token.graduationPercent, 100), 1)}%`, boxShadow: '0 0 12px rgba(34,211,238,0.5)', transition: 'width 0.5s ease' }} />
+                </div>
+              </div>
+              <span className="text-xs md:text-[11px] lg:text-[10px] font-mono font-bold terminal-stat-orange shrink-0">{token.graduationPercent.toFixed(1)}%</span>
+            </div>
+          )}
+
+          {/* Phone tab switcher */}
+          <div className="md:hidden">
+            <div className="grid grid-cols-2 gap-px terminal-panel-flush rounded-lg overflow-hidden">
+              {(['trade', 'chart'] as const).map(tab => (
+                <button key={tab} onClick={() => setMobileTab(tab)}
+                  className={`py-3 text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 min-h-[48px] ${
+                    mobileTab === tab ? 'bg-primary/10 text-primary font-bold border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground bg-card/20 active:bg-card/40'
+                  }`}>
+                  {tab === 'trade' && <Activity className="h-4 w-4" />}
+                  {tab === 'chart' && <BarChart3 className="h-4 w-4" />}
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Phone layout */}
+          <div className="md:hidden flex flex-col gap-2">
+            {mobileTab === 'trade' && (
+              <>
+                {privyAvailable && (
+                  <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals }} userTokenBalance={0} />
+                )}
+                <EmbeddedWalletCard />
+              </>
+            )}
+            {mobileTab === 'chart' && (
+              <>
+                <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
+                  <CodexChart tokenAddress={mintAddress} height={340} />
+                </div>
+                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} />
+              </>
+            )}
+          </div>
+
+          {/* Tablet layout */}
+          <div className="hidden md:grid lg:hidden grid-cols-12 gap-2">
+            <div className="col-span-7 flex flex-col gap-2">
+              <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
+                <CodexChart tokenAddress={mintAddress} height={420} />
+              </div>
+              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} />
+              <div className="terminal-panel-flush rounded-lg p-3 space-y-1.5">
+                <h3 className="text-[9px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70">Contract</h3>
+                <div className="flex items-center gap-2">
+                  <code className="text-[10px] font-mono text-foreground/70 truncate flex-1">{mintAddress.slice(0, 10)}...{mintAddress.slice(-4)}</code>
+                  <button onClick={copyAddress} className="text-muted-foreground hover:text-foreground transition-colors p-1"><Copy className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+            </div>
+            <div className="col-span-5 flex flex-col gap-2">
+              <div className="sticky top-2 flex flex-col gap-2">
+                {privyAvailable && (
+                  <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals }} userTokenBalance={0} />
+                )}
+                <EmbeddedWalletCard />
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop layout */}
+          <div className="hidden lg:grid grid-cols-12 gap-1.5 flex-1">
+            <div className="col-span-9 flex flex-col gap-1.5">
+              <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
+                <CodexChart tokenAddress={mintAddress} height={380} />
+              </div>
+              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} />
+              {privyAvailable && (
+                <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals }} userTokenBalance={0} />
+              )}
+            </div>
+            <div className="col-span-3 flex flex-col gap-1.5">
+              <div className="terminal-panel-flush rounded-lg p-2.5 space-y-1.5">
+                <h3 className="text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 flex items-center gap-1"><Activity className="h-3 w-3" /> Token Details</h3>
+                {[
+                  { label: 'Price', value: formatUsdCompact(token.priceUsd) },
+                  { label: 'Market Cap', value: formatUsdCompact(token.marketCapUsd) },
+                  { label: 'Volume 24h', value: formatUsdCompact(token.volume24hUsd) },
+                  { label: 'Holders', value: token.holders.toLocaleString() },
+                  { label: 'Liquidity', value: formatUsdCompact(token.liquidity) },
+                ].map((row, i) => (
+                  <div key={i} className="flex justify-between text-[10px] font-mono py-1 border-b border-border/10 last:border-0">
+                    <span className="text-muted-foreground/70">{row.label}</span>
+                    <span className="text-foreground/85 font-medium">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="terminal-panel-flush rounded-lg p-2.5 space-y-1.5">
+                <h3 className="text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70">Contract</h3>
+                <div className="flex items-center gap-2">
+                  <code className="text-[9px] font-mono text-foreground/70 truncate flex-1">{mintAddress.slice(0, 10)}...{mintAddress.slice(-4)}</code>
+                  <button onClick={copyAddress} className="text-muted-foreground hover:text-foreground transition-colors p-1"><Copy className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+              <EmbeddedWalletCard />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Phone bottom bar */}
+      <div className="md:hidden fixed left-0 right-0 z-50" style={{ bottom: '40px', backgroundColor: 'hsl(222 30% 7% / 0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid hsl(222 20% 16%)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
+        <div className="flex items-center gap-2 px-4 py-2.5">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-[10px] font-mono text-muted-foreground truncate">{formatUsdCompact(token.priceUsd)}</span>
+            {token.change24h !== 0 && (
+              <span className={`text-[10px] font-mono font-bold ${isPriceUp ? 'text-green-400' : 'text-destructive'}`}>
+                {isPriceUp ? '+' : ''}{token.change24h.toFixed(1)}%
+              </span>
+            )}
+          </div>
+          <button onClick={() => setMobileTab('trade')} className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95" style={{ background: 'linear-gradient(135deg, hsl(160 84% 39%), hsl(187 80% 45%))', color: 'white' }}>BUY</button>
+          <button onClick={() => setMobileTab('trade')} className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95" style={{ background: 'hsl(222 20% 16%)', color: 'hsl(0 72% 60%)', border: '1px solid hsl(0 72% 40% / 0.3)' }}>SELL</button>
+        </div>
+      </div>
+    </LaunchpadLayout>
+  );
+}
+
 export default function FunTokenDetailPage() {
   const { mintAddress } = useParams<{ mintAddress: string }>();
   const { solanaAddress } = useAuth();
@@ -53,8 +311,14 @@ export default function FunTokenDetailPage() {
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('trade');
 
-
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');
+  
+  // Fallback: fetch from Codex if not in our database
+  const { data: externalToken, isLoading: externalLoading } = useExternalToken(
+    mintAddress || '',
+    !isLoading && !token
+  );
+
   const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
     mintAddress: token?.mint_address || '',
     enabled: !!token?.mint_address && token?.status === 'active',
@@ -124,8 +388,8 @@ export default function FunTokenDetailPage() {
 
   const { data: twitterProfile } = useTwitterProfile(token?.launch_author);
 
-  // Loading
-  if (isLoading) {
+  // Loading (either DB or external)
+  if (isLoading || (!token && externalLoading)) {
     return (
       <LaunchpadLayout>
         <div className="terminal-bg min-h-screen p-2">
@@ -141,7 +405,12 @@ export default function FunTokenDetailPage() {
     );
   }
 
-  // Not found
+  // External token (not in our DB but found on-chain via Codex)
+  if (!token && externalToken) {
+    return <ExternalTokenView token={externalToken} mintAddress={mintAddress || ''} solPrice={solPrice} />;
+  }
+
+  // Not found anywhere
   if (!token) {
     return (
       <LaunchpadLayout>
