@@ -5,7 +5,7 @@ import { useKingOfTheHill } from "@/hooks/useKingOfTheHill";
 import { AxiomTokenRow } from "./AxiomTokenRow";
 import { CodexPairRow } from "./CodexPairRow";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Rocket, Flame, CheckCircle2 } from "lucide-react";
+import { Rocket, Flame, CheckCircle2, Zap, Star, SlidersHorizontal } from "lucide-react";
 
 interface AxiomTerminalGridProps {
   tokens: FunToken[];
@@ -29,8 +29,18 @@ function PulseColumnHeader({ label, count, icon: Icon }: { label: string; count:
     <div className="pulse-col-header">
       <div className="flex items-center gap-2">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-[13px] font-bold text-foreground">{label}</span>
-        <span className="pulse-count-badge">{count}</span>
+        <span className="text-[12px] font-bold text-foreground">{label}</span>
+        <div className="flex items-center gap-0.5 ml-0.5">
+          <Zap className="h-2.5 w-2.5 text-warning" />
+          <span className="text-[9px] font-mono font-bold text-warning">{count}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1">
+        {["P1", "P2", "P3"].map(p => (
+          <button key={p} className="pulse-p-tab">{p}</button>
+        ))}
+        <button className="pulse-toolbar-icon ml-0.5"><Star className="h-3 w-3" /></button>
+        <button className="pulse-toolbar-icon"><SlidersHorizontal className="h-3 w-3" /></button>
       </div>
     </div>
   );
@@ -38,17 +48,19 @@ function PulseColumnHeader({ label, count, icon: Icon }: { label: string; count:
 
 function PulseColumnSkeleton() {
   return (
-    <div className="flex flex-col gap-1 p-2">
+    <div className="flex flex-col gap-1 p-1.5">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="pulse-card-skeleton">
-          <Skeleton className="w-11 h-11 rounded-xl skeleton-shimmer" />
+          <Skeleton className="w-12 h-12 rounded-xl skeleton-shimmer" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-3.5 w-3/4 skeleton-shimmer" />
+            <Skeleton className="h-2.5 w-full skeleton-shimmer" />
             <Skeleton className="h-2.5 w-1/2 skeleton-shimmer" />
-            <Skeleton className="h-1.5 w-full skeleton-shimmer" />
+            <Skeleton className="h-2 w-full skeleton-shimmer" />
           </div>
           <div className="space-y-1.5">
-            <Skeleton className="h-3 w-14 skeleton-shimmer ml-auto" />
+            <Skeleton className="h-3.5 w-16 skeleton-shimmer ml-auto" />
+            <Skeleton className="h-2.5 w-12 skeleton-shimmer ml-auto" />
             <Skeleton className="h-2.5 w-10 skeleton-shimmer ml-auto" />
           </div>
         </div>
@@ -121,7 +133,7 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
     if (isLoading) return <PulseColumnSkeleton />;
     if (col.tokens.length === 0 && col.codex.length === 0) return <PulseEmptyColumn label={col.label} />;
     return (
-      <div className="flex flex-col gap-0.5 p-1.5">
+      <div className="flex flex-col gap-0.5 p-1">
         {col.codex.map(t => (
           <CodexPairRow key={`codex-${t.address}`} token={t} />
         ))}
@@ -162,9 +174,9 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
       </div>
 
       {/* Desktop: Three Columns */}
-      <div className="hidden xl:grid grid-cols-3 gap-3">
-        {columns.map((col) => (
-          <div key={col.id} className="pulse-column">
+      <div className="hidden xl:grid grid-cols-3 gap-0 border-t border-border/40">
+        {columns.map((col, i) => (
+          <div key={col.id} className={`pulse-column ${i < 2 ? "border-r border-border/40" : ""}`}>
             <PulseColumnHeader label={col.label} count={col.tokens.length + col.codex.length} icon={col.icon} />
             <div className="pulse-column-scroll">
               {renderColumnContent(col)}

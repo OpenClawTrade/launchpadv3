@@ -885,12 +885,64 @@ body.matrix-hidden canvas {
 /* Pulse Terminal — Axiom-style premium dense layout  */
 /* ═══════════════════════════════════════════════════ */
 
+/* ── Toolbar ── */
+.pulse-toolbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  color: hsl(var(--muted-foreground) / 0.5);
+  transition: all 150ms ease;
+}
+.pulse-toolbar-icon:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.5);
+}
+
+.pulse-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.4);
+  border: 1px solid hsl(var(--border) / 0.5);
+  transition: all 150ms ease;
+}
+.pulse-toolbar-btn:hover {
+  background: hsl(var(--muted) / 0.7);
+  color: hsl(var(--foreground));
+}
+
+/* ── P1/P2/P3 tabs ── */
+.pulse-p-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  color: hsl(var(--muted-foreground) / 0.5);
+  background: hsl(var(--muted) / 0.3);
+  transition: all 150ms ease;
+}
+.pulse-p-tab:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.6);
+}
+
+/* ── Column ── */
 .pulse-column {
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--card) / 0.7);
+  background: hsl(var(--card) / 0.5);
   overflow: hidden;
 }
 
@@ -898,9 +950,9 @@ body.matrix-hidden canvas {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid hsl(var(--border));
-  background: hsl(var(--background-secondary));
+  padding: 6px 10px;
+  border-bottom: 1px solid hsl(var(--border) / 0.4);
+  background: hsl(var(--background-secondary) / 0.5);
 }
 
 .pulse-count-badge {
@@ -919,9 +971,17 @@ body.matrix-hidden canvas {
 .pulse-column-scroll {
   flex: 1;
   overflow-y: auto;
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 140px);
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-color: hsl(var(--border) / 0.4) transparent;
+}
+
+/* ── Icon separator ── */
+.pulse-icon-separator {
+  width: 1px;
+  height: 10px;
+  background: hsl(var(--border) / 0.3);
+  flex-shrink: 0;
 }
 
 /* ── Card ── */
@@ -929,7 +989,7 @@ body.matrix-hidden canvas {
   display: flex;
   flex-direction: column;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid transparent;
   transition: all 180ms ease;
   cursor: pointer;
@@ -940,7 +1000,7 @@ body.matrix-hidden canvas {
   background: hsl(var(--surface-hover));
   border-color: hsl(var(--success) / 0.35);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px -6px hsl(var(--success) / 0.15);
+  box-shadow: 0 4px 16px -4px hsl(var(--success) / 0.12);
 }
 
 /* ── Avatar ── */
@@ -950,11 +1010,11 @@ body.matrix-hidden canvas {
 }
 
 .pulse-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid hsl(var(--border));
+  border: 1px solid hsl(var(--border) / 0.5);
 }
 
 .pulse-verified-dot {
@@ -970,26 +1030,13 @@ body.matrix-hidden canvas {
 
 /* ── Social icons ── */
 .pulse-social-icon {
-  color: hsl(var(--muted-foreground) / 0.45);
+  color: hsl(var(--muted-foreground) / 0.35);
   transition: color 150ms ease;
+  display: inline-flex;
+  align-items: center;
 }
 .pulse-social-icon:hover {
   color: hsl(var(--foreground));
-}
-
-/* ── Progress bar ── */
-.pulse-progress-track {
-  height: 3px;
-  border-radius: 9999px;
-  background: hsl(var(--muted));
-  overflow: hidden;
-}
-
-.pulse-progress-fill {
-  height: 100%;
-  border-radius: 9999px;
-  transition: width 500ms ease;
-  background: linear-gradient(90deg, hsl(160 84% 39%), hsl(38 92% 50%), hsl(0 72% 51%));
 }
 
 /* ── Metric labels ── */
@@ -997,7 +1044,7 @@ body.matrix-hidden canvas {
   font-size: 8px;
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 600;
-  color: hsl(var(--muted-foreground) / 0.4);
+  color: hsl(var(--muted-foreground) / 0.35);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -1033,7 +1080,7 @@ body.matrix-hidden canvas {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 9999px;
   font-size: 10px;
   font-weight: 600;
