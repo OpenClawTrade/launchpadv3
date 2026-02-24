@@ -79,6 +79,9 @@ export function useSolanaWalletWithPrivy() {
           transaction: serializedTx,
           wallet: wallet as any,
           chain: "solana:mainnet" as any,
+          options: {
+            uiOptions: { showWalletUIs: false },
+          },
         });
 
         // result.signature is Uint8Array — convert to base58 string
