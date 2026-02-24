@@ -875,9 +875,9 @@ body.matrix-hidden canvas {
 .pulse-column {
   display: flex;
   flex-direction: column;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
+  background: hsl(var(--card) / 0.7);
   overflow: hidden;
 }
 
@@ -885,7 +885,7 @@ body.matrix-hidden canvas {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid hsl(var(--border));
   background: hsl(var(--background-secondary));
 }
@@ -896,8 +896,8 @@ body.matrix-hidden canvas {
   justify-content: center;
   padding: 1px 6px;
   border-radius: 9999px;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: 700;
   font-family: 'IBM Plex Mono', monospace;
   background: hsl(var(--muted));
   color: hsl(var(--muted-foreground));
@@ -906,38 +906,65 @@ body.matrix-hidden canvas {
 .pulse-column-scroll {
   flex: 1;
   overflow-y: auto;
-  max-height: calc(100vh - 220px);
+  max-height: calc(100vh - 200px);
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border)) transparent;
 }
 
+/* ── Card ── */
 .pulse-card {
   display: flex;
   flex-direction: column;
-  padding: 12px 14px;
-  border-radius: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
   border: 1px solid transparent;
-  transition: all 200ms ease;
+  transition: all 180ms ease;
   cursor: pointer;
   text-decoration: none;
 }
 
 .pulse-card:hover {
   background: hsl(var(--surface-hover));
-  border-color: hsl(var(--success) / 0.3);
+  border-color: hsl(var(--success) / 0.35);
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px -8px hsl(var(--success) / 0.12);
+  box-shadow: 0 6px 20px -6px hsl(var(--success) / 0.15);
+}
+
+/* ── Avatar ── */
+.pulse-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
 }
 
 .pulse-avatar {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   border: 1px solid hsl(var(--border));
-  flex-shrink: 0;
 }
 
+.pulse-verified-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: hsl(var(--success));
+  border: 2px solid hsl(var(--card));
+}
+
+/* ── Social icons ── */
+.pulse-social-icon {
+  color: hsl(var(--muted-foreground) / 0.45);
+  transition: color 150ms ease;
+}
+.pulse-social-icon:hover {
+  color: hsl(var(--foreground));
+}
+
+/* ── Progress bar ── */
 .pulse-progress-track {
   height: 3px;
   border-radius: 9999px;
@@ -952,43 +979,81 @@ body.matrix-hidden canvas {
   background: linear-gradient(90deg, hsl(160 84% 39%), hsl(38 92% 50%), hsl(0 72% 51%));
 }
 
+/* ── Metric labels ── */
+.pulse-metric-label {
+  font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground) / 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ── Metric dots (small pills) ── */
+.pulse-metric-dot {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  font-size: 8px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.pulse-metric-dot--neutral {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+.pulse-metric-dot--success {
+  background: hsl(var(--success) / 0.15);
+  color: hsl(var(--success));
+}
+
+.pulse-metric-dot--danger {
+  background: hsl(var(--destructive) / 0.15);
+  color: hsl(var(--destructive));
+}
+
+/* ── SOL button ── */
 .pulse-sol-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   padding: 3px 10px;
   border-radius: 9999px;
   font-size: 10px;
   font-weight: 600;
   font-family: 'IBM Plex Mono', monospace;
-  background: hsl(210 100% 40%);
+  background: hsl(217 91% 50%);
   color: hsl(0 0% 100%);
   transition: background 150ms ease;
   flex-shrink: 0;
 }
 
 .pulse-sol-btn:hover {
-  background: hsl(210 100% 50%);
+  background: hsl(217 91% 58%);
 }
 
+/* ── Skeleton ── */
 .pulse-card-skeleton {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 10px 12px;
 }
 
-/* Keep legacy badges */
+/* ── Legacy badges ── */
 .axiom-platform-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  font-size: 8px;
+  width: 14px;
+  height: 14px;
+  font-size: 7px;
   font-weight: 700;
   font-family: 'IBM Plex Mono', monospace;
-  border-radius: 4px;
+  border-radius: 3px;
   background: hsl(var(--muted));
   color: hsl(var(--muted-foreground));
   flex-shrink: 0;
@@ -998,9 +1063,9 @@ body.matrix-hidden canvas {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
   background: hsl(var(--accent-purple) / 0.2);
   color: hsl(var(--accent-purple));
   flex-shrink: 0;
