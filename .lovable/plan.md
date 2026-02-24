@@ -1,100 +1,99 @@
 
-# Axiom-Style Trades & Data Tabs for Token Detail Page
 
-## Overview
-Add a tabbed section below the chart on each token's detail page (`/launchpad/:mintAddress`) that mirrors the Axiom terminal interface. The tabs will show **Trades**, **Holders**, and **Top Traders** -- all powered by the Codex.io API via new edge functions.
+## Fix External Token Trading: Trades Display + Swap Routing
 
-## What Gets Built
+### Problem Summary
+Two issues with external tokens (e.g., Pump.fun tokens not in our database):
 
-### 1. New Edge Function: `codex-token-events`
-A backend function that proxies the Codex `getTokenEvents` GraphQL query. It will:
-- Accept a token address, optional cursor for pagination, and limit
-- Query Codex with `eventType: Swap` filter to only return swap events
-- Return normalized trade rows: age/time, type (Buy/Sell), market cap at time, token amount, USD total, trader address, tx hash
+1. **"No trades yet"** -- The Codex `getTokenEvents` API returns data, but it may be empty for very new tokens or the edge function may need the correct pair address rather than just the token address.
 
-### 2. New Edge Function: `codex-token-holders`
-A backend function using `top10HoldersPercent` or the `holders` Codex endpoint to fetch holder data for the token. Returns:
-- Holder count (already available from `filterTokens`)
-- Top holder addresses and percentages (if available on current plan)
+2. **"No route found"** -- The `UniversalTradePanel` only uses Jupiter (`useJupiterSwap`), which doesn't support tokens still on Pump.fun's bonding curve. Jupiter only routes for graduated/migrated tokens with DEX liquidity.
 
-### 3. New Hook: `useCodexTokenEvents`
-React Query hook that:
-- Calls `codex-token-events` edge function with the token address
-- Polls every 5 seconds for near-realtime trade updates
-- Supports pagination via cursor
-- Returns typed trade event array
+### Root Cause
+- The `UniversalTradePanel` bypasses the smart routing in `useRealSwap` and calls Jupiter directly.
+- For Pump.fun bonding curve tokens, Jupiter has no route since liquidity only exists on the Pump.fun bonding curve.
+- The platform needs a **Pump.fun swap** path similar to how it already has Meteora DBC swap for its own bonding curve tokens.
 
-### 4. New Component: `CodexTokenTrades`
-A table component matching the screenshot's Axiom style:
-- **Columns**: Age (relative time like "0s", "2s", "10s"), Type (Buy green / Sell red), MC (market cap at time), Amount (token amount), Total USD (colored green/red), Trader (truncated address with copy + Solscan links)
-- Dark luxury theme consistent with terminal design
-- Auto-scrolling with new trades appearing at the top
+### Solution
 
-### 5. New Component: `TokenDataTabs`
-Tabbed container with Axiom-style tab bar:
-- **Trades** - Live trade feed (default, with count)
-- **Holders (N)** - Holder count from Codex
-- **Top Traders** - Placeholder or populated if API plan supports it
-- Tabs styled as horizontal text buttons matching screenshot (bold active, muted inactive)
+#### 1. Add Pump.fun Swap Edge Function
+Create a new edge function `pumpfun-swap` that uses the **Pump.fun API** (or the QuickNode Metis endpoint which wraps Jupiter + Pump.fun) to build swap transactions for bonding curve tokens.
 
-### 6. Update: `FunTokenDetailPage.tsx`
-Insert the `TokenDataTabs` component below the chart section in all three layouts (phone, tablet, desktop):
-- Desktop: Below the chart in the left 9-column area
-- Tablet: Below the chart in the left 7-column area  
-- Phone: Visible in the "chart" mobile tab
+- The Pump.fun API at `https://pumpportal.fun/api/trade-local` accepts a mint address, SOL amount, and returns a serialized transaction.
+- Alternatively, use the public Jupiter API which has recently added Pump.fun as a liquidity source -- but we need to confirm route availability.
 
-## Technical Details
+**Recommended approach**: Use the **PumpPortal API** (`https://pumpportal.fun/api/trade-local`) which provides direct bonding curve swaps without requiring extra API keys.
 
-### Codex `getTokenEvents` Query Structure
-```graphql
-{
-  getTokenEvents(
-    query: {
-      address: "<TOKEN_ADDRESS>"
-      networkId: 1399811149
-    }
-    cursor: null
-    limit: 50
-  ) {
-    cursor
-    events {
-      timestamp
-      eventType
-      eventDisplayType
-      maker
-      data {
-        ... on SwapEventData {
-          amount0
-          amount1
-          priceUsd
-          priceUsdTotal
-          type
-        }
-      }
-      transaction {
-        hash
-      }
-    }
-  }
-}
+#### 2. Create `usePumpFunSwap` Hook
+A new hook that:
+- Gets a quote from the Pump.fun bonding curve
+- Builds the swap transaction via the PumpPortal API
+- Signs and sends via the Privy embedded wallet (`signAndSendTransaction`)
+
+#### 3. Upgrade `UniversalTradePanel` to Smart Routing
+Instead of only using Jupiter, detect the token's status:
+- **If `migrated: true` or `completed: true`** (from the `ExternalToken` data) -> Use Jupiter
+- **If still on bonding curve** (from Codex launchpad data) -> Use Pump.fun swap
+- Show the routing source in the UI ("via Jupiter" vs "via Pump.fun")
+- Remove "No route found" -- if Jupiter fails, try Pump.fun automatically
+
+#### 4. Pass Token Context to Trade Panel
+The `ExternalTokenView` already passes basic token info to `UniversalTradePanel`. We need to also pass:
+- `completed` / `migrated` status (to determine swap route)
+- `graduationPercent` (for UI display)
+
+#### 5. Fix Trades Tab
+The trades may be empty because Codex needs time to index very new tokens. Add:
+- A "No trades found for this token yet" message with a note that data may take time to appear
+- Auto-retry with shorter intervals for new tokens
+
+### Technical Changes
+
+| File | Change |
+|------|--------|
+| `supabase/functions/pumpfun-swap/index.ts` | **New** -- Edge function to proxy PumpPortal swap transaction building |
+| `src/hooks/usePumpFunSwap.ts` | **New** -- Hook for Pump.fun bonding curve swaps via Privy wallet |
+| `src/components/launchpad/UniversalTradePanel.tsx` | **Modify** -- Add smart routing: detect bonding curve vs graduated, use appropriate swap method, show route source |
+| `src/hooks/useExternalToken.ts` | **Modify** -- Ensure `completed`/`migrated`/`graduationPercent` fields are passed through |
+| `src/pages/FunTokenDetailPage.tsx` | **Modify** -- Pass full token context (including bonding status) to `UniversalTradePanel` |
+| `src/components/launchpad/TokenDataTabs.tsx` | **Modify** -- Better empty state messaging for trades |
+| `src/hooks/useRealSwap.ts` | **Modify** -- Add Pump.fun swap path alongside existing Meteora DBC and Jupiter paths |
+
+### Swap Routing Logic
+
+```text
+Token Swap Request
+       |
+       v
+  Is token graduated/migrated?
+       |
+      YES --> Jupiter Aggregator (existing)
+       |
+      NO --> Is it a platform DBC token?
+              |
+             YES --> Meteora DBC SDK (existing)
+              |
+             NO --> PumpPortal API (new)
+                    Builds bonding curve tx
+                    Sign via Privy wallet
 ```
 
-### Edge Function Config
-Both new functions will use `verify_jwt = false` (public access, same as other codex functions) and the existing `CODEX_API_KEY` secret.
+### PumpPortal API Integration
+The PumpPortal API (`https://pumpportal.fun/api/trade-local`) is free, requires no API key, and returns a serialized transaction:
 
-### Files Created
-- `supabase/functions/codex-token-events/index.ts`
-- `src/hooks/useCodexTokenEvents.ts`
-- `src/components/launchpad/CodexTokenTrades.tsx`
-- `src/components/launchpad/TokenDataTabs.tsx`
+```text
+POST https://pumpportal.fun/api/trade-local
+Body: {
+  publicKey: "<user wallet>",
+  action: "buy" | "sell",
+  mint: "<token mint>",
+  amount: <SOL amount for buy, token amount for sell>,
+  denominatedInSol: "true",
+  slippage: 5,
+  priorityFee: 0.0005
+}
+Response: Raw transaction bytes (base64)
+```
 
-### Files Modified
-- `src/pages/FunTokenDetailPage.tsx` -- Add `TokenDataTabs` below chart in all layouts
+The edge function will proxy this to keep the architecture consistent and allow adding rate limiting or caching later.
 
-### Styling
-- Dark background (`#0a0a0a` / `#111`) consistent with terminal theme
-- Mono font for all data
-- Green for Buy, Red for Sell (matching screenshot colors)
-- Compact row height for high-density display
-- Truncated trader addresses with copy icon and Solscan external link icon
-- Tab bar: horizontal, text-only tabs with active bold styling
