@@ -7,7 +7,8 @@ import { usePumpFunSwap } from "@/hooks/usePumpFunSwap";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { ArrowDown, Loader2, Wallet, AlertTriangle, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { VersionedTransaction } from "@solana/web3.js";
+import { VersionedTransaction, Connection, PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddress } from "@solana/spl-token";
 
 interface TokenInfo {
   mint_address: string;
@@ -27,11 +28,13 @@ interface UniversalTradePanelProps {
 
 const SLIPPAGE_PRESETS = [0.5, 1, 2, 5, 10];
 
-export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTradePanelProps) {
+const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=7305c408-6932-49f6-8613-2ec8606fb82d";
+
+export function UniversalTradePanel({ token, userTokenBalance: externalTokenBalance }: UniversalTradePanelProps) {
   const { isAuthenticated, login, solanaAddress } = useAuth();
   const { getBuyQuote, getSellQuote, buyToken, sellToken, isLoading: swapLoading } = useJupiterSwap();
   const { swap: pumpFunSwap } = usePumpFunSwap();
-  const { signAndSendTransaction, isWalletReady } = useSolanaWalletWithPrivy();
+  const { signAndSendTransaction, isWalletReady, getBalance } = useSolanaWalletWithPrivy();
 
   const signAndSendTx = useCallback(async (tx: VersionedTransaction): Promise<{ signature: string; confirmed: boolean }> => {
     return await signAndSendTransaction(tx);
@@ -49,10 +52,44 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
   const [showCustomSlippage, setShowCustomSlippage] = useState(false);
   const [quote, setQuote] = useState<{ outAmount: string; priceImpactPct: string } | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [onChainTokenBalance, setOnChainTokenBalance] = useState<number | null>(null);
 
   const isBuy = tradeType === 'buy';
   const numericAmount = parseFloat(amount) || 0;
   const tokenDecimals = token.decimals || 9;
+
+  // The effective token balance: prefer on-chain, fall back to external prop
+  const userTokenBalance = onChainTokenBalance ?? externalTokenBalance ?? 0;
+
+  // Fetch SOL balance
+  useEffect(() => {
+    if (isAuthenticated && solanaAddress) {
+      getBalance().then(setSolBalance).catch(() => setSolBalance(null));
+    }
+  }, [isAuthenticated, solanaAddress, getBalance, isLoading]);
+
+  // Fetch on-chain SPL token balance
+  useEffect(() => {
+    if (!isAuthenticated || !solanaAddress || !token.mint_address) {
+      setOnChainTokenBalance(null);
+      return;
+    }
+    const fetchTokenBal = async () => {
+      try {
+        const connection = new Connection(HELIUS_RPC);
+        const owner = new PublicKey(solanaAddress);
+        const mint = new PublicKey(token.mint_address);
+        const ata = await getAssociatedTokenAddress(mint, owner);
+        const resp = await connection.getTokenAccountBalance(ata);
+        setOnChainTokenBalance(resp.value.uiAmount || 0);
+      } catch {
+        // No token account = 0 balance
+        setOnChainTokenBalance(0);
+      }
+    };
+    fetchTokenBal();
+  }, [isAuthenticated, solanaAddress, token.mint_address, isLoading]);
 
   // Only fetch Jupiter quotes for graduated tokens
   useEffect(() => {
@@ -242,7 +279,9 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
               {isBuy ? 'You Pay' : 'You Sell'}
             </span>
             <span className="text-[10px] font-mono text-muted-foreground">
-              Bal: {isBuy ? '—' : formatAmount(userTokenBalance)} {isBuy ? 'SOL' : token.ticker}
+              Bal: {isBuy 
+                ? (solBalance !== null ? `${solBalance.toFixed(4)} SOL` : '—') 
+                : `${formatAmount(userTokenBalance)} ${token.ticker}`}
             </span>
           </div>
           <div className="relative bg-background/60 border border-border/50 rounded-lg hover:border-border/80 focus-within:border-primary/50 transition-colors">
