@@ -63,10 +63,19 @@ export default function FunTokenDetailPage() {
 
   const formatUsd = (marketCapSol: number) => {
     const usdValue = Number(marketCapSol || 0) * Number(solPrice || 0);
-    if (!Number.isFinite(usdValue) || usdValue <= 0) return "$0";
-    if (usdValue >= 1_000_000) return `$${(usdValue / 1_000_000).toFixed(2)}M`;
-    if (usdValue >= 1_000) return `$${(usdValue / 1_000).toFixed(1)}K`;
-    return `$${usdValue.toFixed(0)}`;
+    if (Number.isFinite(usdValue) && usdValue > 0) {
+      if (usdValue >= 1_000_000) return `$${(usdValue / 1_000_000).toFixed(2)}M`;
+      if (usdValue >= 1_000) return `$${(usdValue / 1_000).toFixed(1)}K`;
+      if (usdValue >= 1) return `$${usdValue.toFixed(2)}`;
+      return `$${usdValue.toFixed(4)}`;
+    }
+    // Fallback: show SOL value with K/M formatting
+    const sol = Number(marketCapSol || 0);
+    if (sol <= 0) return "$0";
+    if (sol >= 1_000_000) return `${(sol / 1_000_000).toFixed(2)}M SOL`;
+    if (sol >= 1_000) return `${(sol / 1_000).toFixed(1)}K SOL`;
+    if (sol >= 1) return `${sol.toFixed(2)} SOL`;
+    return `${sol.toFixed(6)} SOL`;
   };
 
   const copyAddress = () => {
@@ -175,7 +184,7 @@ export default function FunTokenDetailPage() {
     { label: 'MCAP', value: formatUsd(token.market_cap_sol || 0), accent: true },
     { label: 'VOL 24H', value: `${formatSolAmount(token.volume_24h_sol || 0)} SOL` },
     { label: 'HOLDERS', value: (token.holder_count || 0).toLocaleString() },
-    { label: 'PRICE', value: `${(token.price_sol || 0).toFixed(8)} SOL` },
+    { label: 'PRICE', value: formatUsd(token.price_sol || 0) },
     { label: 'SUPPLY', value: formatTokenAmount(TOTAL_SUPPLY) },
   ];
 
