@@ -1,6 +1,7 @@
 import { memo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Users, Copy, CheckCircle, Globe, Zap, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
+import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
+import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { toast } from "sonner";
@@ -211,11 +212,8 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
           )}
         </div>
 
-        {/* SOL button */}
-        <div className="pulse-sol-btn">
-          <Zap className="h-2.5 w-2.5" />
-          <span>0 SOL</span>
-        </div>
+        {/* Quick Buy button */}
+        <PulseQuickBuyButton codexToken={token} />
       </div>
     </a>
   );

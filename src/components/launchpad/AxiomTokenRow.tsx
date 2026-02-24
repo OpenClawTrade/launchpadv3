@@ -1,7 +1,8 @@
 import { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Globe, Users, Copy, CheckCircle, Sparkles, Zap, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
+import { Globe, Users, Copy, CheckCircle, Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
+import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { toast } from "sonner";
@@ -227,11 +228,8 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
           )}
         </div>
 
-        {/* SOL button */}
-        <div className="pulse-sol-btn">
-          <Zap className="h-2.5 w-2.5" />
-          <span>0 SOL</span>
-        </div>
+        {/* Quick Buy button */}
+        <PulseQuickBuyButton funToken={token} />
       </div>
     </Link>
   );
