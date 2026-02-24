@@ -109,27 +109,27 @@
   }
 
   .dark {
-    /* Claw Mode Dark — Premium Deep */
-    --background: 225 40% 5%;
-    --background-secondary: 222 30% 7%;
-    --background-tertiary: 222 25% 9%;
-    --foreground: 214 32% 91%;
-    --foreground-secondary: 215 16% 57%;
+    /* Claw Mode Dark — Binance Pro Premium */
+    --background: 0 0% 4%;
+    --background-secondary: 0 0% 7%;
+    --background-tertiary: 0 0% 10%;
+    --foreground: 0 0% 95%;
+    --foreground-secondary: 0 0% 60%;
 
-    --card: 222 30% 7%;
-    --card-foreground: 214 32% 91%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222 30% 8%;
-    --popover-foreground: 214 32% 91%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
 
     --primary: 0 84% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 25% 10%;
-    --secondary-foreground: 214 32% 91%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 222 20% 12%;
-    --muted-foreground: 215 12% 44%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 50%;
 
     --accent: 187 80% 15%;
     --accent-foreground: 187 80% 60%;
@@ -137,27 +137,27 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 20% 14%;
-    --border-light: 222 16% 18%;
-    --input: 222 25% 11%;
+    --border: 0 0% 18%;
+    --border-light: 0 0% 22%;
+    --input: 0 0% 12%;
     --ring: 0 84% 60%;
 
     /* Surface tokens */
-    --surface: 222 30% 9%;
-    --surface-hover: 222 25% 12%;
+    --surface: 0 0% 10%;
+    --surface-hover: 0 0% 14%;
 
-    --sidebar-background: 225 35% 6%;
-    --sidebar-foreground: 214 32% 91%;
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 90%;
     --sidebar-primary: 0 84% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 84% 8%;
     --sidebar-accent-foreground: 0 84% 60%;
-    --sidebar-border: 222 20% 14%;
+    --sidebar-border: 0 0% 16%;
     --sidebar-ring: 0 84% 60%;
 
     --shadow-glow: 0 0 30px hsl(0 84% 60% / 0.12);
-    --shadow-soft: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -1px rgb(0 0 0 / 0.3);
-    --shadow-glow-green: 0 0 20px hsl(160 84% 39% / 0.15), 0 0 40px hsl(160 84% 39% / 0.08);
+    --shadow-soft: 0 2px 8px -2px rgb(0 0 0 / 0.6);
+    --shadow-glow-green: 0 0 16px hsl(160 84% 39% / 0.2);
 
     /* Success color for green values */
     --success: 160 84% 39%;
@@ -942,7 +942,7 @@ body.matrix-hidden canvas {
 .pulse-column {
   display: flex;
   flex-direction: column;
-  background: hsl(var(--card) / 0.5);
+  background: hsl(var(--background));
   overflow: hidden;
 }
 
@@ -950,9 +950,9 @@ body.matrix-hidden canvas {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  border-bottom: 1px solid hsl(var(--border) / 0.4);
-  background: hsl(var(--background-secondary) / 0.5);
+  padding: 8px 12px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
 }
 
 .pulse-count-badge {
@@ -965,7 +965,7 @@ body.matrix-hidden canvas {
   font-weight: 700;
   font-family: 'IBM Plex Mono', monospace;
   background: hsl(var(--muted));
-  color: hsl(var(--muted-foreground));
+  color: hsl(var(--foreground) / 0.7);
 }
 
 .pulse-column-scroll {
@@ -973,14 +973,14 @@ body.matrix-hidden canvas {
   overflow-y: auto;
   max-height: calc(100vh - 100px);
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border) / 0.4) transparent;
+  scrollbar-color: hsl(var(--border)) transparent;
 }
 
 /* ── Icon separator ── */
 .pulse-icon-separator {
   width: 1px;
   height: 10px;
-  background: hsl(var(--border) / 0.3);
+  background: hsl(var(--border));
   flex-shrink: 0;
 }
 
@@ -988,19 +988,21 @@ body.matrix-hidden canvas {
 .pulse-card {
   display: flex;
   flex-direction: column;
-  padding: 10px 12px;
-  border-radius: 6px;
-  border: 1px solid transparent;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
   transition: all 180ms ease;
   cursor: pointer;
   text-decoration: none;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
 }
 
 .pulse-card:hover {
   background: hsl(var(--surface-hover));
-  border-color: hsl(var(--success) / 0.35);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px -4px hsl(var(--success) / 0.12);
+  border-color: hsl(var(--success) / 0.5);
+  transform: translateY(-1px) scale(1.005);
+  box-shadow: 0 4px 20px -4px hsl(var(--success) / 0.2), 0 2px 8px -2px rgb(0 0 0 / 0.4);
 }
 
 /* ── Avatar ── */
@@ -1010,19 +1012,19 @@ body.matrix-hidden canvas {
 }
 
 .pulse-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid hsl(var(--border) / 0.5);
+  border: 1px solid hsl(var(--border));
 }
 
 .pulse-verified-dot {
   position: absolute;
   bottom: -1px;
   right: -1px;
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   border-radius: 9999px;
   background: hsl(var(--success));
   border: 2px solid hsl(var(--card));
@@ -1030,7 +1032,7 @@ body.matrix-hidden canvas {
 
 /* ── Social icons ── */
 .pulse-social-icon {
-  color: hsl(var(--muted-foreground) / 0.35);
+  color: hsl(var(--muted-foreground) / 0.55);
   transition: color 150ms ease;
   display: inline-flex;
   align-items: center;
@@ -1041,28 +1043,28 @@ body.matrix-hidden canvas {
 
 /* ── Metric labels ── */
 .pulse-metric-label {
-  font-size: 8px;
+  font-size: 9px;
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 600;
-  color: hsl(var(--muted-foreground) / 0.35);
+  color: hsl(var(--muted-foreground) / 0.6);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
 }
 
 /* ── Metric dots (small pills) ── */
 .pulse-metric-dot {
   display: inline-flex;
   align-items: center;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 9999px;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 600;
   font-family: 'IBM Plex Mono', monospace;
 }
 
 .pulse-metric-dot--neutral {
   background: hsl(var(--muted));
-  color: hsl(var(--muted-foreground));
+  color: hsl(var(--foreground) / 0.6);
 }
 
 .pulse-metric-dot--success {
@@ -1079,20 +1081,21 @@ body.matrix-hidden canvas {
 .pulse-sol-btn {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 4px 12px;
+  gap: 4px;
+  padding: 5px 14px;
   border-radius: 9999px;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   font-family: 'IBM Plex Mono', monospace;
-  background: hsl(217 91% 50%);
+  background: hsl(217 91% 53%);
   color: hsl(0 0% 100%);
-  transition: background 150ms ease;
+  transition: all 150ms ease;
   flex-shrink: 0;
 }
 
 .pulse-sol-btn:hover {
-  background: hsl(217 91% 58%);
+  background: hsl(217 91% 60%);
+  box-shadow: 0 2px 8px hsl(217 91% 53% / 0.3);
 }
 
 /* ── Skeleton ── */

@@ -28,11 +28,11 @@ function PulseColumnHeader({ label, count, icon: Icon }: { label: string; count:
   return (
     <div className="pulse-col-header">
       <div className="flex items-center gap-2">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-[12px] font-bold text-foreground">{label}</span>
-        <div className="flex items-center gap-0.5 ml-0.5">
-          <Zap className="h-2.5 w-2.5 text-warning" />
-          <span className="text-[9px] font-mono font-bold text-warning">{count}</span>
+        <Icon className="h-4 w-4 text-foreground/70" />
+        <span className="text-[13px] font-bold text-foreground">{label}</span>
+        <div className="flex items-center gap-0.5 ml-1">
+          <Zap className="h-3 w-3 text-warning" />
+          <span className="text-[10px] font-mono font-bold text-warning">{count}</span>
         </div>
       </div>
       <div className="flex items-center gap-1">
@@ -174,9 +174,9 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
       </div>
 
       {/* Desktop: Three Columns */}
-      <div className="hidden xl:grid grid-cols-3 gap-0 border-t border-border/40">
+      <div className="hidden xl:grid grid-cols-3 gap-0 border-t border-border">
         {columns.map((col, i) => (
-          <div key={col.id} className={`pulse-column ${i < 2 ? "border-r border-border/40" : ""}`}>
+          <div key={col.id} className={`pulse-column ${i < 2 ? "border-r border-border" : ""}`}>
             <PulseColumnHeader label={col.label} count={col.tokens.length + col.codex.length} icon={col.icon} />
             <div className="pulse-column-scroll">
               {renderColumnContent(col)}
