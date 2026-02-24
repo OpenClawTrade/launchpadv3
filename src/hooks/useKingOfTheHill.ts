@@ -34,6 +34,12 @@ export interface KingToken {
   twitter_verified?: boolean;
   twitter_verified_type?: string | null;
   created_at: string;
+  // Live Codex data (USD-denominated)
+  codex_market_cap_usd?: number;
+  codex_holders?: number;
+  codex_volume_24h_usd?: number;
+  codex_change_24h?: number;
+  codex_graduation_percent?: number;
 }
 
 interface UseKingOfTheHillResult {
@@ -91,7 +97,29 @@ async function fetchKingOfTheHill(): Promise<KingToken[]> {
   return filterHiddenTokens(mapped);
 }
 
+// Fetch live Codex data for the king tokens
+async function fetchCodexLiveData(addresses: string[]): Promise<Record<string, any>> {
+  if (addresses.length === 0) return {};
+
+  try {
+    const { data, error } = await supabase.functions.invoke("codex-king-data", {
+      body: { addresses },
+    });
+
+    if (error) {
+      console.error("[KingOfTheHill] Codex live data error:", error);
+      return {};
+    }
+
+    return data?.tokens ?? {};
+  } catch (err) {
+    console.error("[KingOfTheHill] Codex fetch failed:", err);
+    return {};
+  }
+}
+
 const QUERY_KEY = ["king-of-the-hill"];
+const CODEX_QUERY_KEY = ["king-of-the-hill-codex"];
 
 export function useKingOfTheHill(): UseKingOfTheHillResult {
   const queryClient = useQueryClient();
@@ -99,14 +127,46 @@ export function useKingOfTheHill(): UseKingOfTheHillResult {
   const { data, isLoading, error } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: fetchKingOfTheHill,
-    staleTime: 1000 * 60 * 2, // 2 minutes fresh
-    gcTime: 1000 * 60 * 30, // 30 minutes cache
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
-    refetchInterval: 1000 * 30, // Refresh every 30s (more important section)
+    refetchInterval: 1000 * 30,
   });
 
   // Proactively refresh pool state for visible king tokens
   useBackgroundPoolRefresh(data ?? []);
+
+  // Fetch live Codex data for the king tokens (separate query to avoid blocking)
+  const mintAddresses = (data ?? [])
+    .map(t => t.mint_address)
+    .filter((a): a is string => !!a);
+
+  const { data: codexData } = useQuery({
+    queryKey: [...CODEX_QUERY_KEY, ...mintAddresses],
+    queryFn: () => fetchCodexLiveData(mintAddresses),
+    enabled: mintAddresses.length > 0,
+    staleTime: 1000 * 15, // 15s fresh — important data
+    refetchInterval: 1000 * 20, // Refresh every 20s
+    refetchOnWindowFocus: false,
+  });
+
+  // Merge Codex live data into tokens
+  const enrichedTokens: KingToken[] = (data ?? []).map(token => {
+    const codex = codexData?.[token.mint_address ?? ""];
+    if (!codex) return token;
+
+    return {
+      ...token,
+      codex_market_cap_usd: codex.marketCap || undefined,
+      codex_holders: codex.holders || undefined,
+      codex_volume_24h_usd: codex.volume24h || undefined,
+      codex_change_24h: codex.change24h || undefined,
+      codex_graduation_percent: codex.graduationPercent ?? undefined,
+      // Override DB values with Codex if available
+      holder_count: codex.holders > 0 ? codex.holders : token.holder_count,
+      bonding_progress: codex.graduationPercent != null ? codex.graduationPercent : token.bonding_progress,
+    };
+  });
 
   // Realtime subscription to invalidate on token changes
   useEffect(() => {
@@ -120,7 +180,6 @@ export function useKingOfTheHill(): UseKingOfTheHillResult {
           table: "fun_tokens",
         },
         () => {
-          // Any change could affect top 3, invalidate
           queryClient.invalidateQueries({ queryKey: QUERY_KEY });
         }
       )
@@ -132,7 +191,7 @@ export function useKingOfTheHill(): UseKingOfTheHillResult {
   }, [queryClient]);
 
   return {
-    tokens: data ?? [],
+    tokens: enrichedTokens,
     isLoading,
     error: error ? (error instanceof Error ? error.message : "Failed to fetch") : null,
   };
