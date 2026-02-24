@@ -45,7 +45,7 @@ function formatTxCount(holders: number): string {
   return String(holders);
 }
 
-export const CodexPairRow = memo(function CodexPairRow({ token }: { token: CodexPairToken }) {
+export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount }: { token: CodexPairToken; quickBuyAmount?: number }) {
   const [copiedCA, setCopiedCA] = useState(false);
   const gradPct = token.graduationPercent ?? 0;
   const mcap = formatUsdCompact(token.marketCap);
@@ -213,7 +213,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token }: { token: Codex
         </div>
 
         {/* Quick Buy button */}
-        <PulseQuickBuyButton codexToken={token} />
+        <PulseQuickBuyButton codexToken={token} quickBuyAmount={quickBuyAmount} />
       </div>
     </a>
   );

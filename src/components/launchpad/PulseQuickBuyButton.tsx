@@ -14,6 +14,8 @@ interface PulseQuickBuyButtonProps {
   /** Pass either a FunToken or CodexPairToken - will be bridged to Token internally */
   funToken?: FunToken;
   codexToken?: CodexPairToken;
+  /** When provided, clicking Buy executes immediately with this amount */
+  quickBuyAmount?: number;
 }
 
 function bridgeFunToken(t: FunToken): Token {
@@ -89,6 +91,7 @@ function bridgeCodexToken(t: CodexPairToken): Token {
 export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
   funToken,
   codexToken,
+  quickBuyAmount,
 }: PulseQuickBuyButtonProps) {
   const { executeRealSwap, isLoading } = useRealSwap();
   const { isAuthenticated, login } = useAuth();
@@ -103,9 +106,35 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
         login();
         return;
       }
+      // If quickBuyAmount is set, execute immediately without popover
+      if (quickBuyAmount && quickBuyAmount > 0) {
+        const token = funToken ? bridgeFunToken(funToken) : codexToken ? bridgeCodexToken(codexToken) : null;
+        if (!token || !token.mint_address) {
+          toast.error("Token address not available");
+          return;
+        }
+        setBuyingAmount(quickBuyAmount);
+        executeRealSwap(token, quickBuyAmount, true, 500)
+          .then((result) => {
+            if (result.success) {
+              toast.success(`Bought with ${quickBuyAmount} SOL`, {
+                description: result.signature ? `TX: ${result.signature.slice(0, 8)}...` : undefined,
+                action: result.signature
+                  ? { label: "View", onClick: () => window.open(`https://solscan.io/tx/${result.signature}`, "_blank") }
+                  : undefined,
+              });
+            }
+          })
+          .catch((err: any) => {
+            console.error("[PulseQuickBuy] swap failed:", err);
+            toast.error("Swap failed", { description: err?.message?.slice(0, 80) || "Unknown error" });
+          })
+          .finally(() => setBuyingAmount(null));
+        return;
+      }
       setOpen((prev) => !prev);
     },
-    [isAuthenticated, login],
+    [isAuthenticated, login, quickBuyAmount, funToken, codexToken, executeRealSwap],
   );
 
   const handleBuy = useCallback(
@@ -168,7 +197,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
           ) : (
             <Zap className="h-2.5 w-2.5" />
           )}
-          <span>{isBusy ? "Buying..." : "Buy"}</span>
+          <span>{isBusy ? "Buying..." : quickBuyAmount ? `${quickBuyAmount} SOL` : "Buy"}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
