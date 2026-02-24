@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
+import { useGraduatedTokens } from "@/hooks/useGraduatedTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
 
@@ -9,15 +10,23 @@ export default function TradePage() {
   const [searchParams] = useSearchParams();
   const search = searchParams.get("q") || "";
   const { tokens, totalCount, isLoading } = useFunTokensPaginated(1, 100);
+  const { tokens: graduatedTokens } = useGraduatedTokens();
   const { solPrice } = useSolPrice();
 
+  // Merge graduated tokens that might not be in the paginated results
+  const allTokens = useMemo(() => {
+    const tokenIds = new Set(tokens.map(t => t.id));
+    const missingGraduated = graduatedTokens.filter(t => !tokenIds.has(t.id));
+    return [...tokens, ...missingGraduated];
+  }, [tokens, graduatedTokens]);
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return tokens;
+    if (!search.trim()) return allTokens;
     const q = search.toLowerCase();
-    return tokens.filter(t =>
+    return allTokens.filter(t =>
       t.name.toLowerCase().includes(q) || t.ticker.toLowerCase().includes(q)
     );
-  }, [tokens, search]);
+  }, [allTokens, search]);
 
   return (
     <LaunchpadLayout>
