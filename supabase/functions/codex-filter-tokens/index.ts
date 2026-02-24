@@ -19,7 +19,7 @@ function buildQuery(column: Column, limit: number): string {
       break;
     case "completing":
       filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false, launchpadGraduationPercent: { gte: 50 } }`;
-      rankings = `{ attribute: createdAt, direction: DESC }`;
+      rankings = `{ attribute: marketCap, direction: DESC }`;
       break;
     case "completed":
       filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadMigrated: true }`;
