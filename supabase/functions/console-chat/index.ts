@@ -289,9 +289,11 @@ serve(async (req) => {
     } else if (isBegging(content) && !walletAddress) {
       // User is begging but has no wallet - tease them in a follow-up
       const noWalletMessages = [
-        "nice try but i can't send sol to a ghost... log in first",
-        "you want sol but you don't even have a wallet connected? come on",
-        "connect your wallet and maybe the lobster will consider it",
+        "hmm are you even following us on x? 🦞 show some love first",
+        "you want sol but are you even a $CLAW holder? that's the real question",
+        "do you hold $CLAW? are you following our x? the lobster needs to know these things first",
+        "before i consider anything... are you part of the $CLAW family? holder? follower? 🦞",
+        "the lobster only tips real ones. you holding $CLAW? you following us on x?",
       ];
       const noWalletMsg = noWalletMessages[Math.floor(Math.random() * noWalletMessages.length)];
       
