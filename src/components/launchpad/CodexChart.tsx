@@ -103,7 +103,7 @@ export function CodexChart({
       },
       rightPriceScale: {
         borderColor: "#222",
-        scaleMargins: { top: 0.08, bottom: volMargin },
+        scaleMargins: { top: 0.08, bottom: showVolume ? 0.35 : 0.08 },
         autoScale: true,
         entireTextOnly: true,
       },
@@ -113,7 +113,22 @@ export function CodexChart({
 
     chartRef.current = chart;
 
-    // ── CANDLE SERIES on default right scale ──
+    // ── Custom formatters ──
+    const priceFormatter = (price: number): string => {
+      if (price === 0) return '0';
+      if (price < 0.000001) return price.toExponential(4);
+      if (price < 0.01) return price.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+      return price.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+    };
+
+    const volumeFormatter = (value: number): string => {
+      if (value <= 0) return '0';
+      if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + 'M';
+      if (value >= 1_000) return (value / 1_000).toFixed(1) + 'K';
+      return Math.floor(value).toString();
+    };
+
+    // ── CANDLE SERIES on right scale ──
     const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#22C55E",
       downColor: "#EF4444",
@@ -122,17 +137,19 @@ export function CodexChart({
       borderDownColor: "#EF4444",
       wickUpColor: "#22C55E",
       wickDownColor: "#EF4444",
-      priceFormat: { type: "price", precision: 12, minMove: 0.000000000001 },
+      priceFormat: { type: "custom", formatter: priceFormatter, minMove: 0.000000000001 },
+      priceScaleId: "right",
     });
 
     // ── VOLUME SERIES on separate "volume" scale ──
     const volumeSeries = chart.addSeries(HistogramSeries, {
-      priceFormat: { type: "volume" },
+      priceFormat: { type: "custom", formatter: volumeFormatter },
       priceScaleId: "volume",
     });
 
     chart.priceScale("volume").applyOptions({
-      scaleMargins: { top: 0.7, bottom: 0 },
+      scaleMargins: { top: 0.68, bottom: 0 },
+      visible: true,
       borderVisible: false,
       entireTextOnly: true,
     });
@@ -152,7 +169,7 @@ export function CodexChart({
       });
       volumeData.push({
         time,
-        value: Number(b.volume || 0),
+        value: Math.max(0, Number(b.volume || 0)),
         color: Number(b.buyVolume || 0) >= Number(b.sellVolume || 0)
           ? "rgba(34,197,94,0.25)"
           : "rgba(239,68,68,0.20)",
