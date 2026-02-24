@@ -52,6 +52,7 @@ serve(async (req: Request) => {
           eventType
           eventDisplayType
           maker
+          transactionHash
           data {
             ... on SwapEventData {
               amount0
@@ -60,9 +61,6 @@ serve(async (req: Request) => {
               priceUsdTotal
               type
             }
-          }
-          transaction {
-            hash
           }
         }
       }

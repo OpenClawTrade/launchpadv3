@@ -18,6 +18,7 @@ interface RawEvent {
   eventType: string;
   eventDisplayType: string;
   maker: string;
+  transactionHash: string | null;
   data: {
     amount0?: string;
     amount1?: string;
@@ -25,7 +26,6 @@ interface RawEvent {
     priceUsdTotal?: string;
     type?: string;
   } | null;
-  transaction: { hash: string } | null;
 }
 
 function normalizeEvents(events: RawEvent[]): TokenTradeEvent[] {
@@ -38,7 +38,7 @@ function normalizeEvents(events: RawEvent[]): TokenTradeEvent[] {
       tokenAmount: parseFloat(e.data!.amount1 || e.data!.amount0 || "0"),
       totalUsd: parseFloat(e.data!.priceUsdTotal || "0"),
       priceUsd: parseFloat(e.data!.priceUsd || "0"),
-      txHash: e.transaction?.hash || "",
+      txHash: e.transactionHash || "",
     }));
 }
 
