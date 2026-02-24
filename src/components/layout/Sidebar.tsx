@@ -1,19 +1,18 @@
 import { Link, useLocation } from "react-router-dom";
 import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart, FileText, Fingerprint, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { usePanelNav } from "@/hooks/usePanelNav";
 import { useMatrixMode } from "@/contexts/MatrixModeContext";
-import { ConsoleDrawer } from "@/components/console/ConsoleDrawer";
 import clawLogo from "@/assets/claw-logo.png";
 
 const LOGO_SRC = clawLogo;
 
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home, exact: true },
+  { to: "/console", label: "Console", icon: Code2, isLive: true },
   { to: "/trade", label: "Terminal", icon: BarChart2 },
   { to: "/agents", label: "Agents", icon: Bot },
   
@@ -48,7 +47,7 @@ function MatrixToggle() {
   );
 }
 
-function SidebarContent({ onLinkClick, onConsoleOpen }: { onLinkClick?: () => void; onConsoleOpen?: () => void }) {
+function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
   const location = useLocation();
   const { goToPanel } = usePanelNav();
 
@@ -78,17 +77,6 @@ function SidebarContent({ onLinkClick, onConsoleOpen }: { onLinkClick?: () => vo
         </Link>
       </div>
 
-        {/* Console button */}
-        <button
-          onClick={() => { onLinkClick?.(); onConsoleOpen?.(); }}
-          className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 w-full border-l-2 text-muted-foreground hover:text-foreground hover:bg-surface-hover/50 border-transparent"
-        >
-          <Code2 className="h-4 w-4 flex-shrink-0" />
-          <span>Console</span>
-          <span className="ml-auto text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-accent-orange/20 text-accent-orange">
-            Live
-          </span>
-        </button>
       <nav className="flex-1 px-2.5 space-y-0.5">
         {NAV_LINKS.map((navItem) => {
           const { to, label, icon: Icon, exact, useClaw } = navItem;
@@ -166,30 +154,23 @@ function SidebarContent({ onLinkClick, onConsoleOpen }: { onLinkClick?: () => vo
 
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const isMobile = useIsMobile();
-  const [consoleOpen, setConsoleOpen] = useState(false);
 
   if (isMobile) {
     return (
-      <>
-        <Sheet open={mobileOpen} onOpenChange={(open) => !open && onMobileClose?.()}>
-          <SheetContent side="left" className="p-0 w-[200px] border-r-0 bg-sidebar" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-            <SidebarContent onLinkClick={onMobileClose} onConsoleOpen={() => setConsoleOpen(true)} />
-          </SheetContent>
-        </Sheet>
-        <ConsoleDrawer open={consoleOpen} onOpenChange={setConsoleOpen} />
-      </>
+      <Sheet open={mobileOpen} onOpenChange={(open) => !open && onMobileClose?.()}>
+        <SheetContent side="left" className="p-0 w-[200px] border-r-0 bg-sidebar" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+          <SidebarContent onLinkClick={onMobileClose} />
+        </SheetContent>
+      </Sheet>
     );
   }
 
   return (
-    <>
-      <aside
-        className="fixed top-0 left-0 h-screen z-40 flex-shrink-0 bg-sidebar/80 backdrop-blur-md border-r border-border"
-        style={{ width: "160px" }}
-      >
-        <SidebarContent onConsoleOpen={() => setConsoleOpen(true)} />
-      </aside>
-      <ConsoleDrawer open={consoleOpen} onOpenChange={setConsoleOpen} />
-    </>
+    <aside
+      className="fixed top-0 left-0 h-screen z-40 flex-shrink-0 bg-sidebar/80 backdrop-blur-md border-r border-border"
+      style={{ width: "160px" }}
+    >
+      <SidebarContent />
+    </aside>
   );
 }
