@@ -16,7 +16,13 @@ export interface CodexPairToken {
   launchpadName: string;
   completed: boolean;
   migrated: boolean;
+  completedAt: number | null;
+  migratedAt: number | null;
   createdAt: string | null;
+  twitterUrl: string | null;
+  websiteUrl: string | null;
+  telegramUrl: string | null;
+  discordUrl: string | null;
 }
 
 async function fetchCodexTokens(column: "new" | "completing" | "completed", limit = 50): Promise<CodexPairToken[]> {
