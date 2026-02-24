@@ -1,4 +1,5 @@
 import { memo, useState } from "react";
+import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
@@ -66,15 +67,13 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount }
     }
   };
 
-  const externalUrl = token.address
-    ? `https://pump.fun/coin/${token.address}`
+  const tradeUrl = token.address
+    ? `/launchpad/${token.address}`
     : "#";
 
   return (
-    <a
-      href={externalUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+    <Link
+      to={tradeUrl}
       className="pulse-card group"
     >
       {/* Row 1: Avatar + Info + Metrics */}
@@ -215,6 +214,6 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount }
         {/* Quick Buy button */}
         <PulseQuickBuyButton codexToken={token} quickBuyAmount={quickBuyAmount} />
       </div>
-    </a>
+    </Link>
   );
 });
