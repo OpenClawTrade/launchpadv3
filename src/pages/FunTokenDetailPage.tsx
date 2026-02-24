@@ -203,7 +203,7 @@ function ExternalTokenView({ token, mintAddress, solPrice }: { token: import("@/
             {mobileTab === 'trade' && (
               <>
                 {privyAvailable && (
-                  <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated }} userTokenBalance={0} />
+                  <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0 }} userTokenBalance={0} />
                 )}
                 <EmbeddedWalletCard />
               </>
@@ -236,7 +236,7 @@ function ExternalTokenView({ token, mintAddress, solPrice }: { token: import("@/
             <div className="col-span-5 flex flex-col gap-2">
               <div className="sticky top-2 flex flex-col gap-2">
                 {privyAvailable && (
-                  <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated }} userTokenBalance={0} />
+                  <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0 }} userTokenBalance={0} />
                 )}
                 <EmbeddedWalletCard />
               </div>
@@ -251,7 +251,7 @@ function ExternalTokenView({ token, mintAddress, solPrice }: { token: import("@/
               </div>
               <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} />
               {privyAvailable && (
-                <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated }} userTokenBalance={0} />
+                <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0 }} userTokenBalance={0} />
               )}
             </div>
             <div className="col-span-3 flex flex-col gap-1.5">
@@ -479,7 +479,7 @@ export default function FunTokenDetailPage() {
       {privyAvailable && isBonding && <TradePanelWithSwap token={tokenForTradePanel} userBalance={0} />}
       {privyAvailable && isGraduated && token.mint_address && (
         <UniversalTradePanel
-          token={{ mint_address: token.mint_address, ticker: token.ticker, name: token.name, decimals: 9 }}
+          token={{ mint_address: token.mint_address, ticker: token.ticker, name: token.name, decimals: 9, price_sol: token.price_sol || 0 }}
           userTokenBalance={0}
         />
       )}
