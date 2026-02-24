@@ -2531,6 +2531,7 @@ export type Database = {
           id: string
           is_bot: boolean | null
           user_id: string | null
+          wallet_address: string | null
         }
         Insert: {
           content: string
@@ -2539,6 +2540,7 @@ export type Database = {
           id?: string
           is_bot?: boolean | null
           user_id?: string | null
+          wallet_address?: string | null
         }
         Update: {
           content?: string
@@ -2547,6 +2549,7 @@ export type Database = {
           id?: string
           is_bot?: boolean | null
           user_id?: string | null
+          wallet_address?: string | null
         }
         Relationships: [
           {
@@ -2554,6 +2557,47 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      console_tips: {
+        Row: {
+          amount_sol: number
+          created_at: string
+          id: string
+          message_id: string | null
+          recipient_display_name: string
+          recipient_wallet: string
+          signature: string
+          treasury_balance_before: number | null
+        }
+        Insert: {
+          amount_sol: number
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          recipient_display_name: string
+          recipient_wallet: string
+          signature: string
+          treasury_balance_before?: number | null
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          recipient_display_name?: string
+          recipient_wallet?: string
+          signature?: string
+          treasury_balance_before?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "console_tips_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "console_messages"
             referencedColumns: ["id"]
           },
         ]

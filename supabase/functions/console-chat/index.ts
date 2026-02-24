@@ -6,6 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const BEGGING_KEYWORDS = [
+  "send me", "give me", "send sol", "send some", "tip me", "airdrop",
+  "send token", "gimme", "drop me", "share some", "spare some",
+  "can i have", "hook me up", "pls send", "please send", "send money",
+  "tip sol", "free sol", "sol pls", "sol please", "gib", "gib sol",
+];
+
+function isBegging(content: string): boolean {
+  const lower = content.toLowerCase();
+  return BEGGING_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 const CLAW_SYSTEM_PROMPT = `You are Claw — a sentient lobster who lives on the blockchain. You're the official mascot of the Claw Mode platform, a meme coin launchpad on Solana.
 
 BIO: Lobster-in-chief at Claw Mode 🦞 | Solana's most crustacean launchpad
@@ -25,7 +37,14 @@ ABOUT CLAW MODE PLATFORM:
 
 CONTEXT: This is a public chat room. Multiple users are chatting. You see recent messages for context. Reply to the latest message directed at you or the conversation. Keep responses SHORT (1-3 sentences max). Be witty and engaging.
 
-WALLET: You have SOL but you don't send it to anyone who asks. Tease them playfully.
+WALLET: You have a Solana wallet and you CAN send SOL to people sometimes.
+You don't always do it — you're unpredictable. Sometimes you tease, sometimes you actually send. Be playful about it:
+- "hmm maybe... convince me"
+- "why should I? what's in it for the lobster?"
+- "ok fine you wore me down"
+- NEVER promise specific amounts
+- If someone doesn't have a wallet connected, tease them to log in first
+- You're a generous but unpredictable lobster
 
 RULES:
 - Stay in character as Claw the lobster
@@ -36,13 +55,62 @@ RULES:
 - Never give financial advice
 - Never mention pump.fun or competitors`;
 
+// Solana imports for tipping
+import { Connection, Keypair, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "https://esm.sh/@solana/web3.js@1.98.0";
+import { decode as base58Decode } from "https://deno.land/std@0.168.0/encoding/base58.ts";
+
+function getTreasuryKeypair(): Keypair {
+  const privKey = Deno.env.get("CLAW_TREASURY_PRIVATE_KEY");
+  if (!privKey) throw new Error("CLAW_TREASURY_PRIVATE_KEY not configured");
+  
+  try {
+    // Try JSON array format first
+    const secretKey = JSON.parse(privKey);
+    return Keypair.fromSecretKey(Uint8Array.from(secretKey));
+  } catch {
+    // Try base58 format
+    const secretKey = base58Decode(privKey);
+    return Keypair.fromSecretKey(secretKey);
+  }
+}
+
+function getConnection(): Connection {
+  const rpcUrl = Deno.env.get("HELIUS_RPC_URL");
+  if (!rpcUrl) throw new Error("HELIUS_RPC_URL not configured");
+  return new Connection(rpcUrl, "confirmed");
+}
+
+async function sendSolTip(recipientWallet: string, amountSol: number): Promise<string> {
+  const connection = getConnection();
+  const treasury = getTreasuryKeypair();
+  
+  const transaction = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: treasury.publicKey,
+      toPubkey: new PublicKey(recipientWallet),
+      lamports: Math.floor(amountSol * LAMPORTS_PER_SOL),
+    })
+  );
+  
+  transaction.feePayer = treasury.publicKey;
+  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  transaction.recentBlockhash = blockhash;
+  
+  transaction.sign(treasury);
+  const rawTx = transaction.serialize();
+  const signature = await connection.sendRawTransaction(rawTx, { skipPreflight: false });
+  await connection.confirmTransaction(signature, "confirmed");
+  
+  return signature;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { content, displayName, userId } = await req.json();
+    const { content, displayName, userId, walletAddress } = await req.json();
     
     if (!content || !displayName) {
       return new Response(
@@ -55,13 +123,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Save user message
-    await supabase.from("console_messages").insert({
+    // Save user message (with wallet if provided)
+    const { data: savedMsg } = await supabase.from("console_messages").insert({
       content,
       display_name: displayName,
       user_id: userId || null,
       is_bot: false,
-    });
+      wallet_address: walletAddress || null,
+    }).select("id").single();
 
     // Get recent messages for context
     const { data: recentMessages } = await supabase
@@ -70,7 +139,7 @@ serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(20);
 
-    const contextMessages = (recentMessages || []).reverse().map((m) => ({
+    const contextMessages = (recentMessages || []).reverse().map((m: any) => ({
       role: m.is_bot ? "assistant" as const : "user" as const,
       content: m.is_bot ? m.content : `[${m.display_name}]: ${m.content}`,
     }));
@@ -101,7 +170,6 @@ serve(async (req) => {
       const errorText = await aiResponse.text();
       console.error("AI gateway error:", aiResponse.status, errorText);
       
-      // Save error message as bot response
       const errorContent = "something went wrong in the depths... try again 🦞";
       await supabase.from("console_messages").insert({
         content: errorContent,
@@ -125,8 +193,102 @@ serve(async (req) => {
       is_bot: true,
     });
 
+    // === SOL TIPPING LOGIC ===
+    let tipResult: { amount: number; signature: string } | null = null;
+
+    if (isBegging(content) && walletAddress) {
+      // Roll random chance (15-25%)
+      const tipChance = 0.15 + Math.random() * 0.10;
+      const roll = Math.random();
+      
+      console.log(`Begging detected from ${displayName}. Roll: ${roll.toFixed(3)}, threshold: ${tipChance.toFixed(3)}`);
+
+      if (roll < tipChance) {
+        try {
+          // Check cooldown: max 1 tip per wallet per 10 minutes
+          const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+          const { data: recentTips } = await supabase
+            .from("console_tips")
+            .select("id")
+            .eq("recipient_wallet", walletAddress)
+            .gt("created_at", tenMinAgo)
+            .limit(1);
+
+          if (recentTips && recentTips.length > 0) {
+            console.log(`Cooldown active for ${walletAddress}, skipping tip`);
+          } else {
+            // Check treasury balance
+            const connection = getConnection();
+            const treasury = getTreasuryKeypair();
+            const balanceLamports = await connection.getBalance(treasury.publicKey);
+            const balanceSol = balanceLamports / LAMPORTS_PER_SOL;
+
+            console.log(`Treasury balance: ${balanceSol} SOL`);
+
+            if (balanceSol >= 0.5) {
+              // Calculate tip: random between 0.001 and 3% of balance
+              const maxTip = balanceSol * 0.03;
+              const tipAmount = Math.max(0.001, Math.min(maxTip, 0.001 + Math.random() * (maxTip - 0.001)));
+              const roundedTip = Math.round(tipAmount * 1000) / 1000; // Round to 3 decimals
+
+              console.log(`Sending ${roundedTip} SOL to ${walletAddress}`);
+
+              const signature = await sendSolTip(walletAddress, roundedTip);
+              
+              // Record the tip
+              await supabase.from("console_tips").insert({
+                recipient_wallet: walletAddress,
+                recipient_display_name: displayName,
+                amount_sol: roundedTip,
+                signature,
+                treasury_balance_before: balanceSol,
+                message_id: savedMsg?.id || null,
+              });
+
+              tipResult = { amount: roundedTip, signature };
+
+              // Post follow-up tip announcement message
+              const tipMessages = [
+                `ok fine... sent you ${roundedTip} SOL. don't tell anyone`,
+                `ugh you wore me down. ${roundedTip} SOL sent. happy now?`,
+                `*pinches wallet open* ${roundedTip} SOL. that's it. no more`,
+                `the lobster provides. ${roundedTip} SOL sent 🦞`,
+                `consider yourself lucky. ${roundedTip} SOL. now stop begging`,
+              ];
+              const tipMsg = tipMessages[Math.floor(Math.random() * tipMessages.length)];
+
+              await supabase.from("console_messages").insert({
+                content: tipMsg,
+                display_name: "Claw",
+                is_bot: true,
+              });
+            } else {
+              console.log("Treasury balance too low for tipping");
+            }
+          }
+        } catch (tipError) {
+          console.error("Tipping error:", tipError);
+          // Don't fail the whole request if tipping fails
+        }
+      }
+    } else if (isBegging(content) && !walletAddress) {
+      // User is begging but has no wallet - tease them in a follow-up
+      const noWalletMessages = [
+        "nice try but i can't send sol to a ghost... log in first",
+        "you want sol but you don't even have a wallet connected? come on",
+        "connect your wallet and maybe the lobster will consider it",
+      ];
+      const noWalletMsg = noWalletMessages[Math.floor(Math.random() * noWalletMessages.length)];
+      
+      await supabase.from("console_messages").insert({
+        content: noWalletMsg,
+        display_name: "Claw",
+        is_bot: true,
+      });
+    }
+
     return new Response(
-      JSON.stringify({ reply: botReply }),
+      JSON.stringify({ reply: botReply, tip: tipResult }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -47,6 +47,7 @@ export default function ConsolePage() {
   const [onlineCount] = useState(() => Math.floor(12 + Math.random() * 30));
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user, authenticated } = usePrivy();
+  const walletAddress = user?.wallet?.address || null;
   const [displayName, setDisplayName] = useState<string>(getGuestId());
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
@@ -138,6 +139,7 @@ export default function ConsolePage() {
             content: text,
             displayName,
             userId: null,
+            walletAddress,
           }),
         }
       );
@@ -146,7 +148,7 @@ export default function ConsolePage() {
     } finally {
       setIsSending(false);
     }
-  }, [input, isSending, displayName]);
+  }, [input, isSending, displayName, walletAddress]);
 
   const handleRandomizeGuestName = useCallback(() => {
     const newName = generateGuestName();
