@@ -33,7 +33,7 @@ export default function TradePage() {
   }, [allTokens, search]);
 
   return (
-    <LaunchpadLayout>
+    <LaunchpadLayout hideFooter noPadding>
       <div className="space-y-0 relative z-10">
         {/* Pulse Header Toolbar */}
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/40">
