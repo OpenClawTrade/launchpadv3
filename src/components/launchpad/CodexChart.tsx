@@ -67,6 +67,10 @@ export function CodexChart({
 
     const chartH = isFullscreen ? window.innerHeight - 40 : height;
     const volMargin = showVolume ? 0.32 : 0.08;
+    const isSparseData = bars.length < 25;
+    const rightOffset = isSparseData ? 1.5 : 12;
+    const barSpacing = isSparseData ? 28 : 12;
+    const minBarSpacing = isSparseData ? 10 : 4;
 
     // ── CREATE CHART ──
     const chart = createChart(container, {
@@ -91,9 +95,9 @@ export function CodexChart({
         timeVisible: true,
         secondsVisible: resolution.includes("S"),
         borderColor: "#222",
-        rightOffset: 12,
-        barSpacing: 12,
-        minBarSpacing: 4,
+        rightOffset,
+        barSpacing,
+        minBarSpacing,
         fixLeftEdge: false,
         fixRightEdge: false,
       },
@@ -176,9 +180,17 @@ export function CodexChart({
       });
     }
 
-    // Small right padding so last candle isn't crushed
+    // Keep latest bars visually anchored on the right for sparse datasets
     const paddingTimeout = window.setTimeout(() => {
-      chart.timeScale().scrollToPosition(12, false);
+      if (isSparseData) {
+        chart.timeScale().setVisibleLogicalRange({
+          from: -0.5,
+          to: bars.length + 1.5,
+        });
+        return;
+      }
+
+      chart.timeScale().scrollToPosition(3, false);
     }, 80);
 
     // Hide TradingView watermark
