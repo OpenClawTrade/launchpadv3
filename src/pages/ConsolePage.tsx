@@ -1,234 +1,265 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Loader2 } from "lucide-react";
-import { Robot } from "@phosphor-icons/react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { usePrivy } from "@privy-io/react-auth";
 import clawLogo from "@/assets/claw-logo.png";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 
-interface Message {
-  role: "user" | "assistant";
+interface ConsoleMessage {
+  id: string;
+  display_name: string;
   content: string;
+  is_bot: boolean;
+  created_at: string;
+  user_id: string | null;
 }
 
-const QUICK_PROMPTS = [
-  "what is claw mode?",
-  "how do i launch a token?",
-  "tell me about the lobster life",
-  "what's your wallet looking like?",
-];
+function getGuestId(): string {
+  const key = "claw_guest_id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = `GUEST#${Math.floor(1000 + Math.random() * 9000)}`;
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 export default function ConsolePage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ConsoleMessage[]>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [onlineCount] = useState(() => Math.floor(12 + Math.random() * 30));
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { user, authenticated } = usePrivy();
+  const [displayName, setDisplayName] = useState<string>(getGuestId());
+  const lastMessageTime = useRef<string | null>(null);
 
+  // Resolve display name from profile
+  useEffect(() => {
+    if (!authenticated || !user) {
+      setDisplayName(getGuestId());
+      return;
+    }
+    const fetchProfile = async () => {
+      const wallet = user.wallet?.address;
+      if (!wallet) return;
+      const { data } = await (supabase as any)
+        .from("profiles")
+        .select("username, display_name")
+        .eq("wallet_address", wallet)
+        .maybeSingle();
+      if (data?.username) setDisplayName(data.username);
+      else if (data?.display_name) setDisplayName(data.display_name);
+      else setDisplayName(wallet.slice(0, 4) + "..." + wallet.slice(-4));
+    };
+    fetchProfile();
+  }, [authenticated, user]);
+
+  // Fetch initial messages
+  useEffect(() => {
+    const fetchMessages = async () => {
+      const { data } = await (supabase as any)
+        .from("console_messages")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(100);
+      if (data && data.length > 0) {
+        setMessages(data as ConsoleMessage[]);
+        lastMessageTime.current = data[data.length - 1].created_at;
+      }
+    };
+    fetchMessages();
+  }, []);
+
+  // Poll for new messages every 2.5s
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const since = lastMessageTime.current || new Date(0).toISOString();
+      const { data } = await (supabase as any)
+        .from("console_messages")
+        .select("*")
+        .gt("created_at", since)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (data && data.length > 0) {
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newMsgs = (data as ConsoleMessage[]).filter((m) => !existingIds.has(m.id));
+          if (newMsgs.length === 0) return prev;
+          return [...prev, ...newMsgs];
+        });
+        lastMessageTime.current = data[data.length - 1].created_at;
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    const userMessage: Message = { role: "user", content: input.trim() };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+  const handleSend = useCallback(async () => {
+    const text = input.trim();
+    if (!text || isSending) return;
     setInput("");
-    setIsLoading(true);
+    setIsSending(true);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
+      await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/console-chat`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ messages: newMessages }),
+          body: JSON.stringify({
+            content: text,
+            displayName,
+            userId: null,
+          }),
         }
       );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to get response");
-      }
-
-      if (!response.body) throw new Error("No response body");
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantContent = "";
-
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-      let textBuffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantContent += content;
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = {
-                  role: "assistant",
-                  content: assistantContent,
-                };
-                return updated;
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Chat error:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "something went wrong in the depths... try again 🦞",
-        },
-      ]);
+    } catch (err) {
+      console.error("Send error:", err);
     } finally {
-      setIsLoading(false);
+      setIsSending(false);
     }
-  };
+  }, [input, isSending, displayName]);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-        <img src={clawLogo} alt="" className="h-8 w-8 rounded-full" />
-        <div>
-          <h1 className="text-sm font-bold text-foreground">Claw Console</h1>
-          <p className="text-[11px] text-muted-foreground">talk to the lobster — same agent, same vibes</p>
+    <LaunchpadLayout>
+      <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
+        {/* Chat Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-sidebar/50 backdrop-blur-sm">
+          <img src={clawLogo} alt="" className="h-9 w-9 rounded-full ring-2 ring-success/30" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-bold text-foreground">Claw Console</h1>
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/20 text-success">
+                Live
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground truncate">
+              public chat — talk to the lobster & the community
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            <span className="text-[11px] font-medium">{onlineCount}</span>
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-          <span className="text-[10px] text-success font-medium">Online</span>
-        </div>
-      </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 px-4 py-3" ref={scrollRef}>
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full min-h-[300px]">
-            <div className="text-center space-y-4 max-w-sm">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-accent-orange/10 flex items-center justify-center">
-                <img src={clawLogo} alt="" className="h-10 w-10 rounded-lg" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground text-sm">hey, i'm claw 🦞</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  same lobster from X, now living here. ask me anything about claw mode, crypto, or just vibe.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {QUICK_PROMPTS.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => setInput(q)}
-                    className="px-3 py-1.5 text-[11px] bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground rounded-full border border-border transition-all"
-                  >
-                    {q}
-                  </button>
-                ))}
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1" ref={scrollRef}>
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-3">
+                <img src={clawLogo} alt="" className="h-16 w-16 mx-auto rounded-2xl opacity-50" />
+                <p className="text-sm text-muted-foreground">no messages yet — say gm 🦞</p>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role === "assistant" && (
-                  <img src={clawLogo} alt="" className="h-7 w-7 rounded-full flex-shrink-0 mt-0.5" />
-                )}
-                <div
-                  className={`max-w-[80%] rounded-xl px-3.5 py-2.5 ${
-                    msg.role === "user"
-                      ? "bg-accent-purple text-white"
-                      : "bg-surface border border-border text-foreground"
-                  }`}
-                >
-                  <p className="text-[13px] whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                </div>
-                {msg.role === "user" && (
-                  <div className="h-7 w-7 rounded-full bg-surface border border-border flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Robot size={14} className="text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-            ))}
-            {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
-              <div className="flex gap-2.5">
-                <img src={clawLogo} alt="" className="h-7 w-7 rounded-full flex-shrink-0" />
-                <div className="bg-surface border border-border rounded-xl px-3.5 py-2.5">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </ScrollArea>
-
-      {/* Input */}
-      <form
-        onSubmit={handleSubmit}
-        className="border-t border-border p-3 flex gap-2"
-      >
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="say something to the lobster..."
-          className="bg-surface border-border text-foreground resize-none min-h-[40px] max-h-[100px] text-[13px] rounded-xl"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit(e);
-            }
-          }}
-        />
-        <Button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          size="icon"
-          className="bg-accent-orange hover:bg-accent-orange/80 text-white h-10 w-10 rounded-xl flex-shrink-0"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Send className="h-4 w-4" />
+            messages.map((msg, idx) => {
+              const showName =
+                idx === 0 || messages[idx - 1].display_name !== msg.display_name;
+              return (
+                <div key={msg.id} className={`${showName && idx > 0 ? "mt-3" : ""}`}>
+                  {showName && (
+                    <div className="flex items-center gap-2 mb-0.5 px-1">
+                      {msg.is_bot ? (
+                        <img src={clawLogo} alt="" className="h-5 w-5 rounded-full" />
+                      ) : (
+                        <div className="h-5 w-5 rounded-full bg-accent-purple/30 flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-accent-purple">
+                            {msg.display_name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <span
+                        className={`text-[11px] font-semibold ${
+                          msg.is_bot ? "text-success" : "text-accent-purple"
+                        }`}
+                      >
+                        {msg.display_name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/50">
+                        {formatTime(msg.created_at)}
+                      </span>
+                    </div>
+                  )}
+                  <div
+                    className={`px-3 py-1.5 rounded-lg text-[13px] leading-relaxed max-w-[85%] ${
+                      msg.is_bot
+                        ? "bg-surface border border-border/50 text-foreground ml-7"
+                        : "bg-transparent text-foreground/90 ml-7"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              );
+            })
           )}
-        </Button>
-      </form>
-    </div>
+          {isSending && (
+            <div className="flex items-center gap-2 px-1 mt-2">
+              <img src={clawLogo} alt="" className="h-5 w-5 rounded-full" />
+              <div className="bg-surface border border-border/50 rounded-lg px-3 py-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input Bar */}
+        <div className="border-t border-border bg-sidebar/30 backdrop-blur-sm p-3">
+          <div className="flex items-center gap-1.5 mb-2 px-1">
+            <span className="text-[10px] text-muted-foreground">chatting as</span>
+            <span className="text-[10px] font-semibold text-accent-purple">{displayName}</span>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex gap-2"
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="say something..."
+              className="flex-1 bg-surface border border-border text-foreground text-[13px] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-success/50 placeholder:text-muted-foreground/50"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+            />
+            <Button
+              type="submit"
+              disabled={isSending || !input.trim()}
+              size="icon"
+              className="bg-success hover:bg-success/80 text-white h-10 w-10 rounded-xl flex-shrink-0"
+            >
+              {isSending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </form>
+        </div>
+      </div>
+    </LaunchpadLayout>
   );
 }
