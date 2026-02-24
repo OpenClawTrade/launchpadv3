@@ -255,6 +255,17 @@ async function postReply(
   }
 }
 
+// Check if tweet has meaningful text beyond just mentions/URLs/whitespace
+function hasMeaningfulText(text: string): boolean {
+  const stripped = text
+    .replace(/@\w+/g, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/#\w+/g, "")
+    .replace(/[!\?\.\,\s]+/g, "")
+    .trim();
+  return stripped.length >= 3;
+}
+
 function determineMentionType(text: string): "moltbook" | "openclaw" | "clawmode" | "both" | "multiple" {
   const hasMoltbook = text.toLowerCase().includes("@moltbook");
   const hasOpenclaw = text.toLowerCase().includes("@openclaw");
@@ -416,6 +427,14 @@ serve(async (req) => {
     const queuedTweet = queuedTweets?.[0];
 
     if (queuedTweet) {
+      // Skip tweets with no meaningful text (just mentions, images, URLs)
+      if (!hasMeaningfulText(queuedTweet.tweet_text || "")) {
+        await supabase
+          .from("promo_mention_queue")
+          .update({ status: "skipped" })
+          .eq("id", queuedTweet.id);
+        console.log(`[promo-mention-reply] Skipped tweet ${queuedTweet.tweet_id} — no meaningful text`);
+      } else {
       // Mark as processing to prevent race conditions
       await supabase
         .from("promo_mention_queue")
@@ -502,6 +521,7 @@ serve(async (req) => {
           }
         }
       }
+      } // end else (hasMeaningfulText)
     }
 
     // Skip follow-ups if we already sent a reply this run (1 tweet per minute rule)
