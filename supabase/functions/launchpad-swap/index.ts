@@ -6,10 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-launchpad-id",
 };
 
-const PLATFORM_FEE_WALLET = "HSVmkUnmkjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
+const PLATFORM_FEE_WALLET = "HSVmkUnmjD9YLJmgeHCRyL1isusKkU3xv4VwDaZJqRx";
 const FEE_BPS = 200; // 2% fee
-const API_USER_FEE_SHARE = 0.75; // 1.5% to API user (75% of 2%)
-const PLATFORM_FEE_SHARE = 0.25; // 0.5% to platform (25% of 2%)
+const API_USER_FEE_SHARE = 0.75;
+const PLATFORM_FEE_SHARE = 0.25;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -17,13 +17,12 @@ serve(async (req) => {
   }
 
   try {
-    const { mintAddress, userWallet, amount, isBuy, privyUserId, profileId, signature: clientSignature } = await req.json();
+    const { mintAddress, userWallet, amount, isBuy, privyUserId, profileId, signature: clientSignature, mode } = await req.json();
     
-    // Check if this trade is from an API launchpad
     const launchpadId = req.headers.get("x-launchpad-id");
     const apiKey = req.headers.get("x-api-key");
 
-    console.log("[launchpad-swap] Request:", { mintAddress, userWallet, amount, isBuy, hasSignature: !!clientSignature, launchpadId });
+    console.log("[launchpad-swap] Request:", { mintAddress, userWallet, amount, isBuy, hasSignature: !!clientSignature, mode, launchpadId });
 
     if (!mintAddress || !userWallet || amount === undefined) {
       return new Response(
@@ -36,7 +35,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if trade is from an API launchpad and get fee split info
+    // Check if trade is from an API launchpad
     let apiAccountId: string | null = null;
     let apiUserFeeWallet: string | null = null;
     
@@ -50,7 +49,6 @@ serve(async (req) => {
       if (launchpad) {
         apiAccountId = launchpad.api_account_id;
         apiUserFeeWallet = (launchpad.api_accounts as any)?.fee_wallet_address;
-        console.log("[launchpad-swap] API launchpad trade:", { apiAccountId, apiUserFeeWallet });
       }
     }
 
@@ -79,6 +77,150 @@ serve(async (req) => {
       );
     }
 
+    // ===== RECORD MODE =====
+    // When mode === 'record', the client has already executed the on-chain swap.
+    // We just record the transaction in the database with the real signature.
+    if (mode === 'record' && clientSignature) {
+      console.log("[launchpad-swap] Record mode - recording real swap:", { signature: clientSignature, isBuy, amount });
+
+      // Calculate estimated values for DB record using bonding curve math
+      const virtualSol = token.virtual_sol_reserves || 30;
+      const virtualToken = token.virtual_token_reserves || 1_000_000_000;
+      const realSol = token.real_sol_reserves || 0;
+      const k = virtualSol * virtualToken;
+
+      let tokensOut = 0;
+      let solOut = 0;
+      let newPrice = token.price_sol || 0.00000003;
+      let newVirtualSol = virtualSol;
+      let newVirtualToken = virtualToken;
+      let newRealSol = realSol;
+      let solAmount = 0;
+      let tokenAmount = 0;
+      let systemFee = 0;
+
+      if (isBuy) {
+        const grossSolIn = amount;
+        const totalFee = (grossSolIn * FEE_BPS) / 10000;
+        systemFee = totalFee;
+        const solIn = grossSolIn - totalFee;
+        newVirtualSol = virtualSol + solIn;
+        newVirtualToken = k / newVirtualSol;
+        tokensOut = virtualToken - newVirtualToken;
+        newRealSol = realSol + solIn;
+        newPrice = newVirtualSol / newVirtualToken;
+        solAmount = grossSolIn;
+        tokenAmount = tokensOut;
+      } else {
+        const tokensIn = amount;
+        newVirtualToken = virtualToken + tokensIn;
+        newVirtualSol = k / newVirtualToken;
+        const grossSolOut = virtualSol - newVirtualSol;
+        const totalFee = (grossSolOut * FEE_BPS) / 10000;
+        systemFee = totalFee;
+        solOut = grossSolOut - totalFee;
+        newRealSol = Math.max(0, realSol - grossSolOut);
+        newPrice = newVirtualSol / newVirtualToken;
+        solAmount = solOut;
+        tokenAmount = tokensIn;
+      }
+
+      const graduationThreshold = token.graduation_threshold_sol || 85;
+      const bondingProgress = Math.min(100, (newRealSol / graduationThreshold) * 100);
+      const shouldGraduate = newRealSol >= graduationThreshold;
+      const newStatus = shouldGraduate ? "graduated" : "bonding";
+      const marketCap = newPrice * (token.total_supply || 1_000_000_000);
+
+      // Update token state
+      await supabase.from("tokens").update({
+        virtual_sol_reserves: newVirtualSol,
+        virtual_token_reserves: newVirtualToken,
+        real_sol_reserves: newRealSol,
+        price_sol: newPrice,
+        bonding_curve_progress: bondingProgress,
+        market_cap_sol: marketCap,
+        status: newStatus,
+        graduated_at: shouldGraduate && !token.graduated_at ? new Date().toISOString() : token.graduated_at,
+        updated_at: new Date().toISOString(),
+      }).eq("id", token.id);
+
+      // Record transaction with real signature
+      const txPayload = {
+        token_id: token.id,
+        user_wallet: userWallet,
+        user_profile_id: profileId || null,
+        transaction_type: isBuy ? "buy" : "sell",
+        sol_amount: solAmount,
+        token_amount: tokenAmount,
+        price_per_token: newPrice,
+        system_fee_sol: systemFee,
+        creator_fee_sol: 0,
+        signature: clientSignature,
+      };
+
+      const { error: txError } = await supabase.from("launchpad_transactions").insert(txPayload);
+      if (txError) {
+        // Retry without profile_id
+        await supabase.from("launchpad_transactions").insert({ ...txPayload, user_profile_id: null });
+      }
+
+      // Update holdings
+      if (isBuy) {
+        const { data: existing } = await supabase.from("token_holdings").select("*")
+          .eq("token_id", token.id).eq("wallet_address", userWallet).single();
+        if (existing) {
+          await supabase.from("token_holdings").update({
+            balance: existing.balance + tokensOut,
+            updated_at: new Date().toISOString(),
+          }).eq("id", existing.id);
+        } else {
+          const { error: insertErr } = await supabase.from("token_holdings").insert({
+            token_id: token.id, wallet_address: userWallet, profile_id: profileId || null, balance: tokensOut,
+          });
+          if (insertErr) {
+            await supabase.from("token_holdings").insert({
+              token_id: token.id, wallet_address: userWallet, profile_id: null, balance: tokensOut,
+            });
+          }
+        }
+      } else {
+        const { data: existing } = await supabase.from("token_holdings").select("*")
+          .eq("token_id", token.id).eq("wallet_address", userWallet).single();
+        if (existing) {
+          await supabase.from("token_holdings").update({
+            balance: Math.max(0, existing.balance - amount),
+            updated_at: new Date().toISOString(),
+          }).eq("id", existing.id);
+        }
+      }
+
+      // Update holder count
+      const { count: holderCount } = await supabase.from("token_holdings")
+        .select("*", { count: "exact", head: true })
+        .eq("token_id", token.id).gt("balance", 0);
+      await supabase.from("tokens").update({ holder_count: holderCount || 0 }).eq("id", token.id);
+
+      // Record price history
+      await supabase.from('token_price_history').insert({
+        token_id: token.id, price_sol: newPrice, market_cap_sol: marketCap,
+        volume_sol: solAmount, interval_type: '1m', timestamp: new Date().toISOString(),
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          signature: clientSignature,
+          tokensOut: isBuy ? tokensOut : 0,
+          solOut: isBuy ? 0 : solOut,
+          newPrice,
+          bondingProgress,
+          graduated: shouldGraduate,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== LEGACY SIMULATE MODE (fallback) =====
     // Calculate using bonding curve
     const virtualSol = token.virtual_sol_reserves || 30;
     const virtualToken = token.virtual_token_reserves || 1_000_000_000;
@@ -99,23 +241,20 @@ serve(async (req) => {
     let tokenAmount = 0;
 
     if (isBuy) {
-      // Buy: SOL -> Token
       const grossSolIn = amount;
       const totalFee = (grossSolIn * FEE_BPS) / 10000;
       
-      // Split fee based on whether this is an API launchpad trade
       if (apiAccountId) {
-        apiUserFee = totalFee * API_USER_FEE_SHARE; // 1.5%
-        platformFee = totalFee * PLATFORM_FEE_SHARE; // 0.5%
+        apiUserFee = totalFee * API_USER_FEE_SHARE;
+        platformFee = totalFee * PLATFORM_FEE_SHARE;
         systemFee = platformFee;
       } else {
-        systemFee = totalFee; // 100% to platform
+        systemFee = totalFee;
         platformFee = totalFee;
       }
       
       creatorFee = 0;
       const solIn = grossSolIn - totalFee;
-
       newVirtualSol = virtualSol + solIn;
       newVirtualToken = k / newVirtualSol;
       tokensOut = virtualToken - newVirtualToken;
@@ -123,47 +262,36 @@ serve(async (req) => {
       newPrice = newVirtualSol / newVirtualToken;
       solAmount = grossSolIn;
       tokenAmount = tokensOut;
-
-      console.log("[launchpad-swap] Buy calculated:", { solIn, tokensOut, newPrice, systemFee, apiUserFee, platformFee });
-
     } else {
-      // Sell: Token -> SOL
       const tokensIn = amount;
       newVirtualToken = virtualToken + tokensIn;
       newVirtualSol = k / newVirtualToken;
       const grossSolOut = virtualSol - newVirtualSol;
-      
       const totalFee = (grossSolOut * FEE_BPS) / 10000;
       
-      // Split fee based on whether this is an API launchpad trade
       if (apiAccountId) {
-        apiUserFee = totalFee * API_USER_FEE_SHARE; // 1.5%
-        platformFee = totalFee * PLATFORM_FEE_SHARE; // 0.5%
+        apiUserFee = totalFee * API_USER_FEE_SHARE;
+        platformFee = totalFee * PLATFORM_FEE_SHARE;
         systemFee = platformFee;
       } else {
-        systemFee = totalFee; // 100% to platform
+        systemFee = totalFee;
         platformFee = totalFee;
       }
       
       creatorFee = 0;
       solOut = grossSolOut - totalFee;
-      
       newRealSol = Math.max(0, realSol - grossSolOut);
       newPrice = newVirtualSol / newVirtualToken;
       solAmount = solOut;
       tokenAmount = tokensIn;
-
-      console.log("[launchpad-swap] Sell calculated:", { tokensIn, solOut, newPrice, apiUserFee, platformFee });
     }
 
-    // Calculate bonding curve progress and check graduation
     const graduationThreshold = token.graduation_threshold_sol || 85;
     const bondingProgress = Math.min(100, (newRealSol / graduationThreshold) * 100);
     const shouldGraduate = newRealSol >= graduationThreshold;
     const newStatus = shouldGraduate ? "graduated" : "bonding";
     const marketCap = newPrice * (token.total_supply || 1_000_000_000);
 
-    // Calculate 24h volume from transactions
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: recentTxs } = await supabase
       .from('launchpad_transactions')
@@ -173,7 +301,6 @@ serve(async (req) => {
     
     const volume24h = (recentTxs || []).reduce((sum, tx) => sum + Number(tx.sol_amount), 0) + solAmount;
 
-    // Update token
     const { error: updateError } = await supabase
       .from("tokens")
       .update({
@@ -195,7 +322,6 @@ serve(async (req) => {
       throw updateError;
     }
 
-    // Record price history for charts
     await supabase.from('token_price_history').insert({
       token_id: token.id,
       price_sol: newPrice,
@@ -205,11 +331,8 @@ serve(async (req) => {
       timestamp: new Date().toISOString(),
     });
 
-    // Use client-provided signature or generate a tracking ID
     const signature = clientSignature || `pending_${token.id}_${Date.now()}`;
 
-    // Record transaction - try with profile_id first, fall back to null if FK fails
-    let txError: any = null;
     const txPayload = {
       token_id: token.id,
       user_wallet: userWallet,
@@ -226,21 +349,18 @@ serve(async (req) => {
     const { error: firstTxError } = await supabase.from("launchpad_transactions").insert(txPayload);
 
     if (firstTxError) {
-      console.warn("[launchpad-swap] TX insert failed, retrying without profile_id:", firstTxError.message);
-      // Retry without profile_id in case of FK constraint failure
       const { error: retryError } = await supabase.from("launchpad_transactions").insert({
         ...txPayload,
         user_profile_id: null,
       });
       if (retryError) {
         console.error("[launchpad-swap] Transaction insert retry error:", retryError);
-        txError = retryError;
       }
     }
 
-    // Record API fee distribution if this is an API launchpad trade
+    // Record API fee distribution if applicable
     if (apiAccountId && apiUserFee > 0) {
-      const { error: feeDistError } = await supabase.from("api_fee_distributions").insert({
+      await supabase.from("api_fee_distributions").insert({
         api_account_id: apiAccountId,
         launchpad_id: launchpadId,
         token_id: token.id,
@@ -250,142 +370,74 @@ serve(async (req) => {
         status: "pending",
       });
 
-      if (feeDistError) {
-        console.error("[launchpad-swap] API fee distribution insert error:", feeDistError);
-      } else {
-        // Update API account total fees earned directly
-        const { data: currentAcc } = await supabase
-          .from("api_accounts")
-          .select("total_fees_earned")
-          .eq("id", apiAccountId)
-          .single();
+      const { data: currentAcc } = await supabase.from("api_accounts")
+        .select("total_fees_earned").eq("id", apiAccountId).single();
+      if (currentAcc) {
+        await supabase.from("api_accounts").update({
+          total_fees_earned: (currentAcc.total_fees_earned || 0) + apiUserFee,
+          updated_at: new Date().toISOString(),
+        }).eq("id", apiAccountId);
+      }
 
-        if (currentAcc) {
-          await supabase
-            .from("api_accounts")
-            .update({
-              total_fees_earned: (currentAcc.total_fees_earned || 0) + apiUserFee,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", apiAccountId);
-        }
-
-        // Update launchpad volume and fees
-        const { data: currentLp } = await supabase
-          .from("api_launchpads")
-          .select("total_volume_sol, total_fees_sol")
-          .eq("id", launchpadId)
-          .single();
-
-        if (currentLp) {
-          await supabase
-            .from("api_launchpads")
-            .update({
-              total_volume_sol: (currentLp.total_volume_sol || 0) + solAmount,
-              total_fees_sol: (currentLp.total_fees_sol || 0) + apiUserFee,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", launchpadId);
-        }
+      const { data: currentLp } = await supabase.from("api_launchpads")
+        .select("total_volume_sol, total_fees_sol").eq("id", launchpadId).single();
+      if (currentLp) {
+        await supabase.from("api_launchpads").update({
+          total_volume_sol: (currentLp.total_volume_sol || 0) + solAmount,
+          total_fees_sol: (currentLp.total_fees_sol || 0) + apiUserFee,
+          updated_at: new Date().toISOString(),
+        }).eq("id", launchpadId);
       }
     }
 
-    // Update/create token holding
+    // Update holdings
     if (isBuy) {
-      const { data: existingHolding } = await supabase
-        .from("token_holdings")
-        .select("*")
-        .eq("token_id", token.id)
-        .eq("wallet_address", userWallet)
-        .single();
+      const { data: existingHolding } = await supabase.from("token_holdings")
+        .select("*").eq("token_id", token.id).eq("wallet_address", userWallet).single();
 
       if (existingHolding) {
-        const { error: holdingUpdateError } = await supabase
-          .from("token_holdings")
-          .update({
-            balance: existingHolding.balance + tokensOut,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingHolding.id);
-        if (holdingUpdateError) {
-          console.warn("[launchpad-swap] Holdings update failed:", holdingUpdateError.message);
-        }
+        await supabase.from("token_holdings").update({
+          balance: existingHolding.balance + tokensOut,
+          updated_at: new Date().toISOString(),
+        }).eq("id", existingHolding.id);
       } else {
         const { error: holdingInsertError } = await supabase.from("token_holdings").insert({
-          token_id: token.id,
-          wallet_address: userWallet,
-          profile_id: profileId || null,
-          balance: tokensOut,
+          token_id: token.id, wallet_address: userWallet, profile_id: profileId || null, balance: tokensOut,
         });
         if (holdingInsertError) {
-          console.warn("[launchpad-swap] Holdings insert failed, retrying without profile_id:", holdingInsertError.message);
-          const { error: retryError } = await supabase.from("token_holdings").insert({
-            token_id: token.id,
-            wallet_address: userWallet,
-            profile_id: null,
-            balance: tokensOut,
+          await supabase.from("token_holdings").insert({
+            token_id: token.id, wallet_address: userWallet, profile_id: null, balance: tokensOut,
           });
-          if (retryError) {
-            console.error("[launchpad-swap] Holdings insert retry also failed:", retryError.message);
-          }
         }
       }
     } else {
-      const { data: existingHolding } = await supabase
-        .from("token_holdings")
-        .select("*")
-        .eq("token_id", token.id)
-        .eq("wallet_address", userWallet)
-        .single();
-
+      const { data: existingHolding } = await supabase.from("token_holdings")
+        .select("*").eq("token_id", token.id).eq("wallet_address", userWallet).single();
       if (existingHolding) {
-        const newBalance = Math.max(0, existingHolding.balance - amount);
-        const { error: holdingSellError } = await supabase
-          .from("token_holdings")
-          .update({
-            balance: newBalance,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingHolding.id);
-        if (holdingSellError) {
-          console.warn("[launchpad-swap] Holdings sell update failed:", holdingSellError.message);
-        }
+        await supabase.from("token_holdings").update({
+          balance: Math.max(0, existingHolding.balance - amount),
+          updated_at: new Date().toISOString(),
+        }).eq("id", existingHolding.id);
       }
     }
 
-    // Update fee tracking (system fees go to treasury)
+    // Update fee tracking
     if (systemFee > 0) {
-      const { data: systemEarner } = await supabase
-        .from("fee_earners")
-        .select("*")
-        .eq("token_id", token.id)
-        .eq("earner_type", "system")
-        .single();
-
+      const { data: systemEarner } = await supabase.from("fee_earners").select("*")
+        .eq("token_id", token.id).eq("earner_type", "system").single();
       if (systemEarner) {
-        await supabase
-          .from("fee_earners")
-          .update({
-            unclaimed_sol: (systemEarner.unclaimed_sol || 0) + systemFee,
-            total_earned_sol: (systemEarner.total_earned_sol || 0) + systemFee,
-          })
-          .eq("id", systemEarner.id);
+        await supabase.from("fee_earners").update({
+          unclaimed_sol: (systemEarner.unclaimed_sol || 0) + systemFee,
+          total_earned_sol: (systemEarner.total_earned_sol || 0) + systemFee,
+        }).eq("id", systemEarner.id);
       }
     }
 
     // Update holder count
-    const { count: holderCount } = await supabase
-      .from("token_holdings")
+    const { count: holderCount } = await supabase.from("token_holdings")
       .select("*", { count: "exact", head: true })
-      .eq("token_id", token.id)
-      .gt("balance", 0);
-
-    await supabase
-      .from("tokens")
-      .update({ holder_count: holderCount || 0 })
-      .eq("id", token.id);
-
-    console.log("[launchpad-swap] Success:", { signature, tokensOut, solOut, newPrice, apiUserFee, platformFee });
+      .eq("token_id", token.id).gt("balance", 0);
+    await supabase.from("tokens").update({ holder_count: holderCount || 0 }).eq("id", token.id);
 
     return new Response(
       JSON.stringify({
