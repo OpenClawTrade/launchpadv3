@@ -26,6 +26,7 @@ import { useTwitterProfile } from "@/hooks/useTwitterProfile";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { PhantomBadge } from "@/components/clawbook/PhantomBadge";
+import { TokenDataTabs } from "@/components/launchpad/TokenDataTabs";
 
 const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD = 85;
@@ -510,7 +511,12 @@ export default function FunTokenDetailPage() {
                 <EmbeddedWalletCard />
               </>
             )}
-            {mobileTab === 'chart' && <ChartSection chartHeight={340} />}
+            {mobileTab === 'chart' && (
+              <>
+                <ChartSection chartHeight={340} />
+                <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ''} holderCount={token.holder_count || 0} />
+              </>
+            )}
             {mobileTab === 'comments' && (
               <>
                 <TokenDetailsSection />
@@ -526,6 +532,7 @@ export default function FunTokenDetailPage() {
             {/* Left: Chart + Info */}
             <div className="col-span-7 flex flex-col gap-2">
               <ChartSection chartHeight={420} />
+              <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ''} holderCount={token.holder_count || 0} />
               <TokenDetailsSection />
               <ContractSection />
               <DescriptionSection />
@@ -545,6 +552,7 @@ export default function FunTokenDetailPage() {
             {/* Left: Chart + Trade */}
             <div className="col-span-9 flex flex-col gap-1.5">
               <ChartSection chartHeight={380} />
+              <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ''} holderCount={token.holder_count || 0} />
               <TradeSection />
             </div>
             {/* Right: Info + Comments + Wallet */}
