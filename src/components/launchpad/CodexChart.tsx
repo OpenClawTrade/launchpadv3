@@ -82,6 +82,17 @@ export function CodexChart({
         fontFamily: "'IBM Plex Mono', monospace",
         fontSize: 10,
       },
+      localization: {
+        priceFormatter: (price: number): string => {
+          if (price === 0) return '0';
+          if (price < 0.000001) return price.toExponential(2);
+          if (price < 0.01) return price.toPrecision(4);
+          if (price < 1000) return price.toFixed(4);
+          if (price >= 1_000_000) return (price / 1_000_000).toFixed(1) + 'M';
+          if (price >= 1_000) return (price / 1_000).toFixed(1) + 'K';
+          return price.toFixed(2);
+        },
+      },
       grid: {
         vertLines: { color: "rgba(255,255,255,0.04)" },
         horzLines: { color: "rgba(255,255,255,0.04)" },
@@ -137,13 +148,13 @@ export function CodexChart({
       borderDownColor: "#EF4444",
       wickUpColor: "#22C55E",
       wickDownColor: "#EF4444",
-      priceFormat: { type: "custom", formatter: priceFormatter, minMove: 0.000000000001 },
+      priceFormat: { type: "price", precision: 12, minMove: 0.000000000001 },
       priceScaleId: "right",
     });
 
     // ── VOLUME SERIES on separate "volume" scale ──
     const volumeSeries = chart.addSeries(HistogramSeries, {
-      priceFormat: { type: "custom", formatter: volumeFormatter },
+      priceFormat: { type: "volume" },
       priceScaleId: "volume",
     });
 
