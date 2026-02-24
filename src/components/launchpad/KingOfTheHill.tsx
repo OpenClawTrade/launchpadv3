@@ -97,8 +97,10 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
   }, []);
 
   const { solPrice } = useSolPrice();
-  const progress = token.bonding_progress ?? 0;
-  const mcapUsd = (token.market_cap_sol ?? 0) * (solPrice || 0);
+  const progress = token.codex_graduation_percent ?? token.bonding_progress ?? 0;
+  // Prefer live Codex USD mcap, fallback to SOL-based calculation
+  const mcapUsd = token.codex_market_cap_usd || (token.market_cap_sol ?? 0) * (solPrice || 0);
+  const change24h = token.codex_change_24h ?? 0;
   const isPump = token.launchpad_type === "pumpfun";
   const isBags = token.launchpad_type === "bags";
   const isTrader = !!(token.trading_agent_id || token.is_trading_agent_token);
@@ -200,13 +202,23 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
         </div>
       </div>
 
-      {/* Middle: MCAP + Volume + Holders */}
+      {/* Middle: MCAP + 24h Change + Holders */}
       <div className="flex items-center gap-4 mb-3">
         <div>
           <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 block mb-0.5">MCap</span>
-          <span className="text-lg font-bold font-mono tabular-nums text-emerald-400 leading-none">
-            ${mcapUsd >= 1_000_000 ? `${(mcapUsd / 1_000_000).toFixed(2)}M` : mcapUsd >= 1_000 ? `${(mcapUsd / 1_000).toFixed(1)}K` : mcapUsd.toFixed(0)}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg font-bold font-mono tabular-nums text-emerald-400 leading-none">
+              ${mcapUsd >= 1_000_000 ? `${(mcapUsd / 1_000_000).toFixed(2)}M` : mcapUsd >= 1_000 ? `${(mcapUsd / 1_000).toFixed(1)}K` : mcapUsd.toFixed(0)}
+            </span>
+            {change24h !== 0 && (
+              <span className={cn(
+                "text-[10px] font-mono font-bold",
+                change24h > 0 ? "text-success" : "text-destructive"
+              )}>
+                {change24h > 0 ? "+" : ""}{change24h.toFixed(1)}%
+              </span>
+            )}
+          </div>
         </div>
         <div className="h-6 w-px bg-border/20" />
         <div>
@@ -216,6 +228,17 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
             <span className="text-[13px] font-mono font-semibold text-foreground/80">{holders >= 1000 ? `${(holders / 1000).toFixed(1)}K` : holders}</span>
           </div>
         </div>
+        {token.codex_volume_24h_usd != null && token.codex_volume_24h_usd > 0 && (
+          <>
+            <div className="h-6 w-px bg-border/20" />
+            <div>
+              <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 block mb-0.5">Vol 24h</span>
+              <span className="text-[13px] font-mono font-semibold text-foreground/80">
+                ${token.codex_volume_24h_usd >= 1_000_000 ? `${(token.codex_volume_24h_usd / 1_000_000).toFixed(1)}M` : token.codex_volume_24h_usd >= 1_000 ? `${(token.codex_volume_24h_usd / 1_000).toFixed(1)}K` : token.codex_volume_24h_usd.toFixed(0)}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Progress Bar */}
